@@ -632,6 +632,7 @@ export class PXEService implements PXE {
         currentInstance,
         this.node,
         header.globalVariables.blockNumber,
+        header.globalVariables.timestamp,
       );
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');
@@ -1035,7 +1036,7 @@ export class PXEService implements PXE {
   public async getNodeInfo(): Promise<NodeInfo> {
     // This assumes we're connected to a single node, so we cache the info to avoid repeated calls.
     // Load balancers and a myriad other configurations can break this assumption, so review this!
-    // Temporary mesure to avoid hammering full nodes with requests on testnet.
+    // Temporary measure to avoid hammering full nodes with requests on testnet.
     if (!this.#nodeInfo) {
       const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
         await Promise.all([
@@ -1132,5 +1133,9 @@ export class PXEService implements PXE {
 
   async resetNoteSyncData() {
     return await this.taggingDataProvider.resetNoteSyncData();
+  }
+
+  public stop(): Promise<void> {
+    return this.jobQueue.end();
   }
 }

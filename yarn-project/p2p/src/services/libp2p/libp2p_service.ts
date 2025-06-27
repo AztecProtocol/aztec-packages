@@ -23,6 +23,7 @@ import {
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -125,7 +126,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     private peerManager: PeerManagerInterface,
     protected mempools: MemPools<T>,
     private archiver: L2BlockSource & ContractDataSource,
-    epochCache: EpochCacheInterface,
+    private epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
@@ -536,7 +537,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
-  protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
+  protected preValidateReceivedMessage(
+    msg: Message,
+    msgId: string,
+    source: PeerId,
+  ): { result: boolean; topicType?: TopicType } {
     let topicType: TopicType | undefined;
 
     switch (msg.topic) {
@@ -559,12 +564,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!validator || !validator.addMessage(msgId)) {
       this.instrumentation.incMessagePrevalidationStatus(false, topicType);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
-      return false;
+      return { result: false, topicType };
     }
 
     this.instrumentation.incMessagePrevalidationStatus(true, topicType);
 
-    return true;
+    return { result: true, topicType };
   }
 
   /**
@@ -582,8 +587,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageLatency,
     });
 
-    if (!this.preValidateReceivedMessage(msg, msgId, source)) {
+    const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
+
+    if (!preValidationResult.result) {
       return;
+    } else if (preValidationResult.topicType !== undefined) {
+      // guard against clock skew & DST
+      if (messageLatency > 0) {
+        this.instrumentation.recordMessageLatency(preValidationResult.topicType, messageLatency);
+      }
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {
@@ -827,8 +839,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
   }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
-    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
-    const messageValidators = await this.createMessageValidators(blockNumber);
+    const currentBlockNumber = await this.archiver.getBlockNumber();
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
     for (const validator of messageValidators) {
       const outcome = await this.runValidations(tx, validator);
@@ -841,7 +856,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
       // Double spend validator has a special case handler
       if (name === 'doubleSpendValidator') {
-        severity = await this.handleDoubleSpendFailure(tx, blockNumber);
+        const txBlockNumber = currentBlockNumber + 1; // tx is expected to be in the next block
+        severity = await this.handleDoubleSpendFailure(tx, txBlockNumber);
       }
 
       this.peerManager.penalizePeer(peerId, severity);
@@ -862,8 +878,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   public async validate(txs: Tx[]): Promise<void> {
-    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
-    const messageValidators = await this.createMessageValidators(blockNumber);
+    const currentBlockNumber = await this.archiver.getBlockNumber();
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const messageValidators = await this.createMessageValidators(currentBlockNumber, nextSlotTimestamp);
 
     await Promise.all(
       txs.map(async tx => {
@@ -878,20 +897,27 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Create message validators for the given block number.
+   * Create message validators for the given block number and timestamp.
    *
    * Each validator is a pair of a validator and a severity.
    * If a validator fails, the peer is penalized with the severity of the validator.
    *
-   * @param blockNumber - The block number to create validators for.
+   * @param currentBlockNumber - The current synced block number.
+   * @param nextSlotTimestamp - The timestamp of the next slot (used to validate txs are not expired).
    * @returns The message validators.
    */
-  private async createMessageValidators(blockNumber: number): Promise<Record<string, MessageValidator>[]> {
-    const gasFees = await this.getGasFees(blockNumber - 1);
+  private async createMessageValidators(
+    currentBlockNumber: number,
+    nextSlotTimestamp: UInt64,
+  ): Promise<Record<string, MessageValidator>[]> {
+    const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
+    const blockNumberInWhichTheTxIsConsideredToBeIncluded = currentBlockNumber + 1;
+
     return createTxMessageValidators(
-      blockNumber,
+      nextSlotTimestamp,
+      blockNumberInWhichTheTxIsConsideredToBeIncluded,
       this.worldStateSynchronizer,
       gasFees,
       this.config.l1ChainId,

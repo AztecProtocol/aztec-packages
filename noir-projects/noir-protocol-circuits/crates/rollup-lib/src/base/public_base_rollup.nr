@@ -1,8 +1,5 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        tx_effect::TxEffect,
-    },
+    abis::{base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect},
     base::components::PublicTubeDataValidator,
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
@@ -103,7 +100,7 @@ impl PublicBaseRollupInputs {
         let constants = self.generate_block_constant_data();
 
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof();
+        tube_data_validator.validate_proof_and_vk();
         tube_data_validator.validate_with_block_constant_data(
             constants,
             self.archive_root_membership_witness,
@@ -113,7 +110,8 @@ impl PublicBaseRollupInputs {
         // TODO(#8470)
         if !dep::std::runtime::is_unconstrained() {
             self.avm_proof_data.verify();
-            //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
+            // TODO: Add avm vk hash to the tree and uncomment this.
+            // self.avm_proof_data.validate_vk_in_vk_tree(constants.vk_tree_root);
         }
 
         let tx_effect = self.generate_tx_effect();
@@ -123,7 +121,6 @@ impl PublicBaseRollupInputs {
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
         BaseOrMergeRollupPublicInputs {
-            rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
             constants,
             start: self
@@ -162,7 +159,7 @@ mod tests {
             MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX,
             TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
@@ -200,7 +197,8 @@ mod tests {
     impl PublicBaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = PublicBaseRollupInputsBuilder::empty();
-            inputs.tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX).use_last_archive();
+            inputs.tube_data =
+                FixtureBuilder::new().in_vk_tree(PUBLIC_TUBE_VK_INDEX).use_last_archive();
             inputs.avm_data = FixtureBuilder::new().in_vk_tree(AVM_VK_INDEX);
 
             inputs
@@ -627,27 +625,27 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with = "kernel max_block_number is smaller than block number")]
-    unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
+    #[test(should_fail_with = "kernel include_by_timestamp is smaller than timestamp")]
+    unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.avm_data.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(5);
+        builder.avm_data.global_variables.timestamp = 42;
+        builder.tube_data.set_include_by_timestamp(5);
         builder.fails();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_equal_max_block_number() {
+    unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.avm_data.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(42);
+        builder.avm_data.global_variables.timestamp = 42;
+        builder.tube_data.set_include_by_timestamp(42);
         builder.succeeds();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_larger_max_block_number() {
+    unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.avm_data.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(4294967295);
+        builder.avm_data.global_variables.timestamp = 42;
+        builder.tube_data.set_include_by_timestamp(4294967295);
         builder.succeeds();
     }
 

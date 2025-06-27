@@ -29,7 +29,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 
 import type { TelemetryClientConfig } from './config.js';
 import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
-import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
+import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
 import type { TelemetryClient } from './telemetry.js';
@@ -47,12 +47,16 @@ export class OpenTelemetryClient implements TelemetryClient {
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
     private loggerProvider: LoggerProvider | undefined,
-    private publicMetricExporter: OtelFilterMetricExporter | undefined,
+    private publicMetricExporter: PublicOtelFilterMetricExporter | undefined,
     private log: Logger,
   ) {}
 
-  setIncludedPublicMetrics(metrics: string[]) {
+  setExportedPublicTelemetry(metrics: string[]): void {
     this.publicMetricExporter?.setMetricPrefixes(metrics);
+  }
+
+  setPublicTelemetryCollectFrom(roles: string[]): void {
+    this.publicMetricExporter?.setAllowedRoles(roles);
   }
 
   getMeter(name: string): Meter {
@@ -144,6 +148,23 @@ export class OpenTelemetryClient implements TelemetryClient {
 
       views: [
         // Every histogram matching the selector (type + unit) gets these custom buckets assigned
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'Mmana',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [0.1, 0.5, 1, 2, 4, 8, 10, 25, 50, 100, 500, 1000, 5000, 10000],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'tx',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            // TPS
+            [0.1 * 36, 0.2 * 36, 0.5 * 36, 1 * 36, 2 * 36, 5 * 36, 10 * 36, 15 * 36].map(Math.ceil),
+            true,
+          ),
+        }),
         new View({
           instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 's',
@@ -273,16 +294,16 @@ export class OpenTelemetryClient implements TelemetryClient {
         });
       }
 
-      let publicExporter: OtelFilterMetricExporter | undefined;
-      if (config.publicMetricsCollectorUrl && config.publicIncludeMetrics.length > 0) {
+      let publicExporter: PublicOtelFilterMetricExporter | undefined;
+      if (config.publicMetricsCollectorUrl && !config.publicMetricsOptOut) {
         log.info(`Exporting public metrics: ${config.publicIncludeMetrics}`, {
           publicMetrics: config.publicIncludeMetrics,
           collectorUrl: config.publicMetricsCollectorUrl,
         });
-        publicExporter = new OtelFilterMetricExporter(
+        publicExporter = new PublicOtelFilterMetricExporter(
+          config.publicMetricsCollectFrom,
           new OTLPMetricExporter({ url: config.publicMetricsCollectorUrl.href }),
           config.publicIncludeMetrics,
-          'allow',
         );
         exporters.push({
           exporter: publicExporter,

@@ -18,6 +18,8 @@
 namespace bb::avm2::tracegen {
 namespace {
 
+using simulation::ExecutionEvent;
+
 using ::bb::avm2::testing::InstructionBuilder;
 using enum ::bb::avm2::WireOpCode;
 
@@ -27,12 +29,12 @@ using ::testing::ElementsAre;
 // Helper functions for creating common execution events
 
 // Base helper to set up common event fields
-simulation::ExecutionEvent create_base_event(const simulation::Instruction& instruction,
-                                             uint32_t context_id,
-                                             uint32_t parent_id,
-                                             TransactionPhase phase)
+ExecutionEvent create_base_event(const simulation::Instruction& instruction,
+                                 uint32_t context_id,
+                                 uint32_t parent_id,
+                                 TransactionPhase phase)
 {
-    simulation::ExecutionEvent ex_event;
+    ExecutionEvent ex_event;
     ex_event.addressing_event.instruction = instruction;
     ex_event.wire_instruction = instruction;
     ex_event.after_context_event.id = context_id;
@@ -42,7 +44,7 @@ simulation::ExecutionEvent create_base_event(const simulation::Instruction& inst
     return ex_event;
 }
 
-simulation::ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
+ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
 {
     const auto add_instr =
         InstructionBuilder(WireOpCode::ADD_8).operand<uint8_t>(0).operand<uint8_t>(0).operand<uint8_t>(0).build();
@@ -52,10 +54,10 @@ simulation::ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent
     return ex_event;
 }
 
-simulation::ExecutionEvent create_call_event(uint32_t context_id,
-                                             uint32_t parent_id,
-                                             TransactionPhase phase,
-                                             uint32_t next_context_id)
+ExecutionEvent create_call_event(uint32_t context_id,
+                                 uint32_t parent_id,
+                                 TransactionPhase phase,
+                                 uint32_t next_context_id)
 {
     const auto call_instr = InstructionBuilder(WireOpCode::CALL)
                                 .operand<uint8_t>(2)
@@ -72,7 +74,7 @@ simulation::ExecutionEvent create_call_event(uint32_t context_id,
     return ex_event;
 }
 
-simulation::ExecutionEvent create_return_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
+ExecutionEvent create_return_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
 {
     const auto return_instr = InstructionBuilder(WireOpCode::RETURN).operand<uint8_t>(0).operand<uint8_t>(0).build();
     auto ex_event = create_base_event(return_instr, context_id, parent_id, phase);
@@ -80,10 +82,10 @@ simulation::ExecutionEvent create_return_event(uint32_t context_id, uint32_t par
     return ex_event;
 }
 
-simulation::ExecutionEvent create_error_event(uint32_t context_id,
-                                              uint32_t parent_id,
-                                              TransactionPhase phase,
-                                              uint32_t next_context_id)
+ExecutionEvent create_error_event(uint32_t context_id,
+                                  uint32_t parent_id,
+                                  TransactionPhase phase,
+                                  uint32_t next_context_id)
 {
     // Actually an ADD instruction with exception=true
     const auto add_instr =
@@ -112,7 +114,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                            .operand<uint8_t>(0)
                            .build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) },
         .output = { TaggedValue::from_tag(ValueTag::U16, 8) },
@@ -162,7 +164,7 @@ TEST(ExecutionTraceGenTest, Call)
     Gas gas_used = { .l2Gas = 500, .daGas = 1900 };
     Gas gas_left = gas_limit - gas_used;
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = call_instr,
         .inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2Gas),
                     /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.daGas),
@@ -233,7 +235,7 @@ TEST(ExecutionTraceGenTest, Return)
     // Inputs
     const auto return_instr = InstructionBuilder(WireOpCode::RETURN).operand<uint8_t>(4).operand<uint8_t>(20).build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = return_instr,
         .inputs = { /*rd_size=*/MemoryValue::from<uint32_t>(2) },
         .next_context_id = 2,
@@ -285,24 +287,27 @@ TEST(ExecutionTraceGenTest, Gas)
                            .operand<uint8_t>(0)
                            .build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) },
         .output = { TaggedValue::from_tag(ValueTag::U16, 8) },
         .addressing_event = { .instruction = instr },
     };
 
+    const auto& exec_instruction_spec = EXEC_INSTRUCTION_SPEC.at(instr.get_exec_opcode());
+
+    const uint32_t addressing_gas = 50;
+    const uint32_t opcode_gas = exec_instruction_spec.gas_cost.opcode_gas;
+    const uint32_t dynamic_l2_gas = exec_instruction_spec.gas_cost.dyn_l2;
+    const uint32_t dynamic_da_gas = exec_instruction_spec.gas_cost.dyn_da;
+    const uint32_t base_da_gas = exec_instruction_spec.gas_cost.base_da;
+
     Gas gas_limit = { .l2Gas = 110149, .daGas = 100000 };
     Gas prev_gas_used = { .l2Gas = 100000, .daGas = 70000 };
-    Gas base_gas = { .l2Gas = 150, .daGas = 5000 };
-    Gas dynamic_gas = { .l2Gas = 5000, .daGas = 9000 };
 
     ex_event.after_context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
     ex_event.before_context_event.gas_used = prev_gas_used;
-    ex_event.gas_event.opcode_gas = 100;
-    ex_event.gas_event.addressing_gas = 50;
-    ex_event.gas_event.base_gas = base_gas;
-    ex_event.gas_event.dynamic_gas = dynamic_gas;
+    ex_event.gas_event.addressing_gas = addressing_gas;
     ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
     ex_event.gas_event.oog_base_l2 = false;
     ex_event.gas_event.oog_base_da = false;
@@ -310,7 +315,7 @@ TEST(ExecutionTraceGenTest, Gas)
     ex_event.gas_event.oog_dynamic_da = false;
     ex_event.gas_event.limit_used_l2_comparison_witness = 0;
     ex_event.gas_event.limit_used_da_comparison_witness =
-        gas_limit.daGas - prev_gas_used.daGas - base_gas.daGas - dynamic_gas.daGas * 1;
+        gas_limit.daGas - prev_gas_used.daGas - base_da_gas - dynamic_da_gas * 1;
 
     builder.process({ ex_event }, trace);
 
@@ -320,9 +325,9 @@ TEST(ExecutionTraceGenTest, Gas)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_opcode_gas, 100),
-                          ROW_FIELD_EQ(execution_addressing_gas, 50),
-                          ROW_FIELD_EQ(execution_base_da_gas, 5000),
+                          ROW_FIELD_EQ(execution_opcode_gas, opcode_gas),
+                          ROW_FIELD_EQ(execution_addressing_gas, addressing_gas),
+                          ROW_FIELD_EQ(execution_base_da_gas, base_da_gas),
                           ROW_FIELD_EQ(execution_out_of_gas_base_l2, false),
                           ROW_FIELD_EQ(execution_out_of_gas_base_da, false),
                           ROW_FIELD_EQ(execution_out_of_gas_base, false),
@@ -331,13 +336,14 @@ TEST(ExecutionTraceGenTest, Gas)
                           ROW_FIELD_EQ(execution_should_run_dyn_gas_check, true),
                           ROW_FIELD_EQ(execution_dynamic_l2_gas_factor, 2),
                           ROW_FIELD_EQ(execution_dynamic_da_gas_factor, 1),
-                          ROW_FIELD_EQ(execution_dynamic_l2_gas, 5000),
-                          ROW_FIELD_EQ(execution_dynamic_da_gas, 9000),
+                          ROW_FIELD_EQ(execution_dynamic_l2_gas, dynamic_l2_gas),
+                          ROW_FIELD_EQ(execution_dynamic_da_gas, dynamic_da_gas),
                           ROW_FIELD_EQ(execution_out_of_gas_dynamic_l2, true),
                           ROW_FIELD_EQ(execution_out_of_gas_dynamic_da, false),
                           ROW_FIELD_EQ(execution_out_of_gas_dynamic, true),
                           ROW_FIELD_EQ(execution_limit_used_l2_cmp_diff, 0),
-                          ROW_FIELD_EQ(execution_limit_used_da_cmp_diff, 16000))));
+                          ROW_FIELD_EQ(execution_limit_used_da_cmp_diff,
+                                       ex_event.gas_event.limit_used_da_comparison_witness))));
 }
 
 TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
@@ -346,7 +352,7 @@ TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
     ExecutionTraceBuilder builder;
 
     // Create a sequence: parent context calls child context, child does some work then fails
-    std::vector<simulation::ExecutionEvent> events = {
+    std::vector<ExecutionEvent> events = {
         // Event 1: Parent context does ADD
         create_add_event(1, 0, TransactionPhase::APP_LOGIC),
 
@@ -411,7 +417,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToTeardownError)
     ExecutionTraceBuilder builder;
 
     // Create a sequence that has app logic success but teardown failure, which should discard app logic too
-    std::vector<simulation::ExecutionEvent> events = {
+    std::vector<ExecutionEvent> events = {
         // Event 1: App logic phase - successful ADD
         create_add_event(1, 0, TransactionPhase::APP_LOGIC),
 
@@ -461,7 +467,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
 
     // Create a sequence with two enqueued calls where the second one errors
     // This should cause the app logic from the first call to be discarded
-    std::vector<simulation::ExecutionEvent> events = {
+    std::vector<ExecutionEvent> events = {
         // First enqueued call
         // Event 1: First call's app logic - successful ADD
         create_add_event(1, 0, TransactionPhase::APP_LOGIC),
@@ -514,12 +520,12 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
                            .operand<uint32_t>(10)
                            .build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .addressing_event = {
             .instruction = instr,
             .resolution_info = {
-                { 
+                {
                   .resolved_operand = MemoryValue::from<uint32_t>(10) },
             },
         },
@@ -543,6 +549,163 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
                           ROW_FIELD_EQ(execution_rop_0_, 10))));
+}
+
+TEST(ExecutionTraceGenTest, Jump)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMP_32)
+                           .operand<uint32_t>(120) // Immediate operand
+                           .build();
+
+    ExecutionEvent ex_event_jump = {
+        .wire_instruction = instr,
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                  .resolved_operand = MemoryValue::from<uint32_t>(120),
+                              } } },
+    };
+
+    builder.process({ ex_event_jump }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jump
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jump, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 120),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMP))));
+}
+
+TEST(ExecutionTraceGenTest, JumpI)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMPI_32)
+                           .operand<uint16_t>(654)  // Condition Offset
+                           .operand<uint32_t>(9876) // Immediate operand
+                           .build();
+
+    ExecutionEvent ex_event_jumpi = {
+        .wire_instruction = instr,
+        .inputs = { TaggedValue::from_tag(ValueTag::U1, 1), }, // Conditional value
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = { {
+                .resolved_operand = MemoryValue::from<uint32_t>(654),
+            }, {
+                .resolved_operand = MemoryValue::from<uint32_t>(9876),
+            } } },
+    };
+
+    builder.process({ ex_event_jumpi }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jumpi
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 654),
+                          ROW_FIELD_EQ(execution_rop_1_, 9876),
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
+}
+
+TEST(ExecutionTraceGenTest, Mov16)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::MOV_16)
+                           .operand<uint32_t>(1000) // srcOffset
+                           .operand<uint32_t>(1001) // dstOffset
+                           .build();
+
+    ExecutionEvent ex_event_mov = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint128_t>(100) }, // src value
+        .output = MemoryValue::from<uint128_t>(100),     // dst value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(1000),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(1001),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_mov }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the mov
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 1000),
+                          ROW_FIELD_EQ(execution_rop_1_, 1001),
+                          ROW_FIELD_EQ(execution_register_0_, 100),
+                          ROW_FIELD_EQ(execution_register_1_, 100),
+                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_1_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
+}
+
+TEST(ExecutionTraceGenTest, Mov8)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::MOV_8)
+                           .operand<uint32_t>(10) // srcOffset
+                           .operand<uint32_t>(11) // dstOffset
+                           .build();
+
+    ExecutionEvent ex_event_mov = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint64_t>(100) }, // src value
+        .output = MemoryValue::from<uint64_t>(100),     // dst value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(10),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(11),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_mov }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the mov
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 10),
+                          ROW_FIELD_EQ(execution_rop_1_, 11),
+                          ROW_FIELD_EQ(execution_register_0_, 100),
+                          ROW_FIELD_EQ(execution_register_1_, 100),
+                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_1_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
 }
 
 } // namespace

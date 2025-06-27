@@ -27,8 +27,8 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
     pub fn validate(self) {
         assert(NUM_ROLLUPS != 0);
 
-        self.validate_root_parity_proof();
-        self.validate_rollup_proofs();
+        self.validate_root_parity_proof_and_vk();
+        self.validate_rollup_proofs_and_vks();
         self.validate_first_rollup();
 
         let constants = self.previous_rollups[0].base_or_merge_rollup_public_inputs.constants;
@@ -50,27 +50,24 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         }
     }
 
-    pub fn validate_without_previous_rollups(self, is_padding: bool, constants: BlockConstantData) {
+    pub fn validate_without_previous_rollups(self, constants: BlockConstantData) {
         assert(NUM_ROLLUPS == 0);
-
-        if !is_padding {
-            self.validate_root_parity_proof();
-            self.validate_with_previous_block(constants);
-        }
+        self.validate_root_parity_proof_and_vk();
+        self.validate_with_previous_block(constants);
     }
 
-    fn validate_root_parity_proof(self) {
+    fn validate_root_parity_proof_and_vk(self) {
         if !dep::std::runtime::is_unconstrained() {
             self.data.l1_to_l2_roots.verify();
-            self.data.l1_to_l2_roots.validate_in_vk_tree();
+            self.data.l1_to_l2_roots.validate_vk_in_vk_tree();
         }
     }
 
-    fn validate_rollup_proofs(self) {
+    fn validate_rollup_proofs_and_vks(self) {
         if !dep::std::runtime::is_unconstrained() {
             for i in 0..NUM_ROLLUPS {
                 self.previous_rollups[i].verify();
-                self.previous_rollups[i].validate_in_vk_tree(self.allowed_vk_indices);
+                self.previous_rollups[i].validate_vk_in_vk_tree(self.allowed_vk_indices);
             }
         }
     }

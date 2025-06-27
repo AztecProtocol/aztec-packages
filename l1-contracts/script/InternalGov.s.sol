@@ -25,6 +25,7 @@ import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
+import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
 contract GovScript is Test {
   using ProposalLib for Proposal;
@@ -122,14 +123,14 @@ contract GovScript is Test {
     bool found = false;
 
     for (uint256 i = lowerLimit; i <= currentRound; i++) {
-      (, IPayload leader, bool executed) = governanceProposer.rounds(address(rollup), i);
-      uint256 yeaCount = governanceProposer.yeaCount(address(rollup), i, leader);
+      RoundAccounting memory r = governanceProposer.getRoundData(address(rollup), i);
+      uint256 yeaCount = governanceProposer.yeaCount(address(rollup), i, r.leader);
 
       emit log_named_uint("Proposal at round", i);
       emit log_named_uint("\tyeaCount", yeaCount);
-      emit log_named_address("\tleader", address(leader));
+      emit log_named_address("\tleader", address(r.leader));
 
-      if (!executed && yeaCount >= n) {
+      if (!r.executed && yeaCount >= n) {
         emit log_named_uint("\tGood proposal at round", i);
         found = true;
       }

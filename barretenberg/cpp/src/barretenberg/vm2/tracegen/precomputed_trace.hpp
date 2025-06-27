@@ -25,6 +25,8 @@ class PrecomputedTraceBuilder final {
     void process_memory_tag_range(TraceContainer& trace);
     void process_addressing_gas(TraceContainer& trace);
     void process_phase_table(TraceContainer& trace);
+    void process_keccak_round_constants(TraceContainer& trace);
+    void process_get_env_var_table(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

@@ -15,7 +15,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
-import { elapsed } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -60,6 +60,7 @@ import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -377,6 +378,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     const canPrune = localPendingBlockNumber > provenBlockNumber && rollupCanPrune;
 
     if (canPrune) {
+      const timer = new Timer();
       const pruneFrom = provenBlockNumber + 1;
 
       const header = await this.getBlockHeader(Number(pruneFrom));
@@ -407,7 +409,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
-      this.instrumentation.processPrune();
+      this.instrumentation.processPrune(timer.ms());
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -492,7 +494,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.log.verbose(
         `Retrieved ${messages.length} new L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`,
       );
+      const timer = new Timer();
       await this.store.addL1ToL2Messages(messages);
+      const perMsg = timer.ms() / messages.length;
+      this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
         this.log.debug(`Downloaded L1 to L2 message`, { ...msg, leaf: msg.leaf.toString() });
         lastMessage = msg;
@@ -1111,9 +1116,18 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   public async getContract(
     address: AztecAddress,
-    blockNumber?: number,
+    maybeTimestamp?: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
+    let timestamp;
+    if (maybeTimestamp === undefined) {
+      const latestBlockHeader = await this.getBlockHeader('latest');
+      // If we get undefined block header, it means that the archiver has not yet synced any block so we default to 0.
+      timestamp = latestBlockHeader ? latestBlockHeader.globalVariables.timestamp : 0n;
+    } else {
+      timestamp = maybeTimestamp;
+    }
+
+    return this.store.getContractInstance(address, timestamp);
   }
 
   /**
@@ -1317,8 +1331,10 @@ export class ArchiverStoreHelper
   /**
    * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @param operation - The operation to perform on the contract instance updates (Store or Delete).
    */
-  async #updateUpdatedContractInstances(allLogs: PublicLog[], blockNum: number, operation: Operation) {
+  async #updateUpdatedContractInstances(allLogs: PublicLog[], timestamp: UInt64, operation: Operation) {
     const contractUpdates = allLogs
       .filter(log => ContractInstanceUpdatedEvent.isContractInstanceUpdatedEvent(log))
       .map(log => ContractInstanceUpdatedEvent.fromLog(log))
@@ -1329,9 +1345,9 @@ export class ArchiverStoreHelper
         this.#log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.store.addContractInstanceUpdates(contractUpdates, blockNum);
+        return await this.store.addContractInstanceUpdates(contractUpdates, timestamp);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstanceUpdates(contractUpdates, blockNum);
+        return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp);
       }
     }
     return true;
@@ -1419,7 +1435,11 @@ export class ArchiverStoreHelper
             await Promise.all([
               this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Store),
               this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Store),
-              this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Store),
+              this.#updateUpdatedContractInstances(
+                publicLogs,
+                block.block.header.globalVariables.timestamp,
+                Operation.Store,
+              ),
               this.#storeBroadcastedIndividualFunctions(contractClassLogs, block.block.number),
             ])
           ).every(Boolean);
@@ -1454,7 +1474,11 @@ export class ArchiverStoreHelper
           await Promise.all([
             this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Delete),
             this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Delete),
-            this.#updateUpdatedContractInstances(publicLogs, block.block.number, Operation.Delete),
+            this.#updateUpdatedContractInstances(
+              publicLogs,
+              block.block.header.globalVariables.timestamp,
+              Operation.Delete,
+            ),
           ])
         ).every(Boolean);
       }),
@@ -1526,8 +1550,8 @@ export class ArchiverStoreHelper
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.store.getBytecodeCommitment(contractClassId);
   }
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, blockNumber);
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
+    return this.store.getContractInstance(address, timestamp);
   }
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();

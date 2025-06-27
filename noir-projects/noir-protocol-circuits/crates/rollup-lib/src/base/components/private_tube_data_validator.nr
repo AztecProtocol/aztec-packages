@@ -1,5 +1,5 @@
 use crate::base::components::{
-    constants::validate_tx_constant_data, validation_requests::validate_max_block_number,
+    constants::validate_tx_constant_data, validation_requests::validate_include_by_timestamp,
 };
 use dep::types::{
     abis::{block_constant_data::BlockConstantData, tube::PrivateTubeData},
@@ -17,11 +17,11 @@ impl PrivateTubeDataValidator {
         PrivateTubeDataValidator { data }
     }
 
-    pub fn validate_proof<let N: u32>(self, _allowed_previous_circuits: [u32; N]) {
+    pub fn validate_proof_and_vk(self) {
         if !dep::std::runtime::is_unconstrained() {
             self.data.verify();
-            // TODO(#7410)
-            // self.data.vk_data.validate_in_vk_tree(self.data.public_inputs.constants.vk_tree_root, allowed_previous_circuits);
+            // TODO(#7410): Add private tube vk hash to the tree and uncomment the following check.
+            // self.data.vk_data.validate_vk_in_vk_tree();
         }
     }
 
@@ -38,9 +38,9 @@ impl PrivateTubeDataValidator {
             archive_root_membership_witness,
         );
 
-        validate_max_block_number(
+        validate_include_by_timestamp(
             tube_data.rollup_validation_requests,
-            constants.global_variables.block_number,
+            constants.global_variables,
         );
     }
 }

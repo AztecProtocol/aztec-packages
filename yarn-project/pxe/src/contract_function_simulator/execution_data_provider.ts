@@ -5,10 +5,11 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 import type { NoteData } from './oracle/typed_oracle.js';
@@ -145,10 +146,9 @@ export interface ExecutionDataProvider {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Retrieve the databases view of the Block Header object.
-   * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
-   *
-   * @returns A Promise that resolves to a Header object.
+   * Retrieve the latest block header synchronized by the PXE.
+   * @dev This structure is fed into the circuits simulator and is used to prove against certain historical roots.
+   * @returns The BlockHeader object.
    */
   getBlockHeader(): Promise<BlockHeader>;
 
@@ -209,10 +209,16 @@ export interface ExecutionDataProvider {
   getBlock(blockNumber: number): Promise<L2Block | undefined>;
 
   /**
-   * Fetches the current block number.
+   * Fetches the latest block number synchronized by the node.
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Fetches the timestamp of the latest block synchronized by the node.
+   * @returns The timestamp.
+   */
+  getTimestamp(): Promise<UInt64>;
 
   /**
    * Fetches the current chain id.
@@ -282,25 +288,11 @@ export interface ExecutionDataProvider {
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void>;
 
-  /**
-   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
-   * Returns null if no such log exists, and throws if more than one exists.
-   *
-   * @param tag - The log tag to search for.
-   * @param contractAddress - The contract address to search for the log in.
-   * @returns The public log with transaction data if found, null otherwise.
-   * @throws If more than one log with that tag exists.
-   */
-  getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
-
-  /**
-   * Searches for a private log with the corresponding `siloedTag` and returns it along with contextual transaction
-   * information.
-   *
-   * @param siloedTag - The siloed log tag to search for.
-   * @returns The private log with transaction data if found, null otherwise.
-   */
-  getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null>;
+  bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.

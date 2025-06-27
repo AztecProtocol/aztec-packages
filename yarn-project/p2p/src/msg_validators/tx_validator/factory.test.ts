@@ -21,7 +21,8 @@ describe('GasTxValidator', () => {
 
   it('inserts tx proof validator last', () => {
     const validators = createTxMessageValidators(
-      1,
+      0n,
+      2,
       synchronizer,
       new GasFees(1, 1),
       1,

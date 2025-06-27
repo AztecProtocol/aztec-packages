@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_bitwise.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
@@ -25,7 +26,9 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -46,6 +49,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
+    StrictMock<MockKeccakF1600> keccakf1600;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -58,7 +62,8 @@ class ExecutionSimulationTest : public ::testing::Test {
                                     instruction_info_db,
                                     execution_id_manager,
                                     execution_event_emitter,
-                                    context_stack_event_emitter);
+                                    context_stack_event_emitter,
+                                    keccakf1600);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -75,6 +80,7 @@ TEST_F(ExecutionSimulationTest, Add)
 
 TEST_F(ExecutionSimulationTest, Call)
 {
+    FF zero = 0;
     AztecAddress parent_address = 0xdeadbeef;
     AztecAddress nested_address = 0xc0ffee;
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
@@ -95,6 +101,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_transaction_fee).WillOnce(ReturnRef(zero));
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
 
@@ -109,7 +116,7 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
+    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,
@@ -148,6 +155,48 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     EXPECT_CALL(context, set_next_pc(return_pc));
 
     execution.internal_return(context);
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
+{
+    AztecAddress addr = 0xdeadbeef;
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(addr));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(addr)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ADDRESS));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
+{
+    GlobalVariables globals;
+    globals.chainId = 1;
+    EXPECT_CALL(context, get_globals).WillOnce(ReturnRef(globals));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::CHAINID));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
+{
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
+}
+
+// Trivial test at the moment.
+// TODO: Attempt to have infra to call execution.execute() with a JUMP and a second instruction
+// and check the pc value for the second instruction is correct.
+TEST_F(ExecutionSimulationTest, Jump)
+{
+    EXPECT_CALL(context, set_next_pc(120));
+    execution.jump(context, 120);
 }
 
 } // namespace

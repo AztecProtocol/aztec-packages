@@ -156,8 +156,8 @@ mod tests {
     };
     use dep::types::{
         abis::{
+            include_by_timestamp::IncludeByTimestamp,
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber,
             note_hash::{NoteHash, ScopedNoteHash},
             nullifier::{Nullifier, ScopedNullifier},
             private_log::{PrivateLog, PrivateLogData},
@@ -222,14 +222,14 @@ mod tests {
                     TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                          TRANSIENT_DATA_SQUASHING_HINTS_LEN
                     ],
-                    note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
-                    nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
-                    key_validation_hints: BoundedVec::new(),
-                    validation_requests_split_counter: 0,
-                    dimensions,
-                    padded_side_effects: PaddedSideEffects::empty(),
-                }
+                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
+                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
+                key_validation_hints: BoundedVec::new(),
+                validation_requests_split_counter: 0,
+                dimensions,
+                padded_side_effects: PaddedSideEffects::empty(),
             }
+        }
 
         pub fn with_siloing(&mut self) -> Self {
             self.dimensions.note_hash_siloing = NOTE_HASH_SILOING_AMOUNT;
@@ -381,12 +381,12 @@ mod tests {
     }
 
     #[test]
-    fn propagate_previous_kernel_max_block_number() {
+    fn propagate_previous_kernel_include_by_timestamp() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
+        builder.previous_kernel.include_by_timestamp = IncludeByTimestamp::new(13);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
+        assert_eq(public_inputs.validation_requests.for_rollup.include_by_timestamp.unwrap(), 13);
     }
 
     #[test]

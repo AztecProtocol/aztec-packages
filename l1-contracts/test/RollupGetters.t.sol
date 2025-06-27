@@ -6,10 +6,14 @@
 pragma solidity >=0.8.27;
 
 import {IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
+import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -128,23 +132,27 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
   }
 
   function test_getRewardConfig() external setup(1, 1) {
+    // By default, we will be replacing the reward distributor and booster addresses
     RewardConfig memory defaultConfig = TestConstants.getRewardConfig();
-
     RewardConfig memory config = rollup.getRewardConfig();
 
+    RewardConfig memory updated = RewardConfig({
+      sequencerBps: Bps.wrap(1),
+      rewardDistributor: IRewardDistributor(address(2)),
+      booster: IBoosterCore(address(3))
+    });
+
+    assertNotEq(
+      address(config.rewardDistributor),
+      address(updated.rewardDistributor),
+      "invalid reward distributor"
+    );
+    assertNotEq(address(config.booster), address(updated.booster), "invalid booster");
     assertEq(
       Bps.unwrap(config.sequencerBps),
       Bps.unwrap(defaultConfig.sequencerBps),
       "invalid sequencerBps"
     );
-    assertEq(config.increment, defaultConfig.increment, "in--valid increment");
-    assertEq(config.maxScore, defaultConfig.maxScore, "invalid maxScore");
-    assertEq(config.a, defaultConfig.a, "invalid a");
-    assertEq(config.k, defaultConfig.k, "invalid k");
-    assertEq(config.minimum, defaultConfig.minimum, "invalid minimum");
-
-    RewardConfig memory updated =
-      RewardConfig({sequencerBps: Bps.wrap(1), increment: 2, maxScore: 3, a: 4, k: 5, minimum: 6});
 
     address owner = rollup.owner();
 
@@ -157,10 +165,11 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(
       Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps"
     );
-    assertEq(config.increment, updated.increment, "invalid increment");
-    assertEq(config.maxScore, updated.maxScore, "invalid maxScore");
-    assertEq(config.a, updated.a, "invalid a");
-    assertEq(config.k, updated.k, "invalid k");
-    assertEq(config.minimum, updated.minimum, "invalid minimum");
+    assertEq(
+      address(config.rewardDistributor),
+      address(updated.rewardDistributor),
+      "invalid reward distributor"
+    );
+    assertEq(address(config.booster), address(updated.booster), "invalid booster");
   }
 }

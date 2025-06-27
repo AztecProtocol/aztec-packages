@@ -1,6 +1,7 @@
 include "public_inputs.pil";
 include "execution.pil";
 include "precomputed.pil";
+include "trees/note_hash_tree_check.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
@@ -51,6 +52,9 @@ namespace tx;
 
     // If reverted == 1, is_revertible must be 1
     reverted * (1 - is_revertible) = 0;
+
+    // TODO: Constrain
+    pol commit discard;
 
     // Control flow
     pol commit read_pi_offset; // index in public inputs to read data from
@@ -171,6 +175,7 @@ namespace tx;
     //     next_context_id,
     //     msg_sender,
     //     contract_addr,
+    //     fee,
     //     is_static,
     //     // Tree State
     //     prev_note_hash_tree_root,
@@ -192,6 +197,7 @@ namespace tx;
     //     execution.next_context_id,
     //     execution.msg_sender,
     //     execution.contract_address,
+    //     execution.transaction_fee,
     //     execution.is_static,
     //     // Tree State
     //     execution.prev_note_hash_tree_root,
@@ -268,15 +274,63 @@ namespace tx;
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    // TODO: Use gadget to update the tree
-    // TODO: Write the tree value to public inputs
-    pol commit successful_tree_insert;
-    // A tree insert phase must be successful if it didnt revert or isnt a padded row
-    sel * ((1 - reverted - is_padded) * is_tree_insert_phase - successful_tree_insert) = 0;
+    pol commit should_note_hash_append;
+    should_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
-    #[WRITE_TREE_INSERT_VALUE]
-    successful_tree_insert { write_pi_offset, leaf_value } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+    #[NOTE_HASH_APPEND]
+    should_note_hash_append {
+        leaf_value,
+        prev_note_hash_tree_size,
+        prev_note_hash_tree_root,
+        precomputed.zero,
+        sel_revertible_append_note_hash,
+        prev_num_note_hashes_emitted,
+        discard,
+        next_note_hash_tree_root
+    } in
+    note_hash_tree_check.write {
+        note_hash_tree_check.note_hash,
+        note_hash_tree_check.leaf_index,
+        note_hash_tree_check.prev_root,
+        note_hash_tree_check.should_silo,
+        note_hash_tree_check.should_unique,
+        note_hash_tree_check.note_hash_index,
+        note_hash_tree_check.discard,
+        note_hash_tree_check.next_root
+    };
+    should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
+    should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
+
+    // Note hash appends can't fail
+    should_note_hash_append * reverted = 0;
+
+    pol commit should_nullifier_append;
+    should_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+
+    #[NULLIFIER_APPEND]
+    should_nullifier_append {
+        reverted,
+        leaf_value,
+        prev_nullifier_tree_root,
+        next_nullifier_tree_root,
+        prev_nullifier_tree_size,
+        discard,
+        prev_num_nullifiers_emitted,
+        precomputed.zero
+    } in
+    nullifier_check.write {
+        nullifier_check.exists,
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.write_root,
+        nullifier_check.tree_size_before_write,
+        nullifier_check.discard,
+        nullifier_check.nullifier_index,
+        nullifier_check.should_silo
+    };
+
+    should_nullifier_append * ((prev_nullifier_tree_size + 1 - reverted) - next_nullifier_tree_size) = 0;
+    should_nullifier_append * ((prev_num_nullifiers_emitted + 1 - reverted) - next_num_nullifiers_emitted) = 0;
 
     // Previous Tree State
     pol commit prev_note_hash_tree_root;
@@ -362,7 +416,15 @@ namespace tx;
     pol commit fee;
 
     // Overflow safe since effective_fee_per_gas is 128 bits, and gas used is 32 bits, making fee at most 161 bits.
+    #[COMPUTE_FEE]
     is_collect_fee * (effective_fee_per_da_gas * prev_da_gas_used + effective_fee_per_l2_gas * prev_l2_gas_used - fee) = 0;
+    // During teardown, transaction fee must be the same as the one used in collect_fee (the following row/phase)
+    // (unless it is a padded row)
+    #[TEARDOWN_GETS_FEE]
+    is_teardown_phase * (1 - is_padded) * (fee' - fee) = 0;
+    // In all other phases, force fee to 0
+    #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
+    (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
 
     pol commit fee_payer_balance;
     // TODO: Use gadget to read balance from the tree

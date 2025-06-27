@@ -144,6 +144,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
 
     check_relation<context>(trace);
 
+    // TODO: Migrate to check_interaction pattern once these lookups are added in a builder
     tracegen::LookupIntoDynamicTableSequential<stack_call_interaction::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableSequential<stack_return_interaction::Settings>().process(trace);
 }

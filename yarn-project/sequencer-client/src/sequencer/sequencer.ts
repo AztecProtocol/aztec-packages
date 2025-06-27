@@ -140,7 +140,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Updates sequencer config.
+   * Updates sequencer config by the defined values in the config on input.
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
@@ -171,7 +171,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
     }
-
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
@@ -188,7 +187,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setTimeTable();
 
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
-    this.config = config;
+
+    // Update all values on this.config that are populated in the config object.
+    Object.assign(this.config, config);
   }
 
   private setTimeTable() {
@@ -324,7 +325,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        this.log.warn(`Cannot propose block ${newBlockNumber} since the committee does not exist on L1`);
+        this.log.warn(
+          `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} since the committee does not exist on L1`,
+        );
         return;
       }
     }
@@ -558,6 +561,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const blockNumber = newGlobalVariables.blockNumber;
     const slot = proposalHeader.slotNumber.toBigInt();
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
 
     // this.metrics.recordNewBlock(blockNumber, validTxs.length);
     const workTimer = new Timer();
@@ -565,7 +569,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     try {
       const blockBuilderOptions = this.getDefaultBlockBuilderOptions(Number(slot));
-      const buildBlockRes = await this.blockBuilder.buildBlock(pendingTxs, newGlobalVariables, blockBuilderOptions);
+      const buildBlockRes = await this.blockBuilder.buildBlock(
+        pendingTxs,
+        l1ToL2Messages,
+        newGlobalVariables,
+        blockBuilderOptions,
+      );
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
       const blockBuildDuration = workTimer.ms();
