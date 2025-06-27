@@ -116,7 +116,7 @@ export class P2PInstrumentation {
       this.aggValidationHisto.set(topicName, validationHistogram);
     }
 
-    validationHistogram.record(ms);
+    validationHistogram.record(Math.max(ms, 1));
   }
 
   public incMessagePrevalidationStatus(passed: boolean, topicName: TopicType | undefined) {
@@ -133,7 +133,7 @@ export class P2PInstrumentation {
       this.aggLatencyHisto.set(topicName, latencyHistogram);
     }
 
-    latencyHistogram.record(ms);
+    latencyHistogram.record(Math.max(ms, 1));
   }
 
   private aggregate = (res: BatchObservableResult) => {
