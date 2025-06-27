@@ -24,7 +24,7 @@ async function createPXEService(): Promise<PXE> {
   const kernelProver = new BBWASMBundlePrivateKernelProver(simulator);
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const config: PXEServiceConfig = {
-    l2BlockBatchSize: 200,
+    l2BlockBatchSize: 50,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts: { rollupAddress: EthAddress.random() },
@@ -73,7 +73,7 @@ describe('PXEService', () => {
     protocolContractsProvider = new BundledProtocolContractsProvider();
 
     config = {
-      l2BlockBatchSize: 200,
+      l2BlockBatchSize: 50,
       proverEnabled: false,
       dataDirectory: undefined,
       dataStoreMapSizeKB: 1024 * 1024,
