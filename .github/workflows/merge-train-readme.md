@@ -17,13 +17,13 @@ The merge train is an automated system for managing pull requests in a coordinat
 ### Adding Your PR to the Merge Train
 
 1. Create your feature branch and make your changes
-2. Instead of targeting `master` directly, target the appropriate merge train branch (e.g., `merge-train/barretenberg`)
+2. Instead of targeting `master` or `next` directly, target the appropriate merge train branch (e.g., `merge-train/barretenberg`)
 3. Open your PR against the merge train branch
 4. Your changes will be included in the next merge train cycle
 
 ### Merge Train Lifecycle
 
-1. **Creation**: A merge train PR is created with an empty commit
+1. **Creation**: A merge train PR is created with an empty commit. All existing PRs are updated to prevent issues due to the squash merge.
 2. **Accumulation**: Feature PRs are merged into the merge train branch
 3. **Auto-merge**: After 4 hours of inactivity (with meaningful commits), the train is automatically merged
 4. **Recreation**: The cycle starts again with a new empty merge train
