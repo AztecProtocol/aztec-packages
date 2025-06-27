@@ -6,9 +6,9 @@ use crate::{
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     oracle::random::random,
-    prelude::AztecAddress,
 };
 use protocol_types::{
+    address::AztecAddress,
     constants::PRIVATE_LOG_CIPHERTEXT_LEN,
     traits::{Serialize, ToField},
     utils::arrays::array_concat,
