@@ -32,10 +32,10 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
           MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
           BASE="${{ github.event.pull_request.base.ref }}" # usually main
+          git fetch origin "$MT"
           SHA=$(git rev-parse "$MT")                       # save old head
 
           # --- rebuild merge-train branch ------------------------------------
-          git fetch origin "$MT"
           git switch "$MT"
           git reset --hard "origin/$BASE"
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
