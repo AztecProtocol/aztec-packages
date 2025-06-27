@@ -71,6 +71,11 @@ library TimeLib {
     return _a + Epoch.wrap(store.proofSubmissionEpochs + 1);
   }
 
+  function maxPrunableBlocks() internal view returns (uint256) {
+    TimeStorage storage store = getStorage();
+    return uint256(store.epochDuration) * (uint256(store.proofSubmissionEpochs) + 1);
+  }
+
   /**
    * @notice Checks if proofs are being accepted for epoch _a during epoch _b
    *

@@ -147,6 +147,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+  error FeeLib__AlreadyPreheated();
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);

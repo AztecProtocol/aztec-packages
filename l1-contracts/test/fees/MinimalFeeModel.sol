@@ -88,7 +88,7 @@ contract MinimalFeeModel {
   }
 
   function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = FeeLib.getStorage().feeHeaders[_slotNumber].decompress();
+    FeeHeader memory feeHeader = FeeLib.getFeeHeader(_slotNumber).decompress();
     return FeeHeaderModel({
       fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
       excess_mana: feeHeader.excessMana,
