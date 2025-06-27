@@ -6,6 +6,7 @@ import type { L2Block, L2Tips } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 // We are extending the ArchiverDataStoreHelper here because it provides most of the endpoints needed by the
 // node for reading from and writing to state, without needing any of the extra overhead that the Archiver itself
@@ -118,7 +119,7 @@ export class TXEArchiver extends ArchiverStoreHelper {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
 
-  public getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+  public getContract(_address: AztecAddress, _timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     throw new Error('TXE Archiver does not implement "getContract"');
   }
 

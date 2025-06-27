@@ -4,6 +4,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceUpdateWithAddress } from '@aztec/stdlib/contract';
 import type { PublicLog } from '@aztec/stdlib/logs';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { ProtocolContractAddress } from '../protocol_contract_data.js';
 
@@ -13,7 +14,7 @@ export class ContractInstanceUpdatedEvent {
     public readonly address: AztecAddress,
     public readonly prevContractClassId: Fr,
     public readonly newContractClassId: Fr,
-    public readonly blockOfChange: number,
+    public readonly timestampOfChange: UInt64,
   ) {}
 
   static isContractInstanceUpdatedEvent(log: PublicLog) {
@@ -29,9 +30,9 @@ export class ContractInstanceUpdatedEvent {
     const address = reader.readObject(AztecAddress);
     const prevContractClassId = reader.readObject(Fr);
     const newContractClassId = reader.readObject(Fr);
-    const blockOfChange = reader.readObject(Fr).toNumber();
+    const timestampOfChange = reader.readObject(Fr).toBigInt();
 
-    return new ContractInstanceUpdatedEvent(address, prevContractClassId, newContractClassId, blockOfChange);
+    return new ContractInstanceUpdatedEvent(address, prevContractClassId, newContractClassId, timestampOfChange);
   }
 
   toContractInstanceUpdate(): ContractInstanceUpdateWithAddress {
@@ -39,7 +40,7 @@ export class ContractInstanceUpdatedEvent {
       address: this.address,
       prevContractClassId: this.prevContractClassId,
       newContractClassId: this.newContractClassId,
-      blockOfChange: this.blockOfChange,
+      timestampOfChange: this.timestampOfChange,
     };
   }
 }

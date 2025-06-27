@@ -104,7 +104,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
-    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
+    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset();
     // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
     size_t num_public_inputs = bb::PAIRING_POINTS_SIZE;
     if (is_kernel) {
@@ -269,9 +269,11 @@ Goblin::MergeProof create_dummy_merge_proof()
     // Populate mock subtable size
     proof.emplace_back(mock_val);
 
-    // There are 12 entities in the merge protocol (4 columns x 3 components; aggregate transcript, previous aggregate
-    // transcript, current transcript contribution)
-    const size_t NUM_TRANSCRIPT_ENTITIES = 12;
+    // There are 8 entities in the merge protocol (4 columns x 2 components; aggregate transcript, previous aggregate
+    // transcript) and 12 evalations (4 columns x 3 components; aggregate transcript, previous aggregate
+    // transcript, current transcript)
+    const size_t NUM_TRANSCRIPT_ENTITIES = 8;
+    const size_t NUM_TRANSCRIPT_EVALUATIONS = 12;
 
     // Transcript poly commitments
     for (size_t i = 0; i < NUM_TRANSCRIPT_ENTITIES; ++i) {
@@ -280,7 +282,7 @@ Goblin::MergeProof create_dummy_merge_proof()
         }
     }
     // Transcript poly evaluations
-    for (size_t i = 0; i < NUM_TRANSCRIPT_ENTITIES; ++i) {
+    for (size_t i = 0; i < NUM_TRANSCRIPT_EVALUATIONS; ++i) {
         proof.emplace_back(mock_val);
     }
     // Batched KZG quotient commitment

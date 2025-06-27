@@ -28,6 +28,12 @@ template <typename T, std::size_t N> class RefArray {
             storage[i] = ptr_array[i];
         }
     }
+    RefArray(std::array<T, N>& arr)
+    {
+        for (std::size_t i = 0; i < N; ++i) {
+            storage[i] = &arr[i];
+        }
+    }
     template <typename... Ts>
     RefArray(T& first, Ts&... refs)
         : storage{ &first, &refs... }

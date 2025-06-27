@@ -89,10 +89,8 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
             // Construct extended univariates containers; one per thread
             ExtendedUnivariatesTypeNoOptimisticSkipping extended_univariates;
 
-            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
-            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-            for (size_t idx = start; idx < end; idx++) {
-                if (trace_usage_tracker.check_is_active(idx)) {
+            for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
+                for (size_t idx = range.first; idx < range.second; idx++) {
                     // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
                     // are still available for skipping relations, but all derived univariate will ignore those
                     // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.

@@ -10,6 +10,7 @@ import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { TXEArchiver } from './archiver.js';
 import { DummyP2P } from './dummy_p2p_client.js';
 import { TXEGlobalVariablesBuilder } from './global_variable_builder.js';
+import { MockEpochCache } from './mock_epoch_cache.js';
 import { TXESynchronizer } from './synchronizer.js';
 
 export class TXEStateMachine {
@@ -44,6 +45,7 @@ export class TXEStateMachine {
       1,
       1,
       new TXEGlobalVariablesBuilder(),
+      new MockEpochCache(),
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       undefined,

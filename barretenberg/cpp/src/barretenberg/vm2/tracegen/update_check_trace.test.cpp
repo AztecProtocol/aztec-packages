@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -28,6 +29,7 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
+#include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
@@ -62,17 +64,9 @@ using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
 
-using update_hash_poseidon2 = lookup_update_check_update_hash_poseidon2_relation<FF>;
-using shared_mutable_slot_poseidon2 = lookup_update_check_shared_mutable_slot_poseidon2_relation<FF>;
-using shared_mutable_leaf_slot_poseidon2 = lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF>;
-using update_hash_public_data_read = lookup_update_check_update_hash_public_data_read_relation<FF>;
-using update_hi_metadata_range = lookup_update_check_update_hi_metadata_range_relation<FF>;
-using update_lo_metadata_range = lookup_update_check_update_lo_metadata_range_relation<FF>;
-using block_of_change_cmp_range = lookup_update_check_block_of_change_cmp_range_relation<FF>;
-
 TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 {
-    uint32_t block_number = 100;
+    uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
@@ -106,7 +100,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
         mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check, mock_note_hash_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -134,21 +128,22 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<update_hash_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<shared_mutable_slot_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<shared_mutable_leaf_slot_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<update_hash_public_data_read::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<update_hi_metadata_range::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<update_lo_metadata_range::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<block_of_change_cmp_range::Settings>().process(trace);
+    constraining::check_interaction<UpdateCheckTraceBuilder,
+                                    lookup_update_check_update_hash_poseidon2_settings,
+                                    lookup_update_check_shared_mutable_slot_poseidon2_settings,
+                                    lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings,
+                                    lookup_update_check_update_hash_public_data_read_settings,
+                                    lookup_update_check_update_hi_metadata_range_settings,
+                                    lookup_update_check_update_lo_metadata_range_settings,
+                                    lookup_update_check_timestamp_of_change_cmp_range_settings>(trace);
 }
 
 TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 {
-    uint32_t block_number = 100;
+    uint64_t current_timestamp = 100;
     FF update_pre_class = 1;
     FF update_post_class = 2;
-    uint64_t update_block_of_change = block_number - 1;
+    uint64_t update_timestamp_of_change = current_timestamp - 1;
 
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = update_post_class;
@@ -180,9 +175,9 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
         mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check, mock_note_hash_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
 
-    FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + update_block_of_change;
+    FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + update_timestamp_of_change;
 
     std::vector<FF> update_leaf_values = { update_metadata, update_pre_class, update_post_class };
     FF update_hash = poseidon2::hash(update_leaf_values);
@@ -229,13 +224,14 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<update_hash_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<shared_mutable_slot_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<shared_mutable_leaf_slot_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<update_hash_public_data_read::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<update_hi_metadata_range::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<update_lo_metadata_range::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<block_of_change_cmp_range::Settings>().process(trace);
+    constraining::check_interaction<UpdateCheckTraceBuilder,
+                                    lookup_update_check_update_hash_poseidon2_settings,
+                                    lookup_update_check_shared_mutable_slot_poseidon2_settings,
+                                    lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings,
+                                    lookup_update_check_update_hash_public_data_read_settings,
+                                    lookup_update_check_update_hi_metadata_range_settings,
+                                    lookup_update_check_update_lo_metadata_range_settings,
+                                    lookup_update_check_timestamp_of_change_cmp_range_settings>(trace);
 }
 
 } // namespace

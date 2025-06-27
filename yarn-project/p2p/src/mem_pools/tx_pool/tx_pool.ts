@@ -1,4 +1,4 @@
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export type TxPoolOptions = {
   maxTxPoolSize?: number;
@@ -48,8 +48,9 @@ export interface TxPool {
   /**
    * Marks the set of txs as mined, as opposed to pending.
    * @param txHashes - Hashes of the txs to flag as mined.
+   * @param blockHeader - The header of the mined block.
    */
-  markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void>;
+  markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void>;
 
   /**
    * Moves mined txs back to the pending set in the case of a reorg.

@@ -17,6 +17,7 @@ import type {
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { join } from 'path';
 
@@ -70,9 +71,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   public async getContract(
     address: AztecAddress,
-    blockNumber?: number,
+    maybeTimestamp?: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
+    const [header] = await this.getBlockHeaders(await this.getBlockNumber(), 1);
+    const timestamp = maybeTimestamp ?? header!.globalVariables.timestamp;
+    return this.getContractInstance(address, timestamp);
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -110,8 +113,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#contractClassStore.getContractClassIds();
   }
 
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
-    return this.#contractInstanceStore.getContractInstance(address, blockNumber);
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
+    return this.#contractInstanceStore.getContractInstance(address, timestamp);
   }
 
   getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
@@ -158,23 +161,20 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
   }
 
-  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean> {
+  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
     return (
       await Promise.all(
         data.map((update, logIndex) =>
-          this.#contractInstanceStore.addContractInstanceUpdate(update, blockNumber, logIndex),
+          this.#contractInstanceStore.addContractInstanceUpdate(update, timestamp, logIndex),
         ),
       )
     ).every(Boolean);
   }
-  async deleteContractInstanceUpdates(
-    data: ContractInstanceUpdateWithAddress[],
-    blockNumber: number,
-  ): Promise<boolean> {
+  async deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
     return (
       await Promise.all(
         data.map((update, logIndex) =>
-          this.#contractInstanceStore.deleteContractInstanceUpdate(update, blockNumber, logIndex),
+          this.#contractInstanceStore.deleteContractInstanceUpdate(update, timestamp, logIndex),
         ),
       )
     ).every(Boolean);

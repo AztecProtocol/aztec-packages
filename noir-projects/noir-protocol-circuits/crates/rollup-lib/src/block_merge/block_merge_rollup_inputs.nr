@@ -1,6 +1,13 @@
-use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
-use crate::abis::previous_rollup_block_data::PreviousRollupBlockData;
-use crate::components;
+use crate::{
+    abis::{
+        block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs,
+        previous_rollup_block_data::PreviousRollupBlockData,
+    },
+    block_merge::utils::{
+        merge_block_rollups::merge_block_rollups,
+        validate_consecutive_block_rollups::validate_consecutive_block_rollups,
+    },
+};
 use dep::types::{
     constants::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX, BLOCK_ROOT_ROLLUP_INDEX,
@@ -8,7 +15,6 @@ use dep::types::{
     },
     traits::Empty,
 };
-use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
     BLOCK_ROOT_ROLLUP_INDEX,
@@ -41,42 +47,9 @@ impl BlockMergeRollupInputs {
         let left = self.previous_rollup_data[0].block_root_or_block_merge_public_inputs;
         let right = self.previous_rollup_data[1].block_root_or_block_merge_public_inputs;
 
-        // TODO(#7346): Constrain block rollup structure
-        // For full wonkiness (no wasted proving of padding blocks for any number of blocks, but more complex hash recalculation):
-        //  components::assert_blocks_filled_from_left(left, right);
-        // For variable height but balanced tree (no wasted proving only for number of blocks = power of 2, simpler hash recalculation):
-        //  assert(left.num_blocks == right.num_blocks)
-        //  if (num_blocks == 1) { assert(vk_witness.index == BLOCK_ROOT_ROLLUP_INDEX) } else { assert(vk_witness.index == BLOCK_MERGE_ROLLUP_INDEX)}
-        // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
-        components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
+        validate_consecutive_block_rollups(left, right);
 
-        let proposed_block_header_hashes =
-            components::accumulate_proposed_block_header_hashes(left, right);
-
-        let fees = components::accumulate_blocks_fees(left, right);
-
-        // Note: for blob batching, in assert_prev_block_rollups_follow_on_from_each_other we have checked:
-        // - left.end_blob_accumulator == right.start_blob_accumulator
-        // - left.challenge_z == right.challenge_z
-        // - left.challenge_gamma == right.challenge_gamma
-
-        let blob_public_inputs = BlockBlobPublicInputs {
-            start_blob_accumulator: left.blob_public_inputs.start_blob_accumulator,
-            end_blob_accumulator: right.blob_public_inputs.end_blob_accumulator,
-            final_blob_challenges: left.blob_public_inputs.final_blob_challenges,
-        };
-
-        BlockRootOrBlockMergePublicInputs {
-            constants: left.constants,
-            previous_archive: left.previous_archive,
-            new_archive: right.new_archive,
-            start_global_variables: left.start_global_variables,
-            end_global_variables: right.end_global_variables,
-            out_hash: 0, // Not needed for block merge. This is only required for block root since the value is inserted on L1 per block.
-            proposed_block_header_hashes,
-            fees,
-            blob_public_inputs,
-        }
+        merge_block_rollups(left, right)
     }
 }
 
@@ -124,10 +97,13 @@ mod tests {
     #[test(should_fail_with = "input block numbers do not follow on from each other")]
     fn previous_rollups_dont_follow_block_number() {
         let mut inputs = default_block_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
-            2;
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
-            1;
+            3;
+        // Change the end block number to match the start block number so that the number of blocks is 1. This will
+        // form a sibling for previous_rollup_data[0], whose number of blocks is also 1, to pass the check for the
+        // rollup structure.
+        inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
+            3;
         let _output = inputs.block_merge_rollup_circuit();
     }
 
@@ -143,7 +119,7 @@ mod tests {
     fn block_fees_are_accumulated() {
         let mut inputs = default_block_merge_rollup_inputs();
         let outputs = inputs.block_merge_rollup_circuit();
-        // TODO(Miranda): Uncomment below when fees are accumulated: components.nr -> accumulate_blocks_fees()
+        // TODO(Miranda): Uncomment below when fees with the same recipient are combined in merge_block_rollups.nr -> accumulate_blocks_fees()
         // // Default previous rollup inputs have the same fee recipient, so they should be accumulated into one
         // let expected_fee_total = inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value
         //     + inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value;

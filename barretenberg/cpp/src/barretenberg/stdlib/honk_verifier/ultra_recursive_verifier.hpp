@@ -50,7 +50,9 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(
         const StdlibProof<Builder>& proof);
 
-    std::shared_ptr<VerificationKey> key;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
+    // RecursiveDeciderVK here. Seems unnecessary.
+    std::shared_ptr<RecursiveDeciderVK> key;
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
