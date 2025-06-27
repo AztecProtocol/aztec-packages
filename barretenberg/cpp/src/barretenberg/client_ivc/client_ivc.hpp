@@ -10,7 +10,6 @@
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
-#include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
@@ -52,7 +51,6 @@ class ClientIVC {
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
