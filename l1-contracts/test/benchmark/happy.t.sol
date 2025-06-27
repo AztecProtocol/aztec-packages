@@ -72,7 +72,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 // solhint-disable comprehensive-interface
 

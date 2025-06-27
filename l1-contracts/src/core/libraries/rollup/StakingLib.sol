@@ -3,13 +3,13 @@
 pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  StakingQueueLib,
-  StakingQueue,
-  DepositArgs,
-  StakingQueueConfig
-} from "@aztec/core/libraries/StakingQueue.sol";
+  StakingQueueConfig,
+  CompressedStakingQueueConfig,
+  StakingQueueConfigLib
+} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
@@ -55,7 +55,7 @@ struct StakingStorage {
   GSE gse;
   Timestamp exitDelay;
   mapping(address attester => Exit) exits;
-  StakingQueueConfig queueConfig;
+  CompressedStakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
 }
@@ -65,6 +65,8 @@ library StakingLib {
   using SafeERC20 for IERC20;
   using StakingQueueLib for StakingQueue;
   using ProposalLib for Proposal;
+  using StakingQueueConfigLib for CompressedStakingQueueConfig;
+  using StakingQueueConfigLib for StakingQueueConfig;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -80,7 +82,7 @@ library StakingLib {
     store.gse = _gse;
     store.exitDelay = _exitDelay;
     store.slasher = _slasher;
-    store.queueConfig = _config;
+    store.queueConfig = _config.compress();
     store.entryQueue.init();
   }
 
@@ -308,7 +310,7 @@ library StakingLib {
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
-    getStorage().queueConfig = _config;
+    getStorage().queueConfig = _config.compress();
     emit IStakingCore.StakingQueueConfigUpdated(_config);
   }
 
@@ -397,7 +399,7 @@ library StakingLib {
    */
   function getEntryQueueFlushSize() internal view returns (uint256) {
     StakingStorage storage store = getStorage();
-    StakingQueueConfig memory config = store.queueConfig;
+    StakingQueueConfig memory config = store.queueConfig.decompress();
 
     uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
     uint256 queueSize = store.entryQueue.length();
