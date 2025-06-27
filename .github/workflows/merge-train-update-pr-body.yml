@@ -64,7 +64,7 @@ jobs:
           script: |
             const number = ${{ steps.pr.outputs.number }};
             const commits = `${{ steps.commits.outputs.commit_list }}`.trim();
-            const newBody = `See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\n\n${commits || '*No commits yet*'}`;
+            const newBody = `See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\n${commits || '*No commits yet*'}`;
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
