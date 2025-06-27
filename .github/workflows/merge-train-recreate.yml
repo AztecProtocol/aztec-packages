@@ -33,12 +33,12 @@ jobs:
 
           # Make sure a merge commit gets into master.
           git fetch origin "$BASE_BRANCH"
+          git fetch origin "$MERGE_TRAIN_BRANCH"
           git checkout "$BASE_BRANCH"
           git merge -X ours "$MERGE_TRAIN_BRANCH" -m "Merge $MERGE_TRAIN_BRANCH history."
           git push origin "$BASE_BRANCH"
 
-          git fetch origin "$MERGE_TRAIN_BRANCH" || true
-          git checkout "$MERGE_TRAIN_BRANCH" || git checkout -b "$MERGE_TRAIN_BRANCH"
+          git checkout "$MERGE_TRAIN_BRANCH"
           git reset --hard "$BASE_BRANCH"
 
           # Start with an empty commit
