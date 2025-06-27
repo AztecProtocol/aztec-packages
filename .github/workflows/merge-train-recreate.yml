@@ -35,7 +35,9 @@ jobs:
           git push -f origin "$MT"
           gh pr create --base "$BASE" --head "$MT" \
                        --title "feat: $MT" \
-                       --body  "This is a merge-train with no commits."
+                       --body  "See [Merge Train Documentation](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md) for usage instructions.
+
+This is a merge-train with no commits."
 
           # --- fast-forward every other open PR that still merges cleanly ----
           for BR in $(gh pr list --state open --base "$BASE" \
