@@ -16,6 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Configure Git
@@ -27,13 +28,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # The merge-train branch is the PR’s *head* branch (e.g. merge-train/main)
           MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
 
-          # Make sure a merge commit gets into master.
-          git fetch origin "$BASE_BRANCH"
-          git fetch origin "$MERGE_TRAIN_BRANCH"
+          git fetch # in case new commits happened
+          # Make sure a merge commit gets into master to tie history together.
           git checkout "$BASE_BRANCH"
           git reset --hard origin/"$BASE_BRANCH"
           git merge -X ours origin/"$MERGE_TRAIN_BRANCH" -m "Merge $MERGE_TRAIN_BRANCH history."
