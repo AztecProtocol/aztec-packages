@@ -43,7 +43,7 @@ jobs:
           git push -f origin "$MT"
           gh pr create --base "$BASE" --head "$MT" \
                        --title "feat: $MT" \
-                       --body  $(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train with no commits.")
+                       --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train with no commits.")"
 
           # --- merge every other open PR that targets the merge-train --------
           PR_LIST=$(gh pr list --state open --base "$MT" \
