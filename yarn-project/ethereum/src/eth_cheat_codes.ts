@@ -418,7 +418,7 @@ export class EthCheatCodes {
     return this.rpcCall('trace_transaction', [txHash]);
   }
 
-  private async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
+  public async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
     const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
     try {
       if (blockInterval !== null) {
