@@ -35,6 +35,7 @@ jobs:
           git fetch origin "$BASE_BRANCH"
           git fetch origin "$MERGE_TRAIN_BRANCH"
           git checkout "$BASE_BRANCH"
+          git reset --hard origin/"$BASE_BRANCH"
           git merge -X ours origin/"$MERGE_TRAIN_BRANCH" -m "Merge $MERGE_TRAIN_BRANCH history."
           git push origin "$BASE_BRANCH"
 
