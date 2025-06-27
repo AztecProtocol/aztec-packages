@@ -5,6 +5,7 @@
 // =====================
 
 #include "ec_operations.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/groups/affine_element.hpp"
@@ -22,30 +23,24 @@ namespace acir_format {
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
-    // Input to cycle_group points
+    // Cycle_group points are used by BB to lay out constraints on Grumpkin curve points
     using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
 
-    auto input1_point = to_grumpkin_point(
-        input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, builder);
-    auto input2_point = to_grumpkin_point(
-        input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, builder);
-
-    // Addition
-    // Check if operands are the same
+    // Check if operands are the 'same' (same witness or same constant value).
     bool x_match = false;
-    if (!input1_point.x.is_constant() && !input2_point.x.is_constant()) {
-        x_match = (input1_point.x.get_witness_index() == input2_point.x.get_witness_index());
+    if (!input.input1_x.is_constant && !input.input2_x.is_constant) {
+        x_match = (input.input1_x.index == input.input2_x.index);
     } else {
-        if (input1_point.x.is_constant() && input2_point.x.is_constant()) {
-            x_match = (input1_point.x.get_value() == input2_point.x.get_value());
+        if (input.input1_x.is_constant && input.input2_x.is_constant) {
+            x_match = (input.input1_x.value == input.input2_x.value);
         }
     }
     bool y_match = false;
-    if (!input1_point.y.is_constant() && !input2_point.y.is_constant()) {
-        y_match = (input1_point.y.get_witness_index() == input2_point.y.get_witness_index());
+    if (!input.input1_y.is_constant && !input.input2_y.is_constant) {
+        y_match = (input.input1_y.index == input.input2_y.index);
     } else {
-        if (input1_point.y.is_constant() && input2_point.y.is_constant()) {
-            y_match = (input1_point.y.get_value() == input2_point.y.get_value());
+        if (input.input1_y.is_constant && input.input2_y.is_constant) {
+            y_match = (input.input1_y.value == input.input2_y.value);
         }
     }
 
@@ -53,22 +48,84 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // If operands are the same, we double.
     // Note that the doubling function handles the infinity case
     if (x_match && y_match) {
+        cycle_group_ct input1_point;
+
+        // When there are no valid witness assignements, we need to define dummy values that will
+        // satisfy the doubling constraints, which we can do easily when the inputs are witness.
+        // If the is_infinity is a witness, we can simply set it to 1
+        // Or, if the coordinates are witness, we can simply set them to a valid point on the curve (G1)
+        if (!input.input1_infinite.is_constant || (!input.input1_x.is_constant && !input.input1_y.is_constant)) {
+            input1_point = to_grumpkin_point(
+                input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, true, builder);
+        } else {
+            // If not, the coordinates are mixed constant/witness, and we generate witness so that the point is using
+            // only witnesses.
+            input1_point = to_witness_grumpkin_point(
+                input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, true, builder);
+        }
         result = input1_point.dbl();
     } else {
+        // Regular addition
+        // if one point is (constant) zero, we simply return the other point.
         if (input.input2_infinite.is_constant && input.input1_infinite.is_constant) {
             if (get_value(input.input1_infinite, builder) == 1) {
                 // input1 is infinity, so we can just return input2
-                result = input2_point;
+                result = to_grumpkin_point(input.input2_x,
+                                           input.input2_y,
+                                           input.input2_infinite,
+                                           has_valid_witness_assignments,
+                                           false,
+                                           builder);
 
             } else if (get_value(input.input2_infinite, builder) == 1) {
                 // input2 is infinity, so we can just return input1
-                result = input1_point;
+                result = to_grumpkin_point(input.input1_x,
+                                           input.input1_y,
+                                           input.input1_infinite,
+                                           has_valid_witness_assignments,
+                                           true,
+                                           builder);
             } else {
-                if (has_valid_witness_assignments) {
-                    // Runtime checks that the inputs have not the same x coordinate, as assumed by the function.
-                    ASSERT(input1_point.x.get_value() != input2_point.x.get_value());
+
+                cycle_group_ct input1_point;
+                cycle_group_ct input2_point;
+                // all or nothing: the inputs must be all constant or all witness. Cf #1108 for more details.
+                if (!input.input1_x.is_constant || !input.input1_y.is_constant || !input.input1_infinite.is_constant ||
+                    !input.input2_x.is_constant || !input.input2_y.is_constant || !input.input2_infinite.is_constant) {
+                    // One of the input is a witness, so we ensure that all inputs are witness, by creating witness for
+                    // constant values.
+                    input1_point = to_witness_grumpkin_point(input.input1_x,
+                                                             input.input1_y,
+                                                             input.input1_infinite,
+                                                             has_valid_witness_assignments,
+                                                             true,
+                                                             builder);
+                    input2_point = to_witness_grumpkin_point(input.input2_x,
+                                                             input.input2_y,
+                                                             input.input2_infinite,
+                                                             has_valid_witness_assignments,
+                                                             false,
+                                                             builder);
+
+                } else {
+                    input1_point = to_grumpkin_point(input.input1_x,
+                                                     input.input1_y,
+                                                     input.input1_infinite,
+                                                     has_valid_witness_assignments,
+                                                     true,
+                                                     builder);
+                    input2_point = to_grumpkin_point(input.input2_x,
+                                                     input.input2_y,
+                                                     input.input2_infinite,
+                                                     has_valid_witness_assignments,
+                                                     false,
+                                                     builder);
                 }
                 // both points are not infinity, so we can use unconditional_add
+                if (has_valid_witness_assignments) {
+                    // Runtime check that the inputs have not the same x coordinate, as assumed by the function.
+                    ASSERT(input1_point.x.get_value() != input2_point.x.get_value());
+                }
                 result = input1_point.unconditional_add(input2_point);
             }
         } else {
