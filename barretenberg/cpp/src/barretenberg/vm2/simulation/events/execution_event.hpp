@@ -23,7 +23,7 @@ enum class ExecutionError {
     INSTRUCTION_FETCHING,
     GAS_BASE,
     ADDRESSING,
-    REGISTERS,
+    REGISTER_READ,
     DISPATCHING,
     GAS_DYNAMIC,
 };
