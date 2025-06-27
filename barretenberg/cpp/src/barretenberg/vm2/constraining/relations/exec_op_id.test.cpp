@@ -31,25 +31,40 @@ using C = Column;
 using execution = bb::avm2::execution<FF>;
 
 // STATICCALL, REVERT_8, SUCCESSCOPY are not defined yet in the EXEC_INSTRUCTION_SPEC.
-constexpr std::array<WireOpCode, 9> WIRE_OPCODES = {
-    WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::MOV_8,
-    WireOpCode::JUMP_32,      WireOpCode::JUMPI_32,       WireOpCode::CALL,
+constexpr std::array<WireOpCode, 15> WIRE_OPCODES = {
+    WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::SET_16,   WireOpCode::SET_32,
+    WireOpCode::SET_64,       WireOpCode::SET_128,        WireOpCode::SET_FF,   WireOpCode::MOV_8,
+    WireOpCode::MOV_16,       WireOpCode::JUMP_32,        WireOpCode::JUMPI_32, WireOpCode::CALL,
     WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,
 };
 
-constexpr std::array<uint32_t, 9> OPERATION_IDS = {
-    AVM_EXEC_OP_ID_GETENVVAR, AVM_EXEC_OP_ID_SET,  AVM_EXEC_OP_ID_MOV,          AVM_EXEC_OP_ID_JUMP,
-    AVM_EXEC_OP_ID_JUMPI,     AVM_EXEC_OP_ID_CALL, AVM_EXEC_OP_ID_INTERNALCALL, AVM_EXEC_OP_ID_INTERNALRETURN,
+constexpr std::array<uint32_t, 15> OPERATION_IDS = {
+    AVM_EXEC_OP_ID_GETENVVAR,    AVM_EXEC_OP_ID_SET,
+    AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
+    AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
+    AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_MOV,
+    AVM_EXEC_OP_ID_MOV,          AVM_EXEC_OP_ID_JUMP,
+    AVM_EXEC_OP_ID_JUMPI,        AVM_EXEC_OP_ID_CALL,
+    AVM_EXEC_OP_ID_INTERNALCALL, AVM_EXEC_OP_ID_INTERNALRETURN,
     AVM_EXEC_OP_ID_RETURN,
 };
 
-constexpr std::array<C, 9> SELECTOR_COLUMNS = {
+constexpr std::array<C, 15> SELECTOR_COLUMNS = {
     C::execution_sel_get_env_var,   C::execution_sel_set,
+    C::execution_sel_set,           C::execution_sel_set,
+    C::execution_sel_set,           C::execution_sel_set,
+    C::execution_sel_set,           C::execution_sel_mov,
     C::execution_sel_mov,           C::execution_sel_jump,
     C::execution_sel_jumpi,         C::execution_sel_call,
     C::execution_sel_internal_call, C::execution_sel_internal_return,
     C::execution_sel_return,
 };
+
+// Magic constant ensuring that for any index i, the index i + INCREMENT_FOR_NEGATIVE_TEST modulo WIRE_OPCODES.size()
+// has a different value in OPERATION_IDS and SELECTOR_COLUMNS.
+// 6 corresponds to the number of SET wire opcodes. This is the execution opcode with
+// the largest number of wire opcodes.
+constexpr size_t INCREMENT_FOR_NEGATIVE_TEST = 6;
 
 TEST(ExecOpIdConstrainingTest, Decomposition)
 {
@@ -70,7 +85,7 @@ TEST(ExecOpIdConstrainingTest, Decomposition)
                                   "EXEC_OP_ID_DECOMPOSITION");
 
         // Negative test: toggle another selector
-        trace.set(SELECTOR_COLUMNS.at((i + 1) % WIRE_OPCODES.size()), 0, 1);
+        trace.set(SELECTOR_COLUMNS.at((i + INCREMENT_FOR_NEGATIVE_TEST) % WIRE_OPCODES.size()), 0, 1);
         EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_EXEC_OP_ID_DECOMPOSITION),
                                   "EXEC_OP_ID_DECOMPOSITION");
     }
@@ -130,7 +145,7 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
         auto mutated_trace = trace;
         mutated_trace.set(C::execution_subtrace_operation_id,
                           static_cast<uint32_t>(i + 1),
-                          OPERATION_IDS.at((i + 1) % WIRE_OPCODES.size()));
+                          OPERATION_IDS.at((i + INCREMENT_FOR_NEGATIVE_TEST) % WIRE_OPCODES.size()));
         EXPECT_THROW_WITH_MESSAGE(
             (check_interaction<ExecutionTraceBuilder, lookup_execution_exec_spec_read_settings>(mutated_trace)),
             "Failed.*LOOKUP_EXECUTION_EXEC_SPEC_READ.*Could not find tuple in destination.");
