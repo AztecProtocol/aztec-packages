@@ -35,30 +35,31 @@ TEST(MovConstrainingTest, MovFF)
     check_relation<execution>(trace, execution::SR_MOV_SAME_VALUE, execution::SR_MOV_SAME_TAG);
 }
 
-TEST(MovConstrainingTest, MovAnyTag)
-{
-    for (const auto& tag : { MemoryTag::U1,
-                             MemoryTag::U8,
-                             MemoryTag::U16,
-                             MemoryTag::U32,
-                             MemoryTag::U64,
-                             MemoryTag::U128,
-                             MemoryTag::FF }) {
-        TestTraceContainer trace({
-            { { C::precomputed_first_row, 1 } },
-            {
-                { C::execution_sel, 1 },
-                { C::execution_sel_mov, 1 },
-                { C::execution_register_0_, 1 },
-                { C::execution_register_1_, 1 },
-                { C::execution_mem_tag_0_, static_cast<uint8_t>(tag) },
-                { C::execution_mem_tag_1_, static_cast<uint8_t>(tag) },
-            },
-        });
+class MovAnyTagTest : public ::testing::TestWithParam<MemoryTag> {};
 
-        check_relation<execution>(trace, execution::SR_MOV_SAME_VALUE, execution::SR_MOV_SAME_TAG);
-    }
+TEST_P(MovAnyTagTest, MovAnyTag)
+{
+    const auto tag = GetParam();
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_sel_mov, 1 },
+            { C::execution_register_0_, 1 },
+            { C::execution_register_1_, 1 },
+            { C::execution_mem_tag_0_, static_cast<uint8_t>(tag) },
+            { C::execution_mem_tag_1_, static_cast<uint8_t>(tag) },
+        },
+    });
+
+    check_relation<execution>(trace, execution::SR_MOV_SAME_VALUE, execution::SR_MOV_SAME_TAG);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    MovConstrainingTest,
+    MovAnyTagTest,
+    ::testing::Values(
+        MemoryTag::U1, MemoryTag::U8, MemoryTag::U16, MemoryTag::U32, MemoryTag::U64, MemoryTag::U128, MemoryTag::FF));
 
 TEST(MovConstrainingTest, NegativeMovDifferentTag)
 {
