@@ -359,7 +359,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeHeader memory)
   {
-    return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
+    return FeeHeaderLib.decompress(FeeLib.getFeeHeader(_blockNumber));
   }
 
   function getBlobCommitmentsHash(uint256 _blockNumber)
