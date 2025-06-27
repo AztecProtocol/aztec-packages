@@ -34,7 +34,6 @@ library ValidatorSelectionLib {
   using SignatureLib for CommitteeAttestations;
 
   struct VerifyStack {
-    uint256 proposerIndex;
     uint256 index;
     uint256 needed;
     uint256 signaturesRecovered;
@@ -81,6 +80,33 @@ library ValidatorSelectionLib {
     }
   }
 
+  function verifyPropose(
+    Slot _slot,
+    Epoch _epochNumber,
+    CommitteeAttestations memory _attestations,
+    bytes32 _digest,
+    BlockHeaderValidationFlags memory _flags
+  ) internal {
+    if (_flags.ignoreSignatures) {
+      return;
+    }
+
+    address proposer = getProposerAt(_slot);
+
+    if (proposer == address(0)) {
+      return;
+    }
+
+    // @todo @lherskind We need an extra signature here so we don't need the msg.sender to match
+    // this is to support using the multicall. It might not be in the attestations, so we have
+    // it separately.
+    require(
+      proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
+    );
+
+    setCachedProposer(_slot, proposer);
+  }
+
   /**
    * @notice  Propose a pending block from the point-of-view of sequencer selection. Will:
    *          - Setup the epoch if needed (if epoch committee is empty skips the rest)
@@ -97,7 +123,7 @@ library ValidatorSelectionLib {
    * @param _attestations - The signatures (or empty; just address is provided) of the committee members
    * @param _digest - The digest of the block
    */
-  function verify(
+  function verifyProof(
     Slot _slot,
     Epoch _epochNumber,
     CommitteeAttestations memory _attestations,
@@ -114,14 +140,7 @@ library ValidatorSelectionLib {
       return;
     }
 
-    if (_flags.ignoreSignatures) {
-      return;
-    }
-
     VerifyStack memory stack = VerifyStack({
-      proposerIndex: computeProposerIndex(
-        _epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize
-      ),
       needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
       index: 0,
       signaturesRecovered: 0,
@@ -157,10 +176,6 @@ library ValidatorSelectionLib {
 
           ++stack.signaturesRecovered;
           stack.reconstructedCommittee[i] = ECDSA.recover(digest, v, r, s);
-
-          if (i == stack.proposerIndex) {
-            stack.proposerVerified = true;
-          }
         } else {
           address addr;
           assembly {
@@ -171,13 +186,6 @@ library ValidatorSelectionLib {
         }
       }
     }
-
-    address proposer = stack.reconstructedCommittee[stack.proposerIndex];
-
-    require(
-      stack.proposerVerified || proposer == msg.sender,
-      Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
-    );
 
     require(
       stack.signaturesRecovered >= stack.needed,
@@ -191,33 +199,41 @@ library ValidatorSelectionLib {
         reconstructedCommitment, committeeCommitment
       );
     }
-
-    setCachedProposer(_slot, proposer);
   }
 
   function setCachedProposer(Slot _slot, address _proposer) internal {
     PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tstore(_proposer);
   }
 
+  /**
+   * @notice  Gets the proposer for a given slot
+   *          - Throws if insufficient validators to reach target
+   *          - Return address(0) if the target size is 0
+   */
   function getProposerAt(Slot _slot) internal returns (address) {
     address cachedProposer = getCachedProposer(_slot);
     if (cachedProposer != address(0)) {
       return cachedProposer;
     }
 
-    // @note this is deliberately "bad" for the simple reason of code reduction.
-    //       it does not need to actually return the full committee and then draw from it
-    //       it can just return the proposer directly, but then we duplicate the code
-    //       which we just don't have room for right now...
     Epoch epochNumber = _slot.epochFromSlot();
 
-    uint224 sampleSeed = getSampleSeed(epochNumber);
-    address[] memory committee = sampleValidators(epochNumber, sampleSeed);
-    if (committee.length == 0) {
+    (uint256 targetCommitteeSize, uint256 validatorSetSize, Timestamp ts) =
+      assertSamplable(epochNumber);
+
+    // If the rollup is *deployed* with a target committee size of 0, we skip the validation.
+    // Note: This generally only happens in test setups; In production, the target committee is non-zero,
+    // and one can see in `sampleValidators` that we will revert if the target committee size is not met.
+    if (targetCommitteeSize == 0) {
       return address(0);
     }
 
-    return committee[computeProposerIndex(epochNumber, _slot, sampleSeed, committee.length)];
+    uint224 sampleSeed = getSampleSeed(epochNumber);
+
+    uint256[] memory indices = new uint256[](1);
+    indices[0] = computeProposerIndex(epochNumber, _slot, sampleSeed, validatorSetSize);
+
+    return StakingLib.getAttestersFromIndicesAtTime(ts, indices)[0];
   }
 
   /**
@@ -229,15 +245,7 @@ library ValidatorSelectionLib {
    * @return The validators for the given epoch
    */
   function sampleValidators(Epoch _epoch, uint224 _seed) internal returns (address[] memory) {
-    ValidatorSelectionStorage storage store = getStorage();
-    uint32 ts = epochToSampleTime(_epoch);
-    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
-    uint256 targetCommitteeSize = store.targetCommitteeSize;
-
-    require(
-      validatorSetSize >= targetCommitteeSize,
-      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
-    );
+    (uint256 targetCommitteeSize, uint256 validatorSetSize, Timestamp ts) = assertSamplable(_epoch);
 
     if (targetCommitteeSize == 0) {
       return new address[](0);
@@ -247,7 +255,21 @@ library ValidatorSelectionLib {
     uint256[] memory indices =
       SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
 
-    return StakingLib.getAttestersFromIndicesAtTime(Timestamp.wrap(ts), indices);
+    return StakingLib.getAttestersFromIndicesAtTime(ts, indices);
+  }
+
+  function assertSamplable(Epoch _epoch) internal view returns (uint256, uint256, Timestamp) {
+    ValidatorSelectionStorage storage store = getStorage();
+    Timestamp ts = epochToSampleTime(_epoch);
+    uint256 validatorSetSize = StakingLib.getAttesterCountAtTime(ts);
+    uint256 targetCommitteeSize = store.targetCommitteeSize;
+
+    require(
+      validatorSetSize >= targetCommitteeSize,
+      Errors.ValidatorSelection__InsufficientCommitteeSize(validatorSetSize, targetCommitteeSize)
+    );
+
+    return (targetCommitteeSize, validatorSetSize, ts);
   }
 
   /**
@@ -325,15 +347,17 @@ library ValidatorSelectionLib {
     return PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tload();
   }
 
-  function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
+  function epochToSampleTime(Epoch _epoch) internal view returns (Timestamp) {
     // We do -1, as the snapshots practically happen at the end of the block, e.g.,
     // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
     // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
     // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
     // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
 
-    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
-      - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
+    return Timestamp.wrap(
+      Timestamp.unwrap(_epoch.toTimestamp()).toUint32()
+        - uint32(TimeLib.getEpochDurationInSeconds()) - 1
+    );
   }
 
   /**
