@@ -13,8 +13,12 @@ export class CallAuthwitWithPreimage {
     public args: Fr[],
   ) {}
 
+  static getSelector(): Promise<AuthwitSelector> {
+    return AuthwitSelector.fromSignature('CallAuthwit((Field),(u32),Field)');
+  }
+
   static async fromFields(fields: Fr[]): Promise<CallAuthwitWithPreimage> {
-    const expectedSelector = await AuthwitSelector.fromSignature('CallAuthwit((Field),(Field),Field)');
+    const expectedSelector = await CallAuthwitWithPreimage.getSelector();
     const reader = FieldReader.asReader(fields);
     const selector = AuthwitSelector.fromField(reader.readField());
     if (!selector.equals(expectedSelector)) {
