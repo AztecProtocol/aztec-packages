@@ -964,7 +964,7 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
             wv.emplace_back(0);
             index++;
         }
-        wv.emplace_back(uint256_t(e.second));
+        wv.emplace_back(from_be_bytes(e.second));
         index++;
     }
     return wv;
