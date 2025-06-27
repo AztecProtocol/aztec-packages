@@ -433,7 +433,9 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
             f"Function {name} does not have a {nonce_arg_name}: Field parameter. Please provide it or specify which one to use in #[authorize_once(from = \"...\")]",
         )
     };
-    let args_len = f.parameters().len() + 1;
+    // At this point, the original args of the fn have already been altered by the macro
+    // to include the PublicContextInputs, so we need to adjust the args_len accordingly.
+    let args_len = f.parameters().len() - 1;
     let (from_arg_name_quoted, _) = from_arg;
     let (nonce_arg_name_quoted, _) = nonce_arg;
 
