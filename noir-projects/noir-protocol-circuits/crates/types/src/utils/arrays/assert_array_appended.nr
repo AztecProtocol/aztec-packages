@@ -51,8 +51,6 @@ where
         assert_eq(dest.array[i].inner(), source.array[i], "source item does not append to dest");
     }
 
-    // We only conditionally check the contract addresses.
-    // TODO: push the contract addresses to the elements beyond the length, because it doesn't matter.
     for_i_in_0_(
         source.length,
         source.array.len(),
@@ -83,8 +81,6 @@ where
         assert_eq(dest.array[i].inner, source.array[i], "source item does not append to dest");
     }
 
-    // We only conditionally check the contract addresses.
-    // TODO: push the contract addresses to the elements beyond the length, because it doesn't matter.
     for_i_in_0_(
         source.length,
         source.array.len(),
@@ -174,21 +170,15 @@ where
     ST: ScopedTrait<T> + Empty,
     T: Empty,
 {
-    for_i_in_0_(
-        source.length,
-        source.array.len(),
-        |i| {
-            let dest_item = dest.array[num_prepended_items + i];
-            assert_eq(dest_item.inner(), source.array[i], "source item does not append to dest");
-            assert_eq(
-                dest_item.contract_address(),
-                contract_address,
-                "propagated contract address does not match",
-            );
-        },
-        for_loop_no_op,
-        false,
-    );
+    source.for_each_i(|source_item, i| {
+        let dest_item = dest.array[num_prepended_items + i];
+        assert_eq(dest_item.inner(), source_item, "source item does not append to dest");
+        assert_eq(
+            dest_item.contract_address(),
+            contract_address,
+            "propagated contract address does not match",
+        );
+    });
 
     assert_eq(num_prepended_items + source.length, dest.length, "Length mismatch");
 }
@@ -204,21 +194,15 @@ pub fn assert_array_appended_and_scoped<T, let N: u32, let M: u32>(
 where
     T: Empty,
 {
-    for_i_in_0_(
-        source.length,
-        source.array.len(),
-        |i| {
-            let dest_item = dest.array[num_prepended_items + i];
-            assert_eq(dest_item.inner, source.array[i], "source item does not append to dest");
-            assert_eq(
-                dest_item.contract_address,
-                contract_address,
-                "propagated contract address does not match",
-            );
-        },
-        for_loop_no_op,
-        false,
-    );
+    source.for_each_i(|source_item, i| {
+        let dest_item = dest.array[num_prepended_items + i];
+        assert_eq(dest_item.inner, source_item, "source item does not append to dest");
+        assert_eq(
+            dest_item.contract_address,
+            contract_address,
+            "propagated contract address does not match",
+        );
+    });
 
     assert_eq(num_prepended_items + source.length, dest.length, "Length mismatch");
 }

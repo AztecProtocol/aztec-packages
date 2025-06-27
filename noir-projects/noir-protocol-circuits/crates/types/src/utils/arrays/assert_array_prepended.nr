@@ -3,9 +3,6 @@ use super::ClaimedLengthArray;
 use crate::traits::Empty;
 use crate::utils::for_loop::for_i_only_in_0_;
 
-// I tried replacing these functions with `for_i_in_0_()`, but it increased constraints
-// by 750.
-
 pub fn assert_array_prepended<T, let N: u32>(
     dest: ClaimedLengthArray<T, N>,
     source: ClaimedLengthArray<T, N>,
