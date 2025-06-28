@@ -37,7 +37,7 @@ pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Deserialize, Empty, Serialize};
-use super::for_loop::{for_i_in_, for_i_in_0_, for_i_only_in_0_, for_loop_no_op};
+use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
 
 //**********************************************************************************
 // ARRAY
@@ -165,7 +165,7 @@ where
 
 // Returns an array length defined by fully trimming _all_ "empty" items
 // from the RHS.
-unconstrained fn trimmed_array_length_hint<T, let N: u32>(array: [T; N]) -> u32
+pub unconstrained fn trimmed_array_length_hint<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty,
 {
@@ -352,7 +352,7 @@ where
     pub fn push(&mut self, item: T) {
         assert(self.length != N, "Array full");
 
-        let mut next_index = self.length;
+        let next_index = self.length;
         self.array[next_index] = item;
         self.length += 1;
     }
@@ -489,8 +489,6 @@ where
 
         // Length is stored in the last field.
         fields[T_N * N] = self.length as Field;
-
-        let l = fields[T_N * N];
 
         fields
     }

@@ -5,38 +5,38 @@ use dep::types::{
     utils::arrays::ClaimedLengthArray,
 };
 
-pub struct ReadRequestActionsEnum {
+struct ReadRequestActionEnum {
     pub SKIP: u8,
     pub READ_AS_PENDING: u8,
     pub READ_AS_SETTLED: u8,
 }
 
-pub global ReadRequestActions: ReadRequestActionsEnum =
-    ReadRequestActionsEnum { SKIP: 0, READ_AS_PENDING: 1, READ_AS_SETTLED: 2 };
+pub global ReadRequestActions: ReadRequestActionEnum =
+    ReadRequestActionEnum { SKIP: 0, READ_AS_PENDING: 1, READ_AS_SETTLED: 2 };
 
 #[derive(Eq)]
 pub struct ReadRequestAction {
-    pub action_enum: u8,
+    pub action: u8,
     pub hint_index: u32,
 }
 
 impl Empty for ReadRequestAction {
     fn empty() -> Self {
-        ReadRequestAction { action_enum: ReadRequestActions.SKIP, hint_index: 0 }
+        ReadRequestAction { action: ReadRequestActions.SKIP, hint_index: 0 }
     }
 }
 
 impl ReadRequestAction {
     pub fn set_as_skip() -> Self {
-        ReadRequestAction { action_enum: ReadRequestActions.SKIP, hint_index: 0 }
+        ReadRequestAction { action: ReadRequestActions.SKIP, hint_index: 0 }
     }
 
     pub fn set_as_pending(hint_index: u32) -> Self {
-        ReadRequestAction { action_enum: ReadRequestActions.READ_AS_PENDING, hint_index }
+        ReadRequestAction { action: ReadRequestActions.READ_AS_PENDING, hint_index }
     }
 
     pub fn set_as_settled(hint_index: u32) -> Self {
-        ReadRequestAction { action_enum: ReadRequestActions.READ_AS_SETTLED, hint_index }
+        ReadRequestAction { action: ReadRequestActions.READ_AS_SETTLED, hint_index }
     }
 }
 
@@ -142,13 +142,13 @@ where
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests.array[i];
         let status = read_request_actions[i];
-        if status.action_enum == ReadRequestActions.READ_AS_PENDING {
+        if status.action == ReadRequestActions.READ_AS_PENDING {
             assert_eq(
                 pending_read_hints[status.hint_index].read_request_index(),
                 i,
                 "Hinted pending read request does not match status",
             );
-        } else if status.action_enum == ReadRequestActions.READ_AS_SETTLED {
+        } else if status.action == ReadRequestActions.READ_AS_SETTLED {
             assert_eq(
                 settled_read_hints[status.hint_index].read_request_index(),
                 i,
@@ -238,16 +238,28 @@ pub unconstrained fn get_skipped_read_requests<let READ_REQUEST_LEN: u32>(
     read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
 ) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
     let mut propagated_read_requests = ClaimedLengthArray::empty();
-    for i in 0..READ_REQUEST_LEN {
+    for i in 0..read_requests.length {
         let read_request = read_requests.array[i];
 
         // Q: Why don't we just pop a subarray of read_requests off the pile, and process those?
         // A: Unlike key validation request, we can't always process the first N read requests,
         // because some of them might be reading a pending note hash that's not included yet.
-        if read_request_actions[i].action_enum == ReadRequestActions.SKIP {
+        if read_request_actions[i].action == ReadRequestActions.SKIP {
             propagated_read_requests.push(read_request);
         }
     }
+
+    // Append the remaining read requests to the end of the array.
+    // Because it's possible to have non-empty read requests beyond the claimed length.
+    // And verify_propagated_read_requests checks the whole array and ensures that the index hint for every item beyond
+    // length is READ_REQUEST_LEN. Which means they must be propagated no matter they are empty or not.
+    // TODO(Leila): Adjust the algorithm to simplify this.
+    let mut num_propagated = propagated_read_requests.length;
+    for i in read_requests.length..READ_REQUEST_LEN {
+        propagated_read_requests.array[num_propagated] = read_requests.array[i];
+        num_propagated += 1;
+    }
+
     propagated_read_requests
 }
 
@@ -270,9 +282,16 @@ mod tests {
         value + 9999
     }
 
+    #[derive(Eq)]
     struct TestValue {
         value: Field,
         counter: u32,
+    }
+
+    impl Empty for TestValue {
+        fn empty() -> Self {
+            TestValue { value: 0, counter: 0 }
+        }
     }
 
     impl Readable<ScopedReadRequest> for TestValue {
@@ -350,7 +369,7 @@ mod tests {
         settled_read_amount: u32,
     }
 
-    impl TestBuilder<4, 2, 2, 2> {
+    impl TestBuilder<4, 3, 3, 2> {
         pub fn new() -> Self {
             let contract_address = AztecAddress::from_field(123);
 
@@ -370,17 +389,23 @@ mod tests {
             };
 
             let pending_values = ClaimedLengthArray {
-                array: [
-                    TestValue { value: siloed_values[2], counter: 2 },
-                    TestValue { value: siloed_values[3], counter: 8 },
-                ],
+                array: pad_end(
+                    [
+                        TestValue { value: siloed_values[2], counter: 2 },
+                        TestValue { value: siloed_values[3], counter: 8 },
+                    ],
+                    TestValue::empty(),
+                ),
                 length: 2,
             };
 
-            let pending_read_hints = [
-                PendingReadHint { read_request_index: 1, pending_value_index: 1 },
-                PendingReadHint { read_request_index: 2, pending_value_index: 0 },
-            ];
+            let pending_read_hints = pad_end(
+                [
+                    PendingReadHint { read_request_index: 1, pending_value_index: 1 },
+                    PendingReadHint { read_request_index: 2, pending_value_index: 0 },
+                ],
+                PendingReadHint::skip(read_requests.length),
+            );
 
             let leaf_preimages = [
                 TestLeafPreimage { value: siloed_values[0] },
@@ -621,7 +646,7 @@ mod tests {
      * verify_reset_read_requests
      */
     #[test]
-    fn verify_read_requests_clears_all_succeeds() {
+    fn verify_reset_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
         let unverified_read_requests = builder.get_skipped_read_requests();
         assert(unverified_read_requests.is_empty());
@@ -654,7 +679,7 @@ mod tests {
     fn verify_reset_read_requests_wrong_pending_read_status_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.read_request_actions[0].action_enum = ReadRequestActions.READ_AS_PENDING;
+        builder.read_request_actions[0].action = ReadRequestActions.READ_AS_PENDING;
 
         builder.verify();
     }
@@ -663,7 +688,7 @@ mod tests {
     fn verify_reset_read_requests_wrong_settled_read_status_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.read_request_actions[2].action_enum = ReadRequestActions.READ_AS_SETTLED;
+        builder.read_request_actions[2].action = ReadRequestActions.READ_AS_SETTLED;
 
         builder.verify();
     }
@@ -760,4 +785,36 @@ mod tests {
 
         builder.verify_with_settled_hints(settled_hints);
     }
+
+    #[test]
+    fn verify_reset_read_requests_items_beyond_claimed_length_clears_all_succeeds() {
+        let mut builder = TestBuilder::new();
+
+        // Change the claimed length to be 3. Ignoring the last read request, which is not empty.
+        builder.read_requests.length = 3;
+        builder.read_request_actions[3] = ReadRequestAction::set_as_skip();
+
+        let unverified_read_requests = builder.get_skipped_read_requests();
+        assert_eq(unverified_read_requests.length, 0);
+
+        builder.verify();
+    }
+
+    // TODO(Leila): Fix the algorithm and reinstate this test.
+    // #[test(should_fail)]
+    // fn verify_reset_read_requests_items_beyond_claimed_length_used_as_pending_value_fails() {
+    //     let mut builder = TestBuilder::new();
+
+    //     // Swap the pending values at index 1 and 2.
+    //     let tmp = builder.pending_values.array[1];
+    //     builder.pending_values.array[1] = builder.pending_values.array[2];
+    //     // This value is beyond the claimed length, but we are trying to read this, which should fail.
+    //     builder.pending_values.array[2] = tmp;
+
+    //     // Update the hint to point to the matching value, now beyond the claimed length.
+    //     assert_eq(builder.pending_read_hints[0].pending_value_index, 1); // Make sure we are modifying the correct hint.
+    //     builder.pending_read_hints[0].pending_value_index = 2;
+
+    //     builder.verify();
+    // }
 }

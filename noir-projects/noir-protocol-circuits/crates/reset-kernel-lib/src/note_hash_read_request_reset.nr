@@ -104,26 +104,11 @@ mod tests {
             };
 
             let read_request_actions = [
-                ReadRequestAction {
-                    action_enum: ReadRequestActions.READ_AS_SETTLED,
-                    hint_index: 0,
-                },
-                ReadRequestAction {
-                    action_enum: ReadRequestActions.READ_AS_PENDING,
-                    hint_index: 0,
-                },
-                ReadRequestAction {
-                    action_enum: ReadRequestActions.READ_AS_PENDING,
-                    hint_index: 1,
-                },
-                ReadRequestAction {
-                    action_enum: ReadRequestActions.READ_AS_SETTLED,
-                    hint_index: 1,
-                },
-                ReadRequestAction {
-                    action_enum: ReadRequestActions.READ_AS_PENDING,
-                    hint_index: 2,
-                },
+                ReadRequestAction { action: ReadRequestActions.READ_AS_SETTLED, hint_index: 0 },
+                ReadRequestAction { action: ReadRequestActions.READ_AS_PENDING, hint_index: 0 },
+                ReadRequestAction { action: ReadRequestActions.READ_AS_PENDING, hint_index: 1 },
+                ReadRequestAction { action: ReadRequestActions.READ_AS_SETTLED, hint_index: 1 },
+                ReadRequestAction { action: ReadRequestActions.READ_AS_PENDING, hint_index: 2 },
             ];
 
             let pending_values = ClaimedLengthArray {

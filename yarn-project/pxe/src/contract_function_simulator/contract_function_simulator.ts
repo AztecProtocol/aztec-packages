@@ -155,10 +155,12 @@ export class ContractFunctionSimulator {
       const { usedTxRequestHashForNonces } = noteCache.finish();
       const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
-      const publicCallRequests = collectNested([executionResult], r => [
-        ...r.publicInputs.publicCallRequests.map(r => r.inner),
-        r.publicInputs.publicTeardownCallRequest,
-      ]).filter(r => !r.isEmpty());
+      const publicCallRequests = collectNested([executionResult], r =>
+        r.publicInputs.publicCallRequests
+          .getActiveItems()
+          .map(r => r.inner)
+          .concat(r.publicInputs.publicTeardownCallRequest.isEmpty() ? [] : [r.publicInputs.publicTeardownCallRequest]),
+      );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
           const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
@@ -280,24 +282,22 @@ export async function generateSimulatedProvingResult(
 
   while (executions.length !== 0) {
     const execution = executions.shift()!;
-    executions.unshift(...execution!.nestedExecutions);
+    executions.unshift(...execution!.nestedExecutionResults);
 
     const { contractAddress } = execution.publicInputs.callContext;
 
     const noteHashesFromExecution = await Promise.all(
-      execution.publicInputs.noteHashes
-        .filter(noteHash => !noteHash.isEmpty())
-        .map(async noteHash => {
-          const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
-          const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
-          // We could defer this to the public processor, and pass this in as non-revertible.
-          return new OrderedSideEffect(await computeUniqueNoteHash(nonce, siloedNoteHash), noteHash.counter);
-        }),
+      execution.publicInputs.noteHashes.getActiveItems().map(async noteHash => {
+        const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
+        const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
+        // We could defer this to the public processor, and pass this in as non-revertible.
+        return new OrderedSideEffect(await computeUniqueNoteHash(nonce, siloedNoteHash), noteHash.counter);
+      }),
     );
 
     const nullifiersFromExecution = await Promise.all(
       execution.publicInputs.nullifiers
-        .filter(nullifier => !nullifier.isEmpty())
+        .getActiveItems()
         .map(
           async nullifier =>
             new OrderedSideEffect(await siloNullifier(contractAddress, nullifier.value), nullifier.counter),
@@ -305,12 +305,10 @@ export async function generateSimulatedProvingResult(
     );
 
     const privateLogsFromExecution = await Promise.all(
-      execution.publicInputs.privateLogs
-        .filter(privateLog => !privateLog.isEmpty())
-        .map(async metadata => {
-          metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
-          return new OrderedSideEffect(metadata.log, metadata.counter);
-        }),
+      execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
+        metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
+        return new OrderedSideEffect(metadata.log, metadata.counter);
+      }),
     );
 
     uniqueNoteHashes.push(...noteHashesFromExecution);
@@ -318,12 +316,12 @@ export async function generateSimulatedProvingResult(
     nullifiers.push(...nullifiersFromExecution);
     l2ToL1Messages.push(
       ...execution.publicInputs.l2ToL1Msgs
-        .filter(l2ToL1Message => !l2ToL1Message.isEmpty())
+        .getActiveItems()
         .map(message => new OrderedSideEffect(message.message.scope(contractAddress), message.counter)),
     );
     contractClassLogsHashes.push(
       ...execution.publicInputs.contractClassLogsHashes
-        .filter(contractClassLogsHash => !contractClassLogsHash.isEmpty())
+        .getActiveItems()
         .map(
           contractClassLogHash =>
             new OrderedSideEffect(contractClassLogHash.logHash.scope(contractAddress), contractClassLogHash.counter),
@@ -331,7 +329,7 @@ export async function generateSimulatedProvingResult(
     );
     publicCallRequests.push(
       ...execution.publicInputs.publicCallRequests
-        .filter(publicCallRequest => !publicCallRequest.isEmpty())
+        .getActiveItems()
         .map(callRequest => new OrderedSideEffect(callRequest.inner, callRequest.counter)),
     );
 

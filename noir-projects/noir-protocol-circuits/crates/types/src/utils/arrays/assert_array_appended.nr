@@ -16,7 +16,7 @@ where
     for i in 0..M {
         assert_eq(dest.array[i], source.array[i], "source item does not append to dest");
     }
-    assert_eq(dest.length, source.length);
+    assert_eq(dest.length, source.length, "Length mismatch");
 }
 
 // Similar to assert_array_appended, except that the source items will be appended to dest in reversed order.
@@ -28,12 +28,21 @@ where
     T: Empty,
 {
     std::static_assert(M < N, "Source array larger than dest array");
-    for i in 0..M {
-        let j = M - i - 1;
-        assert_eq(dest.array[i], source.array[j], "source item does not reversed append to dest");
-    }
 
-    assert_eq(dest.length, source.length);
+    let last_index = if source.length == 0 {
+        0
+    } else {
+        source.length - 1
+    };
+    source.for_each_i(|source_item, i| {
+        assert_eq(
+            dest.array[last_index - i],
+            source_item,
+            "source item does not reversed append to empty dest",
+        );
+    });
+
+    assert_eq(dest.length, source.length, "Length mismatch");
 }
 
 // An optimisation that assumes the dest array is empty, so the dest indices that we access can be known at comptime.
@@ -65,7 +74,7 @@ where
         false,
     );
 
-    assert_eq(dest.length, source.length);
+    assert_eq(dest.length, source.length, "Length mismatch");
 }
 
 pub fn assert_array_appended_to_empty_dest_and_scoped<T, let N: u32, let M: u32>(
@@ -95,7 +104,7 @@ where
         false,
     );
 
-    assert_eq(dest.length, source.length);
+    assert_eq(dest.length, source.length, "Length mismatch");
 }
 
 pub fn assert_array_appended<T, let N: u32, let M: u32>(

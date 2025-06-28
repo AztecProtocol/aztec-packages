@@ -9,13 +9,12 @@ use crate::{
         side_effect::{Counted, scoped::Scoped},
     },
     messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
+    traits::Empty,
 };
 use crate::constants::{
     MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-    MAX_PRIVATE_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH,
+    MAX_PRIVATE_LOGS_PER_TX,
 };
 use crate::utils::arrays::ClaimedLengthArray;
 

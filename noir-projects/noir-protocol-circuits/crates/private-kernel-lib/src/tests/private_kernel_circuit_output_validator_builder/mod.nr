@@ -2,6 +2,7 @@ mod validate_aggregated_values;
 mod validate_initial_values;
 mod validate_propagated_from_previous_kernel;
 mod validate_propagated_from_private_call;
+mod validate_propagated_from_private_call_to_init;
 
 use crate::components::{
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
@@ -21,6 +22,7 @@ pub struct PrivateKernelCircuitOutputValidatorBuilder {
     output: FixtureBuilder,
     tx_request: TxRequest,
     first_nullifier_hint: Field,
+    is_private_only: bool,
 }
 
 impl PrivateKernelCircuitOutputValidatorBuilder {
@@ -42,6 +44,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             output,
             tx_request,
             first_nullifier_hint: 27,
+            is_private_only: false,
         }
     }
 
@@ -68,7 +71,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         self.output.counter = 777;
     }
 
-    pub fn validate_as_first_call(self, is_private_only: bool) {
+    pub fn validate_as_first_call(self) {
         let private_call = self.private_call.to_private_call_data();
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
@@ -76,7 +79,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
-            is_private_only,
+            self.is_private_only,
             self.first_nullifier_hint,
         );
     }

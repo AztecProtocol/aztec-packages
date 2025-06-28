@@ -99,7 +99,7 @@ where
                 "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item",
             );
         }
-    } else {
+    } else if num_private_call_requests != 0 {
         // they must all have counters less than the min_revertible_side_effect_counter,
         // so ensure the last one's counter satisfies this:
         let last_private_call = private_call_requests.array[num_private_call_requests - 1];

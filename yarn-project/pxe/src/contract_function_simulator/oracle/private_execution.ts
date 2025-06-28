@@ -88,7 +88,7 @@ export async function executePrivateFunction(
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
-  const nestedExecutionResults = privateExecutionOracle.getNestedExecutions();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
   let timerSubtractionList = nestedExecutionResults;
   let witgenTime = duration;

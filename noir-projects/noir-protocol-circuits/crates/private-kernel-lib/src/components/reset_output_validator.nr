@@ -16,7 +16,6 @@ use dep::types::{
         compute_nonce_and_unique_note_hash, compute_siloed_note_hash,
         compute_siloed_private_log_field, silo_nullifier,
     },
-    traits::Empty,
     utils::arrays::{
         assert_sorted_transformed_i_padded_array_capped_size,
         assert_sorted_transformed_padded_array_capped_size,
@@ -248,17 +247,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Note hashes need to be siloed all together because new note hashes added later might affect the ordering and result in wrong nonces.
         // We only need to check the first item, since we always start siloing from index 0.
         // The first item should either be empty or not siloed (contract_address != 0).
-        let note_hash = self.previous_kernel.end.note_hashes.array[0];
-
-        // TODO: looks like this line can be optimised.
-        // assert(
-        //     note_hash.is_empty() | !note_hash.contract_address.is_zero(),
-        //     "note hashes have been siloed in a previous reset",
-        // );
-        // Maybe this is an optimisation. Keeping the one above until someone looks at it.
-        if (note_hash.contract_address.is_zero()) {
-            note_hash.assert_empty("note hashes have been siloed in a previous reset");
-        }
+        let first_note_hash = self.previous_kernel.end.note_hashes.array[0];
+        assert(
+            (self.previous_kernel.end.note_hashes.length == 0)
+                | !first_note_hash.contract_address.is_zero(),
+            "note hashes have been siloed in a previous reset",
+        );
 
         //---------------
 

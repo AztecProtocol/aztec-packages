@@ -52,15 +52,12 @@ pub fn for_i_only_in_0_<Env>(
         assert(max <= MAX, "max > MAX");
     }
 
-    let mut after_max = false;
-
+    let mut before_max = true;
     for i in 0..MAX {
         if i == max {
-            after_max = true;
+            before_max = false;
         }
-        if after_max {
-            ()
-        } else {
+        if before_max {
             f_within(i);
         }
     }
