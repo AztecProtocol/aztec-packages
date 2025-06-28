@@ -477,19 +477,20 @@ class MegaFlavor {
             this->databus_propagation_data = proving_key.databus_propagation_data;
         }
 
-        VerificationKey(ProvingKey& proving_key)
-        {
-            set_metadata(proving_key);
-            auto& ck = proving_key.commitment_key;
-            if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
-                ck = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = ck.commit(polynomial);
-            }
-        }
+        // VerificationKey(ProvingKey& proving_key)
+        // {
+        //     set_metadata(proving_key);
+        //     auto& ck = proving_key.commitment_key;
+        //     if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
+        //         ck = CommitmentKey(proving_key.circuit_size);
+        //     }
+        //     for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(),
+        //     this->get_all())) {
+        //         commitment = ck.commit(polynomial);
+        //     }
+        // }
 
-        VerificationKey(PrecomputedEntities<Polynomial>& precomputed_polynomials, auto& metadata)
+        VerificationKey(ProverPolynomials& polynomials, const auto& metadata)
         {
             this->circuit_size = metadata.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
@@ -501,7 +502,7 @@ class MegaFlavor {
             this->databus_propagation_data = metadata.databus_propagation_data;
 
             auto commitment_key = CommitmentKey(metadata.circuit_size);
-            for (auto [polynomial, commitment] : zip_view(precomputed_polynomials.get_all(), this->get_all())) {
+            for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
         }

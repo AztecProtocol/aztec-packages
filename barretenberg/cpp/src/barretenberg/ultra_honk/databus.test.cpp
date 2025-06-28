@@ -31,7 +31,8 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key =
+            std::make_shared<typename Flavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
 
         Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();

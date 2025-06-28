@@ -54,21 +54,22 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
-        VerificationKey(ProvingKey& proving_key)
-        {
-            this->circuit_size = proving_key.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
+        // VerificationKey(ProvingKey& proving_key)
+        // {
+        //     this->circuit_size = proving_key.circuit_size;
+        //     this->log_circuit_size = numeric::get_msb(this->circuit_size);
+        //     this->num_public_inputs = proving_key.num_public_inputs;
+        //     this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
-            if (!proving_key.commitment_key.initialized()) {
-                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
-            }
-        }
-        VerificationKey(PrecomputedEntities<Polynomial>& precomputed_polynomials, auto& metadata)
+        //     if (!proving_key.commitment_key.initialized()) {
+        //         proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
+        //     }
+        //     for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(),
+        //     this->get_all())) {
+        //         commitment = proving_key.commitment_key.commit(polynomial);
+        //     }
+        // }
+        VerificationKey(ProverPolynomials& polynomials, const auto& metadata)
         {
             this->circuit_size = metadata.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
@@ -76,7 +77,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->pub_inputs_offset = metadata.pub_inputs_offset;
 
             auto commitment_key = CommitmentKey(metadata.circuit_size);
-            for (auto [polynomial, commitment] : zip_view(precomputed_polynomials.get_all(), this->get_all())) {
+            for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
         }
