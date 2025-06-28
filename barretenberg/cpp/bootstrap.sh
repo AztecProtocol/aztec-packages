@@ -302,7 +302,10 @@ case "$cmd" in
     # Download cached flow inputs from the specified commit
     export AZTEC_CACHE_COMMIT=$commit_hash
     export DOWNLOAD_ONLY=1
+    yarn --cwd ../../noir-projects/noir-protocol-circuits/bootstrap.sh
     yarn --cwd ../../yarn-project/bb-prover generate
+
+    rm -rf bench-out
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
