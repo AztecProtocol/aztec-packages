@@ -12,7 +12,7 @@ use crate::note::{
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 
 // docs:start:struct
 pub struct PrivateImmutable<Note, Context> {
@@ -24,7 +24,7 @@ pub struct PrivateImmutable<Note, Context> {
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateImmutable (and all other private state variables) needs
 // just one slot to be reserved, regardless of what it stores.
-impl<T, Context> Storage<1> for PrivateImmutable<T, Context> {
+impl<T, Context> HasStorageSlot<1> for PrivateImmutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }

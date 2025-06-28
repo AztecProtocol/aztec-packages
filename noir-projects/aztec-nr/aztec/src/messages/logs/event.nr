@@ -6,9 +6,12 @@ use crate::{
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     oracle::random::random,
-    prelude::AztecAddress,
 };
-use protocol_types::{constants::PRIVATE_LOG_CIPHERTEXT_LEN, traits::{Serialize, ToField}};
+use protocol_types::{
+    address::AztecAddress,
+    constants::PRIVATE_LOG_CIPHERTEXT_LEN,
+    traits::{Serialize, ToField},
+};
 
 /// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
 /// of the event and then encrypting them for `recipient`.

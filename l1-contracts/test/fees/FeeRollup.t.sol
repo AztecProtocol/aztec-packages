@@ -235,9 +235,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);

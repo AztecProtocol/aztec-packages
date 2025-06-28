@@ -1,0 +1,6 @@
+UpdateStakingQueueConfigTest
+├── given caller is not the rollup owner
+│   └── it reverts
+└── given caller is rollup owner
+    ├── it updates the staking queue config
+    └── it emits a {StakingQueueConfigUpdated} event

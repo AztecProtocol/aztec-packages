@@ -73,7 +73,13 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
-  publicIncludeMetrics: ['aztec.validator', 'aztec.tx_collector'],
+  publicIncludeMetrics: [
+    'aztec.validator',
+    'aztec.tx_collector',
+    'aztec.mempool',
+    'aztec.p2p.gossip.agg_',
+    'aztec.ivc_verifier.agg_',
+  ],
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
   publicMetricsCollectFrom: ['sequencer'],
 };

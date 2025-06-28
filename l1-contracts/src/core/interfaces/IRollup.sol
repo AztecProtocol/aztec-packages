@@ -7,6 +7,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {BlockLog, CompressedBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -14,6 +15,7 @@ import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/r
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -34,11 +36,6 @@ struct SubmitEpochRootProofArgs {
   bytes32[] fees;
   bytes blobInputs;
   bytes proof;
-}
-
-struct ChainTips {
-  uint256 pendingBlockNumber;
-  uint256 provenBlockNumber;
 }
 
 /**
@@ -65,11 +62,10 @@ struct RollupConfigInput {
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
-  uint256 entryQueueFlushSizeMin;
-  uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
+  StakingQueueConfig stakingQueueConfig;
 }
 
 struct RollupConfig {
@@ -83,12 +79,10 @@ struct RollupConfig {
   IInbox inbox;
   IOutbox outbox;
   uint256 version;
-  uint256 entryQueueFlushSizeMin;
-  uint256 entryQueueFlushSizeQuotient;
 }
 
 struct RollupStore {
-  ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
+  CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => CompressedBlockLog log) blocks;
   RollupConfig config;
 }
@@ -102,6 +96,8 @@ interface IRollupCore {
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
+
+  function preheatHeaders() external;
 
   function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);

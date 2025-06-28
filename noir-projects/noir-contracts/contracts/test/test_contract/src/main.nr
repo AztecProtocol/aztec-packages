@@ -12,12 +12,16 @@ pub contract Test {
     // as the note type ids of current notes might have changed.
 
     use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+    use dep::aztec::{
+        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
+        state_vars::{
+            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+        },
     };
 
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
+        address::{AztecAddress, EthAddress},
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         traits::{Hash, Packable, Serialize},
     };

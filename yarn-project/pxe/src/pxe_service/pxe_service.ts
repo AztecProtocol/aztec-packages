@@ -1139,4 +1139,8 @@ export class PXEService implements PXE {
   async resetNoteSyncData() {
     return await this.taggingDataProvider.resetNoteSyncData();
   }
+
+  public stop(): Promise<void> {
+    return this.jobQueue.end();
+  }
 }

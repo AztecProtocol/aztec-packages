@@ -29,13 +29,12 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // If the instance is found, the address derivation will be proven.
     // If it is not found, we have to prove that the nullifier does NOT exist.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-    auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
+
     auto bytecode_id = next_bytecode_id++;
-    if (!merkle_db.nullifier_exists(siloed_address)) {
+    if (!merkle_db.nullifier_exists(DEPLOYER_CONTRACT_ADDRESS, address)) {
         retrieval_events.emit({
             .bytecode_id = bytecode_id,
             .address = address,
-            .siloed_address = siloed_address,
             .error = true,
         });
         resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = true };
@@ -69,7 +68,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
-        .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
         .nullifier_root = tree_snapshots.nullifierTree.root,
@@ -126,8 +124,8 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     // Communicate error to the caller.
     if (instr_fetching_event.error.has_value()) {
-        throw std::runtime_error("Instruction fetching error: " +
-                                 std::to_string(static_cast<int>(instr_fetching_event.error.value())));
+        throw InstructionFetchingError("Instruction fetching error: " +
+                                       std::to_string(static_cast<int>(instr_fetching_event.error.value())));
     }
 
     return instr_fetching_event.instruction;

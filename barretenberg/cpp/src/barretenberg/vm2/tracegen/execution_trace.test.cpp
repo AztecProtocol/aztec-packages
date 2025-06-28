@@ -134,15 +134,15 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                           ROW_FIELD_EQ(execution_register_0_, 5),
                           ROW_FIELD_EQ(execution_register_1_, 3),
                           ROW_FIELD_EQ(execution_register_2_, 8),
-                          ROW_FIELD_EQ(execution_mem_tag_0_, /*U16=*/3),
-                          ROW_FIELD_EQ(execution_mem_tag_1_, /*U16=*/3),
-                          ROW_FIELD_EQ(execution_mem_tag_2_, /*U16=*/3),
-                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
-                          ROW_FIELD_EQ(execution_mem_op_2_, 1),
-                          ROW_FIELD_EQ(execution_rw_0_, 0),
-                          ROW_FIELD_EQ(execution_rw_1_, 0),
-                          ROW_FIELD_EQ(execution_rw_2_, 1))));
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U16)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U16)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U16)),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_2_, 1),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_1_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_2_, 1))));
 }
 
 TEST(ExecutionTraceGenTest, Call)
@@ -208,15 +208,15 @@ TEST(ExecutionTraceGenTest, Call)
                   ROW_FIELD_EQ(execution_register_0_, allocated_gas.l2Gas),
                   ROW_FIELD_EQ(execution_register_1_, allocated_gas.daGas),
                   ROW_FIELD_EQ(execution_register_2_, 0xdeadbeef),
-                  ROW_FIELD_EQ(execution_mem_tag_0_, /*U32=*/4),
-                  ROW_FIELD_EQ(execution_mem_tag_1_, /*U32=*/4),
-                  ROW_FIELD_EQ(execution_mem_tag_2_, /*FF=*/0),
-                  ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                  ROW_FIELD_EQ(execution_mem_op_1_, 1),
-                  ROW_FIELD_EQ(execution_mem_op_2_, 1),
-                  ROW_FIELD_EQ(execution_rw_0_, 0),
-                  ROW_FIELD_EQ(execution_rw_1_, 0),
-                  ROW_FIELD_EQ(execution_rw_2_, 0),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32)),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U32)),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::FF)),
+                  ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                  ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                  ROW_FIELD_EQ(execution_sel_mem_op_reg_2_, 1),
+                  ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                  ROW_FIELD_EQ(execution_rw_reg_1_, 0),
+                  ROW_FIELD_EQ(execution_rw_reg_2_, 0),
                   ROW_FIELD_EQ(execution_is_static, 0),
                   ROW_FIELD_EQ(execution_context_id, 1),
                   ROW_FIELD_EQ(execution_next_context_id, 2),
@@ -265,10 +265,10 @@ TEST(ExecutionTraceGenTest, Return)
                           ROW_FIELD_EQ(execution_sel_exit_call, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 4),
                           ROW_FIELD_EQ(execution_rop_1_, 5),
-                          ROW_FIELD_EQ(execution_register_0_, 2), /*rd_size*/
-                          ROW_FIELD_EQ(execution_mem_tag_0_, /*U32=*/4),
-                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_register_0_, /*rd_size*/ 2),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32)),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
                           ROW_FIELD_EQ(execution_is_static, 0),
                           ROW_FIELD_EQ(execution_context_id, 1),
                           ROW_FIELD_EQ(execution_next_context_id, 2))));
@@ -616,6 +616,96 @@ TEST(ExecutionTraceGenTest, JumpI)
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
+}
+
+TEST(ExecutionTraceGenTest, Mov16)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::MOV_16)
+                           .operand<uint32_t>(1000) // srcOffset
+                           .operand<uint32_t>(1001) // dstOffset
+                           .build();
+
+    ExecutionEvent ex_event_mov = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint128_t>(100) }, // src value
+        .output = MemoryValue::from<uint128_t>(100),     // dst value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(1000),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(1001),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_mov }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the mov
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 1000),
+                          ROW_FIELD_EQ(execution_rop_1_, 1001),
+                          ROW_FIELD_EQ(execution_register_0_, 100),
+                          ROW_FIELD_EQ(execution_register_1_, 100),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
+}
+
+TEST(ExecutionTraceGenTest, Mov8)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::MOV_8)
+                           .operand<uint32_t>(10) // srcOffset
+                           .operand<uint32_t>(11) // dstOffset
+                           .build();
+
+    ExecutionEvent ex_event_mov = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint64_t>(100) }, // src value
+        .output = MemoryValue::from<uint64_t>(100),     // dst value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(10),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(11),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_mov }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the mov
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 10),
+                          ROW_FIELD_EQ(execution_rop_1_, 11),
+                          ROW_FIELD_EQ(execution_register_0_, 100),
+                          ROW_FIELD_EQ(execution_register_1_, 100),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
 }
 
 } // namespace
