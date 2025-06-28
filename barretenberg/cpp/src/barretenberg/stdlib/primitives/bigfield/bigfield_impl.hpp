@@ -1617,31 +1617,61 @@ template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& other,
                                                               const bool_t<Builder>& predicate) const
 {
-    if (is_constant() && other.is_constant() && predicate.is_constant()) {
+    // If the predicate is constant, the conditional selection can be done out of circuit
+    if (predicate.is_constant()) {
         if (predicate.get_value()) {
             return other;
         }
         return *this;
     }
+
+    // If both elements are the same, we can just return one of them
+    auto is_limb_same = [](const field_ct& a, const field_ct& b) {
+        const bool is_witness_index_same = a.get_witness_index() == b.get_witness_index();
+        const bool is_add_constant_same = a.additive_constant == b.additive_constant;
+        const bool is_mul_constant_same = a.multiplicative_constant == b.multiplicative_constant;
+        return is_witness_index_same && is_add_constant_same && is_mul_constant_same;
+    };
+
+    bool is_limb_0_same = is_limb_same(binary_basis_limbs[0].element, other.binary_basis_limbs[0].element);
+    bool is_limb_1_same = is_limb_same(binary_basis_limbs[1].element, other.binary_basis_limbs[1].element);
+    bool is_limb_2_same = is_limb_same(binary_basis_limbs[2].element, other.binary_basis_limbs[2].element);
+    bool is_limb_3_same = is_limb_same(binary_basis_limbs[3].element, other.binary_basis_limbs[3].element);
+    bool is_prime_limb_same = is_limb_same(prime_basis_limb, other.prime_basis_limb);
+    if (is_limb_0_same && is_limb_1_same && is_limb_2_same && is_limb_3_same && is_prime_limb_same) {
+        return *this;
+    }
+
     Builder* ctx = context ? context : (other.context ? other.context : predicate.context);
 
     // For each limb, we must select:
-    // `this` is predicate == 0
-    // `other` is predicate == 1
+    // `this` if predicate == 0
+    // `other` if predicate == 1
     //
-    // The conditional assign in field works as follows: conditional_assign(predicate, lhs, rhs)
-    // predicate == 0 ==> lhs
-    // predicate == 1 ==> rhs
+    // Thus, we compute the resulting limb as follows:
+    // result.limb := predicate * (other.limb - this.limb) + this.limb.
     //
-    field_ct binary_limb_0 =
-        field_ct::conditional_assign(predicate, other.binary_basis_limbs[0].element, binary_basis_limbs[0].element);
-    field_ct binary_limb_1 =
-        field_ct::conditional_assign(predicate, other.binary_basis_limbs[1].element, binary_basis_limbs[1].element);
-    field_ct binary_limb_2 =
-        field_ct::conditional_assign(predicate, other.binary_basis_limbs[2].element, binary_basis_limbs[2].element);
-    field_ct binary_limb_3 =
-        field_ct::conditional_assign(predicate, other.binary_basis_limbs[3].element, binary_basis_limbs[3].element);
-    field_ct prime_limb = field_ct::conditional_assign(predicate, other.prime_basis_limb, prime_basis_limb);
+    // Note that each call to `madd` will add a gate as predicate is a witness at this point.
+    // There can be edge cases where `this` and `other` are both constants and only differ in one limb.
+    // In such a case, the `madd` for the differing limb will be a no-op (i.e., redundant gate), as the
+    // difference will be zero. For example,
+    //        binary limbs           prime limb
+    // this:  (0x5, 0x1, 0x0, 0x0)   (0x100000000000000005)
+    // other: (0x7, 0x1, 0x0, 0x0)   (0x100000000000000007)
+    // Here, the `madd` for the second, third and fourth binary limbs will be a no-op, as the difference
+    // between `this` and `other` is zero for those limbs.
+    //
+    // We allow this to happen because we want to maintain limb consistency (i.e., all limbs either witness or
+    // constant).
+    field_ct binary_limb_0 = field_ct(predicate).madd(
+        other.binary_basis_limbs[0].element - binary_basis_limbs[0].element, binary_basis_limbs[0].element);
+    field_ct binary_limb_1 = field_ct(predicate).madd(
+        other.binary_basis_limbs[1].element - binary_basis_limbs[1].element, binary_basis_limbs[1].element);
+    field_ct binary_limb_2 = field_ct(predicate).madd(
+        other.binary_basis_limbs[2].element - binary_basis_limbs[2].element, binary_basis_limbs[2].element);
+    field_ct binary_limb_3 = field_ct(predicate).madd(
+        other.binary_basis_limbs[3].element - binary_basis_limbs[3].element, binary_basis_limbs[3].element);
+    field_ct prime_limb = field_ct(predicate).madd(other.prime_basis_limb - prime_basis_limb, prime_basis_limb);
 
     bigfield result(ctx);
     // the maximum of the maximal values of elements is large enough
