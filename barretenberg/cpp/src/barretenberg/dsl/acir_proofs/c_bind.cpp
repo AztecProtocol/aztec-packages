@@ -48,7 +48,8 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
     auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
-    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<UltraFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
     UltraProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
@@ -70,7 +71,8 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
     auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<MegaFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
     MegaProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
@@ -326,7 +328,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
-    VerificationKey vk(proving_key.proving_key);
+    VerificationKey vk(proving_key.polynomials, proving_key.metadata);
     vinfo("Constructed UltraHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
@@ -344,7 +346,7 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
-    VerificationKey vk(proving_key.proving_key);
+    VerificationKey vk(proving_key.polynomials, proving_key.metadata);
     vinfo("Constructed UltraKeccakHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
@@ -362,7 +364,7 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_zk_honk(uint8_t const* acir_vec, uin
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
-    VerificationKey vk(proving_key.proving_key);
+    VerificationKey vk(proving_key.polynomials, proving_key.metadata);
     vinfo("Constructed UltraKeccakZKHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 }
@@ -382,7 +384,7 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t cons
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
-    VerificationKey vk(proving_key.proving_key);
+    VerificationKey vk(proving_key.polynomials, proving_key.metadata);
     vinfo("Constructed UltraStarknetHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 #else
@@ -405,7 +407,7 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_zk_honk([[maybe_unused]] uint8_t c
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         return DeciderProvingKey(builder);
     }();
-    VerificationKey vk(proving_key.proving_key);
+    VerificationKey vk(proving_key.polynomials, proving_key.metadata);
     vinfo("Constructed UltraStarknetZKHonk verification key");
     *out = to_heap_buffer(to_buffer(vk));
 #else

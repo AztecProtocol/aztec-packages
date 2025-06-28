@@ -60,7 +60,8 @@ void write_standalone_vk(const std::string& output_data_type,
 
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->polynomials, proving_key->metadata);
     PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ PublicInputsVector{},
                                                                    HonkProof{},
                                                                    verification_key };
@@ -209,7 +210,8 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
             return false;
         }
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        auto computed_vk =
+            std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->polynomials, proving_key->metadata);
         std::string error_message = "FAIL: Precomputed vk does not match computed vk for function " + function_name;
         if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
             return false;

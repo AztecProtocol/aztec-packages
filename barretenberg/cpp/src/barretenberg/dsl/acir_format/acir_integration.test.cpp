@@ -62,7 +62,7 @@ class AcirIntegrationTest : public ::testing::Test {
         using VerificationKey = Flavor::VerificationKey;
 
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->polynomials, proving_key->metadata);
         Prover prover{ proving_key, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();

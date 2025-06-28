@@ -30,10 +30,10 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
     // k=1
     std::shared_ptr<DeciderProvingKey> decider_pk_1 = construct_key();
-    auto honk_vk_1 = std::make_shared<Flavor::VerificationKey>(decider_pk_1->proving_key);
+    auto honk_vk_1 = std::make_shared<Flavor::VerificationKey>(decider_pk_1->polynomials, decider_pk_1->metadata);
     auto decider_vk_1 = std::make_shared<DeciderVerificationKey>(honk_vk_1);
     std::shared_ptr<DeciderProvingKey> decider_pk_2 = construct_key();
-    auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(decider_pk_2->proving_key);
+    auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(decider_pk_2->polynomials, decider_pk_2->metadata);
     auto decider_vk_2 = std::make_shared<DeciderVerificationKey>(honk_vk_2);
     std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
         std::make_shared<typename ProtogalaxyProver::Transcript>();

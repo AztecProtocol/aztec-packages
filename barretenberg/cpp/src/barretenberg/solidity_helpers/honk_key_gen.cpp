@@ -24,7 +24,7 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
     stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->polynomials, proving_key->metadata);
     UltraKeccakProver prover(proving_key, verification_key);
 
     // Make verification key file upper case

@@ -134,7 +134,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
@@ -165,7 +165,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        expected_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        expected_vk = std::make_shared<OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
         OuterProver prover(proving_key, expected_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
 
@@ -189,7 +189,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        actual_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        actual_vk = std::make_shared<OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
         OuterProver prover(proving_key, actual_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
     }

@@ -166,7 +166,8 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         for (auto& inner_circuit : inner_circuits) {
 
             auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-            auto verification_key = std::make_shared<InnerVerificationKey>(proving_key->proving_key);
+            auto verification_key =
+                std::make_shared<InnerVerificationKey>(proving_key->polynomials, proving_key->metadata);
             InnerProver prover(proving_key, verification_key);
             InnerVerifier verifier(verification_key);
             auto inner_proof = prover.construct_proof();
@@ -243,12 +244,13 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
                                                                                        /*dummy_witnesses=*/true);
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
-    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
 
     auto proving_key_dummy =
         std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit_with_dummy_witnesses);
-    auto verification_key_dummy =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key_dummy->proving_key);
+    auto verification_key_dummy = std::make_shared<typename TestFixture::OuterVerificationKey>(
+        proving_key_dummy->polynomials, proving_key_dummy->metadata);
 
     // Compare the two vks
     EXPECT_EQ(*verification_key_dummy, *verification_key);
@@ -265,7 +267,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
-    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
@@ -293,7 +296,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
-    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
@@ -360,7 +364,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
-    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
@@ -416,7 +421,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
-    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();

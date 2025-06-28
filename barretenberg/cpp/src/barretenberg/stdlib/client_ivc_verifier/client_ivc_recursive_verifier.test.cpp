@@ -114,7 +114,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
-    auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    auto native_vk_with_ipa =
+        std::make_shared<NativeFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
     UltraProver_<NativeFlavor> tube_prover{ proving_key, native_vk_with_ipa };
     // Prove the CIVCRecursiveVerifier circuit
     auto native_tube_proof = tube_prover.construct_proof();
@@ -126,7 +127,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
-    auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
     auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
     auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
@@ -174,7 +175,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
         auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
 
-        auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+        auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
 
         return { tube_builder->blocks, tube_vk };
     };

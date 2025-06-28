@@ -122,10 +122,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->polynomials, decider_pk_1->metadata);
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->polynomials, decider_pk_2->metadata);
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
                                           { decider_vk_1, decider_vk_2 },
@@ -192,10 +192,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->polynomials, decider_pk_1->metadata);
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->polynomials, decider_pk_2->metadata);
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
         InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
@@ -269,7 +269,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
+            auto honk_vk =
+                std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->polynomials, decider_pk->metadata);
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
@@ -296,10 +297,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         create_function_circuit(builder2);
 
         auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->polynomials, decider_pk_1->metadata);
         auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->polynomials, decider_pk_2->metadata);
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
         InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
@@ -369,7 +370,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         {
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(decider_circuit);
-            auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
+            auto honk_vk =
+                std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->polynomials, decider_pk->metadata);
             OuterProver prover(decider_pk, honk_vk);
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
@@ -411,7 +413,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         InnerBuilder builder;
         create_function_circuit(builder);
         auto prover_inst = std::make_shared<InnerDeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->proving_key);
+        auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->polynomials, prover_inst->metadata);
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
         // Corrupt a wire value in the accumulator
@@ -462,9 +464,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             // Generate a folding proof
             auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
             auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-            auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
+            auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->polynomials, decider_pk_1->metadata);
             auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
-            auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
+            auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->polynomials, decider_pk_2->metadata);
             auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
             InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
                                               { decider_vk_1, decider_vk_2 },

@@ -46,7 +46,8 @@ BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index)
         }
     };
     // why is this mega if the name of file is ultra
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
+    auto verification_key =
+        std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->polynomials, prover.proving_key->metadata);
     OinkProver<MegaFlavor> oink_prover(prover.proving_key, verification_key, prover.transcript);
     time_if_index(PREAMBLE, [&] { oink_prover.execute_preamble_round(); });
     time_if_index(WIRE_COMMITMENTS, [&] { oink_prover.execute_wire_commitments_round(); });

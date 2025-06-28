@@ -128,7 +128,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         // Construct a full proof from the recursive verifier circuit
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->polynomials,
+                                                                                            proving_key->metadata);
             OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
@@ -227,8 +228,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto outer_verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->proving_key);
+            auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(
+                outer_proving_key->polynomials, outer_proving_key->metadata);
 
             return { outer_circuit.blocks, outer_verification_key };
         };

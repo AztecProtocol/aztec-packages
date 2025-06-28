@@ -29,7 +29,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(instance->polynomials, instance->metadata);
     Prover prover(instance, verification_key);
     Verifier verifier(verification_key);
 

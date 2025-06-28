@@ -62,7 +62,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::fi
     auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
     return { PublicInputsVector{},
              HonkProof{},
-             std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key) };
+             std::make_shared<typename Flavor::VerificationKey>(proving_key->polynomials, proving_key->metadata) };
 }
 
 template <typename Flavor>
@@ -75,7 +75,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (compute_vk) {
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
-        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
     } else {
         vk = std::make_shared<typename Flavor::VerificationKey>(
             from_buffer<typename Flavor::VerificationKey>(read_file(vk_path)));
@@ -296,7 +296,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
     using FF = typename Flavor::FF;
 
     std::shared_ptr<DeciderProvingKey_<Flavor>> proving_key = _compute_proving_key<Flavor>(bytecode_path, witness_path);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->polynomials, proving_key->metadata);
     Prover prover{ proving_key, verification_key };
     std::vector<FF> proof = prover.construct_proof();
 

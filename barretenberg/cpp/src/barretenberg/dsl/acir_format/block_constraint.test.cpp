@@ -28,7 +28,7 @@ class MegaHonk : public ::testing::Test {
     static bool prove_and_verify(Builder& circuit)
     {
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(circuit);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->polynomials, proving_key->metadata);
         Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
 

@@ -51,7 +51,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
     auto tube_verification_key =
-        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->proving_key);
+        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
 
     Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
