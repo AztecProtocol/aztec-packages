@@ -131,7 +131,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         }
         PGInternal pg_internal;
         auto full_honk_evals = pg_internal.compute_row_evaluations(
-            decider_pk->proving_key.polynomials, decider_pk->alphas, decider_pk->relation_parameters);
+            decider_pk->polynomials, decider_pk->alphas, decider_pk->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
         for (const auto& eval : full_honk_evals.coeffs()) {
@@ -200,7 +200,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         }
 
         auto accumulator = std::make_shared<DeciderProvingKey>();
-        accumulator->proving_key.polynomials = std::move(full_polynomials);
+        accumulator->polynomials = std::move(full_polynomials);
         accumulator->proving_key.log_circuit_size = log_size;
         accumulator->gate_challenges = betas;
         accumulator->target_sum = target_sum;
@@ -568,7 +568,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator));
 
         // Tamper with an accumulator polynomial
-        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
+        prover_accumulator->polynomials.w_l.at(1) = FF::random_element();
         EXPECT_FALSE(check_accumulator_target_sum_manual(prover_accumulator));
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair

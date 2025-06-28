@@ -429,7 +429,6 @@ class MegaFlavor {
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         // Data pertaining to transfer of databus return data via public inputs
         DatabusPropagationData databus_propagation_data;
@@ -476,19 +475,6 @@ class MegaFlavor {
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
         }
-
-        // VerificationKey(ProvingKey& proving_key)
-        // {
-        //     set_metadata(proving_key);
-        //     auto& ck = proving_key.commitment_key;
-        //     if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
-        //         ck = CommitmentKey(proving_key.circuit_size);
-        //     }
-        //     for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(),
-        //     this->get_all())) {
-        //         commitment = ck.commit(polynomial);
-        //     }
-        // }
 
         VerificationKey(ProverPolynomials& polynomials, const auto& metadata)
         {

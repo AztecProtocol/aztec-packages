@@ -44,14 +44,14 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
             CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+            sumcheck_output = sumcheck.prove(proving_key->polynomials,
                                              proving_key->relation_parameters,
                                              proving_key->alphas,
                                              proving_key->gate_challenges,
                                              zk_sumcheck_data);
         } else {
 
-            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+            sumcheck_output = sumcheck.prove(proving_key->polynomials,
                                              proving_key->relation_parameters,
                                              proving_key->alphas,
                                              proving_key->gate_challenges);
@@ -76,8 +76,8 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     }
 
     PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
-    polynomial_batcher.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(proving_key->proving_key.polynomials.get_to_be_shifted());
+    polynomial_batcher.set_unshifted(proving_key->polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_shifted_by_one(proving_key->polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {

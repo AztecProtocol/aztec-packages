@@ -132,7 +132,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
         std::make_shared<typename TypeParam::VerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
-    auto& polynomials = proving_key->proving_key.polynomials;
+    auto& polynomials = proving_key->polynomials;
 
     auto ensure_non_zero = [](auto& polynomial) {
         bool has_non_zero_coefficient = false;
@@ -307,7 +307,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
+        auto& polynomials = proving_key->polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
         // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
@@ -329,7 +329,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
+        auto& polynomials = proving_key->polynomials;
 
         bool altered = false;
         // Find a lookup gate and alter one of the wire values
@@ -349,7 +349,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto builder = construct_circuit_with_lookups();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
+        auto& polynomials = proving_key->polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
         polynomials.lookup_inverses = polynomials.lookup_inverses.full();

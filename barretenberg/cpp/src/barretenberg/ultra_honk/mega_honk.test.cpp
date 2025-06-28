@@ -200,9 +200,9 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     auto proof = prover.construct_proof();
 
     // Sanity check: ensure z_perm is not zero everywhere
-    EXPECT_TRUE(!proving_key->proving_key.polynomials.z_perm.is_zero());
+    EXPECT_TRUE(!proving_key->polynomials.z_perm.is_zero());
 
-    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
 
     EXPECT_TRUE(verifier.verify_proof(proof));
 }
@@ -238,7 +238,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     auto circuit_size = proving_key->proving_key.circuit_size;
 
     auto doubled_circuit_size = 2 * circuit_size;
-    proving_key_copy->proving_key.polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
+    proving_key_copy->polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158)
     // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
 
@@ -257,13 +257,13 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
-    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
-    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
 }
 
@@ -463,14 +463,14 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
     for (size_t i = 0; i < proving_key_1->proving_key.circuit_size; ++i) {
-        if (proving_key_1->proving_key.polynomials.q_arith[i] != 0) {
-            proving_key_1->proving_key.polynomials.w_l.at(i) += 1;
+        if (proving_key_1->polynomials.q_arith[i] != 0) {
+            proving_key_1->polynomials.w_l.at(i) += 1;
             break;
         }
     }
 
     // Swap the polys of the two proving keys; result should be pkey 1 is valid and pkey 2 should fail
-    std::swap(proving_key_1->proving_key.polynomials, proving_key_2->proving_key.polynomials);
+    std::swap(proving_key_1->polynomials, proving_key_2->polynomials);
 
     { // Verification based on pkey 1 should succeed
         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->polynomials,

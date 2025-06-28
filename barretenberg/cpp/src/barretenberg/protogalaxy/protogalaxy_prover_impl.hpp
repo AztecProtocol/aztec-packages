@@ -127,8 +127,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     accumulator->is_accumulator = true;
 
     // At this point the virtual sizes of the polynomials should already agree
-    BB_ASSERT_EQ(accumulator->proving_key.polynomials.w_l.virtual_size(),
-                 incoming->proving_key.polynomials.w_l.virtual_size());
+    BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
@@ -144,7 +143,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
     if (incoming->overflow_size > accumulator->overflow_size) {
-        std::swap(accumulator->proving_key.polynomials, incoming->proving_key.polynomials);   // swap the polys
+        std::swap(accumulator->polynomials, incoming->polynomials);                           // swap the polys
         std::swap(accumulator->proving_key.circuit_size, incoming->proving_key.circuit_size); // swap circuit size
         std::swap(accumulator->proving_key.log_circuit_size, incoming->proving_key.log_circuit_size);
         std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
@@ -153,11 +152,11 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     }
 
     // Fold the proving key polynomials
-    for (auto& poly : accumulator->proving_key.polynomials.get_unshifted()) {
+    for (auto& poly : accumulator->polynomials.get_unshifted()) {
         poly *= lagranges[0];
     }
-    for (auto [acc_poly, key_poly] : zip_view(accumulator->proving_key.polynomials.get_unshifted(),
-                                              incoming->proving_key.polynomials.get_unshifted())) {
+    for (auto [acc_poly, key_poly] :
+         zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
         acc_poly.add_scaled(key_poly, lagranges[1]);
     }
 
@@ -192,7 +191,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> Proto
                  keys_to_fold[idx]->proving_key.circuit_size,
                  " to ",
                  max_circuit_size);
-            keys_to_fold[idx]->proving_key.polynomials.increase_polynomials_virtual_size(max_circuit_size);
+            keys_to_fold[idx]->polynomials.increase_polynomials_virtual_size(max_circuit_size);
         }
     }
 

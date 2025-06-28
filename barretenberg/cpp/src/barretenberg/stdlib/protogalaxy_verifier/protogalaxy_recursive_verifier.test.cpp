@@ -417,7 +417,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
         // Corrupt a wire value in the accumulator
-        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element(&engine);
+        prover_accumulator->polynomials.w_l.at(1) = FF::random_element(&engine);
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum

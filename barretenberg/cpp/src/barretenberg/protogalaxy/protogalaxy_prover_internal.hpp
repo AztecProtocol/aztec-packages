@@ -254,8 +254,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                        const std::vector<FF>& deltas)
     {
         PROFILE_THIS();
-        auto full_honk_evaluations = compute_row_evaluations(
-            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
+        auto full_honk_evaluations =
+            compute_row_evaluations(accumulator->polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         BB_ASSERT_EQ(betas.size(), deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
@@ -367,7 +367,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
         // the incoming key which could have nontrivial values on the larger domain in case of overflow.
-        const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
+        const size_t common_polynomial_size = keys[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
