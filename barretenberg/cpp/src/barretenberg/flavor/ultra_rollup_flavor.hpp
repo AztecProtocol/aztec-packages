@@ -19,12 +19,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
 
     using UltraFlavor::UltraFlavor;
-    class ProvingKey : public UltraFlavor::ProvingKey {
-      public:
-        using UltraFlavor::ProvingKey::ProvingKey;
-        PublicComponentKey ipa_claim_public_input_key;
-        HonkProof ipa_proof;
-    };
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)

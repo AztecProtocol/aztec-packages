@@ -423,24 +423,6 @@ class MegaFlavor {
     };
 
     /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
-      public:
-        using Base = ProvingKey_<FF, CommitmentKey>;
-
-        ProvingKey() = default;
-        ProvingKey(const size_t circuit_size,
-                   const size_t num_public_inputs,
-                   CommitmentKey commitment_key = CommitmentKey())
-            : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        // Data pertaining to transfer of databus return data via public inputs
-        DatabusPropagationData databus_propagation_data;
-    };
-
-    /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
      *

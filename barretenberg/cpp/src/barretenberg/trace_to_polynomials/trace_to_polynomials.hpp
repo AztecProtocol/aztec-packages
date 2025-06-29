@@ -18,7 +18,6 @@ template <class Flavor> class TraceToPolynomials {
     using FF = typename Flavor::FF;
     using ExecutionTrace = typename Builder::ExecutionTrace;
     using Wires = std::array<SlabVector<uint32_t>, Builder::NUM_WIRES>;
-    using ProvingKey = typename Flavor::ProvingKey;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
   public:

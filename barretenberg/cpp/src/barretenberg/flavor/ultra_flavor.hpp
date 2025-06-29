@@ -329,20 +329,6 @@ class UltraFlavor {
             }
         }
     };
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
-      public:
-        using Base = ProvingKey_<FF, CommitmentKey>;
-
-        ProvingKey() = default;
-        ProvingKey(const size_t dyadic_circuit_size,
-                   const size_t num_public_inputs,
-                   CommitmentKey commitment_key = CommitmentKey())
-            : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)){};
-    };
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)

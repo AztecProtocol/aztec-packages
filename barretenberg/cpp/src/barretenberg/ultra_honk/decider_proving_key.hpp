@@ -34,7 +34,6 @@ namespace bb {
 
 template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
-    using ProvingKey = typename Flavor::ProvingKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -124,7 +123,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         {
             PROFILE_THIS_NAME("allocating proving key");
 
-            // proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key_in);
             /************ INIT PK DATA ***************/
             commitment_key = commitment_key_in;
             metadata.circuit_size = dyadic_circuit_size;
