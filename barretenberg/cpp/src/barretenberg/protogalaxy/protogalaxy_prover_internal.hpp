@@ -258,7 +258,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             compute_row_evaluations(accumulator->polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         BB_ASSERT_EQ(betas.size(), deltas.size());
-        const size_t log_circuit_size = accumulator->metadata.log_circuit_size;
+        const size_t log_circuit_size = accumulator->log_dyadic_size();
 
         // Compute the perturbator using only the first log_circuit_size-many betas/deltas
         std::vector<FF> perturbator = construct_perturbator_coefficients(std::span{ betas.data(), log_circuit_size },

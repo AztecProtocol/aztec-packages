@@ -270,7 +270,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_circuit_size);
+    info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
 
     if constexpr (HasIPAAccumulator<TypeParam>) {
@@ -299,7 +299,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_circuit_size);
+    info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
     if constexpr (HasIPAAccumulator<TypeParam>) {
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
@@ -367,7 +367,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_circuit_size);
+    info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
     if constexpr (HasIPAAccumulator<TypeParam>) {
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
@@ -424,7 +424,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     auto verification_key =
         std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     typename TestFixture::OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_circuit_size);
+    info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
     if constexpr (HasIPAAccumulator<TypeParam>) {
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);

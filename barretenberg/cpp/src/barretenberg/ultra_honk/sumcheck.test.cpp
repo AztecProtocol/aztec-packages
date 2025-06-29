@@ -154,7 +154,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     auto prover_transcript = Transcript::prover_init_empty();
-    auto circuit_size = decider_pk->metadata.circuit_size;
+    auto circuit_size = decider_pk->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
     RelationSeparator prover_alphas;

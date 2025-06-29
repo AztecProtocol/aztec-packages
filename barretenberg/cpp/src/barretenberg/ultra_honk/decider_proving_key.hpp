@@ -50,7 +50,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     struct MetaData {
         size_t circuit_size;
         size_t num_public_inputs;
-        size_t log_circuit_size;
         size_t pub_inputs_offset = 0;
         PublicComponentKey pairing_inputs_public_input_key;
         PublicComponentKey ipa_claim_public_input_key;
@@ -78,14 +77,17 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum{ 0 };
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
-    size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
 
     size_t overflow_size{ 0 }; // size of the structured execution trace overflow
 
+    size_t dyadic_size() const { return metadata.circuit_size; }
+    size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
+
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
-                       CommitmentKey commitment_key_in = CommitmentKey())
+                       CommitmentKey commitment_key = CommitmentKey())
         : is_structured(trace_settings.structure.has_value())
+        , commitment_key(commitment_key)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
@@ -93,9 +95,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
-        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
+        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size'
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
-            dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+            metadata.circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
@@ -104,9 +106,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
-                dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
+                metadata.circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
             } else {
-                dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+                metadata.circuit_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
             }
         }
 
@@ -124,9 +126,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("allocating proving key");
 
             /************ INIT PK DATA ***************/
-            commitment_key = commitment_key_in;
-            metadata.circuit_size = dyadic_circuit_size;
-            metadata.log_circuit_size = numeric::get_msb(dyadic_circuit_size);
             metadata.num_public_inputs = circuit.public_inputs.size();
             metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
 
@@ -146,7 +145,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
-                polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
+                polynomials = ProverPolynomials(dyadic_size());
             } else { // Allocate only a correct amount of memory for each polynomial
                 allocate_wires();
 
@@ -192,14 +191,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
+                polynomials.get_tables(), circuit, dyadic_size(), NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {
             PROFILE_THIS_NAME("constructing lookup read counts");
 
             construct_lookup_read_counts<Flavor>(
-                polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_circuit_size);
+                polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_size());
         }
         { // Public inputs handling
             for (size_t i = 0; i < metadata.num_public_inputs; ++i) {

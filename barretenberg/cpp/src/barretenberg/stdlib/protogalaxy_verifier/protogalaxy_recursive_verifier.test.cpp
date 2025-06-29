@@ -268,7 +268,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
-            info("Dyadic size of verifier circuit: ", decider_pk->dyadic_circuit_size);
+            info("Dyadic size of verifier circuit: ", decider_pk->dyadic_size());
             auto honk_vk =
                 std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->polynomials, decider_pk->metadata);
             OuterProver prover(decider_pk, honk_vk);

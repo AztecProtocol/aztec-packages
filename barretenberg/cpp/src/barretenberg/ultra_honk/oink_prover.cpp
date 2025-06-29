@@ -20,7 +20,7 @@ namespace bb {
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
     if (!proving_key->commitment_key.initialized()) {
-        proving_key->commitment_key = CommitmentKey(proving_key->dyadic_circuit_size);
+        proving_key->commitment_key = CommitmentKey(proving_key->dyadic_size());
     }
     {
 
@@ -197,7 +197,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
 
     // Compute the inverses used in log-derivative lookup relations
     WitnessComputation<Flavor>::compute_logderivative_inverses(
-        proving_key->polynomials, proving_key->metadata.circuit_size, proving_key->relation_parameters);
+        proving_key->polynomials, proving_key->dyadic_size(), proving_key->relation_parameters);
 
     {
         PROFILE_THIS_NAME("COMMIT::lookup_inverses");
@@ -230,7 +230,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     WitnessComputation<Flavor>::compute_grand_product_polynomial(proving_key->polynomials,
                                                                  proving_key->public_inputs,
                                                                  proving_key->metadata.pub_inputs_offset,
-                                                                 proving_key->metadata.circuit_size,
+                                                                 proving_key->dyadic_size(),
                                                                  proving_key->active_region_data,
                                                                  proving_key->relation_parameters,
                                                                  proving_key->final_active_wire_idx + 1);

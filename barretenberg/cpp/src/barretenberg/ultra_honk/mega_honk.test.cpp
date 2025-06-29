@@ -235,7 +235,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
-    auto circuit_size = proving_key->dyadic_circuit_size;
+    auto circuit_size = proving_key->dyadic_size();
 
     auto doubled_circuit_size = 2 * circuit_size;
     proving_key_copy->polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
@@ -462,7 +462,7 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
-    for (size_t i = 0; i < proving_key_1->dyadic_circuit_size; ++i) {
+    for (size_t i = 0; i < proving_key_1->dyadic_size(); ++i) {
         if (proving_key_1->polynomials.q_arith[i] != 0) {
             proving_key_1->polynomials.w_l.at(i) += 1;
             break;

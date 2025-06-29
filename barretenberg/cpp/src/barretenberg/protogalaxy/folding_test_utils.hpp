@@ -26,7 +26,7 @@ static bool check_accumulator_target_sum_manual(const std::shared_ptr<DeciderPro
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, 2>;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
-    const size_t accumulator_size = accumulator->metadata.circuit_size;
+    const size_t accumulator_size = accumulator->dyadic_size();
     PGInternal pg_internal;
     const auto expected_honk_evals = pg_internal.compute_row_evaluations(
         accumulator->polynomials, accumulator->alphas, accumulator->relation_parameters);

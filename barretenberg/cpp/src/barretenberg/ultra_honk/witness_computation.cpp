@@ -140,13 +140,12 @@ void WitnessComputation<Flavor>::complete_proving_key_for_test(
                                          decider_pk->relation_parameters.eta_two,
                                          decider_pk->relation_parameters.eta_three);
 
-    compute_logderivative_inverses(
-        decider_pk->polynomials, decider_pk->metadata.circuit_size, decider_pk->relation_parameters);
+    compute_logderivative_inverses(decider_pk->polynomials, decider_pk->dyadic_size(), decider_pk->relation_parameters);
 
     compute_grand_product_polynomial(decider_pk->polynomials,
                                      decider_pk->public_inputs,
                                      decider_pk->metadata.pub_inputs_offset,
-                                     decider_pk->metadata.circuit_size,
+                                     decider_pk->dyadic_size(),
                                      decider_pk->active_region_data,
                                      decider_pk->relation_parameters,
                                      decider_pk->final_active_wire_idx + 1);

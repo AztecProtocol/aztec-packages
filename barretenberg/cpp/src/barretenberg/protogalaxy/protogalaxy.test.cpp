@@ -201,7 +201,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto accumulator = std::make_shared<DeciderProvingKey>();
         accumulator->polynomials = std::move(full_polynomials);
-        accumulator->metadata.log_circuit_size = log_size;
+        accumulator->metadata.circuit_size = 1 << log_size;
         accumulator->gate_challenges = betas;
         accumulator->target_sum = target_sum;
         accumulator->relation_parameters = relation_parameters;
@@ -442,7 +442,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
-        info(prover_accumulator_2->dyadic_circuit_size);
+        info(prover_accumulator_2->dyadic_size());
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
     }
 
@@ -480,7 +480,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         }
 
         // Ensure the dyadic size of the first key is strictly less than that of the second
-        EXPECT_TRUE(decider_pks[0]->dyadic_circuit_size < decider_pks[1]->dyadic_circuit_size);
+        EXPECT_TRUE(decider_pks[0]->dyadic_size() < decider_pks[1]->dyadic_size());
 
         // The size discrepency should be automatically handled by the PG prover via a virtual size increase
         const auto [prover_accumulator, verifier_accumulator] =
@@ -529,7 +529,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto [prover_accumulator_2, verifier_accumulator_2] =
             fold_and_verify({ prover_accumulator, get<0>(keys_2)[0] }, { verifier_accumulator, get<1>(keys_2)[0] });
         EXPECT_TRUE(check_accumulator_target_sum_manual(prover_accumulator_2));
-        info(prover_accumulator_2->dyadic_circuit_size);
+        info(prover_accumulator_2->dyadic_size());
 
         // Decide on final accumulator
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);

@@ -161,7 +161,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(
                 inner_proving_key->polynomials, inner_proving_key->metadata);
             InnerProver inner_prover(inner_proving_key, verification_key);
-            info("test circuit size: ", inner_proving_key->dyadic_circuit_size);
+            info("test circuit size: ", inner_proving_key->dyadic_size());
             auto inner_proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
