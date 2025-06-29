@@ -25,14 +25,6 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
 
     auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
 
-    // proving_key.pub_inputs_offset = builder.blocks.pub_inputs.trace_offset();
-
-    // {
-    //     PROFILE_THIS_NAME("add_memory_records_to_proving_key");
-
-    //     add_memory_records_to_proving_key(builder, proving_key);
-    // }
-
     if constexpr (IsMegaFlavor<Flavor>) {
         PROFILE_THIS_NAME("add_ecc_op_wires_to_proving_key");
 
@@ -46,24 +38,6 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
         compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
     }
 }
-
-// template <class Flavor>
-// void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(Builder& builder,
-//                                                                    typename Flavor::ProvingKey& proving_key)
-// {
-//     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
-
-//     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
-//     uint32_t ram_rom_offset = builder.blocks.aux.trace_offset();
-//     proving_key.memory_read_records.reserve(builder.memory_read_records.size());
-//     for (auto& index : builder.memory_read_records) {
-//         proving_key.memory_read_records.emplace_back(index + ram_rom_offset);
-//     }
-//     proving_key.memory_write_records.reserve(builder.memory_write_records.size());
-//     for (auto& index : builder.memory_write_records) {
-//         proving_key.memory_write_records.emplace_back(index + ram_rom_offset);
-//     }
-// }
 
 template <class Flavor>
 std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
