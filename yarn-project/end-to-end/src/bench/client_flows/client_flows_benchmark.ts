@@ -145,7 +145,7 @@ export class ClientFlowsBenchmark {
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
     const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
-    this.chainMonitor = new ChainMonitor(rollupContract, this.logger, 200).start();
+    this.chainMonitor = new ChainMonitor(rollupContract, context.dateProvider, this.logger, 200).start();
 
     return this;
   }
