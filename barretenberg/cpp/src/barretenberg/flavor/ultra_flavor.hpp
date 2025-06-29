@@ -360,7 +360,7 @@ class UltraFlavor {
             this->pub_inputs_offset = metadata.pub_inputs_offset;
             this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
 
-            auto commitment_key = CommitmentKey(metadata.circuit_size);
+            CommitmentKey commitment_key{ metadata.circuit_size };
             for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }

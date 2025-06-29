@@ -46,7 +46,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
   public:
     using Trace = TraceToPolynomials<Flavor>;
 
-    /*************** PK *****************/
+    // Data about trace size and public inputs
     struct MetaData {
         size_t circuit_size = 0;
         size_t num_public_inputs = 0;
@@ -54,30 +54,26 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         PublicComponentKey pairing_inputs_public_input_key;
         PublicComponentKey ipa_claim_public_input_key;
         DatabusPropagationData databus_propagation_data;
-    };
+    } metadata;
 
-    MetaData metadata;
-
-    CommitmentKey commitment_key;
     std::vector<FF> public_inputs;
-    ActiveRegionData active_region_data; // specifies active regions of execution trace
+    ProverPolynomials polynomials; // the multilinear polynomials used by the prover
+    RelationSeparator alphas;      // a challenge for each subrelation
+    bb::RelationParameters<FF> relation_parameters;
+    std::vector<FF> gate_challenges;
+    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accmumulator
 
-    HonkProof ipa_proof;
+    HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
+    bool is_accumulator = false;
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 
-    ProverPolynomials polynomials; // the multilinear polynomials used by the prover
+    CommitmentKey commitment_key;
 
-    bool is_accumulator = false;
-    RelationSeparator alphas; // a challenge for each subrelation
-    bb::RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
-    FF target_sum{ 0 };
-    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
-
-    size_t overflow_size{ 0 }; // size of the structured execution trace overflow
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
+    size_t final_active_wire_idx{ 0 };   // idx of last non-trivial wire value in the trace
+    size_t overflow_size{ 0 };           // size of the structured execution trace overflow
 
     size_t dyadic_size() const { return metadata.circuit_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
@@ -99,7 +95,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         circuit.finalize_circuit(/* ensure_nonzero = */ true);
 
-        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size'
+        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
             metadata.circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {

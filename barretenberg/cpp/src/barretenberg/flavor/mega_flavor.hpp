@@ -459,7 +459,7 @@ class MegaFlavor {
         {
             set_metadata(metadata);
 
-            auto commitment_key = CommitmentKey(metadata.circuit_size);
+            CommitmentKey commitment_key{ metadata.circuit_size };
             for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }

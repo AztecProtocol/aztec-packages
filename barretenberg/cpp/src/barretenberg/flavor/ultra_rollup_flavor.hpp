@@ -106,7 +106,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
             this->ipa_claim_public_input_key = metadata.ipa_claim_public_input_key;
 
-            auto commitment_key = CommitmentKey(metadata.circuit_size);
+            CommitmentKey commitment_key{ metadata.circuit_size };
             for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
