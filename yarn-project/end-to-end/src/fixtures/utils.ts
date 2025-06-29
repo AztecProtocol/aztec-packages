@@ -609,7 +609,7 @@ export async function setup(
     ) {
       // We need to advance to epoch 2 such that the committee is set up.
       logger.info(`Advancing to epoch 2`);
-      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+      await cheatCodes.rollup.advanceToEpoch(2n, { resetBlockInterval: true, updateDateProvider: dateProvider });
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
