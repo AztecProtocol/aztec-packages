@@ -81,10 +81,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 124;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2184;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2180;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 242;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2550;
+    static constexpr size_t NUM_ALL_ENTITIES = 2546;
 
     // Need to be templated for recursive verifier
     template <typename FF_>

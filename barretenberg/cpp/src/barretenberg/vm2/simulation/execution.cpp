@@ -161,11 +161,10 @@ void Execution::cd_copy(ContextInterface& context,
     auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
-    // todo: this cant be guarateed to be a u32
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
 
     try {
-        data_copy.cd_copy(context, cd_copy_size, cd_offset_read, dst_addr);
+        data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
     } catch (const std::exception& e) {
         // re throw - change to a more specific exception later
         throw std::runtime_error("cd copy failed: " + std::string(e.what()));
@@ -183,11 +182,10 @@ void Execution::rd_copy(ContextInterface& context,
     auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
-    // todo: this cant be guarateed to be a u32
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
 
     try {
-        data_copy.rd_copy(context, rd_copy_size, rd_offset_read, dst_addr);
+        data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
     } catch (const std::exception& e) {
         // re throw - change to a more specific exception later
         throw std::runtime_error("rd copy failed: " + std::string(e.what()));

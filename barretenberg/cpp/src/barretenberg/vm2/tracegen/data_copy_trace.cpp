@@ -33,6 +33,11 @@ void DataCopyTraceBuilder::process(
         bool is_top_level = event.read_context_id == 0;
         FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id).invert();
 
+        // While we know at this point data copy size and data offset are guaranteed to be U32
+        // we cast to a wider integer type to detect overflows
+        uint64_t copy_size = static_cast<uint64_t>(event.data_copy_size);
+        uint64_t data_offset = static_cast<uint64_t>(event.data_offset);
+
         trace.set(row,
                   { {
                       // Unconditional values
@@ -46,10 +51,8 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_src_context_id, event.read_context_id },
                       { C::data_copy_dst_context_id, event.write_context_id },
 
-                      { C::data_copy_copy_size, event.data_copy_size.as_ff() }, // FF since it could be anything
-                      { C::data_copy_copy_size_mem_tag, static_cast<uint8_t>(event.data_copy_size.get_tag()) },
-                      { C::data_copy_offset, event.data_offset.as_ff() }, // FF since it could be anything
-                      { C::data_copy_offset_mem_tag, static_cast<uint8_t>(event.data_offset.get_tag()) },
+                      { C::data_copy_copy_size, event.data_copy_size },
+                      { C::data_copy_offset, event.data_offset },
 
                       { C::data_copy_src_addr, event.data_addr },
                       { C::data_copy_src_data_size, event.data_size },
@@ -60,35 +63,10 @@ void DataCopyTraceBuilder::process(
                   } });
 
         /////////////////////////////
-        // Tag Check Error Handling
-        /////////////////////////////
-        // The first possible error is the tag check error for copy_size and data_offset.
-        // They need to be ValueTag::U32, otherwise we terminate immediately with an error.
-        if (event.data_copy_size.get_tag() != ValueTag::U32 || event.data_offset.get_tag() != ValueTag::U32) {
-            uint32_t copy_size_tag_diff =
-                static_cast<uint32_t>(event.data_copy_size.get_tag()) - static_cast<uint8_t>(ValueTag::U32);
-            uint32_t offset_tag_diff =
-                static_cast<uint32_t>(event.data_offset.get_tag()) - static_cast<uint8_t>(ValueTag::U32);
-            FF batch_tags_diff = copy_size_tag_diff + (offset_tag_diff << 3);
-            trace.set(row,
-                      { { { C::data_copy_sel_end, 1 },
-                          { C::data_copy_tag_check_err, 1 },
-                          { C::data_copy_err, 1 },
-                          { C::data_copy_batched_tags_diff_inv, batch_tags_diff.invert() } } });
-            row++;
-            continue; // Go to the next event
-        }
-
-        /////////////////////////////
         // Memory Address Range Check
         /////////////////////////////
         // The final possible error is to check that we do not try to read or write out of bounds memory.
         // Note: for enqueued calls, there is no out of bound read since we read from a column.
-
-        // At this point data copy size and data offset are guaranteed to be U32
-        // Cast to a wider integer type to detect overflows
-        uint64_t copy_size = static_cast<uint64_t>(event.data_copy_size.as<uint32_t>());
-        uint64_t data_offset = static_cast<uint64_t>(event.data_offset.as<uint32_t>());
 
         uint64_t max_read_size = std::min(data_offset + copy_size, static_cast<uint64_t>(event.data_size));
         // This helps in proving read_size = min(read_size, data_offset + copy_size)

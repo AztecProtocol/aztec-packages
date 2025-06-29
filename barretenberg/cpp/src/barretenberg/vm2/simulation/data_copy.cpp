@@ -15,8 +15,8 @@ namespace {
 
 DataCopyEvent create_cd_event(ContextInterface& context,
                               const uint32_t clk,
-                              const MemoryValue& cd_copy_size,
-                              const MemoryValue& cd_offset,
+                              const uint32_t cd_copy_size,
+                              const uint32_t cd_offset,
                               const MemoryAddress dst_addr,
                               const std::vector<FF>& calldata = {})
 {
@@ -35,8 +35,8 @@ DataCopyEvent create_cd_event(ContextInterface& context,
 
 DataCopyEvent create_rd_event(ContextInterface& context,
                               const uint32_t clk,
-                              const MemoryValue& rd_copy_size,
-                              const MemoryValue& rd_offset,
+                              const uint32_t rd_copy_size,
+                              const uint32_t rd_offset,
                               const MemoryAddress dst_addr,
                               const std::vector<FF>& returndata = {})
 {
@@ -97,23 +97,15 @@ uint64_t DataCopy::min(uint64_t a, uint64_t b)
  * @throws DataCopyException if the calldata size or offset are not u32, or if the memory access is out of bounds.
  **/
 void DataCopy::cd_copy(ContextInterface& context,
-                       const MemoryValue& cd_copy_size,
-                       const MemoryValue& cd_offset,
+                       const uint32_t copy_size,
+                       const uint32_t offset,
                        const MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
     uint32_t clk = execution_id_manager.get_execution_id();
 
     try {
-        // Tag check that cd copy size and cd offset are both u32.
-        // todo(ilyas): remove this once register read tag checking is enabled
-        if (cd_copy_size.get_tag() != ValueTag::U32 || cd_offset.get_tag() != ValueTag::U32) {
-            throw std::runtime_error("Execution Tag check error");
-        }
-
         // It's safe to assume that the calldata size and offset are both u32, since we checked above.
-        uint32_t copy_size = cd_copy_size.as<uint32_t>();
-        MemoryAddress offset = cd_offset.as<MemoryAddress>();
 
         // This section is a bit leaky, but is necessary to ensure the correct range check events are generated.
         // This work is duplicated in context.get_calldata() - but it avoids us having a range check there.
@@ -149,10 +141,10 @@ void DataCopy::cd_copy(ContextInterface& context,
             memory.set(dst_addr + i, MemoryValue::from<FF>(padded_calldata[i]));
         }
 
-        events.emit(create_cd_event(context, clk, cd_copy_size, cd_offset, dst_addr, padded_calldata));
+        events.emit(create_cd_event(context, clk, copy_size, offset, dst_addr, padded_calldata));
     } catch (const std::exception& e) {
         debug("CD_COPY exception: ", e.what());
-        events.emit(create_cd_event(context, clk, cd_copy_size, cd_offset, dst_addr));
+        events.emit(create_cd_event(context, clk, copy_size, offset, dst_addr));
 
         // Re-throw something generic that execution will interpret as an opcode error.
         throw DataCopyException();
@@ -167,21 +159,14 @@ void DataCopy::cd_copy(ContextInterface& context,
  * @throws DataCopyException if the returndata size or offset are not u32, or if the memory access is out of bounds.
  **/
 void DataCopy::rd_copy(ContextInterface& context,
-                       const MemoryValue& rd_copy_size,
-                       const MemoryValue& rd_offset,
+                       const uint32_t copy_size,
+                       const uint32_t offset,
                        const MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
     uint32_t clk = execution_id_manager.get_execution_id();
 
     try {
-        if (rd_copy_size.get_tag() != ValueTag::U32 || rd_offset.get_tag() != ValueTag::U32) {
-            throw std::runtime_error("Execution Tag check error");
-        }
-
-        uint32_t copy_size = rd_copy_size.as<uint32_t>();
-        MemoryAddress offset = rd_offset.as<MemoryAddress>();
-
         // Check cd_copy for why we do this here even though it is in get_returndata()
         uint32_t max_read_index = static_cast<uint32_t>(
             min(static_cast<uint64_t>(offset) + copy_size, static_cast<uint64_t>(context.get_last_rd_size())));
@@ -211,11 +196,11 @@ void DataCopy::rd_copy(ContextInterface& context,
             memory.set(dst_addr + i, MemoryValue::from<FF>(padded_returndata[i]));
         }
 
-        events.emit(create_rd_event(context, clk, rd_copy_size, rd_offset, dst_addr, padded_returndata));
+        events.emit(create_rd_event(context, clk, copy_size, offset, dst_addr, padded_returndata));
 
     } catch (const std::exception& e) {
         debug("RD_COPY exception: ", e.what());
-        events.emit(create_rd_event(context, clk, rd_copy_size, rd_offset, dst_addr));
+        events.emit(create_rd_event(context, clk, copy_size, offset, dst_addr));
 
         // Re-throw something generic that execution will interpret as an opcode error.
         throw DataCopyException();

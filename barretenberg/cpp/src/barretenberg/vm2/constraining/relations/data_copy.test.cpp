@@ -69,11 +69,10 @@ class NestedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
 
 TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 {
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, data.size());
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, 0); // Offset into calldata
+    uint32_t copy_size = static_cast<uint32_t>(data.size());
+    uint32_t cd_offset = 0; // Offset into calldata
 
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(data)); // Mock calldata
+    ON_CALL(context, get_calldata(cd_offset, copy_size)).WillByDefault(::testing::Return(data)); // Mock calldata
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -93,15 +92,14 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 
 TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
 {
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    uint32_t cd_offset = 0;
 
     std::vector<FF> result_cd = data;
-    ASSERT_LT(result_cd.size(), 10); // Ensure we have less than 10 elements  so we can pad
-    result_cd.resize(10, 0);         // Pad with zeros to 10 elements
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, result_cd.size()); // Request more than available
+    ASSERT_LT(result_cd.size(), 10);                              // Ensure we have less than 10 elements  so we can pad
+    result_cd.resize(10, 0);                                      // Pad with zeros to 10 elements
+    uint32_t copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
 
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(result_cd));
+    ON_CALL(context, get_calldata(cd_offset, copy_size)).WillByDefault(::testing::Return(result_cd));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -124,16 +122,12 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
     uint32_t offset = 3;
     uint32_t size = 4;
 
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, offset); // Offset into calldata
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, size);
-
     // Starting at offset = 3
     std::vector<FF> result_cd = { data.begin() + offset, data.begin() + offset + size };
 
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(result_cd));
+    ON_CALL(context, get_calldata(offset, size)).WillByDefault(::testing::Return(result_cd));
 
-    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+    copy_data.cd_copy(context, size, offset, dst_addr);
 
     tracegen::DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
@@ -154,16 +148,11 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
     uint32_t offset = 10; // Offset beyond the size of calldata
     uint32_t size = 4;
 
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, offset); // Offset into calldata
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, size);
-
     // Expect an empty vector since the offset is out of range
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(std::vector<FF>{}));
+    ON_CALL(context, get_calldata(offset, size)).WillByDefault(::testing::Return(std::vector<FF>{}));
 
     uint32_t big_dst_addr = AVM_HIGHEST_MEM_ADDRESS - 1;
-    EXPECT_THROW_WITH_MESSAGE(copy_data.cd_copy(context, copy_size, cd_offset, big_dst_addr),
-                              "Error during CD/RD copy");
+    EXPECT_THROW_WITH_MESSAGE(copy_data.cd_copy(context, size, offset, big_dst_addr), "Error during CD/RD copy");
 
     tracegen::DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
@@ -201,11 +190,10 @@ class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
 {
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, data.size());
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    auto copy_size = static_cast<uint32_t>(data.size());
+    uint32_t cd_offset = 0;
 
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(data));
+    ON_CALL(context, get_calldata(cd_offset, copy_size)).WillByDefault(::testing::Return(data));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -226,14 +214,13 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
 {
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    uint32_t cd_offset = 0;
     std::vector<FF> result_cd = data;
-    ASSERT_LT(result_cd.size(), 10); // Ensure we have less than 10 elements  so we can pad
-    result_cd.resize(10, 0);         // Pad with zeros to 10 elements
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, result_cd.size()); // Request more than available
+    ASSERT_LT(result_cd.size(), 10);                          // Ensure we have less than 10 elements  so we can pad
+    result_cd.resize(10, 0);                                  // Pad with zeros to 10 elements
+    auto copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
 
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(result_cd));
+    ON_CALL(context, get_calldata(cd_offset, copy_size)).WillByDefault(::testing::Return(result_cd));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -257,16 +244,12 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
     uint32_t offset = 3;
     uint32_t size = 4;
 
-    auto cd_offset = MemoryValue::from_tag(ValueTag::U32, offset); // Offset into calldata
-    auto copy_size = MemoryValue::from_tag(ValueTag::U32, size);
-
     // Starting at offset = 3
     std::vector<FF> result_cd = { data.begin() + offset, data.begin() + offset + size };
 
-    ON_CALL(context, get_calldata(cd_offset.as<uint32_t>(), copy_size.as<uint32_t>()))
-        .WillByDefault(::testing::Return(result_cd));
+    ON_CALL(context, get_calldata(offset, size)).WillByDefault(::testing::Return(result_cd));
 
-    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+    copy_data.cd_copy(context, size, offset, dst_addr);
 
     tracegen::DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);

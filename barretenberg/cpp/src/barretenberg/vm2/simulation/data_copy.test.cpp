@@ -64,16 +64,16 @@ class NestedCdCopySimulationTest : public DataCopySimulationTest {
     std::vector<FF> calldata = { 1, 2, 3, 4, 5, 6, 7, 8 };
     uint32_t parent_cd_addr = 100; // Address where the parent calldata is stored.
     uint32_t parent_cd_size = static_cast<uint32_t>(calldata.size());
-    MemoryValue cd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    uint32_t cd_offset = 0;
 };
 
 TEST_F(NestedCdCopySimulationTest, CdZero)
 {
     // Copy zero calldata from the parent context to memory
-    MemoryValue cd_copy_size = MemoryValue::from_tag(ValueTag::U32, 0);
-    MemoryValue cd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    uint32_t cd_copy_size = 0;
+    uint32_t cd_offset = 0;
 
-    EXPECT_CALL(context, get_calldata(cd_offset.as<uint32_t>(), cd_copy_size.as<uint32_t>()))
+    EXPECT_CALL(context, get_calldata(cd_offset, cd_copy_size))
         .WillOnce(Return(std::vector<FF>{})); // Should return empty vector
 
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
@@ -85,17 +85,16 @@ TEST_F(NestedCdCopySimulationTest, CdZero)
 TEST_F(NestedCdCopySimulationTest, CdCopyAll)
 {
     // Copy all calldata from the parent context to memory
-    MemoryValue cd_copy_size = MemoryValue::from_tag(ValueTag::U32, static_cast<uint32_t>(calldata.size()));
+    uint32_t cd_copy_size = static_cast<uint32_t>(calldata.size());
 
-    EXPECT_CALL(context, get_calldata(cd_offset.as<uint32_t>(), cd_copy_size.as<uint32_t>()))
-        .WillOnce(Return(calldata));
+    EXPECT_CALL(context, get_calldata(cd_offset, cd_copy_size)).WillOnce(Return(calldata));
 
     uint32_t dst_addr = 0;
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
 
     // This should write all the calldata values
     std::vector<FF> calldata_in_memory;
-    for (uint32_t i = 0; i < cd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < cd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         calldata_in_memory.emplace_back(c.as_ff());
     }
@@ -105,16 +104,16 @@ TEST_F(NestedCdCopySimulationTest, CdCopyAll)
 TEST_F(NestedCdCopySimulationTest, CdCopyPartial)
 {
     // Copy come calldata from the parent context to memory
-    MemoryValue cd_copy_size = MemoryValue::from_tag(ValueTag::U32, 2);
+    uint32_t cd_copy_size = 2;
 
-    EXPECT_CALL(context, get_calldata(cd_offset.as<uint32_t>(), cd_copy_size.as<uint32_t>()))
+    EXPECT_CALL(context, get_calldata(cd_offset, cd_copy_size))
         .WillOnce(Return(std::vector<FF>{ 1, 2 })); // Only copy first two values
 
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
 
     // This should write all the calldata values
     std::vector<FF> calldata_in_memory;
-    for (uint32_t i = 0; i < cd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < cd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         calldata_in_memory.emplace_back(c.as_ff());
     }
@@ -124,17 +123,16 @@ TEST_F(NestedCdCopySimulationTest, CdCopyPartial)
 TEST_F(NestedCdCopySimulationTest, CdFullWithPadding)
 {
     // Copy some calldata from the parent context to memory, but with padding
-    MemoryValue cd_copy_size = MemoryValue::from_tag(ValueTag::U32, 10); // Request more than available
+    uint32_t cd_copy_size = 10; // Request more than available
 
     std::vector<FF> expected_calldata = { 1, 2, 3, 4, 5, 6, 7, 8, 0, 0 }; // Should pad with zeros
-    EXPECT_CALL(context, get_calldata(cd_offset.as<uint32_t>(), cd_copy_size.as<uint32_t>()))
-        .WillOnce(Return(expected_calldata));
+    EXPECT_CALL(context, get_calldata(cd_offset, cd_copy_size)).WillOnce(Return(expected_calldata));
 
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
 
     // This should write all the calldata values and pad the rest with zeros
     std::vector<FF> calldata_in_memory;
-    for (uint32_t i = 0; i < cd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < cd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         calldata_in_memory.emplace_back(c.as_ff());
     }
@@ -144,19 +142,18 @@ TEST_F(NestedCdCopySimulationTest, CdFullWithPadding)
 TEST_F(NestedCdCopySimulationTest, CdPartialWithPadding)
 {
     // Copy some calldata from the parent context to memory, but with padding
-    MemoryValue cd_copy_size = MemoryValue::from_tag(ValueTag::U32, 4); // Request more than available
-    MemoryValue cd_offset = MemoryValue::from_tag(ValueTag::U32, 6);    // Offset into calldata
+    uint32_t cd_copy_size = 4; // Request more than available
+    uint32_t cd_offset = 6;    // Offset into calldata
 
     std::vector<FF> expected_calldata = { 7, 8, 0, 0 }; // Should pad with zeros
 
-    EXPECT_CALL(context, get_calldata(cd_offset.as<uint32_t>(), cd_copy_size.as<uint32_t>()))
-        .WillOnce(Return(expected_calldata));
+    EXPECT_CALL(context, get_calldata(cd_offset, cd_copy_size)).WillOnce(Return(expected_calldata));
 
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
 
     // This should write all the calldata values and pad the rest with zeros
     std::vector<FF> calldata_in_memory;
-    for (uint32_t i = 0; i < cd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < cd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         calldata_in_memory.emplace_back(c.as_ff());
     }
@@ -186,10 +183,10 @@ class RdCopySimulationTest : public DataCopySimulationTest {
 TEST_F(RdCopySimulationTest, RdZero)
 {
     // Copy zero returndata from the last executed context to memory
-    MemoryValue rd_copy_size = MemoryValue::from_tag(ValueTag::U32, 0);
-    MemoryValue rd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    uint32_t rd_copy_size = 0;
+    uint32_t rd_offset = 0;
 
-    EXPECT_CALL(context, get_returndata(rd_offset.as<uint32_t>(), rd_copy_size.as<uint32_t>()))
+    EXPECT_CALL(context, get_returndata(rd_offset, rd_copy_size))
         .WillOnce(Return(std::vector<FF>{})); // Should return empty vector
 
     data_copy.rd_copy(context, rd_copy_size, rd_offset, dst_addr);
@@ -201,17 +198,16 @@ TEST_F(RdCopySimulationTest, RdZero)
 TEST_F(RdCopySimulationTest, RdCopyAll)
 {
     // Copy all returndata from the last executed context to memory
-    MemoryValue rd_copy_size = MemoryValue::from_tag(ValueTag::U32, static_cast<uint32_t>(returndata.size()));
-    MemoryValue rd_offset = MemoryValue::from_tag(ValueTag::U32, 0);
+    uint32_t rd_copy_size = static_cast<uint32_t>(returndata.size());
+    uint32_t rd_offset = 0;
 
-    EXPECT_CALL(context, get_returndata(rd_offset.as<uint32_t>(), rd_copy_size.as<uint32_t>()))
-        .WillOnce(Return(returndata));
+    EXPECT_CALL(context, get_returndata(rd_offset, rd_copy_size)).WillOnce(Return(returndata));
 
     data_copy.rd_copy(context, rd_copy_size, rd_offset, dst_addr);
 
     // This should write all the returndata values
     std::vector<FF> returndata_in_memory;
-    for (uint32_t i = 0; i < rd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < rd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         returndata_in_memory.emplace_back(c.as_ff());
     }
@@ -221,17 +217,17 @@ TEST_F(RdCopySimulationTest, RdCopyAll)
 TEST_F(RdCopySimulationTest, RdCopyPartial)
 {
     // Copy some returndata from the last executed context to memory
-    MemoryValue rd_copy_size = MemoryValue::from_tag(ValueTag::U32, 2);
-    MemoryValue rd_offset = MemoryValue::from_tag(ValueTag::U32, 1); // Start copying from second element
+    uint32_t rd_copy_size = 2;
+    uint32_t rd_offset = 1; // Start copying from second element
 
-    EXPECT_CALL(context, get_returndata(rd_offset.as<uint32_t>(), rd_copy_size.as<uint32_t>()))
+    EXPECT_CALL(context, get_returndata(rd_offset, rd_copy_size))
         .WillOnce(Return(std::vector<FF>{ 10, 11 })); // Only copy second and third values
 
     data_copy.rd_copy(context, rd_copy_size, rd_offset, dst_addr);
 
     // This should write the selected returndata values
     std::vector<FF> returndata_in_memory;
-    for (uint32_t i = 0; i < rd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < rd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         returndata_in_memory.emplace_back(c.as_ff());
     }
@@ -241,18 +237,17 @@ TEST_F(RdCopySimulationTest, RdCopyPartial)
 TEST_F(RdCopySimulationTest, RdFullWithPadding)
 {
     // Copy some returndata from the last executed context to memory, but with padding
-    MemoryValue rd_copy_size = MemoryValue::from_tag(ValueTag::U32, 10); // Request more than available
-    MemoryValue rd_offset = MemoryValue::from_tag(ValueTag::U32, 0);     // Start copying from first element
+    uint32_t rd_copy_size = 10; // Request more than available
+    uint32_t rd_offset = 0;     // Start copying from first element
 
     std::vector<FF> expected_returndata = { 9, 10, 11, 12, 0, 0, 0, 0, 0, 0 }; // Should pad with zeros
-    EXPECT_CALL(context, get_returndata(rd_offset.as<uint32_t>(), rd_copy_size.as<uint32_t>()))
-        .WillOnce(Return(expected_returndata));
+    EXPECT_CALL(context, get_returndata(rd_offset, rd_copy_size)).WillOnce(Return(expected_returndata));
 
     data_copy.rd_copy(context, rd_copy_size, rd_offset, dst_addr);
 
     // This should write all the returndata values and pad the rest with zeros
     std::vector<FF> returndata_in_memory;
-    for (uint32_t i = 0; i < rd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < rd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         returndata_in_memory.emplace_back(c.as_ff());
     }
@@ -262,19 +257,18 @@ TEST_F(RdCopySimulationTest, RdFullWithPadding)
 TEST_F(RdCopySimulationTest, RdPartialWithPadding)
 {
     // Copy some returndata from the last executed context to memory, but with padding
-    MemoryValue rd_copy_size = MemoryValue::from_tag(ValueTag::U32, 4); // Request more than available
-    MemoryValue rd_offset = MemoryValue::from_tag(ValueTag::U32, 2);    // Start copying from third element
+    uint32_t rd_copy_size = 4; // Request more than available
+    uint32_t rd_offset = 2;    // Start copying from third element
 
     std::vector<FF> expected_returndata = { 11, 12, 0, 0 }; // Should pad with zeros
 
-    EXPECT_CALL(context, get_returndata(rd_offset.as<uint32_t>(), rd_copy_size.as<uint32_t>()))
-        .WillOnce(Return(expected_returndata));
+    EXPECT_CALL(context, get_returndata(rd_offset, rd_copy_size)).WillOnce(Return(expected_returndata));
 
     data_copy.rd_copy(context, rd_copy_size, rd_offset, dst_addr);
 
     // This should write all the returndata values and pad the rest with zeros
     std::vector<FF> returndata_in_memory;
-    for (uint32_t i = 0; i < rd_copy_size.as<uint32_t>(); ++i) {
+    for (uint32_t i = 0; i < rd_copy_size; ++i) {
         auto c = mem.get(dst_addr + i);
         returndata_in_memory.emplace_back(c.as_ff());
     }

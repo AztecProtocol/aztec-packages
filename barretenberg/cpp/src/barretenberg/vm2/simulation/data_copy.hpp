@@ -13,12 +13,12 @@ class DataCopyInterface {
   public:
     virtual ~DataCopyInterface() = default;
     virtual void cd_copy(ContextInterface& context,
-                         const MemoryValue& cd_copy_size,
-                         const MemoryValue& cd_offset,
+                         const uint32_t cd_copy_size,
+                         const uint32_t cd_offset,
                          const MemoryAddress dst_addr) = 0;
     virtual void rd_copy(ContextInterface& context,
-                         const MemoryValue& rd_copy_size,
-                         const MemoryValue& rd_offset,
+                         const uint32_t rd_copy_size,
+                         const uint32_t rd_offset,
                          const MemoryAddress dst_addr) = 0;
 };
 
@@ -33,12 +33,12 @@ class DataCopy : public DataCopyInterface {
     {}
 
     void cd_copy(ContextInterface& context,
-                 const MemoryValue& cd_copy_size,
-                 const MemoryValue& cd_offset,
+                 const uint32_t cd_copy_size,
+                 const uint32_t cd_offset,
                  const MemoryAddress dst_addr) override;
     void rd_copy(ContextInterface& context,
-                 const MemoryValue& rd_copy_size,
-                 const MemoryValue& rd_offset,
+                 const uint32_t rd_copy_size,
+                 const uint32_t rd_offset,
                  const MemoryAddress dst_addr) override;
 
   private:
