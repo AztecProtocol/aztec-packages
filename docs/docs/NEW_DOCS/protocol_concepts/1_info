@@ -1,0 +1,9 @@
+Mainly owned by engineering. Ideal outcome: any time engineering makes a change, they just change smth here and voila!
+
+All other major folders should be owned by devrel/rafi.
+
+For most the following format shall suffice:
+1. high level overview
+2. Non technical explaination of use cases
+3. APIs for using.
+4. Highly technical derivation/scheme (e.g. math for gas, keys)
