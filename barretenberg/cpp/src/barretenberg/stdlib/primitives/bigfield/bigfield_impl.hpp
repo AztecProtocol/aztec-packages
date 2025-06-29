@@ -89,7 +89,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     if (!high_bits_in.is_constant()) {
         // Decompose the high bits into 2 limbs and range constrain them.
         const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-            high_bits_in.get_normalized_witness_index(), (size_t)num_high_limb_bits);
+            high_bits_in.get_normalized_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
@@ -125,7 +125,7 @@ bigfield<Builder, T>::bigfield(const bigfield& other)
 {}
 
 template <typename Builder, typename T>
-bigfield<Builder, T>::bigfield(bigfield&& other)
+bigfield<Builder, T>::bigfield(bigfield&& other) noexcept
     : context(other.context)
     , binary_basis_limbs{ other.binary_basis_limbs[0],
                           other.binary_basis_limbs[1],
@@ -142,7 +142,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
 {
     ASSERT((can_overflow == true && maximum_bitlength == 0) ||
            (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
-    std::array<uint256_t, 4> limbs;
+    std::array<uint256_t, NUM_LIMBS> limbs;
     limbs[0] = value.slice(0, NUM_LIMB_BITS).lo;
     limbs[1] = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo;
     limbs[2] = value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo;
@@ -195,12 +195,12 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     result.prime_basis_limb = prime_limb;
     ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
                                    limb_1.get_normalized_witness_index(),
-                                   (size_t)NUM_LIMB_BITS,
-                                   (size_t)NUM_LIMB_BITS);
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LIMB_BITS));
     ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
                                    limb_3.get_normalized_witness_index(),
-                                   (size_t)NUM_LIMB_BITS,
-                                   (size_t)num_last_limb_bits);
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(num_last_limb_bits));
 
     // Mark the element as coming out of nowhere
     result.set_free_witness_tag();
@@ -271,6 +271,9 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
 
 template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(const bigfield& other)
 {
+    if (this == &other) {
+        return *this;
+    }
     context = other.context;
     binary_basis_limbs[0] = other.binary_basis_limbs[0];
     binary_basis_limbs[1] = other.binary_basis_limbs[1];
@@ -280,7 +283,7 @@ template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, 
     return *this;
 }
 
-template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(bigfield&& other)
+template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(bigfield&& other) noexcept
 {
     context = other.context;
     binary_basis_limbs[0] = other.binary_basis_limbs[0];
@@ -311,7 +314,7 @@ template <typename Builder, typename T> uint512_t bigfield<Builder, T>::get_maxi
 
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Builder>& other,
-                                                             uint256_t other_maximum_value) const
+                                                             const uint256_t& other_maximum_value) const
 {
     reduction_check();
     ASSERT((uint512_t(other_maximum_value) + uint512_t(binary_basis_limbs[0].maximum_value)) <=
@@ -794,7 +797,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                                         bool check_for_zero)
 {
     ASSERT(numerators.size() < MAXIMUM_SUMMAND_COUNT);
-    if (numerators.size() == 0) {
+    if (numerators.empty()) {
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
 
@@ -835,6 +838,8 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
         inverse.set_origin_tag(tag);
         return inverse;
     } else {
+        // NOTE(https://github.com/AztecProtocol/aztec-packages/issues/15385): We can do a simplification when the
+        // denominator is constant. We can compute its inverse out-of-circuit and then multiply it with the numerator.
         // We only add the check if the result is non-constant
         std::vector<uint1024_t> numerator_max;
         for (const auto& n : numerators) {
@@ -1154,8 +1159,7 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
     // 3. If we haven't passed one of the checks, reduce accordingly, starting with the largest product
 
     // We only get the bitlength of range proof if there is no reduction
-    bool reduction_required;
-    reduction_required = std::get<0>(
+    bool reduction_required = std::get<0>(
         get_quotient_reduction_info(max_values_left, max_values_right, to_add, { DEFAULT_MAXIMUM_REMAINDER }));
 
     if (reduction_required) {
@@ -1814,7 +1818,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
     assert_less_than(modulus);
 }
 
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t upper_limit) const
+template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are NOT allowed via ASSERT
@@ -2188,7 +2192,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[3].element * shift_1);
     }
 
-    field_t<Builder> remainder_limbs[4]{
+    std::array<field_t<Builder>, NUM_LIMBS> remainder_limbs{
         field_t<Builder>::accumulate(limb_0_accumulator),
         needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
                         : remainders[0].binary_basis_limbs[1].element,
@@ -2226,8 +2230,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
-                                       size_t(carry_hi_msb),
-                                       size_t(carry_lo_msb));
+                                       static_cast<size_t>(carry_hi_msb),
+                                       static_cast<size_t>(carry_lo_msb));
     } else {
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
@@ -2435,7 +2439,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         quotient = convert_constant_to_fixed_witness(quotient);
     }
 
-    bool no_remainders = remainders.size() == 0;
+    bool no_remainders = remainders.empty();
     if (!no_remainders) {
         limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[0].element);
         limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[2].element);
@@ -2476,7 +2480,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     if (remainder3.is_constant()) {
         remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));
     }
-    field_t<Builder> remainder_limbs[4]{
+    std::array<field_t<Builder>, NUM_LIMBS> remainder_limbs{
         accumulated_lo,
         remainder1,
         accumulated_hi,
@@ -2524,8 +2528,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
-                                       (size_t)carry_hi_msb,
-                                       (size_t)carry_lo_msb);
+                                       static_cast<size_t>(carry_hi_msb),
+                                       static_cast<size_t>(carry_lo_msb));
     } else {
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);

@@ -42,7 +42,7 @@ template <typename Builder, typename T> class bigfield {
      *
      */
     struct Limb {
-        Limb() {}
+        Limb() = default;
         Limb(const field_t<Builder>& input, const uint256_t& max = DEFAULT_MAXIMUM_LIMB)
             : element(input)
         {
@@ -59,9 +59,10 @@ template <typename Builder, typename T> class bigfield {
             return os;
         }
         Limb(const Limb& other) = default;
-        Limb(Limb&& other) = default;
+        Limb(Limb&& other) noexcept = default;
         Limb& operator=(const Limb& other) = default;
-        Limb& operator=(Limb&& other) = default;
+        Limb& operator=(Limb&& other) noexcept = default;
+        ~Limb() = default;
 
         field_t<Builder> element;
         uint256_t maximum_value;
@@ -263,7 +264,10 @@ template <typename Builder, typename T> class bigfield {
     bigfield(const bigfield& other);
 
     // Move constructor
-    bigfield(bigfield&& other);
+    bigfield(bigfield&& other) noexcept;
+
+    // Destructor
+    ~bigfield() = default;
 
     /**
      * @brief Creates a bigfield element from a uint512_t.
@@ -294,11 +298,11 @@ template <typename Builder, typename T> class bigfield {
     }
 
     bigfield& operator=(const bigfield& other);
-    bigfield& operator=(bigfield&& other);
+    bigfield& operator=(bigfield&& other) noexcept;
 
     // Code assumes modulus is at most 256 bits so good to define it via a uint256_t
     static constexpr uint256_t modulus = (uint256_t(T::modulus_0, T::modulus_1, T::modulus_2, T::modulus_3));
-    static constexpr uint512_t modulus_u512 = uint512_t(modulus);
+    static constexpr uint512_t modulus_u512 = static_cast<uint512_t>(modulus);
     static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     static constexpr uint64_t NUM_LAST_LIMB_BITS = modulus_u512.get_msb() + 1 - (NUM_LIMB_BITS * 3);
 
@@ -394,7 +398,7 @@ template <typename Builder, typename T> class bigfield {
      * @param other_maximum_value The maximum value of other
      * @return bigfield<Builder, T> Result
      */
-    bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
+    bigfield add_to_lower_limb(const field_t<Builder>& other, const uint256_t& other_maximum_value) const;
 
     /**
      * @brief Adds two bigfield elements. Inputs are reduced to the modulus if necessary. Requires 4 gates if both
@@ -591,7 +595,7 @@ template <typename Builder, typename T> class bigfield {
     bool_t<Builder> operator==(const bigfield& other) const;
 
     void assert_is_in_field() const;
-    void assert_less_than(const uint256_t upper_limit) const;
+    void assert_less_than(const uint256_t& upper_limit) const;
     void assert_equal(const bigfield& other) const;
     void assert_is_not_equal(const bigfield& other) const;
 
@@ -1002,11 +1006,11 @@ template <typename Builder, typename T> class bigfield {
      *
      * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
      */
-    static void unsafe_evaluate_multiply_add(const bigfield& left,
-                                             const bigfield& right_mul,
+    static void unsafe_evaluate_multiply_add(const bigfield& input_left,
+                                             const bigfield& input_to_mul,
                                              const std::vector<bigfield>& to_add,
-                                             const bigfield& quotient,
-                                             const std::vector<bigfield>& remainders);
+                                             const bigfield& input_quotient,
+                                             const std::vector<bigfield>& input_remainders);
 
     /**
      * @brief Evaluate a relation involving multiple multiplications and additions.
