@@ -11,6 +11,7 @@ import { inspect } from 'util';
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
 import type { PubSubLibp2p } from '../../util.js';
+import type { AggressiveReqResp } from '../reqresp/agg_reqresp.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
@@ -62,7 +63,8 @@ export class PeerManager {
     telemetryClient: TelemetryClient,
     private logger = createLogger('p2p:peer-manager'),
     private peerScoring: PeerScoring,
-    private reqresp: ReqResp,
+    // TODO: extract ReqResp interface for both ReqResp and AggressiveReqResp
+    private reqresp: ReqResp | AggressiveReqResp,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
