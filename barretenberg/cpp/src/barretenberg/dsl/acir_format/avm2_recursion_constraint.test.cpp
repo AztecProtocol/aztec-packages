@@ -136,7 +136,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
     auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
     OuterProver prover(proving_key, verification_key);
-    info("prover gates = ", proving_key->dyadic_circuit_size);
+    info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
@@ -167,7 +167,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         expected_vk = std::make_shared<OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
         OuterProver prover(proving_key, expected_vk);
-        info("prover gates = ", proving_key->dyadic_circuit_size);
+        info("prover gates = ", proving_key->dyadic_size());
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
@@ -191,7 +191,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         actual_vk = std::make_shared<OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
         OuterProver prover(proving_key, actual_vk);
-        info("prover gates = ", proving_key->dyadic_circuit_size);
+        info("prover gates = ", proving_key->dyadic_size());
     }
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking

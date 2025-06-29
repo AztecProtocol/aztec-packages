@@ -134,14 +134,16 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+        auto verification_key =
+            std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->polynomials, ultra_instance->metadata);
         OuterProver ultra_prover(ultra_instance, verification_key);
         return ultra_prover.construct_proof();
     }();
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
-    auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+    auto ultra_verification_key =
+        std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->polynomials, ultra_instance->metadata);
     OuterVerifier ultra_verifier(ultra_verification_key);
     EXPECT_TRUE(ultra_verifier.verify_proof(outer_proof)) << "outer/recursion proof verification failed";
 }

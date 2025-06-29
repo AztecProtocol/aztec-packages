@@ -123,40 +123,6 @@ struct ActiveRegionData {
 };
 
 /**
- * @brief Base proving key class.
- *
- * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with polynomial data type and span handle type.
- * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
- * from the other template paramter.
- */
-template <typename FF, typename CommitmentKey_> class ProvingKey_ {
-  public:
-    size_t circuit_size;
-    PublicComponentKey pairing_inputs_public_input_key;
-    CommitmentKey_ commitment_key;
-    size_t num_public_inputs;
-    size_t log_circuit_size;
-
-    // Offset off the public inputs from the start of the execution trace
-    size_t pub_inputs_offset = 0;
-
-    // The number of public inputs has to be the same for all instances because they are
-    // folded element by element.
-    std::vector<FF> public_inputs;
-
-    ActiveRegionData active_region_data; // specifies active regions of execution trace
-
-    ProvingKey_() = default;
-    ProvingKey_(const size_t dyadic_circuit_size,
-                const size_t num_public_inputs = 0,
-                CommitmentKey_ commitment_key = CommitmentKey_())
-        : circuit_size(dyadic_circuit_size)
-        , commitment_key(commitment_key)
-        , num_public_inputs(num_public_inputs)
-        , log_circuit_size(numeric::get_msb(dyadic_circuit_size)){};
-};
-
-/**
  * @brief Base Native verification key class.
  * @details We want a separate native and stdlib verification key class because we don't have nice mappings from native
  * to stdlib and back. Examples of mappings that don't exist are from uint64_t to field_t, .get_value() doesn't
@@ -167,9 +133,9 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 template <typename PrecomputedCommitments> class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
-    uint64_t circuit_size;
-    uint64_t log_circuit_size;
-    uint64_t num_public_inputs;
+    uint64_t circuit_size = 0;
+    uint64_t log_circuit_size = 0;
+    uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
     PublicComponentKey pairing_inputs_public_input_key;
 
