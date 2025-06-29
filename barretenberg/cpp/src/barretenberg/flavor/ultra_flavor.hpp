@@ -352,7 +352,7 @@ class UltraFlavor {
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
-        VerificationKey(ProverPolynomials& polynomials, const auto& metadata)
+        VerificationKey(ProverPolynomials& polynomials, const MetaData& metadata)
         {
             this->circuit_size = metadata.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);

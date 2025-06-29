@@ -122,6 +122,16 @@ struct ActiveRegionData {
     size_t current_end{ 0 };                       // end of last range; for ensuring monotonicity of ranges
 };
 
+// Dyadic trace size and public inputs metadata; Common between prover and verifier keys
+struct MetaData {
+    size_t circuit_size = 0;
+    size_t num_public_inputs = 0;
+    size_t pub_inputs_offset = 0;
+    PublicComponentKey pairing_inputs_public_input_key;
+    PublicComponentKey ipa_claim_public_input_key;
+    DatabusPropagationData databus_propagation_data;
+};
+
 /**
  * @brief Base Native verification key class.
  * @details We want a separate native and stdlib verification key class because we don't have nice mappings from native

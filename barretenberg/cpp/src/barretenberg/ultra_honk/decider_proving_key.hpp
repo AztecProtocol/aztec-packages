@@ -46,15 +46,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
   public:
     using Trace = TraceToPolynomials<Flavor>;
 
-    // Data about trace size and public inputs
-    struct MetaData {
-        size_t circuit_size = 0;
-        size_t num_public_inputs = 0;
-        size_t pub_inputs_offset = 0;
-        PublicComponentKey pairing_inputs_public_input_key;
-        PublicComponentKey ipa_claim_public_input_key;
-        DatabusPropagationData databus_propagation_data;
-    } metadata;
+    MetaData metadata; // circuit size and public inputs metadata
 
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover

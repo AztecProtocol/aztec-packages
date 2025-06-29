@@ -443,7 +443,7 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(const auto& metadata)
+        void set_metadata(const MetaData& metadata)
         {
             this->circuit_size = metadata.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
@@ -455,7 +455,7 @@ class MegaFlavor {
             this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
-        VerificationKey(ProverPolynomials& polynomials, const auto& metadata)
+        VerificationKey(ProverPolynomials& polynomials, const MetaData& metadata)
         {
             set_metadata(metadata);
 
