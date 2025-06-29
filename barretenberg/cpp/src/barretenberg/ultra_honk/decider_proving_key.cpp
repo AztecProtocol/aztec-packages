@@ -333,6 +333,25 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
     }
 }
 
+/**
+ * @brief Copy RAM/ROM record of reads and writes from the circuit to the proving key.
+ * @details The memory records in the circuit store indices within the aux block where a read/write is performed. They
+ * are stored in the DPK as indices into the full trace by accounting for the offset of the aux block.
+ */
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::populate_memory_records(const Circuit& circuit)
+{
+    // Store the read/write records as indices into the full trace by accounting for the offset of the aux block.
+    uint32_t ram_rom_offset = circuit.blocks.aux.trace_offset();
+    memory_read_records.reserve(circuit.memory_read_records.size());
+    for (auto& index : circuit.memory_read_records) {
+        memory_read_records.emplace_back(index + ram_rom_offset);
+    }
+    memory_write_records.reserve(circuit.memory_write_records.size());
+    for (auto& index : circuit.memory_write_records) {
+        memory_write_records.emplace_back(index + ram_rom_offset);
+    }
+}
+
 template class DeciderProvingKey_<UltraFlavor>;
 template class DeciderProvingKey_<UltraZKFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;

@@ -48,8 +48,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     /*************** PK *****************/
     struct MetaData {
-        size_t circuit_size;
-        size_t num_public_inputs;
+        size_t circuit_size = 0;
+        size_t num_public_inputs = 0;
         size_t pub_inputs_offset = 0;
         PublicComponentKey pairing_inputs_public_input_key;
         PublicComponentKey ipa_claim_public_input_key;
@@ -125,21 +125,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         {
             PROFILE_THIS_NAME("allocating proving key");
 
-            /************ INIT PK DATA ***************/
-            metadata.num_public_inputs = circuit.public_inputs.size();
-            metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
+            populate_memory_records(circuit);
 
-            uint32_t ram_rom_offset = circuit.blocks.aux.trace_offset();
-            memory_read_records.reserve(circuit.memory_read_records.size());
-            for (auto& index : circuit.memory_read_records) {
-                memory_read_records.emplace_back(index + ram_rom_offset);
-            }
-            memory_write_records.reserve(circuit.memory_write_records.size());
-            for (auto& index : circuit.memory_write_records) {
-                memory_write_records.emplace_back(index + ram_rom_offset);
-            }
-
-            /********************       **************/
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
             // is_structured = false;
@@ -201,6 +188,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_size());
         }
         { // Public inputs handling
+            metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
+            metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
             for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
                 size_t idx = i + metadata.pub_inputs_offset;
                 public_inputs.emplace_back(polynomials.w_r[idx]);
@@ -313,6 +302,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
         requires IsMegaFlavor<Flavor>;
+
+    void populate_memory_records(const Circuit& circuit);
 };
 
 } // namespace bb
