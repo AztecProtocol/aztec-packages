@@ -335,7 +335,8 @@ export class P2PNetworkTest {
     const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
     this.prefilledPublicData = prefilledPublicData;
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
+    const rollupContract = RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues);
+    this.monitor = new ChainMonitor(rollupContract, this.ctx.dateProvider).start();
     this.monitor.on('l1-block', ({ timestamp }) => this.ctx.dateProvider.setTime(Number(timestamp) * 1000));
   }
 

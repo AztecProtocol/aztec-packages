@@ -1,6 +1,7 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { EventEmitter } from 'events';
 
@@ -35,7 +36,8 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
   constructor(
     private readonly rollup: RollupContract,
-    private logger = createLogger('aztecjs:utils:chain_monitor'),
+    private readonly dateProvider: DateProvider = new DateProvider(),
+    private readonly logger = createLogger('aztecjs:utils:chain_monitor'),
     private readonly intervalMs = 200,
   ) {
     super();
@@ -130,6 +132,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     }
 
     this.logger.info(msg, {
+      currentTimestamp: this.dateProvider.nowInSeconds(),
       l1Timestamp: timestamp,
       l1BlockNumber: this.l1BlockNumber,
       l2SlotNumber: await this.rollup.getSlotNumber(),
