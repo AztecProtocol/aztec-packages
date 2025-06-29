@@ -413,15 +413,6 @@ class MegaFlavor {
         }
     };
 
-    struct KeyMetaData {
-        size_t circuit_size = 0;      // The size of the circuit, i.e. the number of rows in the execution trace
-        size_t log_circuit_size = 0;  // The log2 of the circuit size
-        size_t num_public_inputs = 0; // The number of public inputs to the circuit
-        size_t pub_inputs_offset = 0; // The offset of the public inputs in the execution trace
-        bb::PublicComponentKey pairing_inputs_public_input_key; // The public input key for pairing inputs
-        DatabusPropagationData databus_propagation_data; // Data for propagating databus return data via public inputs
-    };
-
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
@@ -466,14 +457,7 @@ class MegaFlavor {
 
         VerificationKey(ProverPolynomials& polynomials, const auto& metadata)
         {
-            this->circuit_size = metadata.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = metadata.num_public_inputs;
-            this->pub_inputs_offset = metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
-
-            // Databus commitment propagation data
-            this->databus_propagation_data = metadata.databus_propagation_data;
+            set_metadata(metadata);
 
             auto commitment_key = CommitmentKey(metadata.circuit_size);
             for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
