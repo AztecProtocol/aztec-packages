@@ -84,9 +84,9 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
     UltraProver_<Flavor> prover{ proving_key, vk };
 
     HonkProof concat_pi_and_proof = prover.construct_proof();
-    size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
+    size_t num_inner_public_inputs = prover.proving_key->metadata.num_public_inputs;
     // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
-    BB_ASSERT_GTE(prover.proving_key->proving_key.num_public_inputs,
+    BB_ASSERT_GTE(prover.proving_key->metadata.num_public_inputs,
                   PAIRING_POINTS_SIZE,
                   "Public inputs should contain a pairing point accumulator.");
     num_inner_public_inputs -= PAIRING_POINTS_SIZE;

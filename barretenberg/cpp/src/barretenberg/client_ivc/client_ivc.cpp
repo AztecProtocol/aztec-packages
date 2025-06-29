@@ -216,12 +216,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (proving_key->proving_key.circuit_size > bn254_commitment_key.dyadic_size) {
+    if (proving_key->dyadic_circuit_size > bn254_commitment_key.dyadic_size) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->proving_key.circuit_size);
+        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->dyadic_circuit_size);
         goblin.commitment_key = bn254_commitment_key;
     }
-    proving_key->proving_key.commitment_key = bn254_commitment_key;
+    proving_key->commitment_key = bn254_commitment_key;
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
@@ -235,7 +235,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                       : std::make_shared<MegaVerificationKey>(proving_key->polynomials, proving_key->metadata);
     }
     if (mock_vk) {
-        honk_vk->set_metadata(proving_key->proving_key);
+        honk_vk->set_metadata(proving_key->metadata);
         vinfo("set honk vk metadata");
     }
 
@@ -443,7 +443,7 @@ bool ClientIVC::verify(const Proof& proof) const
 HonkProof ClientIVC::decider_prove() const
 {
     vinfo("prove decider...");
-    fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
+    fold_output.accumulator->commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
     decider_prover.construct_proof();
     return decider_prover.export_proof();

@@ -19,8 +19,8 @@ namespace bb {
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
-    if (!proving_key->proving_key.commitment_key.initialized()) {
-        proving_key->proving_key.commitment_key = CommitmentKey(proving_key->proving_key.circuit_size);
+    if (!proving_key->commitment_key.initialized()) {
+        proving_key->commitment_key = CommitmentKey(proving_key->dyadic_circuit_size);
     }
     {
 
@@ -65,7 +65,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 
     // #ifndef __wasm__
     // Free the commitment key
-    proving_key->proving_key.commitment_key = CommitmentKey();
+    proving_key->commitment_key = CommitmentKey();
     // #endif
 }
 
@@ -91,10 +91,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
         auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
         vinfo("vkey hash in Oink prover: ", vkey_hash);
     }
-    BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
+    BB_ASSERT_EQ(proving_key->metadata.num_public_inputs, proving_key->public_inputs.size());
 
-    for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {
-        auto public_input_i = proving_key->proving_key.public_inputs[i];
+    for (size_t i = 0; i < proving_key->metadata.num_public_inputs; ++i) {
+        auto public_input_i = proving_key->public_inputs[i];
         transcript->send_to_verifier(domain_separator + "public_input_" + std::to_string(i), public_input_i);
     }
 }
@@ -128,8 +128,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
              zip_view(proving_key->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
-                transcript->send_to_verifier(domain_separator + label,
-                                             proving_key->proving_key.commitment_key.commit(polynomial));
+                transcript->send_to_verifier(domain_separator + label, proving_key->commitment_key.commit(polynomial));
             };
         }
 
@@ -275,8 +274,8 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 
     typename Flavor::Commitment commitment;
 
-    commitment = proving_key->proving_key.commitment_key.commit_with_type(
-        polynomial, type, proving_key->proving_key.active_region_data.get_ranges());
+    commitment =
+        proving_key->commitment_key.commit_with_type(polynomial, type, proving_key->active_region_data.get_ranges());
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
 }

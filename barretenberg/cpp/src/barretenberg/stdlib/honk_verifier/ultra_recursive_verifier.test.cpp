@@ -161,7 +161,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(
                 inner_proving_key->polynomials, inner_proving_key->metadata);
             InnerProver inner_prover(inner_proving_key, verification_key);
-            info("test circuit size: ", inner_proving_key->proving_key.circuit_size);
+            info("test circuit size: ", inner_proving_key->dyadic_circuit_size);
             auto inner_proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
@@ -258,7 +258,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
                 OuterVerifier verifier(verification_key, ipa_verification_key);
-                ASSERT(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
+                ASSERT(verifier.verify_proof(proof, proving_key->ipa_proof));
             } else {
                 OuterVerifier verifier(verification_key);
                 ASSERT(verifier.verify_proof(proof));

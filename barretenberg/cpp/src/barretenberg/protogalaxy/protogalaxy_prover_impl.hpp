@@ -143,9 +143,9 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
     if (incoming->overflow_size > accumulator->overflow_size) {
-        std::swap(accumulator->polynomials, incoming->polynomials);                           // swap the polys
-        std::swap(accumulator->proving_key.circuit_size, incoming->proving_key.circuit_size); // swap circuit size
-        std::swap(accumulator->proving_key.log_circuit_size, incoming->proving_key.log_circuit_size);
+        std::swap(accumulator->polynomials, incoming->polynomials);                     // swap the polys
+        std::swap(accumulator->metadata.circuit_size, incoming->metadata.circuit_size); // swap circuit size
+        std::swap(accumulator->metadata.log_circuit_size, incoming->metadata.log_circuit_size);
         std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
         std::swap(accumulator->overflow_size, incoming->overflow_size);             // swap overflow size
         std::swap(accumulator->dyadic_circuit_size, incoming->dyadic_circuit_size); // swap dyadic size
@@ -181,14 +181,14 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> Proto
     // Ensure keys are all of the same size
     size_t max_circuit_size = 0;
     for (size_t idx = 0; idx < NUM_KEYS; ++idx) {
-        max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->proving_key.circuit_size);
+        max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->dyadic_circuit_size);
     }
     for (size_t idx = 0; idx < NUM_KEYS; ++idx) {
-        if (keys_to_fold[idx]->proving_key.circuit_size != max_circuit_size) {
+        if (keys_to_fold[idx]->dyadic_circuit_size != max_circuit_size) {
             info("ProtogalaxyProver: circuit size mismatch - increasing virtual size of key ",
                  idx,
                  " from ",
-                 keys_to_fold[idx]->proving_key.circuit_size,
+                 keys_to_fold[idx]->dyadic_circuit_size,
                  " to ",
                  max_circuit_size);
             keys_to_fold[idx]->polynomials.increase_polynomials_virtual_size(max_circuit_size);

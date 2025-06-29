@@ -47,8 +47,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
   public:
     using Trace = TraceToPolynomials<Flavor>;
 
-    ProvingKey proving_key;
-
     /*************** PK *****************/
     struct MetaData {
         size_t circuit_size;
@@ -126,7 +124,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         {
             PROFILE_THIS_NAME("allocating proving key");
 
-            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key_in);
+            // proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key_in);
             /************ INIT PK DATA ***************/
             commitment_key = commitment_key_in;
             metadata.circuit_size = dyadic_circuit_size;

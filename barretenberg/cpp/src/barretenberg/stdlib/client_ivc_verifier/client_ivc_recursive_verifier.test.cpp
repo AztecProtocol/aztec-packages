@@ -123,7 +123,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Natively verify the tube proof
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
-    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
+    EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->ipa_proof));
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
@@ -135,14 +135,14 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     output.points_accumulator.set_public();
     output.ipa_claim.set_public();
-    base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
+    base_builder.ipa_proof = tube_prover.proving_key->ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
 
     // Natively verify the IPA proof for the base rollup circuit
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>();
-    ipa_transcript->load_proof(base_proving_key->proving_key.ipa_proof);
+    ipa_transcript->load_proof(base_proving_key->ipa_proof);
     IPA<curve::Grumpkin>::reduce_verify(
         ipa_verification_key, output.ipa_claim.get_native_opening_claim(), ipa_transcript);
 }

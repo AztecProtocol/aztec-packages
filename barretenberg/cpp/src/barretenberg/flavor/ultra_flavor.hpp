@@ -342,9 +342,6 @@ class UltraFlavor {
                    const size_t num_public_inputs,
                    CommitmentKey commitment_key = CommitmentKey())
             : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
     };
 
     /**

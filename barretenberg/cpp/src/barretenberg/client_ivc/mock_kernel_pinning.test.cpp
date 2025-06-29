@@ -36,5 +36,5 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         EXPECT_TRUE(circuit.blocks.has_overflow); // trace overflow mechanism should be triggered
     }
 
-    EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 19);
+    EXPECT_EQ(ivc.fold_output.accumulator->metadata.log_circuit_size, 19);
 }

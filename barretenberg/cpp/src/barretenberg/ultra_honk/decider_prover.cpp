@@ -34,7 +34,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
-    size_t polynomial_size = proving_key->proving_key.circuit_size;
+    size_t polynomial_size = proving_key->metadata.circuit_size;
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
 
@@ -70,26 +70,26 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto& ck = proving_key->proving_key.commitment_key;
+    auto& ck = proving_key->commitment_key;
     if (!ck.initialized()) {
-        ck = CommitmentKey(proving_key->proving_key.circuit_size);
+        ck = CommitmentKey(proving_key->dyadic_circuit_size);
     }
 
-    PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
+    PolynomialBatcher polynomial_batcher(proving_key->dyadic_circuit_size);
     polynomial_batcher.set_unshifted(proving_key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(proving_key->polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
         prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            proving_key->proving_key.circuit_size, polynomial_batcher, sumcheck_output.challenge, ck, transcript);
+            proving_key->dyadic_circuit_size, polynomial_batcher, sumcheck_output.challenge, ck, transcript);
     } else {
 
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa_prover.prove();
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->dyadic_circuit_size,
                                                               polynomial_batcher,
                                                               sumcheck_output.challenge,
                                                               ck,

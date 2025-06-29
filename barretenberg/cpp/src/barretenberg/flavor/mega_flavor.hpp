@@ -413,6 +413,15 @@ class MegaFlavor {
         }
     };
 
+    struct KeyMetaData {
+        size_t circuit_size = 0;      // The size of the circuit, i.e. the number of rows in the execution trace
+        size_t log_circuit_size = 0;  // The log2 of the circuit size
+        size_t num_public_inputs = 0; // The number of public inputs to the circuit
+        size_t pub_inputs_offset = 0; // The offset of the public inputs in the execution trace
+        bb::PublicComponentKey pairing_inputs_public_input_key; // The public input key for pairing inputs
+        DatabusPropagationData databus_propagation_data; // Data for propagating databus return data via public inputs
+    };
+
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
@@ -426,9 +435,6 @@ class MegaFlavor {
                    const size_t num_public_inputs,
                    CommitmentKey commitment_key = CommitmentKey())
             : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
 
         // Data pertaining to transfer of databus return data via public inputs
         DatabusPropagationData databus_propagation_data;
@@ -464,16 +470,16 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(const ProvingKey& proving_key)
+        void set_metadata(const auto& metadata)
         {
-            this->circuit_size = proving_key.circuit_size;
+            this->circuit_size = metadata.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
+            this->num_public_inputs = metadata.num_public_inputs;
+            this->pub_inputs_offset = metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
 
             // Databus commitment propagation data
-            this->databus_propagation_data = proving_key.databus_propagation_data;
+            this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
         VerificationKey(ProverPolynomials& polynomials, const auto& metadata)

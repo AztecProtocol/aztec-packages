@@ -203,8 +203,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->metadata.circuit_size = 2;
+                key->metadata.log_circuit_size = 1;
                 keys_data[idx] = key;
             }
 
@@ -238,8 +238,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->metadata.circuit_size = 2;
+                key->metadata.log_circuit_size = 1;
                 keys_data[idx] = key;
             }
 
@@ -343,8 +343,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->metadata.circuit_size = 2;
+                key->metadata.log_circuit_size = 1;
                 keys_data[idx] = key;
             }
 
@@ -429,8 +429,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->metadata.circuit_size = 2;
+                key->metadata.log_circuit_size = 1;
                 keys_data[idx] = key;
             }
 
