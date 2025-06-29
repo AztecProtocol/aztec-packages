@@ -367,19 +367,19 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // reset verifier's transcript
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
-    proof = TestFixture::export_serialized_proof(prover, proving_key->metadata.num_public_inputs);
+    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
     EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->metadata.num_public_inputs);
+    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
     EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->metadata.num_public_inputs);
+    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
     EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);

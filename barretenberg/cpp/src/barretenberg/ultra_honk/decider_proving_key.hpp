@@ -68,7 +68,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     std::vector<uint32_t> memory_write_records;
 
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
-    /****************** *****************/
 
     bool is_accumulator = false;
     RelationSeparator alphas; // a challenge for each subrelation
@@ -82,6 +81,11 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     size_t dyadic_size() const { return metadata.circuit_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
+    size_t num_public_inputs() const
+    {
+        ASSERT(metadata.num_public_inputs == public_inputs.size());
+        return metadata.num_public_inputs;
+    }
 
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
@@ -224,34 +228,34 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
                                                        // [user-public-inputs][pairing-point-object][ipa-claim]
                 BB_ASSERT_EQ(metadata.ipa_claim_public_input_key.start_idx,
-                             metadata.num_public_inputs - IPA_CLAIM_SIZE,
+                             num_public_inputs() - IPA_CLAIM_SIZE,
                              "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
                 BB_ASSERT_EQ(
                     metadata.pairing_inputs_public_input_key.start_idx,
-                    metadata.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
+                    num_public_inputs() - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
                     "Pairing point accumulator must be the second to last public input object before the IPA claim.");
             } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
                                                         // [user-public-inputs][pairing-point-object]
                 BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                             metadata.num_public_inputs - PAIRING_POINTS_SIZE,
+                             num_public_inputs() - PAIRING_POINTS_SIZE,
                              "Pairing point accumulator must be the last public input object.");
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
                 if (metadata.databus_propagation_data.is_kernel) {
 
                     BB_ASSERT_EQ(metadata.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                                 metadata.num_public_inputs - PROPAGATED_DATABUS_COMMITMENT_SIZE,
+                                 num_public_inputs() - PROPAGATED_DATABUS_COMMITMENT_SIZE,
                                  "Databus commitments must be the second to last public input object.");
                     BB_ASSERT_EQ(
                         metadata.databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx,
-                        metadata.num_public_inputs - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
+                        num_public_inputs() - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
                         "Databus commitments must be the last public input object.");
                     BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                                 metadata.num_public_inputs - PAIRING_POINTS_SIZE - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
+                                 num_public_inputs() - PAIRING_POINTS_SIZE - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
                                  "Pairing point accumulator must be the second to last public input object.");
                 } else {
                     BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                                 metadata.num_public_inputs - PAIRING_POINTS_SIZE,
+                                 num_public_inputs() - PAIRING_POINTS_SIZE,
                                  "Pairing point accumulator must be the last public input object.");
                 }
             } else {

@@ -91,9 +91,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
         auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
         vinfo("vkey hash in Oink prover: ", vkey_hash);
     }
-    BB_ASSERT_EQ(proving_key->metadata.num_public_inputs, proving_key->public_inputs.size());
 
-    for (size_t i = 0; i < proving_key->metadata.num_public_inputs; ++i) {
+    for (size_t i = 0; i < proving_key->num_public_inputs(); ++i) {
         auto public_input_i = proving_key->public_inputs[i];
         transcript->send_to_verifier(domain_separator + "public_input_" + std::to_string(i), public_input_i);
     }
