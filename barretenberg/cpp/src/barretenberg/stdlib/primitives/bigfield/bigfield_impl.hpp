@@ -89,7 +89,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
     if (!high_bits_in.is_constant()) {
         // Decompose the high bits into 2 limbs and range constrain them.
         const auto limb_witnesses = context->decompose_non_native_field_double_width_limb(
-            high_bits_in.get_normalized_witness_index(), (size_t)num_high_limb_bits);
+            high_bits_in.get_normalized_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
         field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
@@ -125,7 +125,7 @@ bigfield<Builder, T>::bigfield(const bigfield& other)
 {}
 
 template <typename Builder, typename T>
-bigfield<Builder, T>::bigfield(bigfield&& other)
+bigfield<Builder, T>::bigfield(bigfield&& other) noexcept
     : context(other.context)
     , binary_basis_limbs{ other.binary_basis_limbs[0],
                           other.binary_basis_limbs[1],
@@ -142,7 +142,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
 {
     ASSERT((can_overflow == true && maximum_bitlength == 0) ||
            (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
-    std::array<uint256_t, 4> limbs;
+    std::array<uint256_t, NUM_LIMBS> limbs;
     limbs[0] = value.slice(0, NUM_LIMB_BITS).lo;
     limbs[1] = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo;
     limbs[2] = value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo;
@@ -195,12 +195,12 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
     result.prime_basis_limb = prime_limb;
     ctx->range_constrain_two_limbs(limb_0.get_normalized_witness_index(),
                                    limb_1.get_normalized_witness_index(),
-                                   (size_t)NUM_LIMB_BITS,
-                                   (size_t)NUM_LIMB_BITS);
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LIMB_BITS));
     ctx->range_constrain_two_limbs(limb_2.get_normalized_witness_index(),
                                    limb_3.get_normalized_witness_index(),
-                                   (size_t)NUM_LIMB_BITS,
-                                   (size_t)num_last_limb_bits);
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(num_last_limb_bits));
 
     // Mark the element as coming out of nowhere
     result.set_free_witness_tag();
@@ -271,6 +271,9 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
 
 template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(const bigfield& other)
 {
+    if (this == &other) {
+        return *this;
+    }
     context = other.context;
     binary_basis_limbs[0] = other.binary_basis_limbs[0];
     binary_basis_limbs[1] = other.binary_basis_limbs[1];
@@ -280,7 +283,7 @@ template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, 
     return *this;
 }
 
-template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(bigfield&& other)
+template <typename Builder, typename T> bigfield<Builder, T>& bigfield<Builder, T>::operator=(bigfield&& other) noexcept
 {
     context = other.context;
     binary_basis_limbs[0] = other.binary_basis_limbs[0];
@@ -311,7 +314,7 @@ template <typename Builder, typename T> uint512_t bigfield<Builder, T>::get_maxi
 
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Builder>& other,
-                                                             uint256_t other_maximum_value) const
+                                                             const uint256_t& other_maximum_value) const
 {
     reduction_check();
     ASSERT((uint512_t(other_maximum_value) + uint512_t(binary_basis_limbs[0].maximum_value)) <=
@@ -404,36 +407,32 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
              other.prime_basis_limb.get_witness_index()); // We are comparing if the bigfield elements are exactly the
                                                           // same object, so we compare the unnormalized witness indices
         if (!limbconst) {
-            std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
-                                            binary_basis_limbs[0].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> x1{ binary_basis_limbs[1].element.witness_index,
-                                            binary_basis_limbs[1].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> x2{ binary_basis_limbs[2].element.witness_index,
-                                            binary_basis_limbs[2].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> x3{ binary_basis_limbs[3].element.witness_index,
-                                            binary_basis_limbs[3].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
-                                            other.binary_basis_limbs[0].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
-                                            other.binary_basis_limbs[1].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
-                                            other.binary_basis_limbs[2].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
-                                            other.binary_basis_limbs[3].element.multiplicative_constant };
-            bb::fr c0(binary_basis_limbs[0].element.additive_constant +
-                      other.binary_basis_limbs[0].element.additive_constant);
-            bb::fr c1(binary_basis_limbs[1].element.additive_constant +
-                      other.binary_basis_limbs[1].element.additive_constant);
-            bb::fr c2(binary_basis_limbs[2].element.additive_constant +
-                      other.binary_basis_limbs[2].element.additive_constant);
-            bb::fr c3(binary_basis_limbs[3].element.additive_constant +
-                      other.binary_basis_limbs[3].element.additive_constant);
+            // Extract witness indices and multiplicative constants for binary basis limbs
+            std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> x_scaled;
+            std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> y_scaled;
+            std::array<bb::fr, NUM_LIMBS> c_adds;
 
-            uint32_t xp(prime_basis_limb.witness_index);
-            uint32_t yp(other.prime_basis_limb.witness_index);
-            bb::fr cp(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
-            const auto output_witnesses = ctx->evaluate_non_native_field_addition(
-                { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
+            for (size_t i = 0; i < NUM_LIMBS; ++i) {
+                const auto& x_limb = binary_basis_limbs[i].element;
+                const auto& y_limb = other.binary_basis_limbs[i].element;
+
+                x_scaled[i] = { x_limb.witness_index, x_limb.multiplicative_constant };
+                y_scaled[i] = { y_limb.witness_index, y_limb.multiplicative_constant };
+                c_adds[i] = bb::fr(x_limb.additive_constant + y_limb.additive_constant);
+            }
+
+            // Extract witness indices for prime basis limb
+            uint32_t x_prime(prime_basis_limb.witness_index);
+            uint32_t y_prime(other.prime_basis_limb.witness_index);
+            bb::fr c_prime(prime_basis_limb.additive_constant + other.prime_basis_limb.additive_constant);
+
+            const auto output_witnesses =
+                ctx->evaluate_non_native_field_addition({ x_scaled[0], y_scaled[0], c_adds[0] },
+                                                        { x_scaled[1], y_scaled[1], c_adds[1] },
+                                                        { x_scaled[2], y_scaled[2], c_adds[2] },
+                                                        { x_scaled[3], y_scaled[3], c_adds[3] },
+                                                        { x_prime, y_prime, c_prime });
+
             result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
             result.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[1]);
             result.binary_basis_limbs[2].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[2]);
@@ -633,8 +632,10 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + bb::fr(to_add_2);
     result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + bb::fr(to_add_3);
 
-    if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
-        !is_constant() && !other.is_constant()) {
+    bool both_witness = !is_constant() && !other.is_constant();
+    bool both_prime_limb_multiplicative_constant_one =
+        (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
+    if (both_prime_limb_multiplicative_constant_one && both_witness) {
         bool limbconst = result.binary_basis_limbs[0].element.is_constant();
         limbconst = limbconst || result.binary_basis_limbs[1].element.is_constant();
         limbconst = limbconst || result.binary_basis_limbs[2].element.is_constant();
@@ -650,39 +651,33 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
                      other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we
                                                             // need to compare the actual indices, not normalized ones
         if (!limbconst) {
-            std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
-                                            binary_basis_limbs[0].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> x1{ result.binary_basis_limbs[1].element.witness_index,
-                                            binary_basis_limbs[1].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> x2{ result.binary_basis_limbs[2].element.witness_index,
-                                            binary_basis_limbs[2].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> x3{ result.binary_basis_limbs[3].element.witness_index,
-                                            binary_basis_limbs[3].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y0{ other.binary_basis_limbs[0].element.witness_index,
-                                            other.binary_basis_limbs[0].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y1{ other.binary_basis_limbs[1].element.witness_index,
-                                            other.binary_basis_limbs[1].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y2{ other.binary_basis_limbs[2].element.witness_index,
-                                            other.binary_basis_limbs[2].element.multiplicative_constant };
-            std::pair<uint32_t, bb::fr> y3{ other.binary_basis_limbs[3].element.witness_index,
-                                            other.binary_basis_limbs[3].element.multiplicative_constant };
-            bb::fr c0(result.binary_basis_limbs[0].element.additive_constant -
-                      other.binary_basis_limbs[0].element.additive_constant);
-            bb::fr c1(result.binary_basis_limbs[1].element.additive_constant -
-                      other.binary_basis_limbs[1].element.additive_constant);
-            bb::fr c2(result.binary_basis_limbs[2].element.additive_constant -
-                      other.binary_basis_limbs[2].element.additive_constant);
-            bb::fr c3(result.binary_basis_limbs[3].element.additive_constant -
-                      other.binary_basis_limbs[3].element.additive_constant);
+            // Extract witness indices and multiplicative constants for binary basis limbs
+            std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> x_scaled;
+            std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> y_scaled;
+            std::array<bb::fr, NUM_LIMBS> c_diffs;
 
-            uint32_t xp(prime_basis_limb.witness_index);
-            uint32_t yp(other.prime_basis_limb.witness_index);
-            bb::fr cp(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
-            uint512_t constant_to_add_mod_p = (constant_to_add) % prime_basis.modulus;
-            cp += bb::fr(constant_to_add_mod_p.lo);
+            for (size_t i = 0; i < NUM_LIMBS; ++i) {
+                const auto& x_limb = result.binary_basis_limbs[i].element;
+                const auto& y_limb = other.binary_basis_limbs[i].element;
 
-            const auto output_witnesses = ctx->evaluate_non_native_field_subtraction(
-                { x0, y0, c0 }, { x1, y1, c1 }, { x2, y2, c2 }, { x3, y3, c3 }, { xp, yp, cp });
+                x_scaled[i] = { x_limb.witness_index, x_limb.multiplicative_constant };
+                y_scaled[i] = { y_limb.witness_index, y_limb.multiplicative_constant };
+                c_diffs[i] = bb::fr(x_limb.additive_constant - y_limb.additive_constant);
+            }
+
+            // Extract witness indices for prime basis limb
+            uint32_t x_prime(prime_basis_limb.witness_index);
+            uint32_t y_prime(other.prime_basis_limb.witness_index);
+            bb::fr c_prime(prime_basis_limb.additive_constant - other.prime_basis_limb.additive_constant);
+            uint512_t constant_to_add_mod_native = (constant_to_add) % prime_basis.modulus;
+            c_prime += bb::fr(constant_to_add_mod_native.lo);
+
+            const auto output_witnesses =
+                ctx->evaluate_non_native_field_subtraction({ x_scaled[0], y_scaled[0], c_diffs[0] },
+                                                           { x_scaled[1], y_scaled[1], c_diffs[1] },
+                                                           { x_scaled[2], y_scaled[2], c_diffs[2] },
+                                                           { x_scaled[3], y_scaled[3], c_diffs[3] },
+                                                           { x_prime, y_prime, c_prime });
 
             result.binary_basis_limbs[0].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[0]);
             result.binary_basis_limbs[1].element = field_t<Builder>::from_witness_index(ctx, output_witnesses[1]);
@@ -703,8 +698,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     /**
      * Compute the prime basis limb of the result
      **/
-    uint512_t constant_to_add_mod_p = (constant_to_add) % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
+    uint512_t constant_to_add_mod_native = (constant_to_add) % prime_basis.modulus;
+    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_native.lo));
     result.prime_basis_limb = prime_basis_limb + prime_basis_to_add;
     result.prime_basis_limb -= other.prime_basis_limb;
     return result;
@@ -802,7 +797,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                                         bool check_for_zero)
 {
     ASSERT(numerators.size() < MAXIMUM_SUMMAND_COUNT);
-    if (numerators.size() == 0) {
+    if (numerators.empty()) {
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
 
@@ -843,6 +838,8 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
         inverse.set_origin_tag(tag);
         return inverse;
     } else {
+        // NOTE(https://github.com/AztecProtocol/aztec-packages/issues/15385): We can do a simplification when the
+        // denominator is constant. We can compute its inverse out-of-circuit and then multiply it with the numerator.
         // We only add the check if the result is non-constant
         std::vector<uint1024_t> numerator_max;
         for (const auto& n : numerators) {
@@ -1118,8 +1115,6 @@ bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const st
     return remainder;
 }
 
-// MERGENOTE: Implementing dual_madd in terms of mult_madd following #729
-
 /**
  * @brief Performs individual reductions on the supplied elements as well as more complex reductions to prevent CRT
  * modulus overflow and to fit the quotient inside the range proof
@@ -1164,8 +1159,7 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
     // 3. If we haven't passed one of the checks, reduce accordingly, starting with the largest product
 
     // We only get the bitlength of range proof if there is no reduction
-    bool reduction_required;
-    reduction_required = std::get<0>(
+    bool reduction_required = std::get<0>(
         get_quotient_reduction_info(max_values_left, max_values_right, to_add, { DEFAULT_MAXIMUM_REMAINDER }));
 
     if (reduction_required) {
@@ -1610,122 +1604,78 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     }
     reduction_check();
 
-    uint256_t limb_0_maximum_value = binary_basis_limbs[0].maximum_value;
-    uint64_t limb_0_borrow_shift = std::max(limb_0_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_1_maximum_value =
-        binary_basis_limbs[1].maximum_value + (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_1_borrow_shift = std::max(limb_1_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_2_maximum_value =
-        binary_basis_limbs[2].maximum_value + (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_2_borrow_shift = std::max(limb_2_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-
-    uint256_t limb_3_maximum_value =
-        binary_basis_limbs[3].maximum_value + (uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    // uint256_t comparison_maximum = uint256_t(modulus_u512.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-    // uint256_t additive_term = comparison_maximum;
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14656): This is terribly inefficient. We should
-    // change it.
-    uint512_t constant_to_add = modulus_u512;
-    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
-        constant_to_add += modulus_u512;
-    }
-
-    uint256_t t0(uint256_t(1) << limb_0_borrow_shift);
-    uint256_t t1((uint256_t(1) << limb_1_borrow_shift) - (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t2((uint256_t(1) << limb_2_borrow_shift) - (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t3(uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    uint256_t to_add_0_u256 = uint256_t(constant_to_add.slice(0, NUM_LIMB_BITS));
-    uint256_t to_add_1_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2));
-    uint256_t to_add_2_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3));
-    uint256_t to_add_3_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-
-    bb::fr to_add_0(t0 + to_add_0_u256);
-    bb::fr to_add_1(t1 + to_add_1_u256);
-    bb::fr to_add_2(t2 + to_add_2_u256);
-    bb::fr to_add_3(to_add_3_u256 - t3);
-
-    // we either return current value if predicate is false, or (limb_i - value) if predicate is true
-    // (1 - predicate) * value + predicate * (limb_i - value)
-    // = predicate * (limb_i - 2 * value) + value
-    bb::fr two(2);
-
-    field_t limb_0 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[0].element * two) + to_add_0,
-                                                                   binary_basis_limbs[0].element);
-    field_t limb_1 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[1].element * two) + to_add_1,
-                                                                   binary_basis_limbs[1].element);
-    field_t limb_2 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[2].element * two) + to_add_2,
-                                                                   binary_basis_limbs[2].element);
-    field_t limb_3 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[3].element * two) + to_add_3,
-                                                                   binary_basis_limbs[3].element);
-
-    uint256_t maximum_negated_limb_0 = to_add_0_u256 + t0;
-    uint256_t maximum_negated_limb_1 = to_add_1_u256 + t1;
-    uint256_t maximum_negated_limb_2 = to_add_2_u256 + t2;
-    uint256_t maximum_negated_limb_3 = to_add_3_u256;
-
-    uint256_t max_limb_0 = binary_basis_limbs[0].maximum_value > maximum_negated_limb_0
-                               ? binary_basis_limbs[0].maximum_value
-                               : maximum_negated_limb_0;
-    uint256_t max_limb_1 = binary_basis_limbs[1].maximum_value > maximum_negated_limb_1
-                               ? binary_basis_limbs[1].maximum_value
-                               : maximum_negated_limb_1;
-    uint256_t max_limb_2 = binary_basis_limbs[2].maximum_value > maximum_negated_limb_2
-                               ? binary_basis_limbs[2].maximum_value
-                               : maximum_negated_limb_2;
-    uint256_t max_limb_3 = binary_basis_limbs[3].maximum_value > maximum_negated_limb_3
-                               ? binary_basis_limbs[3].maximum_value
-                               : maximum_negated_limb_3;
-
-    bigfield result(ctx);
-    result.binary_basis_limbs[0] = Limb(limb_0, max_limb_0);
-    result.binary_basis_limbs[1] = Limb(limb_1, max_limb_1);
-    result.binary_basis_limbs[2] = Limb(limb_2, max_limb_2);
-    result.binary_basis_limbs[3] = Limb(limb_3, max_limb_3);
-
-    uint512_t constant_to_add_mod_p = constant_to_add % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
-    result.prime_basis_limb =
-        static_cast<field_t<Builder>>(predicate).madd(-(prime_basis_limb * two) + prime_basis_to_add, prime_basis_limb);
-
-    result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
+    // We want to check:
+    // predicate = 1 ==> (0 - *this)
+    // predicate = 0 ==> *this
+    //
+    // We just use the conditional_assign method to do this as it costs the same number of gates as computing
+    // p * (0 - *this) + (1 - p) * (*this)
+    //
+    bigfield<Builder, T> negative_this = zero() - *this;
+    bigfield<Builder, T> result = bigfield<Builder, T>::conditional_assign(predicate, negative_this, *this);
 
     return result;
 }
 
-/**
- * @brief Create an element which is equal to either this or other based on the predicate
- *
- * @tparam Builder
- * @tparam T
- * @param other The other bigfield element
- * @param predicate Predicate controlling the result (0 for this, 1 for the other)
- * @return Resulting element
- */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& other,
                                                               const bool_t<Builder>& predicate) const
 {
-    if (is_constant() && other.is_constant() && predicate.is_constant()) {
+    // If the predicate is constant, the conditional selection can be done out of circuit
+    if (predicate.is_constant()) {
         if (predicate.get_value()) {
             return other;
         }
         return *this;
     }
+
+    // If both elements are the same, we can just return one of them
+    auto is_limb_same = [](const field_ct& a, const field_ct& b) {
+        const bool is_witness_index_same = a.get_witness_index() == b.get_witness_index();
+        const bool is_add_constant_same = a.additive_constant == b.additive_constant;
+        const bool is_mul_constant_same = a.multiplicative_constant == b.multiplicative_constant;
+        return is_witness_index_same && is_add_constant_same && is_mul_constant_same;
+    };
+
+    bool is_limb_0_same = is_limb_same(binary_basis_limbs[0].element, other.binary_basis_limbs[0].element);
+    bool is_limb_1_same = is_limb_same(binary_basis_limbs[1].element, other.binary_basis_limbs[1].element);
+    bool is_limb_2_same = is_limb_same(binary_basis_limbs[2].element, other.binary_basis_limbs[2].element);
+    bool is_limb_3_same = is_limb_same(binary_basis_limbs[3].element, other.binary_basis_limbs[3].element);
+    bool is_prime_limb_same = is_limb_same(prime_basis_limb, other.prime_basis_limb);
+    if (is_limb_0_same && is_limb_1_same && is_limb_2_same && is_limb_3_same && is_prime_limb_same) {
+        return *this;
+    }
+
     Builder* ctx = context ? context : (other.context ? other.context : predicate.context);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14657): use field_t::conditional_assign method
-    field_t binary_limb_0 = static_cast<field_t<Builder>>(predicate).madd(
+    // For each limb, we must select:
+    // `this` if predicate == 0
+    // `other` if predicate == 1
+    //
+    // Thus, we compute the resulting limb as follows:
+    // result.limb := predicate * (other.limb - this.limb) + this.limb.
+    //
+    // Note that each call to `madd` will add a gate as predicate is a witness at this point.
+    // There can be edge cases where `this` and `other` are both constants and only differ in one limb.
+    // In such a case, the `madd` for the differing limb will be a no-op (i.e., redundant gate), as the
+    // difference will be zero. For example,
+    //        binary limbs           prime limb
+    // this:  (0x5, 0x1, 0x0, 0x0)   (0x100000000000000005)
+    // other: (0x7, 0x1, 0x0, 0x0)   (0x100000000000000007)
+    // Here, the `madd` for the second, third and fourth binary limbs will be a no-op, as the difference
+    // between `this` and `other` is zero for those limbs.
+    //
+    // We allow this to happen because we want to maintain limb consistency (i.e., all limbs either witness or
+    // constant).
+    field_ct binary_limb_0 = field_ct(predicate).madd(
         other.binary_basis_limbs[0].element - binary_basis_limbs[0].element, binary_basis_limbs[0].element);
-    field_t binary_limb_1 = static_cast<field_t<Builder>>(predicate).madd(
+    field_ct binary_limb_1 = field_ct(predicate).madd(
         other.binary_basis_limbs[1].element - binary_basis_limbs[1].element, binary_basis_limbs[1].element);
-    field_t binary_limb_2 = static_cast<field_t<Builder>>(predicate).madd(
+    field_ct binary_limb_2 = field_ct(predicate).madd(
         other.binary_basis_limbs[2].element - binary_basis_limbs[2].element, binary_basis_limbs[2].element);
-    field_t binary_limb_3 = static_cast<field_t<Builder>>(predicate).madd(
+    field_ct binary_limb_3 = field_ct(predicate).madd(
         other.binary_basis_limbs[3].element - binary_basis_limbs[3].element, binary_basis_limbs[3].element);
-    field_t prime_limb =
-        static_cast<field_t<Builder>>(predicate).madd(other.prime_basis_limb - prime_basis_limb, prime_basis_limb);
+    field_ct prime_limb = field_ct(predicate).madd(other.prime_basis_limb - prime_basis_limb, prime_basis_limb);
 
     bigfield result(ctx);
     // the maximum of the maximal values of elements is large enough
@@ -1768,12 +1718,12 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     auto lhs = get_value() % modulus_u512;
     auto rhs = other.get_value() % modulus_u512;
     bool is_equal_raw = (lhs == rhs);
-    if (!ctx) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/660): null context _should_ mean that both are
-        // constant, but we check with an assertion to be sure.
-        ASSERT(is_constant() && other.is_constant());
+    if (is_constant() && other.is_constant()) {
         return is_equal_raw;
     }
+
+    // The context should not be null at this point.
+    ASSERT(ctx != NULL);
     bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
 
     // We need to manually propagate the origin tag
@@ -1868,7 +1818,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
     assert_less_than(modulus);
 }
 
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t upper_limit) const
+template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are NOT allowed via ASSERT
@@ -2107,47 +2057,31 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     bigfield to_mul = input_to_mul;
     bigfield quotient = input_quotient;
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14661): what if left and to_mul both do not have a
-    // context?
+    // Either of the multiplicand must be a witness.
+    ASSERT(!left.is_constant() || !to_mul.is_constant());
     Builder* ctx = left.context ? left.context : to_mul.context;
 
-    uint512_t max_b0 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
-    max_b0 += (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_b1 = (left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[1].maximum_value);
-    max_b1 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c0 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[1].maximum_value);
-    max_c0 += (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c1 = (left.binary_basis_limbs[2].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
-    max_c1 += (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_c2 = (left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[2].maximum_value);
-    max_c2 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d0 = (left.binary_basis_limbs[3].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
-    max_d0 += (neg_modulus_limbs_u256[3] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_d1 = (left.binary_basis_limbs[2].maximum_value * to_mul.binary_basis_limbs[1].maximum_value);
-    max_d1 += (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_d2 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[2].maximum_value);
-    max_d2 += (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d3 = (left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[3].maximum_value);
-    max_d3 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[3].maximum_value);
+    // Compute the maximum value of the product of the two inputs: max(a * b)
+    uint512_t max_ab_lo(0);
+    uint512_t max_ab_hi(0);
+    std::tie(max_ab_lo, max_ab_hi) = compute_partial_schoolbook_multiplication(left.get_binary_basis_limb_maximums(),
+                                                                               to_mul.get_binary_basis_limb_maximums());
 
-    uint512_t max_r0 = left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[0].maximum_value;
-    max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
+    // Compute the maximum value of the product of the quotient and neg_modulus: max(q * p')
+    uint512_t max_q_neg_p_lo(0);
+    uint512_t max_q_neg_p_hi(0);
+    std::tie(max_q_neg_p_lo, max_q_neg_p_hi) =
+        compute_partial_schoolbook_multiplication(neg_modulus_limbs_u256, quotient.get_binary_basis_limb_maximums());
 
-    uint512_t max_r1 = max_b0 + max_b1;
-
-    uint256_t borrow_lo_value = 0;
+    // Compute the maximum value that needs to be borrowed from the hi limbs to the lo limb.
+    // Check the README for the explanation of the borrow.
+    uint256_t max_remainders_lo(0);
     for (const auto& remainder : input_remainders) {
-        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
-        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
-
-        borrow_lo_value += (remainder.binary_basis_limbs[0].maximum_value +
-                            (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS));
+        max_remainders_lo += remainder.binary_basis_limbs[0].maximum_value +
+                             (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
     }
-    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
-    field_t borrow_lo(ctx, bb::fr(borrow_lo_value));
-
-    const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
-    const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
+    uint256_t borrow_lo_value = max_remainders_lo >> (2 * NUM_LIMB_BITS);
+    field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
     uint512_t max_a0(0);
     uint512_t max_a1(0);
@@ -2157,18 +2091,12 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         max_a1 += to_add[i].binary_basis_limbs[2].maximum_value +
                   (to_add[i].binary_basis_limbs[3].maximum_value << NUM_LIMB_BITS);
     }
-    const uint512_t max_lo = max_r0 + (max_r1 << NUM_LIMB_BITS) + max_a0;
+    const uint512_t max_lo = max_ab_lo + max_q_neg_p_lo + max_remainders_lo + max_a0;
     const uint512_t max_lo_carry = max_lo >> (2 * NUM_LIMB_BITS);
-    const uint512_t max_hi = max_r2 + (max_r3 << NUM_LIMB_BITS) + max_a1 + max_lo_carry;
+    const uint512_t max_hi = max_ab_hi + max_q_neg_p_hi + max_a1 + max_lo_carry;
 
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    if ((max_lo_bits & 1ULL) == 1ULL) {
-        ++max_lo_bits;
-    }
-    if ((max_hi_bits & 1ULL) == 1ULL) {
-        ++max_hi_bits;
-    }
 
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
@@ -2264,7 +2192,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[3].element * shift_1);
     }
 
-    field_t<Builder> remainder_limbs[4]{
+    std::array<field_t<Builder>, NUM_LIMBS> remainder_limbs{
         field_t<Builder>::accumulate(limb_0_accumulator),
         needs_normalize ? field_t<Builder>::from_witness_index(ctx, ctx->zero_idx)
                         : remainders[0].binary_basis_limbs[1].element,
@@ -2302,8 +2230,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
-                                       size_t(carry_hi_msb),
-                                       size_t(carry_lo_msb));
+                                       static_cast<size_t>(carry_hi_msb),
+                                       static_cast<size_t>(carry_lo_msb));
     } else {
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
@@ -2369,26 +2297,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     }
     ASSERT(ctx != nullptr);
 
-    const auto get_product_maximum = [](const bigfield& left, const bigfield& right) {
-        uint512_t max_b0_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[0].maximum_value);
-        uint512_t max_b1_inner = (left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[1].maximum_value);
-        uint512_t max_c0_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[1].maximum_value);
-        uint512_t max_c1_inner = (left.binary_basis_limbs[2].maximum_value * right.binary_basis_limbs[0].maximum_value);
-        uint512_t max_c2_inner = (left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[2].maximum_value);
-        uint512_t max_d0_inner = (left.binary_basis_limbs[3].maximum_value * right.binary_basis_limbs[0].maximum_value);
-        uint512_t max_d1_inner = (left.binary_basis_limbs[2].maximum_value * right.binary_basis_limbs[1].maximum_value);
-        uint512_t max_d2_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[2].maximum_value);
-        uint512_t max_d3_inner = (left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[3].maximum_value);
-        uint512_t max_r0_inner = left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[0].maximum_value;
-
-        const uint512_t max_r1_inner = max_b0_inner + max_b1_inner;
-        const uint512_t max_r2_inner = max_c0_inner + max_c1_inner + max_c2_inner;
-        const uint512_t max_r3_inner = max_d0_inner + max_d1_inner + max_d2_inner + max_d3_inner;
-        const uint512_t max_lo_temp = max_r0_inner + (max_r1_inner << NUM_LIMB_BITS);
-        const uint512_t max_hi_temp = max_r2_inner + (max_r3_inner << NUM_LIMB_BITS);
-        return std::pair<uint512_t, uint512_t>(max_lo_temp, max_hi_temp);
-    };
-
     /**
      * Step 1: Compute the maximum potential value of our product limbs
      *
@@ -2399,42 +2307,23 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     uint512_t max_lo = 0;
     uint512_t max_hi = 0;
 
-    // Compute max values of quotient product limb products
-    uint512_t max_b0 = (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_b1 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c0 = (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c1 = (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_c2 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d0 = (neg_modulus_limbs_u256[3] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_d1 = (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_d2 = (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d3 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[3].maximum_value);
-
-    // max_r0 = terms from 0 - 2^2t
-    // max_r1 = terms from 2^t - 2^3t
-    // max_r2 = terms from 2^2t - 2^4t
-    // max_r3 = terms from 2^3t - 2^5t
-    uint512_t max_r0 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
-    max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_r1 = max_b0 + max_b1;
-
-    uint256_t borrow_lo_value(0);
+    // Compute the maximum value that needs to be borrowed from the hi limbs to the lo limb.
+    // Check the README for the explanation of the borrow.
+    uint256_t max_remainders_lo(0);
     for (const auto& remainder : input_remainders) {
-        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
-        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
-
-        borrow_lo_value += remainder.binary_basis_limbs[0].maximum_value +
-                           (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
+        max_remainders_lo += remainder.binary_basis_limbs[0].maximum_value +
+                             (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
     }
-    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
+    uint256_t borrow_lo_value = max_remainders_lo >> (2 * NUM_LIMB_BITS);
     field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
-    const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
-    const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
+    // Compute the maximum value of the quotient times modulus.
+    const auto [max_q_neg_p_lo, max_q_neg_p_hi] =
+        compute_partial_schoolbook_multiplication(neg_modulus_limbs_u256, quotient.get_binary_basis_limb_maximums());
 
     // update max_lo, max_hi with quotient limb product terms.
-    max_lo += max_r0 + (max_r1 << NUM_LIMB_BITS);
-    max_hi += max_r2 + (max_r3 << NUM_LIMB_BITS);
+    max_lo += max_q_neg_p_lo + max_remainders_lo;
+    max_hi += max_q_neg_p_hi;
 
     // Compute maximum value of addition terms in `to_add` and add to max_lo, max_hi
     uint512_t max_a0(0);
@@ -2450,7 +2339,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
     // Compute the maximum value of our multiplication products and add to max_lo, max_hi
     for (size_t i = 0; i < num_multiplications; ++i) {
-        const auto [product_lo, product_hi] = get_product_maximum(left[i], right[i]);
+        const auto [product_lo, product_hi] = compute_partial_schoolbook_multiplication(
+            left[i].get_binary_basis_limb_maximums(), right[i].get_binary_basis_limb_maximums());
         max_lo += product_lo;
         max_hi += product_hi;
     }
@@ -2461,14 +2351,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // will need to apply to validate our product
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    // Turbo range checks only work for even bit ranges, so make sure these values are even
-    // TODO: This neccessary anymore? Turbo range checks now work with odd bit ranges...
-    if ((max_lo_bits & 1ULL) == 1ULL) {
-        ++max_lo_bits;
-    }
-    if ((max_hi_bits & 1ULL) == 1ULL) {
-        ++max_hi_bits;
-    }
 
     // The custom bigfield multiplication gate requires inputs are witnesses.
     // If we're using constant values, instantiate them as circuit variables
@@ -2557,7 +2439,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         quotient = convert_constant_to_fixed_witness(quotient);
     }
 
-    bool no_remainders = remainders.size() == 0;
+    bool no_remainders = remainders.empty();
     if (!no_remainders) {
         limb_0_accumulator.emplace_back(remainders[0].binary_basis_limbs[0].element);
         limb_2_accumulator.emplace_back(remainders[0].binary_basis_limbs[2].element);
@@ -2598,7 +2480,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     if (remainder3.is_constant()) {
         remainder3 = field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(remainder3.get_value()));
     }
-    field_t<Builder> remainder_limbs[4]{
+    std::array<field_t<Builder>, NUM_LIMBS> remainder_limbs{
         accumulated_lo,
         remainder1,
         accumulated_hi,
@@ -2646,8 +2528,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
         ctx->range_constrain_two_limbs(hi.get_normalized_witness_index(),
                                        lo.get_normalized_witness_index(),
-                                       (size_t)carry_hi_msb,
-                                       (size_t)carry_lo_msb);
+                                       static_cast<size_t>(carry_hi_msb),
+                                       static_cast<size_t>(carry_lo_msb));
     } else {
         ctx->decompose_into_default_range(hi.get_normalized_witness_index(), carry_hi_msb);
         ctx->decompose_into_default_range(lo.get_normalized_witness_index(), carry_lo_msb);
@@ -2752,6 +2634,29 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
         return std::pair<bool, size_t>(true, 0);
     }
     return std::pair<bool, size_t>(false, num_quotient_bits);
+}
+
+template <typename Builder, typename T>
+std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_partial_schoolbook_multiplication(
+    const std::array<uint256_t, NUM_LIMBS>& a_limbs, const std::array<uint256_t, NUM_LIMBS>& b_limbs)
+{
+    const uint512_t b0_inner = (a_limbs[1] * b_limbs[0]);
+    const uint512_t b1_inner = (a_limbs[0] * b_limbs[1]);
+    const uint512_t c0_inner = (a_limbs[1] * b_limbs[1]);
+    const uint512_t c1_inner = (a_limbs[2] * b_limbs[0]);
+    const uint512_t c2_inner = (a_limbs[0] * b_limbs[2]);
+    const uint512_t d0_inner = (a_limbs[3] * b_limbs[0]);
+    const uint512_t d1_inner = (a_limbs[2] * b_limbs[1]);
+    const uint512_t d2_inner = (a_limbs[1] * b_limbs[2]);
+    const uint512_t d3_inner = (a_limbs[0] * b_limbs[3]);
+
+    const uint512_t r0_inner = (a_limbs[0] * b_limbs[0]);                 // c0 := a0 * b0
+    const uint512_t r1_inner = b0_inner + b1_inner;                       // c1 := a1 * b0 + a0 * b1
+    const uint512_t r2_inner = c0_inner + c1_inner + c2_inner;            // c2 := a2 * b0 + a1 * b1 + a0 * b2
+    const uint512_t r3_inner = d0_inner + d1_inner + d2_inner + d3_inner; // c3 := a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3
+    const uint512_t lo_val = r0_inner + (r1_inner << NUM_LIMB_BITS);      // lo := c0 + c1 * 2^b
+    const uint512_t hi_val = r2_inner + (r3_inner << NUM_LIMB_BITS);      // hi := c2 + c3 * 2^b
+    return std::pair<uint512_t, uint512_t>(lo_val, hi_val);
 }
 
 } // namespace bb::stdlib
