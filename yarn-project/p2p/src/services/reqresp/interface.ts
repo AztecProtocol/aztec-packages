@@ -191,10 +191,6 @@ export interface ReqRespInterface {
     subProtocolValidators: ReqRespSubProtocolValidators,
   ): Promise<void>;
   stop(): Promise<void>;
-  sendRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>;
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     subProtocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],

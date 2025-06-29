@@ -342,28 +342,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Uses the Request Response protocol to request a transaction from the network.
-   *
-   * If the underlying request response protocol fails, then we return undefined.
-   * If it succeeds then we add the transaction to our transaction pool and return.
-   *
-   * @param txHash - The hash of the transaction to request.
-   * @returns A promise that resolves to a transaction or undefined.
-   */
-  public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    const tx = await this.p2pService.sendRequest(ReqRespSubProtocol.TX, txHash);
-
-    if (tx) {
-      this.log.debug(`Received tx ${txHash.toString()} from peer`);
-      await this.txPool.addTxs([tx]);
-    } else {
-      this.log.debug(`Failed to receive tx ${txHash.toString()} from peer`);
-    }
-
-    return tx;
-  }
-
-  /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
   public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
@@ -487,20 +465,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
     return this.txPool.hasTxs(txHashes);
-  }
-
-  /**
-   * Returns a transaction in the transaction pool by its hash.
-   * If the transaction is not in the pool, it will be requested from the network.
-   * @param txHash - Hash of the transaction to look for in the pool.
-   * @returns A single tx or undefined.
-   */
-  async getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    const tx = await this.txPool.getTxByHash(txHash);
-    if (tx) {
-      return tx;
-    }
-    return this.requestTxByHash(txHash);
   }
 
   /**

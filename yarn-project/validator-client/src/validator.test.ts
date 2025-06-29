@@ -200,7 +200,6 @@ describe('ValidatorClient', () => {
 
       p2pClient.getTxStatus.mockResolvedValue('pending');
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
-      p2pClient.getTxByHash.mockImplementation((txHash: TxHash) => Promise.resolve(makeTxFromHash(txHash)));
       p2pClient.getTxsByHash.mockImplementation((txHashes: TxHash[]) => Promise.resolve(txHashes.map(makeTxFromHash)));
 
       epochCache.isInCommittee.mockResolvedValue(true);
