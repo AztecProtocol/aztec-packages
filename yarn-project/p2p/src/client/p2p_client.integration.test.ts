@@ -217,7 +217,7 @@ describe('p2p client integration', () => {
   };
 
   it(
-    'returns undefined if unable to find a transaction from another peer',
+    'returns an empty array if unable to find a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
       // Not using a before each as a the wind down is not working as expected
@@ -240,8 +240,8 @@ describe('p2p client integration', () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
-      const requestedTx = await client1.requestTxByHash(txHash);
-      expect(requestedTx).toBeUndefined();
+      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+      expect(requestedTxs).toEqual([]);
 
       await shutdown(clients);
     },
@@ -274,7 +274,9 @@ describe('p2p client integration', () => {
       // Mock the tx pool to return the tx we are looking for
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-      const requestedTx = await client1.requestTxByHash(txHash);
+      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
+      expect(requestedTxs).toHaveLength(1);
+      const requestedTx = requestedTxs[0];
 
       // Expect the tx to be the returned tx to be the same as the one we mocked
       expect(requestedTx?.toBuffer()).toStrictEqual(tx.toBuffer());
@@ -315,9 +317,9 @@ describe('p2p client integration', () => {
       // Return the correct tx with an invalid proof -> active attack
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
-      const requestedTx = await client1.requestTxByHash(txHash);
+      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
       // Even though we got a response, the proof was deemed invalid
-      expect(requestedTx).toBeUndefined();
+      expect(requestedTxs).toEqual([]);
 
       // Low tolerance error is due to the invalid proof
       expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
@@ -359,9 +361,9 @@ describe('p2p client integration', () => {
       // Return an invalid tx
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
 
-      const requestedTx = await client1.requestTxByHash(txHash);
+      const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
       // Even though we got a response, the proof was deemed invalid
-      expect(requestedTx).toBeUndefined();
+      expect(requestedTxs).toEqual([]);
 
       // Received wrong tx
       expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
