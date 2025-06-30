@@ -164,7 +164,7 @@ sel_instruction_fetching_success {
     sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
     subtrace_operation_id, sel_execution, sel_alu, sel_bitwise, sel_poseidon2_perm,
-    sel_to_radix, sel_ecc_add, sel_keccakf1600,
+    sel_to_radix, sel_ecc_add, sel_keccakf1600, sel_data_copy,
     // register information
     sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5], sel_mem_op_reg[6],
     rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5], rw_reg[6],
@@ -196,6 +196,7 @@ precomputed.sel_exec_spec {
     precomputed.sel_dispatch_to_radix,
     precomputed.sel_dispatch_ecc,
     precomputed.sel_dispatch_keccakf1600,
+    precomputed.sel_dispatch_data_copy,
     // whether we should perform a memory operation on the register
     precomputed.sel_mem_op_reg[0],
     precomputed.sel_mem_op_reg[1],
@@ -299,8 +300,8 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_poseidon2_perm;
 pol commit sel_ecc_add;
-pol commit sel_data_copy;
 pol commit sel_execution;
+pol commit sel_data_copy;
 
 // Embedded execution opcode selectors
 pol commit sel_get_env_var;
