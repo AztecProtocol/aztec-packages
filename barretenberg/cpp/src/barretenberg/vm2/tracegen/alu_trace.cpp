@@ -72,17 +72,12 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         FF b_tag = static_cast<uint8_t>(event.b.get_tag());
         FF c_tag = static_cast<uint8_t>(event.c.get_tag());
         bool tag_check_failed = event.error.has_value() && event.error == AluError::TAG_ERROR;
-        FF alu_batched_tags_diff_inv = 0;
+        FF alu_ab_tags_diff_inv = 0;
         if (tag_check_failed) {
-            // TODO(MW): For some non-ADD ops, we don't want to have an err when tag_c is different, so add a
-            // CHECK_C_TAG/switch operation for those. See alu.pil -> CHECK_C_TAG_EQUAL. This is useless but exists
-            // to remind me/others we should conditionally check c tag equality there:
-            FF CHECK_C_TAG_EQUAL = 1;
-            FF alu_batched_tags_diff = FF(1 << 0) * (a_tag - b_tag) + FF(1 << 3) * CHECK_C_TAG_EQUAL * (a_tag - c_tag);
             // We shouldn't have emitted an event with a tag error when one doesn't exist, currently (ADD) the
             // definition of a tag error is when there is a disallowed diff between tags:
-            assert(alu_batched_tags_diff != 0);
-            alu_batched_tags_diff_inv = alu_batched_tags_diff.invert();
+            assert((a_tag - b_tag) != 0 && "ALU Event emitted with tag error, but none exists");
+            alu_ab_tags_diff_inv = static_cast<FF>(a_tag - b_tag).invert();
         }
 
         trace.set(row,
@@ -101,7 +96,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       // { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
                       { C::alu_max_value, get_tag_max_value(event.a.get_tag()) },
                       { C::alu_sel_tag_err, tag_check_failed ? 1 : 0 },
-                      { C::alu_batched_tags_diff_inv, alu_batched_tags_diff_inv },
+                      { C::alu_ab_tags_diff_inv, alu_ab_tags_diff_inv },
                   } });
 
         row++;

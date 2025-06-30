@@ -41,17 +41,22 @@ execution.sel_alu {
 // MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
 // Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
 
-// For add, we should throw a tag error when ANY of the tags are not equal, so I'm batching here (taken from addressing.pil -> BATCHED_TAGS_DIFF).
-// For this op (and SUB, DIV, ... (TODO(MW))), we do care that c_tag = a_tag = b_tag, so toggle on the check:
-pol CHECK_C_TAG_EQUAL = sel_op_add; // Will become e.g. 1 - (1 - sel_op_add) * (1 - sel_op_sub) * ...
-pol BATCHED_TAGS_DIFF = 2**0 * (ia_tag - ib_tag) + CHECK_C_TAG_EQUAL * 2**3 * (ia_tag - ic_tag);
-pol commit sel_tag_err;
-pol commit batched_tags_diff_inv;
-pol BATCHED_TAGS_DIFF_IS_ZERO = 1 - sel_tag_err;
+// Will become e.g. sel_op_add * ia_tag + sel_op_lt * MEM_TAG_U1 + ....
+// TODO(MW): Mutual exclusivity of selectors? sel_op_add, sel_op_mul, ...
+pol EXPECTED_C_TAG = sel_op_add * ia_tag;
 
-// Now, tag_err = 1 <==> we have a disallowed inequality between the tags:
-#[BATCHED_TAGS_DIFF_CHECK]
-BATCHED_TAGS_DIFF * ( BATCHED_TAGS_DIFF_IS_ZERO * (1 - batched_tags_diff_inv) + batched_tags_diff_inv) - 1 + BATCHED_TAGS_DIFF_IS_ZERO = 0;
+// No error handling here since the type of c is handled by the VM:
+#[C_TAG_CHECK]
+EXPECTED_C_TAG - ic_tag = 0;
+
+pol commit sel_tag_err;
+pol commit ab_tags_diff_inv;
+pol AB_TAGS_EQ = 1 - sel_tag_err;
+
+// TODO(MW): Add sel/flag to turn off check when we expect a/b tags to not be equal (e.g. SHR?)
+// Prove that sel_tag_err = 1 <==> we have a disallowed inequality between the tags:
+#[AB_TAGS_CHECK]
+(ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ = 0;
 
 // TODO(MW): Add max_bits -> precomputed.max_bits when required by other ops:
 #[TAG_MAX_VALUE]

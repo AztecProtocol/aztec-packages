@@ -51,7 +51,7 @@ TEST(AluTraceGenTest, TraceGenerationBasicAddU32)
                   ROW_FIELD_EQ(alu_cf, 0),
                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U32)),
                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, 0))));
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddU1)
@@ -88,7 +88,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU1)
                   ROW_FIELD_EQ(alu_cf, 0),
                   ROW_FIELD_EQ(alu_max_value, 1),
                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, 0)),
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
             AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
                   ROW_FIELD_EQ(alu_sel, 1),
                   ROW_FIELD_EQ(alu_op_id,
@@ -102,7 +102,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU1)
                   ROW_FIELD_EQ(alu_cf, 1),
                   ROW_FIELD_EQ(alu_max_value, 1),
                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, 0))));
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddU128)
@@ -141,7 +141,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU128)
                   ROW_FIELD_EQ(alu_cf, 0),
                   ROW_FIELD_EQ(alu_max_value, u128_max),
                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, 0)),
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
             AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
                   ROW_FIELD_EQ(alu_sel, 1),
                   ROW_FIELD_EQ(alu_op_id,
@@ -155,7 +155,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU128)
                   ROW_FIELD_EQ(alu_cf, 1),
                   ROW_FIELD_EQ(alu_max_value, u128_max),
                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, 0))));
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddTagError)
@@ -173,8 +173,7 @@ TEST(AluTraceGenTest, TraceGenerationAddTagError)
             { .operation = AluOperation::ADD,
               .a = MemoryValue::from<uint128_t>(1),
               .b = MemoryValue::from<uint128_t>(2),
-              .c = MemoryValue::from<uint64_t>(3),
-              .error = AluError::TAG_ERROR },
+              .c = MemoryValue::from<uint64_t>(3) },
         },
         trace);
 
@@ -194,7 +193,7 @@ TEST(AluTraceGenTest, TraceGenerationAddTagError)
                   ROW_FIELD_EQ(alu_cf, 0),
                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U128)),
                   ROW_FIELD_EQ(alu_sel_tag_err, 1),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, 1)), // = inv(a_tag - b_tag) = inv(1) = 1
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 1)), // = inv(a_tag - b_tag) = inv(1) = 1
             AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
                   ROW_FIELD_EQ(alu_sel, 1),
                   ROW_FIELD_EQ(alu_op_id,
@@ -207,9 +206,8 @@ TEST(AluTraceGenTest, TraceGenerationAddTagError)
                   ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U64)),
                   ROW_FIELD_EQ(alu_cf, 0),
                   ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 1),
-                  ROW_FIELD_EQ(alu_batched_tags_diff_inv, FF(1 << 3).invert()) // = inv(2^3*(a_tag - c_tag)) = inv(2^3)
-                  )));
+                  ROW_FIELD_EQ(alu_sel_tag_err, 0)) // Incorrect c tag does not create a tag error (see C_TAG_CHECK)
+            ));
 }
 } // namespace
 } // namespace bb::avm2::tracegen
