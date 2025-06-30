@@ -330,7 +330,6 @@ export class ServerWorldStateSynchronizer
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
     if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
-      this.log.info(`Synced to block ${l2Block.number}, moving to running state`);
       this.setCurrentState(WorldStateRunningState.RUNNING);
       this.syncPromise.resolve();
     }
@@ -373,7 +372,7 @@ export class ServerWorldStateSynchronizer
    */
   private setCurrentState(newState: WorldStateRunningState) {
     this.currentState = newState;
-    this.log.info(`Moved to state ${WorldStateRunningState[this.currentState]}`);
+    this.log.debug(`Moved to state ${WorldStateRunningState[this.currentState]}`);
   }
 
   /**
