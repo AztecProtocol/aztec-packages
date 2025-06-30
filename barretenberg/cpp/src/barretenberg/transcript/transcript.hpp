@@ -14,7 +14,6 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/transcript/origin_tag.hpp"
 #include <concepts>
 
 #include <atomic>

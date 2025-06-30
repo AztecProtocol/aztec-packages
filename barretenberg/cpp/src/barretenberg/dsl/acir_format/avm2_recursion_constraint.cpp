@@ -159,6 +159,8 @@ PairingPoints create_avm2_recursion_constraints(Builder& builder,
     using Flavor = avm2::AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = avm2::AvmRecursiveVerifier_<Flavor>;
+    using field_ct = stdlib::field_t<Builder>;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 
@@ -173,7 +175,7 @@ PairingPoints create_avm2_recursion_constraints(Builder& builder,
 
     // Construct in-circuit representation of the verification key, proof and public inputs
     const auto key_fields = fields_from_witnesses(input.key);
-    const auto proof_fields = fields_from_witnesses(input.proof);
+    const StdlibProof proof_fields{ fields_from_witnesses(input.proof) };
     const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).

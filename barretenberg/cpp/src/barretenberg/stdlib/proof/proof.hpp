@@ -21,6 +21,11 @@ template <typename Builder> class Proof : public std::vector<bb::stdlib::field_t
     using Base = std::vector<bb::stdlib::field_t<Builder>>;
     using Base::Base; // Inherit all constructors from std::vector
 
+    // Explicitly define vector copy constructor (not inherited by default)
+    Proof(const std::vector<bb::stdlib::field_t<Builder>>& fields)
+        : Base(fields)
+    {}
+
     // Constructor from a native Proof
     Proof(Builder& builder, const HonkProof& native_proof)
     {

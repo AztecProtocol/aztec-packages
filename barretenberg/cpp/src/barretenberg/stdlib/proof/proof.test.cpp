@@ -1,7 +1,6 @@
 
 #include <gtest/gtest.h>
 
-// #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "proof.hpp"
 
