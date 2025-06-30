@@ -122,7 +122,7 @@ contract MinimalDelegationTest is GSEBase {
     assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), depositAmount * 3);
 
     if (_overwriteDelay) {
-      stdstore.target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
+      stdstore.enable_packed_slots().target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
     }
 
     vm.prank(WITHDRAWER);
