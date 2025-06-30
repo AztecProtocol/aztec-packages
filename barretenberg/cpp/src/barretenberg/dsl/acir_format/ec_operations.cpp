@@ -14,12 +14,24 @@
 
 namespace acir_format {
 
-// This functions assumes that:
-// 1. the points are on the curve
-// 2a. the points have not the same abssissa, OR
-// 2b. the points are identical (same witness index or same value)
-// If the points at infinity are known and constant, the function will work properly
-// If not, and if the points are not identical, it is an error.
+/**
+ * @brief Creates a constraint for an EC addition operation
+ *
+ * @param builder Circuit builder
+ * @param input The input to the EC addition operation (contains information about input witnesses/constants)
+ * @param has_valid_witness_assignments Whether the witness assignments are valid (if we are just constructing a circuit
+ * to get the verification key, we might not have a valid witness)
+ *
+ * @details This function creates a constraint for an EC addition operation. The mode of operation is as follows:
+ * It assumes that the points are on the curve. Then:
+ *  - If it is known that the points are the same (either witness ids are identical or constant values are identical),
+ * it doubles the point. In this case, it can handle the case of a point at infinity.
+ *  - If it is known that the points are at infinity or not (controlling boolean for both is a constant), it will return
+ * the other point if one is at infinity.
+ *  - If none of the points are at infinity, it assumes that they are different and adds them.
+ *  - If it is not known whether the points are points at infinity, it will return an error.
+ *
+ */
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
