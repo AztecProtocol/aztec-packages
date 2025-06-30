@@ -929,6 +929,11 @@ pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
 // Gas for writing message to L1 portal
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
 
+// AVM - misc constants
+pub global AVM_PC_SIZE_IN_BITS: u32 = 32;
+pub global AVM_MAX_OPERANDS: u32 = 7;
+pub global AVM_MAX_REGISTERS: u32 = 7;
+
 /**
  * GAS COSTS FOR AVM OPCODES
  * They are used in TS and C++
@@ -972,8 +977,14 @@ pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_L1_TO_L2_MSG_RE
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_L2_TO_L1_MSG;
-pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+// See PR #xxxx on why we need this buffer.
+pub global AVM_CALL_BUFFER: u32 = AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS
+    + AVM_MAX_OPERANDS * AVM_ADDRESSING_INDIRECT_L2_GAS
+    + AVM_MAX_OPERANDS * AVM_ADDRESSING_RELATIVE_L2_GAS
+    // Operand resolution. One mem access per operand.
+    + AVM_MAX_REGISTERS * 3;
+pub global AVM_CALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 6;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 6;
 pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 6;
@@ -1028,10 +1039,7 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
-// AVM - misc constants
-pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
-pub global AVM_MAX_OPERANDS: u8 = 8;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
 pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;

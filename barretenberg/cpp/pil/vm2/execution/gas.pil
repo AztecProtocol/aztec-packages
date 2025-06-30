@@ -3,12 +3,19 @@ include "../range_check.pil";
 
 // This is a virtual gadget, which is part of the execution trace.
 // https://excalidraw.com/#json=-fkwtFjYVOq2Z69Q351AE,O3SbjwK5eHX7-Oz2OH8RqQ
+
+// Input columns from execution.pil:
+// ...
+//
+//
+// pol commit sel_should_check_gas;
+//
+// Output:
+// pol commit sel_out_of_gas;
 namespace execution;
 
     #[skippable_if]
     sel_should_check_gas = 0;  // From execution.pil.
-
-    // TODO: Checks should not be required (they should pass) if sel_should_check_gas (from execution.pil) is 0.
 
     // ==== BASE GAS ====
 
@@ -61,9 +68,7 @@ namespace execution;
     // This is constrained here to be 0 if out of gas happens in the base phase, but the execution trace
     // should constrain it further to be zero if another error occurs "before" the dynamic phase
     pol commit should_run_dyn_gas_check;
-    // We constrain that if out of gas in the base phase, the dynamic phase will not run
-    // We can release this constraint in the future when execution.pil constrains should_run_dyn_gas_check
-    out_of_gas_base * should_run_dyn_gas_check = 0;
+    should_run_dyn_gas_check = sel_should_check_gas * (1 - out_of_gas_base);
 
     pol commit dynamic_l2_gas_factor;
     (1 - should_run_dyn_gas_check) * dynamic_l2_gas_factor = 0;
@@ -109,6 +114,7 @@ namespace execution;
     pol commit constant_64;
     sel_should_check_gas * (64 - constant_64) = 0;
 
+    // Note that these are booleans because the summands are mutually exclusive.
     pol OUT_OF_GAS_L2 = out_of_gas_base_l2 + out_of_gas_dynamic_l2;
     pol OUT_OF_GAS_DA = out_of_gas_base_da + out_of_gas_dynamic_da;
 
@@ -141,8 +147,11 @@ namespace execution;
     // ==== GAS USED CONSTRAINING ====
 
     // Safe since they are mutually exclusive
-    pol SEL_GAS_FAILURE = out_of_gas_base + out_of_gas_dynamic;
+    pol commit sel_out_of_gas;
+    sel_out_of_gas = out_of_gas_base + out_of_gas_dynamic;
 
-    // If out of gas, gas_used is set to limit. Otherwise, gas_used is updated based on the gas usage of the previous row.
-    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_GAS_FAILURE + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
-    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_GAS_FAILURE + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;
+    // If out of gas or some error happened before checking gas, gas_used is set to limit.
+    // Otherwise, gas_used is updated based on the gas usage of the previous row.
+    pol SEL_CONSUMED_ALL_GAS = sel_out_of_gas + (1 - sel_should_check_gas);
+    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
+    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;

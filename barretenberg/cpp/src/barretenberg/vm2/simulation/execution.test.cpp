@@ -91,8 +91,7 @@ TEST_F(ExecutionSimulationTest, Call)
     auto gas_tracker = std::make_unique<StrictMock<MockGasTracker>>();
     EXPECT_CALL(*gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
 
-    EXPECT_CALL(execution_components, make_gas_tracker(_)).WillOnce(Return(std::move(gas_tracker)));
-    execution.init_gas_tracker(context);
+    EXPECT_CALL(execution_components, make_gas_tracker).WillOnce(Return(std::move(gas_tracker)));
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);

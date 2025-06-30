@@ -41,14 +41,16 @@ TEST(GetEnvVarConstrainingTest, DoNotGetEnvVarOnEarlierError)
         // No earlier errors, should get env var
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_should_execute_opcode, 1 },
+          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_addressing_error, 0 },
           { C::execution_sel_should_get_env_var, 1 },
           { C::execution_sel_opcode_error, 0 },
           { C::execution_rop_1_, 0 } }, // ADDRESS enum
         // Earlier error, should not get env var
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_should_execute_opcode, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
+          { C::execution_sel_addressing_error, 1 },
           { C::execution_sel_should_get_env_var, 0 },
           { C::execution_sel_opcode_error, 0 },
           { C::execution_rop_1_, 1 } }, // SENDER enum
