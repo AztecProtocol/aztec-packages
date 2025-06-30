@@ -484,6 +484,10 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
         ASSERT(!witness_inverted);
         return *this;
     }
+
+    if (!witness_inverted) {
+        return *this;
+    }
     // Let a := *this, need to constrain a = a_norm
     // [1 - 2 i_a] w_a + [-1] w_a_norm + [i_a] = 0
     //       ^             ^               ^

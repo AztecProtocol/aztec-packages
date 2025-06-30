@@ -64,6 +64,10 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
                 size_t num_gates_start = builder.get_estimated_num_finalized_gates();
 
+                if (!a.is_constant() && !b.is_constant()) {
+                    a.set_origin_tag(submitted_value_origin_tag);
+                    b.set_origin_tag(challenge_origin_tag);
+                }
                 bool_ct c = op(a, b);
 
                 bool expected = expected_op(lhs.value ^ lhs.is_inverted, rhs.value ^ rhs.is_inverted);
@@ -78,10 +82,14 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                 }
 
                 if (!a.is_constant() && !b.is_constant()) {
+                    // The result of a binary op on two witnesses must be a witness
                     EXPECT_TRUE(!c.is_constant());
+                    // Check that the tags are propagated
+                    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
                 }
 
                 size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+                // An extra gate is created iff both operands are witnesses
                 EXPECT_EQ(diff, static_cast<size_t>(!a.is_constant() && !b.is_constant()));
             }
         }
@@ -153,6 +161,12 @@ template <class Builder_> class BoolTest : public ::testing::Test {
             "==", [](const bool_ct& a, const bool_ct& b) { return a == b; }, [](bool a, bool b) { return a == b; });
     }
 
+    void test_NEQ()
+    {
+        test_binary_op(
+            "==", [](const bool_ct& a, const bool_ct& b) { return a != b; }, [](bool a, bool b) { return a != b; });
+    }
+
     void test_implies()
     {
         test_binary_op(
@@ -167,6 +181,62 @@ template <class Builder_> class BoolTest : public ::testing::Test {
             "<=>",
             [](const bool_ct& a, const bool_ct& b) { return a.implies_both_ways(b); },
             [](bool a, bool b) { return !a ^ b; });
+    }
+
+    void test_must_imply()
+    {
+
+        for (auto& lhs : all_inputs) {
+            for (auto& rhs : all_inputs) {
+                Builder builder;
+
+                bool_ct a = create_bool_ct(lhs, &builder);
+                bool_ct b = create_bool_ct(rhs, &builder);
+
+                if (a.is_constant() && b.is_constant() && !(!a.get_value() || b.get_value())) {
+#ifndef NDEBUG
+                    EXPECT_DEATH(a.must_imply(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
+#endif
+                } else {
+                    bool result_is_constant = (!a || b).is_constant();
+
+                    size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+                    if (!a.is_constant() && !b.is_constant()) {
+                        a.set_origin_tag(submitted_value_origin_tag);
+                        b.set_origin_tag(challenge_origin_tag);
+                    }
+                    a.must_imply(b);
+                    // !a || b
+                    // b = 1 =>
+                    bool expected = !(lhs.value ^ lhs.is_inverted) || rhs.value ^ rhs.is_inverted;
+
+                    size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+
+                    if (!a.is_constant() && !b.is_constant()) {
+                        EXPECT_EQ(diff, 2);
+                    }
+                    // Due to optimizations, the result of a => b can be a constant, in this case, the the assert_equal
+                    // reduces to an out-of-circuit ASSERT
+                    if (result_is_constant) {
+                        EXPECT_EQ(diff, 0);
+                    }
+
+                    if (!result_is_constant && a.is_constant() && !b.is_constant()) {
+                        // we only add gates if the value `true` is not flipped to `false` and we need to add a new
+                        // constant == 1, which happens iff `b` is not inverted.
+                        EXPECT_EQ(diff, static_cast<size_t>(!b.witness_inverted));
+                    }
+
+                    if (!result_is_constant && !a.is_constant() && b.is_constant()) {
+                        // we only add gates if the value `true` is not flipped to `false` and we need to add a new
+                        // constant == 1, which happens iff `a` is inverted.
+                        EXPECT_EQ(diff, static_cast<size_t>(a.witness_inverted));
+                    }
+                    EXPECT_EQ(CircuitChecker::check(builder), expected);
+                }
+            }
+        }
     }
 };
 
@@ -202,6 +272,11 @@ TYPED_TEST(BoolTest, EQ)
     TestFixture::test_EQ();
 }
 
+TYPED_TEST(BoolTest, NEQ)
+{
+    TestFixture::test_NEQ();
+}
+
 TYPED_TEST(BoolTest, Implies)
 {
     TestFixture::test_implies();
@@ -211,6 +286,12 @@ TYPED_TEST(BoolTest, ImpliesBothWays)
 {
     TestFixture::test_implies_both_ways();
 }
+
+TYPED_TEST(BoolTest, MustImply)
+{
+    TestFixture::test_must_imply();
+}
+
 TYPED_TEST(BoolTest, TestBasicOperationsTags)
 {
 
@@ -348,118 +429,6 @@ TYPED_TEST(BoolTest, Eq)
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, ImpliesTags)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t j = 0; j < 4; ++j) {
-        bool lhs_constant = (bool)(j % 2);
-        bool rhs_constant = (bool)(j > 1 ? true : false);
-
-        for (size_t i = 0; i < 4; ++i) {
-            bool a_val = (bool)(i % 2);
-            bool b_val = (bool)(i > 1 ? true : false);
-            bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
-            bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
-            if (!(lhs_constant || rhs_constant)) {
-                a.set_origin_tag(submitted_value_origin_tag);
-                b.set_origin_tag(challenge_origin_tag);
-            }
-            bool_ct c = a.implies(b);
-            EXPECT_EQ(c.get_value(), !a.get_value() || b.get_value());
-            if (!(lhs_constant || rhs_constant)) {
-                // Tags are merged on implies
-                EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            }
-        }
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, ImpliesBothWaysTags)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t j = 0; j < 4; ++j) {
-        bool lhs_constant = (bool)(j % 2);
-        bool rhs_constant = (bool)(j > 1 ? true : false);
-
-        for (size_t i = 0; i < 4; ++i) {
-            bool a_val = (bool)(i % 2);
-            bool b_val = (bool)(i > 1 ? true : false);
-            bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
-            bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
-            if (!(lhs_constant || rhs_constant)) {
-                a.set_origin_tag(submitted_value_origin_tag);
-                b.set_origin_tag(challenge_origin_tag);
-            }
-            bool_ct c = a.implies_both_ways(b);
-            EXPECT_EQ(c.get_value(), !(a.get_value() ^ b.get_value()));
-
-            if (!(lhs_constant || rhs_constant)) {
-                // Tags are merged on implies both ways
-                EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            }
-        }
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, MustImply)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t j = 0; j < 4; ++j) {
-        bool lhs_constant = (bool)(j % 2);
-        bool rhs_constant = (bool)(j > 1 ? true : false);
-
-        for (size_t i = 4; i < 14; i += 2) {
-            // If a number is divisible by 2 and 3, it is divisible by 6
-            bool two = (bool)(i % 2);
-            bool three = (bool)(i % 3);
-            bool six = (bool)(i % 6);
-            bool a_val = (two && three);
-            bool b_val = six;
-            bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
-            bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
-            a.must_imply(b);
-        }
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, MustImplyFails)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t j = 0; j < 3; ++j) { // ignore the case when both lhs and rhs are constants
-        bool lhs_constant = (bool)(j % 2);
-        bool rhs_constant = (bool)(j > 1 ? true : false);
-
-        // If a number is divisible by 2 and 3, it is divisible by 6
-        // => 8 is not divisible by 3, so it must not be divisible by 6
-        const size_t i = 8;
-        bool a_val = (bool)(i % 2 == 0);
-        bool b_val = (bool)(i % 6 == 0);
-        bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
-        bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
-        a.must_imply(b, "div by 2 does not imply div by 8");
-
-        EXPECT_EQ(builder.failed(), true);
-        EXPECT_EQ(builder.err(), "div by 2 does not imply div by 8");
-    }
 }
 
 TYPED_TEST(BoolTest, MustImplyMultiple)
