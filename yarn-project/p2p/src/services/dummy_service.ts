@@ -114,10 +114,6 @@ export class DummyP2PService implements P2PService {
   ): Promise<void> {
     return Promise.resolve();
   }
-
-  shouldTrustWithIdentity(_peerId: PeerId): boolean {
-    return false;
-  }
 }
 
 /**
@@ -203,10 +199,6 @@ export class DummyPeerManager implements PeerManagerInterface {
   public goodbyeReceived(_peerId: PeerId, _reason: GoodByeReason): void {}
   public penalizePeer(_peerId: PeerId, _penalty: PeerErrorSeverity): void {}
   public addPreferredPeer(_peerId: PeerId): void {}
-
-  public shouldTrustWithIdentity(_peerId: PeerId): boolean {
-    return false;
-  }
 }
 
 export class DummyReqResp implements ReqRespInterface {

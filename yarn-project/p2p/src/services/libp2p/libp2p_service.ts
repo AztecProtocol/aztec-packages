@@ -223,7 +223,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
-    if (bootstrapNodes.length > 0) {
+    if (bootstrapNodes.length > 0 && !config.p2pDiscoveryDisabled) {
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
     }
 
@@ -1041,10 +1041,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public getPeerScore(peerId: PeerId): number {
     return this.node.services.pubsub.score.score(peerId.toString());
-  }
-
-  public shouldTrustWithIdentity(peerId: PeerId): boolean {
-    return this.peerManager.shouldTrustWithIdentity(peerId);
   }
 
   public handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
