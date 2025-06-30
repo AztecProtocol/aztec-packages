@@ -294,8 +294,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     FoldProof& fold_proof = verification_queue[0].proof;
     HonkProof decider_proof = decider_prove();
 
-    auto public_input_length = verification_queue[0].honk_verification_key->num_public_inputs;
-    info("public_inputs_length", public_input_length);
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
@@ -329,9 +327,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 
     std::shared_ptr<RecursiveVerificationKey> stdlib_recursive_vk =
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
-
-    std::shared_ptr<RecursiveDeciderVerificationKey> stdlib_decider_vk =
-        std::make_shared<RecursiveDeciderVerificationKey>(&builder, verification_queue[0].honk_verification_key);
 
     auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
 
