@@ -14,7 +14,7 @@ template <typename FF_> class public_data_checkImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5,
-                                                                            4, 4, 4, 3, 4, 3, 4, 4, 3, 3, 2 };
+                                                                            4, 4, 4, 3, 4, 3, 4, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -105,8 +105,8 @@ template <typename FF_> class public_data_checkImpl {
             auto tmp = in.get(C::public_data_check_sel) *
                        ((public_data_check_SLOT_LOW_LEAF_SLOT_DIFF *
                              (public_data_check_LEAF_EXISTS *
-                                  (FF(1) - in.get(C::public_data_check_slot_low_leaf_slot_diff_inv)) +
-                              in.get(C::public_data_check_slot_low_leaf_slot_diff_inv)) -
+                                  (FF(1) - in.get(C::public_data_check_leaf_slot_low_leaf_slot_diff_inv)) +
+                              in.get(C::public_data_check_leaf_slot_low_leaf_slot_diff_inv)) -
                          FF(1)) +
                         public_data_check_LEAF_EXISTS);
             tmp *= scaling_factor;
@@ -215,8 +215,9 @@ template <typename FF_> class public_data_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
             auto tmp =
-                (in.get(C::public_data_check_write_idx_shift) -
-                 (in.get(C::public_data_check_write_idx) + in.get(C::public_data_check_should_write_to_public_inputs)));
+                in.get(C::public_data_check_not_end) *
+                ((in.get(C::public_data_check_write_idx) + in.get(C::public_data_check_should_write_to_public_inputs)) -
+                 in.get(C::public_data_check_write_idx_shift));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }

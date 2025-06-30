@@ -57,8 +57,8 @@ void PublicDataTreeCheckTraceBuilder::process(
         const auto& event = events_with_metadata[i].event;
         const bool discard = events_with_metadata[i].discard;
 
-        bool exists = event.low_leaf_preimage.leaf.slot == event.slot;
-        FF slot_low_leaf_slot_diff_inv = exists ? 0 : (event.slot - event.low_leaf_preimage.leaf.slot).invert();
+        bool exists = event.low_leaf_preimage.leaf.slot == event.leaf_slot;
+        FF slot_low_leaf_slot_diff_inv = exists ? 0 : (event.leaf_slot - event.low_leaf_preimage.leaf.slot).invert();
 
         bool next_slot_is_nonzero = false;
         FF next_slot_inv = 0;
@@ -115,7 +115,7 @@ void PublicDataTreeCheckTraceBuilder::process(
                       { C::public_data_check_leaf_slot, event.leaf_slot },
                       { C::public_data_check_siloing_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                       { C::public_data_check_leaf_not_exists, !exists },
-                      { C::public_data_check_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
+                      { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
                       { C::public_data_check_next_slot_is_nonzero, next_slot_is_nonzero },
                       { C::public_data_check_next_slot_inv, next_slot_inv },
                       { C::public_data_check_low_leaf_hash, event.low_leaf_hash },
@@ -129,6 +129,9 @@ void PublicDataTreeCheckTraceBuilder::process(
                       { C::public_data_check_should_write_to_public_inputs, should_write_to_public_inputs },
                   } });
         row++;
+        if (should_write_to_public_inputs) {
+            write_idx++;
+        }
     }
 }
 
