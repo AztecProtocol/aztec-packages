@@ -1,23 +1,28 @@
-From 44af51035b8904db352bee5316da56b121cf86d6 Mon Sep 17 00:00:00 2001
+From fb8146c8d5726b6e5f76163f130759059a408564 Mon Sep 17 00:00:00 2001
 From: Ary Borenszweig <asterite@gmail.com>
 Date: Mon, 30 Jun 2025 16:25:29 -0300
 Subject: [PATCH] Patch
 
 ---
- tooling/noir_codegen/src/utils/demonomorphizer.ts | 2 +-
+ tooling/noir_codegen/src/utils/demonomorphizer.ts | 7 ++++++-
  tooling/noir_codegen/tsconfig.json                | 1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/tooling/noir_codegen/src/utils/demonomorphizer.ts b/tooling/noir_codegen/src/utils/demonomorphizer.ts
-index 2b33b57455..e5b80a63d3 100644
+index 2b33b57455..9a75f9d5a1 100644
 --- a/tooling/noir_codegen/src/utils/demonomorphizer.ts
 +++ b/tooling/noir_codegen/src/utils/demonomorphizer.ts
-@@ -199,7 +199,7 @@ export class Demonomorphizer {
+@@ -199,7 +199,12 @@ export class Demonomorphizer {
            const unifiedStruct = structs[0];
 
            if (!structs.every((struct) => struct.args.length === unifiedStruct.args.length)) {
 -            throw new Error('Same struct with different number of args encountered');
-+            throw new Error(`Same struct with different number of args encountered: ${unifiedStruct.structType.path}`);
++            let message = "Same struct with different number of args encountered: ";
++            structs.forEach(function(struct) {
++              message += `${struct.structType.path} (${struct.args.length}), `;
++            });
++
++            throw new Error(message);
            }
            for (let i = 0; i < unifiedStruct.args.length; i++) {
              const argTypes = structs.map((struct) => struct.args[i]);
@@ -35,3 +40,4 @@ index 30dd2a7ee5..223eb568a2 100644
      "src/**/*.ts"
 --
 2.45.2
+
