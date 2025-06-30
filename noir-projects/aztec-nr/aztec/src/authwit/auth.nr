@@ -232,7 +232,7 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
     let args: [Field; N] = unsafe { load(args_hash) };
     emit_offchain_effect(array_concat(
         [
-            authorization.get_auth_selector().to_field(),
+            authorization.get_authorization_selector().to_field(),
             inner_hash,
             authorization.msg_sender.to_field(),
             authorization.selector.to_field(),
