@@ -193,6 +193,7 @@ export class ConnectionSampler {
     // end up with the same id, hence a serial queue
     this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
     const abortController = new AbortController();
+    this.dialAttempts.push(abortController);
 
     try {
       const stream = await this.dialQueue.put(() =>
