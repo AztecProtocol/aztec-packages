@@ -1,1 +1,2 @@
 ^acir_tests/scripts/run_test.sh
+^acir_tests/bootstrap.sh
