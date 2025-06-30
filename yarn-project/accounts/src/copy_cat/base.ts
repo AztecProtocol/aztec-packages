@@ -1,19 +1,15 @@
-import { DefaultAccountInterface } from '@aztec/accounts/defaults';
 import {
   type AccountInterface,
-  AccountWallet,
   AccountWalletWithSecretKey,
-  AuthWitness,
   type ContractArtifact,
   Fr,
   type PXE,
   TxExecutionRequest,
-  getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { SimulationOverrides, TxSimulationResult } from '@aztec/stdlib/tx';
 
-/*
+/**
  * An AccountWallet that copies the address of another account, and then
  * uses the simulation overrides feature to execute different contract code under
  * the copied address. This is used to bypass authwit verification entirely

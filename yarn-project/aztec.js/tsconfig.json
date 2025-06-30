@@ -28,5 +28,5 @@
       "path": "../stdlib"
     }
   ],
-  "include": ["src", "src/**/*.json", "../accounts/src/copy_cat/copy_cat_wallet.ts"]
+  "include": ["src", "src/**/*.json"]
 }

@@ -4,7 +4,7 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 
-import { printAuthwits } from '../utils/authwits.js';
+import { printAuthorizations } from '../utils/authorizations.js';
 import type { IFeeOpts } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 
@@ -29,7 +29,7 @@ export async function simulate(
     includeMetadata: true,
   });
   if (verbose) {
-    await printAuthwits(
+    await printAuthorizations(
       simulationResult.offchainEffects!,
       async (address: AztecAddress) => {
         const metadata = await wallet.getContractMetadata(address);

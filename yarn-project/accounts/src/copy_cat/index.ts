@@ -16,12 +16,17 @@ export const SimulatedAccountContractArtifact = loadContractArtifact(
   SimulatedAccountContractJson as NoirCompiledContract,
 );
 
-/*
- * A CopyCatAccountWallet that loads the contract artifact lazily.
+/**
+ * A CopyCatAccountWallet that loads the contract artifact eagerly.
  */
 export class CopyCatAccountWallet extends CopyCatAccountWalletBase {
   static async create(pxe: PXE, originalAccount: AccountWallet): Promise<CopyCatAccountWallet> {
     const simulatedAuthWitnessProvider = {
+      /**
+       * A copycat wallet always returns an empty authwitness, since it doesn't
+       * perform any verification whatsoever
+       * @param messageHash - The outer hash of the message for which the auth witness is created
+       */
       createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         return Promise.resolve(new AuthWitness(messageHash, []));
       },

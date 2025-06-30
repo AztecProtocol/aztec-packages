@@ -10,12 +10,16 @@ import {
 
 import { CopyCatAccountWalletBase } from './base.js';
 
-/*
+/**
  * A CopyCatAccountWallet that loads the contract artifact lazily.
  */
 export class CopyCatAccountWallet extends CopyCatAccountWalletBase {
   static async create(pxe: PXE, originalAccount: AccountWallet): Promise<CopyCatAccountWallet> {
     const simulatedAuthWitnessProvider = {
+      /**
+       *
+       * @param messageHash
+       */
       createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         return Promise.resolve(new AuthWitness(messageHash, []));
       },

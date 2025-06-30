@@ -399,7 +399,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
     let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
     if maybe_authorize_once_args.is_none() {
         panic(
-            f"Functions marked with #[authorize_once] must have the #[private] attribute placed last",
+            f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
         );
     }
     let mut from_arg_name = if maybe_authorize_once_args.unwrap().len() > 0 {
@@ -420,7 +420,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
         from_arg_candidates[0]
     } else {
         panic(
-            f"Function {name} does not have a {from_arg_name}: AztecAddress parameter. Please provide it or specify which one to use in #[authorize_once(from = \"...\")]",
+            f"Function {name} does not have a {from_arg_name}: AztecAddress parameter. Please provide it or specify which one to use in #[authorize_once(\"...\")]",
         )
     };
     let nonce_arg_candidates = f.parameters().filter(|(name, typ)| {
@@ -430,7 +430,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
         nonce_arg_candidates[0]
     } else {
         panic(
-            f"Function {name} does not have a {nonce_arg_name}: Field parameter. Please provide it or specify which one to use in #[authorize_once(from = \"...\")]",
+            f"Function {name} does not have a {nonce_arg_name}: Field parameter. Please provide it or specify which one to use in #[authorize_once(\"from\", \"...\")]",
         )
     };
     // At this point, the original args of the fn have already been altered by the macro

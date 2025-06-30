@@ -1,5 +1,5 @@
 import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat';
-import { type AccountWallet, CallAuthwitWithPreimage, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { type AccountWallet, CallAuthorizationRequest, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
@@ -103,8 +103,8 @@ describe('Kernelless simulation', () => {
       expect(token0AuthwitRequest.data).toHaveLength(9);
       expect(token1AuthwitRequest.data).toHaveLength(9);
 
-      const token0AuthwitPreimage = await CallAuthwitWithPreimage.fromFields(token0AuthwitRequest.data);
-      const token1AuthwitPreimage = await CallAuthwitWithPreimage.fromFields(token0AuthwitRequest.data);
+      const token0AuthwitPreimage = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
+      const token1AuthwitPreimage = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
 
       expect(token0AuthwitPreimage.selector).toEqual(token1AuthwitPreimage.selector);
 
