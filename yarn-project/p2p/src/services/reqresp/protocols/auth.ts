@@ -61,30 +61,3 @@ export class AuthResponse {
     return serializeToBuffer([this.status, this.signature]);
   }
 }
-
-/**
- * Handles the status request. By immediately responding  with the current node status.
- * @param compressedComponentsVersion - Compressed Components Version
- * @param worldStateSynchronizer - World State Synchronizer to fetch the sync status from.
- * Note the WorldStateSynchronizer must be injected to fetch the fresh sync status, we cannot pass in pre-built StatusMessage.
- * @returns Status message handler
- */
-// export function reqRespAuthHandler(
-//   signer: (challenge: Buffer) => Promise<Buffer>,
-//   compressedComponentsVersion: string,
-//   worldStateSynchronizer: WorldStateSynchronizer,
-//   logger?: Logger,
-// ) {
-//   return async (peerId: PeerId, msg: Buffer) => {
-//     logger?.trace(`Received auth handshake request from ${peerId}`);
-//     const status = StatusMessage.fromWorldStateSyncStatus(
-//       compressedComponentsVersion,
-//       (await worldStateSynchronizer.status()).syncSummary,
-//     );
-//     const authRequest = AuthRequest.fromBuffer(msg);
-//     const challenge = await signer(authRequest.challenge);
-//     const response = new AuthResponse(status, challenge).toBuffer();
-//     logger?.trace(`Responding auth handshake from ${peerId}`, { data: bufferToHex(response) });
-//     return response;
-//   };
-// }
