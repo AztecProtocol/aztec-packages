@@ -11,7 +11,7 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
 
-import {logFr} from "./utils.sol";
+import {logFr} from "./Debug.sol";
 
 import "forge-std/console.sol";
 
