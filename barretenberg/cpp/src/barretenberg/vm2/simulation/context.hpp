@@ -152,7 +152,7 @@ class BaseContext : public ContextInterface {
     void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
 
     // Input / Output
-    std::vector<FF> get_returndata(uint32_t rd_offset_addr, uint32_t rd_copy_size) override;
+    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   private:
     // Environment.
@@ -270,7 +270,7 @@ class NestedContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset_addr, uint32_t cd_copy_size) const override;
+    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     MemoryAddress get_parent_cd_addr() const override { return parent_cd_addr; }
     uint32_t get_parent_cd_size() const override { return parent_cd_size; }

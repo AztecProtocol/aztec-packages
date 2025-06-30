@@ -118,8 +118,8 @@ pol constant sel_dispatch_bitwise;
 pol constant sel_dispatch_poseidon_perm;
 pol constant sel_dispatch_to_radix;
 pol constant sel_dispatch_ecc;
-pol constant sel_dispatch_data_copy;
 pol constant sel_dispatch_keccakf1600;
+pol constant sel_dispatch_data_copy;
 pol constant sel_dispatch_execution;
 // Whether an operand is an address
 // NOTE: this could be encoded in bits in 1 column and reconstructed.

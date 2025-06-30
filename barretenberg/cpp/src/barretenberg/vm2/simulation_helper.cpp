@@ -156,7 +156,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      calldata_hashing_provider,
                                      internal_call_stack_manager_provider,
                                      hints.tx.globalVariables);
-    DataCopy data_copy(execution_id_manager, data_copy_emitter);
+    DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
 
     Execution execution(alu,
                         data_copy,
