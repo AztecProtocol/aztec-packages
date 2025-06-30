@@ -3,19 +3,22 @@
 pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {
-  StakingQueueLib,
-  StakingQueue,
-  DepositArgs,
-  StakingQueueConfig
-} from "@aztec/core/libraries/StakingQueue.sol";
+  StakingQueueConfig,
+  CompressedStakingQueueConfig,
+  StakingQueueConfigLib
+} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {
+  CompressedTimeMath, CompressedTimestamp
+} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -53,9 +56,9 @@ struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
   GSE gse;
-  Timestamp exitDelay;
+  CompressedTimestamp exitDelay;
   mapping(address attester => Exit) exits;
-  StakingQueueConfig queueConfig;
+  CompressedStakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
 }
@@ -65,6 +68,10 @@ library StakingLib {
   using SafeERC20 for IERC20;
   using StakingQueueLib for StakingQueue;
   using ProposalLib for Proposal;
+  using StakingQueueConfigLib for CompressedStakingQueueConfig;
+  using StakingQueueConfigLib for StakingQueueConfig;
+  using CompressedTimeMath for CompressedTimestamp;
+  using CompressedTimeMath for Timestamp;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -78,9 +85,9 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
     store.gse = _gse;
-    store.exitDelay = _exitDelay;
+    store.exitDelay = _exitDelay.compress();
     store.slasher = _slasher;
-    store.queueConfig = _config;
+    store.queueConfig = _config.compress();
     store.entryQueue.init();
   }
 
@@ -199,7 +206,7 @@ library StakingLib {
         store.exits[_attester] = Exit({
           withdrawalId: withdrawalId,
           amount: toUser,
-          exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
+          exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
           recipientOrWithdrawer: withdrawer,
           isRecipient: false,
           exists: true
@@ -296,7 +303,7 @@ library StakingLib {
       store.exits[_attester] = Exit({
         withdrawalId: withdrawalId,
         amount: actualAmount,
-        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
+        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
         recipientOrWithdrawer: _recipient,
         isRecipient: true,
         exists: true
@@ -308,7 +315,7 @@ library StakingLib {
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
-    getStorage().queueConfig = _config;
+    getStorage().queueConfig = _config.compress();
     emit IStakingCore.StakingQueueConfigUpdated(_config);
   }
 
@@ -397,7 +404,7 @@ library StakingLib {
    */
   function getEntryQueueFlushSize() internal view returns (uint256) {
     StakingStorage storage store = getStorage();
-    StakingQueueConfig memory config = store.queueConfig;
+    StakingQueueConfig memory config = store.queueConfig.decompress();
 
     uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
     uint256 queueSize = store.entryQueue.length();

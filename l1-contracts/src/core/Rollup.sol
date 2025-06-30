@@ -27,7 +27,11 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {
+  CompressedSlot,
+  CompressedTimestamp,
+  CompressedTimeMath
+} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
@@ -64,6 +68,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Epoch;
   using PriceLib for EthValue;
   using CompressedTimeMath for CompressedSlot;
+  using CompressedTimeMath for CompressedTimestamp;
   using ChainTipsLib for CompressedChainTips;
 
   constructor(
@@ -243,7 +248,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getExitDelay() external view override(IStaking) returns (Timestamp) {
-    return StakingLib.getStorage().exitDelay;
+    return StakingLib.getStorage().exitDelay.decompress();
   }
 
   function getGSE() external view override(IStaking) returns (GSE) {
