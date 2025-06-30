@@ -28,6 +28,8 @@ import {
 import {Math} from "@oz/utils/math/Math.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {STFLib, TempBlockLog} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {GenesisState} from "@aztec/core/interfaces/IRollup.sol";
 
 // The data types are slightly messed up here, the reason is that
 // we just want to use the same structs from the test points making
@@ -58,6 +60,13 @@ contract MinimalFeeModel {
   constructor(uint256 _slotDuration, uint256 _epochDuration, uint256 _proofSubmissionEpochs) {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+    STFLib.initialize(
+      GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(0)
+      })
+    );
   }
 
   function getL1GasOracleValues() public view returns (L1GasOracleValuesModel memory) {
@@ -87,8 +96,8 @@ contract MinimalFeeModel {
     });
   }
 
-  function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = FeeLib.getFeeHeader(_slotNumber).decompress();
+  function getFeeHeader(uint256 block_number) public view returns (FeeHeaderModel memory) {
+    FeeHeader memory feeHeader = STFLib.getFeeHeader(block_number).decompress();
     return FeeHeaderModel({
       fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
       excess_mana: feeHeader.excessMana,
@@ -102,7 +111,19 @@ contract MinimalFeeModel {
 
   // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
   function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
-    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
+    uint256 blockNumber = ++populatedThrough;
+    STFLib.setTempBlockLog(
+      blockNumber,
+      TempBlockLog({
+        headerHash: bytes32(0),
+        blobCommitmentsHash: bytes32(0),
+        slotNumber: Slot.wrap(0),
+        feeHeader: FeeLib.computeFeeHeader(
+          blockNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0
+        )
+      })
+    );
+    //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
   }
 
   function setProvingCost(EthValue _provingCost) public {

@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
-import {Multicall3} from "./Multicall3.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -73,7 +72,6 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
-
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 1e8;
@@ -109,7 +107,11 @@ contract FakeCanonical is IRewardDistributor {
   function updateRegistry(IRegistry _registry) external {}
 }
 
-contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
+/**
+ * @notice  Most of this is directly the same as in the `BenchmarkRollupTest` but we
+ *          are testing some edges that will break if the `roundaboutSize` is wrong!
+ */
+contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
@@ -138,8 +140,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-
-  Multicall3 internal multicall = new Multicall3();
 
   SlashingProposer internal slashingProposer;
   IPayload internal slashPayload;
@@ -196,20 +196,103 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.warp(l1Metadata[index].timestamp);
   }
 
-  function test_no_validators() public prepare(0, 0) {
-    benchmark(false);
-  }
+  function test_boundaries() public prepare(100, 48) {
+    // We are using this test to check that the roundaboutSize is large enough.
+    // We do this by checking that the last proven block has available header hash
+    // We build as many blocks as can fit in the epoch to span most storage, and then
+    // we will first try proving it, and then try making it prune.
+    // To see failure, try reducing the `roundaboutSize` by 1, and run with
+    // first `proven = false` and then `proven = true`
+    bool proven = false;
 
-  function test_48_validators() public prepare(48, 48) {
-    benchmark(false);
-  }
+    // Do nothing for the first epoch
+    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
 
-  function test_100_validators() public prepare(100, 48) {
-    benchmark(false);
-  }
+    bytes32 headerHashProven = rollup.getBlock(rollup.getProvenBlockNumber()).headerHash;
 
-  function test_100_slashing_validators() public prepare(100, 48) {
-    benchmark(true);
+    // Loop through all of the L1 metadata
+    uint256 limit = l1Metadata.length * 12 / SLOT_DURATION;
+
+    for (uint256 i = 0; i < limit; i++) {
+      if (rollup.getPendingBlockNumber() >= 100) {
+        break;
+      }
+
+      _loadL1Metadata(i);
+
+      // For every "new" slot we encounter, we construct a block using current L1 Data
+      // and part of the `empty_block_1.json` file. The block cannot be proven, but it
+      // will be accepted as a proposal so very useful for testing a long range of blocks.
+      if (rollup.getCurrentSlot() == nextSlot) {
+        rollup.setupEpoch();
+
+        Block memory b = getBlock();
+        address proposer = rollup.getCurrentProposer();
+
+        skipBlobCheck(address(rollup));
+
+        vm.prank(proposer);
+        rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
+
+        nextSlot = nextSlot + Slot.wrap(1);
+      }
+
+      // When the next would mean that we have a prune, we post the proof. As late as possible, every time.
+      if (!proven && rollup.canPruneAtTime(Timestamp.wrap(block.timestamp + 12))) {
+        proven = true;
+        uint256 pendingBlockNumber = rollup.getPendingBlockNumber();
+        uint256 start = rollup.getProvenBlockNumber() + 1;
+        uint256 epochSize = 0;
+        while (
+          start + epochSize <= pendingBlockNumber
+            && rollup.getEpochForBlock(start) == rollup.getEpochForBlock(start + epochSize)
+        ) {
+          epochSize++;
+        }
+
+        bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
+
+        for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
+          // we need the basefee, and we cannot just take it from the point. Because it is different
+          Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
+          uint256 manaBaseFee = rollup.getManaBaseFeeAt(ts, true);
+          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaBaseFee;
+
+          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
+          fees[feeIndex * 2 + 1] = bytes32(fee);
+        }
+
+        PublicInputArgs memory args = PublicInputArgs({
+          previousArchive: rollup.getBlock(start).archive,
+          endArchive: rollup.getBlock(start + epochSize - 1).archive,
+          proverId: address(0)
+        });
+
+        {
+          rollup.submitEpochRootProof(
+            SubmitEpochRootProofArgs({
+              start: start,
+              end: start + epochSize - 1,
+              args: args,
+              fees: fees,
+              blobInputs: full.block.batchedBlobInputs,
+              proof: ""
+            })
+          );
+          headerHashProven = rollup.getBlock(rollup.getProvenBlockNumber()).headerHash;
+        }
+      } else {
+        // We are checking that we have the last proven since if we just pruned that, we are going
+        // to have issues with the fees...
+        // However, if you want to see it exploding with "stale" information when trying to prove it
+        // You should make the next line a comment and mess with `roundaboutSize`
+        assertEq(
+          headerHashProven,
+          rollup.getBlock(rollup.getProvenBlockNumber()).headerHash,
+          "we overrode the last proven block"
+        );
+      }
+    }
   }
 
   /**
@@ -344,109 +427,5 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
     return Signature({v: v, r: r, s: s});
-  }
-
-  function benchmark(bool _slashing) public {
-    // Do nothing for the first epoch
-    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
-    Epoch nextEpoch = Epoch.wrap(4);
-    bool warmedUp = false;
-    // Loop through all of the L1 metadata
-    for (uint256 i = 0; i < l1Metadata.length; i++) {
-      if (rollup.getPendingBlockNumber() >= 100) {
-        break;
-      }
-
-      _loadL1Metadata(i);
-
-      if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
-        address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createVoteSignature(proposer, slashPayload);
-        slashingProposer.voteWithSig(slashPayload, sig);
-        warmedUp = true;
-      }
-
-      // For every "new" slot we encounter, we construct a block using current L1 Data
-      // and part of the `empty_block_1.json` file. The block cannot be proven, but it
-      // will be accepted as a proposal so very useful for testing a long range of blocks.
-      if (rollup.getCurrentSlot() == nextSlot) {
-        rollup.setupEpoch();
-
-        Block memory b = getBlock();
-        address proposer = rollup.getCurrentProposer();
-
-        skipBlobCheck(address(rollup));
-
-        if (_slashing) {
-          Signature memory sig = createVoteSignature(proposer, slashPayload);
-          Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
-          calls[0] = Multicall3.Call3({
-            target: address(rollup),
-            callData: abi.encodeCall(
-              rollup.propose,
-              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
-            ),
-            allowFailure: false
-          });
-          calls[1] = Multicall3.Call3({
-            target: address(slashingProposer),
-            callData: abi.encodeCall(slashingProposer.voteWithSig, (slashPayload, sig)),
-            allowFailure: false
-          });
-          multicall.aggregate3(calls);
-        } else {
-          vm.prank(proposer);
-          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
-        }
-
-        nextSlot = nextSlot + Slot.wrap(1);
-      }
-
-      // If we are entering a new epoch, we will post a proof
-      // Ensure that the fees are split correctly between sequencers and burns etc.
-      if (rollup.getCurrentEpoch() == nextEpoch) {
-        nextEpoch = nextEpoch + Epoch.wrap(1);
-        uint256 pendingBlockNumber = rollup.getPendingBlockNumber();
-        uint256 start = rollup.getProvenBlockNumber() + 1;
-        uint256 epochSize = 0;
-        while (
-          start + epochSize <= pendingBlockNumber
-            && rollup.getEpochForBlock(start) == rollup.getEpochForBlock(start + epochSize)
-        ) {
-          epochSize++;
-        }
-
-        bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
-
-        for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          // we need the basefee, and we cannot just take it from the point. Because it is different
-          Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaBaseFee = rollup.getManaBaseFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaBaseFee;
-
-          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
-          fees[feeIndex * 2 + 1] = bytes32(fee);
-        }
-
-        PublicInputArgs memory args = PublicInputArgs({
-          previousArchive: rollup.getBlock(start).archive,
-          endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          proverId: address(0)
-        });
-
-        {
-          rollup.submitEpochRootProof(
-            SubmitEpochRootProofArgs({
-              start: start,
-              end: start + epochSize - 1,
-              args: args,
-              fees: fees,
-              blobInputs: full.block.batchedBlobInputs,
-              proof: ""
-            })
-          );
-        }
-      }
-    }
   }
 }

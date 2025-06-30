@@ -104,7 +104,7 @@ library EpochProofLib {
     {
       // We do it this way to provide better error messages than passing along the storage values
       {
-        bytes32 expectedPreviousArchive = rollupStore.blocks[_start - 1].archive;
+        bytes32 expectedPreviousArchive = rollupStore.archives[_start - 1];
         require(
           expectedPreviousArchive == _args.previousArchive,
           Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
@@ -112,7 +112,7 @@ library EpochProofLib {
       }
 
       {
-        bytes32 expectedEndArchive = rollupStore.blocks[_end].archive;
+        bytes32 expectedEndArchive = rollupStore.archives[_end];
         require(
           expectedEndArchive == _args.endArchive,
           Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
@@ -147,7 +147,7 @@ library EpochProofLib {
     uint256 numBlocks = _end - _start + 1;
 
     for (uint256 i = 0; i < numBlocks; i++) {
-      publicInputs[2 + i] = rollupStore.blocks[_start + i].headerHash;
+      publicInputs[2 + i] = STFLib.getHeaderHash(_start + i);
     }
 
     uint256 offset = 2 + Constants.AZTEC_MAX_EPOCH_DURATION;
@@ -183,7 +183,7 @@ library EpochProofLib {
     // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob related inputs.
 
     // blobCommitmentsHash
-    publicInputs[offset] = rollupStore.blocks[_end].blobCommitmentsHash;
+    publicInputs[offset] = STFLib.getBlobCommitmentsHash(_end);
     offset += 1;
 
     // z
