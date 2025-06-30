@@ -208,10 +208,10 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
 
             let dimensions = PrivateKernelResetDimensions {
-                NOTE_HASH_PENDING_READ_AMOUNT: 0,
-                NOTE_HASH_SETTLED_READ_AMOUNT: 0,
-                NULLIFIER_PENDING_READ_AMOUNT: 0,
-                NULLIFIER_SETTLED_READ_AMOUNT: 0,
+                NOTE_HASH_PENDING_READ_AMOUNT: NOTE_HASH_PENDING_READ_HINTS_LEN,
+                NOTE_HASH_SETTLED_READ_AMOUNT: NOTE_HASH_SETTLED_READ_HINTS_LEN,
+                NULLIFIER_PENDING_READ_AMOUNT: NULLIFIER_PENDING_READ_HINTS_LEN,
+                NULLIFIER_SETTLED_READ_AMOUNT: NULLIFIER_SETTLED_READ_HINTS_LEN,
                 KEY_VALIDATION_AMOUNT: 0,
                 TRANSIENT_DATA_SQUASHING_AMOUNT: 0,
                 NOTE_HASH_SILOING_AMOUNT: 0,
@@ -248,8 +248,6 @@ mod tests {
                 read_request_index,
                 note_hash_index,
             );
-
-            self.dimensions.NOTE_HASH_PENDING_READ_AMOUNT += 1;
         }
 
         pub fn add_pending_nullifier_read_request(&mut self, nullifier_index: u32) {
@@ -259,8 +257,6 @@ mod tests {
                 read_request_index,
                 nullifier_index,
             );
-
-            self.dimensions.NULLIFIER_PENDING_READ_AMOUNT += 1;
         }
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
@@ -611,7 +607,7 @@ mod tests {
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
         // Change the hint to point to a different nullifier.
-        builder.transient_data_index_hints[0].nullifier_index = 2;
+        builder.transient_data_index_hints[0].nullifier_index = 0;
         builder.failed();
     }
 
