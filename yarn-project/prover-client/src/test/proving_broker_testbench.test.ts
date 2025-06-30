@@ -6,7 +6,7 @@
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+// import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
@@ -14,13 +14,13 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { MockProofStore } from '../test/mock_proof_store.js';
-import { defaultProverBrokerConfig } from './config.js';
-import { makeRandomProvingJobId } from './fixtures.js';
-import { PROOF_TYPES_IN_PRIORITY_ORDER, ProvingBroker } from './proving_broker.js';
-import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
+import { defaultProverBrokerConfig } from '../proving_broker/config.js';
+import { makeRandomProvingJobId } from '../proving_broker/fixtures.js';
+import { PROOF_TYPES_IN_PRIORITY_ORDER, ProvingBroker } from '../proving_broker/proving_broker.js';
+import { KVBrokerDatabase } from '../proving_broker/proving_broker_database/persisted.js';
+import { MockProofStore } from './mock_proof_store.js';
 
-const logger = createLogger('proving-broker-bench');
+// const logger = createLogger('proving-broker-bench');
 const benchTimer = new Timer();
 
 async function createKVDatabase(l1Contracts?: L1ContractAddresses) {
@@ -357,7 +357,7 @@ describe('Proving Broker: Benchmarks', () => {
       const fs = await import('fs');
       fs.writeFileSync(process.env.BENCH_OUTPUT_MD, benchmarkCollector.toPrettyString());
     } else {
-      logger.info(`Benchmark Results:${benchmarkCollector.toPrettyString()}`);
+      // logger.info(`Benchmark Results:${benchmarkCollector.toPrettyString()}`); Temporarily disable logging
     }
   });
 
