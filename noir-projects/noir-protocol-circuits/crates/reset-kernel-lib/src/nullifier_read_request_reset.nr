@@ -48,7 +48,7 @@ pub struct NullifierReadRequestHints<let PENDING_READ_HINTS_LEN: u32, let SETTLE
 mod tests {
     use crate::nullifier_read_request_reset::NullifierSettledReadHint;
     use crate::reset::read_request::{
-        get_skipped_read_requests, PendingReadHint, ReadRequestAction, ReadRequestActions,
+        get_propagated_read_requests, PendingReadHint, ReadRequestAction, ReadRequestActions,
         verify_reset_read_requests,
     };
     use dep::types::{
@@ -186,16 +186,16 @@ mod tests {
             (hints, tree_root)
         }
 
-        pub unconstrained fn get_skipped_read_requests(
+        pub unconstrained fn get_propagated_read_requests(
             self,
         ) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
-            get_skipped_read_requests(self.read_requests, self.read_request_actions)
+            get_propagated_read_requests(self.read_requests, self.read_request_actions)
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
             // Safety: this is only used in tests.
-            let unverified_read_requests = unsafe { self.get_skipped_read_requests() };
+            let unverified_read_requests = unsafe { self.get_propagated_read_requests() };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -214,7 +214,7 @@ mod tests {
     fn verify_reset_nullifier_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
         // Safety: this is a test.
-        let unverified_read_requests = unsafe { builder.get_skipped_read_requests() };
+        let unverified_read_requests = unsafe { builder.get_propagated_read_requests() };
         assert(unverified_read_requests.is_empty());
 
         builder.verify();
@@ -229,7 +229,7 @@ mod tests {
 
         let read_requests = builder.read_requests;
         // Safety: this is a test.
-        let unverified_read_requests = unsafe { builder.get_skipped_read_requests() };
+        let unverified_read_requests = unsafe { builder.get_propagated_read_requests() };
         assert_array_eq(
             unverified_read_requests.array,
             [read_requests.array[2], read_requests.array[4]],

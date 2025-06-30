@@ -6,7 +6,7 @@ use crate::{
             get_unverified_key_validation_requests, KeyValidationHint,
             verify_reset_key_validation_requests,
         },
-        read_request::{get_skipped_read_requests, verify_reset_read_requests},
+        read_request::{get_propagated_read_requests, verify_reset_read_requests},
     },
 };
 use dep::types::{
@@ -51,12 +51,12 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     // "Compose" is an inconsistent word.
     // I think this is outputting arrays of items that will be propagated from this circuit (i.e. items that will not be processed within this circuit). Is this function in the right place?
     pub unconstrained fn compose(self) -> PrivateValidationRequests {
-        let kept_note_hash_read_requests = get_skipped_read_requests(
+        let kept_note_hash_read_requests = get_propagated_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.note_hash_read_request_hints.read_request_actions,
         );
 
-        let kept_nullifier_read_requests = get_skipped_read_requests(
+        let kept_nullifier_read_requests = get_propagated_read_requests(
             self.validation_requests.nullifier_read_requests,
             self.nullifier_read_request_hints.read_request_actions,
         );
