@@ -1,23 +1,37 @@
-From e17834fb9768e2d5cfc053e4ce8c82da0586a099 Mon Sep 17 00:00:00 2001
-From: TomAFrench <tom@tomfren.ch>
-Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
+From 44af51035b8904db352bee5316da56b121cf86d6 Mon Sep 17 00:00:00 2001
+From: Ary Borenszweig <asterite@gmail.com>
+Date: Mon, 30 Jun 2025 16:25:29 -0300
+Subject: [PATCH] Patch
 
 ---
- tooling/noir_codegen/tsconfig.json | 1 +
- 1 file changed, 1 insertion(+)
+ tooling/noir_codegen/src/utils/demonomorphizer.ts | 2 +-
+ tooling/noir_codegen/tsconfig.json                | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
+diff --git a/tooling/noir_codegen/src/utils/demonomorphizer.ts b/tooling/noir_codegen/src/utils/demonomorphizer.ts
+index 2b33b57455..e5b80a63d3 100644
+--- a/tooling/noir_codegen/src/utils/demonomorphizer.ts
++++ b/tooling/noir_codegen/src/utils/demonomorphizer.ts
+@@ -199,7 +199,7 @@ export class Demonomorphizer {
+           const unifiedStruct = structs[0];
+
+           if (!structs.every((struct) => struct.args.length === unifiedStruct.args.length)) {
+-            throw new Error('Same struct with different number of args encountered');
++            throw new Error(`Same struct with different number of args encountered: ${unifiedStruct.structType.path}`);
+           }
+           for (let i = 0; i < unifiedStruct.args.length; i++) {
+             const argTypes = structs.map((struct) => struct.args[i]);
 diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
-index 30dd2a7ee..a2712fd73 100644
+index 30dd2a7ee5..223eb568a2 100644
 --- a/tooling/noir_codegen/tsconfig.json
 +++ b/tooling/noir_codegen/tsconfig.json
 @@ -10,6 +10,7 @@
      "resolveJsonModule": true,
      "strict": true,
      "noImplicitAny": false,
-+    "skipLibCheck": true
++    "skipLibCheck": true,
    },
    "include": [
      "src/**/*.ts"
 --
-2.43.0
+2.45.2
