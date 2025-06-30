@@ -106,7 +106,7 @@ contract MinimalFeeModel {
   }
 
   function setProvingCost(EthValue _provingCost) public {
-    FeeLib.getStorage().provingCostPerMana = _provingCost;
+    FeeLib.updateProvingCostPerMana(_provingCost);
   }
 
   /**

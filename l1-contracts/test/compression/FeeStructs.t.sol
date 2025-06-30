@@ -7,7 +7,7 @@ import {
   FeeHeader,
   CompressedFeeHeader,
   FeeHeaderLib
-} from "@aztec/core/libraries/compressed-data/FeeStructs.sol";
+} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 
 contract FeeStructsTest is Test {
   using FeeHeaderLib for FeeHeader;
