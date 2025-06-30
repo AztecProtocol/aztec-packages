@@ -124,7 +124,8 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         uint256_t random_value(engine.get_random_uint256());
 
         if (random_value * random_value - random_value != 0) {
-            EXPECT_DEATH(a_incorrect = witness_ct(&builder, random_value), "witness value is not 0 or 1");
+            EXPECT_DEATH(a_incorrect = witness_ct(&builder, random_value),
+                         "((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()))");
         };
 #endif
     }
@@ -138,6 +139,34 @@ template <class Builder_> class BoolTest : public ::testing::Test {
     {
         test_binary_op(
             "XOR", [](const bool_ct& a, const bool_ct& b) { return a ^ b; }, [](bool a, bool b) { return a ^ b; });
+    }
+
+    void test_OR()
+    {
+        test_binary_op(
+            "OR", [](const bool_ct& a, const bool_ct& b) { return a || b; }, [](bool a, bool b) { return a || b; });
+    }
+
+    void test_EQ()
+    {
+        test_binary_op(
+            "==", [](const bool_ct& a, const bool_ct& b) { return a == b; }, [](bool a, bool b) { return a == b; });
+    }
+
+    void test_implies()
+    {
+        test_binary_op(
+            "=>",
+            [](const bool_ct& a, const bool_ct& b) { return a.implies(b); },
+            [](bool a, bool b) { return !a || b; });
+    }
+
+    void test_implies_both_ways()
+    {
+        test_binary_op(
+            "<=>",
+            [](const bool_ct& a, const bool_ct& b) { return a.implies_both_ways(b); },
+            [](bool a, bool b) { return !a ^ b; });
     }
 };
 
@@ -162,7 +191,27 @@ TYPED_TEST(BoolTest, AND)
 {
     TestFixture::test_AND();
 }
-TYPED_TEST(BoolTest, TestBasicOperations)
+
+TYPED_TEST(BoolTest, OR)
+{
+    TestFixture::test_OR();
+}
+
+TYPED_TEST(BoolTest, EQ)
+{
+    TestFixture::test_EQ();
+}
+
+TYPED_TEST(BoolTest, Implies)
+{
+    TestFixture::test_implies();
+}
+
+TYPED_TEST(BoolTest, ImpliesBothWays)
+{
+    TestFixture::test_implies_both_ways();
+}
+TYPED_TEST(BoolTest, TestBasicOperationsTags)
 {
 
     STDLIB_TYPE_ALIASES
@@ -223,54 +272,6 @@ TYPED_TEST(BoolTest, TestBasicOperations)
     EXPECT_EQ(gates_after - gates_before, 6UL);
 }
 
-TYPED_TEST(BoolTest, Xor)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t j = 0; j < 4; ++j) {
-        bool lhs_constant = (bool)(j % 2);
-        bool rhs_constant = (bool)(j > 1 ? true : false);
-
-        for (size_t i = 0; i < 4; ++i) {
-            bool a_val = (bool)(i % 2);
-            bool b_val = (bool)(i > 1 ? true : false);
-            bool_ct a = lhs_constant ? bool_ct(a_val) : (witness_ct(&builder, a_val));
-            bool_ct b = rhs_constant ? bool_ct(b_val) : (witness_ct(&builder, b_val));
-            bool_ct c = a ^ b;
-            EXPECT_EQ(c.get_value(), a.get_value() ^ b.get_value());
-        }
-    }
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, XorConstants)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t i = 0; i < 32; ++i) {
-        bool_ct a = witness_ct(&builder, (bool)(i % 2));
-        bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-        a ^ b;
-    }
-    for (size_t i = 0; i < 32; ++i) {
-        if (i % 2 == 0) {
-            bool_ct a = witness_ct(&builder, (bool)(i % 2));
-            bool_ct b(&builder, (bool)(i % 3 == 1));
-            a ^ b;
-        } else {
-            bool_ct a(&builder, (bool)(i % 2));
-            bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-            a ^ b;
-        }
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
 TYPED_TEST(BoolTest, XorTwinConstants)
 {
     STDLIB_TYPE_ALIASES
@@ -292,116 +293,6 @@ TYPED_TEST(BoolTest, XorTwinConstants)
             bool_ct a(&builder, (bool)(i % 2));
             bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
             c = c ^ a ^ b;
-        }
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-// Test and for non-normalized bools
-TYPED_TEST(BoolTest, LogicalAnd)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    bool_ct a = witness_ct(&builder, 1);
-    bool_ct b = witness_ct(&builder, 1);
-
-    a.set_origin_tag(submitted_value_origin_tag);
-    b.set_origin_tag(challenge_origin_tag);
-
-    auto c = (!a) && (!b);
-
-    // Tags are merged on logical AND
-    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, And)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t i = 0; i < 32; ++i) {
-        bool_ct a = witness_ct(&builder, (bool)(i % 1));
-        bool_ct b = witness_ct(&builder, (bool)(i % 2 == 1));
-        // clang-format off
-        a& b;
-        // clang-format on
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, AndConstants)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t i = 0; i < 32; ++i) {
-        bool_ct a = witness_ct(&builder, (bool)(i % 2));
-        bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-        // clang-format off
-        a& b;
-        // clang-format on
-    }
-    for (size_t i = 0; i < 32; ++i) {
-        if (i % 2 == 0) {
-            bool_ct a = witness_ct(&builder, (bool)(i % 2));
-            bool_ct b(&builder, (bool)(i % 3 == 1));
-            // clang-format off
-            a& b;
-            // clang-format on
-        } else {
-            bool_ct a(&builder, (bool)(i % 2));
-            bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-            // clang-format off
-            a& b;
-            // clang-format on
-        }
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, Or)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t i = 0; i < 32; ++i) {
-        bool_ct a = witness_ct(&builder, (bool)(i % 2));
-        bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-        a | b;
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-}
-
-TYPED_TEST(BoolTest, OrConstants)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    for (size_t i = 0; i < 32; ++i) {
-        bool_ct a = witness_ct(&builder, (bool)(i % 2));
-        bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-        a | b;
-    }
-    for (size_t i = 0; i < 32; ++i) {
-        if (i % 2 == 0) {
-            bool_ct a = witness_ct(&builder, (bool)(i % 2));
-            bool_ct b(&builder, (bool)(i % 3 == 1));
-            a | b;
-        } else {
-            bool_ct a(&builder, (bool)(i % 2));
-            bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-            a | b;
         }
     }
 
@@ -459,7 +350,7 @@ TYPED_TEST(BoolTest, Eq)
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(BoolTest, Implies)
+TYPED_TEST(BoolTest, ImpliesTags)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -490,7 +381,7 @@ TYPED_TEST(BoolTest, Implies)
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(BoolTest, ImpliesBothWays)
+TYPED_TEST(BoolTest, ImpliesBothWaysTags)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
