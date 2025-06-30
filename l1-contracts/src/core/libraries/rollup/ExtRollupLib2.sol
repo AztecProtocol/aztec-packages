@@ -4,7 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {StakingLib} from "./StakingLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 import {
