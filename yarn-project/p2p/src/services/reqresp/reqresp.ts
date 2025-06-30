@@ -7,7 +7,6 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
-import { abortableDuplex, abortableSink } from 'abortable-iterator';
 import { pipe } from 'it-pipe';
 import type { Libp2p } from 'libp2p';
 import type { Uint8ArrayList } from 'uint8arraylist';
@@ -368,15 +367,14 @@ export class ReqResp implements ReqRespInterface {
         `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
       );
 
-      // Open the stream with a timeout
-      const result = await executeTimeout<ReqRespResponse>(
-        (signal): Promise<ReqRespResponse> =>
-          pipe([payload], abortableDuplex(stream!, signal), abortableSink(this.readMessage.bind(this), signal)),
+      const timeoutErr = new IndividualReqRespTimeoutError();
+      return await executeTimeout(
+        _ => {
+          return pipe([payload], stream!, this.readMessage.bind(this));
+        },
         this.individualRequestTimeoutMs,
-        () => new IndividualReqRespTimeoutError(),
+        () => timeoutErr,
       );
-
-      return result;
     } catch (e: any) {
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas

@@ -192,18 +192,14 @@ export class ConnectionSampler {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
     this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
-
     const abortController = new AbortController();
-    this.dialAttempts.push(abortController);
-    let timeoutHandle: NodeJS.Timeout | undefined;
-    if (timeout) {
-      timeoutHandle = setTimeout(() => abortController.abort(new TimeoutError('Dial protocol timeout')), timeout);
-    }
 
     try {
       const stream = await this.dialQueue.put(() =>
         this.libp2p.dialProtocol(peerId, protocol, {
-          signal: abortController.signal,
+          signal: AbortSignal.any(
+            timeout ? [abortController.signal, AbortSignal.timeout(timeout!)] : [abortController.signal],
+          ),
           negotiateFully: !this.opts.p2pOptimisticNegotiation,
         }),
       );
@@ -221,10 +217,6 @@ export class ConnectionSampler {
       });
       return stream;
     } finally {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-
       const idx = this.dialAttempts.indexOf(abortController);
       if (idx > -1) {
         this.dialAttempts.splice(idx, 1);
@@ -263,6 +255,8 @@ export class ConnectionSampler {
       await stream.close();
     } catch (error) {
       this.logger.error(`Failed to close connection to peer ${peerId ?? 'unknown'} with stream id ${stream.id}`, error);
+      // graceful close failed, abort the stream
+      stream.abort(new AbortError('Failed to close stream gracefully'));
     } finally {
       this.streams.delete(stream);
     }
