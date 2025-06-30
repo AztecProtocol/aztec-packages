@@ -93,12 +93,18 @@ library STFLib {
     return TimeLib.maxPrunableBlocks() + 1;
   }
 
+  /**
+   * A block is stale if it cannot be accessed in the roundabout anymore.
+   * Consider a roundabout with 5 blocks, and the pending block is 7.
+   * Then it would look like [5,6,7,3,4]
+   * So 2 and below are stale. That is, 7 - 5 and below (inclusive)
+   * So _blockNumber + size <= pending is the condition for a block to be stale.
+   */
   function innerIsStale(uint256 _blockNumber, bool _throw) internal view returns (bool, uint256) {
     uint256 pending = getStorage().tips.getPendingBlockNumber();
     uint256 size = roundaboutSize();
 
-    // @todo @LHerskind look for one-off here!
-    bool isStale = _blockNumber + size < pending;
+    bool isStale = _blockNumber + size <= pending;
 
     require(!_throw || !isStale, Errors.Rollup__StaleTempBlockLog(_blockNumber, pending, size));
 
