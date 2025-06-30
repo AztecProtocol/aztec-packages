@@ -933,15 +933,13 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         }
         return acc;
       }, [] as Fr[][]);
-      const nullifierIndexes: (InBlock<bigint> | undefined)[] = [];
-      for (const batch of nullifierBatches) {
-        const batchIndexes = await this.aztecNode.findLeavesIndexes(
-          syncedBlockNumber,
-          MerkleTreeId.NULLIFIER_TREE,
-          batch,
-        );
-        nullifierIndexes.push(...batchIndexes);
-      }
+      const nullifierIndexes = (
+        await Promise.all(
+          nullifierBatches.map(batch =>
+            this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+          ),
+        )
+      ).flat();
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {
