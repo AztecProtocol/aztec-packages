@@ -324,17 +324,17 @@ TEST(AluConstrainingTest, NegativeAddWrongTagABMismatch)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_err = 1,
+            .alu_sel_tag_err = 1,
         },
     });
 
     // Though the tags don't match, with error handling we can return the error rather than fail:
     check_relation<alu>(trace);
     // Removing the error will fail:
-    trace.set(Column::alu_tag_err, 0, 0);
+    trace.set(Column::alu_sel_tag_err, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "BATCHED_TAGS_DIFF_CHECK");
     // Correctly using the error, but injecting the wrong inverse will fail:
-    trace.set(Column::alu_tag_err, 0, 1);
+    trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_batched_tags_diff_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "BATCHED_TAGS_DIFF_CHECK");
 }
@@ -356,17 +356,17 @@ TEST(AluConstrainingTest, NegativeAddWrongTagCMismatch)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_err = 1,
+            .alu_sel_tag_err = 1,
         },
     });
 
     // Though the tags don't match, with error handling we can return the error rather than fail:
     check_relation<alu>(trace);
     // Removing the error will fail:
-    trace.set(Column::alu_tag_err, 0, 0);
+    trace.set(Column::alu_sel_tag_err, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "BATCHED_TAGS_DIFF_CHECK");
     // Correctly using the error, but injecting the wrong inverse will fail:
-    trace.set(Column::alu_tag_err, 0, 1);
+    trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_batched_tags_diff_inv, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "BATCHED_TAGS_DIFF_CHECK");
 }

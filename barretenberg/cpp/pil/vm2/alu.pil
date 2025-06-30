@@ -35,7 +35,7 @@ execution.sel_alu {
     execution.register[0], execution.mem_tag[0], execution.register[1],
     execution.mem_tag[1], execution.register[2], execution.mem_tag[2], execution.subtrace_operation_id, execution.opcode_error
 } in sel {
-    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, tag_err
+    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_tag_err
 };
 
 // MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
@@ -45,9 +45,9 @@ execution.sel_alu {
 // For this op (and SUB, DIV, ... (TODO(MW))), we do care that c_tag = a_tag = b_tag, so toggle on the check:
 pol CHECK_C_TAG_EQUAL = sel_op_add; // Will become e.g. 1 - (1 - sel_op_add) * (1 - sel_op_sub) * ...
 pol BATCHED_TAGS_DIFF = 2**0 * (ia_tag - ib_tag) + CHECK_C_TAG_EQUAL * 2**3 * (ia_tag - ic_tag);
-pol commit tag_err;
+pol commit sel_tag_err;
 pol commit batched_tags_diff_inv;
-pol BATCHED_TAGS_DIFF_IS_ZERO = 1 - tag_err;
+pol BATCHED_TAGS_DIFF_IS_ZERO = 1 - sel_tag_err;
 
 // Now, tag_err = 1 <==> we have a disallowed inequality between the tags:
 #[BATCHED_TAGS_DIFF_CHECK]

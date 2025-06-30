@@ -34,7 +34,7 @@ template <typename FF_> class aluImpl {
         const auto alu_BATCHED_TAGS_DIFF =
             FF(1) * (in.get(C::alu_ia_tag) - in.get(C::alu_ib_tag)) +
             alu_CHECK_C_TAG_EQUAL * FF(8) * (in.get(C::alu_ia_tag) - in.get(C::alu_ic_tag));
-        const auto alu_BATCHED_TAGS_DIFF_IS_ZERO = (FF(1) - in.get(C::alu_tag_err));
+        const auto alu_BATCHED_TAGS_DIFF_IS_ZERO = (FF(1) - in.get(C::alu_sel_tag_err));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;

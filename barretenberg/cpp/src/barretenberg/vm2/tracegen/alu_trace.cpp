@@ -100,7 +100,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       // TODO(MW): Not required for add, reinstate when needed:
                       // { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
                       { C::alu_max_value, get_tag_max_value(event.a.get_tag()) },
-                      { C::alu_tag_err, tag_check_failed ? 1 : 0 },
+                      { C::alu_sel_tag_err, tag_check_failed ? 1 : 0 },
                       { C::alu_batched_tags_diff_inv, alu_batched_tags_diff_inv },
                   } });
 

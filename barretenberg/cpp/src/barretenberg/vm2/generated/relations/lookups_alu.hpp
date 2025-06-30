@@ -28,8 +28,9 @@ struct lookup_alu_register_tag_value_settings_ {
         ColumnAndShifts::execution_subtrace_operation_id, ColumnAndShifts::execution_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::alu_ia, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_ib,    ColumnAndShifts::alu_ib_tag,
-        ColumnAndShifts::alu_ic, ColumnAndShifts::alu_ic_tag, ColumnAndShifts::alu_op_id, ColumnAndShifts::alu_tag_err
+        ColumnAndShifts::alu_ia,     ColumnAndShifts::alu_ia_tag,     ColumnAndShifts::alu_ib,
+        ColumnAndShifts::alu_ib_tag, ColumnAndShifts::alu_ic,         ColumnAndShifts::alu_ic_tag,
+        ColumnAndShifts::alu_op_id,  ColumnAndShifts::alu_sel_tag_err
     };
 };
 
