@@ -923,7 +923,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         }
     }
 
-    FF batched_tags_diff_inv = 0;
+    FF batched_tags_diff_inv_reg = 0;
     if (some_tag_check_failed) {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
@@ -934,13 +934,13 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
             }
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv_reg = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
     }
 
     trace.set(row,
               { {
                   { C::execution_sel_should_read_registers, 1 },
-                  { C::execution_batched_tags_diff_inv, batched_tags_diff_inv },
+                  { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_inv_reg },
                   { C::execution_sel_register_read_error, some_tag_check_failed ? 1 : 0 },
               } });
 }

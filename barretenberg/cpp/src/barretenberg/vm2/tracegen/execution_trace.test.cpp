@@ -593,14 +593,14 @@ TEST(ExecutionTraceGenTest, JumpI)
 
     ExecutionEvent ex_event_jumpi = {
         .wire_instruction = instr,
-        .inputs = { TaggedValue::from_tag(ValueTag::U1, 1), }, // Conditional value
-        .addressing_event = {
-            .instruction = instr,
-            .resolution_info = { {
-                .resolved_operand = MemoryValue::from<uint32_t>(654),
-            }, {
-                .resolved_operand = MemoryValue::from<uint32_t>(9876),
-            } } },
+        .inputs = { MemoryValue::from<uint1_t>(1) }, // Conditional value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(654),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(9876),
+                                                   } } },
     };
 
     builder.process({ ex_event_jumpi }, trace);
@@ -615,6 +615,55 @@ TEST(ExecutionTraceGenTest, JumpI)
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
+                          ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
+                          ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_sel_register_read_error, 0),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
+}
+
+TEST(ExecutionTraceGenTest, JumpiWrongTag)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMPI_32)
+                           .operand<uint16_t>(654)  // Condition Offset
+                           .operand<uint32_t>(9876) // Immediate operand
+                           .build();
+
+    ExecutionEvent ex_event_jumpi = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint8_t>(1) }, // Conditional value with tag != U1
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(654),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(9876),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_jumpi }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jumpi
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 654),
+                          ROW_FIELD_EQ(execution_rop_1_, 9876),
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8)),
+                          ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1)),
+                          ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_batched_tags_diff_inv_reg,
+                                       1), // (2**0  * (mem_tag_reg[0] - expected_tag_reg[0]))^-1 = 1
+                          ROW_FIELD_EQ(execution_sel_register_read_error, 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
 }
 

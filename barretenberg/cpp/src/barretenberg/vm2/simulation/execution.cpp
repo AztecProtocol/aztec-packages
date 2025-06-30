@@ -214,7 +214,6 @@ void Execution::jump(ContextInterface& context, uint32_t loc)
     context.set_next_pc(loc);
 }
 
-// TODO(JEAMON): #15278 - Enforce U1 tag checking on conditional memory value.
 void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
 {
     constexpr auto opcode = ExecutionOpCode::JUMPI;
