@@ -13,7 +13,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
@@ -925,11 +925,23 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       }
 
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
-        syncedBlockNumber,
-        MerkleTreeId.NULLIFIER_TREE,
-        nullifiersToCheck,
-      );
+      const nullifierBatches = nullifiersToCheck.reduce((acc, nullifier) => {
+        if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+          acc[acc.length - 1].push(nullifier);
+        } else {
+          acc.push([nullifier]);
+        }
+        return acc;
+      }, [] as Fr[][]);
+      const nullifierIndexes: (InBlock<bigint> | undefined)[] = [];
+      for (const batch of nullifierBatches) {
+        const batchIndexes = await this.aztecNode.findLeavesIndexes(
+          syncedBlockNumber,
+          MerkleTreeId.NULLIFIER_TREE,
+          batch,
+        );
+        nullifierIndexes.push(...batchIndexes);
+      }
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {
