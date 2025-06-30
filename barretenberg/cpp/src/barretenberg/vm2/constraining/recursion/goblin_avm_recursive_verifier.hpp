@@ -83,7 +83,7 @@ class AvmGoblinRecursiveVerifier {
      * @return RecursiveAvmGoblinOutput {ipa_proof, ipa_claim, points_accumulator}
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput verify_proof(
-        const StdlibProof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
+        const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
         InnerProverOutput inner_output =
@@ -106,7 +106,7 @@ class AvmGoblinRecursiveVerifier {
      * @return RecursiveAvmGoblinOutput
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput
-    construct_outer_recursive_verification_circuit(const StdlibProof<UltraBuilder>& stdlib_proof,
+    construct_outer_recursive_verification_circuit(const stdlib::Proof<UltraBuilder>& stdlib_proof,
                                                    const std::vector<std::vector<UltraFF>>& public_inputs,
                                                    const InnerProverOutput& inner_output) const
     {
@@ -132,8 +132,7 @@ class AvmGoblinRecursiveVerifier {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto mega_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, inner_output.mega_vk);
         MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk, transcript);
-        StdlibProof<UltraBuilder> mega_proof =
-            bb::convert_native_proof_to_stdlib(&ultra_builder, inner_output.mega_proof);
+        stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
@@ -163,7 +162,7 @@ class AvmGoblinRecursiveVerifier {
      * @return InnerCircuitOutput proof and verification key for Mega + Goblin; {\pi_M, \pi_G}, {VK_M, VK_G}
      */
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
-        const StdlibProof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
+        const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;

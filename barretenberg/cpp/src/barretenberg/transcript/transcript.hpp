@@ -14,6 +14,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <concepts>
 
 #include <atomic>
@@ -652,25 +653,6 @@ template <typename TranscriptParams> class BaseTranscript {
         return branched_transcript;
     }
 };
-
-template <typename Builder>
-static bb::StdlibProof<Builder> convert_native_proof_to_stdlib(Builder* builder, const HonkProof& proof)
-{
-    bb::StdlibProof<Builder> result;
-    for (const auto& element : proof) {
-        result.push_back(bb::stdlib::witness_t<Builder>(builder, element));
-    }
-    return result;
-}
-
-template <typename Builder> static bb::HonkProof convert_stdlib_proof_to_native(const StdlibProof<Builder>& proof)
-{
-    bb::HonkProof result;
-    for (const auto& element : proof) {
-        result.push_back(element.get_value());
-    }
-    return result;
-}
 
 using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
 

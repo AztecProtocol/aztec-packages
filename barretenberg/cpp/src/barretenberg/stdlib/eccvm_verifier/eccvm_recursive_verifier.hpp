@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
 template <typename Flavor> class ECCVMRecursiveVerifier_ {
@@ -29,15 +30,15 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
                                      const std::shared_ptr<Transcript>& transcript);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
-    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof<Builder>> verify_proof(
-        const ECCVMProof& proof);
+    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, stdlib::Proof<Builder>>
+    verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-    StdlibProof<Builder> ipa_proof;
+    stdlib::Proof<Builder> ipa_proof;
     TranslationEvaluations_<FF> translation_evaluations;
 
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
