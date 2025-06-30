@@ -705,9 +705,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_estimated_total_circuit_size() const
     {
-        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
         auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
-        return std::max(minimum_circuit_size, num_filled_gates);
+        return std::max(get_tables_size(), num_filled_gates);
     }
 
     std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
