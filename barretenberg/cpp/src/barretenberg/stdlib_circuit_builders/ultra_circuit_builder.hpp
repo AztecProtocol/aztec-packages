@@ -210,7 +210,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
     std::map<uint64_t, RangeList> range_lists; // DOCTODO: explain this.
-                                               // Stores gate index of ROM and RAM reads (required by proving key)
 
     // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
     std::vector<uint32_t> used_witnesses;
@@ -301,11 +300,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     bool operator==(const UltraCircuitBuilder_& other) const
     {
-        // // Compare the underlying rom_ram_logic instead of the reference members
-        // if (!(rom_ram_logic == other.rom_ram_logic))
-        //     return false;
 
-        // // Compare all other non-reference members
         return blocks == other.blocks && constant_variable_indices == other.constant_variable_indices &&
                lookup_tables == other.lookup_tables && memory_read_records == other.memory_read_records &&
                memory_write_records == other.memory_write_records && range_lists == other.range_lists &&
@@ -687,9 +682,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
             return;
         }
 
-        if (!(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG)) {
-            return;
-        }
         ASSERT(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
@@ -758,9 +750,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     uint32_t read_RAM_array(const size_t ram_id, const uint32_t index_witness);
     void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
-    // note that the process_ROM_array and process_RAM_array methods are controlled by RomRamLogic.
-    // void process_RAM_array(const size_t ram_id);
-    // void process_RAM_arrays();
+    // note that the `process_ROM_array` and `process_RAM_array` methods are controlled by `RomRamLogic` and hence are
+    // not present here.
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

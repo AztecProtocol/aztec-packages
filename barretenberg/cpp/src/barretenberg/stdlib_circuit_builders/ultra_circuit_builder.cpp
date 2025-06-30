@@ -2214,16 +2214,16 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     };
 }
 
-// /**
-//  * @brief Create a new read-only memory region
-//  *
-//  * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
-//  and
-//  * empty memory record array. Puts this object into the vector of ROM arrays.
-//  *
-//  * @param array_size The size of region in elements
-//  * @return size_t The index of the element
-//  */
+/**
+ * @brief Create a new read-only memory region
+ *
+ * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
+ and
+ * empty memory record array. Puts this object into the vector of ROM arrays.
+ *
+ * @param array_size The size of region in elements
+ * @return size_t The index of the element
+ */
 template <typename ExecutionTrace>
 size_t UltraCircuitBuilder_<ExecutionTrace>::create_ROM_array(const size_t array_size)
 {
