@@ -301,6 +301,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         honk_output.nested_ipa_proofs.insert(honk_output.nested_ipa_proofs.end(),
                                              avm_output.nested_ipa_proofs.begin(),
                                              avm_output.nested_ipa_proofs.end());
+#else
+        // This is a safeguard to prevent using bb binary with AVM disabled and processing some AVM recursion
+        // constraints. Without this safeguard, the circuit would be underconstrained and no warning would be raised.
+        if (!constraint_system.avm_recursion_constraints.empty()) {
+            throw_or_abort("Processing an AVM recursion constraint when DISABLE_AZTEC_VM=1 is unsupported.");
+        }
 #endif
         // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
         // default one if the circuit is recursive and honk_recursion is true.
