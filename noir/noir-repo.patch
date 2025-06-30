@@ -1,12 +1,13 @@
-From d1fba4b755df3e767f9c6a419cf324ea9a379d44 Mon Sep 17 00:00:00 2001
+From 8110ae083d311c9b696e849e2471cbccc3b0f651 Mon Sep 17 00:00:00 2001
 From: Ary Borenszweig <asterite@gmail.com>
 Date: Mon, 30 Jun 2025 16:25:29 -0300
 Subject: [PATCH] Patch
 
 ---
- tooling/noir_codegen/src/utils/demonomorphizer.ts | 11 ++++++++++-
- tooling/noir_codegen/tsconfig.json                |  1 +
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ tooling/noir_codegen/src/utils/demonomorphizer.ts   | 11 ++++++++++-
+ tooling/noir_codegen/src/utils/typings_generator.ts |  4 +++-
+ tooling/noir_codegen/tsconfig.json                  |  1 +
+ 3 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/tooling/noir_codegen/src/utils/demonomorphizer.ts b/tooling/noir_codegen/src/utils/demonomorphizer.ts
 index 2b33b57455..3f5887b3cb 100644
@@ -30,6 +31,21 @@ index 2b33b57455..3f5887b3cb 100644
            }
            for (let i = 0; i < unifiedStruct.args.length; i++) {
              const argTypes = structs.map((struct) => struct.args[i]);
+diff --git a/tooling/noir_codegen/src/utils/typings_generator.ts b/tooling/noir_codegen/src/utils/typings_generator.ts
+index 886ae8b7c5..a80580a2a8 100644
+--- a/tooling/noir_codegen/src/utils/typings_generator.ts
++++ b/tooling/noir_codegen/src/utils/typings_generator.ts
+@@ -98,7 +98,9 @@ export class TypingsGenerator {
+   ) {
+     // Map all the types used in the ABIs to the demonomorphized types
+     for (const { abi, circuitName, artifact } of circuits) {
+-      const params = abi.parameters.map((param) => {
++      console.error(JSON.stringify(abi, null, 2));
++
++      const params = abi.parameters.map((param) => {
+         const type = mapAbiTypeToAbiTypeWithGenerics(param.type, this.allTypes);
+         return { name: param.name, type };
+       });
 diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
 index 30dd2a7ee5..223eb568a2 100644
 --- a/tooling/noir_codegen/tsconfig.json
