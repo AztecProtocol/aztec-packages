@@ -402,16 +402,7 @@ export const deploySharedContracts = async (
     txHashes.push(txHash);
   }
 
-  const { txHash: setGovernanceTxHash } = await deployer.sendTransaction({
-    to: registryAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.registry.contractAbi,
-      functionName: 'transferOwnership',
-      args: [governanceAddress.toString()],
-    }),
-  });
-
-  txHashes.push(setGovernanceTxHash);
+  // Registry ownership will be transferred to governance later, after rollup is added
 
   let feeAssetHandlerAddress: EthAddress | undefined = undefined;
   let stakingAssetHandlerAddress: EthAddress | undefined = undefined;
@@ -1027,6 +1018,7 @@ export const deployL1Contracts = async (
     stakingAssetHandlerAddress,
     registryAddress,
     gseAddress,
+    governanceAddress,
     rewardDistributorAddress,
     zkPassportVerifierAddress,
   } = await deploySharedContracts(l1Client, deployer, args, logger);
@@ -1047,12 +1039,23 @@ export const deployL1Contracts = async (
   logger.verbose('Waiting for rollup and slash factory to be deployed');
   await deployer.waitForDeployments();
 
+  // Now that the rollup has been deployed and added to the registry, transfer ownership to governance
+  await handoverToGovernance(
+    l1Client,
+    deployer,
+    registryAddress,
+    gseAddress,
+    governanceAddress,
+    logger,
+    args.acceleratedTestDeployments,
+  );
+
+  logger.info(`Handing over to governance complete`);
+
   logger.verbose(`All transactions for L1 deployment have been mined`);
   const l1Contracts = await RegistryContract.collectAddresses(l1Client, registryAddress, 'canonical');
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
-
-  logger.info(`Handing over to governance`);
 
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
