@@ -39,9 +39,10 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
     return result;
   }
 
-  sizeAsync(): Promise<number> {
+  async sizeAsync(): Promise<number> {
+    const index = this.db.index('key');
     const rangeQuery = IDBKeyRange.bound([this.container, ''], [this.container, '\uffff']);
-    return this.db.count(rangeQuery);
+    return await index.count(rangeQuery);
   }
 
   async set(key: K, val: V): Promise<void> {
@@ -80,8 +81,8 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
   async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
     const index = this.db.index('key');
     const rangeQuery = IDBKeyRange.bound(
-      [this.container, range.start ?? ''],
-      [this.container, range.end ?? '\uffff'],
+      [this.container, range.start ? this.normalizeKey(range.start) : ''],
+      [this.container, range.end ? this.normalizeKey(range.end) : '\uffff'],
       !!range.reverse,
       !range.reverse,
     );
@@ -90,7 +91,7 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
       if (range.limit && count >= range.limit) {
         return;
       }
-      yield [cursor.value.key, cursor.value.value] as [K, V];
+      yield [this.#denormalizeKey(cursor.value.key as string), cursor.value.value] as [K, V];
       count++;
     }
   }
@@ -103,13 +104,13 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
 
   async *keysAsync(range: Range<K> = {}): AsyncIterableIterator<K> {
     for await (const [key, _] of this.entriesAsync(range)) {
-      yield this.#denormalizeKey(key as string);
+      yield key;
     }
   }
 
   #denormalizeKey(key: string): K {
     const denormalizedKey = (key as string).split(',').map(part => (isNaN(parseInt(part)) ? part : parseInt(part)));
-    return (denormalizedKey.length > 1 ? denormalizedKey : key) as K;
+    return (denormalizedKey.length > 1 ? denormalizedKey : denormalizedKey[0]) as K;
   }
 
   protected normalizeKey(key: K): string {
