@@ -60,10 +60,11 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void revert_checkpoint() override;
 
     // Constrained.
-    // TODO: When actually using this, consider siloing inside (and taking a silo gadget in the constructor).
-    // Probably better like this though.
-    FF storage_read(const FF& leaf_slot) const override;
-    void storage_write(const FF& leaf_slot, const FF& value) override;
+    FF storage_read(const AztecAddress& contract_address, const FF& slot) const override;
+    void storage_write(const AztecAddress& contract_address,
+                       const FF& slot,
+                       const FF& value,
+                       bool is_protocol_write) override;
 
     bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const override;
     bool siloed_nullifier_exists(const FF& nullifier) const override;

@@ -22,7 +22,7 @@
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -34,11 +34,11 @@ using ::testing::TestWithParam;
 using testing::TestMemoryTree;
 
 using simulation::EventEmitter;
+using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
-using simulation::MockRangeCheck;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
@@ -46,7 +46,10 @@ using simulation::Poseidon2PermutationEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
-using simulation::root_from_path;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
+using simulation::unconstrained_compute_leaf_slot;
+using simulation::unconstrained_root_from_path;
 
 using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::MerkleCheckTraceBuilder;
@@ -59,29 +62,31 @@ using C = Column;
 using public_data_check = bb::avm2::public_data_check<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-TEST(PublicDataTreeCheckConstrainingTest, EmptyRow)
-{
-    check_relation<public_data_check>(testing::empty_trace());
-}
+AztecAddress contract_address = 1;
 
 struct TestParams {
-    FF leaf_slot;
+    FF slot;
     FF value;
     PublicDataTreeLeafPreimage low_leaf;
 };
 
 std::vector<TestParams> positive_tests = {
     // Exists = true, leaf pointers to infinity
-    TestParams{
-        .leaf_slot = 42, .value = 27, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(42, 27), 0, 0) },
+    TestParams{ .slot = 42,
+                .value = 27,
+                .low_leaf = PublicDataTreeLeafPreimage(
+                    PublicDataLeafValue(unconstrained_compute_leaf_slot(contract_address, 42), 27), 0, 0) },
     // Exists = true, leaf points to higher value
     TestParams{
-        .leaf_slot = 42, .value = 27, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(42, 27), 28, 50) },
+        .slot = 42,
+        .value = 27,
+        .low_leaf = PublicDataTreeLeafPreimage(
+            PublicDataLeafValue(unconstrained_compute_leaf_slot(contract_address, 42), 27), 28, FF::neg_one()) },
     // Exists = false, low leaf points to infinity
-    TestParams{ .leaf_slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 0, 0) },
+    TestParams{ .slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 0, 0) },
     // Exists = false, low leaf points to higher value
     TestParams{
-        .leaf_slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 28, 50) }
+        .slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 28, FF::neg_one()) }
 };
 
 class PublicDataReadPositiveTests : public TestWithParam<TestParams> {};
@@ -90,6 +95,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
 {
     const auto& param = GetParam();
 
+    ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -97,14 +103,15 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -119,9 +126,10 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     for (size_t i = 0; i < PUBLIC_DATA_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
-    public_data_tree_check_simulator.assert_read(param.leaf_slot,
+    public_data_tree_check_simulator.assert_read(param.slot,
+                                                 contract_address,
                                                  param.value,
                                                  param.low_leaf,
                                                  leaf_index,
@@ -145,18 +153,18 @@ INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckConstrainingTest,
 
 TEST(PublicDataTreeCheckConstrainingTest, NegativeExistsFlagCheck)
 {
-    // Test constraint: sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - slot_low_leaf_slot_diff_inv) +
-    // slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0
+    // Test constraint: sel * (LEAF_SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - leaf_slot_low_leaf_slot_diff_inv) +
+    // leaf_slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0
     TestTraceContainer trace({
         { { C::public_data_check_sel, 1 },
-          { C::public_data_check_slot, 27 },
+          { C::public_data_check_leaf_slot, 27 },
           { C::public_data_check_low_leaf_slot, 27 },
-          { C::public_data_check_slot_low_leaf_slot_diff_inv, 0 },
+          { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, 0 },
           { C::public_data_check_leaf_not_exists, 0 } },
         { { C::public_data_check_sel, 1 },
-          { C::public_data_check_slot, 28 },
+          { C::public_data_check_leaf_slot, 28 },
           { C::public_data_check_low_leaf_slot, 27 },
-          { C::public_data_check_slot_low_leaf_slot_diff_inv, FF(1).invert() },
+          { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, FF(1).invert() },
           { C::public_data_check_leaf_not_exists, 1 } },
     });
 
@@ -242,6 +250,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeValueIsCorrect)
 
 TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 {
+    ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -249,14 +258,15 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -264,7 +274,8 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     FieldGreaterThanTraceBuilder field_gt_builder;
     PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
 
-    FF leaf_slot = 40;
+    FF slot = 40;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
@@ -290,8 +301,15 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
         AppendOnlyTreeSnapshot{ .root = intermediate_root,
                                 .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(
-        leaf_slot, new_value, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
+                                                                                    contract_address,
+                                                                                    new_value,
+                                                                                    low_leaf,
+                                                                                    low_leaf_index,
+                                                                                    low_leaf_sibling_path,
+                                                                                    prev_snapshot,
+                                                                                    insertion_sibling_path,
+                                                                                    false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
@@ -304,6 +322,7 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 
 TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
 {
+    ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -311,14 +330,15 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -326,7 +346,8 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
     FieldGreaterThanTraceBuilder field_gt_builder;
     PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
 
-    FF leaf_slot = 42;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
     FF low_leaf_slot = 40;
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
@@ -357,8 +378,15 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
                                 .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(
-        leaf_slot, new_value, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
+                                                                                    contract_address,
+                                                                                    new_value,
+                                                                                    low_leaf,
+                                                                                    low_leaf_index,
+                                                                                    low_leaf_sibling_path,
+                                                                                    prev_snapshot,
+                                                                                    insertion_sibling_path,
+                                                                                    false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
@@ -446,21 +474,21 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
 
 TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextSlotUpdate)
 {
-    // Test constraint: write * ((slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot -
+    // Test constraint: write * ((leaf_slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot -
     // updated_low_leaf_next_slot) = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 0 },
             { C::public_data_check_low_leaf_next_slot, 27 },
-            { C::public_data_check_slot, 28 },
+            { C::public_data_check_leaf_slot, 28 },
             { C::public_data_check_updated_low_leaf_next_slot, 27 },
         },
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 1 },
             { C::public_data_check_low_leaf_next_slot, 27 },
-            { C::public_data_check_slot, 28 },
+            { C::public_data_check_leaf_slot, 28 },
             { C::public_data_check_updated_low_leaf_next_slot, 28 },
         },
     });
