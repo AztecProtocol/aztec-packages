@@ -32,7 +32,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup();
+    test = await EpochsTestContext.setup({ aztecEpochDuration: 5 });
     ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
@@ -68,7 +68,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Next sequencer to publish a block should trigger a rollback to block 1
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
     expect(await rollup.getBlockNumber()).toEqual(1n);
-    expect(await rollup.getSlotNumber()).toEqual(8n);
+    expect(await rollup.getSlotNumber()).toEqual(BigInt(2 * test.epochDuration));
 
     // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
     const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);

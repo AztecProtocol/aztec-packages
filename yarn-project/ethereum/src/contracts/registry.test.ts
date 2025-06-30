@@ -1,8 +1,11 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
 import type { Anvil } from '@viem/anvil';
 import omit from 'lodash.omit';
+import { createPublicClient, getContract, http } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -11,6 +14,7 @@ import { DefaultL1ContractsConfig } from '../config.js';
 import { L1Deployer, deployL1Contracts, deployRollup } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
+import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { RegistryContract } from './registry.js';
@@ -30,6 +34,7 @@ describe('Registry', () => {
   let registry: RegistryContract;
   let deployedAddresses: L1ContractAddresses;
   let deployedVersion: number;
+  let ethCheatCodes: EthCheatCodes;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:registry');
@@ -62,6 +67,9 @@ describe('Registry', () => {
 
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
     deployedVersion = Number(await rollup.getVersion());
+
+    ethCheatCodes = new EthCheatCodes([rpcUrl]);
+    await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 1000000000000000000000000000000000000000n);
   });
 
   afterAll(async () => {
@@ -113,6 +121,9 @@ describe('Registry', () => {
 
     const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, logger, defaultL1TxUtilsConfig);
 
+    // We need to steal ownership of the registry to add a rollup without going through governance
+    await setRegistryOwnership(EthAddress.fromString(deployer.client.account.address));
+
     const { rollup: newRollup } = await deployRollup(
       l1Client,
       deployer,
@@ -127,6 +138,9 @@ describe('Registry', () => {
       deployedAddresses,
       logger,
     );
+
+    // We need to return ownership of the registry to the governance address to collect the addresses
+    await setRegistryOwnership(deployedAddresses.governanceAddress);
 
     const newAddresses = await newRollup.getRollupAddresses();
 
@@ -149,4 +163,22 @@ describe('Registry', () => {
       RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion),
     ).resolves.toEqual(deployedAddresses);
   });
+
+  async function setRegistryOwnership(address: EthAddress) {
+    const owner = await registry.getOwner();
+    await ethCheatCodes.startImpersonating(owner);
+    await l1Client.waitForTransactionReceipt({
+      hash: await getContract({
+        address: deployedAddresses.registryAddress.toString(),
+        abi: RegistryAbi,
+        client: createPublicClient({
+          chain: foundry,
+          transport: http(),
+        }),
+      }).write.transferOwnership([address.toString()], {
+        account: owner.toString(),
+      }),
+    });
+    await ethCheatCodes.stopImpersonating(owner);
+  }
 });
