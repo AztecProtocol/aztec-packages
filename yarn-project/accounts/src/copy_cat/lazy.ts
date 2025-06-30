@@ -17,8 +17,9 @@ export class CopyCatAccountWallet extends CopyCatAccountWalletBase {
   static async create(pxe: PXE, originalAccount: AccountWallet): Promise<CopyCatAccountWallet> {
     const simulatedAuthWitnessProvider = {
       /**
-       *
-       * @param messageHash
+       * A copycat wallet always returns an empty authwitness, since it doesn't
+       * perform any verification whatsoever
+       * @param messageHash - The outer hash of the message for which the auth witness is created
        */
       createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         return Promise.resolve(new AuthWitness(messageHash, []));
