@@ -30,7 +30,7 @@ contract StakingAssetHandlerScript is Test {
   string internal constant SCOPE = "testnet.aztec.network";
   string internal constant SUBSCOPE = "personhood";
 
-  bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
+  bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0xbf26b7f1dbcc49b6e063b891f576173aa61d44813a54a4796f505123563ff00f);
 
   ZKPassportVerifier internal constant zkPassportVerifier =
     ZKPassportVerifier(0xEE9F10f38319eAE2730dBa28fB09081dB806c5E5);
@@ -69,5 +69,15 @@ contract StakingAssetHandlerScript is Test {
     vm.stopBroadcast();
 
     emit log_named_address("StakingAssetHandler deployed", address(stakingAssetHandler));
+  }
+
+  function updateRoot() public {
+    // Localhost
+    StakingAssetHandler stakingAssetHandler = StakingAssetHandler(0x74d4A0ECE61e5e941878667f05E334439F4f39cB);
+    // Real
+    // StakingAssetHandler stakingAssetHandler = StakingAssetHandler(0xfF50D061d23962E841d7FaF6495A1FCBBDa1BB9C);
+
+    vm.startBroadcast();
+    stakingAssetHandler.setDepositMerkleRoot(DEPOSIT_MERKLE_ROOT);
   }
 }
