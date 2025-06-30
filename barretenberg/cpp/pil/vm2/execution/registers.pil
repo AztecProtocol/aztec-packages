@@ -25,18 +25,25 @@ namespace execution;
 
 // We only skip if we don't have to read nor write.
 #[skippable_if]
-(1 - sel_should_read_registers) * (1 - sel_should_write_registers) = 0;
+sel_should_read_registers + sel_should_write_registers = 0;
 
 // Whether we should effectivelly operate on the register. We operate if
 // (a) sel_mem_op_reg[i] is a read and we got to the read temporality group, or
 // (b) sel_mem_op_reg[i] is a write and we got to the write temporality group.
 pol commit sel_op_reg_effective[7];
+#[SEL_OP_REG_EFFECTIVE_0]
 sel_op_reg_effective[0] = sel_mem_op_reg[0] * (sel_should_read_registers * (1 - rw_reg[0]) + sel_should_write_registers * rw_reg[0]);
+#[SEL_OP_REG_EFFECTIVE_1]
 sel_op_reg_effective[1] = sel_mem_op_reg[1] * (sel_should_read_registers * (1 - rw_reg[1]) + sel_should_write_registers * rw_reg[1]);
+#[SEL_OP_REG_EFFECTIVE_2]
 sel_op_reg_effective[2] = sel_mem_op_reg[2] * (sel_should_read_registers * (1 - rw_reg[2]) + sel_should_write_registers * rw_reg[2]);
+#[SEL_OP_REG_EFFECTIVE_3]
 sel_op_reg_effective[3] = sel_mem_op_reg[3] * (sel_should_read_registers * (1 - rw_reg[3]) + sel_should_write_registers * rw_reg[3]);
+#[SEL_OP_REG_EFFECTIVE_4]
 sel_op_reg_effective[4] = sel_mem_op_reg[4] * (sel_should_read_registers * (1 - rw_reg[4]) + sel_should_write_registers * rw_reg[4]);
+#[SEL_OP_REG_EFFECTIVE_5]
 sel_op_reg_effective[5] = sel_mem_op_reg[5] * (sel_should_read_registers * (1 - rw_reg[5]) + sel_should_write_registers * rw_reg[5]);
+#[SEL_OP_REG_EFFECTIVE_6]
 sel_op_reg_effective[6] = sel_mem_op_reg[6] * (sel_should_read_registers * (1 - rw_reg[6]) + sel_should_write_registers * rw_reg[6]);
 
 // FIXME: this should eventually be a permutation.
@@ -82,7 +89,7 @@ pol BATCHED_TAGS_DIFF_REG = sel_tag_check_reg[0] * 2**0  * (mem_tag_reg[0] - exp
                           + sel_tag_check_reg[5] * 2**15 * (mem_tag_reg[5] - expected_tag_reg[5])
                           + sel_tag_check_reg[6] * 2**18 * (mem_tag_reg[6] - expected_tag_reg[6]);
 pol commit batched_tags_diff_inv_reg;
-pol BATCHED_TAGS_DIFF_X_REG = (1 - sel_should_read_registers) * BATCHED_TAGS_DIFF_REG;  // Forces 0 if we don't read the register.
+pol BATCHED_TAGS_DIFF_X_REG = sel_should_read_registers * BATCHED_TAGS_DIFF_REG;  // Forces 0 if we don't read the register.
 pol BATCHED_TAGS_DIFF_Y_REG = batched_tags_diff_inv_reg;
 pol BATCHED_TAGS_DIFF_E_REG = 1 - sel_register_read_error;
 pol BATCHED_TAGS_DIFF_EQ_REG = BATCHED_TAGS_DIFF_X_REG * (BATCHED_TAGS_DIFF_E_REG * (1 - BATCHED_TAGS_DIFF_Y_REG) + BATCHED_TAGS_DIFF_Y_REG) - 1 + BATCHED_TAGS_DIFF_E_REG;
