@@ -1,0 +1,8 @@
+[
+  "aztec.validator",
+  "aztec.tx_collector",
+  "aztec.mempool",
+  "aztec.p2p.gossip.agg_",
+  "aztec.ivc_verifier.agg_"
+]
+
