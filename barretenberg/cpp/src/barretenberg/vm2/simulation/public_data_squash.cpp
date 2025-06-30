@@ -41,14 +41,14 @@ void PublicDataSquasher::on_simulation_ended()
         merge_top_into_parent();
     }
     std::vector<RecordedWrite> finished_writes = writes_stack.top();
-    // Sort increasing slot casting to uint256_t, within the same slot, sort by increasing execution_id.
+    // Sort increasing slot, within the same slot, sort by increasing execution_id.
     std::sort(finished_writes.begin(), finished_writes.end(), [](const RecordedWrite& a, const RecordedWrite& b) {
         if (a.leaf_slot == b.leaf_slot) {
             return a.execution_id < b.execution_id;
         }
         return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
     });
-    // Perform the sorting range checks. This is a circuit behavior that reaches execution.
+    // Perform the sorting range checks. This is a circuit behavior that reaches simulation.
     for (size_t i = 0; i < finished_writes.size(); i++) {
         bool is_last_write = i == finished_writes.size() - 1;
         const auto& current_write = finished_writes[i];
