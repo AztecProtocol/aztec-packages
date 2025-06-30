@@ -49,7 +49,10 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorNoReadNoWrite)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
+                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
+                              registers::SR_SEL_OP_REG_EFFECTIVE_5,
+                              registers::SR_SEL_OP_REG_EFFECTIVE_6);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -146,7 +149,10 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
+                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
+                              registers::SR_SEL_OP_REG_EFFECTIVE_5,
+                              registers::SR_SEL_OP_REG_EFFECTIVE_6);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -210,7 +216,7 @@ TEST(RegistersConstrainingTest, TagCheckSingleFailure)
             { C::execution_sel_tag_check_reg_0_, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
             { C::execution_expected_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8) },
-            // No error
+            // Mismatched tag error
             { C::execution_sel_register_read_error, 1 },
             { C::execution_batched_tags_diff_inv_reg, batched_tags_diff.invert() },
         },
@@ -272,7 +278,7 @@ TEST(RegistersConstrainingTest, TagCheckMultipleFailures)
             { C::execution_sel_tag_check_reg_2_, 1 },
             { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) },
             { C::execution_expected_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) },
-            // No error
+            // Mismatched tag error
             { C::execution_sel_register_read_error, 1 },
             { C::execution_batched_tags_diff_inv_reg, batched_tags_diff.invert() },
         },
