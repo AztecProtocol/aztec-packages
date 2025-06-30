@@ -105,15 +105,12 @@ describe('e2e_p2p_preferred_network', () => {
 
     t.ctx.aztecNodeConfig.validatorReexecute = true;
 
-    const nodeConfig: AztecNodeConfig = {
-      ...t.ctx.aztecNodeConfig,
-      disableValidator: true,
-    };
-
     const preferredNodeConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
       disableValidator: true,
+      // Only permit validators to connect and switch off discovery
       p2pAllowOnlyValidators: true,
+      p2pDiscoveryDisabled: true,
     };
 
     // create our network of nodes and submit txs into each of them
@@ -122,22 +119,6 @@ describe('e2e_p2p_preferred_network', () => {
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     let indexOffset = 0;
-
-    t.logger.info('Creating nodes');
-    nodes = await createNodes(
-      nodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_NODES,
-      BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
-      DATA_DIR,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
-      shouldCollectMetrics(),
-      indexOffset,
-    );
-
-    indexOffset += NUM_NODES;
 
     t.logger.info('Creating preferred nodes');
 
@@ -156,9 +137,33 @@ describe('e2e_p2p_preferred_network', () => {
 
     indexOffset += NUM_PREFERRED_NODES;
 
-    t.logger.info('Creating validators');
-
     const preferredNodeEnrs = await Promise.all(preferredNodes.map(node => node.getEncodedEnr()));
+
+    const nodeConfig: AztecNodeConfig = {
+      ...t.ctx.aztecNodeConfig,
+      disableValidator: true,
+
+      // The regular nodes will attempt to connect to the preferred nodes but they should fail the authentication
+      preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
+    };
+
+    t.logger.info('Creating nodes');
+    nodes = await createNodes(
+      nodeConfig,
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+      DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
+      indexOffset,
+    );
+
+    indexOffset += NUM_NODES;
+
+    t.logger.info('Creating validators');
 
     const validatorConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
