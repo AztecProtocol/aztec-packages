@@ -41,7 +41,6 @@ include "public_data_squash.pil";
  *
  * Write usage:
  * sel {
- *   sel,
  *   value,
  *   address
  *   slot,
@@ -49,8 +48,7 @@ include "public_data_squash.pil";
  *   next_public_data_tree_root,
  *   prev_public_data_tree_size,
  *   did_append
- * } in public_data_check.sel {
- *   public_data_check.write,
+ * } is public_data_check.write {
  *   public_data_check.value,
  *   public_data_check.address
  *   public_data_check.slot,
@@ -84,6 +82,8 @@ namespace public_data_check;
     pol commit tree_size_before_write;
     pol commit write;
     write * (1 - write) = 0;
+    // If write is on, sel must be on too.
+    write * (1 - sel) = 0;
     pol commit clk;
     pol commit discard;
 
