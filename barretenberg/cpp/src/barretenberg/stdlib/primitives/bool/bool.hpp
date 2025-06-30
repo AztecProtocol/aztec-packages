@@ -106,8 +106,6 @@ template <typename Builder> class bool_t {
 
     void must_imply(const bool_t& other, std::string const& msg = "bool_t::must_imply") const;
 
-    void must_imply(const std::vector<std::pair<bool_t, std::string>>& conds) const;
-
     bool get_value() const { return witness_bool ^ witness_inverted; }
 
     bool is_constant() const { return witness_index == IS_CONSTANT; }
