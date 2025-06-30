@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_nullifier_tree_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_public_data_squasher.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -48,6 +49,7 @@ using simulation::MockLowLevelMerkleDB;
 using simulation::MockMerkleCheck;
 using simulation::MockNoteHashTreeCheck;
 using simulation::MockNullifierTreeCheck;
+using simulation::MockPublicDataSquasher;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
@@ -94,13 +96,21 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2,
+                                               mock_merkle_check,
+                                               mock_field_gt,
+                                               execution_id_manager,
+                                               range_check,
+                                               public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
+    NiceMock<MockPublicDataSquasher> mock_public_data_squasher;
 
-    MerkleDB merkle_db(
-        mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check, mock_note_hash_tree_check);
+    MerkleDB merkle_db(mock_low_level_merkle_db,
+                       public_data_tree_check,
+                       mock_nullifier_tree_check,
+                       mock_note_hash_tree_check,
+                       mock_public_data_squasher);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
@@ -170,13 +180,21 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2,
+                                               mock_merkle_check,
+                                               mock_field_gt,
+                                               execution_id_manager,
+                                               range_check,
+                                               public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
+    NiceMock<MockPublicDataSquasher> mock_public_data_squasher;
 
-    MerkleDB merkle_db(
-        mock_low_level_merkle_db, public_data_tree_check, mock_nullifier_tree_check, mock_note_hash_tree_check);
+    MerkleDB merkle_db(mock_low_level_merkle_db,
+                       public_data_tree_check,
+                       mock_nullifier_tree_check,
+                       mock_note_hash_tree_check,
+                       mock_public_data_squasher);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);

@@ -33,6 +33,7 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_squash_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
@@ -320,6 +321,12 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.public_data_tree_check_events);
                 },
                 [&]() {
+                    PublicDataSquashTraceBuilder public_data_squash_trace_builder;
+                    AVM_TRACK_TIME("tracegen/public_data_squash",
+                                   public_data_squash_trace_builder.process(events.public_data_squash_events, trace));
+                    clear_events(events.public_data_squash_events);
+                },
+                [&]() {
                     UpdateCheckTraceBuilder update_check_trace_builder;
                     AVM_TRACK_TIME("tracegen/update_check",
                                    update_check_trace_builder.process(events.update_check_events, trace));
@@ -398,7 +405,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                                                   MemoryTraceBuilder::interactions.get_all_jobs(),
                                                   DataCopyTraceBuilder::interactions.get_all_jobs(),
                                                   CalldataTraceBuilder::interactions.get_all_jobs(),
-                                                  NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs());
+                                                  NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                                                  PublicDataSquashTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

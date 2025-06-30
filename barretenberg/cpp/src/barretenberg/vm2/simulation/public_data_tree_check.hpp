@@ -35,12 +35,14 @@ class PublicDataTreeCheck : public PublicDataTreeCheckInterface, public Checkpoi
                         MerkleCheckInterface& merkle_check,
                         FieldGreaterThanInterface& field_gt,
                         ExecutionIdGetterInterface& execution_id_manager,
+                        RangeCheckInterface& range_check,
                         EventEmitterInterface<PublicDataTreeCheckEvent>& read_event_emitter)
         : events(read_event_emitter)
         , poseidon2(poseidon2)
         , merkle_check(merkle_check)
         , field_gt(field_gt)
         , execution_id_manager(execution_id_manager)
+        , range_check(range_check)
     {}
 
     void assert_read(const FF& slot,
@@ -71,6 +73,9 @@ class PublicDataTreeCheck : public PublicDataTreeCheckInterface, public Checkpoi
     MerkleCheckInterface& merkle_check;
     FieldGreaterThanInterface& field_gt;
     ExecutionIdGetterInterface& execution_id_manager;
+    RangeCheckInterface& range_check;
+
+    std::optional<uint32_t> last_write_execution_id;
 
     void validate_low_leaf_jumps_over_slot(const PublicDataTreeLeafPreimage& low_leaf_preimage, const FF& leaf_slot);
     FF compute_leaf_slot(const AztecAddress& contract_address, const FF& slot);

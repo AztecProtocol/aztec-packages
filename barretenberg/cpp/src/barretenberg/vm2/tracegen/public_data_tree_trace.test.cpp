@@ -50,7 +50,8 @@ using simulation::Poseidon2PermutationEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
-using simulation::root_from_path;
+using simulation::unconstrained_compute_leaf_slot;
+using simulation::unconstrained_root_from_path;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -68,24 +69,31 @@ using lookup_new_leaf_poseidon2_0 = lookup_public_data_check_new_leaf_poseidon2_
 using lookup_new_leaf_poseidon2_1 = lookup_public_data_check_new_leaf_poseidon2_1_relation<FF>;
 using lookup_new_leaf_merkle_check = lookup_public_data_check_new_leaf_merkle_check_relation<FF>;
 
+AztecAddress contract_address = 1;
+
 struct TestParams {
-    FF leaf_slot;
+    FF slot;
     FF value;
     PublicDataTreeLeafPreimage low_leaf;
 };
 
 std::vector<TestParams> read_positive_tests = {
     // Exists = true, leaf pointers to infinity
-    TestParams{
-        .leaf_slot = 42, .value = 27, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(42, 27), 0, 0) },
+    TestParams{ .slot = 42,
+                .value = 27,
+                .low_leaf = PublicDataTreeLeafPreimage(
+                    PublicDataLeafValue(unconstrained_compute_leaf_slot(contract_address, 42), 27), 0, 0) },
     // Exists = true, leaf points to higher value
     TestParams{
-        .leaf_slot = 42, .value = 27, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(42, 27), 28, 50) },
+        .slot = 42,
+        .value = 27,
+        .low_leaf = PublicDataTreeLeafPreimage(
+            PublicDataLeafValue(unconstrained_compute_leaf_slot(contract_address, 42), 27), 28, FF::neg_one()) },
     // Exists = false, low leaf points to infinity
-    TestParams{ .leaf_slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 0, 0) },
+    TestParams{ .slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 0, 0) },
     // Exists = false, low leaf points to higher value
     TestParams{
-        .leaf_slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 28, 50) }
+        .slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 28, FF::neg_one()) }
 };
 
 class PublicDataReadInteractionsTests : public TestWithParam<TestParams> {};
@@ -110,7 +118,7 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -125,9 +133,10 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
     for (size_t i = 0; i < PUBLIC_DATA_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
-    public_data_tree_check_simulator.assert_read(param.leaf_slot,
+    public_data_tree_check_simulator.assert_read(param.slot,
+                                                 contract_address,
                                                  param.value,
                                                  param.low_leaf,
                                                  leaf_index,
@@ -176,7 +185,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -184,7 +193,8 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
     FieldGreaterThanTraceBuilder field_gt_builder;
     PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
 
-    FF leaf_slot = 40;
+    FF slot = 40;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
@@ -210,8 +220,15 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
         AppendOnlyTreeSnapshot{ .root = intermediate_root,
                                 .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(
-        leaf_slot, new_value, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
+                                                                                    contract_address,
+                                                                                    new_value,
+                                                                                    low_leaf,
+                                                                                    low_leaf_index,
+                                                                                    low_leaf_sibling_path,
+                                                                                    prev_snapshot,
+                                                                                    insertion_sibling_path,
+                                                                                    false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
@@ -249,7 +266,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -257,7 +274,8 @@ TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
     FieldGreaterThanTraceBuilder field_gt_builder;
     PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
 
-    FF leaf_slot = 42;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
     FF low_leaf_slot = 40;
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
@@ -288,8 +306,15 @@ TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
                                 .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(
-        leaf_slot, new_value, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
+                                                                                    contract_address,
+                                                                                    new_value,
+                                                                                    low_leaf,
+                                                                                    low_leaf_index,
+                                                                                    low_leaf_sibling_path,
+                                                                                    prev_snapshot,
+                                                                                    insertion_sibling_path,
+                                                                                    false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);

@@ -3,6 +3,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -46,8 +47,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         std::vector<FF> update_preimage(3);
 
         for (size_t i = 0; i < update_preimage.size(); ++i) {
-            FF leaf_slot = UnconstrainedPoseidon2::hash(
-                { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, shared_mutable_slot + i });
+            FF leaf_slot = unconstrained_compute_leaf_slot(DEPLOYER_CONTRACT_ADDRESS, shared_mutable_slot + i);
             update_preimage[i] = unconstrained_read(unconstrained_merkle_db, leaf_slot);
         }
 

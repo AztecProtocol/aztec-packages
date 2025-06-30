@@ -46,6 +46,10 @@ void TxExecution::simulate(const Tx& tx)
     Gas gas_limit = tx.gasSettings.gasLimits;
     Gas gas_used = tx.gasUsedByPrivate;
 
+    for (auto* listener : lifecycle_listeners) {
+        listener->on_simulation_started();
+    }
+
     events.emit(TxStartupEvent{
         .tx_gas_limit = gas_limit,
         .private_gas_used = gas_used,
@@ -157,12 +161,10 @@ void TxExecution::simulate(const Tx& tx)
         FF fee_payer = tx.feePayer;
 
         FF fee_payer_balance_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ 1, fee_payer });
-        FF fee_payer_balance_leaf_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
-            { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FEE_JUICE_ADDRESS, fee_payer_balance_slot });
-        (void)fee_payer_balance_leaf_slot; // Silence unused variable warning
+        (void)fee_payer_balance_slot; // Silence unused variable warning
 
         // Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // FF fee_payer_balance = merkle_db.storage_read(fee_payer_balance_leaf_slot);
+        // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_payer_balance_slot);
         FF fee_payer_balance = FF::neg_one();
 
         if (field_gt.ff_gt(fee, fee_payer_balance)) {
@@ -171,7 +173,7 @@ void TxExecution::simulate(const Tx& tx)
         }
 
         // Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // merkle_db.storage_write(fee_payer_balance_leaf_slot, fee_payer_balance - fee);
+        // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_payer_balance_slot, fee_payer_balance - fee, true);
 
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
                                   .prev_tree_state = prev_tree_state,
@@ -187,6 +189,10 @@ void TxExecution::simulate(const Tx& tx)
         // Catastrophic failure.
         info("Error while simulating tx ", tx.hash, ": ", e.what());
         throw e;
+    }
+
+    for (auto* listener : lifecycle_listeners) {
+        listener->on_simulation_ended();
     }
 }
 

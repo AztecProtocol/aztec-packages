@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
+#include "barretenberg/vm2/simulation/public_data_squash.hpp"
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 
 namespace bb::avm2::simulation {
@@ -45,11 +46,13 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db,
              PublicDataTreeCheckInterface& public_data_tree_check,
              NullifierTreeCheckInterface& nullifier_tree_check,
-             NoteHashTreeCheckInterface& note_hash_tree_check)
+             NoteHashTreeCheckInterface& note_hash_tree_check,
+             PublicDataSquasherInterface& public_data_squasher)
         : raw_merkle_db(raw_merkle_db)
         , public_data_tree_check(public_data_tree_check)
         , nullifier_tree_check(nullifier_tree_check)
         , note_hash_tree_check(note_hash_tree_check)
+        , public_data_squasher(public_data_squasher)
     {}
 
     // Unconstrained.
@@ -92,6 +95,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     PublicDataTreeCheckInterface& public_data_tree_check;
     NullifierTreeCheckInterface& nullifier_tree_check;
     NoteHashTreeCheckInterface& note_hash_tree_check;
+    PublicDataSquasherInterface& public_data_squasher;
 
     // Counters only in the HighLevel interface.
     uint32_t nullifier_counter = 0;

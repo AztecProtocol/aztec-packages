@@ -34,7 +34,7 @@ struct PublicDataTreeReadWriteEvent {
 
     std::optional<PublicDataWriteData> write_data;
 
-    uint32_t clk;
+    uint32_t execution_id;
 
     bool operator==(const PublicDataTreeReadWriteEvent& other) const = default;
 };

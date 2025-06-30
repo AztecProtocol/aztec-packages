@@ -5,9 +5,12 @@
 
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
@@ -23,14 +26,20 @@ namespace {
 
 TEST(AvmSimulationPublicDataTree, ReadExists)
 {
+    StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
 
-    PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(42, 27), 0, 0);
+    AztecAddress contract_address = 27;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 27), 0, 0);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -38,18 +47,19 @@ TEST(AvmSimulationPublicDataTree, ReadExists)
         .root = 123456,
         .nextAvailableLeafIndex = 128,
     };
-    FF leaf_slot = 42;
     FF value = 27;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
 
-    public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot);
+    public_data_tree_check.assert_read(slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot);
 
-    PublicDataTreeCheckEvent expect_event = {
+    PublicDataTreeReadWriteEvent expect_event = {
+        .contract_address = contract_address,
+        .slot = slot,
         .value = value,
-        .slot = leaf_slot,
+        .leaf_slot = leaf_slot,
         .prev_snapshot = snapshot,
         .low_leaf_preimage = low_leaf,
         .low_leaf_hash = low_leaf_hash,
@@ -59,21 +69,27 @@ TEST(AvmSimulationPublicDataTree, ReadExists)
 
     // Negative test: wrong value
     value = 28;
-    EXPECT_THROW_WITH_MESSAGE(
-        public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot),
-        "Leaf value does not match value");
+    EXPECT_THROW_WITH_MESSAGE(public_data_tree_check.assert_read(
+                                  slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot),
+                              "Leaf value does not match value");
 }
 
 TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
 {
+    StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
 
-    PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(40, 27), 0, 0);
+    AztecAddress contract_address = 27;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 27), 0, 0);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
     std::vector<FF> sibling_path = { 1, 2, 3, 4, 5 };
@@ -81,7 +97,6 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
         .root = 123456,
         .nextAvailableLeafIndex = 128,
     };
-    FF leaf_slot = 42;
     FF value = 0;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
@@ -89,10 +104,12 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
         .WillRepeatedly(Return());
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
 
-    public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot);
-    PublicDataTreeCheckEvent expect_event = {
+    public_data_tree_check.assert_read(slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot);
+    PublicDataTreeReadWriteEvent expect_event = {
+        .contract_address = contract_address,
+        .slot = slot,
         .value = value,
-        .slot = leaf_slot,
+        .leaf_slot = leaf_slot,
         .prev_snapshot = snapshot,
         .low_leaf_preimage = low_leaf,
         .low_leaf_hash = low_leaf_hash,
@@ -102,26 +119,32 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
 
     // Negative test: wrong value
     value = 1;
-    EXPECT_THROW_WITH_MESSAGE(
-        public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot),
-        "Value is nonzero for a non existing slot");
+    EXPECT_THROW_WITH_MESSAGE(public_data_tree_check.assert_read(
+                                  slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot),
+                              "Value is nonzero for a non existing slot");
 
     // Negative test: failed leaf_slot > low_leaf_preimage.value.slot
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillOnce(Return(false));
-    EXPECT_THROW_WITH_MESSAGE(
-        public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot),
-        "Low leaf slot is GTE leaf slot");
+    EXPECT_THROW_WITH_MESSAGE(public_data_tree_check.assert_read(
+                                  slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot),
+                              "Low leaf slot is GTE leaf slot");
 }
 
 TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
 {
+    StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
 
+    AztecAddress contract_address = 27;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(40, 27), 28, 50);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 30;
@@ -130,7 +153,6 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
         .root = 123456,
         .nextAvailableLeafIndex = 128,
     };
-    FF leaf_slot = 42;
     FF value = 0;
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
@@ -139,10 +161,12 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, leaf_slot)).WillRepeatedly(Return(true));
 
-    public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot);
-    PublicDataTreeCheckEvent expect_event = {
+    public_data_tree_check.assert_read(slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot);
+    PublicDataTreeReadWriteEvent expect_event = {
+        .contract_address = contract_address,
+        .slot = slot,
         .value = value,
-        .slot = leaf_slot,
+        .leaf_slot = leaf_slot,
         .prev_snapshot = snapshot,
         .low_leaf_preimage = low_leaf,
         .low_leaf_hash = low_leaf_hash,
@@ -152,27 +176,32 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
 
     // Negative test: wrong value
     value = 1;
-    EXPECT_THROW_WITH_MESSAGE(
-        public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot),
-        "Value is nonzero for a non existing slot");
+    EXPECT_THROW_WITH_MESSAGE(public_data_tree_check.assert_read(
+                                  slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot),
+                              "Value is nonzero for a non existing slot");
 
     // Negative test: failed low_leaf_preimage.nextValue > leaf_slot
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, leaf_slot)).WillOnce(Return(false));
-    EXPECT_THROW_WITH_MESSAGE(
-        public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, snapshot),
-        "Leaf slot is GTE low leaf next slot");
+    EXPECT_THROW_WITH_MESSAGE(public_data_tree_check.assert_read(
+                                  slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot),
+                              "Leaf slot is GTE low leaf next slot");
 }
 
 TEST(AvmSimulationPublicDataTree, WriteExists)
 {
+    StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
 
-    FF leaf_slot = 42;
+    AztecAddress contract_address = 27;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
 
     MemoryTree<Poseidon2HashPolicy> public_data_tree(8);
@@ -206,14 +235,23 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
     EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check.write(
-        leaf_slot, new_value, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check.write(slot,
+                                                                          contract_address,
+                                                                          new_value,
+                                                                          low_leaf,
+                                                                          low_leaf_index,
+                                                                          low_leaf_sibling_path,
+                                                                          prev_snapshot,
+                                                                          insertion_sibling_path,
+                                                                          false);
 
     EXPECT_EQ(next_snapshot, result_snapshot);
 
-    PublicDataTreeCheckEvent expect_event = {
+    PublicDataTreeReadWriteEvent expect_event = {
+        .contract_address = contract_address,
+        .slot = slot,
         .value = new_value,
-        .slot = leaf_slot,
+        .leaf_slot = leaf_slot,
         .prev_snapshot = prev_snapshot,
         .low_leaf_preimage = low_leaf,
         .low_leaf_hash = low_leaf_hash,
@@ -229,14 +267,19 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
 
 TEST(AvmSimulationPublicDataTree, WriteNotExists)
 {
+    StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
 
-    FF leaf_slot = 42;
+    AztecAddress contract_address = 27;
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF new_value = 27;
     FF low_leaf_slot = 40;
 
@@ -278,14 +321,23 @@ TEST(AvmSimulationPublicDataTree, WriteNotExists)
     EXPECT_CALL(merkle_check, write(FF(0), new_leaf_hash, prev_snapshot.nextAvailableLeafIndex, _, intermediate_root))
         .WillRepeatedly(Return(next_snapshot.root));
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check.write(
-        leaf_slot, new_value, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check.write(slot,
+                                                                          contract_address,
+                                                                          new_value,
+                                                                          low_leaf,
+                                                                          low_leaf_index,
+                                                                          low_leaf_sibling_path,
+                                                                          prev_snapshot,
+                                                                          insertion_sibling_path,
+                                                                          false);
 
     EXPECT_EQ(next_snapshot, result_snapshot);
 
-    PublicDataTreeCheckEvent expect_event = {
+    PublicDataTreeReadWriteEvent expect_event = {
+        .contract_address = contract_address,
+        .slot = slot,
         .value = new_value,
-        .slot = leaf_slot,
+        .leaf_slot = leaf_slot,
         .prev_snapshot = prev_snapshot,
         .low_leaf_preimage = low_leaf,
         .low_leaf_hash = low_leaf_hash,

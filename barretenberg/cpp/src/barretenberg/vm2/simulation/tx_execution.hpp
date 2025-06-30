@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/lib/tx_lifecycle_notifiable.hpp"
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
 
 namespace bb::avm2::simulation {
@@ -30,6 +31,8 @@ class TxExecution final {
 
     void simulate(const Tx& tx);
 
+    void add_lifecycle_listener(TransactionLifecycleNotifiable& listener) { lifecycle_listeners.push_back(&listener); }
+
   private:
     ExecutionInterface& call_execution;
     ContextProviderInterface& context_provider;
@@ -37,6 +40,8 @@ class TxExecution final {
     HighLevelMerkleDBInterface& merkle_db;
     FieldGreaterThanInterface& field_gt;
     EventEmitterInterface<TxEvent>& events;
+
+    std::vector<TransactionLifecycleNotifiable*> lifecycle_listeners;
 
     void insert_non_revertibles(const Tx& tx);
     void insert_revertibles(const Tx& tx);

@@ -51,8 +51,8 @@ TreeStates MerkleDB::get_tree_state() const
 
 FF MerkleDB::storage_read(const AztecAddress& contract_address, const FF& slot) const
 {
-    auto [present, index] =
-        raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::PUBLIC_DATA_TREE, compute_leaf_slot(contract_address, slot));
+    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::PUBLIC_DATA_TREE,
+                                                               unconstrained_compute_leaf_slot(contract_address, slot));
     auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::PUBLIC_DATA_TREE, index);
     auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
 
@@ -69,7 +69,7 @@ void MerkleDB::storage_write(const AztecAddress& contract_address,
                              const FF& value,
                              bool is_protocol_write)
 {
-    FF leaf_slot = compute_leaf_slot(contract_address, slot);
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().publicDataTree;
 
     auto hint = raw_merkle_db.insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, value));
@@ -94,6 +94,8 @@ void MerkleDB::storage_write(const AztecAddress& contract_address,
     if (!storage_set.contains(leaf_slot)) {
         storage_set.insert(leaf_slot);
     }
+
+    public_data_squasher.record_write(leaf_slot, is_protocol_write);
 }
 
 bool MerkleDB::nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const
@@ -112,7 +114,7 @@ bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_ad
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
         // The siloing will later be constrained in the nullifier tree check gadget.
-        siloed_nullifier = silo_nullifier(contract_address.value(), nullifier);
+        siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
@@ -146,7 +148,7 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
         // The siloing will later be constrained in the nullifier tree check gadget.
-        siloed_nullifier = silo_nullifier(contract_address.value(), nullifier);
+        siloed_nullifier = unconstrained_silo_nullifier(contract_address.value(), nullifier);
     }
 
     auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
@@ -201,9 +203,9 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
     AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
     // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
-    FF siloed_note_hash = silo_note_hash(contract_address, note_hash);
-    FF unique_note_hash =
-        make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+    FF siloed_note_hash = unconstrained_silo_note_hash(contract_address, note_hash);
+    FF unique_note_hash = unconstrained_make_unique_note_hash(
+        siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
     auto append_result =
         raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
@@ -222,8 +224,8 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
     AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
     // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
-    FF unique_note_hash =
-        make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+    FF unique_note_hash = unconstrained_make_unique_note_hash(
+        siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
     auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
     AppendOnlyTreeSnapshot snapshot_after =

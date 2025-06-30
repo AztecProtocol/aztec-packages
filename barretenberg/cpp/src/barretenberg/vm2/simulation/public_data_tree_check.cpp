@@ -57,7 +57,7 @@ void PublicDataTreeCheck::assert_read(const FF& slot,
         .low_leaf_preimage = low_leaf_preimage,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
-        .clk = execution_id_manager.get_execution_id(),
+        .execution_id = execution_id_manager.get_execution_id(),
     });
 }
 
@@ -113,6 +113,14 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
         next_snapshot.nextAvailableLeafIndex++;
     }
 
+    uint32_t execution_id =
+        is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id();
+
+    if (last_write_execution_id.has_value()) {
+        range_check.assert_range(execution_id - last_write_execution_id.value(), 32);
+        last_write_execution_id = execution_id;
+    }
+
     events.emit(PublicDataTreeReadWriteEvent{
         .contract_address = contract_address,
         .slot = slot,
@@ -127,7 +135,7 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
                                            .new_leaf_hash = new_leaf_hash,
                                            .intermediate_root = intermediate_root,
                                            .next_snapshot = next_snapshot },
-        .clk = is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id(),
+        .execution_id = execution_id,
     });
 
     return next_snapshot;
