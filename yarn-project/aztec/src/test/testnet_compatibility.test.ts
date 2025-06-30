@@ -11,9 +11,11 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  */
 describe('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
-    expect(getVKTreeRoot()).toEqual(
+    const expectedRoots = [
       Fr.fromHexString('0x1a5079b513266d78cf61cc98914d568e800982d8b2b9fe79c90f47ce27ffa2ec'),
-    );
+      Fr.fromHexString('0x19e3d93ad6369e960f28fdda0da5110129c2db67f49445d8406001eab1a1ae6a'), // the AVM is disabled on ARM and that leads to a different VK tree root. Not ideal but we don't support proving on ARM for now.
+    ];
+    expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
     expect(protocolContractTreeRoot).toEqual(
