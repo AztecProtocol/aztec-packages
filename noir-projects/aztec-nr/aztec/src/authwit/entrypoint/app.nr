@@ -1,12 +1,10 @@
-use crate::prelude::PrivateContext;
+use crate::{authwit::entrypoint::function_call::FunctionCall, context::PrivateContext};
 use dep::protocol_types::{
     constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
     hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize},
 };
 use std::meta::derive;
-
-use crate::authwit::entrypoint::function_call::FunctionCall;
 
 // FUNCTION_CALL_SIZE_IN_BYTES * ACCOUNT_MAX_CALLS + 32
 global APP_PAYLOAD_SIZE_IN_BYTES: u32 = 424;

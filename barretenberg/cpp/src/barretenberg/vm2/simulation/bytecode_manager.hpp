@@ -32,6 +32,12 @@ struct BytecodeNotFoundError : public std::runtime_error {
     BytecodeId bytecode_id;
 };
 
+struct InstructionFetchingError : public std::runtime_error {
+    InstructionFetchingError(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 // Manages the bytecode operations of all calls in a transaction.
 // In particular, it will not duplicate hashing and decomposition.
 class TxBytecodeManagerInterface {
