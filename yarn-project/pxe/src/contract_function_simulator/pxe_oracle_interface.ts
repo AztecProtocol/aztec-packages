@@ -925,14 +925,17 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       }
 
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierBatches = nullifiersToCheck.reduce((acc, nullifier) => {
-        if (acc[acc.length - 1].length < MAX_RPC_LEN) {
-          acc[acc.length - 1].push(nullifier);
-        } else {
-          acc.push([nullifier]);
-        }
-        return acc;
-      }, [] as Fr[][]);
+      const nullifierBatches = nullifiersToCheck.reduce(
+        (acc, nullifier) => {
+          if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+            acc[acc.length - 1].push(nullifier);
+          } else {
+            acc.push([nullifier]);
+          }
+          return acc;
+        },
+        [[]] as Fr[][],
+      );
       const nullifierIndexes = (
         await Promise.all(
           nullifierBatches.map(batch =>
