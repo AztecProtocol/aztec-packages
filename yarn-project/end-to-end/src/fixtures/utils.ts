@@ -57,7 +57,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import {
   type PXEService,
   type PXEServiceConfig,
@@ -873,13 +873,14 @@ export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'>,
-  aztecNode: AztecNode,
+  aztecNode: AztecNode | undefined,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
+  proverNodeDeps: ProverNodeDeps = {},
 ) {
   return withLogNameSuffix('prover-node', async () => {
     // Disable stopping the aztec node as the prover coordination test will kill it otherwise
     // This is only required when stopping the prover node for testing
-    const aztecNodeTxProvider = {
+    const aztecNodeTxProvider = aztecNode && {
       getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
       getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
       stop: () => Promise.resolve(),
@@ -913,7 +914,7 @@ export function createAndSyncProverNode(
 
     const proverNode = await createProverNode(
       proverConfig,
-      { aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
+      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
       { prefilledPublicData },
     );
     getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });

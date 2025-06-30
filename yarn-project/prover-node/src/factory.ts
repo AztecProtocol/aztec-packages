@@ -23,20 +23,22 @@ import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode } from './prover-node.js';
 
+export type ProverNodeDeps = {
+  telemetry?: TelemetryClient;
+  log?: Logger;
+  aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
+  archiver?: Archiver;
+  publisher?: ProverNodePublisher;
+  blobSinkClient?: BlobSinkClientInterface;
+  broker?: ProvingJobBroker;
+  l1TxUtils?: L1TxUtils;
+  dateProvider?: DateProvider;
+};
+
 /** Creates a new prover node given a config. */
 export async function createProverNode(
   userConfig: ProverNodeConfig & DataStoreConfig,
-  deps: {
-    telemetry?: TelemetryClient;
-    log?: Logger;
-    aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
-    archiver?: Archiver;
-    publisher?: ProverNodePublisher;
-    blobSinkClient?: BlobSinkClientInterface;
-    broker?: ProvingJobBroker;
-    l1TxUtils?: L1TxUtils;
-    dateProvider?: DateProvider;
-  } = {},
+  deps: ProverNodeDeps = {},
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
