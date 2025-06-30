@@ -16,6 +16,7 @@ struct ContextEvent {
     uint32_t pc;
     AztecAddress msg_sender;
     AztecAddress contract_addr;
+    FF transaction_fee;
     bool is_static;
 
     // Calldata info from parent context

@@ -10,7 +10,10 @@ pub contract StatefulTest {
         },
         storage::storage,
     };
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, Map, PrivateSet, PublicMutable};
+    use dep::aztec::{
+        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        state_vars::{Map, PrivateSet, PublicMutable},
+    };
     use dep::value_note::{balance_utils, utils::{decrement, increment}, value_note::ValueNote};
 
     #[storage]

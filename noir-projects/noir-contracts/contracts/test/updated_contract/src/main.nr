@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 contract Updated {
     use aztec::macros::{functions::{private, public, utility}, storage::storage};
     use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::prelude::{PrivateMutable, PublicMutable};
+    use aztec::state_vars::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::constants::DEPLOYER_CONTRACT_ADDRESS;
     use contract_instance_deployer::ContractInstanceDeployer;
@@ -33,7 +33,7 @@ contract Updated {
     }
 
     #[public]
-    fn get_update_delay() -> u32 {
+    fn get_update_delay() -> u64 {
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
     }
 

@@ -4,7 +4,6 @@ use aztec::macros::aztec;
 pub contract ContractInstanceDeployer {
     use aztec::{
         macros::{events::event, functions::{private, public, view}, storage::storage},
-        prelude::{Map, SharedMutable},
         protocol_types::{
             address::{AztecAddress, PartialAddress},
             constants::{
@@ -17,6 +16,7 @@ pub contract ContractInstanceDeployer {
             traits::{Serialize, ToField},
             utils::arrays::array_concat,
         },
+        state_vars::{Map, SharedMutable},
     };
     use contract_class_registerer::ContractClassRegisterer;
 
@@ -89,7 +89,7 @@ pub contract ContractInstanceDeployer {
         address: AztecAddress,
         prev_contract_class_id: ContractClassId,
         new_contract_class_id: ContractClassId,
-        block_of_change: u32,
+        timestamp_of_change: u64,
     }
 
     #[storage]
@@ -164,21 +164,21 @@ pub contract ContractInstanceDeployer {
             .updated_class_ids
             .at(address)
             .schedule_and_return_value_change(new_contract_class_id);
-        let (prev_contract_class_id, block_of_change) = scheduled_value_update.get_previous();
+        let (prev_contract_class_id, timestamp_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {
             DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
             address,
             prev_contract_class_id,
             new_contract_class_id,
-            block_of_change,
+            timestamp_of_change,
         };
 
         context.emit_public_log(event);
     }
 
     #[public]
-    fn set_update_delay(new_update_delay: u32) {
+    fn set_update_delay(new_update_delay: u64) {
         let address = context.msg_sender();
 
         assert(
@@ -193,7 +193,7 @@ pub contract ContractInstanceDeployer {
 
     #[public]
     #[view]
-    fn get_update_delay() -> u32 {
+    fn get_update_delay() -> u64 {
         storage.updated_class_ids.at(context.msg_sender()).get_current_delay()
     }
 }

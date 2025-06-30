@@ -5,9 +5,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrSingleKeyAccount {
-    use dep::aztec::prelude::PrivateContext;
-
-    use dep::authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}};
+    use dep::aztec::{
+        authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
+        context::PrivateContext,
+    };
 
     use crate::{auth_oracle::get_auth_witness, util::recover_address};
 

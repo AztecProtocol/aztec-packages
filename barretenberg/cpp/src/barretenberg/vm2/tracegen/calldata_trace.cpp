@@ -25,7 +25,7 @@ void CalldataTraceBuilder::process_retrieval(
                           { C::calldata_sel, 1 },
                           { C::calldata_context_id, context_id },
                           { C::calldata_value, calldata[i] },
-                          { C::calldata_index, i + 1 },
+                          { C::calldata_index, i },
                           { C::calldata_latch, (i == calldata.size() - 1) ? 1 : 0 },
 
                       } });

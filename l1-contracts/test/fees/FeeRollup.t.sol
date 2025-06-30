@@ -9,7 +9,10 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib, Signature, CommitteeAttestation
+  SignatureLib,
+  Signature,
+  CommitteeAttestation,
+  CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -203,7 +206,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.attestations,
+          SignatureLib.packAttestations(b.attestations),
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -232,9 +235,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
@@ -299,7 +301,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.attestations,
+          SignatureLib.packAttestations(b.attestations),
           b.blobInputs
         );
 

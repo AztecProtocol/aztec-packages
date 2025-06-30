@@ -178,6 +178,11 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/fbd46dc29335ec8c
+  - regex: "src/e2e_contract_updates.test.ts"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *jan
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -214,10 +219,6 @@ tests:
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     owners:
       - *palla
-  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
-    error_regex: "✕ keeps the jobs in progress while it is alive"
-    owners:
-      - *alex
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
@@ -228,24 +229,13 @@ tests:
       - *lucas
   - regex: "e2e_prover/full"
     error_regex: "ProvingError: Failed to verify proof from key!"
+  - regex: "yarn-project/slasher/src/slasher_client.test.ts"
+    error_regex: 'ContractFunctionExecutionError: The contract function "getCurrentRound" returned no data ("0x").'
+    owners:
+      - *mitch
 
-  # kind tests
+  # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
-    # Will skip all kind tests for now. Too unstable, blocking merge queue.
-    skip: true
-    error_regex: "timeout: sending signal TERM to command"
-    owners:
-      - *alex
-  - regex: "spartan/bootstrap.sh"
-    error_regex: "cp: cannot create regular file"
-    owners:
-      - *alex
-  - regex: "spartan/bootstrap.sh"
-    error_regex: "tar: Error is not recoverable: exiting now"
-    owners:
-      - *alex
-  - regex: "spartan/bootstrap.sh test-kind-smoke"
-    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
       - *alex
 

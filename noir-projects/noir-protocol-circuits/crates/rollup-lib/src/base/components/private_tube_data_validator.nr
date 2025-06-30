@@ -1,5 +1,5 @@
 use crate::base::components::{
-    constants::validate_tx_constant_data, validation_requests::validate_max_block_number,
+    constants::validate_tx_constant_data, validation_requests::validate_include_by_timestamp,
 };
 use dep::types::{
     abis::{block_constant_data::BlockConstantData, tube::PrivateTubeData},
@@ -38,9 +38,9 @@ impl PrivateTubeDataValidator {
             archive_root_membership_witness,
         );
 
-        validate_max_block_number(
+        validate_include_by_timestamp(
             tube_data.rollup_validation_requests,
-            constants.global_variables.block_number,
+            constants.global_variables,
         );
     }
 }

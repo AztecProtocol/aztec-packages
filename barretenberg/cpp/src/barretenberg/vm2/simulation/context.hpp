@@ -40,7 +40,9 @@ class ContextInterface {
     // Environment.
     virtual const AztecAddress& get_address() const = 0;
     virtual const AztecAddress& get_msg_sender() const = 0;
+    virtual const FF& get_transaction_fee() const = 0;
     virtual bool get_is_static() const = 0;
+    virtual const GlobalVariables& get_globals() const = 0;
 
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
     virtual std::vector<FF> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
@@ -81,15 +83,19 @@ class BaseContext : public ContextInterface {
     BaseContext(uint32_t context_id,
                 AztecAddress address,
                 AztecAddress msg_sender,
+                FF transaction_fee,
                 bool is_static,
                 Gas gas_limit,
                 Gas gas_used,
+                GlobalVariables globals,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory,
                 std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager)
         : address(address)
         , msg_sender(msg_sender)
+        , transaction_fee(transaction_fee)
         , is_static(is_static)
+        , globals(globals)
         , context_id(context_id)
         , gas_used(gas_used)
         , gas_limit(gas_limit)
@@ -119,7 +125,9 @@ class BaseContext : public ContextInterface {
     // Environment.
     const AztecAddress& get_address() const override { return address; }
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
+    const FF& get_transaction_fee() const override { return transaction_fee; }
     bool get_is_static() const override { return is_static; }
+    const GlobalVariables& get_globals() const override { return globals; }
 
     ContextInterface& get_child_context() override { return *child_context; }
     void set_child_context(std::unique_ptr<ContextInterface> child_ctx) override
@@ -144,13 +152,15 @@ class BaseContext : public ContextInterface {
     void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
 
     // Input / Output
-    std::vector<FF> get_returndata(uint32_t rd_offset_addr, uint32_t rd_copy_size) override;
+    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   private:
     // Environment.
     AztecAddress address;
     AztecAddress msg_sender;
+    FF transaction_fee;
     bool is_static;
+    GlobalVariables globals;
 
     uint32_t context_id;
 
@@ -177,9 +187,11 @@ class EnqueuedCallContext : public BaseContext {
     EnqueuedCallContext(uint32_t context_id,
                         AztecAddress address,
                         AztecAddress msg_sender,
+                        FF transaction_fee,
                         bool is_static,
                         Gas gas_limit,
                         Gas gas_used,
+                        GlobalVariables globals,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
                         std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
@@ -187,9 +199,11 @@ class EnqueuedCallContext : public BaseContext {
         : BaseContext(context_id,
                       address,
                       msg_sender,
+                      transaction_fee,
                       is_static,
                       gas_limit,
                       gas_used,
+                      globals,
                       std::move(bytecode),
                       std::move(memory),
                       std::move(internal_call_stack_manager))
@@ -220,8 +234,10 @@ class NestedContext : public BaseContext {
     NestedContext(uint32_t context_id,
                   AztecAddress address,
                   AztecAddress msg_sender,
+                  FF transaction_fee,
                   bool is_static,
                   Gas gas_limit,
+                  GlobalVariables globals,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
                   std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
@@ -231,9 +247,11 @@ class NestedContext : public BaseContext {
         : BaseContext(context_id,
                       address,
                       msg_sender,
+                      transaction_fee,
                       is_static,
                       gas_limit,
                       Gas{ 0, 0 },
+                      globals,
                       std::move(bytecode),
                       std::move(memory),
                       std::move(internal_call_stack_manager))
@@ -252,7 +270,7 @@ class NestedContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset_addr, uint32_t cd_copy_size) const override;
+    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     MemoryAddress get_parent_cd_addr() const override { return parent_cd_addr; }
     uint32_t get_parent_cd_size() const override { return parent_cd_size; }

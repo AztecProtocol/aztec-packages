@@ -58,7 +58,7 @@ config:
     filter:
       metrics:
         metric:
-          - 'not (HasPrefix(name, "aztec.validator") or HasPrefix(name, "aztec.tx_collector"))'
+          - 'false' # placeholder
           - 'resource.attributes["aztec.node_role"] != "sequencer"'
           - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
         datapoint:
@@ -69,8 +69,6 @@ config:
         - context: datapoint
           statements:
           - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
-          - set(attributes["service.name"], resource.attributes["service.name"])
-          - set(attributes["service.namespace"], resource.attributes["service.namespace"])
           - set(attributes["aztec.node_role"], resource.attributes["aztec.node_role"])
 
     batch: {}
