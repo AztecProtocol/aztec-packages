@@ -27,6 +27,7 @@ import {SignedMath} from "@oz/utils/math/SignedMath.sol";
 import {Errors} from "./../Errors.sol";
 import {Slot, Timestamp, TimeLib} from "./../TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
+import {STFLib} from "./STFLib.sol";
 
 // The lowest number of fee asset per eth is 10 with a precision of 1e9.
 uint256 constant MINIMUM_FEE_ASSET_PER_ETH = 10e9;
@@ -123,32 +124,6 @@ library FeeLib {
     feeStore.config = config.compress();
   }
 
-  function writeFeeHeader(
-    uint256 _blockNumber,
-    int256 _feeAssetPriceModifier,
-    uint256 _manaUsed,
-    uint256 _congestionCost,
-    uint256 _proverCost
-  ) internal {
-    require(
-      SignedMath.abs(_feeAssetPriceModifier) <= MAX_FEE_ASSET_PRICE_MODIFIER,
-      Errors.FeeLib__InvalidFeeAssetPriceModifier()
-    );
-    CompressedFeeHeader parentFeeHeader = getFeeHeader(_blockNumber - 1);
-    setFeeHeader(
-      _blockNumber,
-      FeeHeader({
-        excessMana: FeeLib.computeExcessMana(parentFeeHeader),
-        feeAssetPriceNumerator: FeeLib.clampedAdd(
-          parentFeeHeader.getFeeAssetPriceNumerator(), _feeAssetPriceModifier
-        ),
-        manaUsed: _manaUsed,
-        congestionCost: _congestionCost,
-        proverCost: _proverCost
-      }).compress()
-    );
-  }
-
   function updateL1GasFeeOracle() internal {
     Slot slot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
     // The slot where we find a new queued value acceptable
@@ -166,25 +141,27 @@ library FeeLib {
     feeStore.l1GasOracleValues.slotOfChange = (slot + LAG).compress();
   }
 
-  function setFeeHeader(uint256 _blockNumber, CompressedFeeHeader _feeHeader) internal {
-    // We only ever need the parent. However, because of the pruning, we cannot just drop it all.
-    // We can however keep just enought to handle prunes, e.g., prunable + 1 so we have the parent
-    uint256 roundabout = TimeLib.maxPrunableBlocks() + 1;
-    getStorage().feeHeaders[_blockNumber % roundabout] = _feeHeader;
-  }
-
-  function preheatHeaders() internal {
-    require(!getStorage().feeHeaders[0].isPreheated(), Errors.FeeLib__AlreadyPreheated());
-
-    uint256 count = TimeLib.maxPrunableBlocks() + 1;
-    for (uint256 i = 0; i < count; i++) {
-      setFeeHeader(i, FeeHeaderLib.preheat(getFeeHeader(i)));
-    }
-  }
-
-  function getFeeHeader(uint256 _blockNumber) internal view returns (CompressedFeeHeader) {
-    uint256 roundabout = TimeLib.maxPrunableBlocks() + 1;
-    return getStorage().feeHeaders[_blockNumber % roundabout];
+  function computeFeeHeader(
+    uint256 _blockNumber,
+    int256 _feeAssetPriceModifier,
+    uint256 _manaUsed,
+    uint256 _congestionCost,
+    uint256 _proverCost
+  ) internal view returns (FeeHeader memory) {
+    require(
+      SignedMath.abs(_feeAssetPriceModifier) <= MAX_FEE_ASSET_PRICE_MODIFIER,
+      Errors.FeeLib__InvalidFeeAssetPriceModifier()
+    );
+    CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_blockNumber - 1);
+    return FeeHeader({
+      excessMana: FeeLib.computeExcessMana(parentFeeHeader),
+      feeAssetPriceNumerator: FeeLib.clampedAdd(
+        parentFeeHeader.getFeeAssetPriceNumerator(), _feeAssetPriceModifier
+      ),
+      manaUsed: _manaUsed,
+      congestionCost: _congestionCost,
+      proverCost: _proverCost
+    });
   }
 
   function getL1FeesAt(Timestamp _timestamp) internal view returns (L1FeeData memory) {
@@ -248,7 +225,7 @@ library FeeLib {
       total = sequencerCostPerMana + proverCostPerMana;
     }
 
-    CompressedFeeHeader parentFeeHeader = getFeeHeader(_blockOfInterest);
+    CompressedFeeHeader parentFeeHeader = STFLib.getFeeHeader(_blockOfInterest);
     uint256 excessMana = FeeLib.clampedAdd(
       parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget)
     );
@@ -288,7 +265,7 @@ library FeeLib {
   }
 
   function getFeeAssetPerEthAtBlock(uint256 _blockNumber) internal view returns (FeeAssetPerEthE9) {
-    return getFeeAssetPerEth(getFeeHeader(_blockNumber).getFeeAssetPriceNumerator());
+    return getFeeAssetPerEth(STFLib.getFeeHeader(_blockNumber).getFeeAssetPriceNumerator());
   }
 
   function computeExcessMana(CompressedFeeHeader _feeHeader) internal view returns (uint256) {

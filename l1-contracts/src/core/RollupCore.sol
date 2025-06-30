@@ -130,7 +130,7 @@ contract RollupCore is
   }
 
   function preheatHeaders() external override(IRollupCore) {
-    FeeLib.preheatHeaders();
+    STFLib.preheatHeaders();
   }
 
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
