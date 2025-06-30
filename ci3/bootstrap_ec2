@@ -112,8 +112,7 @@ else
   run_cmd="run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
-container_script=$(
-  cat <<EOF
+container_script=$(cat <<EOF
   set -euo pipefail
   # When restarting the container, just hang around.
   # Note we use the "ci-started" file to determine if we're running on a CI machine in some cases (e.g. npm cache).
@@ -194,7 +193,7 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
-  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip <<EOF
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip << EOF
     # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
