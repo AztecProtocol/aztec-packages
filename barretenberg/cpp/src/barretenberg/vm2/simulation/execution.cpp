@@ -396,6 +396,60 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, success);
 }
 
+void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::AND;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    try {
+        MemoryValue c = bitwise.and_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        // Re-throw as opcode execution error
+        throw OpcodeExecutionException("Bitwise AND Exeception");
+    }
+}
+
+void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::OR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    try {
+        MemoryValue c = bitwise.or_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        // Re-throw as opcode execution error
+        throw OpcodeExecutionException("Bitwise OR Exception");
+    }
+}
+
+void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::XOR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    try {
+        MemoryValue c = bitwise.xor_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        // Re-throw as opcode execution error
+        throw OpcodeExecutionException("Bitwise XOR Exception");
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)

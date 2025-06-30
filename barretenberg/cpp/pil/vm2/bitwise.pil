@@ -1,3 +1,20 @@
+include "precomputed.pil";
+
+/**
+ * The bitwise trace performs AND/OR/XOR operations on non-FF types. It does
+ * this by decomposing the inputs into 8-bit chunks and looking up each the result
+ * for each chunk in the precomputed bitwise table. The result is the re-composition
+ * of these result chunks.
+ * The precomputed bitwise table contains the results of all combinations of
+ * bitwise operations for 8-bit values. These values are stored as a tuple of
+ * <id, input_a, input_b, output_c>  where id is either AND/OR/XOR.
+ * ERROR HANDLING:
+ * The possible errors for this subtrace relate to the AVM memory tag:
+ * 1) The inputs do not have the same tag.
+ * 2) Either of the inputs tags is of type FF (i.e. bitwise being done over a field)
+ * In either case, we do not attempt to perform the bitwise operation.
+ */
+
 namespace bitwise;
 
 // Trace example for a AND b == c of type u32
@@ -29,16 +46,59 @@ start * (1 - start) = 0;
 // Consistency can be achieved with a lookup table between the tag and precomputed.tag_byte_length
 pol commit ctr;
 
+// The error flags for this subtrace
+pol commit sel_tag_ff_err;
+sel_tag_ff_err * (1 - sel_tag_ff_err) = 0;
+pol commit sel_tag_mismatch_err;
+sel_tag_mismatch_err * (1 - sel_tag_mismatch_err) = 0;
+
+// Consolidated error flag
+pol commit err;
+err = 1 - (1 - sel_tag_mismatch_err) * (1 - sel_tag_ff_err);
 // last is a boolean which serves to mark the end of the computation (end of latch)
 pol commit last;
 last * (1 - last) = 0;
+#[LAST_ON_ERROR] // last = 1 if err = 1
+err * (last - 1) = 0;
 
-// This is the tag {1,2,3,4,5,6} (restricted to not be a field)
-// Operations over FF are not supported, it is assumed this exclusion is handled
-// outside of this subtrace.
-// Constraints come from equiv to main_trace
-pol commit tag;
+// Aggregated "no error" selector to gate lookups, boolean constrained based on prev relations 
+pol commit sel_no_err;
+sel_no_err = sel * (1 - err);
 
+/////////////////////////////////
+// Tag Checking / Error Handling
+/////////////////////////////////
+// The checks that need to be performed are: (1) the tags are not FF, and (2) that the input tags are the same.
+// We can simplify the FF check by just checking that tag_a != FF and checking
+// that tag_a == tag_b. It can be observed that we don't need to also check that tag_b != FF
+// since it follows from the the tag check of (2)
+
+// These are the tags {1,2,3,4,5,6} of the inputs (restricted to not be a field)
+pol commit tag_a;
+pol commit tag_b;
+pol commit tag_c; // This is the tag of the result
+// Sufficient to set tag_c == tag_a because we check that tag_a == tag_b
+#[RES_TAG_SHOULD_MATCH_INPUT]
+sel * (tag_c - tag_a) = 0;
+
+// Check that the input tags are not FF
+// Note: It is sufficient to check that just tag_a != 0 (i.e is not FF),
+// since we separately check that tag_a == tag_b
+pol commit tag_a_inv;
+// If tag_a == 0, then sel_tag_ff_err = 1
+#[INPUT_TAGS_CANNOT_BE_FF]
+sel * (tag_a * (sel_tag_ff_err * (1 - tag_a_inv) + tag_a_inv) - 1 + sel_tag_ff_err) = 0;
+
+// Check that the input tags match each other
+pol TAG_AB_DIFF = tag_a - tag_b;
+pol commit tag_ab_diff_inv;
+// If TAG_AB_DIFF != 0, then sel_tag_mismatch_err = 1
+#[INPUT_TAGS_SHOULD_MATCH]
+sel * (TAG_AB_DIFF * ((1 - sel_tag_mismatch_err) * (1 - tag_ab_diff_inv) + tag_ab_diff_inv) - sel_tag_mismatch_err) = 0;
+
+/////////////////////////////////
+// Begin Executing Bitwise ops
+/////////////////////////////////
 // Byte recomposition column, the value in these columns are part of the equivalence
 // check to main wherever Start is set to 1.
 pol commit acc_ia;
@@ -74,15 +134,15 @@ ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
 // Note: sel factor is required for an empty row to satisfy this relation
 pol commit ctr_min_one_inv;
 #[BITW_LAST_FOR_CTR_ONE]
-sel * ((ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1) = 0;
+sel * (1 - err) * ((ctr - 1) * (last * (1 - ctr_min_one_inv) + ctr_min_one_inv) + last - 1) = 0;
 
 // Forces accumulator to initialize with ia_byte, ib_byte, and ic_byte
 #[BITW_INIT_A]
-last * (acc_ia - ia_byte) = 0;
+(1 - err) * last * (acc_ia - ia_byte) = 0;
 #[BITW_INIT_B]
-last * (acc_ib - ib_byte) = 0;
+(1 - err) * last * (acc_ib - ib_byte) = 0;
 #[BITW_INIT_C]
-last * (acc_ic - ic_byte) = 0;
+(1 - err) * last * (acc_ic - ic_byte) = 0;
 
 #[BITW_ACC_REL_A]
 (acc_ia - ia_byte - 256 * acc_ia') * (1 - last) = 0;
@@ -94,12 +154,12 @@ last * (acc_ic - ic_byte) = 0;
 // Operations over FF are not supported, it is assumed this exclusion is handled
 // outside of this subtrace. The below lookup will pass with FF, so we are not protected here:
 #[INTEGRAL_TAG_LENGTH]
-start { tag, ctr }
+start { tag_a, ctr }
 in
 precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
 
 #[BYTE_OPERATIONS]
-sel { op_id, ia_byte, ib_byte, ic_byte }
+sel_no_err { op_id, ia_byte, ib_byte, ic_byte }
 in
 precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output };
 

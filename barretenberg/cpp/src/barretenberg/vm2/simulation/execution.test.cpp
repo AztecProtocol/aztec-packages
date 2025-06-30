@@ -62,6 +62,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     }
 
     StrictMock<MockAlu> alu;
+    StrictMock<MockBitwise> bitwise;
     StrictMock<MockMemory> memory;
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
@@ -75,6 +76,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
     TestingExecution execution = TestingExecution(alu,
+                                                  bitwise,
                                                   data_copy,
                                                   execution_components,
                                                   context_provider,
