@@ -61,7 +61,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
     static constexpr size_t NUMBER_OF_GATES_PER_RAM_ACCESS = 2;
     static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
-    static constexpr size_t NUM_RESERVED_GATES = 4;
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
@@ -696,9 +695,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_finalized_total_circuit_size() const
     {
         ASSERT(circuit_finalized);
-        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
         auto num_filled_gates = get_num_finalized_gates() + this->public_inputs.size();
-        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+        return std::max(get_tables_size(), num_filled_gates);
     }
 
     /**
@@ -712,9 +710,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_estimated_total_circuit_size() const
     {
-        auto minimum_circuit_size = get_tables_size() + get_lookups_size();
         auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
-        return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
+        return std::max(get_tables_size(), num_filled_gates);
     }
 
     std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
