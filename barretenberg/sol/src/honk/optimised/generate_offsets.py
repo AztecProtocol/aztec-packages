@@ -44,6 +44,25 @@ proof_fr = [
     "PROOF_PUB_INPUTS_OFFSET",
 ]
 
+pairing_points = [
+    "PAIRING_POINT_0",
+    "PAIRING_POINT_1",
+    "PAIRING_POINT_2",
+    "PAIRING_POINT_3",
+    "PAIRING_POINT_4",
+    "PAIRING_POINT_5",
+    "PAIRING_POINT_6",
+    "PAIRING_POINT_7",
+    "PAIRING_POINT_8",
+    "PAIRING_POINT_9",
+    "PAIRING_POINT_10",
+    "PAIRING_POINT_11",
+    "PAIRING_POINT_12",
+    "PAIRING_POINT_13",
+    "PAIRING_POINT_14",
+    "PAIRING_POINT_15",
+]
+
 proof_g1 = [
     "W_L",
     "W_R",
@@ -91,10 +110,6 @@ entities = [
     "LOOKUP_INVERSES",
     "LOOKUP_READ_COUNTS",
     "LOOKUP_READ_TAGS",
-    "TABLE1_SHIFT",
-    "TABLE2_SHIFT",
-    "TABLE3_SHIFT",
-    "TABLE4_SHIFT",
     "W1_SHIFT",
     "W2_SHIFT",
     "W3_SHIFT",
@@ -156,9 +171,13 @@ def print_vk(pointer: int):
     return pointer
 
 def print_proof(pointer: int):
-    for item in proof_fr:
+    for item in pairing_points:
         print_fr(pointer, item)
         pointer += 32
+
+    # for item in proof_fr:
+    #     print_fr(pointer, item)
+    #     pointer += 32
 
     for item in proof_g1:
         print_g1(pointer, item)
@@ -168,9 +187,9 @@ def print_proof(pointer: int):
 
 BATCHED_RELATION_PARTIAL_LENGTH = 8
 PROOF_SIZE_LOG_N = 28
-NUMBER_OF_ENTITIES = 44
-NUMBER_OF_ALPHAS = 25
-NUMBER_OF_SUBRELATIONS = 26 # should this not be the same?
+NUMBER_OF_ENTITIES = 40
+NUMBER_OF_ALPHAS = 26
+NUMBER_OF_SUBRELATIONS = 27 # should this not be the same?
 # For the meantime we will load the entire proof into memory here
 # however i predict that it will be more efficient to load in the sumcheck univars
 # for each round with their own slice of calldatacopy
@@ -201,9 +220,9 @@ def print_shplemini(pointer: int):
         pointer += 32
 
     print_g1(pointer, "SHPLONK_Q")
-    pointer += 32
+    pointer += (4*32)
     print_g1(pointer, "KZG_QUOTIENT")
-    pointer += 32
+    pointer += (4*32)
 
     return pointer
 
@@ -283,6 +302,41 @@ def print_batch_scalars(pointer: int):
 
     return pointer
 
+def print_powers_of_evaluation_challenge(pointer: int):
+    for i in range(0, PROOF_SIZE_LOG_N):
+        print_fr(pointer, "POWERS_OF_EVALUATION_CHALLENGE_" + str(i) + "_LOC")
+        pointer += 32
+    return pointer
+
+def print_inverted_gemini_denominators(pointer: int):
+    for i in range(0, PROOF_SIZE_LOG_N + 1):
+        print_fr(pointer, "INVERTED_GEMINI_DENOMINATOR_" + str(i) + "_LOC")
+        pointer += 32
+    return pointer
+
+def print_batch_accumulators(pointer: int):
+    BATCH_SIZE = 9
+    for i in range(0, BATCH_SIZE):
+        print_fr(pointer, "BATCH_ACCUMULATOR_" + str(i) + "_LOC")
+        pointer += 32
+    return pointer
+
+def print_batched_evaluation_accumulator_inversions(pointer: int):
+    BATCH_SIZE = 15
+    for i in range(0, BATCH_SIZE):
+        print_fr(pointer, "BATCH_EVALUATION_ACCUMULATOR_INVERSION_" + str(i) + "_LOC")
+        pointer += 32
+    return pointer
+
+def print_batched_evaluation_location(pointer: int):
+    print_fr(pointer, "BATCHED_EVALUATION_LOC")
+    pointer += 32
+    return pointer
+
+def print_constant_term_accumulator_location(pointer: int):
+    print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC")
+    pointer += 32
+    return pointer
 
 def main():
     # This is an arbitrary offset, but will need to be adjusted based on the
@@ -326,10 +380,32 @@ def main():
     print("// Subrelation intermediates")
     pointer = print_subrelation_intermediates(pointer)
 
+    print("")
+    print("// Powers of evaluation challenge")
+    pointer = print_powers_of_evaluation_challenge(pointer)
+
+    print("")
+    print("// 29 Inverted gemini denominators")
+    pointer = print_inverted_gemini_denominators(pointer)
+
+    print("")
+    print("// Batch accumulators")
+    pointer = print_batch_accumulators(pointer)
+
     # This is a temporary method to write where the batch scalars should be
     # But in reality it will overlap with the sumcheck univariates
-    pointer = 0x6420
+    print("")
+    print("// Batch scalars")
     pointer = print_batch_scalars(pointer)
+
+    print("")
+    print("// Batched evaluation accumulator inversions")
+    pointer = print_batched_evaluation_accumulator_inversions(pointer)
+
+    print("")
+    pointer = print_batched_evaluation_location(pointer)
+    pointer = print_constant_term_accumulator_location(pointer)
+
 
 
 main()
