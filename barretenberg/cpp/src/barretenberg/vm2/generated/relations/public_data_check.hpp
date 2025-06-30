@@ -35,7 +35,7 @@ template <typename FF_> class public_data_checkImpl {
         const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(615);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
         const auto public_data_check_LEAF_EXISTS = (FF(1) - in.get(C::public_data_check_leaf_not_exists));
-        const auto public_data_check_SLOT_LOW_LEAF_SLOT_DIFF =
+        const auto public_data_check_LEAF_SLOT_LOW_LEAF_SLOT_DIFF =
             (in.get(C::public_data_check_leaf_slot) - in.get(C::public_data_check_low_leaf_slot));
         const auto public_data_check_NEXT_SLOT_IS_ZERO = (FF(1) - in.get(C::public_data_check_next_slot_is_nonzero));
         const auto public_data_check_SHOULD_UPDATE = public_data_check_LEAF_EXISTS * in.get(C::public_data_check_write);
@@ -109,7 +109,7 @@ template <typename FF_> class public_data_checkImpl {
         { // EXISTS_FLAG_CHECK
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = in.get(C::public_data_check_sel) *
-                       ((public_data_check_SLOT_LOW_LEAF_SLOT_DIFF *
+                       ((public_data_check_LEAF_SLOT_LOW_LEAF_SLOT_DIFF *
                              (public_data_check_LEAF_EXISTS *
                                   (FF(1) - in.get(C::public_data_check_leaf_slot_low_leaf_slot_diff_inv)) +
                               in.get(C::public_data_check_leaf_slot_low_leaf_slot_diff_inv)) -

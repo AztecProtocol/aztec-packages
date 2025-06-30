@@ -37,14 +37,11 @@ void PublicDataTreeCheckTraceBuilder::process(
         }
     });
 
-    // Put reads first
+    // Sort by clk in ascending order (reads will have clk=0)
     std::sort(events_with_metadata.begin(),
               events_with_metadata.end(),
               [](const EventWithMetadata& a, const EventWithMetadata& b) {
-                  if (a.event.write_data.has_value() == b.event.write_data.has_value()) {
-                      return a.event.execution_id < b.event.execution_id;
-                  }
-                  return !a.event.write_data.has_value();
+                  return a.event.execution_id < b.event.execution_id;
               });
 
     // This is a shifted trace, so we start at 1
@@ -78,15 +75,16 @@ void PublicDataTreeCheckTraceBuilder::process(
         PublicDataTreeLeafPreimage updated_low_leaf = PublicDataTreeLeafPreimage::empty();
         FF updated_low_leaf_hash = 0;
         FF new_leaf_hash = 0;
-        uint32_t clk = 0;
+
         if (write) {
             write_root = event.write_data->next_snapshot.root;
             intermediate_root = event.write_data->intermediate_root;
             updated_low_leaf = event.write_data->updated_low_leaf_preimage;
             updated_low_leaf_hash = event.write_data->updated_low_leaf_hash;
             new_leaf_hash = event.write_data->new_leaf_hash;
-            clk = event.execution_id;
         }
+        uint32_t clk = event.execution_id;
+        uint32_t clk_diff = end ? 0 : events_with_metadata[i + 1].event.execution_id - clk;
 
         trace.set(row,
                   { {
@@ -109,8 +107,7 @@ void PublicDataTreeCheckTraceBuilder::process(
                       { C::public_data_check_updated_low_leaf_next_index, updated_low_leaf.nextIndex },
                       { C::public_data_check_updated_low_leaf_next_slot, updated_low_leaf.nextKey },
                       { C::public_data_check_low_leaf_index, event.low_leaf_index },
-                      { C::public_data_check_clk_diff,
-                        end ? 0 : events_with_metadata[i + 1].event.execution_id - event.execution_id },
+                      { C::public_data_check_clk_diff, clk_diff },
                       { C::public_data_check_constant_32, 32 },
                       { C::public_data_check_leaf_slot, event.leaf_slot },
                       { C::public_data_check_siloing_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },

@@ -42,7 +42,6 @@ using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
-using simulation::MockRangeCheck;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
@@ -50,6 +49,8 @@ using simulation::Poseidon2PermutationEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 
@@ -111,7 +112,8 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
@@ -178,7 +180,8 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
@@ -259,7 +262,8 @@ TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);

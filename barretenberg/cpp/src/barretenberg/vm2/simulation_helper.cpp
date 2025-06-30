@@ -177,7 +177,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_emitter,
                         context_stack_emitter,
                         keccakf1600);
-    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
     tx_execution.add_lifecycle_listener(public_data_squasher);
 
     tx_execution.simulate(hints.tx);

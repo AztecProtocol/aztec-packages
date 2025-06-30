@@ -31,18 +31,18 @@ include "public_data_squash.pil";
  *    value,
  *    address,
  *    slot,
- *    public_data_tree_root,
+ *    public_data_tree_root
  * } in public_data_check.sel {
  *    public_data_check.value,
  *    public_data_check.address,
  *    public_data_check.slot,
- *    public_data_check.root,
+ *    public_data_check.root
  * };
  *
  * Write usage:
  * sel {
  *   value,
- *   address
+ *   address,
  *   slot,
  *   prev_public_data_tree_root,
  *   next_public_data_tree_root,
@@ -50,12 +50,12 @@ include "public_data_squash.pil";
  *   did_append
  * } is public_data_check.write {
  *   public_data_check.value,
- *   public_data_check.address
+ *   public_data_check.address,
  *   public_data_check.slot,
  *   public_data_check.root,
  *   public_data_check.write_root,
  *   public_data_check.tree_size_before_write,
- *   public_data_check.leaf_not_exists,
+ *   public_data_check.leaf_not_exists
  * };
  *
 **/
@@ -134,11 +134,11 @@ namespace public_data_check;
     pol LEAF_EXISTS = 1 - leaf_not_exists;
 
     pol commit leaf_slot_low_leaf_slot_diff_inv;
-    pol SLOT_LOW_LEAF_SLOT_DIFF = leaf_slot - low_leaf_slot;
+    pol LEAF_SLOT_LOW_LEAF_SLOT_DIFF = leaf_slot - low_leaf_slot;
 
-    //  SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> LEAF_EXISTS == 1
+    //  LEAF_SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> LEAF_EXISTS == 1
     #[EXISTS_FLAG_CHECK]
-    sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - leaf_slot_low_leaf_slot_diff_inv) + leaf_slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0;
+    sel * (LEAF_SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - leaf_slot_low_leaf_slot_diff_inv) + leaf_slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0;
 
     // If the leaf doesn't exist, we need to validate that the leaf slot is greater than the low leaf slot
 
@@ -267,3 +267,6 @@ namespace public_data_check;
         public_inputs.cols[0],
         public_inputs.cols[1]
     };
+
+    // TODO: On end, lookup the length of public data writes in public inputs.
+    // Consider not doing it here if we implement the solution for accurate write counting during execution.

@@ -39,7 +39,6 @@ using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
-using simulation::MockRangeCheck;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
@@ -47,6 +46,8 @@ using simulation::Poseidon2PermutationEvent;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
+using simulation::RangeCheck;
+using simulation::RangeCheckEvent;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 
@@ -102,7 +103,8 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
@@ -151,18 +153,18 @@ INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckConstrainingTest,
 
 TEST(PublicDataTreeCheckConstrainingTest, NegativeExistsFlagCheck)
 {
-    // Test constraint: sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - slot_low_leaf_slot_diff_inv) +
-    // slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0
+    // Test constraint: sel * (LEAF_SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - leaf_slot_low_leaf_slot_diff_inv) +
+    // leaf_slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0
     TestTraceContainer trace({
         { { C::public_data_check_sel, 1 },
-          { C::public_data_check_slot, 27 },
+          { C::public_data_check_leaf_slot, 27 },
           { C::public_data_check_low_leaf_slot, 27 },
-          { C::public_data_check_slot_low_leaf_slot_diff_inv, 0 },
+          { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, 0 },
           { C::public_data_check_leaf_not_exists, 0 } },
         { { C::public_data_check_sel, 1 },
-          { C::public_data_check_slot, 28 },
+          { C::public_data_check_leaf_slot, 28 },
           { C::public_data_check_low_leaf_slot, 27 },
-          { C::public_data_check_slot_low_leaf_slot_diff_inv, FF(1).invert() },
+          { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, FF(1).invert() },
           { C::public_data_check_leaf_not_exists, 1 } },
     });
 
@@ -256,7 +258,8 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
@@ -327,7 +330,8 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    NiceMock<MockRangeCheck> range_check;
+    EventEmitter<RangeCheckEvent> range_check_emitter;
+    RangeCheck range_check(range_check_emitter);
 
     EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
@@ -470,21 +474,21 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
 
 TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextSlotUpdate)
 {
-    // Test constraint: write * ((slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot -
+    // Test constraint: write * ((leaf_slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot -
     // updated_low_leaf_next_slot) = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 0 },
             { C::public_data_check_low_leaf_next_slot, 27 },
-            { C::public_data_check_slot, 28 },
+            { C::public_data_check_leaf_slot, 28 },
             { C::public_data_check_updated_low_leaf_next_slot, 27 },
         },
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 1 },
             { C::public_data_check_low_leaf_next_slot, 27 },
-            { C::public_data_check_slot, 28 },
+            { C::public_data_check_leaf_slot, 28 },
             { C::public_data_check_updated_low_leaf_next_slot, 28 },
         },
     });

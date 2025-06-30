@@ -21,11 +21,13 @@ class TxExecution final {
                 ContextProviderInterface& context_provider,
                 HighLevelMerkleDBInterface& merkle_db,
                 FieldGreaterThanInterface& field_gt,
+                Poseidon2Interface& poseidon2,
                 EventEmitterInterface<TxEvent>& event_emitter)
         : call_execution(call_execution)
         , context_provider(context_provider)
         , merkle_db(merkle_db)
         , field_gt(field_gt)
+        , poseidon2(poseidon2)
         , events(event_emitter)
     {}
 
@@ -39,6 +41,7 @@ class TxExecution final {
     // More things need to be lifted into the tx execution??
     HighLevelMerkleDBInterface& merkle_db;
     FieldGreaterThanInterface& field_gt;
+    Poseidon2Interface& poseidon2;
     EventEmitterInterface<TxEvent>& events;
 
     std::vector<TransactionLifecycleNotifiable*> lifecycle_listeners;
