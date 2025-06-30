@@ -254,6 +254,8 @@ contract RollupBuilder is Test {
       config.rollupConfigInput
     );
 
+    config.rollup.preheatHeaders();
+
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
 
