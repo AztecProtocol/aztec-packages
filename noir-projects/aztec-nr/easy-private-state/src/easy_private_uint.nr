@@ -3,7 +3,7 @@ use dep::aztec::{
     messages::logs::note::encode_and_encrypt_note,
     note::note_getter_options::NoteGetterOptions,
     protocol_types::address::AztecAddress,
-    state_vars::{PrivateSet, storage::Storage},
+    state_vars::{PrivateSet, storage::HasStorageSlot},
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -13,7 +13,7 @@ pub struct EasyPrivateUint<Context> {
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> Storage<1> for EasyPrivateUint<Context> {
+impl<Context> HasStorageSlot<1> for EasyPrivateUint<Context> {
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
     }
