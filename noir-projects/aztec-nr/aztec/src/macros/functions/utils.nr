@@ -439,6 +439,8 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
     let (from_arg_name_quoted, _) = from_arg;
     let (nonce_arg_name_quoted, _) = nonce_arg;
 
+    let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
+
     let fn_call = if is_fn_private(f) {
         quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
     } else {
@@ -448,7 +450,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
         if (!$from_arg_name_quoted.eq(context.msg_sender())) {
             $fn_call(&mut context, $from_arg_name_quoted);
         } else {
-            assert($nonce_arg_name_quoted == 0, "invalid authwit nonce");
+            assert($nonce_check_quote, "invalid authwit nonce");
         }
     }
 }
