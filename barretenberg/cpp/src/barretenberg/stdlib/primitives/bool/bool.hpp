@@ -19,7 +19,15 @@ namespace bb::stdlib {
  * To avoid constraining negation operations, we represent an in-circuit boolean \f$ a \f$ by a witness value \f$ w_a
  * \f$ and an `witness_inverted` flag \f$ i_a \f$. The value of \f$ a \f$ is defined via the equation:
  *
- * \f{align}{ w_a + i_a - 2 \cdot i_a \cdot w_a \f}
+ * \f{align}{ w_a \oplus i_a = w_a + i_a - 2 \cdot i_a \cdot w_a \f}
+ *
+ * and can be read from the following table
+ * | w_a | i_a | a = w_a + i_a - 2 i_a w_a |
+ * |  -  |  -  | ------------------------- |
+ * |  0  |  0  |            0              |
+ * |  0  |  1  |            1              |
+ * |  1  |  0  |            1              |
+ * |  1  |  1  |            0              |
  *
  * When a new bool_t element \f$ a \f$ is created, its `witness_inverted` flag is set to `false` and
  * its `witness_value` is constrained to be \f$ 0 \f$  or \f$ 1\f$. More precisely, if \f$ a \f$ is a witness, then we

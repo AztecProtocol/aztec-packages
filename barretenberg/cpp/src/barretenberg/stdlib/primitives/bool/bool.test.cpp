@@ -1,6 +1,5 @@
 #include "bool.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.cpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
@@ -19,11 +18,150 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 STANDARD_TESTING_TAGS
-template <class Builder> class BoolTest : public ::testing::Test {};
+template <class Builder_> class BoolTest : public ::testing::Test {
+  public:
+    using Builder = Builder_;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
+
+    // These tree boolean flags cover all possible combinations for a valid input.
+    struct BoolInput {
+        bool is_const;    // witness_index = IS_CONSTANT
+        bool value;       // w_a
+        bool is_inverted; // i_a
+    };
+
+    // A helper to produce all possible inputs for a given operand.
+    std::array<BoolInput, 8> all_inputs = []() {
+        std::array<BoolInput, 8> inputs{};
+        size_t idx = 0;
+        for (bool is_const : { false, true }) {
+            for (bool value : { false, true }) {
+                for (bool is_inverted : { false, true }) {
+                    inputs[idx++] = BoolInput{ is_const, value, is_inverted };
+                }
+            }
+        }
+        return inputs;
+    }();
+    // A helper to create a bool_t element from the given flags
+    static bool_ct create_bool_ct(const BoolInput& in, Builder* builder)
+    {
+        bool_ct b = in.is_const ? bool_ct(in.value) : witness_ct(builder, in.value);
+        return in.is_inverted ? !b : b;
+    };
+
+    void test_binary_op(std::string const& op_name,
+                        const std::function<bool_ct(const bool_ct&, const bool_ct&)>& op,
+                        const std::function<bool(bool, bool)>& expected_op)
+    {
+        Builder builder;
+
+        for (auto& lhs : all_inputs) {
+            for (auto& rhs : all_inputs) {
+                bool_ct a = create_bool_ct(lhs, &builder);
+                bool_ct b = create_bool_ct(rhs, &builder);
+
+                size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+                bool_ct c = op(a, b);
+
+                bool expected = expected_op(lhs.value ^ lhs.is_inverted, rhs.value ^ rhs.is_inverted);
+
+                EXPECT_EQ(c.get_value(), expected)
+                    << "Failed on " << op_name << " with inputs: lhs = {const=" << lhs.is_const << ", val=" << lhs.value
+                    << ", inv=" << lhs.is_inverted << "}, rhs = {const=" << rhs.is_const << ", val=" << rhs.value
+                    << ", inv=" << rhs.is_inverted << "}";
+
+                if (a.is_constant() && b.is_constant()) {
+                    EXPECT_TRUE(c.is_constant());
+                }
+
+                if (!a.is_constant() && !b.is_constant()) {
+                    EXPECT_TRUE(!c.is_constant());
+                }
+
+                size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+                EXPECT_EQ(diff, static_cast<size_t>(!a.is_constant() && !b.is_constant()));
+            }
+        }
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    };
+
+    void test_construct_from_const_bool()
+    {
+        Builder builder = Builder();
+        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+        bool_ct a_true(true);
+        bool_ct a_false(false);
+        EXPECT_TRUE(a_true.get_value());
+        EXPECT_FALSE(a_false.get_value());
+        EXPECT_TRUE(a_true.is_constant() && a_false.is_constant());
+        EXPECT_TRUE(!a_true.witness_inverted && !a_false.witness_inverted);
+        // No gates have been added
+        EXPECT_TRUE(num_gates_start == builder.get_estimated_num_finalized_gates());
+    }
+
+    void test_construct_from_witness()
+    {
+        Builder builder = Builder();
+        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+        bool_ct a_true = witness_ct(&builder, 1);
+        bool_ct a_false = witness_ct(&builder, 0);
+        EXPECT_TRUE(a_true.get_value());
+        EXPECT_FALSE(a_false.get_value());
+        EXPECT_TRUE(!a_true.is_constant() && !a_false.is_constant());
+        EXPECT_TRUE(!a_true.witness_inverted && !a_false.witness_inverted);
+        // Each witness bool must be constrained => expect 2 gates being added
+        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 2);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+#ifndef NDEBUG
+        // Test failure
+        bool_ct a_incorrect;
+        uint256_t random_value(engine.get_random_uint256());
+
+        if (random_value * random_value - random_value != 0) {
+            EXPECT_DEATH(a_incorrect = witness_ct(&builder, random_value), "witness value is not 0 or 1");
+        };
+#endif
+    }
+    void test_AND()
+    {
+        test_binary_op(
+            "AND", [](const bool_ct& a, const bool_ct& b) { return a & b; }, [](bool a, bool b) { return a && b; });
+    }
+
+    void test_xor()
+    {
+        test_binary_op(
+            "XOR", [](const bool_ct& a, const bool_ct& b) { return a ^ b; }, [](bool a, bool b) { return a ^ b; });
+    }
+};
 
 using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(BoolTest, CircuitTypes);
+TYPED_TEST(BoolTest, ConstructFromConstBool)
+{
+    TestFixture::test_construct_from_const_bool();
+}
+
+TYPED_TEST(BoolTest, ConstructFromWitness)
+{
+    TestFixture::test_construct_from_witness();
+}
+TYPED_TEST(BoolTest, XOR)
+{
+    TestFixture::test_xor();
+}
+
+TYPED_TEST(BoolTest, AND)
+{
+    TestFixture::test_AND();
+}
 TYPED_TEST(BoolTest, TestBasicOperations)
 {
 
@@ -160,7 +298,7 @@ TYPED_TEST(BoolTest, XorTwinConstants)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
-
+// Test and for non-normalized bools
 TYPED_TEST(BoolTest, LogicalAnd)
 {
     STDLIB_TYPE_ALIASES
@@ -230,7 +368,7 @@ TYPED_TEST(BoolTest, AndConstants)
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(BoolTest, or)
+TYPED_TEST(BoolTest, Or)
 {
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
@@ -370,10 +508,7 @@ TYPED_TEST(BoolTest, ImpliesBothWays)
                 a.set_origin_tag(submitted_value_origin_tag);
                 b.set_origin_tag(challenge_origin_tag);
             }
-            info("num before ", builder.get_estimated_num_finalized_gates());
             bool_ct c = a.implies_both_ways(b);
-            info("num after ", builder.get_estimated_num_finalized_gates());
-
             EXPECT_EQ(c.get_value(), !(a.get_value() ^ b.get_value()));
 
             if (!(lhs_constant || rhs_constant)) {
