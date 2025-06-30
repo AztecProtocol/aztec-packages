@@ -320,17 +320,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 
     hide_op_queue_accumulation_result(builder);
 
-    // The last circuit being folded is a kernel circuit whose public inputs need to be passed to the base rollup
-    // circuit. So, these have to be preserved as public inputs to the hiding circuit (and, subsequently, as public
-    // inputs to the tube circuit) which are intermediate stages.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(honk_vk->num_public_inputs));
-    num_public_inputs -= bb::PAIRING_POINTS_SIZE;                 // exclude aggregation object
-    num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
-    for (size_t i = 0; i < num_public_inputs; i++) {
-        builder.add_public_variable(fold_proof[i]);
-    }
-
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
@@ -339,6 +328,14 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
 
     auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
+
+    // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
+    auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
+    num_public_inputs -= bb::PAIRING_POINTS_SIZE;                 // exclude aggregation object
+    num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
+    for (size_t i = 0; i < num_public_inputs; i++) {
+        stdlib_proof[i].set_public();
+    }
 
     // Perform recursive folding verification of the last folding proof
     FoldingRecursiveVerifier folding_verifier{
