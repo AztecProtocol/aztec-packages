@@ -253,7 +253,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
-    return FeeLib.getStorage().manaTarget;
+    return FeeLib.getManaTarget();
   }
 
   function getManaLimit() external view override(IRollup) returns (uint256) {
@@ -550,7 +550,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
-    return FeeLib.getStorage().provingCostPerMana;
+    return FeeLib.getProvingCostPerMana();
   }
 
   function getProvingCostPerManaInFeeAsset()
@@ -559,7 +559,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeAssetValue)
   {
-    return FeeLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
+    return FeeLib.getProvingCostPerMana().toFeeAsset(getFeeAssetPerEth());
   }
 
   function getVersion() external view override(IHaveVersion) returns (uint256) {

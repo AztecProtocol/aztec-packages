@@ -127,22 +127,22 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_block_1")
   {
     // we can increase the mana target
-    _initialManaTarget = bound(_initialManaTarget, 0, 1e36);
-    _newManaTarget = bound(_newManaTarget, _initialManaTarget, 1e36);
+    uint256 initialManaTarget = bound(_initialManaTarget, 0, type(uint64).max);
+    uint256 newManaTarget = bound(_newManaTarget, initialManaTarget, type(uint64).max);
 
     RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(_initialManaTarget).deploy();
+      new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
     address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
 
-    assertEq(rollup.getManaTarget(), _initialManaTarget);
+    assertEq(rollup.getManaTarget(), initialManaTarget);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollupCore.ManaTargetUpdated(_newManaTarget);
+    emit IRollupCore.ManaTargetUpdated(newManaTarget);
     vm.prank(governance);
-    rollup.updateManaTarget(_newManaTarget);
-    assertEq(rollup.getManaTarget(), _newManaTarget);
+    rollup.updateManaTarget(newManaTarget);
+    assertEq(rollup.getManaTarget(), newManaTarget);
   }
 
   function testSetManaTargetDecreasing(uint256 _initialManaTarget, uint256 _newManaTarget)
@@ -150,26 +150,26 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_block_1")
   {
     // we cannot decrease the mana target
-    _initialManaTarget = bound(_initialManaTarget, 1, 1e36);
-    _newManaTarget = bound(_newManaTarget, 0, _initialManaTarget - 1);
+    uint256 initialManaTarget = bound(_initialManaTarget, 1, type(uint64).max);
+    uint256 newManaTarget = bound(_newManaTarget, 0, initialManaTarget - 1);
 
     RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(_initialManaTarget).deploy();
+      new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
     address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
 
-    assertEq(rollup.getManaTarget(), _initialManaTarget);
+    assertEq(rollup.getManaTarget(), initialManaTarget);
 
     // Cannot decrease the mana target
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Rollup__InvalidManaTarget.selector, _initialManaTarget, _newManaTarget
+        Errors.Rollup__InvalidManaTarget.selector, initialManaTarget, newManaTarget
       )
     );
     vm.prank(governance);
-    rollup.updateManaTarget(_newManaTarget);
-    assertEq(rollup.getManaTarget(), _initialManaTarget);
+    rollup.updateManaTarget(newManaTarget);
+    assertEq(rollup.getManaTarget(), initialManaTarget);
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
