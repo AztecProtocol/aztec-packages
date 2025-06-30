@@ -72,13 +72,13 @@ existing_instance=$(aws ec2 describe-instances \
 if [ -n "$existing_instance" ]; then
   for i in $existing_instance; do
     echo "Terminating existing instance: $i"
-    aws ec2 --region us-east-2 terminate-instances --instance-ids $i >/dev/null 2>&1
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
   done
 fi
 
 # Request new instance.
 ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
-IFS=':' read -r -a parts <<<"$ip_sir"
+IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
