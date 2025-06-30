@@ -1,0 +1,777 @@
+[
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_single_epoch/avg_latency",
+    "value": 70.87071445454542,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_single_epoch/median_latency",
+    "value": 70.83921099999998,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_single_epoch/p95_latency",
+    "value": 70.922548,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_single_epoch/total_duration",
+    "value": 71.42575399999987,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_single_epoch/jobs_per_sec",
+    "value": 462.01822384682225,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_random_epochs/avg_latency",
+    "value": 14.303622878787888,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_random_epochs/median_latency",
+    "value": 12.827684999999747,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_random_epochs/p95_latency",
+    "value": 14.529850000000351,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_random_epochs/total_duration",
+    "value": 52.53978499999994,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_random_epochs/jobs_per_sec",
+    "value": 628.0954518561513,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/avg_latency",
+    "value": 13.653222151515104,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/median_latency",
+    "value": 12.811973999999736,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/p95_latency",
+    "value": 15.986961999999949,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/total_duration",
+    "value": 50.777853999999934,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/1_block, 8 transactions_interleaved_epochs/jobs_per_sec",
+    "value": 649.889615264167,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/avg_latency",
+    "value": 29.79629865482237,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/median_latency",
+    "value": 5.134132000000136,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/p95_latency",
+    "value": 55.31918399999995,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/total_duration",
+    "value": 55.74357400000008,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_single_epoch/jobs_per_sec",
+    "value": 3534.039636568687,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/avg_latency",
+    "value": 23.407863446700503,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/median_latency",
+    "value": 23.183849999999893,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/p95_latency",
+    "value": 29.262423000000126,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/total_duration",
+    "value": 51.340098000000125,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_random_epochs/jobs_per_sec",
+    "value": 3837.156680145011,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/avg_latency",
+    "value": 25.04501625888324,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/median_latency",
+    "value": 26.180695000000014,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/p95_latency",
+    "value": 35.91489700000011,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/total_duration",
+    "value": 52.00958700000001,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/6_blocks, 48 transactions_interleaved_epochs/jobs_per_sec",
+    "value": 3787.763206041224,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/avg_latency",
+    "value": 18.24839982788524,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/median_latency",
+    "value": 16.87658199999987,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/p95_latency",
+    "value": 51.61508499999991,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/total_duration",
+    "value": 55.029585000000225,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_single_epoch/jobs_per_sec",
+    "value": 27239.892868535968,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/avg_latency",
+    "value": 125.58750143295538,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/median_latency",
+    "value": 127.2465729999999,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/p95_latency",
+    "value": 203.58241399999997,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/total_duration",
+    "value": 218.86138100000016,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_random_epochs/jobs_per_sec",
+    "value": 6849.084078474306,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/avg_latency",
+    "value": 110.21926815610401,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/median_latency",
+    "value": 109.06658000000016,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/p95_latency",
+    "value": 195.39605500000016,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/total_duration",
+    "value": 211.77512699999988,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/20_blocks, 400 transactions_interleaved_epochs/jobs_per_sec",
+    "value": 7078.2627839009665,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/avg_latency",
+    "value": 425.4791638628929,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/median_latency",
+    "value": 422.9633709999998,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/p95_latency",
+    "value": 591.7709070000001,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/total_duration",
+    "value": 805.4865130000007,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_single_epoch/jobs_per_sec",
+    "value": 28006.676258277683,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/avg_latency",
+    "value": 1163.565097592013,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/median_latency",
+    "value": 1184.2336939999996,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/p95_latency",
+    "value": 1899.7772899999995,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/total_duration",
+    "value": 2215.8791640000004,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_random_epochs/jobs_per_sec",
+    "value": 10180.609288855607,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/avg_latency",
+    "value": 2683.7459802077956,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/median_latency",
+    "value": 2780.6412629999995,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/p95_latency",
+    "value": 4568.232721,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/total_duration",
+    "value": 5029.2758300000005,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 6400 transactions_interleaved_epochs/jobs_per_sec",
+    "value": 4485.536439547401,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/avg_latency",
+    "value": 1273.2225588599813,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/median_latency",
+    "value": 1271.640503999999,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/p95_latency",
+    "value": 1900.9320579999985,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/total_duration",
+    "value": 2500.5559600000015,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_single_epoch/jobs_per_sec",
+    "value": 20539.032447808113,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/avg_latency",
+    "value": 4237.449233771906,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/median_latency",
+    "value": 4307.428572999996,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/p95_latency",
+    "value": 7418.6370659999975,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/total_duration",
+    "value": 8448.730250999999,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_random_epochs/jobs_per_sec",
+    "value": 6078.901618846347,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/avg_latency",
+    "value": 6564.549209331072,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/median_latency",
+    "value": 6813.557546000004,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/p95_latency",
+    "value": 11187.271185000009,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/total_duration",
+    "value": 12474.353103000001,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/enqueue/32_blocks, 12,800 transactions_interleaved_epochs/jobs_per_sec",
+    "value": 4117.167405470388,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_1agents_1agents/queue_empty_time",
+    "value": 1.780417000001762,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_1agents_1agents/avg_dequeue_latency",
+    "value": 0.043150333333125505,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_1agents_1agents/median_dequeue_latency",
+    "value": 0.016085000002931338,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_1agents_1agents/p95_dequeue_latency",
+    "value": 0.06837799999630079,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_10agents_10agents/queue_empty_time",
+    "value": 1.007329000000027,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_10agents_10agents/avg_dequeue_latency",
+    "value": 0.22106339393852095,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_10agents_10agents/median_dequeue_latency",
+    "value": 0.2297859999962384,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_10agents_10agents/p95_dequeue_latency",
+    "value": 0.2720969999936642,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_50agents_50agents/queue_empty_time",
+    "value": 2.482202999999572,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_50agents_50agents/avg_dequeue_latency",
+    "value": 1.528884818181034,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_50agents_50agents/median_dequeue_latency",
+    "value": 1.5280540000021574,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/minimum_epoch_50agents_50agents/p95_dequeue_latency",
+    "value": 1.7343219999966095,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_1agents_1agents/queue_empty_time",
+    "value": 1.292710999994597,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_1agents_1agents/avg_dequeue_latency",
+    "value": 0.006161619289654075,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_1agents_1agents/median_dequeue_latency",
+    "value": 0.005756999998993706,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_1agents_1agents/p95_dequeue_latency",
+    "value": 0.006919999999809079,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_10agents_10agents/queue_empty_time",
+    "value": 3.6267420000003767,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_10agents_10agents/avg_dequeue_latency",
+    "value": 0.1723481827409395,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_10agents_10agents/median_dequeue_latency",
+    "value": 0.14947899999970105,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_10agents_10agents/p95_dequeue_latency",
+    "value": 0.300466000000597,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_50agents_50agents/queue_empty_time",
+    "value": 4.139796000003116,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_50agents_50agents/avg_dequeue_latency",
+    "value": 0.8175762335026059,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_50agents_50agents/median_dequeue_latency",
+    "value": 0.7546560000046156,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/small_epoch_50agents_50agents/p95_dequeue_latency",
+    "value": 1.14837599999737,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_1agents_1agents/queue_empty_time",
+    "value": 19.63882300000114,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_1agents_1agents/avg_dequeue_latency",
+    "value": 0.012643004002752329,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_1agents_1agents/median_dequeue_latency",
+    "value": 0.006509999999252614,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_1agents_1agents/p95_dequeue_latency",
+    "value": 0.01452900000003865,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_10agents_10agents/queue_empty_time",
+    "value": 22.633778000003076,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_10agents_10agents/avg_dequeue_latency",
+    "value": 0.14898770113409202,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_10agents_10agents/median_dequeue_latency",
+    "value": 0.11877600000298116,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_10agents_10agents/p95_dequeue_latency",
+    "value": 0.18901699999696575,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_50agents_50agents/queue_empty_time",
+    "value": 12.797544000000926,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_50agents_50agents/avg_dequeue_latency",
+    "value": 0.4163538298865929,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_50agents_50agents/median_dequeue_latency",
+    "value": 0.25495699999737553,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/medium_epoch_50agents_50agents/p95_dequeue_latency",
+    "value": 0.34103699999832315,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_1agents_1agents/queue_empty_time",
+    "value": 199.00701200000185,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_1agents_1agents/avg_dequeue_latency",
+    "value": 0.00853315235604297,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_1agents_1agents/median_dequeue_latency",
+    "value": 0.006343000000924803,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_1agents_1agents/p95_dequeue_latency",
+    "value": 0.013227999996161088,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_10agents_10agents/queue_empty_time",
+    "value": 208.16309100000217,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_10agents_10agents/avg_dequeue_latency",
+    "value": 0.09193296644353574,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_10agents_10agents/median_dequeue_latency",
+    "value": 0.06636499999876833,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_10agents_10agents/p95_dequeue_latency",
+    "value": 0.14061600000422914,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_50agents_50agents/queue_empty_time",
+    "value": 210.53482399999484,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_50agents_50agents/avg_dequeue_latency",
+    "value": 0.4655127639079355,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_50agents_50agents/median_dequeue_latency",
+    "value": 0.3269760000039241,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/large_epoch_50agents_50agents/p95_dequeue_latency",
+    "value": 0.7726929999989807,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_1agents_1agents/queue_empty_time",
+    "value": 463.2234549999994,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_1agents_1agents/avg_dequeue_latency",
+    "value": 0.00871846402772154,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_1agents_1agents/median_dequeue_latency",
+    "value": 0.006021999994118232,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_1agents_1agents/p95_dequeue_latency",
+    "value": 0.014006999997945968,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_10agents_10agents/queue_empty_time",
+    "value": 504.79629399999976,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_10agents_10agents/avg_dequeue_latency",
+    "value": 0.09799371255281952,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_10agents_10agents/median_dequeue_latency",
+    "value": 0.07118400000035763,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_10agents_10agents/p95_dequeue_latency",
+    "value": 0.15319699999963632,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_50agents_50agents/queue_empty_time",
+    "value": 548.6036699999968,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_50agents_50agents/avg_dequeue_latency",
+    "value": 0.5332079892521285,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_50agents_50agents/median_dequeue_latency",
+    "value": 0.3315290000027744,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/dequeue/maximum_epoch_50agents_50agents/p95_dequeue_latency",
+    "value": 0.8588830000007874,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/minimum_epoch/startup_time",
+    "value": 14.801707999999053,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/minimum_epoch/jobs_per_sec",
+    "value": 2229.472436559491,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/initialization/minimum_epoch/no_epoch_deletion_cleanup_time",
+    "value": 0.02513100000214763,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/minimum_epoch/full_epoch_deletion_cleanup_time",
+    "value": 2.9774749999996857,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/small_epoch/startup_time",
+    "value": 78.78438399999868,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/small_epoch/jobs_per_sec",
+    "value": 2500.495529672521,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/initialization/small_epoch/no_epoch_deletion_cleanup_time",
+    "value": 0.056841999998141546,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/small_epoch/full_epoch_deletion_cleanup_time",
+    "value": 1.709311999999045,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/medium_epoch/startup_time",
+    "value": 514.8816880000013,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/medium_epoch/jobs_per_sec",
+    "value": 2911.3484416637402,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/initialization/medium_epoch/no_epoch_deletion_cleanup_time",
+    "value": 0.21198700000240933,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/medium_epoch/full_epoch_deletion_cleanup_time",
+    "value": 3.9368909999975585,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/large_epoch/startup_time",
+    "value": 7370.353605999997,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/large_epoch/jobs_per_sec",
+    "value": 3060.7758061479376,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/initialization/large_epoch/no_epoch_deletion_cleanup_time",
+    "value": 1.4923770000023069,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/large_epoch/full_epoch_deletion_cleanup_time",
+    "value": 19.73416900000302,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/maximum_epoch/startup_time",
+    "value": 16077.486760999993,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/maximum_epoch/jobs_per_sec",
+    "value": 3194.466943961928,
+    "unit": "jobs/s"
+  },
+  {
+    "name": "proving_broker/initialization/maximum_epoch/no_epoch_deletion_cleanup_time",
+    "value": 5.355232000001706,
+    "unit": "ms"
+  },
+  {
+    "name": "proving_broker/initialization/maximum_epoch/full_epoch_deletion_cleanup_time",
+    "value": 29.44977900000231,
+    "unit": "ms"
+  }
+]

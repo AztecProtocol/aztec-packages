@@ -1,0 +1,70 @@
+diff --git a/yarn-project/prover-client/src/proving_broker/proof_store/inline_proof_store.ts b/yarn-project/prover-client/src/proving_broker/proof_store/inline_proof_store.ts
+index ef42d97bed..6b3722044a 100644
+--- a/yarn-project/prover-client/src/proving_broker/proof_store/inline_proof_store.ts
++++ b/yarn-project/prover-client/src/proving_broker/proof_store/inline_proof_store.ts
+@@ -52,7 +52,7 @@ export class InlineProofStore implements ProofStore {
+     return (PREFIX + SEPARATOR + encoded) as ProofUri;
+   }
+ 
+-  private decode<T>(uri: ProofUri, schema: ZodFor<T>): Promise<T> {
++  private decode<T>(uri: ProofUri, schema: ZodFor<T>): T {
+     const [prefix, data] = uri.split(SEPARATOR);
+     if (prefix !== PREFIX) {
+       throw new Error('Invalid proof input URI: ' + prefix);
+diff --git a/yarn-project/prover-client/src/proving_broker/proving_broker.ts b/yarn-project/prover-client/src/proving_broker/proving_broker.ts
+index 4e7c32fba4..dbc4fa3042 100644
+--- a/yarn-project/prover-client/src/proving_broker/proving_broker.ts
++++ b/yarn-project/prover-client/src/proving_broker/proving_broker.ts
+@@ -2,16 +2,17 @@ import { createLogger } from '@aztec/foundation/log';
+ import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
+ import { PriorityMemoryQueue } from '@aztec/foundation/queue';
+ import { Timer } from '@aztec/foundation/timer';
+-import type {
+-  GetProvingJobResponse,
+-  ProofUri,
+-  ProvingJob,
+-  ProvingJobConsumer,
+-  ProvingJobFilter,
+-  ProvingJobId,
+-  ProvingJobProducer,
+-  ProvingJobSettledResult,
+-  ProvingJobStatus,
++import {
++  type GetProvingJobResponse,
++  type ProofUri,
++  type ProvingJob,
++  type ProvingJobConsumer,
++  type ProvingJobFilter,
++  type ProvingJobId,
++  type ProvingJobProducer,
++  type ProvingJobSettledResult,
++  type ProvingJobStatus,
++  tryStop,
+ } from '@aztec/stdlib/interfaces/server';
+ import { ProvingRequestType } from '@aztec/stdlib/proofs';
+ import {
+@@ -184,7 +185,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
+       this.logger.warn('ProvingBroker not started');
+       return Promise.resolve();
+     }
+-    await this.cleanupPromise.stop();
++    await tryStop(this.cleanupPromise);
+   }
+ 
+   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
+diff --git a/yarn-project/prover-client/src/proving_broker/proving_broker_database/persisted.ts b/yarn-project/prover-client/src/proving_broker/proving_broker_database/persisted.ts
+index 6edd1117d3..c08d2a609e 100644
+--- a/yarn-project/prover-client/src/proving_broker/proving_broker_database/persisted.ts
++++ b/yarn-project/prover-client/src/proving_broker/proving_broker_database/persisted.ts
+@@ -46,9 +46,9 @@ class SingleEpochDatabase {
+ 
+   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
+     for await (const jobStr of this.jobs.valuesAsync()) {
+-      const job = await jsonParseWithSchema(jobStr, ProvingJob);
++      const job = jsonParseWithSchema(jobStr, ProvingJob);
+       const resultStr = await this.jobResults.getAsync(job.id);
+-      const result = resultStr ? await jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
++      const result = resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+       yield [job, result];
+     }
+   }
