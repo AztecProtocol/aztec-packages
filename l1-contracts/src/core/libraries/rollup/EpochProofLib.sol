@@ -162,7 +162,7 @@ library EpochProofLib {
     publicInputs[offset] = bytes32(block.chainid);
     offset += 1;
 
-    publicInputs[offset] = bytes32(rollupStore.config.version);
+    publicInputs[offset] = bytes32(uint256(rollupStore.config.version));
     offset += 1;
 
     // vk_tree_root
