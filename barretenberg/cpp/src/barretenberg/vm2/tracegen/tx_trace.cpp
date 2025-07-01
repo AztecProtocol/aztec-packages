@@ -204,9 +204,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation::CollectGasFeeEvent& event,
-                                                                const TreeStates& prev_tree_state,
-                                                                const TreeStates& next_tree_state)
+std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation::CollectGasFeeEvent& event)
 {
     return {
         { Column::tx_is_collect_fee, 1 },
@@ -238,9 +236,6 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
             Column::tx_fee_payer_new_balance,
             event.fee_payer_balance - event.fee,
         },
-        { Column::tx_fee_write_did_append,
-          next_tree_state.publicDataTree.tree.nextAvailableLeafIndex !=
-              prev_tree_state.publicDataTree.tree.nextAvailableLeafIndex },
         { Column::tx_uint32_max, 0xffffffff },
         { Column::tx_end_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
 
@@ -423,9 +418,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                     },
                     [&](const simulation::CollectGasFeeEvent& event) {
                         trace.set(row, handle_pi_read_write(tx_phase_event->phase, 1, 0, /*write_counter=*/0));
-                        trace.set(row,
-                                  handle_collect_gas_fee_event(
-                                      event, tx_phase_event->prev_tree_state, tx_phase_event->next_tree_state));
+                        trace.set(row, handle_collect_gas_fee_event(event));
                     } },
                 tx_phase_event->event);
             trace.set(row, handle_next_gas_used(gas_used));
@@ -464,11 +457,11 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>()
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>();
-// Commented out for now, to make the bulk test pass before all opcodes are implemented.
-// .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
-// .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
-// .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
-// .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
 
 } // namespace bb::avm2::tracegen

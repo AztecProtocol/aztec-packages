@@ -13,8 +13,8 @@ template <typename FF_> class public_data_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
-                                                                            5, 4, 4, 4, 3, 4, 3, 4, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5,
+                                                                            4, 4, 4, 3, 4, 3, 4, 2, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -196,36 +196,44 @@ template <typename FF_> class public_data_checkImpl {
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITE_IDX_INITIAL_VALUE
+        {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::public_data_check_sel)) * in.get(C::public_data_check_sel_shift) *
-                       (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX -
-                        in.get(C::public_data_check_write_idx_shift));
+            auto tmp =
+                (in.get(C::public_data_check_tree_size_after_write) -
+                 (in.get(C::public_data_check_tree_size_before_write) + in.get(C::public_data_check_should_insert)));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // WRITE_IDX_INITIAL_VALUE
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::public_data_check_nondiscaded_write) -
-                        in.get(C::public_data_check_write) * (FF(1) - in.get(C::public_data_check_discard)));
+            auto tmp = (FF(1) - in.get(C::public_data_check_sel)) * in.get(C::public_data_check_sel_shift) *
+                       (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX -
+                        in.get(C::public_data_check_write_idx_shift));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::public_data_check_nondiscaded_write)) *
-                       in.get(C::public_data_check_should_write_to_public_inputs);
+            auto tmp = (in.get(C::public_data_check_nondiscaded_write) -
+                        in.get(C::public_data_check_write) * (FF(1) - in.get(C::public_data_check_discard)));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITE_IDX_INCREMENT
+        {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
+            auto tmp = (FF(1) - in.get(C::public_data_check_nondiscaded_write)) *
+                       in.get(C::public_data_check_should_write_to_public_inputs);
+            tmp *= scaling_factor;
+            std::get<23>(evals) += typename Accumulator::View(tmp);
+        }
+        { // WRITE_IDX_INCREMENT
+            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::public_data_check_not_end) *
                 ((in.get(C::public_data_check_write_idx) + in.get(C::public_data_check_should_write_to_public_inputs)) -
                  in.get(C::public_data_check_write_idx_shift));
             tmp *= scaling_factor;
-            std::get<23>(evals) += typename Accumulator::View(tmp);
+            std::get<24>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -253,9 +261,9 @@ template <typename FF> class public_data_check : public Relation<public_data_che
             return "VALUE_IS_CORRECT";
         case 19:
             return "UPDATE_ROOT_VALIDATION";
-        case 20:
+        case 21:
             return "WRITE_IDX_INITIAL_VALUE";
-        case 23:
+        case 24:
             return "WRITE_IDX_INCREMENT";
         }
         return std::to_string(index);
@@ -270,8 +278,8 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 15;
     static constexpr size_t SR_VALUE_IS_CORRECT = 17;
     static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 19;
-    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 20;
-    static constexpr size_t SR_WRITE_IDX_INCREMENT = 23;
+    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 21;
+    static constexpr size_t SR_WRITE_IDX_INCREMENT = 24;
 };
 
 } // namespace bb::avm2

@@ -158,7 +158,7 @@ void TxExecution::simulate(const Tx& tx)
 
         FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
 
-        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
         // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
         FF fee_payer_balance = FF::neg_one();
 
@@ -167,7 +167,7 @@ void TxExecution::simulate(const Tx& tx)
             throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
         }
 
-        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
         // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
 
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,

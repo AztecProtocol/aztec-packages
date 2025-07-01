@@ -53,7 +53,7 @@ include "public_data_squash.pil";
  *   prev_public_data_tree_root,
  *   next_public_data_tree_root,
  *   prev_public_data_tree_size,
- *   did_append,
+ *   next_public_data_tree_size,
  *   clk
  * } is public_data_check.write {
  *   public_data_check.value,
@@ -62,7 +62,7 @@ include "public_data_squash.pil";
  *   public_data_check.root,
  *   public_data_check.write_root,
  *   public_data_check.tree_size_before_write,
- *   public_data_check.leaf_not_exists,
+ *   public_data_check.tree_size_after_write,
  *   public_data_check.clk
  * };
  *
@@ -90,6 +90,7 @@ namespace public_data_check;
     // The resulting root after the write
     pol commit write_root;
     pol commit tree_size_before_write;
+    pol commit tree_size_after_write;
     pol commit write;
     write * (1 - write) = 0;
     // If write is on, sel must be on too.
@@ -217,7 +218,7 @@ namespace public_data_check;
     #[VALUE_IS_CORRECT]
     (1 - write) * (low_leaf_value * LEAF_EXISTS - value) = 0;
 
-    // ========= COMPUTE FINAL ROOT =========
+    // ========= COMPUTE FINAL SNAPSHOT =========
 
     pol commit should_insert;
     leaf_not_exists * write - should_insert = 0;
@@ -241,6 +242,9 @@ namespace public_data_check;
     // If we are writing, but the leaf has been written before, we don't insert, so write_root is intermediate_root
     #[UPDATE_ROOT_VALIDATION]
     SHOULD_UPDATE * (write_root - intermediate_root) = 0;
+
+    // If we inserted a new leaf, we have to increment the tree size.
+    tree_size_after_write = tree_size_before_write + should_insert;
 
     // ========= WRITE TO PUBLIC INPUTS =========
     pol commit write_idx;

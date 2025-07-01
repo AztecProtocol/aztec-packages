@@ -54,13 +54,13 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
             nondiscarded_write && last_nondiscarded_writes.at(event.leaf_slot) == event.execution_id;
 
         FF intermediate_root = 0;
-        FF write_root = 0;
         PublicDataTreeLeafPreimage updated_low_leaf = PublicDataTreeLeafPreimage::empty();
         FF updated_low_leaf_hash = 0;
         FF new_leaf_hash = 0;
+        AppendOnlyTreeSnapshot next_snapshot = event.prev_snapshot;
 
         if (write) {
-            write_root = event.write_data->next_snapshot.root;
+            next_snapshot = event.write_data->next_snapshot;
             intermediate_root = event.write_data->intermediate_root;
             updated_low_leaf = event.write_data->updated_low_leaf_preimage;
             updated_low_leaf_hash = event.write_data->updated_low_leaf_hash;
@@ -77,8 +77,9 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_slot, event.slot },
                       { C::public_data_check_root, event.prev_snapshot.root },
                       { C::public_data_check_address, event.contract_address },
-                      { C::public_data_check_write_root, write_root },
+                      { C::public_data_check_write_root, next_snapshot.root },
                       { C::public_data_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
+                      { C::public_data_check_tree_size_after_write, next_snapshot.nextAvailableLeafIndex },
                       { C::public_data_check_write, write },
                       { C::public_data_check_clk, clk },
                       { C::public_data_check_discard, discard },
