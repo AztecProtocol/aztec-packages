@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct ReadRequest {
@@ -79,10 +79,7 @@ impl Empty for ScopedReadRequest {
 
 impl Serialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
     fn serialize(self) -> [Field; SCOPED_READ_REQUEST_LEN] {
-        array_concat(
-            self.read_request.serialize(),
-            [self.contract_address.to_field()],
-        )
+        self.read_request.serialize().concat([self.contract_address.to_field()])
     }
 }
 

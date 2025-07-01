@@ -125,6 +125,7 @@ fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
 * - y_i = Evaluation for one blob (=p_i(z))
 * - c_i = Commitment for one blob (=C_i)
 */
+#[derive(Eq)]
 pub struct BlobAccumulationInputs {
     pub z_i: Field,
     pub y_i: F,

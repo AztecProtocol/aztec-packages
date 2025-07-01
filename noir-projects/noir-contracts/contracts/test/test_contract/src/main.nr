@@ -24,7 +24,6 @@ pub contract Test {
         address::{AztecAddress, EthAddress},
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         traits::{Hash, Packable, Serialize},
-        utils::arrays::array_concat,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
@@ -326,7 +325,7 @@ pub contract Test {
                 .call(&mut context);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
             context.emit_private_log(leaky_log, 5);
         }
     }

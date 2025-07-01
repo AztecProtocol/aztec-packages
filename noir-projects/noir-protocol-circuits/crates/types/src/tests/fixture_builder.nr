@@ -92,10 +92,12 @@ use crate::{
         },
         merkle_tree_utils::NonEmptyMerkleTree,
     },
-    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
+    utils::arrays::ClaimedLengthArray,
 };
 
+/// For testing only.
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
     assert(N >= M, "cannot call subarray on a smaller array");
     let mut new_arr = [arr[0]; M];
@@ -105,6 +107,7 @@ fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
     new_arr
 }
 
+/// For testing only.
 fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     let mut reversed = BoundedVec::new();
     let len = vec.len();
@@ -116,6 +119,16 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     reversed
 }
 
+/// For testing only. Not safe.
+/// Not part of the ClaimedLengthArray methods, because we don't want it
+/// to be accidentally called in production code.
+pub fn claimed_length_array_from_bounded_vec<T, let N: u32>(
+    vec: BoundedVec<T, N>,
+) -> ClaimedLengthArray<T, N> {
+    ClaimedLengthArray { array: vec.storage(), length: vec.len() }
+}
+
+#[derive(Eq)]
 pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
@@ -420,40 +433,68 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
-            note_hash_read_requests: subarray(self
-                .note_hash_read_requests
-                .storage()
-                .map(|r: ScopedReadRequest| r.read_request)),
-            nullifier_read_requests: subarray(self
-                .nullifier_read_requests
-                .storage()
-                .map(|r: ScopedReadRequest| r.read_request)),
-            key_validation_requests_and_generators: subarray(self
-                .scoped_key_validation_requests_and_generators
-                .storage()
-                .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
-            note_hashes: subarray(
-                self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
-            ),
-            nullifiers: subarray(
-                self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
-            ),
-            private_call_requests: subarray(self.private_call_requests.storage()),
-            public_call_requests: subarray(self.public_call_requests.storage()),
+            note_hash_read_requests: ClaimedLengthArray {
+                array: subarray(self.note_hash_read_requests.storage().map(|r: ScopedReadRequest| {
+                    r.read_request
+                })),
+                length: self.note_hash_read_requests.len(),
+            },
+            nullifier_read_requests: ClaimedLengthArray {
+                array: subarray(self.nullifier_read_requests.storage().map(|r: ScopedReadRequest| {
+                    r.read_request
+                })),
+                length: self.nullifier_read_requests.len(),
+            },
+            key_validation_requests_and_generators: ClaimedLengthArray {
+                array: subarray(self
+                    .scoped_key_validation_requests_and_generators
+                    .storage()
+                    .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
+                length: self.scoped_key_validation_requests_and_generators.len(),
+            },
+            note_hashes: ClaimedLengthArray {
+                array: subarray(
+                    self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
+                ),
+                length: self.note_hashes.len(),
+            },
+            nullifiers: ClaimedLengthArray {
+                array: subarray(
+                    self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
+                ),
+                length: self.nullifiers.len(),
+            },
+            private_call_requests: ClaimedLengthArray {
+                array: subarray(self.private_call_requests.storage()),
+                length: self.private_call_requests.len(),
+            },
+            public_call_requests: ClaimedLengthArray {
+                array: subarray(self.public_call_requests.storage()),
+                length: self.public_call_requests.len(),
+            },
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self
-                .l2_to_l1_msgs
-                .storage()
-                .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+            l2_to_l1_msgs: ClaimedLengthArray {
+                array: subarray(self
+                    .l2_to_l1_msgs
+                    .storage()
+                    .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+                length: self.l2_to_l1_msgs.len(),
+            },
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.inner
-            })),
-            contract_class_logs_hashes: subarray(self
-                .contract_class_logs_hashes
-                .storage()
-                .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+            private_logs: ClaimedLengthArray {
+                array: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
+                    l.inner
+                })),
+                length: self.private_logs.len(),
+            },
+            contract_class_logs_hashes: ClaimedLengthArray {
+                array: subarray(self
+                    .contract_class_logs_hashes
+                    .storage()
+                    .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+                length: self.contract_class_logs_hashes.len(),
+            },
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -483,8 +524,8 @@ impl FixtureBuilder {
         let public_data_prefill = 2;
         let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
 
-        if is_empty(self.updated_class_id_value_change)
-            & is_empty(self.updated_class_id_delay_change) {
+        if self.updated_class_id_value_change.is_empty()
+            & self.updated_class_id_delay_change.is_empty() {
             self.historical_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
@@ -555,13 +596,17 @@ impl FixtureBuilder {
 
     pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
         PrivateAccumulatedDataBuilder {
-            note_hashes: self.note_hashes,
-            nullifiers: self.nullifiers,
-            l2_to_l1_msgs: self.l2_to_l1_msgs,
-            private_logs: self.private_logs,
-            contract_class_logs_hashes: self.contract_class_logs_hashes,
-            public_call_requests: self.public_call_requests,
-            private_call_stack: vec_reverse(self.private_call_requests),
+            note_hashes: claimed_length_array_from_bounded_vec(self.note_hashes),
+            nullifiers: claimed_length_array_from_bounded_vec(self.nullifiers),
+            l2_to_l1_msgs: claimed_length_array_from_bounded_vec(self.l2_to_l1_msgs),
+            private_logs: claimed_length_array_from_bounded_vec(self.private_logs),
+            contract_class_logs_hashes: claimed_length_array_from_bounded_vec(
+                self.contract_class_logs_hashes,
+            ),
+            public_call_requests: claimed_length_array_from_bounded_vec(self.public_call_requests),
+            private_call_stack: claimed_length_array_from_bounded_vec(vec_reverse(
+                self.private_call_requests,
+            )),
         }
     }
 
@@ -624,11 +669,15 @@ impl FixtureBuilder {
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
             for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: self.note_hash_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
-            scoped_key_validation_requests_and_generators: self
-                .scoped_key_validation_requests_and_generators
-                .storage(),
+            note_hash_read_requests: claimed_length_array_from_bounded_vec(
+                self.note_hash_read_requests,
+            ),
+            nullifier_read_requests: claimed_length_array_from_bounded_vec(
+                self.nullifier_read_requests,
+            ),
+            scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
+                self.scoped_key_validation_requests_and_generators,
+            ),
             split_counter: self.validation_requests_split_counter,
         }
     }

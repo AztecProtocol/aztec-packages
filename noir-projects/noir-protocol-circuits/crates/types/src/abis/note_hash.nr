@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct NoteHash {
@@ -87,10 +87,7 @@ impl Empty for ScopedNoteHash {
 
 impl Serialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
     fn serialize(self) -> [Field; SCOPED_NOTE_HASH_LENGTH] {
-        array_concat(
-            self.note_hash.serialize(),
-            [self.contract_address.to_field()],
-        )
+        self.note_hash.serialize().concat([self.contract_address.to_field()])
     }
 }
 

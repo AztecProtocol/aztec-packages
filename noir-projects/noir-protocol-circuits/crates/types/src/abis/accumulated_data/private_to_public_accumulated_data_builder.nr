@@ -13,6 +13,7 @@ use crate::{
     utils::arrays::array_to_bounded_vec,
 };
 
+#[derive(Eq)]
 pub struct PrivateToPublicAccumulatedDataBuilder {
     pub note_hashes: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub nullifiers: BoundedVec<Field, MAX_NULLIFIERS_PER_TX>,

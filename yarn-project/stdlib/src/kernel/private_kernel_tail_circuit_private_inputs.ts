@@ -2,7 +2,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { PaddedSideEffectAmounts } from './padded_side_effects.js';
 import { PrivateKernelData } from './private_kernel_data.js';
-import { countAccumulatedItems } from './utils/order_and_comparison.js';
 
 /**
  * Input to the private kernel circuit - tail call.
@@ -21,7 +20,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
 
   isForPublic() {
     return (
-      countAccumulatedItems(this.previousKernel.publicInputs.end.publicCallRequests) > 0 ||
+      this.previousKernel.publicInputs.end.publicCallRequests.claimedLength > 0 ||
       !this.previousKernel.publicInputs.publicTeardownCallRequest.isEmpty()
     );
   }

@@ -1,6 +1,6 @@
 use crate::{
     abis::side_effect::Ordered,
-    traits::{Empty, is_empty},
+    traits::Empty,
     utils::arrays::{
         get_sorted_tuple::get_sorted_tuple,
         sort_by_counter::{
@@ -39,7 +39,7 @@ unconstrained fn get_split_order_hints<T, let N: u32>(
     ascending: bool,
 ) -> SplitOrderHints<N>
 where
-    T: Ordered + Eq + Empty,
+    T: Ordered + Empty,
 {
     let ordering = if ascending {
         compare_by_counter_empty_padded_asc
@@ -56,7 +56,7 @@ where
     let mut found_split = false;
     for i in 0..N {
         let elem = sorted_tuples[i].elem;
-        if !is_empty(elem) {
+        if !elem.is_empty() {
             let is_gte = (elem.counter() >= split_counter) & (elem.counter() != 0);
             found_split |= ascending == is_gte;
             let mut index_offet = 0;
@@ -82,7 +82,7 @@ pub unconstrained fn get_split_order_hints_asc<T, let N: u32>(
     split_counter: u32,
 ) -> SplitOrderHints<N>
 where
-    T: Ordered + Eq + Empty,
+    T: Ordered + Empty,
 {
     get_split_order_hints(array, split_counter, true)
 }
@@ -92,7 +92,7 @@ pub unconstrained fn get_split_order_hints_desc<T, let N: u32>(
     split_counter: u32,
 ) -> SplitOrderHints<N>
 where
-    T: Ordered + Eq + Empty,
+    T: Ordered + Empty,
 {
     get_split_order_hints(array, split_counter, false)
 }

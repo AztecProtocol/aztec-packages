@@ -14,7 +14,7 @@ impl PreviousKernelValidatorBuilder {
 #[test]
 fn validate_proof__succeeds() {
     let builder = PreviousKernelValidatorBuilder::new_with_vk(PRIVATE_KERNEL_INNER_INDEX);
-    builder.validate_proof([
+    builder.verify_proof([
         PRIVATE_KERNEL_INIT_INDEX,
         PRIVATE_KERNEL_INNER_INDEX,
         PRIVATE_KERNEL_RESET_INDEX,
@@ -24,7 +24,7 @@ fn validate_proof__succeeds() {
 #[test(should_fail_with = "Invalid vk index")]
 fn validate_proof__vk_not_allowed_failed() {
     let builder = PreviousKernelValidatorBuilder::new_with_vk(PRIVATE_KERNEL_INNER_INDEX);
-    builder.validate_proof([PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_RESET_INDEX]);
+    builder.verify_proof([PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_RESET_INDEX]);
 }
 
 #[test(should_fail_with = "membership check failed")]
@@ -34,7 +34,7 @@ fn validate_proof__vk_hash_mismatch_fails() {
     // Tweak the vk hash.
     builder.previous_kernel.client_ivc_vk.hash += 1;
 
-    builder.validate_proof([
+    builder.verify_proof([
         PRIVATE_KERNEL_INIT_INDEX,
         PRIVATE_KERNEL_INNER_INDEX,
         PRIVATE_KERNEL_RESET_INDEX,

@@ -11,6 +11,7 @@ use types::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub(crate) struct TxEffect {
     pub(crate) tx_hash: Field,
     pub(crate) revert_code: u8,

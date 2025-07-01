@@ -32,6 +32,11 @@ import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
 /**
  * Execute a private function and return the execution result.
+ * This does not execute any kernel circuits; only the user functions.
+ *
+ * If this private function execution results in any nested private function calls,
+ * those nested calls are made via oracle calls to the `callPrivateFunction` oracle,
+ * which in turn makes corresponding further calls to this function.
  */
 export async function executePrivateFunction(
   simulator: CircuitSimulator,
@@ -83,15 +88,15 @@ export async function executePrivateFunction(
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const offchainEffects = privateExecutionOracle.getOffchainEffects();
-  const nestedExecutions = privateExecutionOracle.getNestedExecutions();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
-  let timerSubtractionList = nestedExecutions;
+  let timerSubtractionList = nestedExecutionResults;
   let witgenTime = duration;
 
   // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
   while (timerSubtractionList.length > 0) {
     witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
-    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutions ?? []);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutionResults ?? []);
   }
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
@@ -106,7 +111,7 @@ export async function executePrivateFunction(
     noteHashNullifierCounterMap,
     rawReturnValues,
     offchainEffects,
-    nestedExecutions,
+    nestedExecutionResults,
     contractClassLogs,
     {
       timings: {

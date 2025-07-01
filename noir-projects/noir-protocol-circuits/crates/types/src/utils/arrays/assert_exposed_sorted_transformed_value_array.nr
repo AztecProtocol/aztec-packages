@@ -2,38 +2,37 @@ pub mod get_order_hints;
 
 use crate::{
     abis::side_effect::Ordered,
-    traits::{Empty, is_empty},
+    traits::Empty,
     utils::arrays::{
-        array_length, assert_exposed_sorted_transformed_value_array::get_order_hints::OrderHint,
+        assert_exposed_sorted_transformed_value_array::get_order_hints::OrderHint,
+        ClaimedLengthArray,
     },
 };
 
-// original_array must be valid, i.e. validate_array(original_array) == true
 // Items in exposed_sorted_transformed_value_array do not have counters. Their corresponding counters are in hints.
 pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
-    original_array: [T; N],
+    original_array: ClaimedLengthArray<T, N>,
     exposed_sorted_transformed_value_array: [S; N],
-    is_transformed: fn[Env](T, S) -> bool,
+    assert_transformed: fn[Env](T, S) -> (),
     hints: [OrderHint; N],
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
-    let num_non_empty_items = array_length(original_array);
+    let original_array_length = original_array.length;
     let mut should_be_empty = false;
     for i in 0..N {
-        should_be_empty |= i == num_non_empty_items;
+        should_be_empty |= i == original_array_length;
         if should_be_empty {
-            assert(
-                is_empty(exposed_sorted_transformed_value_array[i]),
+            exposed_sorted_transformed_value_array[i].assert_empty(
                 "array must be padded with empty items",
             );
         } else {
-            let original = original_array[i];
+            let original = original_array.array[i];
             let sorted_index = hints[i].sorted_index;
             let sorted = exposed_sorted_transformed_value_array[sorted_index];
-            assert(is_transformed(original, sorted), "incorrect transformed value");
+            assert_transformed(original, sorted);
             assert_eq(original.counter(), hints[sorted_index].counter, "incorrect hinted counter");
             if i != 0 {
                 assert(
@@ -47,29 +46,35 @@ where
 
 mod tests {
     use crate::{
-        tests::types::{is_combined_from_two_values, TestCombinedValue, TestTwoValues},
+        tests::types::{assert_combined_from_two_values, TestCombinedValue, TestTwoValues},
         traits::Empty,
-        utils::arrays::assert_exposed_sorted_transformed_value_array::{
-            assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint,
+        utils::arrays::{
+            assert_exposed_sorted_transformed_value_array::{
+                assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint,
+            },
+            ClaimedLengthArray,
         },
     };
 
     struct TestDataBuilder<let N: u32> {
-        original_array: [TestTwoValues; N],
+        original_array: ClaimedLengthArray<TestTwoValues, N>,
         exposed_sorted_transformed_value_array: [TestCombinedValue; N],
         hints: [OrderHint; N],
     }
 
     impl TestDataBuilder<6> {
         pub fn new() -> Self {
-            let original_array = [
-                TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
-                TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
-                TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
-                TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
-                TestTwoValues::empty(),
-                TestTwoValues::empty(),
-            ];
+            let original_array = ClaimedLengthArray {
+                array: [
+                    TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
+                    TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
+                    TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
+                    TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
+                    TestTwoValues::empty(),
+                    TestTwoValues::empty(),
+                ],
+                length: 4,
+            };
 
             let exposed_sorted_transformed_value_array = [
                 TestCombinedValue { value: 37 },
@@ -96,7 +101,7 @@ mod tests {
             assert_exposed_sorted_transformed_value_array(
                 self.original_array,
                 self.exposed_sorted_transformed_value_array,
-                is_combined_from_two_values,
+                assert_combined_from_two_values,
                 self.hints,
             );
         }
@@ -108,7 +113,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_exposed_sorted_transformed_value_array_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -187,7 +192,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_exposed_sorted_transformed_value_array_missing_item_fails() {
         let mut builder = TestDataBuilder::new();
 

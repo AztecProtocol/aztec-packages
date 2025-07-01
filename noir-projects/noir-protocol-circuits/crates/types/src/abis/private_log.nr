@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{PRIVATE_LOG_DATA_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS},
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub type PrivateLog = Log<PRIVATE_LOG_SIZE_IN_FIELDS>;
@@ -37,10 +37,7 @@ impl Empty for PrivateLogData {
 
 impl Serialize<PRIVATE_LOG_DATA_LENGTH> for PrivateLogData {
     fn serialize(self) -> [Field; PRIVATE_LOG_DATA_LENGTH] {
-        array_concat(
-            self.log.serialize(),
-            [self.note_hash_counter as Field, self.counter as Field],
-        )
+        self.log.serialize().concat([self.note_hash_counter as Field, self.counter as Field])
     }
 }
 

@@ -1,5 +1,6 @@
 use dep::types::traits::Empty;
 
+#[derive(Eq)]
 pub struct PaddedSideEffectAmounts {
     pub non_revertible_note_hashes: u32,
     pub revertible_note_hashes: u32,

@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{PUBLIC_LOG_LENGTH, PUBLIC_LOG_SIZE_IN_FIELDS},
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct PublicLog {
@@ -35,7 +35,7 @@ impl Empty for PublicLog {
 impl Serialize<PUBLIC_LOG_LENGTH> for PublicLog {
     fn serialize(self) -> [Field; PUBLIC_LOG_LENGTH] {
         // Note: we ensure that the address of a public log goes first, unlike generic Scoped<T> impls
-        array_concat([self.contract_address.to_field()], self.log.serialize())
+        [self.contract_address.to_field()].concat(self.log.serialize())
     }
 }
 

@@ -25,7 +25,7 @@ fn validate_propagated_sorted_values_l2_to_l1_msgs_unordered_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect transformed value")]
+#[test(should_fail_with = "mismatch l2_to_l1_msgs")]
 fn validate_propagated_sorted_values_l2_to_l1_msgs_mismatch_hash_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
@@ -52,7 +52,7 @@ fn validate_propagated_sorted_values_contract_class_log_hashes_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect transformed value")]
+#[test(should_fail_with = "mismatch contract_class_logs_hashes")]
 fn validate_propagated_sorted_values_contract_class_log_hashes_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 

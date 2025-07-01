@@ -4,7 +4,7 @@ use dep::aztec::{
     note::note_interface::NoteHash,
     protocol_types::{
         constants::GENERATOR_INDEX__NOTE_HASH, hash::poseidon2_hash_with_separator,
-        traits::Packable, utils::arrays::array_concat,
+        traits::Packable,
     },
 };
 
@@ -19,7 +19,7 @@ impl NoteHash for TestNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         // The note is inserted into the state in the Test contract so we provide a real compute_note_hash
         // implementation.
-        let inputs = array_concat(self.pack(), [storage_slot]);
+        let inputs = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 

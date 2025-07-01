@@ -47,7 +47,6 @@ pub contract TokenBlacklist {
     };
     use aztec::protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
-        utils::arrays::array_concat,
     };
 
     // Changing an address' roles has a certain delay before it goes into effect. Here set to 2 slots.

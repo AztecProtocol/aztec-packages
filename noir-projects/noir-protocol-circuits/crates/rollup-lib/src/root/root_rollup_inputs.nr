@@ -9,7 +9,7 @@ use types::{
         BLOCK_ROOT_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_PADDING_INDEX, BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
         PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
-    traits::{Empty, is_empty},
+    traits::Empty,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS_LEFT: [u32; 4] = [
@@ -27,6 +27,7 @@ global ALLOWED_PREVIOUS_CIRCUITS_RIGHT: [u32; 5] = [
     BLOCK_MERGE_ROLLUP_INDEX,
 ];
 
+#[derive(Eq)]
 pub struct RootRollupInputs {
     pub previous_rollup_data: [PreviousRollupBlockData; 2],
 }
@@ -94,9 +95,7 @@ impl RootRollupInputs {
         // - end_blob_accumulator.z == injected.challenge_z
         // - final_gamma == injected.challenge_gamma
         // => Validated public inputs from acc are: FinalBlobAccumulatorPublicInputs { blob_commitments_hash, z, y, C } (gamma is not required)
-
-        assert(
-            is_empty(merged.blob_public_inputs.start_blob_accumulator),
+        merged.blob_public_inputs.start_blob_accumulator.assert_empty(
             "Epoch did not start with empty blob state.",
         );
         let blob_public_inputs = merged

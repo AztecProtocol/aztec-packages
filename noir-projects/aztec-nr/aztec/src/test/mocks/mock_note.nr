@@ -12,7 +12,6 @@ use dep::protocol_types::{
     constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
     hash::poseidon2_hash_with_separator,
     traits::Packable,
-    utils::arrays::array_concat,
 };
 
 #[derive(Eq, Packable)]
@@ -29,7 +28,7 @@ impl NoteType for MockNote {
 
 impl NoteHash for MockNote {
     fn compute_note_hash(self: Self, storage_slot: Field) -> Field {
-        let input = array_concat(self.pack(), [storage_slot]);
+        let input = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(input, GENERATOR_INDEX__NOTE_HASH)
     }
 

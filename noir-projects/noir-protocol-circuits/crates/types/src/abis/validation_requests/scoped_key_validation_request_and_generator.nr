@@ -6,7 +6,7 @@ use crate::{
     address::AztecAddress,
     constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
     traits::{Deserialize, Empty, Serialize, ToField},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct ScopedKeyValidationRequestAndGenerator {
@@ -40,7 +40,7 @@ impl Empty for ScopedKeyValidationRequestAndGenerator {
 
 impl Serialize<SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for ScopedKeyValidationRequestAndGenerator {
     fn serialize(self) -> [Field; SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] {
-        array_concat(self.request.serialize(), [self.contract_address.to_field()])
+        self.request.serialize().concat([self.contract_address.to_field()])
     }
 }
 

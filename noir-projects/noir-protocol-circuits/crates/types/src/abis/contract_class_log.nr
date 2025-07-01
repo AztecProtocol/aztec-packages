@@ -3,6 +3,7 @@ use crate::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct ContractClassLog {
     pub log: Log<CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
     pub contract_address: AztecAddress,

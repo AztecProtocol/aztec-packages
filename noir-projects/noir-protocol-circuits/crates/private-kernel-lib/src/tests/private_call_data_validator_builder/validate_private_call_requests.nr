@@ -113,6 +113,16 @@ fn validate_private_call_requests_split_private_calls_full_non_revertible_succee
 }
 
 #[test]
+fn validate_private_call_requests_split_private_calls_full_revertible_succeeds() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
+
+    builder.split_calls(builder.private_call.counter);
+    builder.private_call.append_private_call_requests(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
+
+    builder.validate();
+}
+
+#[test]
 fn validate_private_call_requests_split_private_calls_less_than_first_revertible_success() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
@@ -138,7 +148,7 @@ fn validate_private_call_requests_split_private_calls_less_than_last_non_reverti
     builder.validate();
 }
 
-#[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+#[test(should_fail_with = "expected min_revertible_side_effect_counter to be greater than the counters of all calls")]
 fn validate_private_call_requests_split_private_calls_equal_last_non_revertible_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 
@@ -158,6 +168,16 @@ fn validate_private_call_requests_split_private_calls_0_succeeds() {
     builder.split_calls(0);
     builder.add_private_call_request(20, 30);
     builder.add_private_call_request(40, 50);
+
+    builder.validate();
+}
+
+#[test]
+fn validate_private_call_requests_split_private_calls_no_private_calls_succeeds() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
+
+    builder.split_calls(50);
+    // This private call doesn't not make any private call requests.
 
     builder.validate();
 }

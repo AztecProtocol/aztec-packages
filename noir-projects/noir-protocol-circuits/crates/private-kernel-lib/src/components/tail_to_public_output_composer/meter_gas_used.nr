@@ -8,7 +8,7 @@ use dep::types::{
         DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
     },
-    traits::{Empty, is_empty},
+    traits::Empty,
     utils::arrays::array_length,
 };
 
@@ -57,7 +57,7 @@ pub fn meter_gas_used(
     public_teardown_call_request: PublicCallRequest,
     teardown_gas_limits: Gas,
 ) -> Gas {
-    let teardown_gas = if is_empty(public_teardown_call_request) {
+    let teardown_gas = if public_teardown_call_request.is_empty() {
         Gas::empty()
     } else {
         teardown_gas_limits

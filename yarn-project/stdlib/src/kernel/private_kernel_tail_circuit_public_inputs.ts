@@ -13,7 +13,7 @@ import { PrivateToPublicKernelCircuitPublicInputs } from './private_to_public_ke
 import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from './private_to_rollup_kernel_circuit_public_inputs.js';
 import { PublicCallRequest } from './public_call_request.js';
-import { countAccumulatedItems, mergeAccumulatedData } from './utils/order_and_comparison.js';
+import { countAccumulatedItems } from './utils/order_and_comparison.js';
 
 export class PartialPrivateTailPublicInputsForPublic {
   constructor(
@@ -217,8 +217,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyNoteHashes() {
     const noteHashes = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.noteHashes,
+      ? this.forPublic.nonRevertibleAccumulatedData.noteHashes.concat(
           this.forPublic.revertibleAccumulatedData.noteHashes,
         )
       : this.forRollup!.end.noteHashes;
@@ -227,8 +226,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyNullifiers() {
     const nullifiers = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.nullifiers,
+      ? this.forPublic.nonRevertibleAccumulatedData.nullifiers.concat(
           this.forPublic.revertibleAccumulatedData.nullifiers,
         )
       : this.forRollup!.end.nullifiers;
@@ -237,8 +235,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyPrivateLogs() {
     const privateLogs = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.privateLogs,
+      ? this.forPublic.nonRevertibleAccumulatedData.privateLogs.concat(
           this.forPublic.revertibleAccumulatedData.privateLogs,
         )
       : this.forRollup!.end.privateLogs;
@@ -247,8 +244,7 @@ export class PrivateKernelTailCircuitPublicInputs {
 
   getNonEmptyContractClassLogsHashes() {
     const contractClassLogsHashes = this.forPublic
-      ? mergeAccumulatedData(
-          this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes,
+      ? this.forPublic.nonRevertibleAccumulatedData.contractClassLogsHashes.concat(
           this.forPublic.revertibleAccumulatedData.contractClassLogsHashes,
         )
       : this.forRollup!.end.contractClassLogsHashes;
