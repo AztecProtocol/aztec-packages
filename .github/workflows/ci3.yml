@@ -87,8 +87,10 @@ jobs:
           sudo apt update && sudo apt install -y redis-tools parallel
 
       - name: Prepare GCP key
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -w 0 > gcp_sa_key.b64
+          echo "${{ env.GCP_SA_KEY }}" | base64 -w 0 > gcp_sa_key.b64
           echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
 
       #############
