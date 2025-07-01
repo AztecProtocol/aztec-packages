@@ -91,7 +91,7 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
       if (range.limit && count >= range.limit) {
         return;
       }
-      yield [this.#denormalizeKey(cursor.value.key as string), cursor.value.value] as [K, V];
+      yield [this.#denormalizeKey(cursor.value.key), cursor.value.value] as [K, V];
       count++;
     }
   }
@@ -109,13 +109,13 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
   }
 
   #denormalizeKey(key: string): K {
-    const denormalizedKey = (key as string).split(',').map(part => (isNaN(parseInt(part)) ? part : parseInt(part)));
+    const denormalizedKey = key.split(',').map(part => (part.startsWith('n_') ? Number(part.slice(2)) : part));
     return (denormalizedKey.length > 1 ? denormalizedKey : denormalizedKey[0]) as K;
   }
 
   protected normalizeKey(key: K): string {
     const arrayKey = Array.isArray(key) ? key : [key];
-    return arrayKey.join(',');
+    return (arrayKey as K[]).map((element: K) => (typeof element === 'number' ? `n_${element}` : element)).join(',');
   }
 
   protected slot(key: K, index: number = 0): string {

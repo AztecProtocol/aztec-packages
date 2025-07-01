@@ -135,6 +135,13 @@ export function describeAztecMap(
       expect(await keys()).to.deep.equal(['baz', 'foo']);
     });
 
+    it('should be able to iterate over string keys that represent numbers', async () => {
+      await map.set('0x22', 'bar');
+      await map.set('0x31', 'qux');
+
+      expect(await keys()).to.deep.equal(['0x22', '0x31']);
+    });
+
     for (const [name, data] of [
       ['chars', ['a', 'b', 'c', 'd']],
       ['numbers', [1, 2, 3, 4]],
