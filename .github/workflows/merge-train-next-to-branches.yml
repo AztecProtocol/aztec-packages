@@ -1,4 +1,4 @@
-name: Auto Merge to Train Branches
+name: Merge Train Auto-Pull
 
 on:
   push:
