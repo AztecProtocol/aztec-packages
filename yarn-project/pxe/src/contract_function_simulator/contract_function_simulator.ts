@@ -410,9 +410,9 @@ export async function generateSimulatedProvingResult(
 
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
       // nonrevertible
-      accumulatedDataForPublic,
-      // revertible
       PrivateToPublicAccumulatedData.empty(),
+      // revertible
+      accumulatedDataForPublic,
       publicTeardownCallRequest ?? PublicCallRequest.empty(),
     );
   }

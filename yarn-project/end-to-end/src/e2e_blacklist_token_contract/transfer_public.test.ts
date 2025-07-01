@@ -94,7 +94,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
           .transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
           .simulate(),
       ).rejects.toThrow(
-        'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
       );
     });
 

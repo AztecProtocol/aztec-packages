@@ -33,14 +33,14 @@ export abstract class CopyCatAccountWalletBase extends AccountWalletWithSecretKe
   override simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
-    skipTxValidation?: boolean,
-    skipFeeEnforcement?: boolean,
+    _skipTxValidation?: boolean,
+    _skipFeeEnforcement?: boolean,
     _overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
     const contractOverrides = {
       [this.originalAddress.address.toString()]: { instance: this.instance, artifact: this.artifact },
     };
-    return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
+    return this.pxe.simulateTx(txRequest, simulatePublic, true, true, {
       contracts: contractOverrides,
     });
   }

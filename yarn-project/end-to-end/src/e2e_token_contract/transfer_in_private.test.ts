@@ -65,7 +65,7 @@ describe('e2e_token_contract transfer private', () => {
       ).rejects.toThrow(
         expect.objectContaining({
           message: expect.stringMatching(
-            'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+            "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
           ),
           stack: expect.stringMatching(/at Token\.transfer_in_private.*/),
         }),

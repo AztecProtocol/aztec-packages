@@ -75,7 +75,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         await expect(
           asset.methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
         ).rejects.toThrow(
-          'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+          "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
         );
       });
 
@@ -184,7 +184,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
         await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).simulate()).rejects.toThrow(
-          'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+          "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
         );
       });
 

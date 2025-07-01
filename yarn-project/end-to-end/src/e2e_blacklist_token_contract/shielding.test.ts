@@ -95,7 +95,7 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 1).simulate()).rejects.toThrow(
-        'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
       );
     });
 

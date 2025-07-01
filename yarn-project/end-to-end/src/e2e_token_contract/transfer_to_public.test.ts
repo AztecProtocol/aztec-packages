@@ -78,7 +78,7 @@ describe('e2e_token_contract transfer_to_public', () => {
       await expect(
         asset.methods.transfer_to_public(accounts[0].address, accounts[0].address, amount, 1).simulate(),
       ).rejects.toThrow(
-        'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
       );
     });
 
