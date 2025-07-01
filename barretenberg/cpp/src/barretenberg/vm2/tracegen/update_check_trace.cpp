@@ -45,6 +45,7 @@ void UpdateCheckTraceBuilder::process(
                 { C::update_check_original_class_id, event.original_class_id },
                 { C::update_check_public_data_tree_root, event.public_data_tree_root },
                 { C::update_check_timestamp, event.current_timestamp },
+                { C::update_check_timestamp_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX },
                 { C::update_check_update_hash, event.update_hash },
                 { C::update_check_update_hash_inv, update_hash_inv },
                 { C::update_check_hash_not_zero, event.update_hash != 0 },
@@ -74,6 +75,7 @@ void UpdateCheckTraceBuilder::process(
 
 const InteractionDefinition UpdateCheckTraceBuilder::interactions =
     InteractionDefinition()
+        .add<lookup_update_check_timestamp_from_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_hash_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_shared_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupSequential>()
