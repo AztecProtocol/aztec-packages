@@ -580,6 +580,7 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
                       { C::precomputed_is_isstaticcall, envvar_spec.is_isstaticcall ? 1 : 0 },
                       { C::precomputed_is_l2gasleft, envvar_spec.is_l2gasleft ? 1 : 0 },
                       { C::precomputed_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
+                      { C::precomputed_out_tag, envvar_spec.out_tag },
                   } });
     }
 }

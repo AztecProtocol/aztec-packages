@@ -73,20 +73,20 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
     case EnvironmentVariable::TIMESTAMP:
         result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
         break;
-    case EnvironmentVariable::FEEPERL2GAS:
+    case EnvironmentVariable::BASEFEEPERL2GAS:
         result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
         break;
-    case EnvironmentVariable::FEEPERDAGAS:
+    case EnvironmentVariable::BASEFEEPERDAGAS:
         result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
         break;
     case EnvironmentVariable::ISSTATICCALL:
-        result = TaggedValue::from<FF>(context.get_is_static() ? 1 : 0);
+        result = TaggedValue::from<uint1_t>(context.get_is_static() ? 1 : 0);
         break;
     case EnvironmentVariable::L2GASLEFT:
-        result = TaggedValue::from<FF>(context.gas_left().l2Gas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().l2Gas);
         break;
     case EnvironmentVariable::DAGASLEFT:
-        result = TaggedValue::from<FF>(context.gas_left().daGas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().daGas);
         break;
     default:
         throw std::runtime_error("Invalid environment variable enum value");
