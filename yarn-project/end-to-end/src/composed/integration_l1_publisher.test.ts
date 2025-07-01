@@ -115,7 +115,7 @@ describe('L1Publisher integration', () => {
     const currentSlot = await rollup.getSlotNumber();
     const timestamp = await rollup.getTimestampForSlot(currentSlot + slotsToJump);
     if (timestamp > currentTime) {
-      await ethCheatCodes.warp(Number(timestamp));
+      await ethCheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     }
   };
 
