@@ -2,7 +2,7 @@ use crate::{
     abis::side_effect::{Ordered, scoped::Scoped},
     address::AztecAddress,
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct Counted<T> {
@@ -27,7 +27,7 @@ where
 
 impl<T> Empty for Counted<T>
 where
-    T: Empty,
+    T: Empty + Eq,
 {
     fn empty() -> Self {
         Self { inner: T::empty(), counter: 0 }
@@ -39,7 +39,7 @@ where
     T: Serialize<N - 1>,
 {
     fn serialize(self) -> [Field; N] {
-        array_concat(self.inner.serialize(), [self.counter as Field])
+        self.inner.serialize().concat([self.counter as Field])
     }
 }
 
