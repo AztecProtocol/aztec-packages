@@ -206,6 +206,8 @@ function run {
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
+    echo "GCP_SA_KEY: ${GCP_SA_KEY:0:5}"
+
     start_build() {
       echo Starting devbox...
       docker run --privileged --rm \${docker_args:-} \
@@ -229,7 +231,7 @@ function run {
         -e SSH_CONNECTION=' ' \
         -e LOCAL_USER_ID=\$(id -u) \
         -e LOCAL_GROUP_ID=\$(id -g) \
-        -e GCP_SA_KEY=\"${GCP_SA_KEY:-}\" \
+        -e GCP_SA_KEY="${GCP_SA_KEY:-}" \
         -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
