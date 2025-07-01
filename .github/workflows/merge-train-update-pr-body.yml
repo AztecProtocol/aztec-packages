@@ -18,8 +18,5 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Update merge train PR body
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          cd ${{ github.workspace }}
-          ./scripts/merge-train/update-pr-body.sh "$GITHUB_REF_NAME"
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/update-pr-body.sh "$GITHUB_REF_NAME"
