@@ -148,12 +148,12 @@ describe('Bytecode Serialization', () => {
     ]);
 
     const actual = decodeFromBytecode(buf);
-    expect(actual[0]).toEqual(
+    expect(actual).toEqual([
       new Set(/*indirect=*/ 0x02, /*dstOffset=*/ 0x3456, /*inTag=*/ 0x02, /*value=*/ 245n).as(
         Opcode.SET_FF,
         Set.wireFormatFF,
       ),
-    );
+    ]);
   });
 
   it('Should throw an InvalidOpcodeError while deserializing an out-of-range opcode value', () => {
