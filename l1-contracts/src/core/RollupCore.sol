@@ -33,7 +33,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {
   FeeConfigLib,
   CompressedFeeConfig
@@ -130,7 +130,7 @@ contract RollupCore is
   }
 
   function preheatHeaders() external override(IRollupCore) {
-    FeeLib.preheatHeaders();
+    STFLib.preheatHeaders();
   }
 
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
