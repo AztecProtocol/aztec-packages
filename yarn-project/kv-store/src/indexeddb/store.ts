@@ -156,7 +156,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param callback - Function to execute in a transaction
    * @returns A promise that resolves to the return value of the callback
    */
-  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
     // We can only have one transaction at a time for the same store
     // So we need to wait for the current one to finish
     return this.#txQueue.put(async () => {
