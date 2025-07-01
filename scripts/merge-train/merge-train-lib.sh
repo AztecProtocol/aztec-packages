@@ -46,12 +46,12 @@ function cancel_ci_runs {
   local runs=$(gh run list --commit "$commit_sha" --workflow "$workflow_file" --status in_progress --json databaseId --jq '.[].databaseId')
   
   if [[ -n "$runs" ]]; then
-      for run_id in $runs; do
-          log_info "Cancelling run $run_id"
-          gh run cancel "$run_id" || log_warn "Failed to cancel run $run_id"
-      done
+    for run_id in $runs; do
+        log_info "Cancelling run $run_id"
+        gh run cancel "$run_id" || log_warn "Failed to cancel run $run_id"
+    done
   else
-      log_info "No active runs found for commit $commit_sha"
+    log_info "No active runs found for commit $commit_sha"
   fi
 }
 
@@ -61,14 +61,14 @@ function attempt_merge {
   local message="${2:-Merge $target}"
   
   if git merge "$target" --no-edit -m "$message"; then
-      return 0
+    return 0
   else
-      # Capture conflict details before aborting
-      local conflicts=$(git diff --name-only --diff-filter=U)
-      git merge --abort || true
-      log_error "Merge conflicts detected:"
-      echo "$conflicts"
-      return 1
+    # Capture conflict details before aborting
+    local conflicts=$(git diff --name-only --diff-filter=U)
+    git merge --abort || true
+    log_error "Merge conflicts detected:"
+    echo "$conflicts"
+    return 1
   fi
 }
 
@@ -84,8 +84,8 @@ function enable_auto_merge {
   
   local reviews=$(gh pr view "$pr_number" --json reviews --jq '.reviews[] | select(.state == "APPROVED")')
   if [[ -z "$reviews" ]]; then
-      log_info "Approving PR #$pr_number"
-      gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
+    log_info "Approving PR #$pr_number"
+    gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
   fi
   
   log_info "Enabling auto-merge for PR #$pr_number"
@@ -102,5 +102,5 @@ function get_meaningful_commits {
   local head="$2"
   
   git log --oneline --no-merges --reverse "${base}..${head}" \
-      --pretty=format:"%s" | grep -v "^\[empty\]" || true
+    --pretty=format:"%s" | grep -v "^\[empty\]" || true
 }

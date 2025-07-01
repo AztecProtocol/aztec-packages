@@ -17,7 +17,7 @@ if [[ $# -ne 2 ]]; then
   exit 1
 fi
 
-MT="$1"      # merge-train/* branch that was just merged
+MT="$1"    # merge-train/* branch that was just merged
 BASE="$2"    # base branch (usually next)
 
 # Fetch latest state
@@ -48,26 +48,26 @@ for PR_DATA in $PR_LIST; do
   
   # Skip if we can't fetch the branch
   if ! git fetch origin "$BR" 2>/dev/null; then
-      echo "✗ Could not fetch branch $BR for PR #$PR_NUM, skipping"
-      continue
+    echo "✗ Could not fetch branch $BR for PR #$PR_NUM, skipping"
+    continue
   fi
   
   # Try to checkout
   if ! git checkout "$BR" 2>/dev/null; then
-      echo "✗ Could not checkout branch $BR for PR #$PR_NUM, skipping"
-      continue
+    echo "✗ Could not checkout branch $BR for PR #$PR_NUM, skipping"
+    continue
   fi
   
   # Try to merge with the old SHA
   if git merge -q "$SHA" && git merge -q -X ours "origin/$BASE"; then
-      if git push origin "$BR" 2>/dev/null; then
-          echo "✓ PR #$PR_NUM merged successfully"
-      else
-          echo "✗ Could not push to $BR for PR #$PR_NUM"
-      fi
+    if git push origin "$BR" 2>/dev/null; then
+        echo "✓ PR #$PR_NUM merged successfully"
+    else
+        echo "✗ Could not push to $BR for PR #$PR_NUM"
+    fi
   else
-      git merge --abort || true
-      echo "✗ PR #$PR_NUM has conflicts, skipping"
+    git merge --abort || true
+    echo "✗ PR #$PR_NUM has conflicts, skipping"
   fi
 done
 

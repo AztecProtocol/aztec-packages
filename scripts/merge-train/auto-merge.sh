@@ -17,7 +17,7 @@ INACTIVITY_SECONDS=$((INACTIVITY_HOURS * 3600))
 
 function get_merge_train_prs {
   gh pr list --state open --json number,headRefName,updatedAt \
-      --jq '.[] | select(.headRefName | startswith("merge-train/"))'
+    --jq '.[] | select(.headRefName | startswith("merge-train/"))'
 }
 
 function get_meaningful_commits_for_pr {
@@ -25,7 +25,7 @@ function get_meaningful_commits_for_pr {
   
   # Get all commits and filter out merges and empty commits
   gh api "repos/{owner}/{repo}/pulls/$pr_number/commits" --paginate \
-      --jq '.[] | select(.parents | length == 1) | select(.commit.message | test("^\\[empty\\]") | not) | .sha'
+    --jq '.[] | select(.parents | length == 1) | select(.commit.message | test("^\\[empty\\]") | not) | .sha'
 }
 
 function get_last_meaningful_commit_date {
@@ -33,17 +33,17 @@ function get_last_meaningful_commit_date {
   
   local commits=$(get_meaningful_commits_for_pr "$pr_number")
   if [[ -z "$commits" ]]; then
-      echo ""
-      return
+    echo ""
+    return
   fi
   
   # Get the most recent commit date
   local latest_date=""
   for sha in $commits; do
-      local date=$(gh api "repos/{owner}/{repo}/commits/$sha" --jq '.commit.committer.date')
-      if [[ -z "$latest_date" ]] || [[ "$date" > "$latest_date" ]]; then
-          latest_date="$date"
-      fi
+    local date=$(gh api "repos/{owner}/{repo}/commits/$sha" --jq '.commit.committer.date')
+    if [[ -z "$latest_date" ]] || [[ "$date" > "$latest_date" ]]; then
+        latest_date="$date"
+    fi
   done
   
   echo "$latest_date"
@@ -53,18 +53,17 @@ function is_pr_inactive {
   local last_commit_date="$1"
   
   if [[ -z "$last_commit_date" ]]; then
-      return 1
+    return 1
   fi
   
   # Cross-platform date parsing
   local last_commit_timestamp
   if [[ "$OSTYPE" == "darwin"* ]]; then
-      # macOS BSD date
-      last_commit_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$last_commit_date" +%s 2>/dev/null || \
-                             date -j -f "%Y-%m-%d %H:%M:%S" "$last_commit_date" +%s)
+    # macOS BSD date
+    last_commit_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$last_commit_date" +%s 2>/dev/null ||  date -j -f "%Y-%m-%d %H:%M:%S" "$last_commit_date" +%s)
   else
-      # GNU date
-      last_commit_timestamp=$(date -d "$last_commit_date" +%s)
+    # GNU date
+    last_commit_timestamp=$(date -d "$last_commit_date" +%s)
   fi
   
   local current_timestamp=$(date +%s)
@@ -94,22 +93,22 @@ while IFS= read -r pr_json; do
   last_commit_date=$(get_last_meaningful_commit_date "$pr_number")
   
   if [[ -z "$last_commit_date" ]]; then
-      log_info "PR #$pr_number has no meaningful commits, skipping"
-      continue
+    log_info "PR #$pr_number has no meaningful commits, skipping"
+    continue
   fi
   
   if is_pr_inactive "$last_commit_date"; then
-      log_info "PR #$pr_number has been inactive since $last_commit_date"
-      
-      # Check if already has auto-merge
-      if pr_has_auto_merge "$pr_number"; then
-          log_info "PR #$pr_number already has auto-merge enabled"
-      else
-          enable_auto_merge "$pr_number"
-          comment_on_pr "$pr_number" "🤖 Auto-merge enabled after $INACTIVITY_HOURS hours of inactivity. This PR will be merged automatically once all checks pass."
-      fi
+    log_info "PR #$pr_number has been inactive since $last_commit_date"
+    
+    # Check if already has auto-merge
+    if pr_has_auto_merge "$pr_number"; then
+        log_info "PR #$pr_number already has auto-merge enabled"
+    else
+        enable_auto_merge "$pr_number"
+        comment_on_pr "$pr_number" "🤖 Auto-merge enabled after $INACTIVITY_HOURS hours of inactivity. This PR will be merged automatically once all checks pass."
+    fi
   else
-      log_info "PR #$pr_number is still active (last commit: $last_commit_date)"
+    log_info "PR #$pr_number is still active (last commit: $last_commit_date)"
   fi
 done <<< "$prs"
 
