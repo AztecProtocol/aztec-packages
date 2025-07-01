@@ -66,7 +66,7 @@ elif [ "$target" = "gke" ]; then
 
   # Get GKE cluster credentials & connect to it
   echo "Getting credentials for GKE cluster: $CLUSTER_NAME in zone: $ZONE"
-  echo "$GCP_SA_KEY" >/tmp/gcp-key.json
+  # echo "$GCP_SA_KEY" >/tmp/gcp-key.json
   gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
   gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$ZONE"
 else

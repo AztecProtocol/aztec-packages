@@ -206,7 +206,11 @@ function run {
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
-    echo "GCP_SA_KEY: ${GCP_SA_KEY:0:5}"
+    # Save GCP_SA_KEY to a file if set
+    if [ -n "\$GCP_SA_KEY" ]; then
+      echo "\$GCP_SA_KEY" > /tmp/gcp-key.json
+      echo "GCP_SA_KEY saved to /tmp/gcp-key.json"
+    fi
 
     start_build() {
       echo Starting devbox...
@@ -231,7 +235,6 @@ function run {
         -e SSH_CONNECTION=' ' \
         -e LOCAL_USER_ID=\$(id -u) \
         -e LOCAL_GROUP_ID=\$(id -g) \
-        -e GCP_SA_KEY="${GCP_SA_KEY:-}" \
         -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
@@ -247,6 +250,7 @@ function run {
         -e NPM_TOKEN=${NPM_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
+        -v /tmp/gcp-key.json:/tmp/gcp-key.json:ro \
         --pids-limit=32768 \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
