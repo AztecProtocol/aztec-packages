@@ -37,6 +37,7 @@ impl TailToPublicOutputValidator {
     ) -> Self {
         // Safety: the below hints are constrained by calling .validate(). See private_kernel_tail_to_public for use.
         let hints = unsafe { generate_tail_to_public_output_hints(previous_kernel) };
+
         TailToPublicOutputValidator { output, previous_kernel, padded_side_effect_amounts, hints }
     }
 
@@ -73,30 +74,36 @@ impl TailToPublicOutputValidator {
 
         // note_hashes
         assert_split_transformed_padded_arrays(
-            prev_data.note_hashes,
+            prev_data.note_hashes.array,
             output_non_revertible.note_hashes,
             output_revertible.note_hashes,
-            |prev: ScopedNoteHash, out: Field| out == prev.note_hash.value,
+            |prev: ScopedNoteHash, out: Field| {
+                assert_eq(out, prev.note_hash.value, "invalid transformed value")
+            },
             split_counter,
             self.padded_side_effect_amounts.non_revertible_note_hashes,
         );
 
         // nullifiers
         assert_split_transformed_padded_arrays(
-            prev_data.nullifiers,
+            prev_data.nullifiers.array,
             output_non_revertible.nullifiers,
             output_revertible.nullifiers,
-            |prev: ScopedNullifier, out: Field| out == prev.nullifier.value,
+            |prev: ScopedNullifier, out: Field| {
+                assert_eq(out, prev.nullifier.value, "invalid transformed value")
+            },
             split_counter,
             self.padded_side_effect_amounts.non_revertible_nullifiers,
         );
 
         // private_logs
         assert_split_transformed_padded_arrays(
-            prev_data.private_logs,
+            prev_data.private_logs.array,
             output_non_revertible.private_logs,
             output_revertible.private_logs,
-            |prev: Scoped<PrivateLogData>, out: PrivateLog| out == prev.expose_to_public(),
+            |prev: Scoped<PrivateLogData>, out: PrivateLog| {
+                assert_eq(out, prev.expose_to_public(), "invalid transformed value")
+            },
             split_counter,
             self.padded_side_effect_amounts.non_revertible_private_logs,
         );
@@ -111,8 +118,8 @@ impl TailToPublicOutputValidator {
 
         // l2_to_l1_msgs
         assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.l2_to_l1_msgs,
-            prev_data.l2_to_l1_msgs.map(|msg: Scoped<Counted<L2ToL1Message>>| {
+            prev_data.l2_to_l1_msgs.array,
+            prev_data.l2_to_l1_msgs.array.map(|msg: Scoped<Counted<L2ToL1Message>>| {
                 msg.expose_to_public()
             }),
             split_counter,
@@ -123,8 +130,8 @@ impl TailToPublicOutputValidator {
 
         // contract_class_logs_hashes
         assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.contract_class_logs_hashes,
-            prev_data.contract_class_logs_hashes.map(|log: Scoped<Counted<LogHash>>| {
+            prev_data.contract_class_logs_hashes.array,
+            prev_data.contract_class_logs_hashes.array.map(|log: Scoped<Counted<LogHash>>| {
                 log.expose_to_public()
             }),
             split_counter,
@@ -135,8 +142,8 @@ impl TailToPublicOutputValidator {
 
         // public_call_requests
         assert_split_sorted_transformed_value_arrays_asc(
-            prev_data.public_call_requests,
-            prev_data.public_call_requests.map(|cr: Counted<PublicCallRequest>| cr.inner),
+            prev_data.public_call_requests.array,
+            prev_data.public_call_requests.array.map(|cr: Counted<PublicCallRequest>| cr.inner),
             split_counter,
             output_non_revertible.public_call_requests,
             output_revertible.public_call_requests,
@@ -152,7 +159,9 @@ impl TailToPublicOutputValidator {
             self.output.public_teardown_call_request,
             gas_settings.teardown_gas_limits,
         );
+
         assert_eq(self.output.gas_used, gas_used, "incorrect metered gas used");
+
         assert(gas_used.within(gas_settings.gas_limits), "The gas used exceeds the gas limits");
     }
 }

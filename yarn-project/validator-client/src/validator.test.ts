@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
+import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -22,7 +22,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import type { ValidatorClientConfig } from './config.js';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
@@ -394,6 +394,23 @@ describe('ValidatorClient', () => {
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
+    });
+  });
+
+  describe('configuration', () => {
+    it('should use VALIDATOR_PRIVATE_KEY for validatorPrivateKeys when VALIDATOR_PRIVATE_KEYS is not set', () => {
+      const originalEnv = process.env;
+      const testPrivateKey = '0x' + '1'.repeat(64);
+
+      process.env = {
+        ...originalEnv,
+        VALIDATOR_PRIVATE_KEY: testPrivateKey,
+        VALIDATOR_PRIVATE_KEYS: undefined,
+      };
+
+      const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
+      expect(config.validatorPrivateKeys.getValue()).toHaveLength(1);
+      expect(config.validatorPrivateKeys.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
     });
   });
 });
