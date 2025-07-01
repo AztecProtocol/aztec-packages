@@ -1,88 +1,23 @@
-From 087b6fd3239706dc74d241ce607ba7ef02148bfc Mon Sep 17 00:00:00 2001
-From: Ary Borenszweig <asterite@gmail.com>
-Date: Mon, 30 Jun 2025 16:25:29 -0300
-Subject: [PATCH] Patch
+From e17834fb9768e2d5cfc053e4ce8c82da0586a099 Mon Sep 17 00:00:00 2001
+From: TomAFrench <tom@tomfren.ch>
+Date: Sat, 15 Mar 2025 15:36:12 +0000
+Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
 
 ---
- .../noir_codegen/src/utils/demonomorphizer.ts | 11 +++++++++-
- .../src/utils/typings_generator.ts            | 22 ++++++++++++++-----
- tooling/noir_codegen/tsconfig.json            |  1 +
- 3 files changed, 27 insertions(+), 7 deletions(-)
+ tooling/noir_codegen/tsconfig.json | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/tooling/noir_codegen/src/utils/demonomorphizer.ts b/tooling/noir_codegen/src/utils/demonomorphizer.ts
-index 2b33b57455..3f5887b3cb 100644
---- a/tooling/noir_codegen/src/utils/demonomorphizer.ts
-+++ b/tooling/noir_codegen/src/utils/demonomorphizer.ts
-@@ -199,7 +199,16 @@ export class Demonomorphizer {
-           const unifiedStruct = structs[0];
-
-           if (!structs.every((struct) => struct.args.length === unifiedStruct.args.length)) {
--            throw new Error('Same struct with different number of args encountered');
-+            let message = "Same struct with different number of args encountered: ";
-+            structs.forEach(function(struct) {
-+              message += `${struct.structType.path} (`;
-+              struct.args.forEach(function(arg) {
-+                message += `${arg.kind}, `;
-+              })
-+              message += '), ';
-+            });
-+
-+            throw new Error(message);
-           }
-           for (let i = 0; i < unifiedStruct.args.length; i++) {
-             const argTypes = structs.map((struct) => struct.args[i]);
-diff --git a/tooling/noir_codegen/src/utils/typings_generator.ts b/tooling/noir_codegen/src/utils/typings_generator.ts
-index 886ae8b7c5..69dce814df 100644
---- a/tooling/noir_codegen/src/utils/typings_generator.ts
-+++ b/tooling/noir_codegen/src/utils/typings_generator.ts
-@@ -98,7 +98,7 @@ export class TypingsGenerator {
-   ) {
-     // Map all the types used in the ABIs to the demonomorphized types
-     for (const { abi, circuitName, artifact } of circuits) {
--      const params = abi.parameters.map((param) => {
-+      const params = abi.parameters.map((param) => {
-         const type = mapAbiTypeToAbiTypeWithGenerics(param.type, this.allTypes);
-         return { name: param.name, type };
-       });
-@@ -109,11 +109,21 @@ export class TypingsGenerator {
-         this.demonomorphizedAbis.push({ circuitName, params, artifact });
-       }
-     }
--    // Demonomorphize the types
--    Demonomorphizer.demonomorphize(this.allTypes, {
--      leaveArrayLengthsUnbounded: !useFixedLengthArrays,
--      leaveStringLengthsUnbounded: true,
--    });
-+
-+    try {
-+      // Demonomorphize the types
-+      Demonomorphizer.demonomorphize(this.allTypes, {
-+        leaveArrayLengthsUnbounded: !useFixedLengthArrays,
-+        leaveStringLengthsUnbounded: true,
-+      });
-+    } catch(error) {
-+      console.error("Failed to demonomorphize types. The ABIs are:");
-+      for (const { abi, circuitName, artifact } of circuits) {
-+        console.error(JSON.stringify(abi, null, 2));
-+      }
-+      throw error;
-+
-+    }
-   }
-
-   public codegen(): string {
 diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
-index 30dd2a7ee5..223eb568a2 100644
+index 30dd2a7ee..a2712fd73 100644
 --- a/tooling/noir_codegen/tsconfig.json
 +++ b/tooling/noir_codegen/tsconfig.json
 @@ -10,6 +10,7 @@
      "resolveJsonModule": true,
      "strict": true,
      "noImplicitAny": false,
-+    "skipLibCheck": true,
++    "skipLibCheck": true
    },
    "include": [
      "src/**/*.ts"
 --
-2.45.2
-
+2.43.0
