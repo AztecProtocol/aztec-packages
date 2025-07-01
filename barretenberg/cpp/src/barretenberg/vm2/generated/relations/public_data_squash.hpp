@@ -41,7 +41,7 @@ template <typename FF_> class public_data_squashImpl {
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_CONDITION
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp = in.get(C::public_data_squash_sel_shift) * (FF(1) - in.get(C::public_data_squash_sel)) *
                        (FF(1) - in.get(C::precomputed_first_row));
@@ -62,7 +62,7 @@ template <typename FF_> class public_data_squashImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // CHECK_SAME_LEAF_SLOT
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = public_data_squash_NOT_END * (FF(1) - in.get(C::public_data_squash_leaf_slot_increase)) *
                        (in.get(C::public_data_squash_leaf_slot) - in.get(C::public_data_squash_leaf_slot_shift));
@@ -106,9 +106,18 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 1:
+            return "START_CONDITION";
+        case 4:
+            return "CHECK_SAME_LEAF_SLOT";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_START_CONDITION = 1;
+    static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 4;
 };
 
 } // namespace bb::avm2

@@ -14,12 +14,12 @@ using simulation::PublicDataTreeReadWriteEvent;
 
 namespace {
 
-struct EventWithMetadata {
+struct EventWithDiscard {
     simulation::PublicDataTreeReadWriteEvent event;
     bool discard;
 };
 
-void process_public_data_tree_check_trace(const std::vector<EventWithMetadata>& events_with_metadata,
+void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& events_with_metadata,
                                           const std::unordered_map<FF, uint32_t>& last_nondiscarded_writes,
                                           TraceContainer& trace)
 {
@@ -170,7 +170,7 @@ void PublicDataTreeCheckTraceBuilder::process(
     TraceContainer& trace)
 {
 
-    std::vector<EventWithMetadata> events_with_metadata;
+    std::vector<EventWithDiscard> events_with_metadata;
     std::unordered_map<FF, uint32_t> last_nondiscarded_writes;
 
     events_with_metadata.reserve(events.size());
@@ -184,7 +184,7 @@ void PublicDataTreeCheckTraceBuilder::process(
     // Sort by clk in ascending order (reads will have clk=0)
     std::sort(events_with_metadata.begin(),
               events_with_metadata.end(),
-              [](const EventWithMetadata& a, const EventWithMetadata& b) {
+              [](const EventWithDiscard& a, const EventWithDiscard& b) {
                   return a.event.execution_id < b.event.execution_id;
               });
 

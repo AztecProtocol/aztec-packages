@@ -46,7 +46,7 @@ template <typename FF_> class public_data_checkImpl {
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_CONDITION
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp = in.get(C::public_data_check_sel_shift) * (FF(1) - in.get(C::public_data_check_sel)) *
                        (FF(1) - in.get(C::precomputed_first_row));
@@ -196,7 +196,7 @@ template <typename FF_> class public_data_checkImpl {
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // WRITE_IDX_INITIAL_VALUE
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::public_data_check_sel)) * in.get(C::public_data_check_sel_shift) *
                        (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX -
@@ -218,7 +218,7 @@ template <typename FF_> class public_data_checkImpl {
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // WRITE_IDX_INCREMENT
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::public_data_check_not_end) *
@@ -237,6 +237,8 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case 1:
+            return "START_CONDITION";
         case 10:
             return "EXISTS_FLAG_CHECK";
         case 12:
@@ -251,11 +253,16 @@ template <typename FF> class public_data_check : public Relation<public_data_che
             return "VALUE_IS_CORRECT";
         case 19:
             return "UPDATE_ROOT_VALIDATION";
+        case 20:
+            return "WRITE_IDX_INITIAL_VALUE";
+        case 23:
+            return "WRITE_IDX_INCREMENT";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_START_CONDITION = 1;
     static constexpr size_t SR_EXISTS_FLAG_CHECK = 10;
     static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 12;
     static constexpr size_t SR_LOW_LEAF_VALUE_UPDATE = 13;
@@ -263,6 +270,8 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 15;
     static constexpr size_t SR_VALUE_IS_CORRECT = 17;
     static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 19;
+    static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 20;
+    static constexpr size_t SR_WRITE_IDX_INCREMENT = 23;
 };
 
 } // namespace bb::avm2

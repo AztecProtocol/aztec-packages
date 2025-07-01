@@ -9,6 +9,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/public_data_check.hpp"
@@ -21,11 +22,15 @@
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/testing/public_inputs_builder.hpp"
 #include "barretenberg/vm2/testing/test_tree.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
+#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
+#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -123,6 +128,7 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
         poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    RangeCheckTraceBuilder range_check_builder;
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
@@ -148,21 +154,13 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
                                                      .nextAvailableLeafIndex = 128,
                                                  });
 
+    range_check_builder.process(range_check_emitter.dump_events(), trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_low_leaf_slot_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_next_slot_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_merkle_check::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_merkle_check::Settings>().process(trace);
+    constraining::check_all_interactions<PublicDataTreeCheckTraceBuilder>(trace);
 }
 
 INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckTracegenTest,
@@ -171,6 +169,18 @@ INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckTracegenTest,
 
 TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
 {
+    FF slot = 40;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    FF new_value = 27;
+    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+
+    AvmAccumulatedData accumulated_data = {};
+    accumulated_data.publicDataWrites[0] = PublicDataWrite{
+        .leafSlot = leaf_slot,
+        .value = new_value,
+    };
+
+    auto test_public_inputs = testing::PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
     ExecutionIdManager execution_id_manager(0);
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
@@ -191,15 +201,13 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
         poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    RangeCheckTraceBuilder range_check_builder;
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
-    PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
-
-    FF slot = 40;
-    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
-    FF new_value = 27;
-    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+    PrecomputedTraceBuilder precomputed_builder;
+    PublicInputsTraceBuilder public_inputs_builder;
+    PublicDataTreeCheckTraceBuilder public_data_tree_builder;
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 1), 0, 0);
     FF low_leaf_hash = poseidon2::hash(low_leaf.get_hash_inputs());
@@ -234,25 +242,35 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
                                                                                     false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
+    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    public_inputs_builder.process_public_inputs(trace, test_public_inputs);
+    public_inputs_builder.process_public_inputs_aux_precomputed(trace);
+    range_check_builder.process(range_check_emitter.dump_events(), trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
-    public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
+    public_data_tree_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_low_leaf_slot_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_next_slot_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_merkle_check::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_merkle_check::Settings>().process(trace);
+    constraining::check_all_interactions<PublicDataTreeCheckTraceBuilder>(trace);
 }
 
-TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
+TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
 {
+    FF slot = 42;
+    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
+    FF new_value = 27; // Will get squashed
+    FF updated_value = 28;
+    FF low_leaf_slot = 40;
+    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
+
+    AvmAccumulatedData accumulated_data = {};
+    accumulated_data.publicDataWrites[0] = PublicDataWrite{
+        .leafSlot = leaf_slot,
+        .value = updated_value,
+    };
+
+    auto test_public_inputs = testing::PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
+
     ExecutionIdManager execution_id_manager(0);
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
@@ -273,16 +291,13 @@ TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
         poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    RangeCheckTraceBuilder range_check_builder;
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    PublicInputsTraceBuilder public_inputs_builder;
     PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
-
-    FF slot = 42;
-    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
-    FF new_value = 27;
-    FF low_leaf_slot = 40;
-    TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(low_leaf_slot, 1), 0, 0);
     FF low_leaf_hash = poseidon2::hash(low_leaf.get_hash_inputs());
@@ -310,32 +325,57 @@ TEST(PublicDataTreeCheckTracegenTest, WriteNotExistsWithInteractions)
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
                                 .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
-                                                                                    contract_address,
-                                                                                    new_value,
-                                                                                    low_leaf,
-                                                                                    low_leaf_index,
-                                                                                    low_leaf_sibling_path,
-                                                                                    prev_snapshot,
-                                                                                    insertion_sibling_path,
-                                                                                    false);
-    EXPECT_EQ(next_snapshot, result_snapshot);
+    AppendOnlyTreeSnapshot snapshot_after_insertion = public_data_tree_check_simulator.write(slot,
+                                                                                             contract_address,
+                                                                                             new_value,
+                                                                                             low_leaf,
+                                                                                             low_leaf_index,
+                                                                                             low_leaf_sibling_path,
+                                                                                             prev_snapshot,
+                                                                                             insertion_sibling_path,
+                                                                                             false);
+    EXPECT_EQ(next_snapshot, snapshot_after_insertion);
 
+    low_leaf_index = prev_snapshot.nextAvailableLeafIndex;
+    prev_snapshot = snapshot_after_insertion;
+
+    low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), 0, 0);
+    low_leaf_hash = poseidon2::hash(low_leaf.get_hash_inputs());
+    public_data_tree.update_element(low_leaf_index, low_leaf_hash);
+    low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
+
+    updated_low_leaf = low_leaf;
+    updated_low_leaf.leaf.value = updated_value;
+    updated_low_leaf_hash = poseidon2::hash(updated_low_leaf.get_hash_inputs());
+    public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
+
+    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+
+    // No insertion happens
+    next_snapshot = AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
+                                            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
+
+    AppendOnlyTreeSnapshot snapshot_after_update = public_data_tree_check_simulator.write(slot,
+                                                                                          contract_address,
+                                                                                          updated_value,
+                                                                                          low_leaf,
+                                                                                          low_leaf_index,
+                                                                                          low_leaf_sibling_path,
+                                                                                          prev_snapshot,
+                                                                                          insertion_sibling_path,
+                                                                                          true);
+    EXPECT_EQ(next_snapshot, snapshot_after_update);
+
+    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    public_inputs_builder.process_public_inputs(trace, test_public_inputs);
+    public_inputs_builder.process_public_inputs_aux_precomputed(trace);
+    range_check_builder.process(range_check_emitter.dump_events(), trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_low_leaf_slot_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_next_slot_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_merkle_check::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_merkle_check::Settings>().process(trace);
+    constraining::check_all_interactions<PublicDataTreeCheckTraceBuilder>(trace);
 }
 
 } // namespace

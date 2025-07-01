@@ -22,6 +22,7 @@ namespace public_data_squash;
     sel = 0;
 
     // We can only activate next sel if the current row is on or is the first row
+    #[START_CONDITION]
     sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
     pol END = sel * (1 - sel');
     pol NOT_END = sel * sel';
@@ -37,6 +38,7 @@ namespace public_data_squash;
     pol commit leaf_slot_increase;
     leaf_slot_increase * (1 - leaf_slot_increase) = 0;
     // !end && !leaf_slot_increase ==> next leaf_slot is the same
+    #[CHECK_SAME_LEAF_SLOT]
     NOT_END * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0;
 
     // Disabled sorting lookups for now

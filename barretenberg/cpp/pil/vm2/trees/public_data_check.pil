@@ -67,6 +67,7 @@ namespace public_data_check;
     sel = 0;
 
     // We can only activate next sel if the current row is on or is the first row
+    #[START_CONDITION]
     sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
     pol commit not_end;
     not_end = sel * sel';
@@ -235,6 +236,7 @@ namespace public_data_check;
     // ========= WRITE TO PUBLIC INPUTS =========
     pol commit write_idx;
     // Starts at AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX
+    #[WRITE_IDX_INITIAL_VALUE]
     (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX - write_idx') = 0;
 
     // If a write with discard = 0, we permute to the public data squash trace to get write to public inputs
@@ -256,6 +258,7 @@ namespace public_data_check;
     };
 
     // Next write index = if should_write_to_public_inputs { write_idx + 1 } else { write_idx }
+    #[WRITE_IDX_INCREMENT]
     not_end * (write_idx + should_write_to_public_inputs - write_idx') = 0;
 
     #[WRITE_PUBLIC_DATA_TO_PUBLIC_INPUTS]

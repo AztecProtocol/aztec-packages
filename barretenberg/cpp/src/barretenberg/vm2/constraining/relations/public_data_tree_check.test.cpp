@@ -60,6 +60,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using public_data_check = bb::avm2::public_data_check<FF>;
+using public_data_squash = bb::avm2::public_data_squash<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 AztecAddress contract_address = 1;
@@ -145,13 +146,37 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
     check_relation<public_data_check>(trace);
+    check_relation<public_data_squash>(trace);
 }
 
-INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckConstrainingTest,
+INSTANTIATE_TEST_SUITE_P(PublicDataTreeConstrainingTest,
                          PublicDataReadPositiveTests,
                          ::testing::ValuesIn(positive_tests));
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeExistsFlagCheck)
+TEST(PublicDataTreeConstrainingTest, NegativeStartCondition)
+{
+    // Test constraint: sel' * (1 - sel) * (1 - precomputed.first_row) = 0
+    TestTraceContainer trace({ {
+                                   { C::public_data_check_sel, 0 },
+                                   { C::precomputed_first_row, 1 },
+                               },
+                               {
+                                   { C::public_data_check_sel, 1 },
+                               },
+                               {
+                                   { C::public_data_check_sel, 1 },
+                               } });
+
+    check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION);
+
+    // Invalid: sel can't be activated if prev is not the first row
+    trace.set(C::precomputed_first_row, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_START_CONDITION),
+                              "START_CONDITION");
+}
+
+TEST(PublicDataTreeConstrainingTest, NegativeExistsFlagCheck)
 {
     // Test constraint: sel * (LEAF_SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - leaf_slot_low_leaf_slot_diff_inv) +
     // leaf_slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0
@@ -182,7 +207,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeExistsFlagCheck)
                               "EXISTS_FLAG_CHECK");
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeNextSlotIsZero)
+TEST(PublicDataTreeConstrainingTest, NegativeNextSlotIsZero)
 {
     // Test constraint: leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) +
     // next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0
@@ -215,7 +240,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeNextSlotIsZero)
                               "NEXT_SLOT_IS_ZERO_CHECK");
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeValueIsCorrect)
+TEST(PublicDataTreeConstrainingTest, NegativeValueIsCorrect)
 {
     // Test constraint: leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) +
     // next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0
@@ -248,7 +273,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeValueIsCorrect)
                               "VALUE_IS_CORRECT");
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
+TEST(PublicDataTreeConstrainingTest, PositiveWriteExists)
 {
     ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
@@ -318,37 +343,36 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
     check_relation<public_data_check>(trace);
+    check_relation<public_data_squash>(trace);
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
+TEST(PublicDataTreeConstrainingTest, PositiveWriteAndUpdate)
 {
     ExecutionIdManager execution_id_manager(0);
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
-    EventEmitter<RangeCheckEvent> range_check_emitter;
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
     RangeCheck range_check(range_check_emitter);
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
-    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
+    NoopEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
         poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
-    Poseidon2TraceBuilder poseidon2_builder;
-    MerkleCheckTraceBuilder merkle_check_builder;
-    FieldGreaterThanTraceBuilder field_gt_builder;
     PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
 
     FF slot = 42;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
-    FF new_value = 27;
+    FF new_value = 27; // Squashed value
+    FF updated_value = 28;
     FF low_leaf_slot = 40;
     TestMemoryTree<Poseidon2HashPolicy> public_data_tree(8, PUBLIC_DATA_TREE_HEIGHT);
 
@@ -378,26 +402,53 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
         AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
                                 .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1 };
 
-    AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check_simulator.write(slot,
-                                                                                    contract_address,
-                                                                                    new_value,
-                                                                                    low_leaf,
-                                                                                    low_leaf_index,
-                                                                                    low_leaf_sibling_path,
-                                                                                    prev_snapshot,
-                                                                                    insertion_sibling_path,
-                                                                                    false);
-    EXPECT_EQ(next_snapshot, result_snapshot);
+    AppendOnlyTreeSnapshot snapshot_after_insertion = public_data_tree_check_simulator.write(slot,
+                                                                                             contract_address,
+                                                                                             new_value,
+                                                                                             low_leaf,
+                                                                                             low_leaf_index,
+                                                                                             low_leaf_sibling_path,
+                                                                                             prev_snapshot,
+                                                                                             insertion_sibling_path,
+                                                                                             false);
+    EXPECT_EQ(next_snapshot, snapshot_after_insertion);
 
-    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
-    field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
+    low_leaf_index = prev_snapshot.nextAvailableLeafIndex;
+    prev_snapshot = snapshot_after_insertion;
+
+    low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, new_value), 0, 0);
+    low_leaf_hash = poseidon2::hash(low_leaf.get_hash_inputs());
+    public_data_tree.update_element(low_leaf_index, low_leaf_hash);
+    low_leaf_sibling_path = public_data_tree.get_sibling_path(low_leaf_index);
+
+    updated_low_leaf = low_leaf;
+    updated_low_leaf.leaf.value = updated_value;
+    updated_low_leaf_hash = poseidon2::hash(updated_low_leaf.get_hash_inputs());
+    public_data_tree.update_element(low_leaf_index, updated_low_leaf_hash);
+
+    insertion_sibling_path = public_data_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
+
+    // No insertion happens
+    next_snapshot = AppendOnlyTreeSnapshot{ .root = public_data_tree.root(),
+                                            .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex };
+
+    AppendOnlyTreeSnapshot snapshot_after_update = public_data_tree_check_simulator.write(slot,
+                                                                                          contract_address,
+                                                                                          updated_value,
+                                                                                          low_leaf,
+                                                                                          low_leaf_index,
+                                                                                          low_leaf_sibling_path,
+                                                                                          prev_snapshot,
+                                                                                          insertion_sibling_path,
+                                                                                          true);
+    EXPECT_EQ(next_snapshot, snapshot_after_update);
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
     check_relation<public_data_check>(trace);
+    check_relation<public_data_squash>(trace);
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafValueUpdate)
+TEST(PublicDataTreeConstrainingTest, NegativeLowLeafValueUpdate)
 {
     // Test constraint: write * ((low_leaf_value - value) * leaf_not_exists + value - updated_low_leaf_value) = 0
     TestTraceContainer trace({
@@ -433,7 +484,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafValueUpdate)
                               "LOW_LEAF_VALUE_UPDATE");
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
+TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextIndexUpdate)
 {
     // Test constraint: write * ((tree_size_before_write - low_leaf_next_index) * leaf_not_exists + low_leaf_next_index
     // - updated_low_leaf_next_index) = 0
@@ -472,7 +523,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
         "LOW_LEAF_NEXT_INDEX_UPDATE");
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextSlotUpdate)
+TEST(PublicDataTreeConstrainingTest, NegativeLowLeafNextSlotUpdate)
 {
     // Test constraint: write * ((leaf_slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot -
     // updated_low_leaf_next_slot) = 0
@@ -509,7 +560,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextSlotUpdate)
                               "LOW_LEAF_NEXT_SLOT_UPDATE");
 }
 
-TEST(PublicDataTreeCheckConstrainingTest, NegativeUpdateRootValidation)
+TEST(PublicDataTreeConstrainingTest, NegativeUpdateRootValidation)
 {
     // Test constraint: (1 - leaf_not_exists) * write * (write_root - intermediate_root) = 0
     TestTraceContainer trace({
@@ -534,6 +585,111 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeUpdateRootValidation)
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_UPDATE_ROOT_VALIDATION),
                               "UPDATE_ROOT_VALIDATION");
+}
+
+TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxInitialValue)
+{
+    // Test constraint: (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX
+    // - write_idx') = 0
+    TestTraceContainer trace(
+        { {
+              { C::public_data_check_sel, 0 },
+          },
+          {
+              { C::public_data_check_sel, 1 },
+              { C::public_data_check_write_idx, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX },
+          } });
+
+    check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INITIAL_VALUE);
+
+    // Invalid, if sel goes from 0 to 1, the write_idx should be the initial value
+    trace.set(C::public_data_check_write_idx, 1, 27);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INITIAL_VALUE),
+                              "WRITE_IDX_INITIAL_VALUE");
+}
+
+TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
+{
+    // Test constraint: not_end * (write_idx + should_write_to_public_inputs - write_idx') = 0
+    TestTraceContainer trace({
+        {
+            { C::public_data_check_not_end, 1 },
+            { C::public_data_check_write_idx, 5 },
+            { C::public_data_check_should_write_to_public_inputs, 1 },
+        },
+        {
+            { C::public_data_check_not_end, 1 },
+            { C::public_data_check_write_idx, 6 },
+            { C::public_data_check_should_write_to_public_inputs, 0 },
+        },
+        {
+            { C::public_data_check_write_idx, 6 },
+        },
+    });
+
+    check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT);
+
+    // Invalid, if should_write_to_public_inputs is 0, the write_idx should not increment
+    trace.set(C::public_data_check_should_write_to_public_inputs, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT),
+                              "WRITE_IDX_INCREMENT");
+
+    // Invalid, if should_write_to_public_inputs is 1, the write_idx should increment
+    trace.set(C::public_data_check_should_write_to_public_inputs, 0, 1);
+    trace.set(C::public_data_check_should_write_to_public_inputs, 1, 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_WRITE_IDX_INCREMENT),
+                              "WRITE_IDX_INCREMENT");
+}
+
+// Squashing subtrace
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeStartCondition)
+{
+    // Test constraint: sel' * (1 - sel) * (1 - precomputed.first_row) = 0
+    TestTraceContainer trace({ {
+                                   { C::public_data_squash_sel, 0 },
+                                   { C::precomputed_first_row, 1 },
+                               },
+                               {
+                                   { C::public_data_squash_sel, 1 },
+                               },
+                               {
+                                   { C::public_data_squash_sel, 1 },
+                               } });
+
+    check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION);
+
+    // Invalid: sel can't be activated if prev is not the first row
+    trace.set(C::precomputed_first_row, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_START_CONDITION),
+                              "START_CONDITION");
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeCheckSameLeafSlot)
+{
+    // Test constraint: (sel * sel') * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0
+    TestTraceContainer trace({ {
+                                   { C::public_data_squash_sel, 1 },
+                                   { C::public_data_squash_leaf_slot_increase, 1 },
+                                   { C::public_data_squash_leaf_slot, 27 },
+                               },
+                               {
+                                   { C::public_data_squash_sel, 1 },
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                                   { C::public_data_squash_leaf_slot, 40 },
+                               } });
+
+    check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_SAME_LEAF_SLOT);
+
+    // Invalid: if leaf_slot_increase is 0, the leaf_slot should not be different from the previous leaf_slot
+    trace.set(C::public_data_squash_leaf_slot_increase, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CHECK_SAME_LEAF_SLOT),
+                              "CHECK_SAME_LEAF_SLOT");
 }
 
 } // namespace
