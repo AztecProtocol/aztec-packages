@@ -26,10 +26,65 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
+      - name: Check if PR has auto-merge enabled
+        id: check-auto-merge
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const trainBranch = '${{ matrix.train-branch }}';
+            
+            // Find PR for this merge-train branch
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${trainBranch}`
+            });
+            
+            if (pulls.length > 0) {
+              const pr = pulls[0];
+              
+              // Check if PR has auto-merge enabled using GraphQL
+              const { repository } = await github.graphql(`
+                query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      autoMergeRequest {
+                        enabledAt
+                      }
+                    }
+                  }
+                }
+              `, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                number: pr.number
+              });
+              
+              const hasAutoMerge = repository.pullRequest.autoMergeRequest !== null;
+              console.log(`PR #${pr.number} auto-merge status: ${hasAutoMerge}`);
+              core.setOutput('has_auto_merge', hasAutoMerge);
+              core.setOutput('pr_number', pr.number);
+            } else {
+              console.log(`No open PR found for branch ${trainBranch}`);
+              core.setOutput('has_auto_merge', false);
+              core.setOutput('pr_number', '');
+            }
+
       - name: Checkout and merge
         id: merge
         run: |
           TRAIN_BRANCH="${{ matrix.train-branch }}"
+          HAS_AUTO_MERGE="${{ steps.check-auto-merge.outputs.has_auto_merge }}"
+          PR_NUMBER="${{ steps.check-auto-merge.outputs.pr_number }}"
+          
+          # Skip if auto-merge is enabled
+          if [ "$HAS_AUTO_MERGE" = "true" ]; then
+            echo "PR #$PR_NUMBER has auto-merge enabled, skipping merge from next"
+            echo "merge_success=skip" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           # Check if branch exists
           if git ls-remote --exit-code --heads origin $TRAIN_BRANCH; then
