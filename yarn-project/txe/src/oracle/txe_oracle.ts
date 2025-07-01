@@ -125,6 +125,7 @@ import {
   TxConstantData,
   TxContext,
   TxEffect,
+  TxExecutionRequest,
   TxHash,
   collectNested,
 } from '@aztec/stdlib/tx';
@@ -714,14 +715,10 @@ export class TXE implements TypedOracle {
 
     let i = 0;
     const uniqueNoteHashesFromPrivate = await Promise.all(
-      this.noteCache
-        .getAllNotes()
-        .map(async pendingNote =>
-          computeUniqueNoteHash(
-            await computeNoteHashNonce(nonceGenerator, i++),
-            await siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption),
-          ),
-        ),
+      this.noteCache.getAllNotes().map(async pendingNote => {
+        const siloedNoteHash = await siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption);
+        return computeUniqueNoteHash(await computeNoteHashNonce(nonceGenerator, i++), siloedNoteHash);
+      }),
     );
     txEffect.noteHashes = [...uniqueNoteHashesFromPrivate, ...this.uniqueNoteHashesFromPublic];
 

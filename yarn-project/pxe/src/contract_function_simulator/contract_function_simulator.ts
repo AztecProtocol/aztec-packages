@@ -268,7 +268,8 @@ export async function generateSimulatedProvingResult(
 
   let publicTeardownCallRequest;
 
-  let noteHashIndexInTx = 0;
+  // See TODO on line 285
+  //let noteHashIndexInTx = 0;
   const executions = [privateExecutionResult.entrypoint];
 
   while (executions.length !== 0) {
@@ -281,10 +282,15 @@ export async function generateSimulatedProvingResult(
       execution.publicInputs.noteHashes
         .filter(noteHash => !noteHash.isEmpty())
         .map(async noteHash => {
-          const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
+          // TODO: Once we properly implement revertible/non-revertible side effects,
+          // we have to compute the unique note hash for non-revertible notes.
+          // Leaving this as a reference because this is obscure af.
+          //const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
           const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
-          // We could defer this to the public processor, and pass this in as non-revertible.
-          return new OrderedSideEffect(await computeUniqueNoteHash(nonce, siloedNoteHash), noteHash.counter);
+          return new OrderedSideEffect(
+            /*await computeUniqueNoteHash(nonce, siloedNoteHash)*/ siloedNoteHash,
+            noteHash.counter,
+          );
         }),
     );
 
@@ -362,9 +368,14 @@ export async function generateSimulatedProvingResult(
   const sortByCounter = <T>(a: OrderedSideEffect<T>, b: OrderedSideEffect<T>) => a.counter - b.counter;
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
-  const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
-  if (sortedNullifiers.length === 0) {
-    sortedNullifiers.push(nonceGenerator);
+  let sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+  // If the nullifier array contains the nonce generator in position 0
+  // (meaning the latter is the first nullifier in the tx), we remove it
+  // as we will add it as the first non-revertible nullifier later.
+  // This is because public processor will use that first non-revertible nullifier
+  // as the nonce generator for the note hashes in the revertible part of the tx.
+  if (sortedNullifiers[0] === nonceGenerator) {
+    sortedNullifiers = sortedNullifiers.slice(1);
   }
 
   // Private only
@@ -408,9 +419,12 @@ export async function generateSimulatedProvingResult(
       ),
     );
 
+    const nonRevertibleData = PrivateToPublicAccumulatedData.empty();
+    nonRevertibleData.nullifiers[0] = nonceGenerator;
+
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
       // nonrevertible
-      PrivateToPublicAccumulatedData.empty(),
+      nonRevertibleData,
       // revertible
       accumulatedDataForPublic,
       publicTeardownCallRequest ?? PublicCallRequest.empty(),
