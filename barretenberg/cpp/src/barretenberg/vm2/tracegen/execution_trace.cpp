@@ -544,8 +544,7 @@ void ExecutionTraceBuilder::process(
                 // rop[1] is the envvar enum
                 TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
-            }
-            if (exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::INTERNALRETURN) {
+            } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
                           ex_event.before_context_event.internal_call_return_id != 0

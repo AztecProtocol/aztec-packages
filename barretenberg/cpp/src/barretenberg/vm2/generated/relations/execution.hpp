@@ -13,9 +13,9 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 32> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 2, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 5, 6, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 2, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 5, 6, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -32,6 +32,7 @@ template <typename FF_> class executionImpl {
     {
         using C = ColumnAndShifts;
 
+        const auto constants_MEM_TAG_U1 = FF(1);
         const auto constants_AVM_EXEC_OP_ID_GETENVVAR = FF(1);
         const auto constants_AVM_EXEC_OP_ID_SET = FF(2);
         const auto constants_AVM_EXEC_OP_ID_MOV = FF(4);
@@ -262,18 +263,32 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SUCCESS_COPY_WRITE_REG
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_should_write_registers) -
-                        in.get(C::execution_should_execute_opcode) * (FF(1) - in.get(C::execution_sel_opcode_error)));
+            auto tmp = in.get(C::execution_sel_success_copy) *
+                       (in.get(C::execution_register_0_) - in.get(C::execution_last_child_success));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SUCCESS_COPY_U1_TAG
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            auto tmp =
+                in.get(C::execution_sel_success_copy) * (in.get(C::execution_mem_tag_reg_0_) - constants_MEM_TAG_U1);
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_should_write_registers) -
+                        in.get(C::execution_should_execute_opcode) * (FF(1) - in.get(C::execution_sel_opcode_error)));
+            tmp *= scaling_factor;
+            std::get<32>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            tmp *= scaling_factor;
+            std::get<33>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -303,6 +318,10 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "MOV_SAME_VALUE";
         case 29:
             return "MOV_SAME_TAG";
+        case 30:
+            return "SUCCESS_COPY_WRITE_REG";
+        case 31:
+            return "SUCCESS_COPY_U1_TAG";
         }
         return std::to_string(index);
     }
@@ -317,6 +336,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 27;
     static constexpr size_t SR_MOV_SAME_VALUE = 28;
     static constexpr size_t SR_MOV_SAME_TAG = 29;
+    static constexpr size_t SR_SUCCESS_COPY_WRITE_REG = 30;
+    static constexpr size_t SR_SUCCESS_COPY_U1_TAG = 31;
 };
 
 } // namespace bb::avm2

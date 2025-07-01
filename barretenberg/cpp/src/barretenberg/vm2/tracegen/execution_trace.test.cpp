@@ -793,5 +793,39 @@ TEST(ExecutionTraceGenTest, Mov8)
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
 }
 
+TEST(ExecutionTraceGenTest, SuccessCopy)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::SUCCESSCOPY)
+                           .operand<uint8_t>(45) // Dst Offset
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = { 
+        .wire_instruction = instr,
+        .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
+        .addressing_event = { 
+            .instruction = instr,
+            .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
+        },
+        .after_context_event = { .last_child_success = true }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the success copy
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_success_copy, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 45), // Dst Offset
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U1=*/1), // Memory tag for dst
+                          ROW_FIELD_EQ(execution_last_child_success, 1),    // last_child_success = true
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SUCCESSCOPY))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen
