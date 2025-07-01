@@ -209,7 +209,7 @@ function run {
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
     # Save GCP_SA_KEY to a file if set
-    if [ -n "$GCP_SA_KEY" ]; then
+    if [[ -n "$GCP_SA_KEY" ]]; then
       echo "$GCP_SA_KEY" > /tmp/gcp-key.json
       echo "GCP_SA_KEY saved to /tmp/gcp-key.json"
     fi
