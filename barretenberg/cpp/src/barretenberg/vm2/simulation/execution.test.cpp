@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
@@ -39,6 +40,11 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
+class MockContractInstanceManager : public ContractInstanceManagerInterface {
+  public:
+    MOCK_METHOD(std::optional<ContractInstance>, get_contract_instance, (const FF& contract_address), (override));
+};
+
 class ExecutionSimulationTest : public ::testing::Test {
   protected:
     ExecutionSimulationTest() { ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory)); }
@@ -50,6 +56,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     StrictMock<MockKeccakF1600> keccakf1600;
+    StrictMock<MockContractInstanceManager> contract_instance_manager;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -63,7 +70,8 @@ class ExecutionSimulationTest : public ::testing::Test {
                                     execution_id_manager,
                                     execution_event_emitter,
                                     context_stack_event_emitter,
-                                    keccakf1600);
+                                    keccakf1600,
+                                    contract_instance_manager);
 };
 
 TEST_F(ExecutionSimulationTest, Add)

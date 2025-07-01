@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -59,7 +60,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       Poseidon2Interface& poseidon2,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
-                      UpdateCheckInterface& update_check,
+                      ContractInstanceManagerInterface& contract_instance_manager,
                       uint64_t current_timestamp,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
@@ -69,7 +70,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , poseidon2(poseidon2)
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
-        , update_check(update_check)
+        , contract_instance_manager(contract_instance_manager)
         , current_timestamp(current_timestamp)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
@@ -85,8 +86,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     Poseidon2Interface& poseidon2;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
-    UpdateCheckInterface& update_check;
-    // We need the current timestamp for the update check interaction
+    ContractInstanceManagerInterface& contract_instance_manager;
     uint64_t current_timestamp;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;

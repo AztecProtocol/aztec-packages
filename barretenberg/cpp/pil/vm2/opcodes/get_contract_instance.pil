@@ -1,0 +1,169 @@
+include "../contract_instance_retrieval.pil";
+
+/**
+ * Virtual opcode gadget for GetContractInstance.
+ * Virtual to execution trace.
+ * Interacts with core ContractInstanceRetrieval gadget.
+
+ * Dispatch from execution iff `sel_get_contract_instance && should_execute_opcode`.
+ *
+ * Opcode operands:
+ * - rop[0]: address_offset (input offset operand)
+ * - rop[1]: dst_offset (output offset operand)
+ * - rop[2]: member_enum (immediate operand)
+ * Memory I/O:
+ * - register[0]: M[address_offset} aka address (input - read from memory by execution)
+ *     - address is tagged checked by execution/registers to be FF based on instruction spec.
+ * - register[1]: M[dst_offset] aka exists (output - written to memory by execution)
+ *     - tagged by this virtual gadget to be u1.
+ * - M[rop[1]+1]: M[dst_offset+1] aka memberValue (output - written to memory *manually* here)
+ *     - tagged by this virtual gadget to be FF.
+ *
+ * Errors are indicated via execution's `sel_opcode_error` selector. Possible errors:
+ * - enum value is out of range.
+ * - dst_offset+1 is an out-of-bounds memory offset.
+ *
+ * A precomputed table is used to retrieve the following selectors based on member_enum:
+ * - invalid_member_enum
+ * - is_deployer
+ * - is_class_id
+ * - is_init_hash
+ * +-------+----------------------+---------------+-------------+---------------+
+ * |  Row  | is_valid_member_enum | is_deployer   | is_class_id | is_init_hash  |
+ * | (clk) |                      |               |             |               |
+ * +-------+----------------------+---------------+-------------+---------------+
+ * |   0   |         1            |      1        |      0      |      0        |
+ * |   1   |         1            |      0        |      1      |      0        |
+ * |   2   |         1            |      0        |      0      |      1        |
+ * |   3+  |         0            |      0        |      0      |      0        |
+ * +-------+----------------------+---------------+-------------+---------------+
+ *
+ * If no errors have occured, this gadget interacts with the ContractInstanceRetrieval gadget
+ * to retrieve the contract instance (and a bool indicating whether it exists).
+ *
+ * It lets the standard/generic register logic handle writing the `exists` boolean to memory
+ * at via register[1] (which writes to M[rop[1]] aka M[dst_offset]).
+ *
+ * It manually writes the actual retrieved instance member to memory at M[rop[1]+1]
+ * (aka M[dst_offset+1]).
+ */
+
+namespace execution; // Virtual gadget shares rows with execution
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel_get_contract_instance = 0; // from execution.pil.
+
+    // pol commit sel_get_contract_instance;   // From execution.pil
+    // pol commit should_execute_opcode;       // From execution.pil
+    pol commit sel_should_get_contract_instance;
+    //pol commit sel_opcode_error;               // From execution.pil
+
+    // Should only execute if the opcode has reached dispatch (no earlier errors)
+    #[SHOULD_GET_CONTRACT_INSTANCE]
+    sel_should_get_contract_instance = sel_get_contract_instance * should_execute_opcode;
+
+    // Determine whether the extra write is in-bounds.
+    // This opcode performs a write that isn't checked by execution, namely M[dst_offset+1] = member_value
+    // Execution validates the bounds of anything that ends up in registers, but not this additional
+    // write that is manually performed by this gadget. So, we need validate this extra write.
+    pol commit sel_writes_in_bounds;
+    // If dst_offset = 0xFFFFFFFF (max valid mem offset), then dst_offset+1 is out of bounds.
+    pol commit dst_offset_inv; // helper for setting sel_writes_in_bounds when dst_offset is 0xFFFFFFFF
+    sel_should_get_contract_instance * (/*dst_offset*/rop[1] * (sel_writes_in_bounds * (1 - dst_offset_inv) + dst_offset_inv) - 0xFFFFFFFF + sel_writes_in_bounds) = 0;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // from precomputed.pil's GETENVVAR opcode precomputed columns
+    pol commit is_valid_member_enum;
+    pol commit is_deployer;
+    pol commit is_class_id;
+    pol commit is_init_hash;
+    #[PRECOMPUTED_INFO]
+    sel_writes_in_bounds {
+        /*member_enum=*/ rop[2], // from opcode input operand
+        is_valid_member_enum,
+        is_deployer,
+        is_class_id,
+        is_init_hash
+    } in precomputed.sel_range_8 {
+        precomputed.clk,
+        precomputed.is_valid_member_enum,
+        precomputed.is_deployer,
+        precomputed.is_class_id,
+        precomputed.is_init_hash
+    };
+    // end columns from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns
+    ////////////////////////////////////////////////////////////////////////////
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Error handling
+    // Opcode error if out-of-bounds dst_offset+1 or invalid enum value.
+    sel_opcode_error = (1 - sel_writes_in_bounds) + (1 - is_valid_member_enum);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Main interacction with ContractInstanceRetrieval gadget.
+    pol commit timestamp; // TODO: must be constrained in caller or gadget!
+    // Results (instance members and existence):
+    pol commit deployer_addr;
+    pol commit current_class_id;
+    pol commit init_hash;
+    pol commit exists;
+
+    #[CONTRACT_INSTANCE_RETRIEVAL]
+    is_valid_member_enum {
+        /*address=*/ register[0], // from opcode input operand
+        deployer_addr, // output
+        current_class_id, // output
+        init_hash, // output
+        exists, // output
+        timestamp, // input TODO: must be constrained to be right!
+        execution.public_data_tree_root, // input (from context.pil)
+        execution.nullifier_tree_root // input (from context.pil)
+        // TODO(dbanks12): prev or current roots?
+    } in contract_instance_retrieval.sel {
+        contract_instance_retrieval.address,
+        contract_instance_retrieval.deployer_addr,
+        contract_instance_retrieval.current_class_id,
+        contract_instance_retrieval.init_hash,
+        contract_instance_retrieval.exists,
+        contract_instance_retrieval.timestamp,
+        contract_instance_retrieval.public_data_tree_root,
+        contract_instance_retrieval.nullifier_tree_root
+    };
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Select the correct member to write to memory
+    // Note: is_* selectors are guaranteed to be booleans and mutually exclusive by the precomputed table.
+    pol commit selected_member;
+    selected_member = is_deployer * deployer_addr + is_class_id * current_class_id + is_init_hash * init_hash;
+
+    pol commit member_write_offset;
+    member_write_offset = sel_writes_in_bounds * (/*dst_offset*/rop[1] + 1);
+
+    // TODO(dbanks12): Need to tag exists as u1? Or handled by execution / instruction spec?
+    //#[MEM_TAG_U1]
+    //sel_writes_in_bounds * (execution.mem_tag_reg[1] - constants.MEM_TAG_U1) = 0;
+
+    // Tag member value as FF
+    pol commit write_tag;
+    write_tag = sel_writes_in_bounds * constants.MEM_TAG_FF;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Write to memory
+    // FIXME: this should eventually be a permutation.
+    #[MEM_WRITE_CONTRACT_INSTANCE_MEMBER]
+    is_valid_member_enum {
+        precomputed.clk,
+        /*address=*/ member_write_offset,
+        /*value=*/ selected_member,
+        /*tag=*/ write_tag,
+        /*rw=*/ is_valid_member_enum, // 1: write
+        /*space_id=*/ execution.context_id // from context.pil
+    } in memory.sel {
+        memory.clk,
+        memory.address,
+        memory.value,
+        memory.tag,
+        memory.rw,
+        memory.space_id
+    };

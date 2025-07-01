@@ -9,17 +9,17 @@
 
 namespace bb::avm2 {
 
-template <typename FF_> class bc_retrievalImpl {
+template <typename FF_> class contract_instance_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 3 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::bc_retrieval_sel)).is_zero();
+        return (in.get(C::contract_instance_retrieval_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -30,46 +30,36 @@ template <typename FF_> class bc_retrievalImpl {
     {
         using C = ColumnAndShifts;
 
+        const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
+
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_sel));
+            auto tmp =
+                in.get(C::contract_instance_retrieval_sel) * (FF(1) - in.get(C::contract_instance_retrieval_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::bc_retrieval_sel)) * (FF(1) - in.get(C::precomputed_first_row)) *
-                       in.get(C::bc_retrieval_sel_shift);
+            auto tmp = (FF(1) - in.get(C::contract_instance_retrieval_sel)) *
+                       (FF(1) - in.get(C::precomputed_first_row)) * in.get(C::contract_instance_retrieval_sel_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::bc_retrieval_sel)) * in.get(C::bc_retrieval_sel_shift) *
-                       in.get(C::bc_retrieval_bytecode_id);
+            auto tmp = in.get(C::contract_instance_retrieval_sel) *
+                       (constants_DEPLOYER_CONTRACT_ADDRESS -
+                        in.get(C::contract_instance_retrieval_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * in.get(C::bc_retrieval_sel_shift) *
-                       (in.get(C::bc_retrieval_bytecode_id_shift) - in.get(C::bc_retrieval_bytecode_id));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::bc_retrieval_error) -
-                        in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
 
-template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>> {
+template <typename FF> class contract_instance_retrieval : public Relation<contract_instance_retrievalImpl<FF>> {
   public:
-    static constexpr const std::string_view NAME = "bc_retrieval";
+    static constexpr const std::string_view NAME = "contract_instance_retrieval";
 
     static std::string get_subrelation_label(size_t index)
     {

@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_get_contract_instance.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
@@ -544,6 +545,8 @@ void ExecutionTraceBuilder::process(
                 // rop[1] is the envvar enum
                 TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
+            } else if (exec_opcode == ExecutionOpCode::GETCONTRACTINSTANCE) {
+                process_get_contract_instance_opcode(ex_event.addressing_event, ex_event.output, trace, row);
             } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
@@ -991,6 +994,77 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
               } });
 }
 
+void ExecutionTraceBuilder::process_get_contract_instance_opcode(const simulation::AddressingEvent& addr_event,
+                                                                 const TaggedValue& output,
+                                                                 TraceContainer& trace,
+                                                                 uint32_t row)
+{
+    FF dst_offset = addr_event.resolution_info[1].resolved_operand.as<FF>();
+    ValueTag dst_offset_tag = addr_event.resolution_info[1].resolved_operand.get_tag();
+    assert(dst_offset_tag == ValueTag::U32);
+    FF dst_offset_tag_inv = dst_offset == 0 ? 0 : dst_offset.invert();
+    bool write_in_bounds = dst_offset != 0xFFFFFFFF;
+
+    // If this fn is called, then we "should" get the contract instance
+
+    // Need to tracegen the following columns:
+    //   sel_should_get_contract_instance
+    //
+    //   sel_writes_in_bounds
+    //   dst_offset_inv
+    //
+    //   (from precomputed table helper fn...)
+    //   is_valid_member_enum
+    //   is_deployer
+    //   is_class_id
+    //   is_init_hash
+    //
+    //   (how will we get this? I think we need to either get it in in a whole exec column or delegate to gadget)
+    //   timestamp
+    //   (these are going to be problematic.... sim only know about the chosen member, not all 3)
+    //   deployer_addr
+    //   current_class_id
+    //   init_hash
+    //
+    //   exists (opcode output)
+    //
+    //   selected_member
+    //   member_write_offset
+    //   write_tag
+    //
+    // Also need to ensure that register[0] is set properly? Should be done by main loop since it's an input.
+    // regiser[1] gets output. Should also be done by main loop since it's an input.
+    // And opcode error? (should be handled by main loop from event)
+    // How do we figure out whether there is an out-of-bounds error vs invalid member enum? Can we check an
+    // exception type? How do we get timestamp? How is it gotten for getenvvar? And the instance members? Same issue
+    // as getenvvar.... If we get all 3 and only use 1, then execution tracegen needs to know about members that
+    // aren't used in sim....
+    trace.set(row,
+              { {
+                  { C::execution_sel_should_get_contract_instance, 1 },
+                  { C::execution_sel_writes_in_bounds, write_in_bounds ? 1 : 0 },
+                  { C::execution_dst_offset_inv, dst_offset_tag_inv },
+                  // From precomputed table
+                  { C::execution_is_valid_member_enum, 1 },
+                  { C::execution_is_deployer, 1 },
+                  { C::execution_is_class_id, 1 },
+                  { C::execution_is_init_hash, 1 },
+                  // From globals
+                  { C::execution_timestamp, 1 },
+                  // From contract instance retrieval
+                  { C::execution_deployer_addr, 1 },
+                  { C::execution_current_class_id, 1 },
+                  { C::execution_init_hash, 1 },
+                  { C::execution_exists, output.as_ff() },
+                  // Writing results
+                  { C::execution_selected_member, 1 }, // where do we get this.... it's not in execution event
+                  { C::execution_member_write_offset, 1 },
+                  { C::execution_write_tag, static_cast<uint8_t>(ValueTag::FF) },
+                  // Tag for dst_offset (`exists` boolean)
+                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U1) },
+              } });
+}
+
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution
@@ -1039,6 +1113,11 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
+        // GetContractInstance opcode
+        .add<lookup_get_contract_instance_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_get_contract_instance_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
+        .add<lookup_get_contract_instance_mem_write_contract_instance_member_settings,
+             InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

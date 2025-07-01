@@ -282,6 +282,65 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, success);
 }
 
+void Execution::get_contract_instance(ContextInterface& context,
+                                      MemoryAddress address_offset,
+                                      MemoryAddress dst_offset,
+                                      uint8_t member_enum)
+{
+    constexpr auto opcode = ExecutionOpCode::GETCONTRACTINSTANCE;
+    auto& memory = context.get_memory();
+
+    // Read the contract address from memory
+    auto address_value = memory.get(address_offset);
+    FF contract_address = address_value.as<FF>(); // tag checks to be FF
+    set_and_validate_inputs(opcode, { address_value });
+
+    // Check dst_offset+1 to ensure it is in-bounds for the write M[dst_offset+1] = result
+    if (dst_offset == 0xFFFFFFFF) {
+        throw std::runtime_error("Destination offset out of bounds for contract instance retrieval");
+    }
+    MemoryAddress exists_offset = dst_offset;
+    MemoryAddress result_offset = dst_offset + 1;
+
+    // Retrieve the contract instance using the manager
+    auto maybe_instance = contract_instance_manager.get_contract_instance(contract_address);
+
+    TaggedValue result; // gets tagged as FF
+    bool exists = maybe_instance.has_value();
+    if (!exists) {
+        // Contract instance not found - write zero
+        result = TaggedValue::from<FF>(0);
+    } else {
+        const auto& instance = maybe_instance.value();
+
+        // Extract the requested member based on the enum
+        switch (static_cast<ContractInstanceMember>(member_enum)) {
+        case ContractInstanceMember::DEPLOYER:
+            result = TaggedValue::from<FF>(instance.deployer_addr);
+            break;
+        case ContractInstanceMember::CLASS_ID:
+            result = TaggedValue::from<FF>(instance.current_class_id);
+            break;
+        case ContractInstanceMember::INIT_HASH:
+            result = TaggedValue::from<FF>(instance.initialisation_hash);
+            break;
+        default:
+            throw std::runtime_error("Invalid contract instance member enum");
+        }
+    }
+
+    TaggedValue exists_value = TaggedValue::from<uint1_t>(exists); // tagged as u1
+
+    // Write the result to memory
+    memory.set(exists_offset, exists_value);
+    memory.set(result_offset, result);
+
+    // Only set the value going to dst_offset as the other write (result) doesn't use a register
+    // because it is a an "extra" write to dst_offset+1 rather than the write to dst_offset
+    // which is auto-handdled by register logic.
+    set_output(opcode, exists_value);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -482,6 +541,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SUCCESSCOPY:
         call_with_operands(&Execution::success_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETCONTRACTINSTANCE:
+        call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.
