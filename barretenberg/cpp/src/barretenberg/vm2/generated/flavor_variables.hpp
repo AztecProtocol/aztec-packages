@@ -15,9 +15,9 @@
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
 #include "relations/data_copy.hpp"
+#include "relations/discard.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
-#include "relations/execution_discard.hpp"
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
@@ -35,6 +35,7 @@
 #include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_check.hpp"
 #include "relations/range_check.hpp"
+#include "relations/registers.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
 #include "relations/to_radix.hpp"
@@ -68,6 +69,7 @@
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
+#include "relations/lookups_registers.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_to_radix.hpp"
@@ -102,9 +104,9 @@ struct AvmFlavorVariables {
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
         avm2::data_copy<FF_>,
+        avm2::discard<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
-        avm2::execution_discard<FF_>,
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
@@ -122,6 +124,7 @@ struct AvmFlavorVariables {
         avm2::poseidon2_perm<FF_>,
         avm2::public_data_check<FF_>,
         avm2::range_check<FF_>,
+        avm2::registers<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>,
         avm2::to_radix<FF_>,
@@ -180,6 +183,10 @@ struct AvmFlavorVariables {
         lookup_data_copy_col_read_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
+        lookup_data_copy_range_max_read_size_diff_relation<FF_>,
+        lookup_data_copy_range_read_relation<FF_>,
+        lookup_data_copy_range_reads_left_relation<FF_>,
+        lookup_data_copy_range_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
@@ -369,6 +376,13 @@ struct AvmFlavorVariables {
         lookup_range_check_r5_is_u16_relation<FF_>,
         lookup_range_check_r6_is_u16_relation<FF_>,
         lookup_range_check_r7_is_u16_relation<FF_>,
+        lookup_registers_mem_op_0_relation<FF_>,
+        lookup_registers_mem_op_1_relation<FF_>,
+        lookup_registers_mem_op_2_relation<FF_>,
+        lookup_registers_mem_op_3_relation<FF_>,
+        lookup_registers_mem_op_4_relation<FF_>,
+        lookup_registers_mem_op_5_relation<FF_>,
+        lookup_registers_mem_op_6_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,

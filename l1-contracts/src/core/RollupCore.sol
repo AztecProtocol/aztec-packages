@@ -33,7 +33,11 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {
+  FeeConfigLib,
+  CompressedFeeConfig
+} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 
 /**
  * @title Rollup
@@ -52,6 +56,7 @@ contract RollupCore is
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
+  using FeeConfigLib for CompressedFeeConfig;
 
   uint256 public immutable L1_BLOCK_AT_GENESIS;
 
@@ -125,7 +130,7 @@ contract RollupCore is
   }
 
   function preheatHeaders() external override(IRollupCore) {
-    FeeLib.preheatHeaders();
+    STFLib.preheatHeaders();
   }
 
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
@@ -134,7 +139,7 @@ contract RollupCore is
   }
 
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
-    uint256 currentManaTarget = FeeLib.getStorage().manaTarget;
+    uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
     require(
       _manaTarget >= currentManaTarget,
       Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget)
@@ -157,7 +162,7 @@ contract RollupCore is
     override(IRollupCore)
     onlyOwner
   {
-    FeeLib.getStorage().provingCostPerMana = _provingCostPerMana;
+    FeeLib.updateProvingCostPerMana(_provingCostPerMana);
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config)

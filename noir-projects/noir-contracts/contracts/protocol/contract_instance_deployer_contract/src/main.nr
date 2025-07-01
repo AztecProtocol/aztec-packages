@@ -4,7 +4,6 @@ use aztec::macros::aztec;
 pub contract ContractInstanceDeployer {
     use aztec::{
         macros::{events::event, functions::{private, public, view}, storage::storage},
-        prelude::{Map, SharedMutable},
         protocol_types::{
             address::{AztecAddress, PartialAddress},
             constants::{
@@ -17,6 +16,7 @@ pub contract ContractInstanceDeployer {
             traits::{Serialize, ToField},
             utils::arrays::array_concat,
         },
+        state_vars::{Map, SharedMutable},
     };
     use contract_class_registerer::ContractClassRegisterer;
 
