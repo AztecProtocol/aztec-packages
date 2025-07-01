@@ -296,8 +296,8 @@ case "$cmd" in
 
     # Build both native and wasm benchmark binaries
     parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
+      "build_preset $native_preset --target bb_cli_bench --target bb" \
+      "build_preset wasm-threads --target bb_cli_bench --target bb"
 
     # Download cached flow inputs from the specified commit
     export AZTEC_CACHE_COMMIT=$commit_hash
