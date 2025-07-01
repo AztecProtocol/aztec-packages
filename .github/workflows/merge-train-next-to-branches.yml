@@ -14,6 +14,8 @@ jobs:
         train-branch:
           - merge-train/barretenberg
           - merge-train/docs
+          - merge-train/avm
+          - merge-train/spartan
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -27,8 +29,5 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
 
       - name: Run merge-next script
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          cd ${{ github.workspace }}
-          ./scripts/merge-train/merge-next.sh "${{ matrix.train-branch }}"
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/merge-next.sh "${{ matrix.train-branch }}"
