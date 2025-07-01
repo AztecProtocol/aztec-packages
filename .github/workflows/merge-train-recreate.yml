@@ -1,4 +1,4 @@
-name: Recreate Merge-Train Queue
+name: Merge-Train Recreate
 
 on:
   pull_request:
@@ -8,29 +8,29 @@ jobs:
   recreate:
     if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
 
       - name: Configure Git
         run: |
-          git config --global user.name AztecBot
-          git config --global user.email tech@aztecprotocol.com
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Recreate branch
         env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -xeuo pipefail
-
-          # --- config --------------------------------------------------------
-          git config --global user.name  AztecBot
-          git config --global user.email tech@aztecprotocol.com
-          MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
+          
+	  MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
           BASE="${{ github.event.pull_request.base.ref }}" # usually next
           
           # Fetch latest state

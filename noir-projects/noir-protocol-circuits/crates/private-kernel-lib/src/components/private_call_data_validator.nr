@@ -1,13 +1,12 @@
-mod find_first_revertible_item_index;
+pub(crate) mod find_index_of_first_fully_revertible_private_call_request;
 mod validate_contract_address;
-mod validate_split_ranges;
+mod validate_min_revertible_side_effect_counter;
 
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::ScopedNoteHash,
         private_call_request::PrivateCallRequest,
-        private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
         private_kernel::private_call_data::PrivateCallData,
         public_call_request::PublicCallRequest,
         side_effect::{Ordered, RangeOrdered},
@@ -19,27 +18,27 @@ use dep::types::{
     },
     traits::FromField,
     transaction::tx_request::TxRequest,
-    utils::arrays::find_index_hint,
+    utils::arrays::{ClaimedLengthArray, find_index_hint},
 };
-use find_first_revertible_item_index::find_first_revertible_item_index;
 use validate_contract_address::validate_contract_address;
-use validate_split_ranges::validate_split_ranges;
+use validate_min_revertible_side_effect_counter::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
 
 fn validate_incrementing_counters_within_range<T, let N: u32>(
     counter_start: u32,
     counter_end: u32,
-    items: [T; N],
-    num_items: u32,
+    items: ClaimedLengthArray<T, N>,
 )
 where
     T: Ordered,
 {
+    let num_items = items.length;
     let mut prev_counter = counter_start;
     let mut should_check = true;
+
     for i in 0..N {
         should_check &= i != num_items;
         if should_check {
-            let item = items[i];
+            let item = items.array[i];
             assert(
                 item.counter() > prev_counter,
                 "counter must be larger than the counter of the previous item",
@@ -53,18 +52,19 @@ where
 fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(
     counter_start: u32,
     counter_end: u32,
-    items: [T; N],
-    num_items: u32,
+    items: ClaimedLengthArray<T, N>,
 )
 where
     T: RangeOrdered,
 {
+    let num_items = items.length;
     let mut prev_counter = counter_start;
     let mut should_check = true;
+
     for i in 0..N {
         should_check &= i != num_items;
         if should_check {
-            let item = items[i];
+            let item = items.array[i];
             assert(
                 item.counter_start() > prev_counter,
                 "start counter must be larger than the end counter of the previous call",
@@ -84,46 +84,56 @@ where
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
-    pub array_lengths: PrivateCircuitPublicInputsArrayLengths,
 }
 
 impl PrivateCallDataValidator {
     pub fn new(data: PrivateCallData) -> Self {
-        let array_lengths = PrivateCircuitPublicInputsArrayLengths::new(data.public_inputs);
-        PrivateCallDataValidator { data, array_lengths }
+        PrivateCallDataValidator { data }
     }
 
-    pub fn validate_proof(self, is_first_app: bool) {
+    pub fn verify_proof(self, is_first_app: bool) {
         if !std::runtime::is_unconstrained() {
             self.data.verify(is_first_app);
         }
     }
 
-    pub fn validate_data<let N: u32>(
+    /// Validate properties of the PrivateCallData, which are "common" to both
+    /// the Init and Inner circuits.
+    pub fn validate_common<let N: u32>(
         self,
-        accumulated_note_hashes: [ScopedNoteHash; N],
+        accumulated_note_hashes: ClaimedLengthArray<ScopedNoteHash, N>,
         protocol_contract_tree_root: Field,
     ) {
+        // Validate that the vk exists within the called contract address:
         validate_contract_address(self.data, protocol_contract_tree_root);
-        self.validate_call();
+
+        self.restrict_side_effects();
+
         self.validate_private_call_requests();
         self.validate_public_call_requests();
-        self.validate_counters();
-        self.validate_logs(accumulated_note_hashes);
+
+        self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
+        self.validate_that_logs_of_notes_actually_point_to_notes(accumulated_note_hashes);
         self.validate_log_lengths();
     }
 
+    /// For Init only.
+    /// Asserts: No static calls. No msg_sender.
     pub fn validate_as_first_call(self) {
         let public_inputs = self.data.public_inputs;
         let call_context = public_inputs.call_context;
-        assert(call_context.is_static_call == false, "Users cannot make a static call");
+
+        assert_eq(call_context.is_static_call, false, "Users cannot make a static call");
+
+        // Notice: msg_sender MUST be `-1` for the first function call in a tx.
         assert(
             call_context.msg_sender == AztecAddress::from_field(MAX_FIELD_VALUE),
             "Users cannot set msg_sender in first call",
         );
     }
 
-    // Confirm that the TxRequest (user's intent) matches the private call being executed.
+    /// For Init only.
+    /// Confirm that the TxRequest (user's intent) matches the private call being executed.
     pub fn validate_against_tx_request(self, tx_request: TxRequest) {
         let public_inputs = self.data.public_inputs;
         assert_eq(
@@ -152,6 +162,7 @@ impl PrivateCallDataValidator {
         );
     }
 
+    /// For Inner only.
     pub fn validate_against_call_request(self, request: PrivateCallRequest) {
         let public_inputs = self.data.public_inputs;
         assert_eq(
@@ -185,6 +196,9 @@ impl PrivateCallDataValidator {
         );
     }
 
+    /// For Inner only.
+    /// Ensures that data that must be consistent between the previous kernel and
+    /// this private call _is_ consistent.
     pub fn validate_against_previous_kernel(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
@@ -200,37 +214,47 @@ impl PrivateCallDataValidator {
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.
     }
 
-    fn validate_call(self) {
+    fn restrict_side_effects(self) {
         let call_context = self.data.public_inputs.call_context;
+        // Note: See `validate_private_call_requests` for how we ensure that _nested calls_
+        // of a staticcall are also staticcalls.
+        // TODO: When we introduce a dedicated static_call kernel, we might want to consider disallowing static_calls to come through this circuit at all.
         if call_context.is_static_call {
-            // No state changes are allowed for static calls:
+            // No state changes are allowed for static calls.
+            // Note: Although a EmptyRHSArray usually gives weak guarantees, if its
+            // length is 0, then the array is _guaranteed_ to be empty.
             assert_eq(
-                self.array_lengths.note_hashes,
+                self.data.public_inputs.note_hashes.length,
                 0,
                 "note_hashes must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.nullifiers,
+                self.data.public_inputs.nullifiers.length,
                 0,
                 "nullifiers must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.l2_to_l1_msgs,
+                self.data.public_inputs.l2_to_l1_msgs.length,
                 0,
                 "l2_to_l1_msgs must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.private_logs,
+                self.data.public_inputs.private_logs.length,
                 0,
                 "private_logs must be empty for static calls",
             );
             assert_eq(
-                self.array_lengths.contract_class_logs_hashes,
+                self.data.public_inputs.contract_class_logs_hashes.length,
                 0,
                 "contract_class_logs_hashes must be empty for static calls",
             );
         }
-        if (self.array_lengths.contract_class_logs_hashes != 0) {
+
+        // TODO(#15092): consider removing this assertion.
+        // Would it be bad if we enabled other functions to emit these logs?
+        // Oh, maybe the AVM does stuff with those logs, with the presumption that they
+        // contain avm bytecode that needs to be validated by the avm?
+        if (self.data.public_inputs.contract_class_logs_hashes.length != 0) {
             assert_eq(
                 call_context.contract_address,
                 REGISTERER_CONTRACT_ADDRESS,
@@ -239,15 +263,16 @@ impl PrivateCallDataValidator {
         }
     }
 
+    // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
     fn validate_private_call_requests(self) {
         let public_inputs = self.data.public_inputs;
         let call_requests = public_inputs.private_call_requests;
-        let num_requests = self.array_lengths.private_call_requests;
+        let num_requests = call_requests.length;
         let mut should_check = true;
-        for i in 0..call_requests.len() {
+        for i in 0..call_requests.array.len() {
             should_check &= i != num_requests;
             if should_check {
-                let call_request = call_requests[i];
+                let call_request = call_requests.array[i];
                 assert_eq(
                     call_request.call_context.msg_sender,
                     public_inputs.call_context.contract_address,
@@ -262,44 +287,21 @@ impl PrivateCallDataValidator {
             }
         }
 
-        // Check that the min_revertible_side_effect_counter does not fall in the middle of any nested calls.
-        // If it is possible, one can create a custom account contract, set the min_revertible_side_effect_counter to a
-        // value that falls in a transfer function, make the tx revert which then preserves the note hashes and discards
-        // the nullifiers.
-        //
-        // We don't have to use the aggregated min_revertible_side_effect_counter in the output for the below check.
-        // If the current call's min_revertible_side_effect_counter is 0, it means the counter might be set by another
-        // function. This check for that function guarantees that the counter won't fall into one of its nested calls.
-        // In this case, we can simply use 0 and make the following check pass.
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        // Safety: the index is constrained in validate_split_ranges below.
-        let first_revertible_index = unsafe {
-            find_first_revertible_item_index(
-                public_inputs.min_revertible_side_effect_counter,
-                public_inputs.private_call_requests,
-            )
-        };
-        validate_split_ranges(
+        validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame(
             min_revertible_side_effect_counter,
-            first_revertible_index,
             public_inputs.private_call_requests,
-            self.array_lengths.private_call_requests,
         );
     }
 
     fn validate_public_call_requests(self) {
         let public_inputs = self.data.public_inputs;
-
         let call_requests = public_inputs.public_call_requests;
-        let num_requests = self.array_lengths.public_call_requests;
-        let mut should_check = true;
-        for i in 0..call_requests.len() {
-            should_check &= i != num_requests;
-            if should_check {
-                self.validate_public_call_request(call_requests[i].inner);
-            }
-        }
+        call_requests.for_each(|call_request| {
+            self.validate_public_call_request(call_request.inner);
+        });
 
+        // We also process the enqueued teardown call request:
         if !public_inputs.public_teardown_call_request.contract_address.is_zero() {
             self.validate_public_call_request(public_inputs.public_teardown_call_request);
         }
@@ -320,7 +322,8 @@ impl PrivateCallDataValidator {
         }
     }
 
-    fn validate_counters(self) {
+    // Tested with validate_counters.nr
+    fn validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds(self) {
         let public_inputs = self.data.public_inputs;
         let counter_start = public_inputs.start_side_effect_counter;
         let counter_end = public_inputs.end_side_effect_counter;
@@ -331,49 +334,41 @@ impl PrivateCallDataValidator {
             counter_start,
             counter_end,
             public_inputs.note_hash_read_requests,
-            self.array_lengths.note_hash_read_requests,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.nullifier_read_requests,
-            self.array_lengths.nullifier_read_requests,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.note_hashes,
-            self.array_lengths.note_hashes,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.nullifiers,
-            self.array_lengths.nullifiers,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.l2_to_l1_msgs,
-            self.array_lengths.l2_to_l1_msgs,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.private_logs,
-            self.array_lengths.private_logs,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.contract_class_logs_hashes,
-            self.array_lengths.contract_class_logs_hashes,
         );
         validate_incrementing_counter_ranges_within_range(
             counter_start,
             counter_end,
             public_inputs.private_call_requests,
-            self.array_lengths.private_call_requests,
         );
 
         // Validate the public call requests by checking their start counters only, as their end counters are unknown.
@@ -381,25 +376,29 @@ impl PrivateCallDataValidator {
             counter_start,
             counter_end,
             public_inputs.public_call_requests,
-            self.array_lengths.public_call_requests,
         );
     }
 
-    fn validate_logs<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
+    // TODO: maybe we can do this just once in the reset circuit, before siloing, when the contract address is set to 0.
+    fn validate_that_logs_of_notes_actually_point_to_notes<let N: u32>(
+        self,
+        accumulated_note_hashes: ClaimedLengthArray<ScopedNoteHash, N>,
+    ) {
         let logs = self.data.public_inputs.private_logs;
         let contract_address = self.data.public_inputs.call_context.contract_address;
-        for i in 0..logs.len() {
-            let log = logs[i];
+        for i in 0..logs.array.len() {
+            let log = logs.array[i];
             if log.note_hash_counter != 0 {
                 // Safety: the index is constrained by the checks below.
                 let note_index = unsafe {
                     find_index_hint(
-                        accumulated_note_hashes,
+                        accumulated_note_hashes.array,
                         |n: ScopedNoteHash| n.counter() == log.note_hash_counter,
                     )
                 };
-                assert(note_index != N, "could not find note hash linked to note log");
-                let note_hash = accumulated_note_hashes[note_index];
+                assert(note_index.is_some(), "could not find note hash linked to note log");
+                let note_index = note_index.unwrap_unchecked();
+                let note_hash = accumulated_note_hashes.array[note_index];
                 assert_eq(
                     log.note_hash_counter,
                     note_hash.counter(),
@@ -419,15 +418,15 @@ impl PrivateCallDataValidator {
 
         // Private logs.
         let logs = public_inputs.private_logs;
-        for i in 0..logs.len() {
-            let log = logs[i];
+        for i in 0..logs.array.len() {
+            let log = logs.array[i];
             assert(log.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS, "private log length is too large");
         }
 
         // Contract class logs.
         let logs = public_inputs.contract_class_logs_hashes;
-        for i in 0..logs.len() {
-            let log = logs[i];
+        for i in 0..logs.array.len() {
+            let log = logs.array[i];
             assert(
                 log.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
                 "contract class log length is too large",

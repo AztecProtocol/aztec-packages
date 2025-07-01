@@ -544,6 +544,12 @@ void ExecutionTraceBuilder::process(
                 // rop[1] is the envvar enum
                 TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
+            } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
+                trace.set(C::execution_internal_call_return_id_inv,
+                          row,
+                          ex_event.before_context_event.internal_call_return_id != 0
+                              ? FF(ex_event.before_context_event.internal_call_return_id).invert()
+                              : 0);
             }
         }
 
@@ -981,6 +987,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
                   { C::execution_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
                   { C::execution_value_from_pi,
                     envvar_spec.envvar_pi_lookup_col0 || envvar_spec.envvar_pi_lookup_col1 ? output.as_ff() : 0 },
+                  { C::execution_mem_tag_reg_0_, envvar_spec.out_tag },
               } });
 }
 

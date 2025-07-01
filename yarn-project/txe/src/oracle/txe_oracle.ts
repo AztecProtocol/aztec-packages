@@ -929,7 +929,7 @@ export class TXE implements TypedOracle {
 
     await this.addPrivateLogs(
       targetContractAddress,
-      publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
+      publicInputs.privateLogs.getActiveItems().map(privateLog => privateLog.log),
     );
 
     this.setContractAddress(currentContractAddress);
@@ -1379,10 +1379,12 @@ export class TXE implements TypedOracle {
       const { usedTxRequestHashForNonces } = noteCache.finish();
       const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
-      const publicCallRequests = collectNested([executionResult], r => [
-        ...r.publicInputs.publicCallRequests.map(r => r.inner),
-        r.publicInputs.publicTeardownCallRequest,
-      ]).filter(r => !r.isEmpty());
+      const publicCallRequests = collectNested([executionResult], r =>
+        r.publicInputs.publicCallRequests
+          .getActiveItems()
+          .map(r => r.inner)
+          .concat(r.publicInputs.publicTeardownCallRequest.isEmpty() ? [] : [r.publicInputs.publicTeardownCallRequest]),
+      );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
           const calldata = await context.loadFromExecutionCache(r.calldataHash);

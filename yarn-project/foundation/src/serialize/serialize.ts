@@ -145,6 +145,8 @@ export type Fieldable =
     }
   | Fieldable[];
 
+export type Serializable = Bufferable & Fieldable;
+
 /**
  * Serializes a list of objects contiguously.
  * @param objs - Objects to serialize.
