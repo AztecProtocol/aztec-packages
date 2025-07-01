@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/merge-train-lib.sh"
 
+set -x
+
 # Methods used from merge-train-lib.sh:
 # - log_info, log_error: Logging functions
 # - safe_git_fetch: Safely fetch a branch
