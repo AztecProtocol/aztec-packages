@@ -47,15 +47,14 @@ bool RegisterMemInfo::is_write(size_t index) const
 
 const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Map each ExecutionOpcode to a SubtraceInfo
-    // TODO(MW): Map ALU ops to 2^i
-    { ExecutionOpCode::ADD, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 } },
-    { ExecutionOpCode::SUB, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 2 } },
-    { ExecutionOpCode::MUL, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 3 } },
-    { ExecutionOpCode::DIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 4 } },
-    { ExecutionOpCode::FDIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 5 } },
-    { ExecutionOpCode::EQ, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 6 } },
-    { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 7 } },
-    { ExecutionOpCode::LTE, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 8 } },
+    { ExecutionOpCode::ADD, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 0 } },
+    { ExecutionOpCode::SUB, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 1 } },
+    { ExecutionOpCode::MUL, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 2 } },
+    { ExecutionOpCode::DIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 3 } },
+    { ExecutionOpCode::FDIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 4 } },
+    { ExecutionOpCode::EQ, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 5 } },
+    { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 6 } },
+    { ExecutionOpCode::LTE, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 << 7 } },
     // Bitwise
     { ExecutionOpCode::AND, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 0 } },
     { ExecutionOpCode::OR, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 1 } },
