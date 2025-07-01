@@ -26,6 +26,12 @@ include "public_data_squash.pil";
  * Note: Indexed trees start prefilled with at least two items, so we can assume that no low leaf will be all zeroes
  * and that there will always be a low leaf for any given value.
  *
+ * This trace also performs siloing and lookups to public inputs.
+ * In order to look up public inputs, it needs to squash the public data writes, which means that writes need to be looked up with clk.
+ * We use a dedicated squashing subtrace for this.
+ *
+ * https://hackmd.io/luYtD3XVTpGCDFeeCYS_Uw?view#Storage
+ *
  * Read usage:
  * sel {
  *    value,
@@ -81,6 +87,7 @@ namespace public_data_check;
     pol commit address;
 
     // Write specific inputs
+    // The resulting root after the write
     pol commit write_root;
     pol commit tree_size_before_write;
     pol commit write;
@@ -237,7 +244,8 @@ namespace public_data_check;
 
     // ========= WRITE TO PUBLIC INPUTS =========
     pol commit write_idx;
-    // Starts at AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX
+    // We'll record the squashed writes in the public inputs vector dedicated for accumulated public data writes.
+    // We start at the row index where the public data writes start.
     #[WRITE_IDX_INITIAL_VALUE]
     (1 - sel) * sel' * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX - write_idx') = 0;
 
@@ -259,6 +267,7 @@ namespace public_data_check;
         public_data_squash.write_to_public_inputs
     };
 
+    // We need to increment the write index by one so the next write will be looked up in the next index of the PI public data writes vector.
     // Next write index = if should_write_to_public_inputs { write_idx + 1 } else { write_idx }
     #[WRITE_IDX_INCREMENT]
     not_end * (write_idx + should_write_to_public_inputs - write_idx') = 0;

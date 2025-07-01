@@ -34,14 +34,14 @@ namespace public_data_squash;
 
     // ====== SORTING ======
     // Leaf slot must not decrease
-    // If leaf slot is the same, we constrain the clock to not decrease.
+    // Later on, we constrain that if leaf slot is the same, the clock must not decrease.
     pol commit leaf_slot_increase;
     leaf_slot_increase * (1 - leaf_slot_increase) = 0;
     // !end && !leaf_slot_increase ==> next leaf_slot is the same
     #[CHECK_SAME_LEAF_SLOT]
     NOT_END * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0;
 
-    // Disabled sorting lookups for now
+    // TODO: Disabled sorting lookups for now
     // #[LEAF_SLOT_INCREASE_FF_GT]
     // leaf_slot_increase { leaf_slot', leaf_slot, sel }
     // in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
@@ -57,7 +57,7 @@ namespace public_data_squash;
     pol commit constant_32;
     sel * (32 - constant_32) = 0;
 
-    // Disabled sorting lookups for now
+    // TODO: Disabled sorting lookups for now
     // #[CLK_DIFF_RANGE]
     // check_clock { clk_diff, constant_32 }
     // in range_check.sel { range_check.value, range_check.rng_chk_bits };

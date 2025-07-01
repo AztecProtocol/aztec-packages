@@ -440,7 +440,7 @@ namespace tx;
 
     pol commit fee_payer_balance;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[BALANCE_READ]
     // is_collect_fee {
     //    fee_payer_balance,
@@ -466,8 +466,8 @@ namespace tx;
     pol commit uint32_max;
     is_collect_fee * (uint32_max - 0xffffffff) = 0;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // Lookup for now: will need multipermutation
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Lookup for now: will need multipermutation
     // #[BALANCE_UPDATE]
     // is_collect_fee {
     //     fee_payer_new_balance,
@@ -491,14 +491,14 @@ namespace tx;
 
     is_collect_fee * (prev_public_data_tree_size + fee_write_did_append - next_public_data_tree_size) = 0;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_FEE_PUBLIC_INPUTS]
     // is_collect_fee { write_pi_offset, fee }
     // in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     pol commit end_gas_used_pi_offset;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_END_GAS_USED_PUBLIC_INPUTS]
     // is_collect_fee {
     //     end_gas_used_pi_offset,

@@ -7,6 +7,8 @@
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
+// This tracegen file will generate both the public data check trace and the public data squash trace from the same
+// events. These two traces are sorted in a different order, so we need to process them separately.
 namespace bb::avm2::tracegen {
 
 using simulation::PublicDataTreeLeafPreimage;
