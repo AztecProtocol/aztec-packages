@@ -25,9 +25,6 @@ pub mod avm_circuit_public_inputs;
 
 pub mod contract_class_function_leaf_preimage;
 
-pub mod function_selector;
-pub mod function_data;
-
 pub mod note_hash_leaf_preimage;
 pub mod nullifier_leaf_preimage;
 pub mod protocol_contract_leaf_preimage;

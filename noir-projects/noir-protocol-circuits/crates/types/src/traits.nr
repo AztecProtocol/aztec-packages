@@ -394,7 +394,7 @@ where
 impl Deserialize for () {
     let N: u32 = 0;
 
-    fn deserialize(_fields: [Field; N]) -> Self {
+    fn deserialize(_fields: [Field; Self::N]) -> Self {
         ()
     }
 }
