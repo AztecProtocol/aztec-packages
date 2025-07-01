@@ -1,5 +1,5 @@
-mod validate_sorted_siloed_note_hashes;
-mod validate_sorted_siloed_nullifiers;
+mod validate_sorted_siloed_unique_padded_note_hashes;
+mod validate_sorted_siloed_padded_nullifiers;
 
 use crate::{
     abis::PaddedSideEffects,
