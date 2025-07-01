@@ -16,6 +16,7 @@
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -248,7 +249,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         key_fields.emplace_back(field);
     }
 
-    std::vector<field_ct<Builder>> proof_fields;
+    stdlib::Proof<Builder> proof_fields;
 
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
