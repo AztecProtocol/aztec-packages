@@ -86,6 +86,11 @@ jobs:
           # Install required packages.
           sudo apt update && sudo apt install -y redis-tools parallel
 
+      - name: Prepare GCP key
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" | base64 -w 0 > gcp_sa_key.b64
+          echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
+
       #############
       # Run
       #############
@@ -101,7 +106,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # Nightly test env vars.
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_SA_KEY_B64: ${{ env.GCP_SA_KEY_B64 }}
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}

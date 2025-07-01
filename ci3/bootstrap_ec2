@@ -74,13 +74,13 @@ existing_instance=$(aws ec2 describe-instances \
 if [ -n "$existing_instance" ]; then
   for i in $existing_instance; do
     echo "Terminating existing instance: $i"
-    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i >/dev/null 2>&1
   done
 fi
 
 # Request new instance.
 ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
-IFS=':' read -r -a parts <<< "$ip_sir"
+IFS=':' read -r -a parts <<<"$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
@@ -114,7 +114,8 @@ else
   run_cmd="run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
-container_script=$(cat <<EOF
+container_script=$(
+  cat <<EOF
   set -euo pipefail
   # When restarting the container, just hang around.
   # Note we use the "ci-started" file to determine if we're running on a CI machine in some cases (e.g. npm cache).
@@ -195,7 +196,7 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
-  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip << EOF
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip <<EOF
     # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
@@ -208,10 +209,10 @@ function run {
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
-    # Save GCP_SA_KEY to a file if set
-    if [[ -n "$GCP_SA_KEY" ]]; then
-      echo "$GCP_SA_KEY" > /tmp/gcp-key.json
-      echo "GCP_SA_KEY saved to /tmp/gcp-key.json"
+    # Save GCP_SA_KEY to a file if set (using base64 for safety)
+    if [ -n "$GCP_SA_KEY_B64" ]; then
+      echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
+      echo "GCP_SA_KEY decoded and saved to /tmp/gcp-key.json"
     fi
 
     start_build() {
