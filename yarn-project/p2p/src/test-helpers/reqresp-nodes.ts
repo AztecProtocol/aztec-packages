@@ -151,6 +151,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     reqresp,
     worldStateSynchronizer,
     protocolVersion,
+    epochCache,
   );
 
   p2pNode.services.pubsub.score.params.appSpecificWeight = 10;

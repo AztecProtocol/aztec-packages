@@ -1,3 +1,5 @@
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -55,6 +57,7 @@ export class PeerManager implements PeerManagerInterface {
   private privatePeersInitialized: boolean = false;
   private preferredPeers: Set<string> = new Set();
   private authenticatedPeers: Set<string> = new Set();
+  private peerToValidator: Map<string, EthAddress> = new Map();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -73,6 +76,7 @@ export class PeerManager implements PeerManagerInterface {
     private reqresp: ReqResp,
     private readonly worldStateSynchronizer: WorldStateSynchronizer,
     private readonly protocolVersion: string,
+    private readonly epochCache: EpochCacheInterface,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
@@ -143,9 +147,10 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   @trackSpan('PeerManager.heartbeat')
-  public heartbeat() {
+  public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
+    await this.updateAuthenticatedPeers();
 
     this.cleanupExpiredTimeouts();
 
@@ -806,6 +811,18 @@ export class PeerManager implements PeerManagerInterface {
     }
     this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
     return Promise.reject();
+  }
+
+  private async updateAuthenticatedPeers() {
+    const currentSet = await this.epochCache.getRegisteredValidators();
+    const asSet = new Set(currentSet.map(v => v.toString()));
+    const peersToRemove = this.authenticatedPeers.keys().filter(peerId => {
+      const validatorAddress = this.peerToValidator.get(peerId);
+      return validatorAddress === undefined || !asSet.has(validatorAddress.toString());
+    });
+    for (const peerId of peersToRemove) {
+      this.authenticatedPeers.delete(peerId);
+    }
   }
 }
 
