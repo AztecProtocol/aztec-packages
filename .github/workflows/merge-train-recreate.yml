@@ -8,6 +8,9 @@ jobs:
   recreate:
     if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
