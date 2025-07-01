@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -20,6 +21,7 @@
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/events/contract_instance_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -104,6 +106,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
     typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
+    typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
 
     uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
 
@@ -158,6 +161,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      hints.tx.globalVariables);
     DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
 
+    // Create Contract Instance Manager component
+    ContractInstanceManager contract_instance_manager(
+        contract_db, merkle_db, update_check, contract_instance_retrieval_emitter, hints.tx.globalVariables);
+
     Execution execution(alu,
                         data_copy,
                         execution_components,
@@ -166,7 +173,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_id_manager,
                         execution_emitter,
                         context_stack_emitter,
-                        keccakf1600);
+                        keccakf1600,
+                        contract_instance_manager);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
@@ -202,6 +210,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         calldata_emitter.dump_events(),
         internal_call_stack_emitter.dump_events(),
         note_hash_tree_check_emitter.dump_events(),
+        contract_instance_retrieval_emitter.dump_events(),
     };
 }
 

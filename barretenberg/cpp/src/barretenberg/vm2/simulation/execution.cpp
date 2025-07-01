@@ -282,6 +282,49 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, success);
 }
 
+void Execution::get_contract_instance(ContextInterface& context,
+                                      MemoryAddress address_offset,
+                                      MemoryAddress dst_offset,
+                                      uint8_t member_enum)
+{
+    auto& memory = context.get_memory();
+
+    // Read the contract address from memory
+    auto address_value = memory.get(address_offset);
+    FF contract_address = address_value.as<FF>();
+    set_inputs({ address_value });
+
+    // Retrieve the contract instance using the manager
+    auto maybe_instance = contract_instance_manager.get_contract_instance(contract_address);
+
+    TaggedValue result;
+    if (!maybe_instance.has_value()) {
+        // Contract instance not found - write zero
+        result = TaggedValue::from<FF>(0);
+    } else {
+        const auto& instance = maybe_instance.value();
+
+        // Extract the requested member based on the enum
+        switch (static_cast<ContractInstanceMember>(member_enum)) {
+        case ContractInstanceMember::DEPLOYER:
+            result = TaggedValue::from<FF>(instance.deployer_addr);
+            break;
+        case ContractInstanceMember::CLASS_ID:
+            result = TaggedValue::from<FF>(instance.current_class_id);
+            break;
+        case ContractInstanceMember::INIT_HASH:
+            result = TaggedValue::from<FF>(instance.initialisation_hash);
+            break;
+        default:
+            throw std::runtime_error("Invalid contract instance member enum");
+        }
+    }
+
+    // Write the result to memory
+    memory.set(dst_offset, result);
+    set_output(result);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -482,6 +525,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SUCCESSCOPY:
         call_with_operands(&Execution::success_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETCONTRACTINSTANCE:
+        call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.
