@@ -6,6 +6,8 @@ cmd=$1
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 
+echo "GCP_SA_KEY: ${GCP_SA_KEY:0:20}"
+
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 
