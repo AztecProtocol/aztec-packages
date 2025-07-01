@@ -1,0 +1,83 @@
+name: Merge-Train Recreate
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  recreate:
+    if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Recreate branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -xeuo pipefail
+          
+	  MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
+          BASE="${{ github.event.pull_request.base.ref }}" # usually next
+          
+          # Fetch latest state
+          git fetch origin "$MT" "$BASE"
+          SHA=$(git rev-parse "origin/$MT")                # save old head
+          
+          # --- rebuild merge-train branch ------------------------------------
+          git checkout -B "$MT" "origin/$BASE"
+          git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
+          git push -f origin "$MT"
+          gh pr create --base "$BASE" --head "$MT" \
+                       --title "feat: $MT" \
+                       --body "$(echo -e "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train with no commits.")"
+
+          # --- merge every other open PR that targets the merge-train --------
+          PR_LIST=$(gh pr list --state open --base "$MT" \
+                    --json number,headRefName \
+                    --jq '.[] | "\(.number):\(.headRefName)"')
+          
+          for PR_DATA in $PR_LIST; do
+            PR_NUM="${PR_DATA%%:*}"
+            BR="${PR_DATA#*:}"
+            
+            echo "Processing PR #$PR_NUM (branch: $BR)"
+            
+            # Skip if we can't fetch the branch
+            if ! git fetch origin "$BR"; then
+              echo "✗ Could not fetch branch $BR for PR #$PR_NUM, skipping"
+              continue
+            fi
+            
+            # Try to checkout and merge
+            if ! git checkout "$BR" 2>/dev/null; then
+              echo "✗ Could not checkout branch $BR for PR #$PR_NUM, skipping"
+              continue
+            fi
+            
+            # Try to merge with the old SHA
+            if git merge -q "$SHA" && git merge -q -X ours "origin/$BASE"; then
+              if git push origin "$BR" 2>/dev/null; then
+                echo "✓ PR #$PR_NUM merged successfully"
+              else
+                echo "✗ Could not push to $BR for PR #$PR_NUM"
+              fi
+            else
+              git merge --abort || true
+              echo "✗ PR #$PR_NUM has conflicts, skipping"
+            fi
+          done
+

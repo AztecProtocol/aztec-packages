@@ -8,12 +8,12 @@ use dep::aztec::macros::aztec;
 pub contract AppSubscription {
     use crate::{config::Config, dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
-    use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
+        authwit::auth::assert_current_call_valid_authwit,
         macros::{functions::{initializer, private, public, utility}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
-        protocol_types::{constants::MAX_FIELD_VALUE, traits::ToField},
+        protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
+        state_vars::{Map, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;

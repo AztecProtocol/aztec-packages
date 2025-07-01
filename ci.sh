@@ -21,6 +21,7 @@ function print_usage {
   echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
   echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
+  echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
@@ -92,6 +93,11 @@ case "$cmd" in
     # Spin up ec2 instance and run docs-only CI.
     export JOB_ID="x1-docs"
     exec bootstrap_ec2 "./bootstrap.sh ci-docs"
+    ;;
+  "barretenberg")
+    # Spin up ec2 instance and run barretenberg-only CI.
+    export JOB_ID="x1-barretenberg"
+    exec bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
     ;;
   "grind")
     # Spin up ec2 instance and run the merge-queue flow.

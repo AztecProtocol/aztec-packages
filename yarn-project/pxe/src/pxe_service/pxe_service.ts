@@ -351,6 +351,8 @@ export class PXEService implements PXE {
     };
   }
 
+  // Executes the entrypoint private function, as well as all nested private
+  // functions that might arise.
   async #executePrivate(
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
@@ -632,6 +634,7 @@ export class PXEService implements PXE {
         currentInstance,
         this.node,
         header.globalVariables.blockNumber,
+        header.globalVariables.timestamp,
       );
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');
@@ -862,6 +865,8 @@ export class PXEService implements PXE {
         // will fail. Consider handing control to the user/wallet on whether they want to run them
         // or not.
         const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
+
+        // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,
@@ -885,6 +890,7 @@ export class PXEService implements PXE {
             this.contractDataProvider,
           ));
         } else {
+          // Kernel logic, plus proving of all private functions and kernels.
           ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
             simulate: true,
             skipFeeEnforcement,
@@ -1132,5 +1138,9 @@ export class PXEService implements PXE {
 
   async resetNoteSyncData() {
     return await this.taggingDataProvider.resetNoteSyncData();
+  }
+
+  public stop(): Promise<void> {
+    return this.jobQueue.end();
   }
 }

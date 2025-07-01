@@ -105,7 +105,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
 
-    uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
+    uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
 
     ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
@@ -114,7 +114,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
@@ -128,9 +129,13 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
+
     MerkleDB merkle_db(raw_merkle_db, public_data_tree_check, nullifier_tree_check, note_hash_tree_check);
     merkle_db.add_checkpoint_listener(note_hash_tree_check);
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, update_check_emitter);
+    merkle_db.add_checkpoint_listener(nullifier_tree_check);
+    merkle_db.add_checkpoint_listener(public_data_tree_check);
+
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
@@ -141,7 +146,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_hasher,
                                        range_check,
                                        update_check,
-                                       current_block_number,
+                                       current_timestamp,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
@@ -150,9 +155,12 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
     CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
     InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
-    ContextProvider context_provider(
-        bytecode_manager, memory_provider, calldata_hashing_provider, internal_call_stack_manager_provider);
-    DataCopy data_copy(execution_id_manager, data_copy_emitter);
+    ContextProvider context_provider(bytecode_manager,
+                                     memory_provider,
+                                     calldata_hashing_provider,
+                                     internal_call_stack_manager_provider,
+                                     hints.tx.globalVariables);
+    DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
 
     Execution execution(alu,
                         data_copy,
@@ -163,7 +171,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_emitter,
                         context_stack_emitter,
                         keccakf1600);
-    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 

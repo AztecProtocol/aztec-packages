@@ -82,6 +82,7 @@ library Errors {
   error Rollup__RewardsNotClaimable();
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
+  error Rollup__StaleTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 size);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -100,7 +101,6 @@ library Errors {
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
-  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
   error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
 
   // Staking
@@ -134,6 +134,7 @@ library Errors {
   error Staking__NotOurProposal(uint256, address, address);
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
+  error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -147,6 +148,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+  error FeeLib__AlreadyPreheated();
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);

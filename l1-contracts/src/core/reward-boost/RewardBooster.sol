@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {CompressedEpoch, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -18,6 +19,11 @@ struct RewardBoostConfig {
 
 struct ActivityScore {
   Epoch time;
+  uint32 value;
+}
+
+struct CompressedActivityScore {
+  CompressedEpoch time;
   uint32 value;
 }
 
@@ -38,6 +44,8 @@ interface IBooster is IBoosterCore {
  */
 contract RewardBooster is IBooster {
   using SafeCast for uint256;
+  using CompressedTimeMath for Epoch;
+  using CompressedTimeMath for CompressedEpoch;
 
   IValidatorSelection public immutable ROLLUP;
   uint256 private immutable CONFIG_INCREMENT;
@@ -46,7 +54,7 @@ contract RewardBooster is IBooster {
   uint256 private immutable CONFIG_MINIMUM;
   uint256 private immutable CONFIG_K;
 
-  mapping(address prover => ActivityScore) public activityScores;
+  mapping(address prover => CompressedActivityScore) internal activityScores;
 
   modifier onlyRollup() {
     require(msg.sender == address(ROLLUP), Errors.RewardBooster__OnlyRollup(msg.sender));
@@ -71,13 +79,13 @@ contract RewardBooster is IBooster {
   {
     Epoch currentEpoch = ROLLUP.getCurrentEpoch();
 
-    ActivityScore storage store = activityScores[_prover];
+    CompressedActivityScore storage store = activityScores[_prover];
     ActivityScore memory curr = _activityScoreAt(store, currentEpoch);
 
     // If the score was alrady marked active in this epoch, ignore the addition.
-    if (curr.time != store.time) {
+    if (curr.time != store.time.decompress()) {
       store.value = Math.min(curr.value + CONFIG_INCREMENT, CONFIG_MAX_SCORE).toUint32();
-      store.time = curr.time;
+      store.time = curr.time.compress();
     }
 
     return _toShares(store.value);
@@ -106,12 +114,12 @@ contract RewardBooster is IBooster {
     return _activityScoreAt(activityScores[_prover], ROLLUP.getCurrentEpoch());
   }
 
-  function _activityScoreAt(ActivityScore storage _score, Epoch _epoch)
+  function _activityScoreAt(CompressedActivityScore storage _score, Epoch _epoch)
     internal
     view
     returns (ActivityScore memory)
   {
-    uint256 decrease = (Epoch.unwrap(_epoch) - Epoch.unwrap(_score.time)) * 1e5;
+    uint256 decrease = (Epoch.unwrap(_epoch) - Epoch.unwrap(_score.time.decompress())) * 1e5;
     return ActivityScore({
       value: decrease > uint256(_score.value) ? 0 : _score.value - decrease.toUint32(),
       time: _epoch

@@ -2,6 +2,7 @@ include "public_inputs.pil";
 include "execution.pil";
 include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
+include "poseidon2_hash.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
@@ -175,6 +176,7 @@ namespace tx;
     //     next_context_id,
     //     msg_sender,
     //     contract_addr,
+    //     fee,
     //     is_static,
     //     // Tree State
     //     prev_note_hash_tree_root,
@@ -196,6 +198,7 @@ namespace tx;
     //     execution.next_context_id,
     //     execution.msg_sender,
     //     execution.contract_address,
+    //     execution.transaction_fee,
     //     execution.is_static,
     //     // Tree State
     //     execution.prev_note_hash_tree_root,
@@ -275,7 +278,6 @@ namespace tx;
     pol commit should_note_hash_append;
     should_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
-    // lookup for now: Should be a multipermutation from here and execution trace
     #[NOTE_HASH_APPEND]
     should_note_hash_append {
         leaf_value,
@@ -300,11 +302,36 @@ namespace tx;
     should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
     should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
 
-    pol commit successful_tree_insert;
     // Note hash appends can't fail
-    should_note_hash_append * (1 - successful_tree_insert) = 0;
-    // A tree insert phase must be successful if it didnt revert or isnt a padded row
-    sel * ((1 - reverted - is_padded) * is_tree_insert_phase - successful_tree_insert) = 0;
+    should_note_hash_append * reverted = 0;
+
+    pol commit should_nullifier_append;
+    should_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+
+    #[NULLIFIER_APPEND]
+    should_nullifier_append {
+        reverted,
+        leaf_value,
+        prev_nullifier_tree_root,
+        next_nullifier_tree_root,
+        prev_nullifier_tree_size,
+        discard,
+        prev_num_nullifiers_emitted,
+        precomputed.zero
+    } in
+    nullifier_check.write {
+        nullifier_check.exists,
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.write_root,
+        nullifier_check.tree_size_before_write,
+        nullifier_check.discard,
+        nullifier_check.nullifier_index,
+        nullifier_check.should_silo
+    };
+
+    should_nullifier_append * ((prev_nullifier_tree_size + 1 - reverted) - next_nullifier_tree_size) = 0;
+    should_nullifier_append * ((prev_num_nullifiers_emitted + 1 - reverted) - next_num_nullifiers_emitted) = 0;
 
     // Previous Tree State
     pol commit prev_note_hash_tree_root;
@@ -390,26 +417,84 @@ namespace tx;
     pol commit fee;
 
     // Overflow safe since effective_fee_per_gas is 128 bits, and gas used is 32 bits, making fee at most 161 bits.
+    #[COMPUTE_FEE]
     is_collect_fee * (effective_fee_per_da_gas * prev_da_gas_used + effective_fee_per_l2_gas * prev_l2_gas_used - fee) = 0;
+    // During teardown, transaction fee must be the same as the one used in collect_fee (the following row/phase)
+    // (unless it is a padded row)
+    #[TEARDOWN_GETS_FEE]
+    is_teardown_phase * (1 - is_padded) * (fee' - fee) = 0;
+    // In all other phases, force fee to 0
+    #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
+    (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
+
+    pol commit fee_juice_contract_address;
+    is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
+    pol commit fee_juice_balances_slot;
+    is_collect_fee * (constants.FEE_JUICE_BALANCES_SLOT - fee_juice_balances_slot) = 0;
+
+    pol commit fee_juice_balance_slot;
+
+    #[BALANCE_SLOT_POSEIDON2]
+    is_collect_fee { is_collect_fee, fee_juice_balances_slot, fee_payer, precomputed.zero, fee_juice_balance_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit fee_payer_balance;
-    // TODO: Use gadget to read balance from the tree
 
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[BALANCE_READ]
+    // is_collect_fee {
+    //    fee_payer_balance,
+    //    fee_juice_contract_address,
+    //    fee_juice_balance_slot,
+    //    prev_public_data_tree_root
+    // } in public_data_check.sel {
+    //    public_data_check.value,
+    //    public_data_check.address,
+    //    public_data_check.slot,
+    //    public_data_check.root
+    // };
 
     #[BALANCE_VALIDATION]
     is_collect_fee { fee, fee_payer_balance, precomputed.zero }
     in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
-    // TODO: Use gadget to update the tree with fee_payer_balance - fee
+    pol commit fee_payer_new_balance;
+    is_collect_fee * (fee_payer_balance - fee - fee_payer_new_balance) = 0;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    pol commit uint32_max;
+    is_collect_fee * (uint32_max - 0xffffffff) = 0;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Lookup for now: will need multipermutation
+    // #[BALANCE_UPDATE]
+    // is_collect_fee {
+    //     fee_payer_new_balance,
+    //     fee_juice_contract_address,
+    //     fee_juice_balance_slot,
+    //     prev_public_data_tree_root,
+    //     next_public_data_tree_root,
+    //     prev_public_data_tree_size,
+    //     next_public_data_tree_size,
+    //     uint32_max
+    // } in public_data_check.write {
+    //     public_data_check.value,
+    //     public_data_check.address,
+    //     public_data_check.slot,
+    //     public_data_check.root,
+    //     public_data_check.write_root,
+    //     public_data_check.tree_size_before_write,
+    //     public_data_check.tree_size_after_write,
+    //     public_data_check.clk
+    // };
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_FEE_PUBLIC_INPUTS]
     // is_collect_fee { write_pi_offset, fee }
     // in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     pol commit end_gas_used_pi_offset;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_END_GAS_USED_PUBLIC_INPUTS]
     // is_collect_fee {
     //     end_gas_used_pi_offset,

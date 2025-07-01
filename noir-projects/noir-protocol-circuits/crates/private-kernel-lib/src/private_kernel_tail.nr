@@ -33,14 +33,16 @@ impl PrivateKernelTailCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
+        // Validate inputs.
+        let mut previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+
+        previous_kernel_validator.validate_for_private_tail();
+
         // Generate output.
         // Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
-
-        // Validate inputs.
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        previous_kernel_validator.validate_for_private_tail();
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -57,8 +59,8 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-            max_block_number::MaxBlockNumber,
+            gas::Gas, include_by_timestamp::IncludeByTimestamp,
+            kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         },
         address::{AztecAddress, EthAddress},
         point::Point,
@@ -111,12 +113,12 @@ mod tests {
     }
 
     #[test]
-    fn propagate_previous_kernel_max_block_number() {
+    fn propagate_previous_kernel_include_by_timestamp() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
+        builder.previous_kernel.include_by_timestamp = IncludeByTimestamp::new(13);
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
+        assert_eq(public_inputs.rollup_validation_requests.include_by_timestamp.unwrap(), 13);
     }
 
     #[test]

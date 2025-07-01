@@ -12,15 +12,18 @@ pub contract Test {
     // as the note type ids of current notes might have changed.
 
     use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+    use dep::aztec::{
+        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
+        state_vars::{
+            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+        },
     };
 
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
+        address::{AztecAddress, EthAddress},
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
         traits::{Hash, Packable, Serialize},
-        utils::arrays::array_concat,
     };
 
     use dep::aztec::keys::getters::get_public_keys;
@@ -70,7 +73,7 @@ pub contract Test {
         value4: Field,
     }
 
-    global SHARED_MUTABLE_INITIAL_DELAY: u32 = 2;
+    global SHARED_MUTABLE_INITIAL_DELAY: u64 = 2;
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
@@ -113,8 +116,8 @@ pub contract Test {
     }
 
     #[private]
-    fn set_tx_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
-        context.set_tx_max_block_number(max_block_number);
+    fn set_include_by_timestamp(include_by_timestamp: u64, enqueue_public_call: bool) {
+        context.set_include_by_timestamp(include_by_timestamp);
 
         if enqueue_public_call {
             Test::at(context.this_address()).dummy_public_call().enqueue(&mut context)
@@ -322,7 +325,7 @@ pub contract Test {
                 .call(&mut context);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
+            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
             context.emit_private_log(leaky_log, 5);
         }
     }

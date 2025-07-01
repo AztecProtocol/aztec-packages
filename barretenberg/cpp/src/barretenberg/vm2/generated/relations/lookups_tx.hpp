@@ -182,6 +182,42 @@ using lookup_tx_note_hash_append_settings = lookup_settings<lookup_tx_note_hash_
 template <typename FF_>
 using lookup_tx_note_hash_append_relation = lookup_relation_base<FF_, lookup_tx_note_hash_append_settings>;
 
+/////////////////// lookup_tx_nullifier_append ///////////////////
+
+struct lookup_tx_nullifier_append_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_NULLIFIER_APPEND";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_nullifier_append;
+    static constexpr Column DST_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column COUNTS = Column::lookup_tx_nullifier_append_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_nullifier_append_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::tx_leaf_value,
+        ColumnAndShifts::tx_prev_nullifier_tree_root,
+        ColumnAndShifts::tx_next_nullifier_tree_root,
+        ColumnAndShifts::tx_prev_nullifier_tree_size,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_prev_num_nullifiers_emitted,
+        ColumnAndShifts::precomputed_zero
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::nullifier_check_exists,
+        ColumnAndShifts::nullifier_check_nullifier,
+        ColumnAndShifts::nullifier_check_root,
+        ColumnAndShifts::nullifier_check_write_root,
+        ColumnAndShifts::nullifier_check_tree_size_before_write,
+        ColumnAndShifts::nullifier_check_discard,
+        ColumnAndShifts::nullifier_check_nullifier_index,
+        ColumnAndShifts::nullifier_check_should_silo
+    };
+};
+
+using lookup_tx_nullifier_append_settings = lookup_settings<lookup_tx_nullifier_append_settings_>;
+template <typename FF_>
+using lookup_tx_nullifier_append_relation = lookup_relation_base<FF_, lookup_tx_nullifier_append_settings>;
+
 /////////////////// lookup_tx_read_l2_l1_msg ///////////////////
 
 struct lookup_tx_read_l2_l1_msg_settings_ {
@@ -287,6 +323,36 @@ using lookup_tx_read_fee_payer_public_inputs_settings =
 template <typename FF_>
 using lookup_tx_read_fee_payer_public_inputs_relation =
     lookup_relation_base<FF_, lookup_tx_read_fee_payer_public_inputs_settings>;
+
+/////////////////// lookup_tx_balance_slot_poseidon2 ///////////////////
+
+struct lookup_tx_balance_slot_poseidon2_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_SLOT_POSEIDON2";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column COUNTS = Column::lookup_tx_balance_slot_poseidon2_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_balance_slot_poseidon2_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_is_collect_fee,
+        ColumnAndShifts::tx_fee_juice_balances_slot,
+        ColumnAndShifts::tx_fee_payer,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::tx_fee_juice_balance_slot
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+};
+
+using lookup_tx_balance_slot_poseidon2_settings = lookup_settings<lookup_tx_balance_slot_poseidon2_settings_>;
+template <typename FF_>
+using lookup_tx_balance_slot_poseidon2_relation = lookup_relation_base<FF_, lookup_tx_balance_slot_poseidon2_settings>;
 
 /////////////////// lookup_tx_balance_validation ///////////////////
 

@@ -3,6 +3,7 @@ import {
   BLOCK_MERGE_ROLLUP_INDEX,
   BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
   BLOCK_ROOT_ROLLUP_INDEX,
+  BLOCK_ROOT_ROLLUP_PADDING_INDEX,
   BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
   MERGE_ROLLUP_INDEX,
   PRIVATE_BASE_ROLLUP_VK_INDEX,
@@ -27,6 +28,7 @@ import PublicBaseRollupVkJson from '../../../artifacts/keys/rollup_base_public.v
 import BlockMergeRollupVkJson from '../../../artifacts/keys/rollup_block_merge.vk.data.json' with { type: 'json' };
 import BlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root.vk.data.json' with { type: 'json' };
 import EmptyBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_empty.vk.data.json' with { type: 'json' };
+import PaddingBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_padding.vk.data.json' with { type: 'json' };
 import SingleTxBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_single_tx.vk.data.json' with { type: 'json' };
 import MergeRollupVkJson from '../../../artifacts/keys/rollup_merge.vk.data.json' with { type: 'json' };
 import RootRollupVkJson from '../../../artifacts/keys/rollup_root.vk.data.json' with { type: 'json' };
@@ -43,6 +45,7 @@ export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKey
   BlockRootRollupArtifact: keyJsonToVKData(BlockRootRollupVkJson),
   SingleTxBlockRootRollupArtifact: keyJsonToVKData(SingleTxBlockRootRollupVkJson),
   EmptyBlockRootRollupArtifact: keyJsonToVKData(EmptyBlockRootRollupVkJson),
+  PaddingBlockRootRollupArtifact: keyJsonToVKData(PaddingBlockRootRollupVkJson),
   BlockMergeRollupArtifact: keyJsonToVKData(BlockMergeRollupVkJson),
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
   PrivateTube: keyJsonToVKData(PrivateTubeVkJson),
@@ -62,6 +65,7 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_INDEX,
   SingleTxBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX,
   EmptyBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+  PaddingBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_PADDING_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
   PrivateTube: PRIVATE_TUBE_VK_INDEX,

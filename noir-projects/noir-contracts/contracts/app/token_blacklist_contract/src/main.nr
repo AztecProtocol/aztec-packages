@@ -17,7 +17,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract TokenBlacklist {
     // Libs
-    use dep::aztec::{
+    use aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+        },
         hash::compute_secret_hash,
         macros::{
             functions::{initializer, internal, private, public, utility, view},
@@ -27,30 +30,27 @@ pub contract TokenBlacklist {
             discovery::private_notes::attempt_note_discovery,
             logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
-        prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
+        note::{
+            note_getter_options::NoteGetterOptions,
+            note_interface::{NoteHash, NoteProperties, NoteType},
+        },
+        protocol_types::traits::ToField,
+        state_vars::{Map, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
 
-    use aztec::note::note_interface::NoteHash;
-    use aztec::note::note_interface::NoteProperties;
-    use aztec::note::note_interface::NoteType;
-    use aztec::protocol_types::traits::ToField;
     use std::ops::{Add, Sub};
-
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-    };
 
     use crate::types::{
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
         transparent_note::TransparentNote,
     };
     use aztec::protocol_types::{
-        constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
+        address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
 
-    // Changing an address' roles has a certain block delay before it goes into effect.
-    global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
+    // Changing an address' roles has a certain delay before it goes into effect. Here set to 2 slots.
+    global CHANGE_ROLES_DELAY: u64 = 72;
 
     #[storage]
     struct Storage<Context> {
@@ -58,7 +58,7 @@ pub contract TokenBlacklist {
         total_supply: PublicMutable<u128, Context>,
         pending_shields: PrivateSet<TransparentNote, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
 
     // docs:start:constructor

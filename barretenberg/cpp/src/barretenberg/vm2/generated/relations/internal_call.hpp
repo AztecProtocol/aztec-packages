@@ -13,7 +13,7 @@ template <typename FF_> class internal_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 4 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 4, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -98,6 +98,18 @@ template <typename FF_> class internal_callImpl {
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
+        { // INTERNAL_RET_ERROR
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_internal_return) *
+                       ((in.get(C::execution_internal_call_return_id) *
+                             (in.get(C::execution_sel_opcode_error) *
+                                  (FF(1) - in.get(C::execution_internal_call_return_id_inv)) +
+                              in.get(C::execution_internal_call_return_id_inv)) -
+                         FF(1)) +
+                        in.get(C::execution_sel_opcode_error));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -126,6 +138,8 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
             return "NEXT_CALL_ID_STARTS_TWO";
         case 8:
             return "INCR_NEXT_INT_CALL_ID";
+        case 9:
+            return "INTERNAL_RET_ERROR";
         }
         return std::to_string(index);
     }
@@ -140,6 +154,7 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
     static constexpr size_t SR_DEFAULT_PROPAGATE_RET_ID = 6;
     static constexpr size_t SR_NEXT_CALL_ID_STARTS_TWO = 7;
     static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 8;
+    static constexpr size_t SR_INTERNAL_RET_ERROR = 9;
 };
 
 } // namespace bb::avm2

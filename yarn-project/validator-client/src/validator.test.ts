@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
-import { SecretValue } from '@aztec/foundation/config';
+import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -22,7 +22,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import type { ValidatorClientConfig } from './config.js';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from './config.js';
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
@@ -192,11 +192,14 @@ describe('ValidatorClient', () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       proposal = makeBlockProposal({ header: makeHeader(1, 100, 100, { contentCommitment }) });
+      // Set the current time to the start of the slot of the proposal
+      const genesisTime = 1n;
+      const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
+      dateProvider.setTime(Number(slotTime * 1000n));
       sender = { toString: () => 'proposal-sender-peer-id' } as PeerId;
 
       p2pClient.getTxStatus.mockResolvedValue('pending');
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
-      p2pClient.getTxByHash.mockImplementation((txHash: TxHash) => Promise.resolve(makeTxFromHash(txHash)));
       p2pClient.getTxsByHash.mockImplementation((txHashes: TxHash[]) => Promise.resolve(txHashes.map(makeTxFromHash)));
 
       epochCache.isInCommittee.mockResolvedValue(true);
@@ -211,6 +214,7 @@ describe('ValidatorClient', () => {
       blockSource.getBlock.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
       } as L2Block);
+      blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
       blockBuildResult = {
         publicProcessorDuration: 0,
@@ -231,6 +235,17 @@ describe('ValidatorClient', () => {
     it('should attest to proposal', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeDefined();
+      expect(attestations?.length).toBe(1);
+    });
+
+    it('should wait for previous block to sync', async () => {
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(blockSource.getBlock).toHaveBeenCalledTimes(4);
       expect(attestations).toBeDefined();
       expect(attestations?.length).toBe(1);
     });
@@ -379,6 +394,23 @@ describe('ValidatorClient', () => {
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
+    });
+  });
+
+  describe('configuration', () => {
+    it('should use VALIDATOR_PRIVATE_KEY for validatorPrivateKeys when VALIDATOR_PRIVATE_KEYS is not set', () => {
+      const originalEnv = process.env;
+      const testPrivateKey = '0x' + '1'.repeat(64);
+
+      process.env = {
+        ...originalEnv,
+        VALIDATOR_PRIVATE_KEY: testPrivateKey,
+        VALIDATOR_PRIVATE_KEYS: undefined,
+      };
+
+      const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
+      expect(config.validatorPrivateKeys.getValue()).toHaveLength(1);
+      expect(config.validatorPrivateKeys.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
     });
   });
 });

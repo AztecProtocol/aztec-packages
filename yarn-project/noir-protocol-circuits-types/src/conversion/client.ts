@@ -2,13 +2,9 @@ import {
   CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
@@ -43,7 +39,7 @@ import {
   PrivateValidationRequests,
   type PrivateVerificationKeyHints,
   ReadRequest,
-  ReadRequestStatus,
+  ReadRequestAction,
   RollupValidationRequests,
   ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
@@ -90,8 +86,8 @@ import type {
   PrivateVerificationKeyHints as PrivateVerificationKeyHintsNoir,
   PublicCallRequest as PublicCallRequestNoir,
   PublicKeys as PublicKeysNoir,
+  ReadRequestAction as ReadRequestActionNoir,
   ReadRequest as ReadRequestNoir,
-  ReadRequestStatus as ReadRequestStatusNoir,
   RollupValidationRequests as RollupValidationRequestsNoir,
   Scoped,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
@@ -105,6 +101,8 @@ import type {
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapClaimedLengthArrayFromNoir,
+  mapClaimedLengthArrayToNoir,
   mapCountedL2ToL1MessageToNoir,
   mapCountedLogHashToNoir,
   mapFieldFromNoir,
@@ -115,8 +113,8 @@ import {
   mapGrumpkinScalarToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapMaxBlockNumberFromNoir,
-  mapMaxBlockNumberToNoir,
+  mapIncludeByTimestampFromNoir,
+  mapIncludeByTimestampToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -420,22 +418,22 @@ export function mapRollupValidationRequestsToNoir(
   rollupValidationRequests: RollupValidationRequests,
 ): RollupValidationRequestsNoir {
   return {
-    max_block_number: mapMaxBlockNumberToNoir(rollupValidationRequests.maxBlockNumber),
+    include_by_timestamp: mapIncludeByTimestampToNoir(rollupValidationRequests.includeByTimestamp),
   };
 }
 
 export function mapRollupValidationRequestsFromNoir(
   rollupValidationRequests: RollupValidationRequestsNoir,
 ): RollupValidationRequests {
-  return new RollupValidationRequests(mapMaxBlockNumberFromNoir(rollupValidationRequests.max_block_number));
+  return new RollupValidationRequests(mapIncludeByTimestampFromNoir(rollupValidationRequests.include_by_timestamp));
 }
 
 function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests): PrivateValidationRequestsNoir {
   return {
     for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
-    note_hash_read_requests: mapTuple(requests.noteHashReadRequests, mapScopedReadRequestToNoir),
-    nullifier_read_requests: mapTuple(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
-    scoped_key_validation_requests_and_generators: mapTuple(
+    note_hash_read_requests: mapClaimedLengthArrayToNoir(requests.noteHashReadRequests, mapScopedReadRequestToNoir),
+    nullifier_read_requests: mapClaimedLengthArrayToNoir(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
+    scoped_key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
       requests.scopedKeyValidationRequestsAndGenerators,
       mapScopedKeyValidationRequestAndGeneratorToNoir,
     ),
@@ -446,19 +444,10 @@ function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests)
 function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequestsNoir) {
   return new PrivateValidationRequests(
     mapRollupValidationRequestsFromNoir(requests.for_rollup),
-    mapTupleFromNoir(
-      requests.note_hash_read_requests,
-      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-      mapScopedReadRequestFromNoir,
-    ),
-    mapTupleFromNoir(
-      requests.nullifier_read_requests,
-      MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-      mapScopedReadRequestFromNoir,
-    ),
-    mapTupleFromNoir(
+    mapClaimedLengthArrayFromNoir(requests.note_hash_read_requests, mapScopedReadRequestFromNoir),
+    mapClaimedLengthArrayFromNoir(requests.nullifier_read_requests, mapScopedReadRequestFromNoir),
+    mapClaimedLengthArrayFromNoir(
       requests.scoped_key_validation_requests_and_generators,
-      MAX_KEY_VALIDATION_REQUESTS_PER_TX,
       mapScopedKeyValidationRequestAndGeneratorFromNoir,
     ),
     mapOptionalNumberFromNoir(requests.split_counter),
@@ -469,41 +458,28 @@ export function mapPrivateAccumulatedDataFromNoir(
   privateAccumulatedData: PrivateAccumulatedDataNoir,
 ): PrivateAccumulatedData {
   return new PrivateAccumulatedData(
-    mapTupleFromNoir(privateAccumulatedData.note_hashes, MAX_NOTE_HASHES_PER_TX, mapScopedNoteHashFromNoir),
-    mapTupleFromNoir(privateAccumulatedData.nullifiers, MAX_NULLIFIERS_PER_TX, mapScopedNullifierFromNoir),
-    mapTupleFromNoir(
-      privateAccumulatedData.l2_to_l1_msgs,
-      MAX_L2_TO_L1_MSGS_PER_TX,
-      mapScopedCountedL2ToL1MessageFromNoir,
-    ),
-    mapTupleFromNoir(privateAccumulatedData.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapScopedPrivateLogDataFromNoir),
-    mapTupleFromNoir(
-      privateAccumulatedData.contract_class_logs_hashes,
-      MAX_CONTRACT_CLASS_LOGS_PER_TX,
-      mapScopedCountedLogHashFromNoir,
-    ),
-    mapTupleFromNoir(
-      privateAccumulatedData.public_call_requests,
-      MAX_ENQUEUED_CALLS_PER_TX,
-      mapCountedPublicCallRequestFromNoir,
-    ),
-    mapTupleFromNoir(
-      privateAccumulatedData.private_call_stack,
-      MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-      mapPrivateCallRequestFromNoir,
-    ),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.note_hashes, mapScopedNoteHashFromNoir),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.nullifiers, mapScopedNullifierFromNoir),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.l2_to_l1_msgs, mapScopedCountedL2ToL1MessageFromNoir),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.private_logs, mapScopedPrivateLogDataFromNoir),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.contract_class_logs_hashes, mapScopedCountedLogHashFromNoir),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.public_call_requests, mapCountedPublicCallRequestFromNoir),
+    mapClaimedLengthArrayFromNoir(privateAccumulatedData.private_call_stack, mapPrivateCallRequestFromNoir),
   );
 }
 
 export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): PrivateAccumulatedDataNoir {
   return {
-    note_hashes: mapTuple(data.noteHashes, mapScopedNoteHashToNoir),
-    nullifiers: mapTuple(data.nullifiers, mapScopedNullifierToNoir),
-    l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedCountedL2ToL1MessageToNoir),
-    private_logs: mapTuple(data.privateLogs, mapScopedPrivateLogDataToNoir),
-    contract_class_logs_hashes: mapTuple(data.contractClassLogsHashes, mapScopedCountedLogHashToNoir),
-    public_call_requests: mapTuple(data.publicCallRequests, mapCountedPublicCallRequestToNoir),
-    private_call_stack: mapTuple(data.privateCallStack, mapPrivateCallRequestToNoir),
+    note_hashes: mapClaimedLengthArrayToNoir(data.noteHashes, mapScopedNoteHashToNoir),
+    nullifiers: mapClaimedLengthArrayToNoir(data.nullifiers, mapScopedNullifierToNoir),
+    l2_to_l1_msgs: mapClaimedLengthArrayToNoir(data.l2ToL1Msgs, mapScopedCountedL2ToL1MessageToNoir),
+    private_logs: mapClaimedLengthArrayToNoir(data.privateLogs, mapScopedPrivateLogDataToNoir),
+    contract_class_logs_hashes: mapClaimedLengthArrayToNoir(
+      data.contractClassLogsHashes,
+      mapScopedCountedLogHashToNoir,
+    ),
+    public_call_requests: mapClaimedLengthArrayToNoir(data.publicCallRequests, mapCountedPublicCallRequestToNoir),
+    private_call_stack: mapClaimedLengthArrayToNoir(data.privateCallStack, mapPrivateCallRequestToNoir),
   };
 }
 
@@ -516,24 +492,39 @@ export function mapPrivateCircuitPublicInputsToNoir(
   privateCircuitPublicInputs: PrivateCircuitPublicInputs,
 ): PrivateCircuitPublicInputsNoir {
   return {
-    max_block_number: mapMaxBlockNumberToNoir(privateCircuitPublicInputs.maxBlockNumber),
+    include_by_timestamp: mapIncludeByTimestampToNoir(privateCircuitPublicInputs.includeByTimestamp),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
-    note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapReadRequestToNoir),
-    nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
-    key_validation_requests_and_generators: mapTuple(
+    note_hash_read_requests: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.noteHashReadRequests,
+      mapReadRequestToNoir,
+    ),
+    nullifier_read_requests: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.nullifierReadRequests,
+      mapReadRequestToNoir,
+    ),
+    key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
       privateCircuitPublicInputs.keyValidationRequestsAndGenerators,
       mapKeyValidationRequestAndGeneratorToNoir,
     ),
-    note_hashes: mapTuple(privateCircuitPublicInputs.noteHashes, mapNoteHashToNoir),
-    nullifiers: mapTuple(privateCircuitPublicInputs.nullifiers, mapNullifierToNoir),
-    private_call_requests: mapTuple(privateCircuitPublicInputs.privateCallRequests, mapPrivateCallRequestToNoir),
-    public_call_requests: mapTuple(privateCircuitPublicInputs.publicCallRequests, mapCountedPublicCallRequestToNoir),
+    note_hashes: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.noteHashes, mapNoteHashToNoir),
+    nullifiers: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.nullifiers, mapNullifierToNoir),
+    private_call_requests: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.privateCallRequests,
+      mapPrivateCallRequestToNoir,
+    ),
+    public_call_requests: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.publicCallRequests,
+      mapCountedPublicCallRequestToNoir,
+    ),
     public_teardown_call_request: mapPublicCallRequestToNoir(privateCircuitPublicInputs.publicTeardownCallRequest),
-    l2_to_l1_msgs: mapTuple(privateCircuitPublicInputs.l2ToL1Msgs, mapCountedL2ToL1MessageToNoir),
-    private_logs: mapTuple(privateCircuitPublicInputs.privateLogs, mapPrivateLogDataToNoir),
-    contract_class_logs_hashes: mapTuple(privateCircuitPublicInputs.contractClassLogsHashes, mapCountedLogHashToNoir),
+    l2_to_l1_msgs: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.l2ToL1Msgs, mapCountedL2ToL1MessageToNoir),
+    private_logs: mapClaimedLengthArrayToNoir(privateCircuitPublicInputs.privateLogs, mapPrivateLogDataToNoir),
+    contract_class_logs_hashes: mapClaimedLengthArrayToNoir(
+      privateCircuitPublicInputs.contractClassLogsHashes,
+      mapCountedLogHashToNoir,
+    ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
@@ -744,10 +735,10 @@ function mapTransientDataIndexHintToNoir(indexHint: TransientDataIndexHint): Tra
   };
 }
 
-function mapReadRequestStatusToNoir(readRequestStatus: ReadRequestStatus): ReadRequestStatusNoir {
+function mapReadRequestActionToNoir(readRequestAction: ReadRequestAction): ReadRequestActionNoir {
   return {
-    state: mapNumberToNoir(readRequestStatus.state),
-    hint_index: mapNumberToNoir(readRequestStatus.hintIndex),
+    action: mapNumberToNoir(readRequestAction.action),
+    hint_index: mapNumberToNoir(readRequestAction.hintIndex),
   };
 }
 
@@ -788,7 +779,7 @@ function mapNoteHashReadRequestHintsToNoir<PENDING extends number, SETTLED exten
   hints: NoteHashReadRequestHints<PENDING, SETTLED>,
 ): NoteHashReadRequestHintsNoir<PENDING, SETTLED> {
   return {
-    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
+    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir),
     pending_read_hints: hints.pendingReadHints.map(mapPendingReadHintToNoir) as FixedLengthArray<
       PendingReadHintNoir,
       PENDING
@@ -804,7 +795,7 @@ function mapNullifierReadRequestHintsToNoir<PENDING extends number, SETTLED exte
   hints: NullifierReadRequestHints<PENDING, SETTLED>,
 ): NullifierReadRequestHintsNoir<PENDING, SETTLED> {
   return {
-    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
+    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir),
     pending_read_hints: hints.pendingReadHints.map(mapPendingReadHintToNoir) as FixedLengthArray<
       PendingReadHintNoir,
       PENDING

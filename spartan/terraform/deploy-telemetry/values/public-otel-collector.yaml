@@ -1,11 +1,12 @@
-mode: deployment
+mode: statefulset
 replicaCount: 1
 
 nodeSelector:
   node-type: infra
 
 image:
-  repository: "otel/opentelemetry-collector-contrib"
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+  tag: "0.128.0"
 
 resources:
   requests:
@@ -39,12 +40,12 @@ config:
       endpoint: ${env:MY_POD_IP}:13133
 
   receivers:
-    jaeger: null
-    prometheus: null
-    zipkin: null
+    jaeger: {}
+    prometheus: {}
+    zipkin: {}
     otlp:
       protocols:
-        grpc: null
+        grpc: {}
         http:
           endpoint: ${env:MY_POD_IP}:4318
 
@@ -57,7 +58,7 @@ config:
     filter:
       metrics:
         metric:
-          - 'not IsMatch(name, "aztec\\..*")'
+          - 'false' # placeholder
           - 'resource.attributes["aztec.node_role"] != "sequencer"'
           - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
         datapoint:
@@ -68,8 +69,6 @@ config:
         - context: datapoint
           statements:
           - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
-          - set(attributes["service.name"], resource.attributes["service.name"])
-          - set(attributes["service.namespace"], resource.attributes["service.namespace"])
           - set(attributes["aztec.node_role"], resource.attributes["aztec.node_role"])
 
     batch: {}
@@ -83,6 +82,10 @@ config:
         enabled: false
 
   service:
+    telemetry:
+      metrics:
+        address: ${env:MY_POD_IP}:8888
+
     pipelines:
       logs: null
       traces: null
@@ -118,6 +121,18 @@ ports:
     containerPort: 13133
     servicePort: 13133
     hostPort: 13133
+    protocol: TCP
+  prom-otel:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    hostPort: 8888
+    protocol: TCP
+  prom-aztec:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    hostPort: 8889
     protocol: TCP
 service:
   enabled: true

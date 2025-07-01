@@ -151,6 +151,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
         { Column::tx_is_teardown_phase, phase == TransactionPhase::TEARDOWN ? 1 : 0 },
         { Column::tx_msg_sender, event.msg_sender },
         { Column::tx_contract_addr, event.contract_address },
+        { Column::tx_fee, event.transaction_fee },
         { Column::tx_is_static, event.is_static },
         { Column::tx_calldata_hash, event.calldata_hash },
         { Column::tx_reverted, event.success },
@@ -178,9 +179,10 @@ std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::Pr
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
         { Column::tx_should_note_hash_append,
           phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::NR_NOTE_INSERTION },
+        { Column::tx_should_nullifier_append,
+          phase == TransactionPhase::R_NULLIFIER_INSERTION || phase == TransactionPhase::NR_NULLIFIER_INSERTION },
 
         // Revertible
-        { Column::tx_successful_tree_insert, reverted ? 0 : 1 },
         { Column::tx_reverted, reverted ? 1 : 0 },
     };
 }
@@ -215,9 +217,26 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
             event.fee,
         },
         {
+            Column::tx_fee_juice_contract_address,
+            FEE_JUICE_ADDRESS,
+        },
+        {
+            Column::tx_fee_juice_balances_slot,
+            FEE_JUICE_BALANCES_SLOT,
+        },
+        {
+            Column::tx_fee_juice_balance_slot,
+            event.fee_juice_balance_slot,
+        },
+        {
             Column::tx_fee_payer_balance,
             event.fee_payer_balance,
         },
+        {
+            Column::tx_fee_payer_new_balance,
+            event.fee_payer_balance - event.fee,
+        },
+        { Column::tx_uint32_max, 0xffffffff },
         { Column::tx_end_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
 
     };
@@ -436,9 +455,13 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>();
-// Commented out for now, to make the bulk test pass before all opcodes are implemented.
-// .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
-// .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>()
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

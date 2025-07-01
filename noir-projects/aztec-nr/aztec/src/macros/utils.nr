@@ -1,3 +1,4 @@
+use dep::protocol_types::meta::derive_serialize;
 use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
@@ -194,7 +195,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     }
 }
 
-pub(crate) trait AsStrQuote {
+pub trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
@@ -240,8 +241,11 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
-    // The event selector is computed from the type signature of the struct in the event, similar to how one might type
+pub(crate) comptime fn compute_struct_selector(
+    s: TypeDefinition,
+    from_signature_fn: Quoted,
+) -> Field {
+    // The struct selector is computed from the type signature, similar to how one might type
     // the constructor function. For example, given:
     //
     // struct Foo {
@@ -250,7 +254,7 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     // }
     //
     // The signature will be "Foo(Field,AztecAddress)".
-    let event_name = s.name();
+    let struct_name = s.name();
     let args_signatures = s
         .fields_as_written()
         .map(|(_, typ, _)| {
@@ -259,11 +263,11 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
             signature_of_type(typ)
         })
         .join(quote {,});
-    let signature_quote = quote { $event_name($args_signatures) };
+    let signature_quote = quote { $struct_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field(protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote))
+        protocol_types::traits::ToField::to_field($from_signature_fn($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -275,8 +279,9 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
     // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
     let storage_size = std::meta::typ::fresh_type_variable();
     assert(
-        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
-        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+        typ.implements(quote { crate::state_vars::HasStorageSlot<$storage_size> }
+            .as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the HasStorageSlot trait",
     );
 
     storage_size.as_constant().unwrap()
@@ -388,4 +393,26 @@ comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
         }
         size
     })
+}
+
+/// Generates a quote that implements `Serialize` for a given struct `s`.
+/// If the struct already implements `Serialize`, we return an empty quote.
+pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
+    // We try to get the serialized length of the struct. If it does not implement `Serialize`, we get Option::none()
+    let serialized_len_typ = std::meta::typ::fresh_type_variable();
+    // We don't care about the result of the implements check. We just want to get the serialized length.
+    let _ = s.as_type().implements(
+        quote { crate::protocol_types::traits::Serialize<$serialized_len_typ> }.as_trait_constraint(),
+    );
+    let maybe_serialized_length = serialized_len_typ.as_constant();
+
+    if maybe_serialized_length.is_some() {
+        // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return
+        // an empty quote for the implementation.
+        quote {}
+    } else {
+        // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize`
+        // so we derive it.
+        derive_serialize(s)
+    }
 }

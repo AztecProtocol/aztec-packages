@@ -5,27 +5,32 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::simulation {
 
 /////////////////////////////
 // Base Context
 /////////////////////////////
-std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset_addr, uint32_t rd_copy_size)
+std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size)
 {
     MemoryInterface& child_memory = get_child_context().get_memory();
-    // The amount to rd to copy is the minimum of the requested size(with the offset) and the size of the returndata
-    uint32_t read_size = std::min(rd_offset_addr + rd_copy_size, last_child_rd_size);
+    // The amount to rd copy is the minimum of the requested size (with the offset into rd) and the size of the
+    // returndata We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to
+    // be a u32 since last_child_rd_size would have previously been constrained to be u32.
+    uint32_t max_read_index = static_cast<uint32_t>(
+        std::min(static_cast<uint64_t>(rd_offset) + rd_copy_size, static_cast<uint64_t>(last_child_rd_size)));
 
-    std::vector<FF> retrieved_returndata;
-    retrieved_returndata.reserve(read_size);
-    // We read starting from the rd_addr
-    for (uint32_t i = 0; i < read_size; i++) {
-        retrieved_returndata.push_back(child_memory.get(get_last_rd_addr() + i));
+    std::vector<FF> padded_returndata;
+    padded_returndata.reserve(max_read_index - rd_offset);
+
+    for (uint32_t i = rd_offset; i < max_read_index; i++) {
+        padded_returndata.push_back(child_memory.get(get_last_rd_addr() + i));
     }
-    retrieved_returndata.resize(rd_copy_size);
+    // Resize because relying on default initialization of FF (in reserve) is a potential footgun
+    padded_returndata.resize(rd_copy_size, 0);
 
-    return retrieved_returndata;
+    return padded_returndata;
 };
 
 /////////////////////////////
@@ -33,16 +38,19 @@ std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset_addr, uint32_t rd
 /////////////////////////////
 std::vector<FF> EnqueuedCallContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const
 {
-    // TODO(ilyas): Do we assert to assert cd_size < calldata.size(), otherwise it could trigger a massive write of
-    // zeroes. OTOH: this should be caught by an OUT_OF_GAS exception
-    std::vector<FF> padded_calldata(cd_copy_size, 0); // Vector of size cd_size filled with zeroes;
-
+    uint64_t calldata_size = static_cast<uint64_t>(calldata.size());
     // We first take a slice of the data, the most we can slice is the actual size of the data
-    size_t slice_size = std::min(static_cast<size_t>(cd_offset + cd_copy_size), calldata.size());
+    uint64_t max_read_index = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, calldata_size);
 
-    for (size_t i = cd_offset; i < slice_size; i++) {
-        padded_calldata[i] = calldata[i];
+    std::vector<FF> padded_calldata;
+    padded_calldata.reserve(max_read_index - cd_offset);
+
+    for (size_t i = cd_offset; i < max_read_index; i++) {
+        padded_calldata.push_back(calldata[i]);
     }
+    // Resize because relying on default initialization of FF (in reserve) is a potential footgun
+    padded_calldata.resize(cd_copy_size, 0);
+
     return padded_calldata;
 };
 
@@ -54,6 +62,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
+        .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = 0,
         .parent_cd_size_addr = 0,
@@ -74,19 +83,25 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
 /////////////////////////////
 // Nested Context
 /////////////////////////////
-std::vector<FF> NestedContext::get_calldata(uint32_t cd_offset_addr, uint32_t cd_copy_size) const
+std::vector<FF> NestedContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const
 {
-    uint32_t read_size = std::min(cd_offset_addr + cd_copy_size, parent_cd_size);
+    // This is the amount of the parent calldata we will read
+    // We need to do it over a wider integer type to avoid overflow issues
+    // Explicit for clarity
+    uint64_t parent_cd_size_u64 = static_cast<uint64_t>(parent_cd_size);
 
-    std::vector<FF> retrieved_calldata;
-    retrieved_calldata.reserve(read_size);
-    for (uint32_t i = 0; i < read_size; i++) {
-        retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_addr + i));
+    uint64_t max_read_index = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, parent_cd_size_u64);
+
+    std::vector<FF> padded_calldata;
+    padded_calldata.reserve(max_read_index - cd_offset);
+
+    for (uint32_t i = cd_offset; i < max_read_index; i++) {
+        padded_calldata.push_back(parent_context.get_memory().get(parent_cd_addr + i));
     }
+    // Resize because relying on default initialization of FF (in reserve) is a potential footgun
+    padded_calldata.resize(cd_copy_size, 0);
 
-    // Pad the calldata
-    retrieved_calldata.resize(cd_copy_size, 0);
-    return retrieved_calldata;
+    return padded_calldata;
 };
 
 ContextEvent NestedContext::serialize_context_event()
@@ -97,6 +112,7 @@ ContextEvent NestedContext::serialize_context_event()
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
+        .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = parent_cd_addr,
         .parent_cd_size_addr = parent_cd_size,

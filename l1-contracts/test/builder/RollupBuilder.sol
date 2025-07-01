@@ -13,6 +13,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
@@ -184,19 +185,11 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setEntryQueueFlushSizeMin(uint256 _entryQueueFlushSizeMin)
+  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig)
     public
     returns (RollupBuilder)
   {
-    config.rollupConfigInput.entryQueueFlushSizeMin = _entryQueueFlushSizeMin;
-    return this;
-  }
-
-  function setEntryQueueFlushSizeQuotient(uint256 _entryQueueFlushSizeQuotient)
-    public
-    returns (RollupBuilder)
-  {
-    config.rollupConfigInput.entryQueueFlushSizeQuotient = _entryQueueFlushSizeQuotient;
+    config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
     return this;
   }
 
@@ -260,6 +253,8 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
+
+    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());

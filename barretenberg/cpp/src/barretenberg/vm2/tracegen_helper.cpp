@@ -33,7 +33,7 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
@@ -83,6 +83,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_memory_tag_range(trace));
             AVM_TRACK_TIME("tracegen/precomputed/addressing_gas", precomputed_builder.process_addressing_gas(trace));
             AVM_TRACK_TIME("tracegen/precomputed/phase_table", precomputed_builder.process_phase_table(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/get_env_var_table",
+                           precomputed_builder.process_get_env_var_table(trace));
         },
     };
 }
@@ -312,10 +314,9 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.range_check);
                 },
                 [&]() {
-                    PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
-                    AVM_TRACK_TIME(
-                        "tracegen/public_data_tree_check",
-                        public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
+                    PublicDataTreeTraceBuilder public_data_tree_trace_builder;
+                    AVM_TRACK_TIME("tracegen/public_data_tree_check",
+                                   public_data_tree_trace_builder.process(events.public_data_tree_check_events, trace));
                     clear_events(events.public_data_tree_check_events);
                 },
                 [&]() {
@@ -391,7 +392,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                                                   AddressDerivationTraceBuilder::interactions.get_all_jobs(),
                                                   FieldGreaterThanTraceBuilder::interactions.get_all_jobs(),
                                                   MerkleCheckTraceBuilder::interactions.get_all_jobs(),
-                                                  PublicDataTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                                                  PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
                                                   UpdateCheckTraceBuilder::interactions.get_all_jobs(),
                                                   NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
                                                   MemoryTraceBuilder::interactions.get_all_jobs(),

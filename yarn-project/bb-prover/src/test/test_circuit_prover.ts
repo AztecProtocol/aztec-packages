@@ -19,6 +19,8 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPaddingBlockRootRollupInputsToWitnessMap,
+  convertPaddingBlockRootRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -54,6 +56,7 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   RootRollupInputs,
@@ -258,6 +261,23 @@ export class TestCircuitProver implements ServerCircuitProver {
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
         convertEmptyBlockRootRollupInputsToWitnessMap,
         convertEmptyBlockRootRollupOutputsFromWitnessMap,
+      ),
+    );
+  }
+
+  @trackSpan('TestCircuitProver.getPaddingBlockRootRollupProof')
+  public getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.applyDelay(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, () =>
+      this.simulate(
+        input,
+        'PaddingBlockRootRollupArtifact',
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+        convertPaddingBlockRootRollupInputsToWitnessMap,
+        convertPaddingBlockRootRollupOutputsFromWitnessMap,
       ),
     );
   }

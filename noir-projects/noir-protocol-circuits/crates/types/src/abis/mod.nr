@@ -3,7 +3,6 @@ pub mod avm_circuit_public_inputs;
 
 pub mod contract_class_function_leaf_preimage;
 
-pub mod event_selector;
 pub mod function_selector;
 pub mod function_data;
 
@@ -30,7 +29,7 @@ pub mod public_data_write;
 pub mod accumulated_data;
 pub mod validation_requests;
 
-pub mod max_block_number;
+pub mod include_by_timestamp;
 
 pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;

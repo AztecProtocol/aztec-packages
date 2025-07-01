@@ -11,28 +11,28 @@ describe('SharedMutableValues', () => {
     expect(values).toEqual(SharedMutableValues.fromFields(values.toFields()));
 
     values = new SharedMutableValues(
-      new ScheduledValueChange([new Fr(1)], [new Fr(2)], 27),
-      new ScheduledDelayChange(undefined, 2, 1),
+      new ScheduledValueChange([new Fr(1)], [new Fr(2)], 27n),
+      new ScheduledDelayChange(undefined, 2n, 1n),
     );
     expect(values).toEqual(SharedMutableValues.fromFields(values.toFields()));
 
     values = new SharedMutableValues(
-      new ScheduledValueChange([new Fr(3)], [new Fr(4)], 28),
-      new ScheduledDelayChange(3, undefined, 4),
+      new ScheduledValueChange([new Fr(3)], [new Fr(4)], 28n),
+      new ScheduledDelayChange(3n, undefined, 4n),
     );
     expect(values).toEqual(SharedMutableValues.fromFields(values.toFields()));
 
     values = new SharedMutableValues(
-      new ScheduledValueChange([new Fr(5)], [new Fr(6)], 29),
-      new ScheduledDelayChange(5, 7, 6),
+      new ScheduledValueChange([new Fr(5)], [new Fr(6)], 29n),
+      new ScheduledDelayChange(5n, 7n, 6n),
     );
     expect(values).toEqual(SharedMutableValues.fromFields(values.toFields()));
   });
 
   it('packed shared mutable values match Noir', () => {
     const values = new SharedMutableValues(
-      new ScheduledValueChange([new Fr(1), new Fr(2)], [new Fr(3), new Fr(4)], 50),
-      new ScheduledDelayChange(1, 50, 2),
+      new ScheduledValueChange([new Fr(1), new Fr(2)], [new Fr(3), new Fr(4)], 50n),
+      new ScheduledDelayChange(1n, 50n, 2n),
     );
 
     const packed = values.toFields();
