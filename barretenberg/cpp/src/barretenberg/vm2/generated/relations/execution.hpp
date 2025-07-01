@@ -42,6 +42,7 @@ template <typename FF_> class executionImpl {
         const auto constants_AVM_SUBTRACE_ID_ECC = FF(32);
         const auto constants_AVM_SUBTRACE_ID_KECCAKF1600 = FF(64);
         const auto constants_AVM_SUBTRACE_ID_DATA_COPY = FF(128);
+        const auto constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE = FF(256);
         const auto constants_AVM_EXEC_OP_ID_GETENVVAR = FF(1);
         const auto constants_AVM_EXEC_OP_ID_SET = FF(2);
         const auto constants_AVM_EXEC_OP_ID_MOV = FF(4);
@@ -145,15 +146,17 @@ template <typename FF_> class executionImpl {
         }
         { // SUBTRACE_ID_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::execution_sel_execution) * constants_AVM_SUBTRACE_ID_EXECUTION +
-                         in.get(C::execution_sel_alu) * constants_AVM_SUBTRACE_ID_ALU +
-                         in.get(C::execution_sel_bitwise) * constants_AVM_SUBTRACE_ID_BITWISE +
-                         in.get(C::execution_sel_poseidon2_perm) * constants_AVM_SUBTRACE_ID_POSEIDON_PERM +
-                         in.get(C::execution_sel_to_radix) * constants_AVM_SUBTRACE_ID_TO_RADIX +
-                         in.get(C::execution_sel_ecc_add) * constants_AVM_SUBTRACE_ID_ECC +
-                         in.get(C::execution_sel_keccakf1600) * constants_AVM_SUBTRACE_ID_KECCAKF1600 +
-                         in.get(C::execution_sel_data_copy) * constants_AVM_SUBTRACE_ID_DATA_COPY) -
-                        in.get(C::execution_sel_should_execute_opcode) * in.get(C::execution_subtrace_id));
+            auto tmp =
+                ((in.get(C::execution_sel_execution) * constants_AVM_SUBTRACE_ID_EXECUTION +
+                  in.get(C::execution_sel_alu) * constants_AVM_SUBTRACE_ID_ALU +
+                  in.get(C::execution_sel_bitwise) * constants_AVM_SUBTRACE_ID_BITWISE +
+                  in.get(C::execution_sel_poseidon2_perm) * constants_AVM_SUBTRACE_ID_POSEIDON_PERM +
+                  in.get(C::execution_sel_to_radix) * constants_AVM_SUBTRACE_ID_TO_RADIX +
+                  in.get(C::execution_sel_ecc_add) * constants_AVM_SUBTRACE_ID_ECC +
+                  in.get(C::execution_sel_keccakf1600) * constants_AVM_SUBTRACE_ID_KECCAKF1600 +
+                  in.get(C::execution_sel_data_copy) * constants_AVM_SUBTRACE_ID_DATA_COPY +
+                  in.get(C::execution_sel_get_contract_instance) * constants_AVM_SUBTRACE_ID_GETCONTRACTINSTANCE) -
+                 in.get(C::execution_sel_should_execute_opcode) * in.get(C::execution_subtrace_id));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }

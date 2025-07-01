@@ -15,36 +15,26 @@ namespace bb::avm2::simulation {
 
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
-    // If the address is already resolved, we can return the bytecode id.
-    auto it = resolved_addresses.find(address);
-    if (it != resolved_addresses.end()) {
-        const auto& resolved_address = it->second;
-        if (resolved_address.not_found) {
-            throw BytecodeNotFoundError(resolved_address.bytecode_id,
-                                        "Contract " + field_to_string(address) + " is not deployed");
-        }
-        return resolved_address.bytecode_id;
-    }
-
-    // If the instance is found, the address derivation will be proven.
-    // If it is not found, we have to prove that the nullifier does NOT exist.
-    std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-
     auto bytecode_id = next_bytecode_id++;
-    if (!merkle_db.nullifier_exists(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, address)) {
+
+    // Use shared ContractInstanceManager for contract instance retrieval and validation
+    // This handles nullifier checks, address derivation, and update validation
+    auto maybe_instance = contract_instance_manager.get_contract_instance(address);
+
+    if (!maybe_instance.has_value()) {
+        // Contract instance not found - emit error event and throw
         retrieval_events.emit({
             .bytecode_id = bytecode_id,
             .address = address,
             .error = true,
         });
-        resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = true };
         vinfo("Contract ", field_to_string(address), " is not deployed!");
         throw BytecodeNotFoundError(bytecode_id, "Contract " + field_to_string(address) + " is not deployed");
     }
 
     const ContractInstance& instance = maybe_instance.value();
-    update_check.check_current_class_id(address, instance);
 
+    // Get contract class for bytecode operations
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarrantees
     // that if a contract instance exists, the class has been registered.
@@ -52,6 +42,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     info("Bytecode for ", address, " successfully retrieved!");
 
+    // Handle bytecode-specific operations (hashing and decomposition)
     FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
     (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
     assert(bytecode_commitment == klass.public_bytecode_commitment);
@@ -60,16 +51,17 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
-    resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = false };
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
     auto tree_states = merkle_db.get_tree_state();
 
+    // Emit bytecode-specific retrieval event
+    // Note: Contract instance validation data is handled by ContractInstanceManager
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
-        .contract_instance = instance,
-        .contract_class = klass, // WARNING: this class has the whole bytecode.
+        .contract_instance = instance, // Keep for tracegen compatibility
+        .contract_class = klass,       // WARNING: this class has the whole bytecode.
         .nullifier_root = tree_states.nullifierTree.tree.root,
         .public_data_tree_root = tree_states.publicDataTree.tree.root,
         .current_timestamp = current_timestamp,

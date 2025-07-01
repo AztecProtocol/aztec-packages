@@ -22,9 +22,11 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
@@ -69,12 +71,14 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     StrictMock<MockKeccakF1600> keccakf1600;
+    StrictMock<MockGetContractInstance> get_contract_instance;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
     StrictMock<MockContextProvider> context_provider;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
+    StrictMock<MockHighLevelMerkleDB> merkle_db;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -84,7 +88,9 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   execution_id_manager,
                                                   execution_event_emitter,
                                                   context_stack_event_emitter,
-                                                  keccakf1600);
+                                                  keccakf1600,
+                                                  get_contract_instance,
+                                                  merkle_db);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -218,6 +224,41 @@ TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
+}
+
+// Note: these GetContractInstance tests may be silly since the actual get_contract_instance
+// function is mocked....
+TEST_F(ExecutionSimulationTest, GetContractInstanceDeployer)
+{
+    AztecAddress contract_address = AztecAddress(0x1234);
+    MemoryValue contract_address_value = MemoryValue::from<FF>(contract_address);
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(contract_address_value));
+    EXPECT_CALL(get_contract_instance,
+                get_contract_instance(_, contract_address, 2, static_cast<uint8_t>(ContractInstanceMember::DEPLOYER)));
+    execution.get_contract_instance(context, 1, 2, static_cast<uint8_t>(ContractInstanceMember::DEPLOYER));
+}
+
+TEST_F(ExecutionSimulationTest, GetContractInstanceClassId)
+{
+    AztecAddress contract_address = AztecAddress(0x5678);
+    MemoryValue contract_address_value = MemoryValue::from<FF>(contract_address);
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(contract_address_value));
+    EXPECT_CALL(get_contract_instance,
+                get_contract_instance(_, contract_address, 2, static_cast<uint8_t>(ContractInstanceMember::CLASS_ID)));
+    execution.get_contract_instance(context, 1, 2, static_cast<uint8_t>(ContractInstanceMember::CLASS_ID));
+}
+
+TEST_F(ExecutionSimulationTest, GetContractInstanceInitHash)
+{
+    AztecAddress contract_address = AztecAddress(0x9ABC);
+    MemoryValue contract_address_value = MemoryValue::from<FF>(contract_address);
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(contract_address_value));
+    EXPECT_CALL(get_contract_instance,
+                get_contract_instance(_, contract_address, 2, static_cast<uint8_t>(ContractInstanceMember::INIT_HASH)));
+    execution.get_contract_instance(context, 1, 2, static_cast<uint8_t>(ContractInstanceMember::INIT_HASH));
 }
 
 // Trivial test at the moment.

@@ -72,6 +72,9 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_DEBUGLOG } },
     // KeccakF1600
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
+    // Misc
+    { ExecutionOpCode::GETCONTRACTINSTANCE,
+      { .subtrace_selector = SubtraceSel::GETCONTRACTINSTANCE, .subtrace_operation_id = 0 } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
@@ -93,6 +96,8 @@ FF get_subtrace_id(SubtraceSel subtrace_sel)
         return AVM_SUBTRACE_ID_EXECUTION;
     case SubtraceSel::KECCAKF1600:
         return AVM_SUBTRACE_ID_KECCAKF1600;
+    case SubtraceSel::GETCONTRACTINSTANCE:
+        return AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
     }
 
     // clangd will complain if we miss a case.
@@ -121,6 +126,8 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
         return C::execution_sel_execution;
     case SubtraceSel::KECCAKF1600:
         return C::execution_sel_keccakf1600;
+    case SubtraceSel::GETCONTRACTINSTANCE:
+        return C::execution_sel_get_contract_instance;
     }
 
     // clangd will complain if we miss a case.

@@ -92,8 +92,10 @@ class BaseContext : public ContextInterface {
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory,
                 std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
+                HighLevelMerkleDBInterface& merkle_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree)
-        : written_public_data_slots_tree(written_public_data_slots_tree)
+        : merkle_db(merkle_db)
+        , written_public_data_slots_tree(written_public_data_slots_tree)
         , address(address)
         , msg_sender(msg_sender)
         , transaction_fee(transaction_fee)
@@ -158,6 +160,7 @@ class BaseContext : public ContextInterface {
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   protected:
+    HighLevelMerkleDBInterface& merkle_db;
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
 
   private:
@@ -201,6 +204,7 @@ class EnqueuedCallContext : public BaseContext {
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
                         std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
+                        HighLevelMerkleDBInterface& merkle_db,
                         WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                         std::span<const FF> calldata)
         : BaseContext(context_id,
@@ -214,6 +218,7 @@ class EnqueuedCallContext : public BaseContext {
                       std::move(bytecode),
                       std::move(memory),
                       std::move(internal_call_stack_manager),
+                      merkle_db,
                       written_public_data_slots_tree)
         , calldata(calldata.begin(), calldata.end())
     {}
@@ -249,6 +254,7 @@ class NestedContext : public BaseContext {
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
                   std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
+                  HighLevelMerkleDBInterface& merkle_db,
                   WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
@@ -264,6 +270,7 @@ class NestedContext : public BaseContext {
                       std::move(bytecode),
                       std::move(memory),
                       std::move(internal_call_stack_manager),
+                      merkle_db,
                       written_public_data_slots_tree)
         , parent_cd_addr(cd_offset_address)
         , parent_cd_size(cd_size)
