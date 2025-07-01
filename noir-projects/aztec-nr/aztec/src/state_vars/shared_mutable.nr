@@ -206,12 +206,12 @@ where
         // only considered the current delay.
         let effective_minimum_delay =
             delay_change.get_effective_minimum_delay_at(historical_timestamp);
-        let timestamp_horizon =
-            value_change.get_timestamp_horizon(historical_timestamp, effective_minimum_delay);
+        let time_horizon =
+            value_change.get_time_horizon(historical_timestamp, effective_minimum_delay);
 
-        // We prevent this transaction from being included in any timestamp after the timestamp horizon, ensuring that the
+        // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
-        self.context.set_include_by_timestamp(timestamp_horizon);
+        self.context.set_include_by_timestamp(time_horizon);
 
         value_change.get_current_at(historical_timestamp)
     }

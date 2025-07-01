@@ -86,7 +86,7 @@ UpdateCheckEvent update_previous_timestamp = {
     .update_preimage_post_class_id = 3,
 };
 
-UpdateCheckEvent update_timestamp = {
+UpdateCheckEvent update_current_timestamp = {
     .address = 0xdeadbeef,
     .current_class_id = 3,
     .original_class_id = 1,
@@ -103,7 +103,7 @@ std::vector<UpdateCheckEvent> positive_tests = {
     update_from_original_next_timestamp,
     update_next_timestamp,
     update_previous_timestamp,
-    update_timestamp,
+    update_current_timestamp,
 };
 
 class UpdateCheckPositiveConstrainingTest : public TestWithParam<UpdateCheckEvent> {};
