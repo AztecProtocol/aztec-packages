@@ -94,12 +94,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2,
-                                               mock_merkle_check,
-                                               mock_field_gt,
-                                               execution_id_manager,
-                                               range_check,
-                                               public_data_tree_check_event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
@@ -174,12 +170,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
-    PublicDataTreeCheck public_data_tree_check(poseidon2,
-                                               mock_merkle_check,
-                                               mock_field_gt,
-                                               execution_id_manager,
-                                               range_check,
-                                               public_data_tree_check_event_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 

@@ -116,8 +116,7 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
     uint32_t execution_id =
         is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id();
 
-    range_check.assert_range(execution_id - last_write_execution_id, 32);
-    last_write_execution_id = execution_id;
+    // TODO(Alvaro): Figure out a good way to handle sorting range checks
 
     events.emit(PublicDataTreeReadWriteEvent{
         .contract_address = contract_address,

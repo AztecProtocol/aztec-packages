@@ -36,7 +36,6 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-using ::testing::NiceMock;
 using ::testing::TestWithParam;
 
 using testing::TestMemoryTree;
@@ -125,7 +124,7 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     RangeCheckTraceBuilder range_check_builder;
@@ -198,7 +197,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     RangeCheckTraceBuilder range_check_builder;
@@ -288,7 +287,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     RangeCheckTraceBuilder range_check_builder;

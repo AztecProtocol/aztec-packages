@@ -30,13 +30,9 @@ TEST(AvmSimulationPublicDataTree, ReadExists)
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
-    StrictMock<MockRangeCheck> range_check;
-
-    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly(Return());
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, execution_id_manager, event_emitter);
 
     AztecAddress contract_address = 27;
     FF slot = 42;
@@ -86,13 +82,9 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
-    StrictMock<MockRangeCheck> range_check;
-
-    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly(Return());
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, execution_id_manager, event_emitter);
 
     AztecAddress contract_address = 27;
     FF slot = 42;
@@ -149,13 +141,9 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
-    StrictMock<MockRangeCheck> range_check;
-
-    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly(Return());
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, execution_id_manager, event_emitter);
 
     AztecAddress contract_address = 27;
     FF slot = 42;
@@ -212,13 +200,9 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
-    StrictMock<MockRangeCheck> range_check;
-
-    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly(Return());
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, execution_id_manager, event_emitter);
 
     AztecAddress contract_address = 27;
     FF slot = 42;
@@ -295,13 +279,9 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
     StrictMock<MockFieldGreaterThan> field_gt;
-    StrictMock<MockRangeCheck> range_check;
-
-    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly(Return());
 
     EventEmitter<PublicDataTreeCheckEvent> event_emitter;
-    PublicDataTreeCheck public_data_tree_check(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, event_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, execution_id_manager, event_emitter);
 
     AztecAddress contract_address = 27;
     FF slot = 42;
@@ -403,7 +383,6 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
 
     EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
-    EXPECT_CALL(range_check, assert_range(std::numeric_limits<uint32_t>::max() - 1, 32));
     AppendOnlyTreeSnapshot snapshot_after_update = public_data_tree_check.write(slot,
                                                                                 contract_address,
                                                                                 new_value,

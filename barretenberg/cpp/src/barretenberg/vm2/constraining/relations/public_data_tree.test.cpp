@@ -112,7 +112,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -291,7 +291,7 @@ TEST(PublicDataTreeConstrainingTest, PositiveWriteExists)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -364,7 +364,7 @@ TEST(PublicDataTreeConstrainingTest, PositiveWriteAndUpdate)
 
     NoopEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     PublicDataTreeTraceBuilder public_data_tree_read_builder;

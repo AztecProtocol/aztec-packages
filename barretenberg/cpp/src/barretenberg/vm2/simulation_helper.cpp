@@ -115,7 +115,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
