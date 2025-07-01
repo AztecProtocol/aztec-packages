@@ -55,34 +55,6 @@ function cancel_ci_runs {
   fi
 }
 
-function safe_git_fetch {
-  local branch="$1"
-  if ! git fetch origin "$branch" 2>/dev/null; then
-      log_error "Failed to fetch branch $branch"
-      return 1
-  fi
-  return 0
-}
-
-function safe_git_checkout {
-  local branch="$1"
-  if ! git checkout "$branch" 2>/dev/null; then
-      log_error "Failed to checkout branch $branch"
-      return 1
-  fi
-  return 0
-}
-
-function safe_git_push {
-  local branch="$1"
-  local force="${2:-}"
-  
-  if [[ "$force" == "force" ]]; then
-      git push -f origin "$branch"
-  else
-      git push origin "$branch"
-  fi
-}
 
 function attempt_merge {
   local target="$1"

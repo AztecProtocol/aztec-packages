@@ -10,10 +10,7 @@ source "$SCRIPT_DIR/merge-train-lib.sh"
 # - get_pr_for_branch: Get PR info for a branch
 # - pr_has_auto_merge: Check if PR has auto-merge enabled
 # - branch_exists: Check if branch exists on remote
-# - safe_git_fetch: Safely fetch a branch
-# - safe_git_checkout: Safely checkout a branch
 # - attempt_merge: Attempt to merge with conflict detection
-# - safe_git_push: Push changes to remote
 # - get_pr_merge_commits: Get merge commits for a PR
 # - cancel_ci_runs: Cancel CI runs for a commit
 
@@ -43,15 +40,15 @@ if ! branch_exists "$TRAIN_BRANCH"; then
 fi
 
 # Fetch and checkout the merge-train branch
-safe_git_fetch "$TRAIN_BRANCH" || exit 1
-safe_git_checkout "$TRAIN_BRANCH" || exit 1
+git fetch origin "$TRAIN_BRANCH" || exit 1
+git checkout "$TRAIN_BRANCH" || exit 1
 
 # Attempt to merge next
 if attempt_merge "origin/next" "Merge branch 'next' into $TRAIN_BRANCH"; then
   log_info "Successfully merged next into $TRAIN_BRANCH"
   
   # Try to push
-  if safe_git_push "$TRAIN_BRANCH"; then
+  if git push origin "$TRAIN_BRANCH"; then
       log_info "Successfully pushed to $TRAIN_BRANCH"
       pushed_sha=$(git rev-parse HEAD)
       
