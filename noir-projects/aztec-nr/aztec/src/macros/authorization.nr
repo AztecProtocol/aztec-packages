@@ -15,7 +15,7 @@ comptime fn register_authorization(
         let existing_authorization = AUTH_TYPES.get(authorization_selector).unwrap().name();
         let authorization_name = authorization_struct.name();
         panic(
-            f"Authwit selector collision detected between authorizations '{authorization_name}' and '{existing_authorization}'",
+            f"Selector collision detected between authorizations '{authorization_name}' and '{existing_authorization}'",
         );
     }
     AUTH_TYPES.insert(authorization_selector, authorization_struct);
@@ -53,6 +53,11 @@ pub comptime fn generate_authorization_interface_and_get_selector(
     )
 }
 
+/// An Authorization is a struct that represents and action a user can allow others to do
+/// on their behalf. By definition, an Authorization must be human-readable and contain
+/// enough information to be interpreted on its own. Authorizations are then hashed in a
+/// specific way to produce an inner_hash that can later be signed and checked via the
+/// authwit mechanism.
 pub comptime fn authorization(s: TypeDefinition) -> Quoted {
     let (authorization_interface_impl, authorization_selector) =
         generate_authorization_interface_and_get_selector(s);

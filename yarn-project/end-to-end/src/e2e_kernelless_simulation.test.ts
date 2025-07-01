@@ -103,15 +103,18 @@ describe('Kernelless simulation', () => {
       expect(token0AuthwitRequest.data).toHaveLength(9);
       expect(token1AuthwitRequest.data).toHaveLength(9);
 
-      const token0AuthwitPreimage = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
-      const token1AuthwitPreimage = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
+      const token0CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
+      const token1CallAuthorizationRequest = await CallAuthorizationRequest.fromFields(token0AuthwitRequest.data);
 
-      expect(token0AuthwitPreimage.selector).toEqual(token1AuthwitPreimage.selector);
+      expect(token0CallAuthorizationRequest.selector).toEqual(token1CallAuthorizationRequest.selector);
 
-      const functionAbi = await getFunctionArtifact(TokenContractArtifact, token0AuthwitPreimage.functionSelector);
+      const functionAbi = await getFunctionArtifact(
+        TokenContractArtifact,
+        token0CallAuthorizationRequest.functionSelector,
+      );
       const token0CallArgs = decodeFromAbi(
         functionAbi.parameters.map(param => param.type),
-        token0AuthwitPreimage.args,
+        token0CallAuthorizationRequest.args,
       ) as AbiDecoded[];
 
       expect(token0CallArgs).toHaveLength(4);
@@ -122,7 +125,7 @@ describe('Kernelless simulation', () => {
 
       const token1CallArgs = decodeFromAbi(
         functionAbi.parameters.map(param => param.type),
-        token0AuthwitPreimage.args,
+        token1CallAuthorizationRequest.args,
       ) as AbiDecoded[];
 
       expect(token1CallArgs).toHaveLength(4);
@@ -158,14 +161,14 @@ describe('Kernelless simulation', () => {
         token0.address,
         new Fr(chainId),
         new Fr(version),
-        token0AuthwitPreimage.innerHash,
+        token0CallAuthorizationRequest.innerHash,
       );
 
       const token1AuthwitHash = await computeOuterAuthWitHash(
         token1.address,
         new Fr(chainId),
         new Fr(version),
-        token1AuthwitPreimage.innerHash,
+        token1CallAuthorizationRequest.innerHash,
       );
 
       expect(token0AuthwitHash).toEqual(token0Authwit.requestHash);

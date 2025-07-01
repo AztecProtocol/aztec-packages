@@ -8,14 +8,16 @@ import { Selector } from './selector.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 
-/** Authwit selector branding */
-export interface AuthwitSelector {
+/** Authorization selector branding */
+export interface AuthorizationSelector {
   /** Brand. */
-  _branding: 'AuthwitSelector';
+  _branding: 'AuthorizationSelector';
 }
 
-/** An authwit selector is the first 4 bytes of the hash of an authwit signature. */
-export class AuthwitSelector extends Selector {
+/**
+ * An authorization selector is the first 4 bytes of the hash of an authorization struct signature.
+ */
+export class AuthorizationSelector extends Selector {
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
@@ -24,7 +26,7 @@ export class AuthwitSelector extends Selector {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     const value = Number(toBigIntBE(reader.readBytes(Selector.SIZE)));
-    return new AuthwitSelector(value);
+    return new AuthorizationSelector(value);
   }
 
   /**
@@ -33,12 +35,12 @@ export class AuthwitSelector extends Selector {
    * @returns The selector.
    */
   static fromField(fr: Fr) {
-    return new AuthwitSelector(Number(fr.toBigInt()));
+    return new AuthorizationSelector(Number(fr.toBigInt()));
   }
 
   /**
    * Creates a selector from a signature.
-   * @param signature - Signature to generate the selector for (e.g. "transfer(field,field)").
+   * @param signature - Signature to generate the selector for (e.g. "CallAuthorization(field,field)").
    * @returns selector.
    */
   static async fromSignature(signature: string) {
@@ -49,7 +51,7 @@ export class AuthwitSelector extends Selector {
     const hash = await poseidon2HashBytes(Buffer.from(signature));
     // We take the last Selector.SIZE big endian bytes
     const bytes = hash.toBuffer().slice(-Selector.SIZE);
-    return AuthwitSelector.fromBuffer(bytes);
+    return AuthorizationSelector.fromBuffer(bytes);
   }
 
   /**
@@ -62,9 +64,9 @@ export class AuthwitSelector extends Selector {
   static fromString(selector: string) {
     const buf = fromHex(selector);
     if (buf.length !== Selector.SIZE) {
-      throw new Error(`Invalid AuthwitSelector length ${buf.length} (expected ${Selector.SIZE}).`);
+      throw new Error(`Invalid AuthorizationSelector length ${buf.length} (expected ${Selector.SIZE}).`);
     }
-    return AuthwitSelector.fromBuffer(buf);
+    return AuthorizationSelector.fromBuffer(buf);
   }
 
   /**
@@ -72,7 +74,7 @@ export class AuthwitSelector extends Selector {
    * @returns An empty selector.
    */
   static empty() {
-    return new AuthwitSelector(0);
+    return new AuthorizationSelector(0);
   }
 
   /**
@@ -80,7 +82,7 @@ export class AuthwitSelector extends Selector {
    * @returns A random selector.
    */
   static random() {
-    return AuthwitSelector.fromBuffer(randomBytes(Selector.SIZE));
+    return AuthorizationSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
 
   toJSON() {
@@ -88,6 +90,6 @@ export class AuthwitSelector extends Selector {
   }
 
   static get schema() {
-    return hexSchemaFor(AuthwitSelector);
+    return hexSchemaFor(AuthorizationSelector);
   }
 }

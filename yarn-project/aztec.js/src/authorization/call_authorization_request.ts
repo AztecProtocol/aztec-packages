@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
-import { AuthwitSelector, FunctionSelector } from '@aztec/stdlib/abi';
+import { AuthorizationSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /**
@@ -14,7 +14,7 @@ export class CallAuthorizationRequest {
      * when emitted from `emit_offchain_effect`oracle.
      * Computed as poseidon2("CallAuthwit((Field),(u32),Field)".to_bytes())
      */
-    public selector: AuthwitSelector,
+    public selector: AuthorizationSelector,
     /**
      * The inner hash of the authwit, computed as
      * poseidon2([msg_sender, selector, args_hash])
@@ -38,17 +38,17 @@ export class CallAuthorizationRequest {
     public args: Fr[],
   ) {}
 
-  static getSelector(): Promise<AuthwitSelector> {
-    return AuthwitSelector.fromSignature('CallAuthwit((Field),(u32),Field)');
+  static getSelector(): Promise<AuthorizationSelector> {
+    return AuthorizationSelector.fromSignature('CallAuthwit((Field),(u32),Field)');
   }
 
   static async fromFields(fields: Fr[]): Promise<CallAuthorizationRequest> {
     const expectedSelector = await CallAuthorizationRequest.getSelector();
     const reader = FieldReader.asReader(fields);
-    const selector = AuthwitSelector.fromField(reader.readField());
+    const selector = AuthorizationSelector.fromField(reader.readField());
     if (!selector.equals(expectedSelector)) {
       throw new Error(
-        `Invalid authwit selector for CallAuthwit: expected ${expectedSelector.toString()}, got ${selector.toString()}`,
+        `Invalid authorization selector for CallAuthwit: expected ${expectedSelector.toString()}, got ${selector.toString()}`,
       );
     }
     return new CallAuthorizationRequest(
