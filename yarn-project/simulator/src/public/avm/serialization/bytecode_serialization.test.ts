@@ -1,7 +1,10 @@
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
+
 import { strict as assert } from 'assert';
 
 import { AvmParsingError, InvalidOpcodeError, InvalidTagValueError } from '../errors.js';
-import { Add, Call, EnvironmentVariable, GetEnvVar, StaticCall, Sub } from '../opcodes/index.js';
+import { Add, Call, EnvironmentVariable, GetEnvVar, Set, StaticCall, Sub } from '../opcodes/index.js';
 import type { BufferCursor } from './buffer_cursor.js';
 import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
 import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
@@ -133,6 +136,24 @@ describe('Bytecode Serialization', () => {
 
     const expected = Buffer.concat(instructions.map(i => i.toBuffer()));
     expect(actual).toEqual(expected);
+  });
+
+  it('Should deserialize a large FF value', () => {
+    const buf = Buffer.from([
+      Opcode.SET_FF, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x02, //tag
+      ...toBufferBE(Fr.MODULUS + 245n, 32), // value
+    ]);
+
+    const actual = decodeFromBytecode(buf);
+    expect(actual).toEqual([
+      new Set(/*indirect=*/ 0x02, /*dstOffset=*/ 0x3456, /*inTag=*/ 0x02, /*value=*/ 245n).as(
+        Opcode.SET_FF,
+        Set.wireFormatFF,
+      ),
+    ]);
   });
 
   it('Should throw an InvalidOpcodeError while deserializing an out-of-range opcode value', () => {

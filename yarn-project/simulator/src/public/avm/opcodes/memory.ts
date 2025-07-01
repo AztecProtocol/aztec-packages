@@ -1,3 +1,7 @@
+import { Fr } from '@aztec/foundation/fields';
+
+import { strict as assert } from 'assert';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag, Uint32 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -59,6 +63,8 @@ export class Set extends Instruction {
     private value: bigint | number,
   ) {
     super();
+
+    assert(this.value < Fr.MODULUS, 'Value is larger than Fr.MODULUS');
   }
 
   public async execute(context: AvmContext): Promise<void> {
