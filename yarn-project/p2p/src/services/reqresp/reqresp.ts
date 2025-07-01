@@ -127,7 +127,6 @@ export class ReqResp implements ReqRespInterface {
   ): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
     this.subProtocolValidators[subProtocol] = validator;
-    this.logger.info(`Adding sub protocol ${subProtocol} to reqresp service`);
     await this.libp2p.handle(
       subProtocol,
       (data: IncomingStreamData) =>
@@ -379,9 +378,9 @@ export class ReqResp implements ReqRespInterface {
     try {
       this.metrics.recordRequestSent(subProtocol);
 
-      this.logger.info(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
+      this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
-      this.logger.info(
+      this.logger.trace(
         `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
       );
 

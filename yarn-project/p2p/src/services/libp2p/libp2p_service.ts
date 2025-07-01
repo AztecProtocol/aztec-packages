@@ -210,22 +210,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
-    const peerDiscoveryService = new DiscV5Service(
-      peerId,
-      config,
-      packageVersion,
-      telemetry,
-      createLogger(`${logger.module}:discv5_service`),
-    );
+    const peerDiscoveryService = config.p2pDiscoveryDisabled
+      ? undefined
+      : new DiscV5Service(peerId, config, packageVersion, telemetry, createLogger(`${logger.module}:discv5_service`));
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
+    const bootstrapNodes = peerDiscoveryService?.bootstrapNodeEnrs.map(enr => enr.encodeTxt()) ?? [];
 
     // If trusted peers are provided, also provide them to the p2p service
     bootstrapNodes.push(...config.trustedPeers);
 
     // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
-    if (bootstrapNodes.length > 0 && !config.p2pDiscoveryDisabled) {
+    if (bootstrapNodes.length > 0) {
       peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
     }
 
@@ -246,8 +242,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         } as AddrInfo;
       }),
     );
-
-    console.log(`Configuring with direct peers: `, directPeers);
 
     const node = await createLibp2p({
       start: false,
@@ -660,7 +654,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
     const txHash = await tx.getTxHash();
     const txHashString = txHash.toString();
-    this.logger.info(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
+    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
       source: source.toString(),
       txHash: txHashString,
     });
