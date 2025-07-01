@@ -38,8 +38,6 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     AztecAddress derived_address = compute_contract_address(instance);
     FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
-    FF shared_mutable_leaf_slot =
-        poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, shared_mutable_hash_slot });
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -52,7 +50,8 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     EventEmitter<UpdateCheckEvent> event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
 
-    EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(0)));
+    EXPECT_CALL(merkle_db, storage_read(AztecAddress(DEPLOYER_CONTRACT_ADDRESS), shared_mutable_hash_slot))
+        .WillRepeatedly(Return(FF(0)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
@@ -71,7 +70,6 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                     .update_preimage_pre_class_id = 0,
                     .update_preimage_post_class_id = 0,
                     .shared_mutable_slot = shared_mutable_slot,
-                    .shared_mutable_leaf_slot = shared_mutable_leaf_slot,
                 }));
 
     // Negative: class id must be original class id
@@ -190,7 +188,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     EventEmitter<UpdateCheckEvent> event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
 
-    EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(update_hash));
+    EXPECT_CALL(merkle_db, storage_read(AztecAddress(DEPLOYER_CONTRACT_ADDRESS), shared_mutable_hash_slot))
+        .WillRepeatedly(Return(update_hash));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
@@ -242,7 +241,6 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                         .update_preimage_pre_class_id = param.update_pre_class,
                         .update_preimage_post_class_id = param.update_post_class,
                         .shared_mutable_slot = shared_mutable_slot,
-                        .shared_mutable_leaf_slot = shared_mutable_leaf_slot,
                     }));
     }
 }
@@ -270,7 +268,8 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     EventEmitter<UpdateCheckEvent> event_emitter;
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
 
-    EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(27)));
+    EXPECT_CALL(merkle_db, storage_read(AztecAddress(DEPLOYER_CONTRACT_ADDRESS), shared_mutable_hash_slot))
+        .WillRepeatedly(Return(FF(27)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 

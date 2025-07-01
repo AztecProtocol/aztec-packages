@@ -1,4 +1,4 @@
-name: Auto Merge to Train Branches
+name: Merge Train Auto-Pull
 
 on:
   push:
@@ -40,7 +40,10 @@ jobs:
             # Attempt to merge next
             if git merge origin/next --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH [skip ci]"; then
               echo "merge_success=true" >> $GITHUB_OUTPUT
-              git push origin $TRAIN_BRANCH
+              # Try to push, but don't fail if it doesn't work
+              if ! git push origin $TRAIN_BRANCH; then
+                echo "Push failed but continuing anyway"
+              fi
             else
               echo "merge_success=false" >> $GITHUB_OUTPUT
               echo "conflict_details<<EOF" >> $GITHUB_OUTPUT

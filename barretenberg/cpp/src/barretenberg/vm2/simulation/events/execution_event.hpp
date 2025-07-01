@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <exception>
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -23,9 +24,23 @@ enum class ExecutionError {
     INSTRUCTION_FETCHING,
     GAS_BASE,
     ADDRESSING,
-    REGISTERS,
+    REGISTER_READ,
     DISPATCHING,
     GAS_DYNAMIC,
+};
+
+class TagCheckError : public std::exception {
+  public:
+    explicit TagCheckError(MemoryTag expected_tag, MemoryTag actual_tag)
+        : expected_tag(std::make_unique<MemoryTag>(expected_tag))
+        , actual_tag(std::make_unique<MemoryTag>(actual_tag))
+    {}
+
+    const char* what() const noexcept override { return "Tag check failed"; }
+
+  private:
+    std::unique_ptr<MemoryTag> expected_tag;
+    std::unique_ptr<MemoryTag> actual_tag;
 };
 
 struct ExecutionEvent {

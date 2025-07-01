@@ -15,6 +15,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
@@ -22,6 +23,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -107,16 +109,32 @@ constexpr std::array<Column, NUM_REGISTERS> REGISTER_COLUMNS = {
     C::execution_register_4_, C::execution_register_5_, C::execution_register_6_,
 };
 constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_TAG_COLUMNS = {
-    C::execution_mem_tag_0_, C::execution_mem_tag_1_, C::execution_mem_tag_2_, C::execution_mem_tag_3_,
-    C::execution_mem_tag_4_, C::execution_mem_tag_5_, C::execution_mem_tag_6_,
+    C::execution_mem_tag_reg_0_, C::execution_mem_tag_reg_1_, C::execution_mem_tag_reg_2_, C::execution_mem_tag_reg_3_,
+    C::execution_mem_tag_reg_4_, C::execution_mem_tag_reg_5_, C::execution_mem_tag_reg_6_,
 };
 constexpr std::array<Column, NUM_REGISTERS> REGISTER_IS_WRITE_COLUMNS = {
-    C::execution_rw_0_, C::execution_rw_1_, C::execution_rw_2_, C::execution_rw_3_,
-    C::execution_rw_4_, C::execution_rw_5_, C::execution_rw_6_,
+    C::execution_rw_reg_0_, C::execution_rw_reg_1_, C::execution_rw_reg_2_, C::execution_rw_reg_3_,
+    C::execution_rw_reg_4_, C::execution_rw_reg_5_, C::execution_rw_reg_6_,
 };
 constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
-    C::execution_mem_op_0_, C::execution_mem_op_1_, C::execution_mem_op_2_, C::execution_mem_op_3_,
-    C::execution_mem_op_4_, C::execution_mem_op_5_, C::execution_mem_op_6_,
+    C::execution_sel_mem_op_reg_0_, C::execution_sel_mem_op_reg_1_, C::execution_sel_mem_op_reg_2_,
+    C::execution_sel_mem_op_reg_3_, C::execution_sel_mem_op_reg_4_, C::execution_sel_mem_op_reg_5_,
+    C::execution_sel_mem_op_reg_6_,
+};
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_EXPECTED_TAG_COLUMNS = {
+    C::execution_expected_tag_reg_0_, C::execution_expected_tag_reg_1_, C::execution_expected_tag_reg_2_,
+    C::execution_expected_tag_reg_3_, C::execution_expected_tag_reg_4_, C::execution_expected_tag_reg_5_,
+    C::execution_expected_tag_reg_6_,
+};
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_TAG_CHECK_COLUMNS = {
+    C::execution_sel_tag_check_reg_0_, C::execution_sel_tag_check_reg_1_, C::execution_sel_tag_check_reg_2_,
+    C::execution_sel_tag_check_reg_3_, C::execution_sel_tag_check_reg_4_, C::execution_sel_tag_check_reg_5_,
+    C::execution_sel_tag_check_reg_6_,
+};
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_OP_REG_EFFECTIVE_COLUMNS = {
+    C::execution_sel_op_reg_effective_0_, C::execution_sel_op_reg_effective_1_, C::execution_sel_op_reg_effective_2_,
+    C::execution_sel_op_reg_effective_3_, C::execution_sel_op_reg_effective_4_, C::execution_sel_op_reg_effective_5_,
+    C::execution_sel_op_reg_effective_6_,
 };
 
 /**
@@ -144,11 +162,11 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
         return C::execution_sel_execution;
     case SubtraceSel::KECCAKF1600:
         return C::execution_sel_keccakf1600;
-
-        // clangd will complain if we miss a case.
-        // This is just to please gcc.
-        __builtin_unreachable();
     }
+
+    // clangd will complain if we miss a case.
+    // This is just to please gcc.
+    __builtin_unreachable();
 }
 
 /**
@@ -389,7 +407,10 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 3: Mapping from wire to execution and Base gas.
+         *  Temporality group 2
+         *  - Mapping from wire instruction to execution instruction
+         *  - Gas (will be moved to group 4)
+         *  - Address resolution
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
@@ -405,10 +426,6 @@ void ExecutionTraceBuilder::process(
             process_gas_base(ex_event.gas_event, trace, row);
         }
 
-        /**************************************************************************************************
-         *  Temporality group 4: Addressing.
-         **************************************************************************************************/
-
         bool should_resolve_address = should_check_gas && !oog_base;
         trace.set(C::execution_sel_should_resolve_address, row, should_resolve_address ? 1 : 0);
         if (should_resolve_address) {
@@ -417,19 +434,19 @@ void ExecutionTraceBuilder::process(
         bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
-         *  Temporality group...: Registers.
+         *  Temporality group 3: Registers read.
          **************************************************************************************************/
 
         std::array<TaggedValue, NUM_REGISTERS> registers;
         std::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
         bool should_process_registers = should_resolve_address && !addressing_failed;
-        bool register_processing_failed = ex_event.error == ExecutionError::REGISTERS;
+        bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
             process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
         }
 
         /**************************************************************************************************
-         *  Temporality group...: Dynamic gas.
+         *  Temporality group 4: Gas (will be moved here).
          **************************************************************************************************/
 
         bool should_process_dynamic_gas = should_process_registers && !register_processing_failed;
@@ -440,7 +457,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group...: Dispatching.
+         *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
@@ -489,8 +506,14 @@ void ExecutionTraceBuilder::process(
                       { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                   } });
 
-        bool should_process_dispatching = should_process_dynamic_gas && !oog_dynamic;
-        if (should_process_dispatching) {
+        bool should_execute_opcode = should_process_dynamic_gas && !oog_dynamic;
+        if (should_execute_opcode) {
+            trace.set(row,
+                      { {
+                          { C::execution_should_execute_opcode, 1 },
+                          { C::execution_sel_opcode_error, is_opcode_error ? 1 : 0 },
+                      } });
+
             // Call specific logic
             if (sel_enter_call) {
                 Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
@@ -515,17 +538,28 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
-            }
-
-            if (is_opcode_error) {
-                trace.set(C::execution_opcode_error, row, 1);
             } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
                 TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
+            } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
+                trace.set(C::execution_internal_call_return_id_inv,
+                          row,
+                          ex_event.before_context_event.internal_call_return_id != 0
+                              ? FF(ex_event.before_context_event.internal_call_return_id).invert()
+                              : 0);
             }
+        }
+
+        /**************************************************************************************************
+         *  Temporality group 6: Register write.
+         **************************************************************************************************/
+
+        bool should_process_register_write = should_execute_opcode && !is_opcode_error;
+        if (should_process_register_write) {
+            process_registers_write(*exec_opcode, trace, row);
         }
 
         /**************************************************************************************************
@@ -640,11 +674,16 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                   { C::execution_dynamic_da_gas, gas_cost.dyn_da },
               } });
 
-    const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
-
+    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
     for (size_t i = 0; i < NUM_REGISTERS; i++) {
-        trace.set(REGISTER_IS_WRITE_COLUMNS[i], row, register_info.is_write(static_cast<uint8_t>(i)) ? 1 : 0);
-        trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
+        trace.set(row,
+                  { {
+                      { REGISTER_IS_WRITE_COLUMNS[i], register_info.is_write(i) ? 1 : 0 },
+                      { REGISTER_MEM_OP_COLUMNS[i], register_info.is_active(i) ? 1 : 0 },
+                      { REGISTER_EXPECTED_TAG_COLUMNS[i],
+                        register_info.need_tag_check(i) ? static_cast<uint32_t>(*register_info.expected_tag(i)) : 0 },
+                      { REGISTER_TAG_CHECK_COLUMNS[i], register_info.need_tag_check(i) ? 1 : 0 },
+                  } });
     }
 
     // Set is_address columns
@@ -712,7 +751,12 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     auto resolution_info_vec = addr_event.resolution_info;
     assert(resolution_info_vec.size() <= NUM_OPERANDS);
-    resolution_info_vec.resize(NUM_OPERANDS);
+    resolution_info_vec.resize(NUM_OPERANDS,
+                               {
+                                   // This is the default we want: both tag and value 0.
+                                   .after_relative = simulation::Operand::from<FF>(0),
+                                   .resolved_operand = simulation::Operand::from<FF>(0),
+                               });
 
     std::array<bool, NUM_OPERANDS> should_apply_indirection{};
     std::array<bool, NUM_OPERANDS> is_relative_effective{};
@@ -846,7 +890,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
 {
     assert(registers.size() == NUM_REGISTERS);
     // At this point we can assume instruction fetching succeeded, so this should never fail.
-    const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
+    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
 
     // Registers.
     size_t input_counter = 0;
@@ -867,8 +911,60 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
     for (size_t i = 0; i < NUM_REGISTERS; i++) {
         trace.set(REGISTER_COLUMNS[i], row, registers[i]);
         trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers[i].get_tag()));
+        // This one is special because it sets the reads (but not the writes).
+        // If we got here, sel_should_read_registers=1.
+        if (register_info.is_active(i) && !register_info.is_write(i)) {
+            trace.set(REGISTER_OP_REG_EFFECTIVE_COLUMNS[i], row, 1);
+        }
+    }
+
+    // Tag check.
+    bool some_tag_check_failed = false;
+    for (size_t i = 0; i < NUM_REGISTERS; i++) {
+        if (register_info.need_tag_check(i)) {
+            if (registers[i].get_tag() != *register_info.expected_tag(i)) {
+                some_tag_check_failed = true;
+                break;
+            }
+        }
+    }
+
+    FF batched_tags_diff_inv_reg = 0;
+    if (some_tag_check_failed) {
+        FF batched_tags_diff = 0;
+        FF power_of_2 = 1;
+        for (size_t i = 0; i < NUM_REGISTERS; ++i) {
+            if (register_info.need_tag_check(i)) {
+                batched_tags_diff += power_of_2 * (FF(static_cast<uint8_t>(registers[i].get_tag())) -
+                                                   FF(static_cast<uint8_t>(*register_info.expected_tag(i))));
+            }
+            power_of_2 *= 8; // 2^3
+        }
+        batched_tags_diff_inv_reg = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+    }
+
+    trace.set(row,
+              { {
+                  { C::execution_sel_should_read_registers, 1 },
+                  { C::execution_batched_tags_diff_inv_reg, batched_tags_diff_inv_reg },
+                  { C::execution_sel_register_read_error, some_tag_check_failed ? 1 : 0 },
+              } });
+}
+
+void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row)
+{
+    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+    trace.set(C::execution_sel_should_write_registers, row, 1);
+
+    for (size_t i = 0; i < NUM_REGISTERS; i++) {
+        // This one is special because it sets the writes.
+        // If we got here, sel_should_write_registers=1.
+        if (register_info.is_active(i) && register_info.is_write(i)) {
+            trace.set(REGISTER_OP_REG_EFFECTIVE_COLUMNS[i], row, 1);
+        }
     }
 }
+
 void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
                                                        TaggedValue output,
                                                        TraceContainer& trace,
@@ -891,6 +987,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
                   { C::execution_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
                   { C::execution_value_from_pi,
                     envvar_spec.envvar_pi_lookup_col0 || envvar_spec.envvar_pi_lookup_col1 ? output.as_ff() : 0 },
+                  { C::execution_mem_tag_reg_0_, envvar_spec.out_tag },
               } });
 }
 
@@ -919,6 +1016,14 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
+        // Registers
+        .add<lookup_registers_mem_op_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_registers_mem_op_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_registers_mem_op_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_registers_mem_op_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_registers_mem_op_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_registers_mem_op_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_registers_mem_op_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()

@@ -1,4 +1,10 @@
-use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext, RetrievedNote};
+use dep::aztec::{
+    context::PrivateContext,
+    note::{
+        note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
+    },
+};
 
 use dep::aztec::{
     context::UtilityContext,
@@ -10,7 +16,7 @@ use dep::aztec::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{FromField, Hash, Serialize, ToField},
     },
-    state_vars::{PrivateSet, storage::Storage},
+    state_vars::{PrivateSet, storage::HasStorageSlot},
 };
 use dep::value_note::value_note::ValueNote;
 use std::meta::derive;
@@ -71,7 +77,7 @@ pub struct Deck<Context> {
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> Storage<1> for Deck<Context> {
+impl<Context> HasStorageSlot<1> for Deck<Context> {
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
     }
