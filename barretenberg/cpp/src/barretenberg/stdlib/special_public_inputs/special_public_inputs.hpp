@@ -29,8 +29,8 @@ class KernelIO {
     PairingInputs pairing_inputs;
     G1 kernel_return_data;
     G1 app_return_data;
-    G1 ecc_op_table;
-    FF pg_acc_hash;
+    // G1 ecc_op_table;
+    // FF pg_acc_hash;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
@@ -46,10 +46,10 @@ class KernelIO {
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
         app_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
-        index += G1::PUBLIC_INPUTS_SIZE;
-        ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
-        index += G1::PUBLIC_INPUTS_SIZE;
-        pg_acc_hash = public_inputs[index];
+        // index += G1::PUBLIC_INPUTS_SIZE;
+        // ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
+        // index += G1::PUBLIC_INPUTS_SIZE;
+        // pg_acc_hash = public_inputs[index];
     }
 
     /**
@@ -58,12 +58,88 @@ class KernelIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
-        kernel_return_data.set_public();
-        app_return_data.set_public();
-        ecc_op_table.set_public();
-        pg_acc_hash.set_public();
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->pairing_inputs_public_input_key.start_idx = pairing_inputs.set_public();
+        builder->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx =
+            kernel_return_data.set_public();
+        builder->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
+            app_return_data.set_public();
+        // ecc_op_table.set_public();
+        // pg_acc_hash.set_public();
     }
 };
+
+class AppIO {
+  public:
+    using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
+    using Curve = stdlib::bn254<Builder>; // curve is always bn254
+    using FF = typename Curve::ScalarField;
+    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+    using PublicKey = PublicComponentKey;
+
+    PairingInputs pairing_inputs;
+
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     *
+     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+     * @param start_idx Index at which the kernel public inputs are to be extracted.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs, uint32_t start_idx = 0)
+    {
+        uint32_t index = start_idx;
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
+    }
+
+    /**
+     * @brief Set each IO component to be a public input of the underlying circuit.
+     *
+     */
+    void set_public()
+    {
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->pairing_inputs_public_input_key.start_idx = pairing_inputs.set_public();
+    }
+};
+
+// class RollupIO {
+//   public:
+//     // using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
+//     using Curve = stdlib::bn254<Builder>; // curve is always bn254
+//     using FF = typename Curve::ScalarField;
+//     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+
+//     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+//     using PublicKey = PublicComponentKey;
+
+//     PairingInputs pairing_inputs;
+//     // IpaAccumulator ipa_accumulator;
+
+//     /**
+//      * @brief Reconstructs the IO components from a public inputs array.
+//      *
+//      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+//      * @param start_idx Index at which the kernel public inputs are to be extracted.
+//      */
+//     void reconstruct_from_public(const std::vector<FF>& public_inputs, uint32_t start_idx = 0)
+//     {
+//         uint32_t index = start_idx;
+//         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
+//         // lgoic for ipa_accumulator reconstruction would go here
+//     }
+
+//     /**
+//      * @brief Set each IO component to be a public input of the underlying circuit.
+//      *
+//      */
+//     void set_public()
+//     {
+//         Builder* builder = pairing_inputs.P0.get_context();
+//         builder->pairing_inputs_public_input_key.start_idx = pairing_inputs.set_public();
+//         // builder->ipa_claim_public_input_key.start_idx = ipa_accumulator.set_public();
+//     }
+// };
 
 } // namespace bb::stdlib::recursion::honk

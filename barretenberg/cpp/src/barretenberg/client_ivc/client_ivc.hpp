@@ -72,6 +72,9 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
 
+    // KernelIo kernel_input;
+    // KernelIo kernel_output; maybe?
+
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
