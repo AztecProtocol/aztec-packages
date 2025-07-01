@@ -11,9 +11,9 @@ source "$SCRIPT_DIR/merge-train-lib.sh"
 
 # Usage: update-pr-body.sh <branch-name>
 if [[ $# -ne 1 ]]; then
-    echo "Usage: $0 <branch-name>"
-    echo "Example: $0 merge-train/docs"
-    exit 1
+  echo "Usage: $0 <branch-name>"
+  echo "Example: $0 merge-train/docs"
+  exit 1
 fi
 
 BRANCH="$1"
@@ -22,8 +22,8 @@ BRANCH="$1"
 pr_info=$(gh pr list --state open --head "$BRANCH" --json number,baseRefName --jq '.[0]')
 
 if [[ -z "$pr_info" ]]; then
-    log_info "No open PR found for $BRANCH, skipping update"
-    exit 0
+  log_info "No open PR found for $BRANCH, skipping update"
+  exit 0
 fi
 
 pr_number=$(echo "$pr_info" | jq -r '.number')
@@ -40,9 +40,9 @@ commits=$(get_meaningful_commits "$base_sha" "$head_sha")
 
 # Format commits or show placeholder
 if [[ -n "$commits" ]]; then
-    formatted_commits="$commits"
+  formatted_commits="$commits"
 else
-    formatted_commits="*No commits yet*"
+  formatted_commits="*No commits yet*"
 fi
 
 # Update PR body
