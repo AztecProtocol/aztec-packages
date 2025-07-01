@@ -1,6 +1,7 @@
 #include "private_execution_steps.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+
 #include <libdeflate.h>
 
 namespace bb {
@@ -124,11 +125,25 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
         info("ClientIVC: accumulating " + function_name);
+        std::cout << function_name << std::endl;
+        std::cout.flush();
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
         ivc->accumulate(circuit, precomputed_vk);
     }
 
     return ivc;
+}
+
+fr PrivateExecutionSteps::extract_tail_kernel_hash()
+{
+
+    for (auto [precomputed_vk, function_name] : zip_view(precomputed_vks, function_names)) {
+        if (function_name.find("tail") != std::string::npos) {
+            auto current_hash = precomputed_vk->hash();
+            return current_hash;
+        }
+    }
+    THROW std::runtime_error("No tail function found in the private execution steps");
 }
 } // namespace bb
