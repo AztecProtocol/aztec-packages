@@ -93,7 +93,9 @@ describe('e2e_blacklist_token_contract transfer public', () => {
         asset.methods
           .transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
           .simulate(),
-      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
+      ).rejects.toThrow(
+        'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+      );
     });
 
     it('transfer on behalf of other without "approval"', async () => {

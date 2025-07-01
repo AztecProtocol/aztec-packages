@@ -446,11 +446,14 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
     } else {
         quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit_public }
     };
+    let invalid_nonce_message = f"Invalid authwit nonce. When {from_arg_name} and msg_sender are the same, {nonce_arg_name} must be zero"
+        .as_ctstring()
+        .as_quoted_str();
     quote {         
         if (!$from_arg_name_quoted.eq(context.msg_sender())) {
             $fn_call(&mut context, $from_arg_name_quoted);
         } else {
-            assert($nonce_check_quote, "invalid authwit nonce");
+            assert($nonce_check_quote, $invalid_nonce_message);
         }
     }
 }

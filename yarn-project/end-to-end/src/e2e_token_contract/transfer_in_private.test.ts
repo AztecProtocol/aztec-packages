@@ -64,8 +64,10 @@ describe('e2e_token_contract transfer private', () => {
         asset.methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, 1).simulate(),
       ).rejects.toThrow(
         expect.objectContaining({
-          message: expect.stringMatching(/Assertion failed: invalid authwit nonce 'authwit_nonce == 0'/),
-          stack: expect.stringMatching(/at authwit_nonce == 0[\s\S]*at Token\.transfer_in_private.*/),
+          message: expect.stringMatching(
+            'Assertion failed: Invalid authwit nonce. When from and msg_sender are the same, authwit_nonce must be zero',
+          ),
+          stack: expect.stringMatching(/at Token\.transfer_in_private.*/),
         }),
       );
     });
