@@ -13,7 +13,7 @@ global I32_SERIALIZED_LEN: u32 = 1;
 global I64_SERIALIZED_LEN: u32 = 1;
 
 impl Serialize for bool {
-    let N = BOOL_SERIALIZED_LEN;
+    let N: u32 = BOOL_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
@@ -27,7 +27,7 @@ impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
 }
 
 impl Serialize for u8 {
-    let N = U8_SERIALIZED_LEN;
+    let N: u32 = U8_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
@@ -41,7 +41,7 @@ impl Deserialize<U8_SERIALIZED_LEN> for u8 {
 }
 
 impl Serialize for u16 {
-    let N = U16_SERIALIZED_LEN;
+    let N: u32 = U16_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
@@ -55,7 +55,7 @@ impl Deserialize<U16_SERIALIZED_LEN> for u16 {
 }
 
 impl Serialize for u32 {
-    let N = U32_SERIALIZED_LEN;
+    let N: u32 = U32_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
@@ -69,7 +69,7 @@ impl Deserialize<U32_SERIALIZED_LEN> for u32 {
 }
 
 impl Serialize for u64 {
-    let N = U64_SERIALIZED_LEN;
+    let N: u32 = U64_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
@@ -83,7 +83,7 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
 }
 
 impl Serialize for u128 {
-    let N = U128_SERIALIZED_LEN;
+    let N: u32 = U128_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as Field]
@@ -97,7 +97,7 @@ impl Deserialize<U128_SERIALIZED_LEN> for u128 {
 }
 
 impl Serialize for Field {
-    let N = FIELD_SERIALIZED_LEN;
+    let N: u32 = FIELD_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self]
@@ -111,7 +111,7 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
 }
 
 impl Serialize for i8 {
-    let N = I8_SERIALIZED_LEN;
+    let N: u32 = I8_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as u8 as Field]
@@ -125,7 +125,7 @@ impl Deserialize<I8_SERIALIZED_LEN> for i8 {
 }
 
 impl Serialize for i16 {
-    let N = I16_SERIALIZED_LEN;
+    let N: u32 = I16_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as u16 as Field]
@@ -139,7 +139,7 @@ impl Deserialize<I16_SERIALIZED_LEN> for i16 {
 }
 
 impl Serialize for i32 {
-    let N = I32_SERIALIZED_LEN;
+    let N: u32 = I32_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as u32 as Field]
@@ -153,7 +153,7 @@ impl Deserialize<I32_SERIALIZED_LEN> for i32 {
 }
 
 impl Serialize for i64 {
-    let N = I64_SERIALIZED_LEN;
+    let N: u32 = I64_SERIALIZED_LEN;
 
     fn serialize(self) -> [Field; Self::N] {
         [self as u64 as Field]
@@ -170,7 +170,7 @@ impl<T, let N: u32> Serialize for [T; N]
 where
     T: Serialize,
 {
-    let N = <T as Serialize>::N * N;
+    let N: u32 = <T as Serialize>::N * N;
 
     fn serialize(self) -> [Field; Self::N] {
         let mut result: [Field; _] = std::mem::zeroed();
