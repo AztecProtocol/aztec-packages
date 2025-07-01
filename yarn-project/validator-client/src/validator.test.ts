@@ -400,12 +400,12 @@ describe('ValidatorClient', () => {
   describe('configuration', () => {
     it('should use VALIDATOR_PRIVATE_KEY for validatorPrivateKeys when VALIDATOR_PRIVATE_KEYS is not set', () => {
       const originalEnv = process.env;
-      const testPrivateKey = '0x' + '1'.repeat(64); // Valid 32-byte hex string
+      const testPrivateKey = '0x' + '1'.repeat(64);
 
       process.env = {
         ...originalEnv,
         VALIDATOR_PRIVATE_KEY: testPrivateKey,
-        VALIDATOR_PRIVATE_KEYS: '', // Empty string
+        VALIDATOR_PRIVATE_KEYS: undefined,
       };
 
       const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
