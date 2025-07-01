@@ -112,6 +112,7 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
         next_snapshot.nextAvailableLeafIndex++;
     }
 
+    // The protocol writes happen outside execution, at the end of the tx simulation.
     uint32_t execution_id =
         is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id();
 
