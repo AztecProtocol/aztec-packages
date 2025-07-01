@@ -22,7 +22,6 @@ struct UpdateCheckEvent {
 
     // Read
     FF shared_mutable_slot;
-    FF shared_mutable_leaf_slot;
 
     bool operator==(const UpdateCheckEvent& other) const = default;
 };
