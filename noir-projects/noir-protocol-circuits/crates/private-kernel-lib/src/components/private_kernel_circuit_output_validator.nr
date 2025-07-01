@@ -8,7 +8,7 @@ use dep::types::{
     address::AztecAddress,
     constants::DEFAULT_UPDATE_DELAY,
     contract_class_id::ContractClassId,
-    shared_mutable::{compute_shared_mutable_timestamp_horizon, SharedMutableValues},
+    shared_mutable::{compute_shared_mutable_time_horizon, SharedMutableValues},
     traits::{Empty, Packable},
     transaction::tx_request::TxRequest,
     utils::arrays::{
@@ -410,7 +410,7 @@ impl PrivateKernelCircuitOutputValidator {
 
             IncludeByTimestamp::min(
                 include_by_timestamp,
-                IncludeByTimestamp::new(compute_shared_mutable_timestamp_horizon(
+                IncludeByTimestamp::new(compute_shared_mutable_time_horizon(
                     shared_mutable_values,
                     private_call.public_inputs.historical_header.global_variables.timestamp,
                 )),
