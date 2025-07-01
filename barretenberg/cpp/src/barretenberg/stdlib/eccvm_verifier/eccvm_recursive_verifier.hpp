@@ -51,7 +51,6 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-    StdlibProof ipa_proof;
     TranslationEvaluations_<FF> translation_evaluations;
 
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
