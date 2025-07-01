@@ -9,7 +9,9 @@ import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
 import type { TxCollectionConfig } from './config.js';
-import type { MissingTxInfo, TxCollectionManager } from './tx_collection.js';
+import type { FastTxCollection } from './fast_tx_collection.js';
+import type { MissingTxInfo } from './tx_collection.js';
+import type { TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
 export class SlowTxCollection {
@@ -25,7 +27,8 @@ export class SlowTxCollection {
   constructor(
     private reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
     private nodes: TxSource[],
-    private collectionManager: TxCollectionManager,
+    private txCollectionSink: TxCollectionSink,
+    private fastCollection: Pick<FastTxCollection, 'getFastCollectionRequests'>,
     private constants: L1RollupConstants,
     private config: TxCollectionConfig,
     private dateProvider: DateProvider = new DateProvider(),
@@ -96,7 +99,7 @@ export class SlowTxCollection {
   /** Entrypoint for the node slow collection loop */
   private async collectMissingTxsFromNode(node: TxSource) {
     // If we have any fast requests, we skip the slow collection for this node if configured to do so
-    const requests = this.collectionManager.getFastCollectionRequests();
+    const requests = this.fastCollection.getFastCollectionRequests();
     if (this.config.txCollectionDisableSlowDuringFastRequests && requests.size > 0) {
       this.log.trace(`Skipping node slow collection due to active fast requests`);
       return;
@@ -111,7 +114,7 @@ export class SlowTxCollection {
 
     // Request in chunks to avoid hitting RPC limits
     for (const batch of chunk(missingTxHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
-      await this.collectionManager.collect(txHashes => node.getTxsByHash(txHashes), batch, {
+      await this.txCollectionSink.collect(txHashes => node.getTxsByHash(txHashes), batch, {
         description: `node ${node.getInfo()}`,
         node: node.getInfo(),
         method: 'slow-node-rpc',
@@ -129,7 +132,7 @@ export class SlowTxCollection {
   /** Entrypoint for the reqresp slow collection loop */
   private async collectMissingTxsViaReqResp() {
     // If we have any fast requests, we skip the slow collection if configured to do so
-    const requests = this.collectionManager.getFastCollectionRequests();
+    const requests = this.fastCollection.getFastCollectionRequests();
     if (this.config.txCollectionDisableSlowDuringFastRequests && requests.size > 0) {
       this.log.trace(`Skipping reqresp slow collection due to active fast requests`);
       return;
@@ -148,7 +151,7 @@ export class SlowTxCollection {
     const maxRetryAttempts = 3;
 
     // Send a batch request via reqresp for the missing txs
-    await this.collectionManager.collect(
+    await this.txCollectionSink.collect(
       txHashes =>
         this.reqResp.sendBatchRequest(
           ReqRespSubProtocol.TX,
@@ -171,7 +174,7 @@ export class SlowTxCollection {
     expiredTxs.forEach(([txHash]) => this.missingTxs.delete(txHash));
 
     // Collect all txs that are marked for fast collection
-    const fastRequests = this.collectionManager.getFastCollectionRequests();
+    const fastRequests = this.fastCollection.getFastCollectionRequests();
     const fastCollectionTxs: Set<string> = new Set(
       ...Array.from(fastRequests.values()).flatMap(r => r.missingTxHashes),
     );

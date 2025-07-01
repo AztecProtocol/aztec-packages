@@ -1,7 +1,7 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise } from '@aztec/foundation/promise';
-import { DateProvider, elapsed } from '@aztec/foundation/timer';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -15,20 +15,9 @@ import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';
 import type { TxCollectionConfig } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
-import { TxCollectionInstrumentation } from './instrumentation.js';
 import { SlowTxCollection } from './slow_tx_collection.js';
+import { TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
-
-/** Internal interface to fast and slow collection services. */
-export interface TxCollectionManager {
-  collect(
-    collectFn: (txHashes: TxHash[]) => Promise<(Tx | undefined)[]>,
-    requested: TxHash[],
-    info: Record<string, any> & { description: string; method: CollectionMethod },
-  ): Promise<{ txs: TxWithHash[]; requested: TxHash[]; duration: number }>;
-
-  getFastCollectionRequests(): Set<FastCollectionRequest>;
-}
 
 export type CollectionMethod = 'fast-req-resp' | 'fast-node-rpc' | 'slow-req-resp' | 'slow-node-rpc';
 
@@ -48,9 +37,14 @@ export type FastCollectionRequest = FastCollectionRequestInput & {
 
 /**
  * Coordinates tx collection from remote RPC nodes and reqresp.
+ *
  * The slow collection loops are used for periodically collecting missing txs from mined blocks,
  * from remote RPC nodes and via reqresp. The fast collection methods are used to quickly gather
- * txs, usually for attesting to block proposals or preparing to prove an epoch.
+ * txs, usually for attesting to block proposals or preparing to prove an epoch. The slow and fast
+ * collection instances both send their txs to the collection sink, which handles metrics and adds
+ * them to the tx pool. Whenever a tx is added to either the sink or the pool, this service is notified
+ * via events and notifies the slow and fast collection loops to stop collecting that tx, so that we don't
+ * collect the same tx multiple times.
  */
 export class TxCollection {
   /** Slow collection background loops */
@@ -62,11 +56,14 @@ export class TxCollection {
   /** Loop for periodically reconciling found transactions from the tx pool in case we missed some */
   private readonly reconcileFoundTxsLoop: RunningPromise;
 
-  /** Metrics */
-  private readonly instrumentation: TxCollectionInstrumentation;
+  /** Handles txs found by the slow and fast collection loops */
+  private readonly txCollectionSink: TxCollectionSink;
 
   /** Handler for the txs-added event from the tx pool */
   protected readonly handleTxsAddedToPool: TxPoolEvents['txs-added'];
+
+  /** Handler for the txs-added event from the tx collection sink */
+  protected readonly handleTxsFound: TxPoolEvents['txs-added'];
 
   constructor(
     private readonly reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
@@ -78,27 +75,23 @@ export class TxCollection {
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private readonly log: Logger = createLogger('p2p:tx_collection_service'),
   ) {
-    const collectionManager: TxCollectionManager = {
-      collect: (collectFn, requested, info) => this.collect(collectFn, requested, info),
-      getFastCollectionRequests: () => this.fastCollection.getFastCollectionRequests(),
-    };
+    this.txCollectionSink = new TxCollectionSink(this.txPool, telemetryClient, this.log);
 
-    this.instrumentation = new TxCollectionInstrumentation(telemetryClient, 'TxCollection');
-
-    this.slowCollection = new SlowTxCollection(
+    this.fastCollection = new FastTxCollection(
       this.reqResp,
       this.nodes,
-      collectionManager,
-      constants,
+      this.txCollectionSink,
       this.config,
       this.dateProvider,
       this.log,
     );
 
-    this.fastCollection = new FastTxCollection(
+    this.slowCollection = new SlowTxCollection(
       this.reqResp,
       this.nodes,
-      collectionManager,
+      this.txCollectionSink,
+      this.fastCollection,
+      constants,
       this.config,
       this.dateProvider,
       this.log,
@@ -110,13 +103,17 @@ export class TxCollection {
       this.config.txCollectionReconcileIntervalMs,
     );
 
+    this.handleTxsFound = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
+      this.foundTxs(args.txs);
+    };
+    this.txCollectionSink.on('txs-added', this.handleTxsFound);
+
     this.handleTxsAddedToPool = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
       const { txs, source } = args;
       if (source !== 'tx-collection') {
         this.foundTxs(txs);
       }
     };
-
     this.txPool.on('txs-added', this.handleTxsAddedToPool);
   }
 
@@ -132,9 +129,9 @@ export class TxCollection {
   /** Stops all activity. */
   public async stop() {
     await Promise.all([this.slowCollection.stop(), this.fastCollection.stop(), this.reconcileFoundTxsLoop.stop()]);
-    if (this.handleTxsAddedToPool) {
-      this.txPool.removeListener('txs-added', this.handleTxsAddedToPool);
-    }
+
+    this.txPool.removeListener('txs-added', this.handleTxsAddedToPool);
+    this.txCollectionSink.removeListener('txs-added', this.handleTxsFound);
   }
 
   /** Force trigger the slow collection and reconciliation loops */
@@ -177,69 +174,6 @@ export class TxCollection {
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
     return this.fastCollection.collectFastFor(input, txHashes, opts);
-  }
-
-  /**
-   * Wrapper for a collection function. Handles logging, metrics, removing found txs from the missing set,
-   * adding them to the found set (for fast requests only), and adding to the tx pool. Called by both fast and slow
-   * collection methods whenever they actually collect txs.
-   */
-  private async collect(
-    collectFn: (txHashes: TxHash[]) => Promise<(Tx | undefined)[]>,
-    requested: TxHash[],
-    info: Record<string, any> & { description: string; method: CollectionMethod },
-  ) {
-    this.log.trace(`Requesting ${requested.length} txs via ${info.description}`, {
-      ...info,
-      requestedTxs: requested.map(t => t.toString()),
-    });
-
-    // Execute collection function and measure the time taken, catching any errors.
-    const [duration, txs] = await elapsed(async () => {
-      try {
-        const response = await collectFn(requested);
-        return await Tx.toTxsWithHashes(response.filter(tx => tx !== undefined));
-      } catch (err) {
-        this.log.error(`Error collecting txs via ${info.description}`, err, {
-          ...info,
-          requestedTxs: requested.map(hash => hash.toString()),
-        });
-        return [] as TxWithHash[];
-      }
-    });
-
-    if (txs.length === 0) {
-      this.log.trace(`No txs found via ${info.description}`, {
-        ...info,
-        requestedTxs: requested.map(t => t.toString()),
-      });
-      return { txs, requested, duration };
-    }
-
-    this.log.verbose(
-      `Collected ${txs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
-      { ...info, duration, txs: txs.map(t => t.txHash.toString()), requestedTxs: requested.map(t => t.toString()) },
-    );
-
-    // Report metrics for the collection
-    this.instrumentation.increaseTxsFor(info.method, txs.length, duration);
-
-    // Mark txs as found in the slow missing txs set and all fast requests
-    this.foundTxs(txs);
-
-    // Add the txs to the tx pool (should not fail, but we catch it just in case)
-    try {
-      await this.txPool.addTxs(txs, { source: `tx-collection` });
-    } catch (err) {
-      this.log.error(`Error adding txs to the pool via ${info.description}`, err, {
-        ...info,
-        requestedTxs: requested.map(hash => hash.toString()),
-      });
-      // Return no txs since none have been added
-      return { txs: [], requested, duration };
-    }
-
-    return { txs, requested, duration };
   }
 
   /** Mark the given txs as found. Stops collecting them. */

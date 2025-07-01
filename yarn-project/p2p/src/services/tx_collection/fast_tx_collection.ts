@@ -13,7 +13,8 @@ import type { PeerId } from '@libp2p/interface';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
 import type { TxCollectionConfig } from './config.js';
-import type { FastCollectionRequest, FastCollectionRequestInput, TxCollectionManager } from './tx_collection.js';
+import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
+import type { TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
 export class FastTxCollection {
@@ -23,7 +24,7 @@ export class FastTxCollection {
   constructor(
     private reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
     private nodes: TxSource[],
-    private collectionManager: TxCollectionManager,
+    private txCollectionSink: TxCollectionSink,
     private config: TxCollectionConfig,
     private dateProvider: DateProvider = new DateProvider(),
     private log: Logger = createLogger('p2p:tx_collection_service'),
@@ -55,7 +56,7 @@ export class FastTxCollection {
     const blockInfo: BlockInfo =
       input.type === 'proposal' ? input.blockProposal.toBlockInfo() : input.block.toBlockInfo();
 
-    // This promise use used to await for the collection to finish during the main collectFast method.
+    // This promise is used to await for the collection to finish during the main collectFast method.
     // It gets resolved in `foundTxs` when all txs have been collected, or rejected if the request is aborted or hits the deadline.
     const promise = promiseWithResolvers<void>();
     setTimeout(() => promise.reject(new TimeoutError(`Timed out while collecting txs`)), timeout);
@@ -148,7 +149,8 @@ export class FastTxCollection {
     // Keep a shared priority queue of all txs pending to be requested, sorted by the number of attempts made to collect them.
     const attemptsPerTx = [...request.missingTxHashes].map(txHash => ({ txHash, attempts: 0, found: false }));
 
-    // Returns once we have finished all node loops. Each loop finishes when the deadline is hit, or all txs have been collected.
+    // Returns once we have finished the node loops. Each loop finishes when the deadline is hit, or all txs have been collected,
+    // so we are fine waiting for just the first one to finish.
     await Promise.race(this.nodes.map(node => this.collectFastFromNode(request, node, attemptsPerTx, opts)));
   }
 
@@ -201,7 +203,7 @@ export class FastTxCollection {
         }
 
         // Collect this batch from the node
-        await this.collectionManager.collect(
+        await this.txCollectionSink.collect(
           txHashes => node.getTxsByHash(txHashes),
           batch.map(({ txHash }) => TxHash.fromString(txHash)),
           {
@@ -250,7 +252,7 @@ export class FastTxCollection {
     );
 
     try {
-      await this.collectionManager.collect(
+      await this.txCollectionSink.collect(
         txHashes =>
           this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
             ReqRespSubProtocol.TX,
