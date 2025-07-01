@@ -3,7 +3,7 @@ use crate::{
     nullifier_read_request_reset::NullifierReadRequestHints,
     reset::{
         key_validation_request::{
-            get_unverified_key_validation_requests, KeyValidationHint,
+            get_propagated_key_validation_requests, KeyValidationHint,
             verify_reset_key_validation_requests,
         },
         read_request::{get_propagated_read_requests, verify_reset_read_requests},
@@ -61,7 +61,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             self.nullifier_read_request_hints.read_request_actions,
         );
 
-        let scoped_key_validation_requests_and_generators = get_unverified_key_validation_requests(
+        let scoped_key_validation_requests_and_generators = get_propagated_key_validation_requests(
             self.validation_requests.scoped_key_validation_requests_and_generators,
             self.key_validation_amount,
         );

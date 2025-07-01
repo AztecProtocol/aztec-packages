@@ -297,7 +297,7 @@ impl PrivateCallDataValidator {
     fn validate_public_call_requests(self) {
         let public_inputs = self.data.public_inputs;
         let call_requests = public_inputs.public_call_requests;
-        call_requests.for_each_i(|call_request, i| {
+        call_requests.for_each(|call_request| {
             self.validate_public_call_request(call_request.inner);
         });
 

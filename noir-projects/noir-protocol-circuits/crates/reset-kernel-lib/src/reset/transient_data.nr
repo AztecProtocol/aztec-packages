@@ -168,8 +168,10 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
                     == log.inner.note_hash_counter
             );
 
+        // This is only used if is_propagated is true. But it's cheaper to declare it outside of the if statement.
+        let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
+
         if is_propagated {
-            let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
             assert_eq(expected_kept_log, log, "Propagated private log does not match");
 
             // If the log is linked to a note, then the index of the linked note hash must be less than the claimed
@@ -188,6 +190,7 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             let transient_note_hash_index =
                 transient_data_index_hints[hinted_note_hash_index_for_this_log].note_hash_index;
             let transient_note_hash = previous_kernel_note_hashes.array[transient_note_hash_index];
+
             // Don't need to check transient_note_hash_index is within the claimed length, because it's already been
             // checked when the hint was used to squash the note hash.
 

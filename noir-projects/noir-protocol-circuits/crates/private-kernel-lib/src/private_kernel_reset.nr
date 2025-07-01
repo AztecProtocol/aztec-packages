@@ -172,14 +172,13 @@ mod tests {
             compute_app_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
             silo_note_hash, silo_nullifier, silo_private_log,
         },
-        point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, pad_end, swap_items}},
         traits::{Empty, FromField},
         utils::arrays::find_index_hint,
     };
     use dep::types::constants::{
-        GENERATOR_INDEX__OVSK_M, MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
+        PRIVATE_KERNEL_TAIL_INDEX,
     };
     use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
@@ -188,6 +187,7 @@ mod tests {
     global NULLIFIER_PENDING_READ_HINTS_LEN: u32 = 5;
     global NULLIFIER_SETTLED_READ_HINTS_LEN: u32 = 2;
     global TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32 = 6;
+    global KEY_VALIDATION_HINTS_LEN: u32 = 4;
     global NOTE_HASH_SILOING_AMOUNT: u32 = 6;
     global NULLIFIER_SILOING_AMOUNT: u32 = 6;
     global PRIVATE_LOG_SILOING_AMOUNT: u32 = 5;
@@ -198,7 +198,7 @@ mod tests {
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN>,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN>,
-        key_validation_hints: BoundedVec<KeyValidationHint, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+        key_validation_hints: BoundedVec<KeyValidationHint, KEY_VALIDATION_HINTS_LEN>,
         validation_requests_split_counter: u32,
         dimensions: PrivateKernelResetDimensions,
     }
@@ -212,7 +212,7 @@ mod tests {
                 NOTE_HASH_SETTLED_READ_AMOUNT: NOTE_HASH_SETTLED_READ_HINTS_LEN,
                 NULLIFIER_PENDING_READ_AMOUNT: NULLIFIER_PENDING_READ_HINTS_LEN,
                 NULLIFIER_SETTLED_READ_AMOUNT: NULLIFIER_SETTLED_READ_HINTS_LEN,
-                KEY_VALIDATION_AMOUNT: 0,
+                KEY_VALIDATION_AMOUNT: KEY_VALIDATION_HINTS_LEN,
                 TRANSIENT_DATA_SQUASHING_AMOUNT: 0,
                 NOTE_HASH_SILOING_AMOUNT: 0,
                 NULLIFIER_SILOING_AMOUNT: 0,
@@ -287,6 +287,12 @@ mod tests {
             let sk_app = compute_app_secret_key(sk_m, contract_address, sk_app_generator);
 
             self.previous_kernel.add_request_for_key_validation(pk_m, sk_app, sk_app_generator);
+        }
+
+        pub fn add_key_validation_request_and_hint(&mut self, sk: Field) {
+            self.add_key_validation_request(sk);
+
+            let sk_m = EmbeddedCurveScalar::from_field(sk);
             self.key_validation_hints.push(KeyValidationHint { sk_m })
         }
 
@@ -483,13 +489,11 @@ mod tests {
         let nullifier_rr =
             builder.previous_kernel.nullifier_read_requests.get(remaining_nullifier_rr_index);
 
-        builder.previous_kernel.add_request_for_key_validation(
-            Point { x: 1, y: 2, is_infinite: false },
-            27,
-            GENERATOR_INDEX__OVSK_M as Field,
-        );
+        builder.add_key_validation_request(123);
         let key_validation =
             builder.previous_kernel.scoped_key_validation_requests_and_generators.get(0);
+        // Don't verify the key validation request.
+        builder.dimensions.KEY_VALIDATION_AMOUNT = 0;
 
         // Check that they have been propagated to the next kernel
         let result = builder.execute();
@@ -615,11 +619,9 @@ mod tests {
     fn reset_key_validation_request_succeeds() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.add_key_validation_request(13579);
-        builder.add_key_validation_request(2468);
-        builder.add_key_validation_request(54321);
-
-        builder.dimensions.KEY_VALIDATION_AMOUNT = 4;
+        builder.add_key_validation_request_and_hint(13579);
+        builder.add_key_validation_request_and_hint(2468);
+        builder.add_key_validation_request_and_hint(54321);
 
         let public_inputs = builder.execute();
         assert(public_inputs
@@ -632,21 +634,23 @@ mod tests {
     fn reset_partial_key_validation_request_succeeds() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
 
-        builder.add_key_validation_request(13579);
-        builder.add_key_validation_request(2468);
-        builder.add_key_validation_request(54321);
+        for i in 0..KEY_VALIDATION_HINTS_LEN {
+            builder.add_key_validation_request_and_hint(i as Field + 123);
+        }
+        // Create two more requests without hints.
+        for i in 0..2 {
+            builder.add_key_validation_request(i as Field + 456);
+        }
 
+        let num_requests = KEY_VALIDATION_HINTS_LEN + 2;
         let requests =
             builder.previous_kernel.scoped_key_validation_requests_and_generators.storage();
-
-        // Only the first key validation request is verified and cleared.
-        builder.dimensions.KEY_VALIDATION_AMOUNT = 1;
 
         let public_inputs = builder.execute();
 
         assert_array_eq(
             public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array,
-            [requests[1], requests[2]],
+            [requests[num_requests - 2], requests[num_requests - 1]],
         );
     }
 

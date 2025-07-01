@@ -396,6 +396,11 @@ where
         popped_item
     }
 
+    pub fn for_each<Env>(self, f: fn[Env](T) -> ()) {
+        // We pass `false`, because by construction, we should know that self.length <= self.array.len().
+        for_i_only_in_0_(self.length, self.array.len(), |i| f(self.array[i]), false);
+    }
+
     // E.g.
     // dest.for_each_i(|source_item, i| { assert_eq(dest.array[i], source_item, "bad copy"); })
     pub fn for_each_i<Env>(self, f: fn[Env](T, u32) -> ()) {

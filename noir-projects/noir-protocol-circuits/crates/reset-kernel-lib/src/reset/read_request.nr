@@ -220,7 +220,7 @@ where
         assert_eq(
             pending_read_amount,
             PENDING_READ_HINTS_LEN,
-            "Pending read amount should be the same as the number of pending read hints",
+            "pending_read_amount should be the same as the number of pending read hints",
         );
         validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
     } else {
@@ -244,7 +244,7 @@ where
         assert_eq(
             settled_read_amount,
             SETTLED_READ_HINTS_LEN,
-            "Settled read amount should be the same as the number of settled read hints",
+            "settled_read_amount should be the same as the number of settled read hints",
         );
         validate_settled_read_requests(read_requests, settled_read_hints, tree_root);
     } else {
@@ -777,7 +777,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with = "Pending read amount should be the same as the number of pending read hints")]
+    #[test(should_fail_with = "pending_read_amount should be the same as the number of pending read hints")]
     fn verify_reset_read_requests_with_fewer_pending_verification_amount_fails() {
         let mut builder = TestBuilder::new();
 
@@ -813,7 +813,7 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with = "Settled read amount should be the same as the number of settled read hints")]
+    #[test(should_fail_with = "settled_read_amount should be the same as the number of settled read hints")]
     fn verify_reset_read_requests_with_fewer_settled_verification_amount_fails() {
         let mut builder = TestBuilder::new();
 
