@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 
 using Poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-FF root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<const FF> path)
+FF unconstrained_root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<const FF> path)
 {
     FF curr_value = leaf_value;
     uint64_t curr_index = leaf_index;
@@ -23,17 +23,24 @@ FF root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<con
     return curr_value;
 }
 
-FF silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
+FF unconstrained_compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
+}
+
+FF unconstrained_silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });
 }
 
-FF silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)
+FF unconstrained_silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
 }
 
-FF make_unique_note_hash(const FF& siloed_note_hash, const FF& first_nullifier, uint64_t note_hash_counter)
+FF unconstrained_make_unique_note_hash(const FF& siloed_note_hash,
+                                       const FF& first_nullifier,
+                                       uint64_t note_hash_counter)
 {
     FF nonce = Poseidon2::hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
     return Poseidon2::hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });

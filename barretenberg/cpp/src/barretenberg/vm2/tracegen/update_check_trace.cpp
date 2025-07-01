@@ -56,7 +56,6 @@ void UpdateCheckTraceBuilder::process(
                         event.shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN },
                       { C::update_check_public_leaf_index_domain_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                       { C::update_check_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
-                      { C::update_check_shared_mutable_leaf_slot, event.shared_mutable_leaf_slot },
                       { C::update_check_timestamp_of_change, timestamp_of_change },
                       { C::update_check_update_hi_metadata, update_metadata_hi },
                       { C::update_check_update_hi_metadata_bit_size,
@@ -76,7 +75,6 @@ const InteractionDefinition UpdateCheckTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_update_check_update_hash_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_shared_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_update_hi_metadata_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_lo_metadata_range_settings, InteractionType::LookupGeneric>()

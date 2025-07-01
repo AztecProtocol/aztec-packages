@@ -63,16 +63,18 @@ namespace update_check;
     pol commit deployer_protocol_contract_address;
     sel * (constants.DEPLOYER_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
-    pol commit shared_mutable_leaf_slot;
-
-    // Same as https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/stdlib/src/hash/hash.ts#L78
-    #[SHARED_MUTABLE_LEAF_SLOT_POSEIDON2]
-    sel { public_leaf_index_domain_separator, deployer_protocol_contract_address, shared_mutable_hash_slot, shared_mutable_leaf_slot }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
-
     #[UPDATE_HASH_PUBLIC_DATA_READ]
-    sel { update_hash, shared_mutable_leaf_slot, public_data_tree_root }
-    in public_data_check.sel { public_data_check.value, public_data_check.slot, public_data_check.root };
+    sel {
+        deployer_protocol_contract_address,
+        shared_mutable_hash_slot,
+        update_hash,
+        public_data_tree_root
+    } in public_data_check.sel {
+        public_data_check.address,
+        public_data_check.slot,
+        public_data_check.value,
+        public_data_check.root
+    };
 
     // ======== SHARED MUTABLE PREIMAGE CONSTRAINING ========
 
