@@ -9,6 +9,7 @@
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
@@ -69,7 +70,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
      *
      */
-    std::shared_ptr<DeciderVK> verify_folding_proof(const StdlibProof<Builder>&);
+    std::shared_ptr<DeciderVK> verify_folding_proof(const stdlib::Proof<Builder>&);
 };
 
 } // namespace bb::stdlib::recursion::honk

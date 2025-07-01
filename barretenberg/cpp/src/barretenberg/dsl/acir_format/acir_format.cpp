@@ -36,14 +36,14 @@ template class DSLBigInts<MegaCircuitBuilder>;
 template <typename Builder>
 void handle_IPA_accumulation(Builder& builder,
                              const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
-                             const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
+                             const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs,
                              bool is_root_rollup);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     PairingPoints points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
-    std::vector<StdlibProof<Builder>> nested_ipa_proofs;
+    std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
 };
 
@@ -339,7 +339,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 template <typename Builder>
 void handle_IPA_accumulation(Builder& builder,
                              const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
-                             const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
+                             const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs,
                              bool is_root_rollup)
 {
     BB_ASSERT_EQ(
@@ -366,7 +366,7 @@ void handle_IPA_accumulation(Builder& builder,
                 &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
             // do full IPA verification
             auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
-            accumulated_ipa_transcript->load_proof(convert_native_proof_to_stdlib(&builder, ipa_proof));
+            accumulated_ipa_transcript->load_proof(stdlib::Proof<Builder>(builder, ipa_proof));
             IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
                 verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
         } else {
@@ -378,7 +378,7 @@ void handle_IPA_accumulation(Builder& builder,
         final_ipa_claim = nested_ipa_claims[0];
         // This conversion looks suspicious but there's no need to make this an output of the circuit since
         // its a proof that will be checked anyway.
-        final_ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
+        final_ipa_proof = nested_ipa_proofs[0].get_value();
     } else if (nested_ipa_claims.size() == 0) {
         // If we don't have any claims, we may need to inject a fake one if we're proving with
         // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
