@@ -346,6 +346,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       reqresp,
       worldStateSynchronizer,
       protocolVersion,
+      epochCache,
     );
 
     // Update gossipsub score params

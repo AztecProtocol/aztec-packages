@@ -10,7 +10,7 @@ export interface PeerManagerInterface {
   getPeers(_includePending?: boolean): PeerInfo[];
 
   initializePeers(): Promise<void>;
-  heartbeat(): void;
+  heartbeat(): Promise<void>;
   addTrustedPeer(peerId: PeerId): void;
   addPrivatePeer(peerId: PeerId): void;
   addPreferredPeer(peerId: PeerId): void;
