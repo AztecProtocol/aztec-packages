@@ -9,8 +9,10 @@ impl Empty for Scalar {
     }
 }
 
-impl Serialize<SCALAR_SIZE> for Scalar {
-    fn serialize(self) -> [Field; SCALAR_SIZE] {
+impl Serialize for Scalar {
+    let N = SCALAR_SIZE;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self.lo, self.hi]
     }
 }

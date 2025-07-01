@@ -224,6 +224,7 @@ pub comptime fn generate_deserialize_from_fields(
     (result, consumed_counter)
 }
 
+// TODO(benesjan): The main usecase of this function is gone (it's no longer used in derive_serialize). Should it be removed or simplified?
 /// Generates code that serializes a type into an array of fields. Also generates auxiliary variables if necessary
 /// for serialization. If `should_pack` is true, we check if the type implements the `Packable` trait and pack it
 /// if it does.
@@ -425,24 +426,47 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
 
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, false);
-    let aux_vars_for_serialization = if aux_vars.len() > 0 {
-        let joint = aux_vars.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
 
-    let field_serializations = fields.join(quote {,});
-    let serialized_len = fields.len();
-    let serialize_trait: TraitConstraint =
-        quote { Serialize<$serialized_len> }.as_trait_constraint();
+    // The following will give us [<type_of_struct_member_1 as Serialize>::N, <type_of_struct_member_2 as Serialize>::N, ...]
+    let components_of_definition_of_n = params.map(|(_, param_type): (Quoted, Type)| {
+        quote {
+            <$param_type as Serialize>::N
+        }
+    });
+
+    // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+    let right_hand_side_of_definition_of_n = components_of_definition_of_n.join(quote {+});
+
+    let array_of_quotes_serializing_each_struct_member = params
+        .map(|(param_name, param_type): (Quoted, Type)| {
+            quote {
+            let serialized_member: [Field; <$param_type as Serialize>::N] = self.$param_name.serialize();
+            let serialized_member_len = <$param_type as Serialize>::N;
+            for i in 0..serialized_member_len {
+                result[i + offset] = serialized_member[i];
+            }
+            offset += serialized_member_len;
+        }
+        });
+
+    let serialization_of_struct_members =
+        array_of_quotes_serializing_each_struct_member.join(quote {});
+
+    let serialize_trait: TraitConstraint = quote { Serialize }.as_trait_constraint();
     quote {
         impl $serialize_trait for $typ {
+            let N = $right_hand_side_of_definition_of_n;
+
             #[inline_always]
-            fn serialize(self) -> [Field; $serialized_len] {
-                $aux_vars_for_serialization
-                [ $field_serializations ]
+            fn serialize(self) -> [Field; Self::N] {
+                let mut result = [0; _];
+                let mut offset = 0;
+
+                $serialization_of_struct_members
+
+                result
             }
         }
     }
@@ -450,15 +474,48 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
 
 pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
-    let (fields, _) = generate_serialize_to_fields(quote { self }, typ, false);
-    let serialized_len = fields.len();
-    let (deserialized, _) =
-        generate_deserialize_from_fields(quote { self }, typ, quote { serialized }, 0, false);
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
+    // The following will give us [<type_of_struct_member_1 as Deserialize>::N, <type_of_struct_member_2 as Deserialize>::N, ...]
+    let components_of_definition_of_n = params.map(|(_, param_type): (Quoted, Type)| {
+        quote {
+            <$param_type as Deserialize>::N
+        }
+    });
+
+    // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
+    let serialized_len = components_of_definition_of_n.join(quote {+});
+
+    let array_of_quotes_deserializing_each_struct_member = params
+        .map(|(param_name, param_type): (Quoted, Type)| {
+            quote {
+            let member_len = <$param_type as Deserialize>::N;
+            let mut member_fields = [0; member_len];
+            for i in 0..member_len {
+                member_fields[i] = serialized[i + offset];
+            }
+            let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
+            offset += member_len;
+        }
+        });
+
+    let deserialization_of_struct_members =
+        array_of_quotes_deserializing_each_struct_member.join(quote {});
+
+    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+    // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
+    let struct_members =
+        params.map(|(param_name, _): (Quoted, Type)| quote { $param_name }).join(quote {,});
+
     quote {
-        impl Deserialize<$serialized_len> for $typ {
+        impl Deserialize for $typ {
+            let N = $serialized_len;
+
             #[inline_always]
-            fn deserialize(serialized: [Field; $serialized_len]) -> Self {
-                $deserialized
+            fn deserialize(serialized: [Field; Self::N]) -> Self {
+                let mut offset = 0;
+                $deserialization_of_struct_members
+                Self { $struct_members }
             }
         }
     }

@@ -319,14 +319,18 @@ impl FromField for u128 {
 /// }
 /// ```
 #[derive_via(derive_serialize)]
-pub trait Serialize<let N: u32> {
+pub trait Serialize {
+    let N: u32;
+
     fn serialize(self) -> [Field; N];
 }
 // docs:end:serialize
 
-impl<let N: u32> Serialize<N> for str<N> {
+impl<let M: u32> Serialize for str<M> {
+    let N = M;
+
     #[inline_always]
-    fn serialize(self) -> [Field; N] {
+    fn serialize(self) -> [Field; Self::N] {
         let bytes = self.as_bytes();
         let mut fields = [0; N];
         for i in 0..bytes.len() {
@@ -336,16 +340,34 @@ impl<let N: u32> Serialize<N> for str<N> {
     }
 }
 
-// T = type of item in BoundedVec
-// M = max length of BoundedVec
-// O = field length of T
-// O * M + 1 = total serialized length of BoundedVec<T, M> (the +1 is for length of the BoundedVec)
-impl<T, let M: u32, let O: u32> Deserialize<O * M + 1> for BoundedVec<T, M>
+/// Implementation of Deserialize for BoundedVec.
+///
+/// This implementation deserializes a BoundedVec from an array of Fields. The array contains:
+/// 1. The serialized items, each taking up T::N Fields
+/// 2. The length of the BoundedVec as the last Field
+///
+/// # Type Parameters
+/// * `T` - The type of items stored in the BoundedVec, must implement Deserialize
+/// * `M` - The maximum length of the BoundedVec
+///
+/// # Fields Array Layout
+/// [item1_field1, item1_field2, ..., item2_field1, item2_field2, ..., length]
+/// Where:
+/// - itemN_fieldM: The M-th Field of the N-th item (T::N Fields per item)
+/// - length: The number of items in the BoundedVec (1 Field)
+///
+/// Total length N = T::N * M + 1, where:
+/// - T::N is the number of Fields needed to deserialize one item
+/// - M is the maximum length of the BoundedVec
+/// - +1 is for storing the length
+impl<T, let M: u32> Deserialize for BoundedVec<T, M>
 where
-    T: Deserialize<O>,
+    T: Deserialize,
 {
+    let N = <T as Deserialize>::N * M + 1;
+
     #[inline_always]
-    fn deserialize(fields: [Field; O * M + 1]) -> Self {
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
 
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
@@ -353,9 +375,9 @@ where
         let len = fields[O * M] as u32;
 
         for i in 0..len {
-            let mut nested_fields = [0; O];
-            for j in 0..O {
-                nested_fields[j] = fields[i * O + j];
+            let mut nested_fields = [0; <T as Deserialize>::N];
+            for j in 0..<T as Deserialize>::N {
+                nested_fields[j] = fields[i * <T as Deserialize>::N + j];
             }
 
             let item = T::deserialize(nested_fields);
@@ -369,19 +391,23 @@ where
 // This may cause issues if used as program input, because noir disallows empty arrays for program input.
 // I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
 // if someone does run into this in the future.
-impl<let N: u32> Deserialize<0> for () {
-    fn deserialize(_fields: [Field; 0]) -> Self {
+impl Deserialize for () {
+    let N = 0;
+
+    fn deserialize(_fields: [Field; N]) -> Self {
         ()
     }
 }
 
-impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
+impl<T, let M: u32, let O: u32> Serialize for BoundedVec<T, M>
 where
-    T: Serialize<O>,
+    T: Serialize,
 {
+    let N = O * M + 1; // +1 for the length of the BoundedVec
+
     #[inline_always]
-    fn serialize(self) -> [Field; O * M + 1] {
-        let mut fields = [0; O * M + 1];
+    fn serialize(self) -> [Field; Self::N] {
+        let mut fields = [0; Self::N];
 
         let storage = self.storage();
 
@@ -421,15 +447,19 @@ where
 /// }
 /// ```
 #[derive_via(derive_deserialize)]
-pub trait Deserialize<let N: u32> {
+pub trait Deserialize {
+    let N: u32;
+
     fn deserialize(fields: [Field; N]) -> Self;
 }
 // docs:end:deserialize
 
-impl<let N: u32> Deserialize<N> for str<N> {
+impl<let M: u32> Deserialize for str<M> {
+    let N = M;
+
     #[inline_always]
-    fn deserialize(fields: [Field; N]) -> Self {
-        str::<N>::from(fields.map(|value| value as u8))
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        str::<Self::N>::from(fields.map(|value| value as u8))
     }
 }
 

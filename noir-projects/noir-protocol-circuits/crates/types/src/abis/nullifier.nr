@@ -1,12 +1,12 @@
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
     address::AztecAddress,
-    constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
     hash::compute_siloed_nullifier,
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct Nullifier {
     pub value: Field,
     pub counter: u32,
@@ -26,29 +26,9 @@ impl OrderedValue<Field> for Nullifier {
     }
 }
 
-impl Eq for Nullifier {
-    fn eq(self, other: Nullifier) -> bool {
-        (self.value == other.value)
-            & (self.counter == other.counter)
-            & (self.note_hash == other.note_hash)
-    }
-}
-
 impl Empty for Nullifier {
     fn empty() -> Self {
         Nullifier { value: 0, counter: 0, note_hash: 0 }
-    }
-}
-
-impl Serialize<NULLIFIER_LENGTH> for Nullifier {
-    fn serialize(self) -> [Field; NULLIFIER_LENGTH] {
-        [self.value, self.counter as Field, self.note_hash]
-    }
-}
-
-impl Deserialize<NULLIFIER_LENGTH> for Nullifier {
-    fn deserialize(values: [Field; NULLIFIER_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32, note_hash: values[2] }
     }
 }
 
@@ -76,6 +56,7 @@ impl Nullifier {
     }
 }
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ScopedNullifier {
     pub nullifier: Nullifier,
     pub contract_address: AztecAddress,
@@ -102,33 +83,9 @@ impl OrderedValue<Field> for ScopedNullifier {
     }
 }
 
-impl Eq for ScopedNullifier {
-    fn eq(self, other: ScopedNullifier) -> bool {
-        (self.nullifier == other.nullifier) & (self.contract_address == other.contract_address)
-    }
-}
-
 impl Empty for ScopedNullifier {
     fn empty() -> Self {
         ScopedNullifier { nullifier: Nullifier::empty(), contract_address: AztecAddress::empty() }
-    }
-}
-
-impl Serialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
-    fn serialize(self) -> [Field; SCOPED_NULLIFIER_LENGTH] {
-        self.nullifier.serialize().concat([self.contract_address.to_field()])
-    }
-}
-
-impl Deserialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
-    fn deserialize(values: [Field; SCOPED_NULLIFIER_LENGTH]) -> Self {
-        let mut reader = Reader::new(values);
-        let res = Self {
-            nullifier: reader.read_struct(Nullifier::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-        };
-        reader.finish();
-        res
     }
 }
 
@@ -160,20 +117,4 @@ impl ScopedNullifier {
         // Hide the actual counter and note hash when exposing it to the public kernel.
         Nullifier { value: self.nullifier.value, counter: 0, note_hash: 0 }
     }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = Nullifier::empty();
-    let serialized = item.serialize();
-    let deserialized = Nullifier::deserialize(serialized);
-    assert(item.eq(deserialized));
-}
-
-#[test]
-fn serialization_of_empty_scoped() {
-    let item = ScopedNullifier::empty();
-    let serialized = item.serialize();
-    let deserialized = ScopedNullifier::deserialize(serialized);
-    assert(item.eq(deserialized));
 }
