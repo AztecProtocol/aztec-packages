@@ -13,9 +13,9 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 37> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 2, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 39> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 2, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 5, 6, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 5, 6, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -47,6 +47,8 @@ template <typename FF_> class executionImpl {
         const auto constants_AVM_EXEC_OP_ID_REVERT = FF(1024);
         const auto constants_AVM_EXEC_OP_ID_SUCCESSCOPY = FF(2048);
         const auto constants_AVM_EXEC_OP_ID_RETURNDATASIZE = FF(4096);
+        const auto constants_AVM_EXEC_OP_ID_NULLIFIEREXISTS = FF(8192);
+        const auto constants_AVM_EXEC_OP_ID_EMITNULLIFIER = FF(16384);
         const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
 
         {
@@ -157,7 +159,9 @@ template <typename FF_> class executionImpl {
                          in.get(C::execution_sel_return) * constants_AVM_EXEC_OP_ID_RETURN +
                          in.get(C::execution_sel_revert) * constants_AVM_EXEC_OP_ID_REVERT +
                          in.get(C::execution_sel_success_copy) * constants_AVM_EXEC_OP_ID_SUCCESSCOPY +
-                         in.get(C::execution_sel_returndata_size) * constants_AVM_EXEC_OP_ID_RETURNDATASIZE) -
+                         in.get(C::execution_sel_returndata_size) * constants_AVM_EXEC_OP_ID_RETURNDATASIZE +
+                         in.get(C::execution_sel_nullifier_exists) * constants_AVM_EXEC_OP_ID_NULLIFIEREXISTS +
+                         in.get(C::execution_sel_emit_nullifier) * constants_AVM_EXEC_OP_ID_EMITNULLIFIER) -
                         in.get(C::execution_subtrace_operation_id));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
@@ -240,78 +244,90 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
-        { // PC_NEXT_ROW_INT_CALL_JUMP
+        {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_nullifier_exists) * (FF(1) - in.get(C::execution_sel_nullifier_exists));
+            tmp *= scaling_factor;
+            std::get<27>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_emit_nullifier) * (FF(1) - in.get(C::execution_sel_emit_nullifier));
+            tmp *= scaling_factor;
+            std::get<28>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PC_NEXT_ROW_INT_CALL_JUMP
+            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
             auto tmp = execution_NOT_LAST_EXEC *
                        (in.get(C::execution_sel_internal_call) + in.get(C::execution_sel_jump)) *
                        (in.get(C::execution_pc_shift) - in.get(C::execution_rop_0_));
             tmp *= scaling_factor;
-            std::get<27>(evals) += typename Accumulator::View(tmp);
+            std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         { // PC_NEXT_ROW_JUMPI
-            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
             auto tmp =
                 execution_NOT_LAST_EXEC * in.get(C::execution_sel_jumpi) *
                 ((in.get(C::execution_register_0_) * (in.get(C::execution_rop_1_) - in.get(C::execution_next_pc)) +
                   in.get(C::execution_next_pc)) -
                  in.get(C::execution_pc_shift));
             tmp *= scaling_factor;
-            std::get<28>(evals) += typename Accumulator::View(tmp);
+            std::get<30>(evals) += typename Accumulator::View(tmp);
         }
         { // MOV_SAME_VALUE
-            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::execution_sel_mov) * (in.get(C::execution_register_0_) - in.get(C::execution_register_1_));
             tmp *= scaling_factor;
-            std::get<29>(evals) += typename Accumulator::View(tmp);
+            std::get<31>(evals) += typename Accumulator::View(tmp);
         }
         { // MOV_SAME_TAG
-            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_mov) *
                        (in.get(C::execution_mem_tag_reg_0_) - in.get(C::execution_mem_tag_reg_1_));
             tmp *= scaling_factor;
-            std::get<30>(evals) += typename Accumulator::View(tmp);
+            std::get<32>(evals) += typename Accumulator::View(tmp);
         }
         { // SUCCESS_COPY_WRITE_REG
-            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_success_copy) *
                        (in.get(C::execution_register_0_) - in.get(C::execution_last_child_success));
             tmp *= scaling_factor;
-            std::get<31>(evals) += typename Accumulator::View(tmp);
+            std::get<33>(evals) += typename Accumulator::View(tmp);
         }
         { // SUCCESS_COPY_U1_TAG
-            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::execution_sel_success_copy) * (in.get(C::execution_mem_tag_reg_0_) - constants_MEM_TAG_U1);
             tmp *= scaling_factor;
-            std::get<32>(evals) += typename Accumulator::View(tmp);
+            std::get<34>(evals) += typename Accumulator::View(tmp);
         }
         { // RETURNDATA_SIZE_WRITE_REG
-            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_returndata_size) *
                        (in.get(C::execution_register_0_) - in.get(C::execution_last_child_returndata_size));
             tmp *= scaling_factor;
-            std::get<33>(evals) += typename Accumulator::View(tmp);
+            std::get<35>(evals) += typename Accumulator::View(tmp);
         }
         { // RETURNDATA_SIZE_U32_TAG
-            using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_returndata_size) *
                        (in.get(C::execution_mem_tag_reg_0_) - constants_MEM_TAG_U32);
             tmp *= scaling_factor;
-            std::get<34>(evals) += typename Accumulator::View(tmp);
+            std::get<36>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_should_write_registers) -
                         in.get(C::execution_should_execute_opcode) * (FF(1) - in.get(C::execution_sel_opcode_error)));
             tmp *= scaling_factor;
-            std::get<35>(evals) += typename Accumulator::View(tmp);
+            std::get<37>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
             tmp *= scaling_factor;
-            std::get<36>(evals) += typename Accumulator::View(tmp);
+            std::get<38>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -333,21 +349,21 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "LAST_IS_LAST";
         case 13:
             return "EXEC_OP_ID_DECOMPOSITION";
-        case 27:
-            return "PC_NEXT_ROW_INT_CALL_JUMP";
-        case 28:
-            return "PC_NEXT_ROW_JUMPI";
         case 29:
-            return "MOV_SAME_VALUE";
+            return "PC_NEXT_ROW_INT_CALL_JUMP";
         case 30:
-            return "MOV_SAME_TAG";
+            return "PC_NEXT_ROW_JUMPI";
         case 31:
-            return "SUCCESS_COPY_WRITE_REG";
+            return "MOV_SAME_VALUE";
         case 32:
-            return "SUCCESS_COPY_U1_TAG";
+            return "MOV_SAME_TAG";
         case 33:
-            return "RETURNDATA_SIZE_WRITE_REG";
+            return "SUCCESS_COPY_WRITE_REG";
         case 34:
+            return "SUCCESS_COPY_U1_TAG";
+        case 35:
+            return "RETURNDATA_SIZE_WRITE_REG";
+        case 36:
             return "RETURNDATA_SIZE_U32_TAG";
         }
         return std::to_string(index);
@@ -359,14 +375,14 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_TRACE_CONTINUITY = 4;
     static constexpr size_t SR_LAST_IS_LAST = 5;
     static constexpr size_t SR_EXEC_OP_ID_DECOMPOSITION = 13;
-    static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 27;
-    static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 28;
-    static constexpr size_t SR_MOV_SAME_VALUE = 29;
-    static constexpr size_t SR_MOV_SAME_TAG = 30;
-    static constexpr size_t SR_SUCCESS_COPY_WRITE_REG = 31;
-    static constexpr size_t SR_SUCCESS_COPY_U1_TAG = 32;
-    static constexpr size_t SR_RETURNDATA_SIZE_WRITE_REG = 33;
-    static constexpr size_t SR_RETURNDATA_SIZE_U32_TAG = 34;
+    static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 29;
+    static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 30;
+    static constexpr size_t SR_MOV_SAME_VALUE = 31;
+    static constexpr size_t SR_MOV_SAME_TAG = 32;
+    static constexpr size_t SR_SUCCESS_COPY_WRITE_REG = 33;
+    static constexpr size_t SR_SUCCESS_COPY_U1_TAG = 34;
+    static constexpr size_t SR_RETURNDATA_SIZE_WRITE_REG = 35;
+    static constexpr size_t SR_RETURNDATA_SIZE_U32_TAG = 36;
 };
 
 } // namespace bb::avm2

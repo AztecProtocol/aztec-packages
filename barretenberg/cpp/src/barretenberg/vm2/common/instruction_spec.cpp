@@ -502,6 +502,20 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
+    { ExecutionOpCode::NULLIFIEREXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_NULLIFIEREXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*nullifier*/ ValueTag::FF,
+                                           /*address*/ ValueTag::FF })
+                             .add_output(/*exists*/) } },
+    { ExecutionOpCode::EMITNULLIFIER,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_EMITNULLIFIER_BASE_L2_GAS,
+                      .base_da = AVM_EMITNULLIFIER_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*nullifier*/ ValueTag::FF) } },
 };
 
 } // namespace bb::avm2

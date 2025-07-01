@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
@@ -50,6 +51,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     StrictMock<MockKeccakF1600> keccakf1600;
+    StrictMock<MockHighLevelMerkleDB> merkle_db;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -63,7 +65,8 @@ class ExecutionSimulationTest : public ::testing::Test {
                                     execution_id_manager,
                                     execution_event_emitter,
                                     context_stack_event_emitter,
-                                    keccakf1600);
+                                    keccakf1600,
+                                    merkle_db);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -224,6 +227,34 @@ TEST_F(ExecutionSimulationTest, RdSize)
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint32_t>(42)));
 
     execution.rd_size(context, /*dst_addr=*/10);
+}
+
+TEST_F(ExecutionSimulationTest, NullifierExists)
+{
+    MemoryValue nullifier = MemoryValue::from<FF>(0x123456);
+    MemoryValue address = MemoryValue::from<FF>(0xdeadbeef);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(address));
+    EXPECT_CALL(merkle_db, nullifier_exists(AztecAddress(0xdeadbeef), FF(0x123456))).WillOnce(Return(true));
+    EXPECT_CALL(memory, set(3, MemoryValue::from<uint1_t>(uint1_t{ 1 })));
+
+    execution.nullifier_exists(context, 1, 2, 3);
+}
+
+TEST_F(ExecutionSimulationTest, EmitNullifier)
+{
+    MemoryValue nullifier = MemoryValue::from<FF>(0x789abc);
+    AztecAddress contract_address = 0xcafebabe;
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(nullifier));
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(contract_address));
+    EXPECT_CALL(merkle_db, nullifier_write(contract_address, FF(0x789abc))).WillOnce(Return(true));
+
+    execution.emit_nullifier(context, 1);
 }
 
 } // namespace

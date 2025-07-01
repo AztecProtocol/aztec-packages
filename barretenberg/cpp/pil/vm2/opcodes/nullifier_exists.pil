@@ -1,0 +1,58 @@
+/**
+ * This virtual gadget implements the NullifierExists opcode, which checks if a nullifier exists
+ * in the nullifier tree for a given contract address.
+ *
+ * The opcode is gated by the `sel_should_do_nullifier_exists` selector, which is set to 1 if the
+ * NullifierExists opcode has reached dispatch (there are no earlier errors).
+ *
+ * This opcode uses:
+ * - register[0] as the nullifier input register (FF)
+ * - register[1] as the contract address input register (FF)
+ * - register[2] as the output register (boolean result to be tagged as u1)
+ *
+ * The gadget performs a lookup into the nullifier_check gadget to determine if the nullifier
+ * exists for the specified contract address. The result is written to the output register.
+ *
+ * If there are errors in earlier temporality groups (e.g. address resolution or out-of-gas errors),
+ * all selectors should be 0 and output register & intermediate values should be 0.
+ */
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel_nullifier_exists = 0; // from execution.pil.
+
+    // Selector for when we should perform nullifier existence check (gated by earlier errors)
+    pol commit sel_should_do_nullifier_exists;
+    // Should only perform nullifier exists check if the NullifierExists opcode has reached dispatch.
+    #[SHOULD_DO_NULLIFIER_EXISTS]
+    sel_should_do_nullifier_exists = sel_nullifier_exists * should_execute_opcode;
+
+    // Lookup into nullifier tree check to determine existence
+    #[NULLIFIER_EXISTS_CHECK]
+    sel_should_do_nullifier_exists {
+        /*exists=*/ register[2],                         // output: whether nullifier exists
+        /*nullifier=*/ register[0],                      // input: nullifier to check
+        prev_nullifier_tree_root,                        // input: tree root from context
+        /*should_silo=*/ sel_should_do_nullifier_exists, // input: should_silo = 1 (always silo for contract nullifiers)
+        /*contract_address=*/ register[1]                // input: contract address for siloing
+    } in nullifier_check.sel {
+        nullifier_check.exists,
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.should_silo,
+        nullifier_check.address
+    };
+
+    // Tag result (`exists`) as u1 (via mem_tag_reg[2]).
+    // Only tag if sel_should_do_nullifier_exists == 1.
+    #[NULLIFIER_EXISTS_U1_TAG]
+    sel_should_do_nullifier_exists * (constants.MEM_TAG_U1 - mem_tag_reg[2]) = 0;
+
+    // NullifierExists opcode has no errors! (other than standard execution/addressing/register/gas errors)
+    // So, if sel_should_do_nullifier_exists == 1, then sel_opcode_error must be 0.
+    // If sel_opcode_error == 1, sel_should_do_nullifier_exists must be 0.
+    // Lastly, if sel_should_do_nullifier_exists == 0, we don't care what sel_opcode_error is.
+    #[NULLIFIER_EXISTS_HAS_NO_OPCODE_ERROR]
+    sel_opcode_error * sel_should_do_nullifier_exists = 0;

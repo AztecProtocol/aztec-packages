@@ -1,0 +1,52 @@
+/**
+ * This virtual gadget implements the EmitNullifier opcode, which attempts to write a new nullifier
+ * to the nullifier tree for the current contract address.
+ *
+ * The opcode is gated by the `sel_should_emit_nullifier` selector, which is set to 1 if the
+ * EmitNullifier opcode has reached dispatch (there are no earlier errors).
+ *
+ * This opcode uses:
+ * - register[0] as the nullifier input register (FF)
+ *
+ * The gadget performs a lookup into the nullifier_check gadget to attempt to write the nullifier.
+ * If the nullifier already exists (collision), the operation raises an opcode error.
+ *
+ * If there are errors in earlier temporality groups (e.g. address resolution or out-of-gas errors),
+ * all selectors should be 0 and intermediate values should be 0.
+ */
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel_emit_nullifier = 0; // from execution.pil.
+
+    // Selector for when we should emit nullifier (gated by earlier errors)
+    pol commit sel_should_emit_nullifier;
+    // Should only emit nullifier if the EmitNullifier opcode has reached dispatch
+    #[SHOULD_EMIT_NULLIFIER]
+    sel_should_emit_nullifier = sel_emit_nullifier * should_execute_opcode;
+
+    // Lookup into nullifier tree check to attempt write
+    #[WRITE_NULLIFIER]
+    sel_should_emit_nullifier {
+        /*nullifier=*/ register[0],                // input: nullifier to write
+        prev_nullifier_tree_root,                  // input: current tree root from context
+        sel_opcode_error,                          // output: 1 if nullifier already exists (error)
+        contract_address,                          // input: contract address for siloing (from context)
+        prev_nullifier_tree_size,                  // current tree size from context
+        discard,                                   // input: (from execution_discard) will this write eventually be reverted (so it shouldn't be written to public inputs)?
+        prev_num_nullifiers_emitted,               // current nullifier index from context
+        // TODO(dbanks12): if this ^ is 'prev*' (as in tx), who tells context to update 'current*'?
+        /*should_silo=*/ sel_should_emit_nullifier // input: should_silo = 1 (always silo for contract nullifiers)
+    } in nullifier_check.write {
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.exists,               // maps to duplicate_nullifier
+        nullifier_check.address,              // contract address for siloing
+        nullifier_check.tree_size_before_write,
+        nullifier_check.discard,
+        nullifier_check.nullifier_index,
+        nullifier_check.should_silo
+    };
+
