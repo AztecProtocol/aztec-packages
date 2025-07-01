@@ -209,7 +209,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
         auto recursive_decider_vk_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_2->verification_key);
-        stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
+        StdlibProof<OuterBuilder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_decider_vk_1,
@@ -311,7 +312,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_decider_vk_1 = std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, decider_vk_1);
         auto recursive_decider_vk_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_2->verification_key);
-        stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
+        StdlibProof<OuterBuilder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_decider_vk_1,
@@ -429,7 +431,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             std::make_shared<RecursiveDeciderVerificationKey>(&folding_circuit, verifier_accumulator);
         auto recursive_decider_vk_2 =
             std::make_shared<RecursiveVerificationKey>(&folding_circuit, verifier_inst->verification_key);
-        stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
+        StdlibProof<OuterBuilder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
         auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
                                                   recursive_decider_vk_1,
@@ -473,7 +476,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             auto recursive_decider_vk_1 =
                 std::make_shared<RecursiveDeciderVerificationKey>(&verifier_circuit, honk_vk_1);
             auto recursive_decider_vk_2 = std::make_shared<RecursiveVerificationKey>(&verifier_circuit, honk_vk_2);
-            stdlib::Proof<OuterBuilder> stdlib_proof(verifier_circuit, fold_result.proof);
+            StdlibProof<OuterBuilder> stdlib_proof =
+                bb::convert_native_proof_to_stdlib(&verifier_circuit, fold_result.proof);
 
             auto verifier =
                 FoldingRecursiveVerifier{ &verifier_circuit,

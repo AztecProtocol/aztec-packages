@@ -14,7 +14,6 @@
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
-#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
@@ -72,7 +71,6 @@ class ClientIVC {
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
-    using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -136,7 +134,7 @@ class ClientIVC {
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
-        StdlibProof proof; // oink or PG
+        StdlibProof<ClientCircuit> proof; // oink or PG
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };

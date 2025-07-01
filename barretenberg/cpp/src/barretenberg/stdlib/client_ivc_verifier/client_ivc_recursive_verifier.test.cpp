@@ -104,7 +104,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
-    tube_builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+    tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_proof);
 
     info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
 
@@ -128,7 +128,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     Builder base_builder;
     auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
     auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
-    stdlib::Proof<Builder> base_tube_proof(base_builder, native_tube_proof);
+    auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
     UltraRecursiveVerifierOutput<Builder> output = base_verifier.verify_proof(base_tube_proof);
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
@@ -165,7 +165,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         client_ivc_rec_verifier_output.points_accumulator.set_public();
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
         client_ivc_rec_verifier_output.opening_claim.set_public();
-        tube_builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+        tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_proof);
 
         info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
 

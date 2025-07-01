@@ -120,7 +120,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         pairing_points.P1.y.fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
-            outer_circuit.ipa_proof = output.ipa_proof.get_value();
+            outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 

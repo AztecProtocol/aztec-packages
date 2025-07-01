@@ -1066,7 +1066,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         uint64_t exponent_val = engine.get_random_uint32();
         exponent_val += (uint64_t(1) << 32);
 
-        [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
+        field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
 #ifndef NDEBUG
         EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");

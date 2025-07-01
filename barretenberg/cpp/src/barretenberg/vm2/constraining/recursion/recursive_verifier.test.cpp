@@ -170,7 +170,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Construct stdlib representations of the proof, public inputs and verification key
     OuterBuilder outer_circuit;
-    stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
+    StdlibProof<OuterBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(&outer_circuit, proof);
 
     std::vector<std::vector<UltraFF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_cols.size());
@@ -199,7 +199,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     verifier_output.points_accumulator.set_public();
     verifier_output.ipa_claim.set_public();
-    outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
+    outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     NativeVerifierCommitmentKey pcs_vkey{};
