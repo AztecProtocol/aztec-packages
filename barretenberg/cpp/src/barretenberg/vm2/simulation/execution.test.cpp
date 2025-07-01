@@ -180,7 +180,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
 {
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    EXPECT_CALL(memory, set(1, MemoryValue::from<uint1_t>(1)));
     execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
 }
 

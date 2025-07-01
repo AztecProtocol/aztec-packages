@@ -19,6 +19,7 @@ class GetEnvVarSpec {
         bool is_isstaticcall;
         bool is_l2gasleft;
         bool is_dagasleft;
+        uint8_t out_tag;
     };
 
     static Table get_table(uint8_t envvar);

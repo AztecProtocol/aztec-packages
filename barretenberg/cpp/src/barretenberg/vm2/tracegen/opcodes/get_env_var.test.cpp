@@ -40,7 +40,8 @@ TEST(GetEnvVarTracegenTest, AddressEnvironmentVariable)
                                   ROW_FIELD_EQ(execution_is_transactionfee, 0),
                                   ROW_FIELD_EQ(execution_is_isstaticcall, 0),
                                   ROW_FIELD_EQ(execution_is_l2gasleft, 0),
-                                  ROW_FIELD_EQ(execution_is_dagasleft, 0))));
+                                  ROW_FIELD_EQ(execution_is_dagasleft, 0),
+                                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF)))));
 }
 
 TEST(GetEnvVarTracegenTest, SenderEnvironmentVariable)
@@ -63,7 +64,8 @@ TEST(GetEnvVarTracegenTest, SenderEnvironmentVariable)
                                   ROW_FIELD_EQ(execution_is_transactionfee, 0),
                                   ROW_FIELD_EQ(execution_is_isstaticcall, 0),
                                   ROW_FIELD_EQ(execution_is_l2gasleft, 0),
-                                  ROW_FIELD_EQ(execution_is_dagasleft, 0))));
+                                  ROW_FIELD_EQ(execution_is_dagasleft, 0),
+                                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF)))));
 }
 
 TEST(GetEnvVarTracegenTest, TransactionFeeEnvironmentVariable)
@@ -169,7 +171,8 @@ TEST(GetEnvVarTracegenTest, BlockNumberEnvironmentVariable)
                     ROW_FIELD_EQ(execution_is_isstaticcall, 0),
                     ROW_FIELD_EQ(execution_is_l2gasleft, 0),
                     ROW_FIELD_EQ(execution_is_dagasleft, 0),
-                    ROW_FIELD_EQ(execution_value_from_pi, block_number))));
+                    ROW_FIELD_EQ(execution_value_from_pi, block_number),
+                    ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32)))));
 }
 
 TEST(GetEnvVarTracegenTest, TimestampEnvironmentVariable)
@@ -205,7 +208,7 @@ TEST(GetEnvVarTracegenTest, FeePerL2GasEnvironmentVariable)
     ExecutionTraceBuilder builder;
 
     TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)); // enum value
+        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS)); // enum value
 
     uint128_t fee_per_l2_gas = 42;
     TaggedValue output = TaggedValue::from_tag(ValueTag::U128, fee_per_l2_gas);
@@ -223,7 +226,8 @@ TEST(GetEnvVarTracegenTest, FeePerL2GasEnvironmentVariable)
                     ROW_FIELD_EQ(execution_is_isstaticcall, 0),
                     ROW_FIELD_EQ(execution_is_l2gasleft, 0),
                     ROW_FIELD_EQ(execution_is_dagasleft, 0),
-                    ROW_FIELD_EQ(execution_value_from_pi, fee_per_l2_gas))));
+                    ROW_FIELD_EQ(execution_value_from_pi, fee_per_l2_gas),
+                    ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128)))));
 }
 
 TEST(GetEnvVarTracegenTest, FeePerDaGasEnvironmentVariable)
@@ -232,7 +236,7 @@ TEST(GetEnvVarTracegenTest, FeePerDaGasEnvironmentVariable)
     ExecutionTraceBuilder builder;
 
     TaggedValue envvar_enum =
-        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)); // enum value
+        TaggedValue::from_tag(ValueTag::U8, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERDAGAS)); // enum value
 
     uint128_t fee_per_da_gas = 42;
     TaggedValue output = TaggedValue::from_tag(ValueTag::U128, fee_per_da_gas);
@@ -274,7 +278,8 @@ TEST(GetEnvVarTracegenTest, IsStaticCallEnvironmentVariable)
                                   ROW_FIELD_EQ(execution_is_isstaticcall, 1), // Should be set
                                   ROW_FIELD_EQ(execution_is_l2gasleft, 0),
                                   ROW_FIELD_EQ(execution_is_dagasleft, 0),
-                                  ROW_FIELD_EQ(execution_value_from_pi, 0))));
+                                  ROW_FIELD_EQ(execution_value_from_pi, 0),
+                                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)))));
 }
 
 TEST(GetEnvVarTracegenTest, L2GasLeftEnvironmentVariable)
