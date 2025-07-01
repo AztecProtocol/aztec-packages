@@ -47,7 +47,6 @@ static void write_vk_for_ivc(const std::string& output_format,
                              size_t num_public_inputs_in_final_circuit,
                              const std::filesystem::path& output_dir);
 
-static ClientIVC::Proof TEMP;
 /**
  * @brief Prove method implementation
  *
@@ -64,7 +63,6 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     ClientIVC::Proof proof = ivc->prove();
-    TEMP = proof;
 
     // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
@@ -87,8 +85,6 @@ void ClientIVCAPI::prove(const Flags& flags,
     };
 
     write_proof();
-    ClientIVC::Proof proof2 = ClientIVC::Proof::from_file_msgpack(output_dir / "proof");
-    ASSERT(proof2 == proof, "Proof written to file does not match the original proof!");
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
@@ -154,9 +150,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     // since there's no CircuitVerify equivalent for IVC proofs yet
 
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    ASSERT(proof == TEMP)
     const auto vk = from_msgpack_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
-
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;
 }
@@ -205,7 +199,8 @@ void ClientIVCAPI::write_vk(const Flags& flags,
             for (const auto& field : fields_response.fields) {
                 ss << field << "\n";
             }
-            write_file(output_path, std::vector<uint8_t>(ss.str().begin(), ss.str().end()));
+            auto output = ss.str();
+            write_file(output_path, std::vector<uint8_t>(output.begin(), output.end()));
         }
     } else if (flags.verifier_type == "ivc") {
         // For IVC hiding circuit VK, we need the number of public inputs from the last circuit

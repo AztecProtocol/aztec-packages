@@ -28,7 +28,7 @@ using namespace acir_bincode_test;
 // Helper to create a temporary directory for test files
 std::filesystem::path create_temp_test_dir()
 {
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "api_client_ivc_test";
+    std::filesystem::path temp_dir = "tmp_api_client_ivc_test";
     temp_dir /= std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
     std::filesystem::create_directories(temp_dir);
     return temp_dir;
@@ -105,7 +105,7 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
 
     // Prove
     ClientIVCAPI api;
-    EXPECT_NO_THROW(api.prove(flags, input_path, output_dir));
+    api.prove(flags, input_path, output_dir);
 
     // Check that proof and vk files were created
     EXPECT_TRUE(std::filesystem::exists(output_dir / "proof"));
@@ -166,7 +166,7 @@ TEST_F(ClientIVCAPITests, WriteVkFields)
     std::filesystem::path vk_path = test_dir / "standalone_fields.vk";
 
     ClientIVCAPI api;
-    EXPECT_NO_THROW(api.write_vk(flags, bytecode_path, vk_path));
+    api.write_vk(flags, bytecode_path, vk_path);
     EXPECT_TRUE(std::filesystem::exists(vk_path));
 
     // Read and verify the fields format

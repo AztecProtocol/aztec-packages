@@ -185,7 +185,7 @@ class ClientIVCMockCircuitProducer {
     static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
+        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
         return circuit;
     }
 

@@ -122,6 +122,10 @@ class ClientIVC {
         std::shared_ptr<TranslatorVerificationKey> translator;
 
         MSGPACK_FIELDS(mega, eccvm, translator);
+        bool operator==(const VerificationKey& other) const
+        {
+            return *mega == *other.mega && *eccvm == *other.eccvm && *translator == *other.translator;
+        }
     };
 
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
@@ -214,6 +218,6 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     VerificationKey get_vk() const;
-};
+}; // namespace bb
 
 } // namespace bb
