@@ -124,13 +124,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
-<<<<<<< HEAD
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then
             exec ./ci.sh docs
-=======
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
             exec ./ci.sh barretenberg
->>>>>>> origin/next
           elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
             exec ./ci.sh nightly
           elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
