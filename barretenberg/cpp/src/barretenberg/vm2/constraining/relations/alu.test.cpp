@@ -30,26 +30,6 @@ using alu = bb::avm2::alu<FF>;
 using tracegen::AluTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 
-// auto get_test_values(MemoryTag tag)
-// {
-//     switch (tag) {
-//     case ValueTag::U1:
-//         return { 1, 1, 0, static_cast<uint8_t>(tag) };
-//     case ValueTag::U8:
-//         return 8;
-//     case ValueTag::U16:
-//         return 16;
-//     case ValueTag::U32:
-//         return 32;
-//     case ValueTag::U64:
-//         return 64;
-//     case ValueTag::U128:
-//         return 128;
-//     case ValueTag::FF:
-//         return 254;
-//     }
-// }
-
 // The below test values do not carry:
 const std::unordered_map<MemoryTag, std::array<FF, 5>> TEST_VALUES = {
     { MemoryTag::FF,
@@ -93,9 +73,9 @@ auto process_basic_add_trace(MemoryTag input_tag)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .execution_mem_tag_0_ = tag,          // = ia_tag
-            .execution_mem_tag_1_ = tag,          // = ib_tag
-            .execution_mem_tag_2_ = tag,          // = ic_tag
+            .execution_mem_tag_reg_0_ = tag,      // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,      // = ib_tag
+            .execution_mem_tag_reg_2_ = tag,      // = ic_tag
             .execution_register_0_ = a,           // = ia
             .execution_register_1_ = b,           // = ib
             .execution_register_2_ = c,           // = ic
@@ -130,9 +110,9 @@ auto process_carry_add_trace(MemoryTag input_tag)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .execution_mem_tag_0_ = tag,          // = ia_tag
-            .execution_mem_tag_1_ = tag,          // = ib_tag
-            .execution_mem_tag_2_ = tag,          // = ic_tag
+            .execution_mem_tag_reg_0_ = tag,      // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,      // = ib_tag
+            .execution_mem_tag_reg_2_ = tag,      // = ic_tag
             .execution_register_0_ = a,           // = ia
             .execution_register_1_ = b,           // = ib
             .execution_register_2_ = c,           // = ic
@@ -237,9 +217,9 @@ TEST(AluConstrainingTest, AddCarryU1WithLookups)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .execution_mem_tag_0_ = tag,          // = ia_tag
-            .execution_mem_tag_1_ = tag,          // = ib_tag
-            .execution_mem_tag_2_ = tag,          // = ic_tag
+            .execution_mem_tag_reg_0_ = tag,      // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,      // = ib_tag
+            .execution_mem_tag_reg_2_ = tag,      // = ic_tag
             .execution_register_0_ = 1,           // = ia
             .execution_register_1_ = 1,           // = ib
             .execution_register_2_ = 0,           // = ic

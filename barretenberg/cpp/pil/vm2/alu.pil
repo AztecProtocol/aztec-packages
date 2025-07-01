@@ -32,8 +32,8 @@ cf * (1 - cf) = 0;
 
 #[REGISTER_TAG_VALUE]
 execution.sel_alu {
-    execution.register[0], execution.mem_tag[0], execution.register[1],
-    execution.mem_tag[1], execution.register[2], execution.mem_tag[2], execution.subtrace_operation_id, execution.opcode_error
+    execution.register[0], execution.mem_tag_reg[0], execution.register[1],
+    execution.mem_tag_reg[1], execution.register[2], execution.mem_tag_reg[2], execution.subtrace_operation_id, execution.sel_opcode_error
 } in sel {
     ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_tag_err
 };

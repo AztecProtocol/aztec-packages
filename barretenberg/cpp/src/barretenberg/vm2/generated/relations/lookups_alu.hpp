@@ -22,10 +22,10 @@ struct lookup_alu_register_tag_value_settings_ {
     static constexpr Column COUNTS = Column::lookup_alu_register_tag_value_counts;
     static constexpr Column INVERSES = Column::lookup_alu_register_tag_value_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_0_,           ColumnAndShifts::execution_mem_tag_0_,
-        ColumnAndShifts::execution_register_1_,           ColumnAndShifts::execution_mem_tag_1_,
-        ColumnAndShifts::execution_register_2_,           ColumnAndShifts::execution_mem_tag_2_,
-        ColumnAndShifts::execution_subtrace_operation_id, ColumnAndShifts::execution_opcode_error
+        ColumnAndShifts::execution_register_0_,           ColumnAndShifts::execution_mem_tag_reg_0_,
+        ColumnAndShifts::execution_register_1_,           ColumnAndShifts::execution_mem_tag_reg_1_,
+        ColumnAndShifts::execution_register_2_,           ColumnAndShifts::execution_mem_tag_reg_2_,
+        ColumnAndShifts::execution_subtrace_operation_id, ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::alu_ia,     ColumnAndShifts::alu_ia_tag,     ColumnAndShifts::alu_ib,
