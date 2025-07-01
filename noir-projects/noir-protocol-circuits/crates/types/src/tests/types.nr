@@ -23,8 +23,10 @@ impl Ordered for TestValue {
     }
 }
 
-impl Serialize<2> for TestValue {
-    fn serialize(self) -> [Field; 2] {
+impl Serialize for TestValue {
+    let N = 2;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self.value, self.counter as Field]
     }
 }
