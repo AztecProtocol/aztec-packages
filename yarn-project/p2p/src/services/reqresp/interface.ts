@@ -37,12 +37,12 @@ export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRa
 
 /**
  * The response from the ReqResp protocol
- * Consists of a status (Error code) and data
+ * Consists of a status
+ * And, optionally, a data buffer (in case status is SUCCESS)
  */
-export interface ReqRespResponse {
-  status: ReqRespStatus;
-  data: Buffer;
-}
+export type ReqRespResponse =
+  | { status: ReqRespStatus.SUCCESS; data: Buffer }
+  | { status: Exclude<ReqRespStatus, ReqRespStatus.SUCCESS> };
 
 /**
  * A rate limit quota

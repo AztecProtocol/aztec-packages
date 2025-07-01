@@ -23,15 +23,19 @@ export function reqRespTxHandler<T extends P2PClientType>(mempools: MemPools<T>)
    * @throws if msg is not a valid tx hash
    */
   return async (_peerId: PeerId, msg: Buffer) => {
+    let txHash: TxHash;
     try {
-      const txHash = TxHash.fromBuffer(msg);
+      txHash = TxHash.fromBuffer(msg);
+    } catch (err: any) {
+      throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
+    }
+
+    try {
       const foundTx = await mempools.txPool.getTxByHash(txHash);
       const buf = foundTx ? foundTx.toBuffer() : Buffer.alloc(0);
       return buf;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_e) {
-      // This is ok, because the only thing that can go wrong is parsing tx hash
-      throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST);
+    } catch (err: any) {
+      throw new ReqRespStatusError(ReqRespStatus.INTERNAL_ERROR, { cause: err });
     }
   };
 }

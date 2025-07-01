@@ -19,14 +19,18 @@ export function reqRespBlockHandler(l2BlockSource: L2BlockSource): ReqRespSubPro
    * @throws  ReqRespStatusError if the input msg is not a valid block number
    * */
   return async (_peerId: PeerId, msg: Buffer) => {
+    let blockNumber: Fr;
     try {
-      const blockNumber = Fr.fromBuffer(msg);
+      blockNumber = Fr.fromBuffer(msg);
+    } catch (err: any) {
+      throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
+    }
+
+    try {
       const foundBlock = await l2BlockSource.getBlock(Number(blockNumber));
       return foundBlock ? foundBlock.toBuffer() : Buffer.alloc(0);
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_e: any) {
-      // This is ok, because the only thing that can go wrong is block number parsing
-      throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST);
+    } catch (err: any) {
+      throw new ReqRespStatusError(ReqRespStatus.INTERNAL_ERROR, { cause: err });
     }
   };
 }

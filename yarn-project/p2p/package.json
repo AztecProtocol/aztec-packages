@@ -97,7 +97,6 @@
     "@multiformats/multiaddr": "12.1.14",
     "interface-datastore": "^8.2.11",
     "interface-store": "^5.1.8",
-    "it-pipe": "^3.0.1",
     "libp2p": "1.5.0",
     "semver": "^7.6.0",
     "sha3": "^2.1.4",

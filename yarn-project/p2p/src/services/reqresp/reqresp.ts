@@ -7,8 +7,8 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
-import { pipe } from 'it-pipe';
 import type { Libp2p } from 'libp2p';
+import { pipeline } from 'node:stream/promises';
 import type { Uint8ArrayList } from 'uint8arraylist';
 
 import {
@@ -368,13 +368,16 @@ export class ReqResp implements ReqRespInterface {
       );
 
       const timeoutErr = new IndividualReqRespTimeoutError();
-      return await executeTimeout(
-        _ => {
-          return pipe([payload], stream!, this.readMessage.bind(this));
-        },
+      const [_, resp] = await executeTimeout(
+        signal =>
+          Promise.all([
+            pipeline([payload], stream!.sink, { signal }),
+            pipeline(stream!.source, this.readMessage.bind(this), { signal }),
+          ]),
         this.individualRequestTimeoutMs,
         () => timeoutErr,
       );
+      return resp;
     } catch (e: any) {
       // On error we immediately abort the stream, this is preferred way,
       // because it signals to the sender that error happened, whereas
@@ -388,7 +391,7 @@ export class ReqResp implements ReqRespInterface {
 
       // If there is an exception, we return an unknown response
       this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
-      return { status: ReqRespStatus.FAILURE, data: Buffer.alloc(0) };
+      return { status: ReqRespStatus.FAILURE };
     } finally {
       // Only close the stream if we created it
       // Note even if we aborted the stream, calling close on it is ok, it's just a no-op
@@ -519,7 +522,6 @@ export class ReqResp implements ReqRespInterface {
         if (status !== ReqRespStatus.SUCCESS) {
           return {
             status,
-            data: Buffer.alloc(0),
           };
         }
       }
@@ -541,7 +543,6 @@ export class ReqResp implements ReqRespInterface {
 
       return {
         status,
-        data: Buffer.alloc(0),
       };
     }
   }
@@ -584,24 +585,24 @@ export class ReqResp implements ReqRespInterface {
 
       await this.processStream(protocol, incomingStream);
     } catch (err: any) {
-      this.logger.warn('Reqresp response error: ', err);
       this.metrics.recordResponseError(protocol);
 
       if (err instanceof ReqRespStatusError) {
         const errorSent = await this.trySendError(stream, err.status);
         const logMessage = errorSent
-          ? 'Protocol Error Sent successfully'
+          ? 'Protocol error sent successfully'
           : 'Stream already closed or poisoned, not sending error response';
 
-        this.logger.debug(logMessage, {
+        this.logger.warn(logMessage, {
           protocol,
           err,
           errorStatus: err.status,
+          cause: err.cause ?? 'Cause unknown',
         });
       } else {
         // In erroneous case we abort the stream, this will signal the peer that something went wrong
         // and that this stream should be dropped
-        this.logger.debug('Unknown stream error, aborting', {
+        this.logger.warn('Unknown stream error while handling the stream, aborting', {
           protocol,
           err,
         });
@@ -627,8 +628,8 @@ export class ReqResp implements ReqRespInterface {
     const snappy = this.snappyTransform;
     const SUCCESS = Uint8Array.of(ReqRespStatus.SUCCESS);
 
-    await pipe(
-      stream,
+    await pipeline(
+      stream.source,
       async function* (source: any) {
         for await (const chunk of source) {
           const response = await handler(connection.remotePeer, chunk.subarray());
@@ -640,13 +641,13 @@ export class ReqResp implements ReqRespInterface {
             return;
           }
 
-          stream.metadata = { written: true }; // Mark the stream as written to
+          stream.metadata.written = true; // Mark the stream as written to;
 
           yield SUCCESS;
           yield snappy.outboundTransformNoTopic(response);
         }
       },
-      stream,
+      stream.sink,
     );
   }
 
@@ -666,7 +667,7 @@ export class ReqResp implements ReqRespInterface {
 
     // Stream was already written to, we consider it poisoned, in a sense,
     // that even if we write an error response, it will not be interpreted correctly by the peer
-    const streamPoisoned = stream.metadata?.written === true;
+    const streamPoisoned = stream.metadata.written === true;
     const shouldWriteToStream = canWriteToStream && !streamPoisoned;
 
     if (!shouldWriteToStream) {
@@ -674,9 +675,9 @@ export class ReqResp implements ReqRespInterface {
     }
 
     try {
-      await pipe(async function* () {
+      await pipeline(function* () {
         yield Uint8Array.of(status);
-      }, stream);
+      }, stream.sink);
 
       return true;
     } catch (e: any) {

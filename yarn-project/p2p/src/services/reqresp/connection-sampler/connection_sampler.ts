@@ -1,4 +1,4 @@
-import { AbortError, TimeoutError } from '@aztec/foundation/error';
+import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 

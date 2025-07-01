@@ -1113,7 +1113,6 @@ __metadata:
     interface-store: "npm:^5.1.8"
     it-drain: "npm:^3.0.5"
     it-length: "npm:^3.0.6"
-    it-pipe: "npm:^3.0.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     libp2p: "npm:1.5.0"
