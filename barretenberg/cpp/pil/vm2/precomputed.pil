@@ -165,3 +165,4 @@ pol constant is_feeperl2gas;
 pol constant is_isstaticcall;
 pol constant is_l2gasleft;
 pol constant is_dagasleft;
+pol constant out_tag;

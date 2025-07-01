@@ -988,6 +988,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
                   { C::execution_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
                   { C::execution_value_from_pi,
                     envvar_spec.envvar_pi_lookup_col0 || envvar_spec.envvar_pi_lookup_col1 ? output.as_ff() : 0 },
+                  { C::execution_mem_tag_reg_0_, envvar_spec.out_tag },
               } });
 }
 
