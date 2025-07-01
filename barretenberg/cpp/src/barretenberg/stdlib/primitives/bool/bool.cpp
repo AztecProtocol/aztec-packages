@@ -12,16 +12,26 @@ using namespace bb;
 
 namespace bb::stdlib {
 
+/**
+ * @brief Construct a constant `bool_t` object from a `bool` value
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool value)
     : witness_bool(value)
 {}
 
+/**
+ * @brief Construct a constant `bool_t` object with a given Builder argument, its value is `false`.
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context)
     : context(parent_context)
 {}
 
+/**
+ * @brief Construct a `bool_t` object from a witness, note that the value stored at `witness_index` is constrained to be
+ * 0 or 1.
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(const witness_t<Builder>& value)
     : context(value.context)
@@ -29,18 +39,24 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value)
     ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()),
            "bool_t: witness value is not 0 or 1");
     witness_index = value.witness_index;
+    // Constrain x := other.witness by the relation x^2 = x
     context->create_bool_gate(witness_index);
     witness_bool = (value.witness == bb::fr::one());
     witness_inverted = false;
     set_free_witness_tag();
 }
-
+/**
+ * @brief Construct a constant `bool_t` object from a `bool` value with a given Builder argument.
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context, const bool value)
     : context(parent_context)
     , witness_bool(value)
 {}
 
+/**
+ * @brief Copy constructor
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool_t<Builder>& other)
     : context(other.context)
@@ -50,6 +66,9 @@ bool_t<Builder>::bool_t(const bool_t<Builder>& other)
     , tag(other.tag)
 {}
 
+/**
+ * @brief Move constructor
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     : context(other.context)
@@ -60,6 +79,9 @@ bool_t<Builder>::bool_t(bool_t<Builder>&& other)
 
 {}
 
+/**
+ * @brief Assigns a native `bool` to `bool_t` object.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool other)
 {
     context = nullptr;
@@ -69,6 +91,9 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     return *this;
 }
 
+/**
+ * @brief Assigns a `bool_t` to a `bool_t` object.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool_t& other)
 {
     context = other.context;
@@ -79,6 +104,9 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     return *this;
 }
 
+/**
+ * @brief Assigns a `bool_t` to a `bool_t` object.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&& other)
 {
     context = other.context;
@@ -88,7 +116,10 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
     tag = other.tag;
     return *this;
 }
-
+/**
+ * @brief Assigns a `witness_t` to a `bool_t`. As above,  he value stored at `witness_index` is constrained to be
+ * 0 or 1.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
 {
     ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()));
@@ -96,11 +127,15 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const wi
     witness_bool = other.witness == bb::fr::one();
     witness_index = other.witness_index;
     witness_inverted = false;
+    // Constrain x := other.witness by the relation x^2 = x
     context->create_bool_gate(witness_index);
     set_free_witness_tag();
     return *this;
 }
 
+/**
+ * @brief Implements AND in circuit
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const bool_t& other) const
 {
     bool_t<Builder> result(context ? context : other.context);
@@ -169,6 +204,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
     return result;
 }
 
+/**
+ * @brief Implements OR in circuit
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const bool_t& other) const
 {
     bool_t<Builder> result(context ? context : other.context);
@@ -218,6 +256,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
     return result;
 }
 
+/**
+ * @brief Implements XOR in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const bool_t& other) const
 {
     bool_t<Builder> result(context == nullptr ? other.context : context);
@@ -266,7 +307,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
-
+/**
+ * @brief Implements negation in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
 {
     bool_t<Builder> result(*this);
@@ -281,6 +324,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
     return result;
 }
 
+/**
+ * @brief Implements equality operator in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bool_t& other) const
 {
     ASSERT(context || other.context || (is_constant() && other.is_constant()));
@@ -327,7 +373,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
-
+/**
+ * @brief Implements the `not equal` operator in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!=(const bool_t<Builder>& other) const
 {
     return operator^(other);
@@ -343,6 +391,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator||(const bo
     return operator|(other);
 }
 
+/**
+ * @brief Implements copy constraint for `bool_t` elements.
+ */
 template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs, std::string const& msg) const
 {
     const bool_t lhs = *this;
@@ -370,7 +421,9 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     }
 }
 
-// if predicate == true then return lhs, else return rhs
+/**
+ * @brief Implements the ternary operator - if predicate == true then return lhs, else return rhs
+ */
 template <typename Builder>
 bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predicate,
                                                     const bool_t& lhs,
@@ -391,19 +444,26 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
     return (predicate && lhs) || (!predicate && rhs);
 }
 
+/**
+ * @brief Implements implication operator in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::implies(const bool_t<Builder>& other) const
 {
     // Thanks to negation operator being free, this computation requires at most 1 gate.
     return (!(*this) || other); // P => Q is equiv. to !P || Q (not(P) or Q).
 }
 
+/**
+ * @brief Constrains the (a => b) == true.
+ */
 template <typename Builder> void bool_t<Builder>::must_imply(const bool_t& other, std::string const& msg) const
 {
     implies(other).assert_equal(true, msg);
 }
 
-// A "double-implication" (<=>),
-// a.k.a "iff", a.k.a. "biconditional"
+/**
+ @brief Implements a "double-implication" (<=>), a.k.a "iff", a.k.a. "biconditional"
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(const bool_t<Builder>& other) const
 {
     return (!(*this) ^ other); // P <=> Q is equiv. to !(P ^ Q) (not(P xor Q)).
@@ -412,7 +472,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(c
 /**
  * @brief A bool_t element is **normalized** if `witness_inverted == false`. For a given `*this`, output its normalized
  * version.
- *
+ * @warning  The witness index of *this as well as its `witness_inverted` flag are re-written.
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 {

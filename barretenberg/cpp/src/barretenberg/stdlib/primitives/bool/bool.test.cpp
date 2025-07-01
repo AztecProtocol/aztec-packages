@@ -5,11 +5,6 @@
 #include <gtest/gtest.h>
 #include <tuple>
 
-#define STDLIB_TYPE_ALIASES                                                                                            \
-    using Builder = TypeParam;                                                                                         \
-    using witness_ct = stdlib::witness_t<Builder>;                                                                     \
-    using bool_ct = stdlib::bool_t<Builder>;
-
 using namespace bb;
 
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
@@ -164,7 +159,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
     void test_NEQ()
     {
         test_binary_op(
-            "==", [](const bool_ct& a, const bool_ct& b) { return a != b; }, [](bool a, bool b) { return a != b; });
+            "!=", [](const bool_ct& a, const bool_ct& b) { return a != b; }, [](bool a, bool b) { return a != b; });
     }
 
     void test_implies()
@@ -268,10 +263,13 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     if (condition.is_constant()) {
                         EXPECT_EQ(diff, 0);
                     }
+
+                    EXPECT_TRUE(CircuitChecker::check(builder));
                 }
             }
         }
     }
+
     void test_normalize()
     {
         for (auto a_raw : all_inputs) {
@@ -294,6 +292,37 @@ template <class Builder_> class BoolTest : public ::testing::Test {
             // `true`.
             EXPECT_EQ(diff, static_cast<size_t>(!a.is_constant() && a_raw.is_inverted));
             EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+    }
+
+    void test_assert_equal()
+    {
+
+        for (auto lhs : all_inputs) {
+            for (auto rhs : all_inputs) {
+
+                Builder builder;
+
+                bool_ct a = create_bool_ct(lhs, &builder);
+                bool_ct b = create_bool_ct(rhs, &builder);
+
+                bool failed = a.get_value() != b.get_value();
+
+                if (!a.is_constant() && !b.is_constant()) {
+                    a.assert_equal(b);
+                    // CircuitChecker is not verifying the permutation relation
+                    EXPECT_EQ(builder.failed(), failed);
+                } else if (!a.is_constant() || !b.is_constant()) {
+                    a.assert_equal(b);
+                    EXPECT_EQ(CircuitChecker::check(builder), !failed);
+                } else {
+                    if (failed) {
+#ifndef NDEBUG
+                        EXPECT_DEATH(a.assert_equal(b), R"(\(lhs\.get_value\(\) == rhs\.get_value\(\)\))");
+#endif
+                    }
+                }
+            }
         }
     }
 
@@ -354,6 +383,44 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
         auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 6UL);
+    }
+
+    // Check that (a && (b || c)) ^ (d => f) <=> ((a && b) || (a && c)) ^ (!d || f)) for all inputs.
+    void test_simple_proof()
+    {
+        for (const auto& a_input : all_inputs) {
+            for (const auto& b_input : all_inputs) {
+                for (const auto& c_input : all_inputs) {
+                    for (const auto& d_input : all_inputs) {
+                        for (const auto& f_input : all_inputs) {
+                            Builder builder;
+
+                            // Construct bool_cts from inputs
+                            bool_ct a = create_bool_ct(a_input, &builder);
+                            bool_ct b = create_bool_ct(b_input, &builder);
+                            bool_ct c = create_bool_ct(c_input, &builder);
+                            bool_ct d = create_bool_ct(d_input, &builder);
+                            bool_ct f = create_bool_ct(f_input, &builder);
+
+                            // === Formula 1 ===
+                            bool_ct lhs = (a && (b || c)) ^ (d.implies(f));
+                            bool_ct rhs = ((a && b) || (a && c)) ^ (!d || f);
+
+                            // Equivalence check
+                            bool_ct equivalent = lhs.implies_both_ways(rhs);
+                            if (!equivalent.get_value()) {
+                                info("FAIL:");
+                                info("a: ", a.get_value(), " b: ", b.get_value(), " c: ", c.get_value());
+                                info("d: ", d.get_value(), " f: ", f.get_value());
+                            }
+
+                            EXPECT_EQ(equivalent.get_value(), true);
+                            EXPECT_TRUE(CircuitChecker::check(builder));
+                        }
+                    }
+                }
+            }
+        }
     }
 };
 
@@ -421,85 +488,14 @@ TYPED_TEST(BoolTest, ConditionalAssign)
 
 TYPED_TEST(BoolTest, TestBasicOperationsTags)
 {
-
     TestFixture::test_basic_operations_tags();
-}
-
-TYPED_TEST(BoolTest, Eq)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    bool a_alt[32];
-    bool b_alt[32];
-    bool c_alt[32];
-    bool d_alt[32];
-    for (size_t i = 0; i < 32; ++i) {
-        if (i % 2 == 0) {
-            a_alt[i] = bool(i % 2);
-            b_alt[i] = false;
-            c_alt[i] = a_alt[i] ^ b_alt[i];
-            d_alt[i] = a_alt[i] == c_alt[i];
-        } else {
-            a_alt[i] = true;
-            b_alt[i] = false;
-            c_alt[i] = false;
-            d_alt[i] = false;
-        }
-    }
-    bool_ct a[32];
-    bool_ct b[32];
-    bool_ct c[32];
-    bool_ct d[32];
-    for (size_t i = 0; i < 32; ++i) {
-        if (i % 2 == 0) {
-            a[i] = witness_ct(&builder, (bool)(i % 2));
-            b[i] = witness_ct(&builder, (bool)(0));
-            c[i] = a[i] ^ b[i];
-            d[i] = a[i] == c[i];
-        } else {
-            a[i] = witness_ct(&builder, (bool)(1));
-            b[i] = witness_ct(&builder, (bool)(0));
-            c[i] = a[i] & b[i];
-            d[i] = a[i] == c[i];
-        }
-    }
-    for (size_t i = 0; i < 32; ++i) {
-        EXPECT_EQ(a[i].get_value(), a_alt[i]);
-        EXPECT_EQ(b[i].get_value(), b_alt[i]);
-        EXPECT_EQ(c[i].get_value(), c_alt[i]);
-        EXPECT_EQ(d[i].get_value(), d_alt[i]);
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
 }
 
 TYPED_TEST(BoolTest, TestSimpleProof)
 {
-    STDLIB_TYPE_ALIASES
-    Builder builder;
-
-    bool_ct a = witness_ct(&builder, bb::fr::one());
-    bool_ct b = witness_ct(&builder, bb::fr::zero());
-    a = a ^ b;            // a = 1
-    b = !b;               // b = 1 (witness 0)
-    bool_ct c = (a == b); // c = 1
-    bool_ct d(&builder);  // d = ?
-    d = false;            // d = 0
-    bool_ct e = a | d;    // e = 1 = a
-    bool_ct f = e ^ b;    // f = 0
-    d = (!f) & a;         // d = 1
-    for (size_t i = 0; i < 64; ++i) {
-        a = witness_ct(&builder, (bool)(i % 2));
-        b = witness_ct(&builder, (bool)(i % 3 == 1));
-        c = a ^ b;
-        a = b ^ c;
-        c = a;
-        a = b;
-        f = b;
-    }
-
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
+    TestFixture::test_simple_proof();
+}
+TYPED_TEST(BoolTest, AssertEqual)
+{
+    TestFixture::test_assert_equal();
 }
