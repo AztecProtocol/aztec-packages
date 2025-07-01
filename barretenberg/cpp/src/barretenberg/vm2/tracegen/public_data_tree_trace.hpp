@@ -10,7 +10,7 @@
 
 namespace bb::avm2::tracegen {
 
-class PublicDataTreeCheckTraceBuilder final {
+class PublicDataTreeTraceBuilder final {
   public:
     void process(const simulation::EventEmitterInterface<simulation::PublicDataTreeCheckEvent>::Container& events,
                  TraceContainer& trace);
