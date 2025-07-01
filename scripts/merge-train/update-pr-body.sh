@@ -40,7 +40,7 @@ commits=$(get_meaningful_commits "$base_sha" "$head_sha")
 
 # Format commits or show placeholder
 if [[ -n "$commits" ]]; then
-    formatted_commits=$(echo "$commits" | sed 's/^/- /')
+    formatted_commits="$commits"
 else
     formatted_commits="*No commits yet*"
 fi

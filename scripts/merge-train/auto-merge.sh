@@ -56,7 +56,17 @@ function is_pr_inactive {
         return 1
     fi
     
-    local last_commit_timestamp=$(date -d "$last_commit_date" +%s)
+    # Cross-platform date parsing
+    local last_commit_timestamp
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS BSD date
+        last_commit_timestamp=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$last_commit_date" +%s 2>/dev/null || \
+                               date -j -f "%Y-%m-%d %H:%M:%S" "$last_commit_date" +%s)
+    else
+        # GNU date
+        last_commit_timestamp=$(date -d "$last_commit_date" +%s)
+    fi
+    
     local current_timestamp=$(date +%s)
     local time_diff=$((current_timestamp - last_commit_timestamp))
     
