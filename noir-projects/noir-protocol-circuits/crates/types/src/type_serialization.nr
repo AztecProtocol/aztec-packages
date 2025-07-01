@@ -20,8 +20,10 @@ impl Serialize for bool {
     }
 }
 
-impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
-    fn deserialize(fields: [Field; BOOL_SERIALIZED_LEN]) -> bool {
+impl Deserialize for bool {
+    let N: u32 = BOOL_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> bool {
         fields[0] != 0
     }
 }
@@ -34,8 +36,10 @@ impl Serialize for u8 {
     }
 }
 
-impl Deserialize<U8_SERIALIZED_LEN> for u8 {
-    fn deserialize(fields: [Field; U8_SERIALIZED_LEN]) -> Self {
+impl Deserialize for u8 {
+    let N: u32 = U8_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u8
     }
 }
@@ -48,8 +52,10 @@ impl Serialize for u16 {
     }
 }
 
-impl Deserialize<U16_SERIALIZED_LEN> for u16 {
-    fn deserialize(fields: [Field; U16_SERIALIZED_LEN]) -> Self {
+impl Deserialize for u16 {
+    let N: u32 = U16_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u16
     }
 }
@@ -62,8 +68,10 @@ impl Serialize for u32 {
     }
 }
 
-impl Deserialize<U32_SERIALIZED_LEN> for u32 {
-    fn deserialize(fields: [Field; U32_SERIALIZED_LEN]) -> Self {
+impl Deserialize for u32 {
+    let N: u32 = U32_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u32
     }
 }
@@ -76,8 +84,10 @@ impl Serialize for u64 {
     }
 }
 
-impl Deserialize<U64_SERIALIZED_LEN> for u64 {
-    fn deserialize(fields: [Field; U64_SERIALIZED_LEN]) -> Self {
+impl Deserialize for u64 {
+    let N: u32 = U64_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u64
     }
 }
@@ -90,8 +100,10 @@ impl Serialize for u128 {
     }
 }
 
-impl Deserialize<U128_SERIALIZED_LEN> for u128 {
-    fn deserialize(fields: [Field; U128_SERIALIZED_LEN]) -> Self {
+impl Deserialize for u128 {
+    let N: u32 = U128_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u128
     }
 }
@@ -104,8 +116,10 @@ impl Serialize for Field {
     }
 }
 
-impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
-    fn deserialize(fields: [Field; FIELD_SERIALIZED_LEN]) -> Self {
+impl Deserialize for Field {
+    let N: u32 = FIELD_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0]
     }
 }
@@ -118,8 +132,10 @@ impl Serialize for i8 {
     }
 }
 
-impl Deserialize<I8_SERIALIZED_LEN> for i8 {
-    fn deserialize(fields: [Field; I8_SERIALIZED_LEN]) -> Self {
+impl Deserialize for i8 {
+    let N: u32 = I8_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u8 as i8
     }
 }
@@ -132,8 +148,10 @@ impl Serialize for i16 {
     }
 }
 
-impl Deserialize<I16_SERIALIZED_LEN> for i16 {
-    fn deserialize(fields: [Field; I16_SERIALIZED_LEN]) -> Self {
+impl Deserialize for i16 {
+    let N: u32 = I16_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u16 as i16
     }
 }
@@ -146,8 +164,10 @@ impl Serialize for i32 {
     }
 }
 
-impl Deserialize<I32_SERIALIZED_LEN> for i32 {
-    fn deserialize(fields: [Field; I32_SERIALIZED_LEN]) -> Self {
+impl Deserialize for i32 {
+    let N: u32 = I32_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u32 as i32
     }
 }
@@ -160,8 +180,10 @@ impl Serialize for i64 {
     }
 }
 
-impl Deserialize<I64_SERIALIZED_LEN> for i64 {
-    fn deserialize(fields: [Field; I64_SERIALIZED_LEN]) -> Self {
+impl Deserialize for i64 {
+    let N: u32 = I64_SERIALIZED_LEN;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         fields[0] as u64 as i64
     }
 }
@@ -184,28 +206,32 @@ where
     }
 }
 
-impl<T, let N: u32, let M: u32> Deserialize<N * M> for [T; N]
+impl<T, let N: u32> Deserialize for [T; N]
 where
-    T: Deserialize<M>,
+    T: Deserialize,
 {
-    fn deserialize(fields: [Field; N * M]) -> Self {
+    let N: u32 = <T as Deserialize>::N * N;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
         let mut result: [T; N] = std::mem::zeroed();
-        reader.read_struct_array::<T, M, N>(Deserialize::deserialize, result)
+        reader.read_struct_array::<T, <T as Deserialize>::N, N>(Deserialize::deserialize, result)
     }
 }
 
-impl<T, let N: u32> Serialize<N + 1> for Option<T>
+impl<T> Serialize for Option<T>
 where
-    T: Serialize<N>,
+    T: Serialize,
 {
-    fn serialize(self) -> [Field; N + 1] {
-        let mut result: [Field; N + 1] = std::mem::zeroed();
+    let N: u32 = <T as Serialize>::N + 1;
+
+    fn serialize(self) -> [Field; Self::N] {
+        let mut result: [Field; Self::N] = std::mem::zeroed();
 
         result[0] = if self.is_some() { 1 } else { 0 };
 
         let value_serialized = self.unwrap_unchecked().serialize();
-        for i in 0..N {
+        for i in 0..<T as Serialize>::N {
             result[1 + i] = value_serialized[i];
         }
 
@@ -213,18 +239,20 @@ where
     }
 }
 
-impl<T, let N: u32> Deserialize<N + 1> for Option<T>
+impl<T> Deserialize for Option<T>
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
-    fn deserialize(fields: [Field; N + 1]) -> Self {
+    let N: u32 = <T as Deserialize>::N + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         if fields[0] == 1 {
-            let mut value_serialized: [Field; N] = std::mem::zeroed();
-            for i in 0..N {
-                value_serialized[i] = fields[1 + i];
+            let mut value_fields = [0; <T as Deserialize>::N];
+            for i in 0..<T as Deserialize>::N {
+                value_fields[i] = fields[1 + i];
             }
 
-            Option::some(T::deserialize(value_serialized))
+            Option::some(T::deserialize(value_fields))
         } else {
             Option::none()
         }
