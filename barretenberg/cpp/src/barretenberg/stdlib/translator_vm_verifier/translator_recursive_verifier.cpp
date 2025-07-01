@@ -60,7 +60,7 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
 };
 
 /**
- * @brief Verifies a Translator proof up to the pairing check.
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
  *
  * @tparam Flavor
  * @param proof Native proof
@@ -77,7 +77,7 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
 }
 
 /**
- * @brief Verifies a Translator proof up to the pairing check.
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
  *
  * @tparam Flavor
  * @param proof Stdlib proof

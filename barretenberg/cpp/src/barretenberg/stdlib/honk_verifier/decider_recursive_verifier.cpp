@@ -13,7 +13,7 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Create a circuit used to prove that a Protogalaxy folding verification was executed.
+ * @brief Creates a circuit that executes the decider verifier algorithm up to the final pairing check.
  *
  * @param proof Native proof
  */
@@ -25,7 +25,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
 }
 
 /**
- * @brief Create a circuit used to prove that a Protogalaxy folding verification was executed.
+ * @brief Creates a circuit that executes the decider verifier algorithm up to the final pairing check.
  *
  * @param proof Stdlib proof
  */

@@ -24,7 +24,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 {}
 
 /**
- * @brief Verifies an ECCVM proof up to IPA verification.
+ * @brief Creates a circuit that executes the ECCVM verifier algorithm up to IPA verification.
  *
  * @tparam Flavor
  * @param proof Native ECCVM proof
@@ -38,7 +38,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 }
 
 /**
- * @brief Verifies an ECCVM proof up to IPA verification.
+ * @brief Creates a circuit that executes the ECCVM verifier algorithm up to IPA verification.
  *
  * @tparam Flavor
  * @param proof Stdlib ECCVM proof

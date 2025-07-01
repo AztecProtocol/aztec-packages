@@ -9,7 +9,7 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief Performs recursive verification of the Client IVC proof.
+ * @brief Creates a circuit that executes the ClientIvc verification algorithm.
  *
  * @param proof Native proof
  * @return ClientIVCRecursiveVerifier::Output
@@ -21,7 +21,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
 }
 
 /**
- * @brief Performs recursive verification of the Client IVC proof.
+ * @brief Creates a circuit that executes the ClientIvc verification algorithm.
  *
  * @param proof Stdlib proof
  * @return ClientIVCRecursiveVerifier::Output
