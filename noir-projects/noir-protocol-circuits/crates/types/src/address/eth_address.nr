@@ -2,15 +2,11 @@ use crate::{
     constants::ETH_ADDRESS_LENGTH,
     traits::{Deserialize, Empty, Packable, Serialize, ToField},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct EthAddress {
     inner: Field,
-}
-
-impl Eq for EthAddress {
-    fn eq(self, other: Self) -> bool {
-        self.to_field() == other.to_field()
-    }
 }
 
 impl Empty for EthAddress {
@@ -22,28 +18,6 @@ impl Empty for EthAddress {
 impl ToField for EthAddress {
     fn to_field(self) -> Field {
         self.inner
-    }
-}
-
-impl Serialize<ETH_ADDRESS_LENGTH> for EthAddress {
-    fn serialize(self: Self) -> [Field; ETH_ADDRESS_LENGTH] {
-        [self.inner]
-    }
-}
-
-impl Deserialize<ETH_ADDRESS_LENGTH> for EthAddress {
-    fn deserialize(fields: [Field; ETH_ADDRESS_LENGTH]) -> Self {
-        EthAddress::from_field(fields[0])
-    }
-}
-
-impl Packable<ETH_ADDRESS_LENGTH> for EthAddress {
-    fn pack(self) -> [Field; ETH_ADDRESS_LENGTH] {
-        self.serialize()
-    }
-
-    fn unpack(fields: [Field; ETH_ADDRESS_LENGTH]) -> Self {
-        Self::deserialize(fields)
     }
 }
 
@@ -72,5 +46,17 @@ impl EthAddress {
             bytes[i] = field_bytes[i + 12];
         }
         bytes
+    }
+}
+
+mod test {
+    use crate::{address::eth_address::EthAddress, traits::{Deserialize, Empty, Serialize}};
+
+    #[test]
+    fn serialization_of_eth_address() {
+        let item = EthAddress::from_field(1);
+        let serialized: [Field; 1] = item.serialize();
+        let deserialized = EthAddress::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
 }

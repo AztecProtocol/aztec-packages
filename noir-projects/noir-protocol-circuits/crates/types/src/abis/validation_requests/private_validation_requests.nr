@@ -10,7 +10,9 @@ use crate::{
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateValidationRequests {
     pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -32,17 +34,5 @@ impl Empty for PrivateValidationRequests {
             scoped_key_validation_requests_and_generators: empty_scoped_key_validation_requests,
             split_counter: Option::none(),
         }
-    }
-}
-
-impl Eq for PrivateValidationRequests {
-    fn eq(self, other: Self) -> bool {
-        (self.note_hash_read_requests == other.note_hash_read_requests)
-            & (self.nullifier_read_requests == other.nullifier_read_requests)
-            & (
-                self.scoped_key_validation_requests_and_generators
-                    == other.scoped_key_validation_requests_and_generators
-            )
-            & (self.split_counter == other.split_counter)
     }
 }

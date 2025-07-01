@@ -12,16 +12,16 @@ use crate::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-        PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     transaction::tx_context::TxContext,
-    utils::{arrays::ClaimedLengthArray, reader::Reader},
+    utils::arrays::ClaimedLengthArray,
 };
+use std::meta::derive;
 
 // Public inputs to private app circuit.
-#[derive(Eq)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateCircuitPublicInputs {
     pub call_context: CallContext,
 
@@ -58,75 +58,6 @@ pub struct PrivateCircuitPublicInputs {
     pub tx_context: TxContext,
 }
 
-impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
-    fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
-        fields.extend_from_array(self.call_context.serialize());
-        fields.push(self.args_hash);
-        fields.push(self.returns_hash);
-
-        fields.push(self.min_revertible_side_effect_counter as Field);
-        fields.push(if self.is_fee_payer { 1 } else { 0 } as Field);
-        fields.push(self.include_by_timestamp as Field);
-
-        fields.extend_from_array(self.note_hash_read_requests.serialize());
-        fields.extend_from_array(self.nullifier_read_requests.serialize());
-        fields.extend_from_array(self.key_validation_requests_and_generators.serialize());
-        fields.extend_from_array(self.note_hashes.serialize());
-        fields.extend_from_array(self.nullifiers.serialize());
-        fields.extend_from_array(self.private_call_requests.serialize());
-        fields.extend_from_array(self.public_call_requests.serialize());
-        fields.extend_from_array(self.public_teardown_call_request.serialize());
-        fields.extend_from_array(self.l2_to_l1_msgs.serialize());
-        fields.extend_from_array(self.private_logs.serialize());
-        fields.extend_from_array(self.contract_class_logs_hashes.serialize());
-
-        fields.push(self.start_side_effect_counter as Field);
-        fields.push(self.end_side_effect_counter as Field);
-        fields.extend_from_array(self.historical_header.serialize());
-        fields.extend_from_array(self.tx_context.serialize());
-
-        assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {
-    fn deserialize(serialized: [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> Self {
-        // TODO(#4390): This should accept a reader ^ to avoid copying data.
-        let mut reader = Reader::new(serialized);
-        let inputs = Self {
-            call_context: reader.read_struct(CallContext::deserialize),
-            args_hash: reader.read(),
-            returns_hash: reader.read(),
-            min_revertible_side_effect_counter: reader.read() as u32,
-            is_fee_payer: reader.read() == 1,
-            include_by_timestamp: reader.read_u64(),
-            note_hash_read_requests: reader.read_struct(ClaimedLengthArray::deserialize),
-            nullifier_read_requests: reader.read_struct(ClaimedLengthArray::deserialize),
-            key_validation_requests_and_generators: reader.read_struct(
-                ClaimedLengthArray::deserialize,
-            ),
-            note_hashes: reader.read_struct(ClaimedLengthArray::deserialize),
-            nullifiers: reader.read_struct(ClaimedLengthArray::deserialize),
-            private_call_requests: reader.read_struct(ClaimedLengthArray::deserialize),
-            public_call_requests: reader.read_struct(ClaimedLengthArray::deserialize),
-            public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
-            l2_to_l1_msgs: reader.read_struct(ClaimedLengthArray::deserialize),
-            private_logs: reader.read_struct(ClaimedLengthArray::deserialize),
-            contract_class_logs_hashes: reader.read_struct(ClaimedLengthArray::deserialize),
-            start_side_effect_counter: reader.read() as u32,
-            end_side_effect_counter: reader.read() as u32,
-            historical_header: reader.read_struct(BlockHeader::deserialize),
-            tx_context: reader.read_struct(TxContext::deserialize),
-        };
-
-        reader.finish();
-        inputs
-    }
-}
-
 impl Empty for PrivateCircuitPublicInputs {
     fn empty() -> Self {
         PrivateCircuitPublicInputs {
@@ -153,12 +84,4 @@ impl Empty for PrivateCircuitPublicInputs {
             tx_context: TxContext::empty(),
         }
     }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let pcpi = PrivateCircuitPublicInputs::empty();
-    let serialized = pcpi.serialize();
-    let deserialized = PrivateCircuitPublicInputs::deserialize(serialized);
-    assert(pcpi.eq(deserialized));
 }

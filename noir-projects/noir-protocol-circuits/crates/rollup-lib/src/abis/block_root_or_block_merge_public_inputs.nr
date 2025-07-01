@@ -4,15 +4,13 @@ use dep::types::{
         global_variables::GlobalVariables,
     },
     address::EthAddress,
-    constants::{
-        AZTEC_MAX_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH,
-        FEE_RECIPIENT_LENGTH,
-    },
-    traits::{Deserialize, Empty, Serialize, ToField},
+    constants::{AZTEC_MAX_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH},
+    traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
 };
 use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct FeeRecipient {
     pub recipient: EthAddress,
     pub value: Field,
@@ -22,24 +20,6 @@ pub struct FeeRecipient {
 impl Empty for FeeRecipient {
     fn empty() -> Self {
         Self { recipient: EthAddress::zero(), value: 0 }
-    }
-}
-
-impl Serialize<FEE_RECIPIENT_LENGTH> for FeeRecipient {
-    fn serialize(self) -> [Field; FEE_RECIPIENT_LENGTH] {
-        [self.recipient.to_field(), self.value]
-    }
-}
-
-impl Deserialize<FEE_RECIPIENT_LENGTH> for FeeRecipient {
-    fn deserialize(values: [Field; FEE_RECIPIENT_LENGTH]) -> Self {
-        Self { recipient: EthAddress::from_field(values[0]), value: values[1] }
-    }
-}
-
-impl Eq for FeeRecipient {
-    fn eq(self, other: Self) -> bool {
-        (self.recipient.eq(other.recipient)) & (self.value == other.value)
     }
 }
 
