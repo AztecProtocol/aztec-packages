@@ -104,8 +104,9 @@ inline CircuitInfo::Response execute(BB_UNUSED BBRpcRequest& request, CircuitInf
     // Parse the circuit to get info
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(command.circuit.bytecode));
 
+    auto acir_program = acir_format::AcirProgram{ std::move(constraint_system), /*witness=*/{} };
     auto builder =
-        acir_format::create_circuit(constraint_system, /*recursive=*/command.settings.recursive, /*size_hint=*/0);
+        acir_format::create_circuit(acir_program, { .recursive = command.settings.recursive, .size_hint = 0 });
 
     CircuitInfo::Response response;
     size_t num_gates = builder.get_estimated_num_finalized_gates();
@@ -153,10 +154,11 @@ inline CircuitCheck::Response execute(BB_UNUSED BBRpcRequest& request, CircuitCh
 
     // Parse the circuit
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(command.circuit.bytecode));
+    auto acir_program = acir_format::AcirProgram{ std::move(constraint_system), std::move(witness_vec) };
 
     // Create the circuit builder with witness
-    auto builder = acir_format::create_circuit(
-        constraint_system, /*recursive=*/command.settings.recursive, /*size_hint=*/0, witness_vec);
+    auto builder =
+        acir_format::create_circuit(acir_program, { .recursive = command.settings.recursive, .size_hint = 0 });
 
     // Use CircuitChecker to validate the constraints
     bool satisfied = CircuitChecker::check(builder);
