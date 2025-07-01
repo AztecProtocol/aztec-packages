@@ -16,6 +16,7 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
         c = a + b;
         events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
     } catch (AluError e) {
+        c = MemoryValue::from_tag(a.get_tag(), 0);
         events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c, .error = e });
         throw e;
     }
