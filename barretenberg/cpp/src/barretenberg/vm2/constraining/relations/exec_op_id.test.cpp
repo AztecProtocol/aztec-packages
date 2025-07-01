@@ -33,15 +33,15 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-constexpr std::array<WireOpCode, 19> WIRE_OPCODES = {
+constexpr std::array<WireOpCode, 20> WIRE_OPCODES = {
     WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::SET_16,    WireOpCode::SET_32,
     WireOpCode::SET_64,       WireOpCode::SET_128,        WireOpCode::SET_FF,    WireOpCode::MOV_8,
     WireOpCode::MOV_16,       WireOpCode::JUMP_32,        WireOpCode::JUMPI_32,  WireOpCode::CALL,
     WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,    WireOpCode::SUCCESSCOPY,
-    WireOpCode::STATICCALL,   WireOpCode::REVERT_8,       WireOpCode::REVERT_16,
+    WireOpCode::STATICCALL,   WireOpCode::REVERT_8,       WireOpCode::REVERT_16, WireOpCode::RETURNDATASIZE,
 };
 
-constexpr std::array<uint32_t, 19> OPERATION_IDS = {
+constexpr std::array<uint32_t, 20> OPERATION_IDS = {
     AVM_EXEC_OP_ID_GETENVVAR,    AVM_EXEC_OP_ID_SET,
     AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
     AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
@@ -51,10 +51,10 @@ constexpr std::array<uint32_t, 19> OPERATION_IDS = {
     AVM_EXEC_OP_ID_INTERNALCALL, AVM_EXEC_OP_ID_INTERNALRETURN,
     AVM_EXEC_OP_ID_RETURN,       AVM_EXEC_OP_ID_SUCCESSCOPY,
     AVM_EXEC_OP_ID_STATICCALL,   AVM_EXEC_OP_ID_REVERT,
-    AVM_EXEC_OP_ID_REVERT,
+    AVM_EXEC_OP_ID_REVERT,       AVM_EXEC_OP_ID_RETURNDATASIZE,
 };
 
-constexpr std::array<C, 19> SELECTOR_COLUMNS = {
+constexpr std::array<C, 20> SELECTOR_COLUMNS = {
     C::execution_sel_get_env_var,   C::execution_sel_set,
     C::execution_sel_set,           C::execution_sel_set,
     C::execution_sel_set,           C::execution_sel_set,
@@ -64,7 +64,7 @@ constexpr std::array<C, 19> SELECTOR_COLUMNS = {
     C::execution_sel_internal_call, C::execution_sel_internal_return,
     C::execution_sel_return,        C::execution_sel_success_copy,
     C::execution_sel_static_call,   C::execution_sel_revert,
-    C::execution_sel_revert,
+    C::execution_sel_revert,        C::execution_sel_returndata_size,
 };
 
 // Ensure that WIRE_OPCODES contains all wire opcodes which have an execution opcode belonging

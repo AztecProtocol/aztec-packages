@@ -827,5 +827,39 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SUCCESSCOPY))));
 }
 
+TEST(ExecutionTraceGenTest, RdSize)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::RETURNDATASIZE)
+                           .operand<uint16_t>(1234) // Dst Offset
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = { 
+        .wire_instruction = instr,
+        .output = { TaggedValue::from_tag(ValueTag::U32, 100) }, // RdSize output
+        .addressing_event = { 
+            .instruction = instr,
+            .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
+        },
+        .after_context_event = { .last_child_rd_size = 100 }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the rd_size
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_returndata_size, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 1234),                    // Dst Offset
+                          ROW_FIELD_EQ(execution_register_0_, 100),                // RdSize output
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U32=*/4),       // Memory tag for dst
+                          ROW_FIELD_EQ(execution_last_child_returndata_size, 100), // last_child_returndata_size = 100
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_RETURNDATASIZE))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen

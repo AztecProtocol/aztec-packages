@@ -91,6 +91,7 @@ class Execution : public ExecutionInterface {
                  MemoryAddress rd_size_offset,
                  MemoryAddress rd_offset,
                  MemoryAddress dst_addr);
+    void rd_size(ContextInterface& context, MemoryAddress dst_addr);
     void internal_call(ContextInterface& context, uint32_t loc);
     void internal_return(ContextInterface& context);
 

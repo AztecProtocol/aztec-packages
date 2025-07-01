@@ -25,7 +25,7 @@ struct ContextEvent {
 
     // Return data info from child context
     uint32_t last_child_rd_addr;
-    uint32_t last_child_rd_size_addr;
+    uint32_t last_child_rd_size;
     bool last_child_success;
 
     // Gas
