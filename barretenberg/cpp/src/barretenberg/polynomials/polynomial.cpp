@@ -46,7 +46,7 @@ SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray
 }
 
 template <typename Fr>
-void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
+void MemoryPolynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
     BB_ASSERT_LTE(start_index + size, virtual_size);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
@@ -66,7 +66,7 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
  *
  * @param size The size of the polynomial.
  */
-template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index)
+template <typename Fr> MemoryPolynomial<Fr>::MemoryPolynomial(size_t size, size_t virtual_size, size_t start_index)
 {
     PROFILE_THIS_NAME("polynomial allocation with zeroing");
 
@@ -93,19 +93,19 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
  * @param flag Signals that we do not zero memory.
  */
 template <typename Fr>
-Polynomial<Fr>::Polynomial(size_t size, size_t virtual_size, size_t start_index, [[maybe_unused]] DontZeroMemory flag)
+MemoryPolynomial<Fr>::MemoryPolynomial(size_t size, size_t virtual_size, size_t start_index, [[maybe_unused]] DontZeroMemory flag)
 {
     PROFILE_THIS_NAME("polynomial allocation without zeroing");
     allocate_backing_memory(size, virtual_size, start_index);
 }
 
 template <typename Fr>
-Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
-    : Polynomial<Fr>(other, other.size())
+MemoryPolynomial<Fr>::MemoryPolynomial(const MemoryPolynomial<Fr>& other)
+    : MemoryPolynomial<Fr>(other, other.size())
 {}
 
 // fully copying "expensive" constructor
-template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
+template <typename Fr> MemoryPolynomial<Fr>::MemoryPolynomial(const MemoryPolynomial<Fr>& other, const size_t target_size)
 {
     BB_ASSERT_LTE(other.size(), target_size);
     coefficients_ = _clone(other.coefficients_, target_size - other.size());
@@ -113,10 +113,10 @@ template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, c
 
 // interpolation constructor
 template <typename Fr>
-Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
+MemoryPolynomial<Fr>::MemoryPolynomial(std::span<const Fr> interpolation_points,
                            std::span<const Fr> evaluations,
                            size_t virtual_size)
-    : Polynomial(interpolation_points.size(), virtual_size)
+    : MemoryPolynomial(interpolation_points.size(), virtual_size)
 {
     BB_ASSERT_GT(coefficients_.size(), static_cast<size_t>(0));
 
@@ -124,7 +124,7 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
 }
 
-template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients, size_t virtual_size)
+template <typename Fr> MemoryPolynomial<Fr>::MemoryPolynomial(std::span<const Fr> coefficients, size_t virtual_size)
 {
     allocate_backing_memory(coefficients.size(), virtual_size, 0);
 
@@ -134,7 +134,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(std::span<const Fr> coefficien
 // Assignments
 
 // full copy "expensive" assignment
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomial<Fr>& other)
+template <typename Fr> MemoryPolynomial<Fr>& MemoryPolynomial<Fr>::operator=(const MemoryPolynomial<Fr>& other)
 {
     if (this == &other) {
         return *this;
@@ -143,14 +143,14 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::share() const
+template <typename Fr> MemoryPolynomial<Fr> MemoryPolynomial<Fr>::share() const
 {
-    Polynomial p;
+    MemoryPolynomial p;
     p.coefficients_ = coefficients_;
     return p;
 }
 
-template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) const
+template <typename Fr> bool MemoryPolynomial<Fr>::operator==(MemoryPolynomial const& rhs) const
 {
     // If either is empty, both must be
     if (is_empty() || rhs.is_empty()) {
@@ -171,7 +171,7 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
     return true;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
+template <typename Fr> MemoryPolynomial<Fr>& MemoryPolynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
@@ -188,22 +188,22 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
     return *this;
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
+template <typename Fr> Fr MemoryPolynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
     return polynomial_arithmetic::evaluate(data(), z, target_size);
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
+template <typename Fr> Fr MemoryPolynomial<Fr>::evaluate(const Fr& z) const
 {
     return polynomial_arithmetic::evaluate(data(), z, size());
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
+template <typename Fr> Fr MemoryPolynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
     return _evaluate_mle(evaluation_points, coefficients_, shift);
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
+template <typename Fr> MemoryPolynomial<Fr> MemoryPolynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
 {
     // Get size of partial evaluation point u = (u_0,...,u_{m-1})
     const size_t m = evaluation_points.size();
@@ -219,7 +219,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     size_t n_l = 1 << (n - 1);
 
     // Temporary buffer of half the size of the Polynomial
-    Polynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
+    MemoryPolynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
 
     // Evaluate variable X_{n-1} at u_{m-1}
     Fr u_l = evaluation_points[m - 1];
@@ -238,7 +238,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     }
 
     // Construct resulting Polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
+    MemoryPolynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
     for (size_t idx = 0; idx < n_l; ++idx) {
         result.at(idx) = intermediate[idx];
     }
@@ -247,20 +247,20 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
 }
 
 template <typename Fr>
-Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
+Fr MemoryPolynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_kate_opening_coefficients(data(), data(), z, size());
 }
 
 template <typename Fr>
-Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
+Fr MemoryPolynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
 {
     return polynomial_arithmetic::compute_barycentric_evaluation(data(), domain.size, z, domain);
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
+template <typename Fr> MemoryPolynomial<Fr>& MemoryPolynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
@@ -277,7 +277,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scaling_factor)
+template <typename Fr> MemoryPolynomial<Fr>& MemoryPolynomial<Fr>::operator*=(const Fr scaling_factor)
 {
     const size_t num_threads = calculate_num_threads(size());
     const size_t range_per_thread = size() / num_threads;
@@ -293,9 +293,9 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
+template <typename Fr> MemoryPolynomial<Fr> MemoryPolynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
 {
-    Polynomial p(size, virtual_size, Polynomial<Fr>::DontZeroMemory::FLAG);
+    MemoryPolynomial p(size, virtual_size, MemoryPolynomial<Fr>::DontZeroMemory::FLAG);
     memset(static_cast<void*>(p.coefficients_.backing_memory_.get()), 0, sizeof(Fr) * size);
     return p;
 }
@@ -303,7 +303,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
 // expand, but it is currently unused.
 template <typename Fr>
-Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
+MemoryPolynomial<Fr> MemoryPolynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
 {
     BB_ASSERT_LTE(new_end_index, virtual_size());
     BB_ASSERT_LTE(new_start_index, start_index());
@@ -311,27 +311,27 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
     if (new_start_index == start_index() && new_end_index == end_index()) {
         return *this;
     }
-    Polynomial result = *this;
+    MemoryPolynomial result = *this;
     // Make new_start_index..new_end_index usable
     result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);
     return result;
 }
 
-template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
+template <typename Fr> void MemoryPolynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
     BB_ASSERT_LTE(new_end_index, end_index());
     coefficients_.end_ = new_end_index;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
+template <typename Fr> MemoryPolynomial<Fr> MemoryPolynomial<Fr>::full() const
 {
-    Polynomial result = *this;
+    MemoryPolynomial result = *this;
     // Make 0..virtual_size usable
     result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
 }
 
-template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
+template <typename Fr> void MemoryPolynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
@@ -347,27 +347,27 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
     });
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
+template <typename Fr> MemoryPolynomial<Fr> MemoryPolynomial<Fr>::shifted() const
 {
     BB_ASSERT_GTE(coefficients_.start_, static_cast<size_t>(1));
-    Polynomial result;
+    MemoryPolynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
     result.coefficients_.end_ -= 1;
     return result;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
+template <typename Fr> MemoryPolynomial<Fr> MemoryPolynomial<Fr>::right_shifted(const size_t magnitude) const
 {
     // ensure that at least the last magnitude-many coefficients are virtual 0's
     BB_ASSERT_LTE((coefficients_.end_ + magnitude), virtual_size());
-    Polynomial result;
+    MemoryPolynomial result;
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ += magnitude;
     result.coefficients_.end_ += magnitude;
     return result;
 }
 
-template class Polynomial<bb::fr>;
-template class Polynomial<grumpkin::fr>;
+template class MemoryPolynomial<bb::fr>;
+template class MemoryPolynomial<grumpkin::fr>;
 } // namespace bb

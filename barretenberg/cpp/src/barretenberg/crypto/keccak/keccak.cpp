@@ -12,6 +12,7 @@
 #include "keccak.hpp"
 
 #include "./hash_types.hpp"
+#include <vector>
 
 #if _MSC_VER
 #include <string.h>
@@ -113,7 +114,7 @@ struct keccak256 ethash_keccak256(const uint8_t* data, size_t size) NOEXCEPT
 
 struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
 {
-    uint8_t input_buffer[num_elements * 32];
+    std::vector<uint8_t> input_buffer(num_elements * 32);
 
     for (size_t i = 0; i < num_elements; ++i) {
         for (size_t j = 0; j < 4; ++j) {
@@ -130,7 +131,7 @@ struct keccak256 hash_field_elements(const uint64_t* limbs, size_t num_elements)
         }
     }
 
-    return ethash_keccak256(input_buffer, num_elements * 32);
+    return ethash_keccak256(input_buffer.data(), num_elements * 32);
 }
 
 struct keccak256 hash_field_element(const uint64_t* limb)

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/zip_view.hpp"
@@ -12,14 +13,109 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
-#include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fstream>
 #include <ranges>
+
+// Always include both polynomial implementations
+#include "barretenberg/polynomials/file_backed_polynomial.hpp"
+#include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 namespace bb {
 
+// Forward declarations and helper functions that are used by both BB_SLOW_LOW_MEMORY and normal cases
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
+}
+
+/**
+ * @brief Internal implementation to support both native and stdlib circuit field types.
+ * @details Instantiation with circuit field type is always called with shift == false
+ */
+template <typename Fr_>
+Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
+                  const SharedShiftedVirtualZeroesArray<Fr_>& coefficients,
+                  bool shift)
+{
+    constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
+    // shift ==> native
+    ASSERT(!shift || is_native);
+
+    if (coefficients.size() == 0) {
+        return Fr_(0);
+    }
+
+    const size_t n = evaluation_points.size();
+    const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
+
+    // To simplify handling of edge cases, we assume that the index space is always a power of 2
+    BB_ASSERT_EQ(coefficients.virtual_size(), static_cast<size_t>(1 << n));
+
+    // We first fold over dim rounds l = 0,...,dim-1.
+    // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
+    // at u₀,..., u_l.
+    // In round 0, this is half the size of dim
+    size_t n_l = 1 << (dim - 1);
+
+    // temporary buffer of half the size of the Polynomial
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
+    // DontZeroMemory::FLAG
+    auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
+    auto tmp = tmp_ptr.get();
+
+    size_t offset = 0;
+    if constexpr (is_native) {
+        if (shift) {
+            BB_ASSERT_EQ(coefficients.get(0), Fr_::zero());
+            offset++;
+        }
+    }
+
+    Fr_ u_l = evaluation_points[0];
+
+    // Note below: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity
+    // padding (and there used to be no assert time checks, which this constant helps with).
+    const size_t ALLOW_ONE_PAST_READ = 1;
+    for (size_t i = 0; i < n_l; ++i) {
+        // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
+        tmp[i] = coefficients.get(i * 2 + offset) +
+                 u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
+    }
+
+    // partially evaluate the dim-1 remaining points
+    for (size_t l = 1; l < dim; ++l) {
+        n_l = 1 << (dim - l - 1);
+        u_l = evaluation_points[l];
+        for (size_t i = 0; i < n_l; ++i) {
+            tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
+        }
+    }
+    auto result = tmp[0];
+
+    // We handle the "trivial" dimensions which are full of zeros.
+    for (size_t i = dim; i < n; i++) {
+        result *= (Fr_(1) - evaluation_points[i]);
+    }
+
+    return result;
+}
+
+/**
+ * @brief Static exposed implementation to support both native and stdlib circuit field types.
+ */
+template <typename Fr_>
+Fr_ generic_evaluate_mle(std::span<const Fr_> evaluation_points,
+                         const SharedShiftedVirtualZeroesArray<Fr_>& coefficients)
+{
+    return _evaluate_mle(evaluation_points, coefficients, false);
+}
+
+#ifndef POLYNOMIAL_SPAN_DEFINED
+#define POLYNOMIAL_SPAN_DEFINED
 /* Span class with a start index offset.
  * We conceptually have a span like a_0 + a_1 x ... a_n x^n and then multiply by x^start_index.
  * This allows more efficient representation than a fully defined span for 'islands' of zeroes. */
@@ -55,6 +151,7 @@ template <typename Fr> struct PolynomialSpan {
     }
     operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
+#endif // POLYNOMIAL_SPAN_DEFINED
 
 /**
  * @brief Structured polynomial class that represents the coefficients 'a' of a_0 + a_1 x ... a_n x^n of
@@ -71,47 +168,47 @@ template <typename Fr> struct PolynomialSpan {
  *
  * @tparam Fr the finite field type.
  */
-template <typename Fr> class Polynomial {
+template <typename Fr> class MemoryPolynomial {
   public:
     using FF = Fr;
     enum class DontZeroMemory { FLAG };
 
-    Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
+    MemoryPolynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
-    Polynomial(size_t size)
-        : Polynomial(size, size){};
+    MemoryPolynomial(size_t size)
+        : MemoryPolynomial(size, size){};
 
     // Constructor that does not initialize values, use with caution to save time.
-    Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
-    Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
-        : Polynomial(size, virtual_size, 0, flag)
+    MemoryPolynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
+    MemoryPolynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
+        : MemoryPolynomial(size, virtual_size, 0, flag)
     {}
-    Polynomial(size_t size, DontZeroMemory flag)
-        : Polynomial(size, size, flag)
+    MemoryPolynomial(size_t size, DontZeroMemory flag)
+        : MemoryPolynomial(size, size, flag)
     {}
-    Polynomial(const Polynomial& other);
-    Polynomial(const Polynomial& other, size_t target_size);
+    MemoryPolynomial(const MemoryPolynomial& other);
+    MemoryPolynomial(const MemoryPolynomial& other, size_t target_size);
 
-    Polynomial(Polynomial&& other) noexcept = default;
+    MemoryPolynomial(MemoryPolynomial&& other) noexcept = default;
 
-    Polynomial(std::span<const Fr> coefficients, size_t virtual_size);
+    MemoryPolynomial(std::span<const Fr> coefficients, size_t virtual_size);
 
-    Polynomial(std::span<const Fr> coefficients)
-        : Polynomial(coefficients, coefficients.size())
+    MemoryPolynomial(std::span<const Fr> coefficients)
+        : MemoryPolynomial(coefficients, coefficients.size())
     {}
 
     /**
      * @brief Utility to efficiently construct a shift from the original polynomial.
      *
      * @param virtual_size the size of the polynomial to be shifted
-     * @return Polynomial
+     * @return MemoryPolynomial
      */
-    static Polynomial shiftable(size_t virtual_size)
+    static MemoryPolynomial shiftable(size_t virtual_size)
     {
-        return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
+        return MemoryPolynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
     }
     // Allow polynomials to be entirely reset/dormant
-    Polynomial() = default;
+    MemoryPolynomial() = default;
 
     /**
      * @brief Create the degree-(m-1) polynomial T(X) that interpolates the given evaluations.
@@ -120,17 +217,17 @@ template <typename Fr> class Polynomial {
      * @param interpolation_points (x₁,…,xₘ)
      * @param evaluations (y₁,…,yₘ)
      */
-    Polynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations, size_t virtual_size);
+    MemoryPolynomial(std::span<const Fr> interpolation_points, std::span<const Fr> evaluations, size_t virtual_size);
 
     // move assignment
-    Polynomial& operator=(Polynomial&& other) noexcept = default;
-    Polynomial& operator=(const Polynomial& other);
-    ~Polynomial() = default;
+    MemoryPolynomial& operator=(MemoryPolynomial&& other) noexcept = default;
+    MemoryPolynomial& operator=(const MemoryPolynomial& other);
+    ~MemoryPolynomial() = default;
 
     /**
      * Return a shallow clone of the polynomial. i.e. underlying memory is shared.
      */
-    Polynomial share() const;
+    MemoryPolynomial share() const;
 
     void clear() { coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{}; }
 
@@ -152,7 +249,7 @@ template <typename Fr> class Polynomial {
         return true;
     }
 
-    bool operator==(Polynomial const& rhs) const;
+    bool operator==(MemoryPolynomial const& rhs) const;
 
     /**
      * @brief Retrieves the value at the specified index.
@@ -166,18 +263,18 @@ template <typename Fr> class Polynomial {
     bool is_empty() const { return coefficients_.size() == 0; }
 
     /**
-     * @brief Returns a Polynomial the left-shift of self.
+     * @brief Returns a MemoryPolynomial the left-shift of self.
      *
      * @details If the n coefficients of self are (0, a₁, …, aₙ₋₁),
      * we returns the view of the n-1 coefficients (a₁, …, aₙ₋₁).
      */
-    Polynomial shifted() const;
+    MemoryPolynomial shifted() const;
 
     /**
-     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
-     * @note Resulting Polynomial shares the memory of that used to generate it
+     * @brief Returns a MemoryPolynomial equal to the right-shift-by-magnitude of self.
+     * @note Resulting MemoryPolynomial shares the memory of that used to generate it
      */
-    Polynomial right_shifted(const size_t magnitude) const;
+    MemoryPolynomial right_shifted(const size_t magnitude) const;
 
     /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
@@ -211,9 +308,9 @@ template <typename Fr> class Polynomial {
      * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
      *
      * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
-     * @return DensePolynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
+     * @return MemoryPolynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
      */
-    Polynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
+    MemoryPolynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
 
     Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
@@ -248,21 +345,21 @@ template <typename Fr> class Polynomial {
      *
      * @param other q(X)
      */
-    Polynomial& operator+=(PolynomialSpan<const Fr> other);
+    MemoryPolynomial& operator+=(PolynomialSpan<const Fr> other);
 
     /**
      * @brief subtracts the polynomial q(X) 'other'.
      *
      * @param other q(X)
      */
-    Polynomial& operator-=(PolynomialSpan<const Fr> other);
+    MemoryPolynomial& operator-=(PolynomialSpan<const Fr> other);
 
     /**
      * @brief sets this = p(X) to s⋅p(X)
      *
      * @param scaling_factor s
      */
-    Polynomial& operator*=(Fr scaling_factor);
+    MemoryPolynomial& operator*=(Fr scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
@@ -301,16 +398,16 @@ template <typename Fr> class Polynomial {
     const Fr& operator[](size_t i) { return get(i); }
     const Fr& operator[](size_t i) const { return get(i); }
 
-    static Polynomial random(size_t size, size_t start_index = 0)
+    static MemoryPolynomial random(size_t size, size_t start_index = 0)
     {
         PROFILE_THIS_NAME("generate random polynomial");
 
         return random(size - start_index, size, start_index);
     }
 
-    static Polynomial random(size_t size, size_t virtual_size, size_t start_index)
+    static MemoryPolynomial random(size_t size, size_t virtual_size, size_t start_index)
     {
-        Polynomial p(size, virtual_size, start_index, DontZeroMemory::FLAG);
+        MemoryPolynomial p(size, virtual_size, start_index, DontZeroMemory::FLAG);
         parallel_for_heuristic(
             size,
             [&](size_t i) { p.coefficients_.data()[i] = Fr::random_element(); },
@@ -324,7 +421,7 @@ template <typename Fr> class Polynomial {
      *
      * @return a polynomial initialized with zero on the range defined by size
      */
-    static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
+    static MemoryPolynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
 
     /**
      * @brief Expands the polynomial with new start_index and end_index
@@ -332,7 +429,7 @@ template <typename Fr> class Polynomial {
      *
      * @return a polynomial with a larger size() but same virtual_size()
      */
-    Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
+    MemoryPolynomial expand(const size_t new_start_index, const size_t new_end_index) const;
 
     /**
      * @brief The end_index of the polynomial is decreased without any memory de-allocation.
@@ -347,7 +444,7 @@ template <typename Fr> class Polynomial {
      *
      * @return a polynomial with a larger size() but same virtual_size()
      */
-    Polynomial full() const;
+    MemoryPolynomial full() const;
 
     // The extents of the actual memory-backed polynomial region
     size_t start_index() const { return coefficients_.start_; }
@@ -438,95 +535,17 @@ template <typename Fr> class Polynomial {
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
-}
 
-/**
- * @brief Internal implementation to support both native and stdlib circuit field types.
- * @details Instantiation with circuit field type is always called with shift == false
- */
-template <typename Fr_>
-Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
-                  const SharedShiftedVirtualZeroesArray<Fr_>& coefficients,
-                  bool shift)
-{
-    constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
-    // shift ==> native
-    ASSERT(!shift || is_native);
+// Conditional using statement: use FileBackedPolynomial when BB_SLOW_LOW_MEMORY is defined
+#ifdef BB_SLOW_LOW_MEMORY
+template <typename Fr>
+using Polynomial = FileBackedPolynomial<Fr>;
+#else
+template <typename Fr>
+using Polynomial = MemoryPolynomial<Fr>;
+#endif
 
-    if (coefficients.size() == 0) {
-        return Fr_(0);
-    }
-
-    const size_t n = evaluation_points.size();
-    const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
-
-    // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    BB_ASSERT_EQ(coefficients.virtual_size(), static_cast<size_t>(1 << n));
-
-    // We first fold over dim rounds l = 0,...,dim-1.
-    // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
-    // at u₀,..., u_l.
-    // In round 0, this is half the size of dim
-    size_t n_l = 1 << (dim - 1);
-
-    // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
-    // DontZeroMemory::FLAG
-    auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
-    auto tmp = tmp_ptr.get();
-
-    size_t offset = 0;
-    if constexpr (is_native) {
-        if (shift) {
-            BB_ASSERT_EQ(coefficients.get(0), Fr_::zero());
-            offset++;
-        }
-    }
-
-    Fr_ u_l = evaluation_points[0];
-
-    // Note below: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity
-    // padding (and there used to be no assert time checks, which this constant helps with).
-    const size_t ALLOW_ONE_PAST_READ = 1;
-    for (size_t i = 0; i < n_l; ++i) {
-        // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
-        tmp[i] = coefficients.get(i * 2 + offset) +
-                 u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
-    }
-
-    // partially evaluate the dim-1 remaining points
-    for (size_t l = 1; l < dim; ++l) {
-        n_l = 1 << (dim - l - 1);
-        u_l = evaluation_points[l];
-        for (size_t i = 0; i < n_l; ++i) {
-            tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
-        }
-    }
-    auto result = tmp[0];
-
-    // We handle the "trivial" dimensions which are full of zeros.
-    for (size_t i = dim; i < n; i++) {
-        result *= (Fr_(1) - evaluation_points[i]);
-    }
-
-    return result;
-}
-
-/**
- * @brief Static exposed implementation to support both native and stdlib circuit field types.
- */
-template <typename Fr_>
-Fr_ generic_evaluate_mle(std::span<const Fr_> evaluation_points,
-                         const SharedShiftedVirtualZeroesArray<Fr_>& coefficients)
-{
-    return _evaluate_mle(evaluation_points, coefficients, false);
-}
-
+// Common utility functions and operators that work for both Polynomial implementations
 template <typename Fr> inline std::ostream& operator<<(std::ostream& os, const Polynomial<Fr>& p)
 {
     if (p.size() == 0) {
@@ -551,4 +570,5 @@ template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&.
     ASSERT((poly.start_index() == polys.start_index() && poly.end_index() == polys.end_index()) && ...);
     return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
 }
+
 } // namespace bb

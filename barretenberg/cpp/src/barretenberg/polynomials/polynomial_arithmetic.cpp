@@ -885,8 +885,8 @@ void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
     size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size; // log_2(k)
     size_t subgroup_size = 1UL << log2_subgroup_size;                           // k
     ASSERT(target_domain.log2_size >= src_domain.log2_size);
-    Fr subgroup_roots[subgroup_size];
-    compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
+    std::vector<Fr> subgroup_roots(subgroup_size);
+    compute_multiplicative_subgroup(log2_subgroup_size, src_domain, subgroup_roots.data());
 
     // Subtract 1 and divide by n to get the k elements (1/n)*(X_i^n - 1)
     for (size_t i = 0; i < subgroup_size; ++i) {
@@ -1270,10 +1270,10 @@ void fft_linear_polynomial_product(
 template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const Fr* evaluation_points, const size_t n)
 {
     std::vector<Fr> local_roots;
-    Fr local_polynomial[n];
+    std::vector<Fr> local_polynomial(n);
     Fr denominator = 1;
     Fr multiplicand;
-    Fr temp_dest[n];
+    std::vector<Fr> temp_dest(n);
 
     if (n == 1) {
         temp_dest[0] = src[0];
@@ -1298,7 +1298,7 @@ template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const
         }
 
         // bring local roots to coefficient form
-        compute_linear_polynomial_product(&local_roots[0], local_polynomial, n - 1);
+        compute_linear_polynomial_product(&local_roots[0], local_polynomial.data(), n - 1);
 
         // store the resulting coefficients
         multiplicand = src[i] / denominator;
@@ -1310,7 +1310,7 @@ template <typename Fr> void compute_interpolation(const Fr* src, Fr* dest, const
         local_roots.clear();
     }
 
-    memcpy((void*)dest, (void*)temp_dest, n * sizeof(Fr));
+    memcpy((void*)dest, (void*)temp_dest.data(), n * sizeof(Fr));
 }
 
 template <typename Fr>
@@ -1350,11 +1350,11 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
         algorithm used in Kate commitment scheme, as the coefficients of N(X)/X are given by numerator_polynomial[j]
         for j=1,...,n.
     */
-    Fr numerator_polynomial[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial, n);
+    std::vector<Fr> numerator_polynomial(n + 1);
+    polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial.data(), n);
     // First half contains roots, second half contains denominators (to be inverted)
-    Fr roots_and_denominators[2 * n];
-    Fr temp_src[n];
+    std::vector<Fr> roots_and_denominators(2 * n);
+    std::vector<Fr> temp_src(n);
     for (size_t i = 0; i < n; ++i) {
         roots_and_denominators[i] = -evaluation_points[i];
         temp_src[i] = src[i];
@@ -1370,10 +1370,10 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
     }
     // at this point roots_and_denominators is populated as follows
     // (x_0,\ldots, x_{n-1}, d_0, \ldots, d_{n-1})
-    Fr::batch_invert(roots_and_denominators, 2 * n);
+    Fr::batch_invert(roots_and_denominators.data(), 2 * n);
 
     Fr z, multiplier;
-    Fr temp_dest[n];
+    std::vector<Fr> temp_dest(n);
     size_t idx_zero = 0;
     bool interpolation_domain_contains_zero = false;
     // if the constant term of the numerator polynomial N(X) is 0, then the interpolation domain contains 0

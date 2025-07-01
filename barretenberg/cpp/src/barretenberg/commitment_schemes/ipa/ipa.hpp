@@ -876,8 +876,8 @@ template <typename Curve_> class IPA {
     static Polynomial<bb::fq> create_challenge_poly(const size_t log_poly_length_1, const std::vector<bb::fq>& u_challenges_inv_1, const size_t log_poly_length_2, const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
         // Always extend each to 1<<CONST_ECCVM_LOG_N length
         Polynomial<bb::fq> challenge_poly(1<<CONST_ECCVM_LOG_N);
-        Polynomial challenge_poly_1 = construct_poly_from_u_challenges_inv(log_poly_length_1, u_challenges_inv_1);
-        Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(log_poly_length_2, u_challenges_inv_2);
+        Polynomial<bb::fq> challenge_poly_1 = construct_poly_from_u_challenges_inv(log_poly_length_1, u_challenges_inv_1);
+        Polynomial<bb::fq> challenge_poly_2 = construct_poly_from_u_challenges_inv(log_poly_length_2, u_challenges_inv_2);
         challenge_poly += challenge_poly_1;
         challenge_poly.add_scaled(challenge_poly_2, alpha);
         return challenge_poly;

@@ -41,7 +41,7 @@ bool ECCVMTraceChecker::check(Builder& builder, numeric::RNG* engine_ptr)
     compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, unmasked_witness_size);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params, unmasked_witness_size);
 
-    polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
+    polynomials.z_perm_shift = Polynomial<FF>(polynomials.z_perm.shifted());
 
     const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name) {
         typename Relation::SumcheckArrayOfValuesOverSubrelations result;
