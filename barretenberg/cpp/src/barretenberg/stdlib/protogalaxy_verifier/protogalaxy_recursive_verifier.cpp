@@ -44,7 +44,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
 
 template <class DeciderVerificationKeys>
 std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiveVerifier_<
-    DeciderVerificationKeys>::verify_folding_proof(const stdlib::Proof<Builder>& proof)
+    DeciderVerificationKeys>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;

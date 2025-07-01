@@ -71,7 +71,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         // Create a recursive merge verification circuit for the merge proof
         RecursiveMergeVerifier verifier{ &outer_circuit };
-        const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
+        const StdlibProof<RecursiveBuilder> stdlib_merge_proof =
+            bb::convert_native_proof_to_stdlib(&outer_circuit, merge_proof);
         auto pairing_points = verifier.verify_proof(stdlib_merge_proof, t_commitments_rec);
 
         // Check for a failure flag in the recursive verifier circuit

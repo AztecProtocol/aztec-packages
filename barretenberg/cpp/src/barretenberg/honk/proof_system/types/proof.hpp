@@ -26,5 +26,6 @@ struct ECCVMProof {
     MSGPACK_FIELDS(pre_ipa_proof, ipa_proof);
 };
 template <typename Builder> using StdlibPublicInputsVector = std::vector<bb::stdlib::field_t<Builder>>;
+template <typename Builder> using StdlibProof = std::vector<bb::stdlib::field_t<Builder>>;
 
 } // namespace bb

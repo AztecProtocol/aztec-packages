@@ -12,7 +12,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/stdlib/proof/proof.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
 
@@ -123,7 +122,7 @@ class ProofSurgeon {
      * @return std::vector<bb::fr> The corresponding public input witness indices
      */
     static std::vector<uint32_t> get_public_inputs_witness_indices_from_proof(
-        const bb::stdlib::Proof<bb::MegaCircuitBuilder>& proof, const size_t num_public_inputs_to_extract)
+        const bb::StdlibProof<bb::MegaCircuitBuilder>& proof, const size_t num_public_inputs_to_extract)
     {
         std::vector<uint32_t> public_input_witness_indices;
         public_input_witness_indices.reserve(num_public_inputs_to_extract);

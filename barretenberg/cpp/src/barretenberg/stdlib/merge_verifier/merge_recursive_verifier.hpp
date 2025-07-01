@@ -9,7 +9,6 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::goblin {
@@ -34,7 +33,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
+        const StdlibProof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
 };
 
 } // namespace bb::stdlib::recursion::goblin

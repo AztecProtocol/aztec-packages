@@ -20,7 +20,7 @@ struct GoblinRecursiveVerifierOutput {
     using PairingAccumulator = PairingPoints<Builder>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
-    stdlib::Proof<Builder> ipa_proof;
+    StdlibProof<Builder> ipa_proof;
 };
 
 class GoblinRecursiveVerifier {

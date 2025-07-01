@@ -53,7 +53,7 @@ template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
-    StdlibProof stdlib_proof(builder, proof);
+    StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_vec_nt.size());
@@ -74,7 +74,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
 // TODO(#14234)[Unconditional PIs validation]: rename stdlib_proof_with_pi_flag to stdlib_proof
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const stdlib::Proof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
+    const StdlibProof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
@@ -86,7 +86,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using stdlib::bool_t;
 
     // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
-    StdlibProof stdlib_proof = stdlib_proof_with_pi_flag;
+    StdlibProof<Builder> stdlib_proof = stdlib_proof_with_pi_flag;
     bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
     stdlib_proof.erase(stdlib_proof.begin());
 

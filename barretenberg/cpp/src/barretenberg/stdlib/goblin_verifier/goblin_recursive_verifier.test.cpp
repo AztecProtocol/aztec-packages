@@ -215,7 +215,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
     auto native_ipa_transcript = std::make_shared<NativeTranscript>();
-    native_ipa_transcript->load_proof(goblin_rec_verifier_output.ipa_proof.get_value());
+    native_ipa_transcript->load_proof(convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_proof));
 
     EXPECT_FALSE(
         IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
