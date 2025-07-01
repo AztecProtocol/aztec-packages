@@ -65,6 +65,13 @@ jobs:
           echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
           echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
+      - name: Docs CI Override
+        if: |
+          (contains(github.event.pull_request.labels.*.name, 'ci-docs') ||
+           steps.target_branch.outputs.target_branch == 'merge-train/docs') &&
+          !contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_DOCS=1" >> $GITHUB_ENV
+
       - name: Barretenberg CI Override
         if: |
           (contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') ||
@@ -117,8 +124,13 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
+<<<<<<< HEAD
+          elif [ "${CI_DOCS:-0}" -eq 1 ]; then
+            exec ./ci.sh docs
+=======
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
             exec ./ci.sh barretenberg
+>>>>>>> origin/next
           elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
             exec ./ci.sh nightly
           elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
