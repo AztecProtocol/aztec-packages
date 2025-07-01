@@ -46,9 +46,9 @@ class SingleEpochDatabase {
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
     for await (const jobStr of this.jobs.valuesAsync()) {
-      const job = await jsonParseWithSchema(jobStr, ProvingJob);
+      const job = jsonParseWithSchema(jobStr, ProvingJob);
       const resultStr = await this.jobResults.getAsync(job.id);
-      const result = resultStr ? await jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+      const result = resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
       yield [job, result];
     }
   }
@@ -112,6 +112,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
     const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
       mappingSize: this.config.dataStoreMapSizeKB,
+      physicalFileSize: sizes.reduce((prev, curr) => prev + curr.physicalFileSize, 0),
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
       actualSize: sizes.reduce((prev, curr) => prev + curr.actualSize, 0),
     };

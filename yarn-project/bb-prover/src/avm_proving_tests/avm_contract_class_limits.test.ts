@@ -1,5 +1,5 @@
 import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
@@ -15,7 +15,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
   let avmTestContractAddress: AztecAddress;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly=*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {

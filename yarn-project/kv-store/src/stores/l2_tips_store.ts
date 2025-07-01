@@ -11,7 +11,7 @@ import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
-export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
+export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, number>;
   private readonly l2BlockHashesStore: AztecAsyncMap<number, string>;
 
@@ -56,17 +56,24 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
         break;
       }
       case 'chain-pruned':
-        await this.l2TipsStore.set('latest', event.blockNumber);
+        await this.saveTag('latest', event.block);
         break;
       case 'chain-proven':
-        await this.l2TipsStore.set('proven', event.blockNumber);
+        await this.saveTag('proven', event.block);
         break;
       case 'chain-finalized':
-        await this.l2TipsStore.set('finalized', event.blockNumber);
-        for await (const key of this.l2BlockHashesStore.keysAsync({ end: event.blockNumber })) {
+        await this.saveTag('finalized', event.block);
+        for await (const key of this.l2BlockHashesStore.keysAsync({ end: event.block.number })) {
           await this.l2BlockHashesStore.delete(key);
         }
         break;
+    }
+  }
+
+  private async saveTag(name: L2BlockTag, block: L2BlockId) {
+    await this.l2TipsStore.set(name, block.number);
+    if (block.hash) {
+      await this.l2BlockHashesStore.set(block.number, block.hash);
     }
   }
 }

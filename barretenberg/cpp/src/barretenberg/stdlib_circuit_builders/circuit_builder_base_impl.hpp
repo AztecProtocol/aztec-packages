@@ -1,5 +1,11 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
-#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "circuit_builder_base.hpp"
 
 namespace bb {
@@ -176,17 +182,20 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(co
     return index;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
+template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
     for (const uint32_t public_input : public_inputs) {
         if (public_input == witness_index) {
             if (!failed()) {
                 failure("Attempted to set a public input that is already public!");
             }
-            return;
+            return 0;
         }
     }
+    uint32_t public_input_index = static_cast<uint32_t>(public_inputs.size());
     public_inputs.emplace_back(witness_index);
+
+    return public_input_index;
 }
 
 /**
@@ -209,8 +218,9 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     uint32_t a_real_idx = real_variable_index[a_variable_idx];
     uint32_t b_real_idx = real_variable_index[b_variable_idx];
     // If a==b is already enforced, exit method
-    if (a_real_idx == b_real_idx)
+    if (a_real_idx == b_real_idx) {
         return;
+    }
     // Otherwise update the real_idx of b-chain members to that of a
 
     auto b_start_idx = get_first_variable_in_class(b_variable_idx);
@@ -237,40 +247,6 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
     }
 }
 
-template <typename FF_>
-void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
-    const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
-{
-    if (contains_pairing_point_accumulator) {
-        failure("added pairing point accumulator when one already exists");
-        ASSERT(0);
-    }
-    contains_pairing_point_accumulator = true;
-
-    size_t i = 0;
-    for (const auto& idx : pairing_point_accum_witness_indices) {
-        set_public_input(idx);
-        pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
-        ++i;
-    }
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices)
-{
-    if (contains_ipa_claim) {
-        failure("added IPA claim when one already exists");
-        ASSERT(0);
-    }
-    contains_ipa_claim = true;
-
-    size_t i = 0;
-    for (const auto& idx : ipa_claim_witness_indices) {
-        set_public_input(idx);
-        ipa_claim_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
-        ++i;
-    }
-}
-
 template <typename FF_> bool CircuitBuilderBase<FF_>::failed() const
 {
     return _failed;
@@ -290,7 +266,7 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
     if (!has_dummy_witnesses) {
         // We have a builder failure when we have real witnesses which is a mistake.
-        info("Builder failure when we have real witnesses!"); // not a catch-all error
+        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
     }
     _failed = true;
     set_err(std::move(msg));

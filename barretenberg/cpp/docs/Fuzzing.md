@@ -4,6 +4,42 @@
 
 We are gradually introducing fuzzing of various primitives into barretenberg, focusing first and foremost on in-circuit types. If you are developing / patching a primitive and there is a fuzzer available for it, please take the time to update the fuzzer (if you've added new functionality) and run it for at least a few hours to increase security.
 
+## Docker usage
+
+The easiest way to run fuzzers is using the provided Docker container. This approach handles all dependencies and provides a consistent environment.
+
+### Quick Start
+
+1. Navigate to the fuzzing container directory at the root of the aztec-packages repo:
+   ```bash
+   cd container-builds/fuzzing-container
+   ```
+
+2. Run a fuzzer (replace `<fuzzer_name>` with an actual fuzzer):
+   ```bash
+   ./run.sh --fuzzer <fuzzer_name>
+   ```
+
+3. To see available fuzzers:
+   ```bash
+   ./run.sh --show-fuzzers
+   ```
+
+### Script Options
+
+The `run.sh` script supports several configuration options:
+
+- `-f, --fuzzer <name>`: Specify which fuzzer to run (required)
+- `-t, --timeout <seconds>`: Set maximum fuzzing time (default: 2592000 = 1 month)
+- `-v, --verbose`: Enable verbose output from the fuzzer
+- `-m, --mode <mode>`: Set operation mode - either `fuzzing` or `coverage` (default: fuzzing)
+- `-c, --cpus <count>`: Set number of CPUs for the container (default: 8)
+- `--mem <size>`: Set memory limit for the container (default: 16G)
+- `--show-fuzzers`: List all available fuzzers
+- `-h, --help`: Show help information
+
+
+
 ## Build
 
 To build with standard clang:
@@ -88,8 +124,8 @@ Also, both bigfield and safeuint fuzzer containt the SHOW_INFORMATION preprocess
 Build with coverage instrumentation:
 
 ```bash
-cmake --preset coverage -DFUZZING=ON -DCMAKE_CXX_FLAGS="-fprofile-instr-generate -fcoverage-mapping"
-cmake --build --preset coverage
+cmake --preset clang16-coverage -DFUZZING=ON
+cmake --build --preset clang16-coverage
 ```
 
 Then run the fuzzer on the corpus and generate the HTML coverage reports:

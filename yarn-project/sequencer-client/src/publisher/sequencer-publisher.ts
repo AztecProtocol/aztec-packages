@@ -4,7 +4,6 @@ import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
-  type ForwarderContract,
   type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
@@ -12,25 +11,31 @@ import {
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
+  MULTI_CALL_3_ADDRESS,
+  Multicall3,
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
+  type ViemCommitteeAttestations,
+  type ViemHeader,
+  type ViemStateReference,
   formatViemError,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { toHex } from '@aztec/foundation/bigint-buffer';
+import { sumBigint } from '@aztec/foundation/bigint';
+import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type TransactionReceipt, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -38,17 +43,17 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: Buffer;
+  header: ProposedBlockHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
-  /** The L2 block's leaf in the archive tree. */
-  blockHash: Buffer;
+  /** State reference after the L2 block is applied. */
+  stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
   txHashes: TxHash[];
   /** Attestations */
-  attestations?: Signature[];
+  attestations?: CommitteeAttestation[];
 };
 
 export enum VoteType {
@@ -58,12 +63,13 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: bigint;
-  gasConfig?: L1GasConfig;
+  gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
   onResult?: (
     request: L1TxRequest,
@@ -74,8 +80,7 @@ interface RequestWithExpiry {
 export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
-  private epochCache: EpochCache;
-  private forwarderContract: ForwarderContract;
+  public epochCache: EpochCache;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected governanceProposerAddress?: EthAddress;
@@ -99,6 +104,9 @@ export class SequencerPublisher {
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
 
+  // Gas report for VotingWithSigTest shows a max gas of 100k, so better err on the safe side
+  public static VOTE_GAS_GUESS: bigint = 500_000n;
+
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
@@ -111,7 +119,6 @@ export class SequencerPublisher {
     deps: {
       telemetry?: TelemetryClient;
       blobSinkClient?: BlobSinkClientInterface;
-      forwarderContract: ForwarderContract;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
       slashingProposerContract: SlashingProposerContract;
@@ -122,25 +129,25 @@ export class SequencerPublisher {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
 
-    this.blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
+    this.blobSinkClient =
+      deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
 
     const telemetry = deps.telemetry ?? getTelemetryClient();
     this.metrics = new SequencerPublisherMetrics(telemetry, 'SequencerPublisher');
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
-    this.forwarderContract = deps.forwarderContract;
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
   }
 
-  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
-    this.getSlashPayload = callback;
+  public getRollupContract(): RollupContract {
+    return this.rollupContract;
   }
 
-  public getForwarderAddress() {
-    return EthAddress.fromString(this.forwarderContract.getAddress());
+  public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
+    this.getSlashPayload = callback;
   }
 
   public getSenderAddress() {
@@ -177,8 +184,12 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
-    this.log.debug(`Current L2 slot: ${currentL2Slot}`);
+    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
+    const validActions = validRequests.map(x => x.action);
+    const expiredActions = requestsToProcess
+      .filter(request => request.lastValidL2Slot < currentL2Slot)
+      .map(x => x.action);
 
     if (validRequests.length !== requestsToProcess.length) {
       this.log.warn(`Some requests were expired for slot ${currentL2Slot}`, {
@@ -198,32 +209,39 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    // @note - we can only have one gas config and one blob config per bundle
+    // @note - we can only have one blob config per bundle
     // find requests with gas and blob configs
     // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = requestsToProcess.filter(request => request.gasConfig);
-    const blobConfigs = requestsToProcess.filter(request => request.blobConfig);
+    const gasConfigs = requestsToProcess.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const blobConfigs = requestsToProcess.filter(request => request.blobConfig).map(request => request.blobConfig);
 
-    if (gasConfigs.length > 1 || blobConfigs.length > 1) {
-      throw new Error('Multiple gas or blob configs found');
+    if (blobConfigs.length > 1) {
+      throw new Error('Multiple blob configs found');
     }
 
-    const gasConfig = gasConfigs[0]?.gasConfig;
-    const blobConfig = blobConfigs[0]?.blobConfig;
+    const blobConfig = blobConfigs[0];
+
+    // Merge gasConfigs. Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
+    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
+    const gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
+    const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
+    const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
+    const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
     try {
       this.log.debug('Forwarding transactions', {
         validRequests: validRequests.map(request => request.action),
       });
-      const result = await this.forwarderContract.forward(
+      const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
         gasConfig,
         blobConfig,
+        this.rollupContract.address,
         this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
-      return result;
+      return { result, expiredActions, validActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -239,13 +257,19 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice },
+    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
   ) {
-    const success = result?.receipt.status === 'success';
+    const isError = result instanceof FormattedViemError;
+    const success = isError ? false : result?.receipt.status === 'success';
     const logger = success ? this.log.info : this.log.error;
     for (const request of requests) {
       logger(`Bundled [${request.action}] transaction [${success ? 'succeeded' : 'failed'}]`);
-      request.onResult?.(request.request, result);
+      if (!isError) {
+        request.onResult?.(request.request, result);
+      }
+    }
+    if (isError) {
+      this.log.error('Failed to publish bundled transactions', result);
     }
   }
 
@@ -254,57 +278,122 @@ export class SequencerPublisher {
    * @param tipArchive - The archive to check
    * @returns The slot and block number if it is possible to propose, undefined otherwise
    */
-  public canProposeAtNextEthBlock(tipArchive: Buffer) {
+  public canProposeAtNextEthBlock(tipArchive: Buffer, msgSender: EthAddress) {
+    // TODO: #14291 - should loop through multiple keys to check if any of them can propose
     const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
+
     return this.rollupContract
-      .canProposeAtNextEthBlock(tipArchive, this.getForwarderAddress().toString(), this.ethereumSlotDuration)
+      .canProposeAtNextEthBlock(tipArchive, msgSender.toString(), this.ethereumSlotDuration)
       .catch(err => {
         if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
-          this.log.debug(err.message);
+          this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
+            error: err.message,
+          });
         } else {
           this.log.error(err.name, err);
         }
         return undefined;
       });
   }
+  /**
+   * @notice  Will simulate `validateHeader` to make sure that the block header is valid
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
+   *          It will throw if the block header is invalid.
+   * @param header - The block header to validate
+   */
+  public async validateBlockHeader(header: ProposedBlockHeader) {
+    const flags = { ignoreDA: true, ignoreSignatures: true };
+
+    const args = [
+      header.toViem(),
+      RollupContract.packAttestations([]),
+      `0x${'0'.repeat(64)}`, // 32 empty bytes
+      header.contentCommitment.blobsHash.toString(),
+      flags,
+    ] as const;
+
+    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+
+    // use sender balance to simulate
+    const balance = await this.l1TxUtils.getSenderBalance();
+    await this.l1TxUtils.simulate(
+      {
+        to: this.rollupContract.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeader', args }),
+        from: MULTI_CALL_3_ADDRESS,
+      },
+      {
+        time: ts + 1n,
+      },
+      [
+        {
+          address: MULTI_CALL_3_ADDRESS,
+          balance,
+        },
+      ],
+    );
+  }
 
   /**
-   * @notice  Will call `validateHeader` to make sure that it is possible to propose
+   * @notice  Will simulate `propose` to make sure that the block is valid for submission
    *
    * @dev     Throws if unable to propose
    *
-   * @param header - The header to propose
-   * @param digest - The digest that attestations are signing over
+   * @param block - The block to propose
+   * @param attestationData - The block's attestation data
    *
    */
   public async validateBlockForSubmission(
-    header: BlockHeader,
-    attestationData: { digest: Buffer; signatures: Signature[] } = {
+    block: L2Block,
+    attestationData: { digest: Buffer; attestations: CommitteeAttestation[] } = {
       digest: Buffer.alloc(32),
-      signatures: [],
+      attestations: [],
     },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
-    const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
-    const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
+    // If we have no attestations, we still need to provide the empty attestations
+    // so that the committee is recalculated correctly
+    const ignoreSignatures = attestationData.attestations.length === 0;
+    if (ignoreSignatures) {
+      const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber.toBigInt());
+      if (!committee) {
+        this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
+        throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
+      }
+      attestationData.attestations = committee.map(committeeMember =>
+        CommitteeAttestation.fromAddress(committeeMember),
+      );
+    }
+    // const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    // const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
+
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+    const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
+
+    const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
 
     const args = [
-      `0x${header.toBuffer().toString('hex')}`,
-      formattedSignatures,
-      `0x${attestationData.digest.toString('hex')}`,
-      ts,
-      `0x${header.contentCommitment.blobsHash.toString('hex')}`,
-      flags,
+      {
+        header: block.header.toPropose().toViem(),
+        archive: toHex(block.archive.root.toBuffer()),
+        stateReference: block.header.state.toViem(),
+        txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
+        oracleInput: {
+          feeAssetPriceModifier: 0n,
+        },
+      },
+      RollupContract.packAttestations(formattedAttestations),
+      blobInput,
     ] as const;
 
-    await this.rollupContract.validateHeader(args, this.getForwarderAddress().toString());
+    await this.simulateProposeTx(args, ts);
     return ts;
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+  public async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
     const committee = await this.rollupContract.getCurrentEpochCommittee();
-    return committee.map(EthAddress.fromString);
+    return committee?.map(EthAddress.fromString);
   }
 
   private async enqueueCastVoteHelper(
@@ -321,14 +410,8 @@ export class SequencerPublisher {
       return false;
     }
     const round = await base.computeRound(slotNumber);
-    const [proposer, roundInfo] = await Promise.all([
-      this.rollupContract.getProposerAt(timestamp),
-      base.getRoundInfo(this.rollupContract.address, round),
-    ]);
+    const roundInfo = await base.getRoundInfo(this.rollupContract.address, round);
 
-    if (proposer.toLowerCase() !== this.getForwarderAddress().toString().toLowerCase()) {
-      return false;
-    }
     if (roundInfo.lastVote >= slotNumber) {
       return false;
     }
@@ -336,15 +419,26 @@ export class SequencerPublisher {
     const cachedLastVote = this.myLastVotes[voteType];
     this.myLastVotes[voteType] = slotNumber;
 
+    const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
+
+    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client);
+    this.log.debug(`Created ${action} request with signature`, {
+      request,
+      round,
+      signer: this.l1TxUtils.client.account?.address,
+      lastValidL2Slot: slotNumber,
+    });
+
     this.addRequest({
-      action: voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote',
-      request: base.createVoteRequest(payload.toString()),
+      gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
+      action,
+      request,
       lastValidL2Slot: slotNumber,
       onResult: (_request, result) => {
         if (!result || result.receipt.status !== 'success') {
           this.myLastVotes[voteType] = cachedLastVote;
         } else {
-          this.log.info(`Cast [${voteType}] vote for slot ${slotNumber}`);
+          this.log.info(`Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round}`);
         }
       },
     });
@@ -365,6 +459,7 @@ export class SequencerPublisher {
       if (!slashPayload) {
         return undefined;
       }
+      this.log.info(`Slash payload: ${slashPayload}`);
       return { payload: slashPayload, base: this.slashingProposerContract };
     }
     throw new Error('Unreachable: Invalid vote type');
@@ -394,33 +489,44 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
-    attestations?: Signature[],
+    attestations?: CommitteeAttestation[],
     txHashes?: TxHash[],
     opts: { txTimeoutAt?: Date } = {},
   ): Promise<boolean> {
-    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+    const proposedBlockHeader = block.header.toPropose();
 
-    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const consensusPayload = ConsensusPayload.fromBlock(block);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: block.header.toBuffer(),
+      header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
-      blockHash: (await block.header.hash()).toBuffer(),
+      stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestations,
       txHashes: txHashes ?? [],
     };
 
-    // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-    //        This means that we can avoid the simulation issues in later checks.
-    //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-    //        make time consistency checks break.
-    const ts = await this.validateBlockForSubmission(block.header, {
-      digest: digest.toBuffer(),
-      signatures: attestations ?? [],
-    });
+    let ts: bigint;
+
+    try {
+      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+      //        This means that we can avoid the simulation issues in later checks.
+      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+      //        make time consistency checks break.
+      ts = await this.validateBlockForSubmission(block, {
+        digest: digest.toBuffer(),
+        attestations: attestations ?? [],
+      });
+    } catch (err: any) {
+      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, undefined, {
+        ...block.getStats(),
+        slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
+      });
+      throw err;
+    }
 
     this.log.debug(`Submitting propose transaction`);
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
@@ -445,12 +551,15 @@ export class SequencerPublisher {
   }
 
   private async prepareProposeTx(encodedData: L1ProcessArgs, timestamp: bigint) {
+    if (!this.l1TxUtils.client.account) {
+      throw new Error('L1 TX utils needs to be initialized with an account wallet.');
+    }
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.walletClient.account,
+        this.l1TxUtils.client.account,
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
@@ -471,25 +580,50 @@ export class SequencerPublisher {
         throw new Error('Failed to validate blobs');
       });
 
-    const attestations = encodedData.attestations
-      ? encodedData.attestations.map(attest => attest.toViemSignature())
-      : [];
+    const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: `0x${encodedData.header.toString('hex')}`,
-        archive: `0x${encodedData.archive.toString('hex')}`,
+        header: encodedData.header.toViem(),
+        archive: toHex(encodedData.archive),
+        stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
         },
-        blockHash: `0x${encodedData.blockHash.toString('hex')}`,
         txHashes,
       },
-      attestations,
+      RollupContract.packAttestations(attestations),
       blobInput,
     ] as const;
 
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, timestamp);
+
+    return { args, blobEvaluationGas, rollupData, simulationResult };
+  }
+
+  /**
+   * Simulates the propose tx with eth_simulateV1
+   * @param args - The propose tx args
+   * @param timestamp - The timestamp to simulate proposal at
+   * @returns The simulation result
+   */
+  private async simulateProposeTx(
+    args: readonly [
+      {
+        readonly header: ViemHeader;
+        readonly archive: `0x${string}`;
+        readonly stateReference: ViemStateReference;
+        readonly txHashes: `0x${string}`[];
+        readonly oracleInput: {
+          readonly feeAssetPriceModifier: 0n;
+        };
+      },
+      ViemCommitteeAttestations,
+      `0x${string}`,
+    ],
+    timestamp: bigint,
+  ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'propose',
@@ -497,22 +631,22 @@ export class SequencerPublisher {
     });
 
     const forwarderData = encodeFunctionData({
-      abi: ForwarderAbi,
-      functionName: 'forward',
-      args: [[this.rollupContract.address], [rollupData]],
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      args: [[{ target: this.rollupContract.address, allowFailure: false, callData: rollupData }]],
     });
 
     const simulationResult = await this.l1TxUtils
-      .simulateGasUsed(
+      .simulate(
         {
-          to: this.getForwarderAddress().toString(),
+          to: MULTI_CALL_3_ADDRESS,
           data: forwarderData,
           gas: SequencerPublisher.PROPOSE_GAS_GUESS,
         },
         {
           // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
           time: timestamp + 1n,
-          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: SequencerPublisher.PROPOSE_GAS_GUESS * 2n,
         },
         [
@@ -521,24 +655,24 @@ export class SequencerPublisher {
             // @note we override checkBlob to false since blobs are not part simulate()
             stateDiff: [
               {
-                slot: toHex(RollupContract.checkBlobStorageSlot, true),
-                value: toHex(0n, true),
+                slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
+                value: toPaddedHex(0n, true),
               },
             ],
           },
         ],
+        RollupAbi,
         {
           // @note fallback gas estimate to use if the node doesn't support simulation API
           fallbackGasEstimate: SequencerPublisher.PROPOSE_GAS_GUESS,
         },
       )
       .catch(err => {
-        const { message, metaMessages } = formatViemError(err);
-        this.log.error(`Failed to simulate gas used`, message, { metaMessages });
-        throw new Error('Failed to simulate gas used');
+        this.log.error(`Failed to simulate propose tx`, err);
+        throw err;
       });
 
-    return { args, blobEvaluationGas, rollupData, simulationResult };
+    return { rollupData, simulationResult };
   }
 
   private async addProposeTx(
@@ -551,7 +685,6 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
-    const blockHash = await block.hash();
 
     return this.addRequest({
       action: 'propose',
@@ -562,7 +695,7 @@ export class SequencerPublisher {
       lastValidL2Slot: block.header.globalVariables.slotNumber.toBigInt(),
       gasConfig: {
         ...opts,
-        gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
+        gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult.gasUsed + blobEvaluationGas),
       },
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
@@ -603,7 +736,6 @@ export class SequencerPublisher {
           this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
             txHash: receipt.transactionHash,
-            blockHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
         }

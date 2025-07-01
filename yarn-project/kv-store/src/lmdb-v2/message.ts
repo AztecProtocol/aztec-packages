@@ -12,6 +12,7 @@ export enum LMDBMessageType {
 
   START_CURSOR,
   ADVANCE_CURSOR,
+  ADVANCE_CURSOR_COUNT,
   CLOSE_CURSOR,
 
   BATCH,
@@ -19,6 +20,7 @@ export enum LMDBMessageType {
   STATS,
 
   CLOSE,
+  COPY_STORE,
 }
 
 type Key = Uint8Array;
@@ -59,8 +61,18 @@ interface AdvanceCursorRequest {
   count: number | null;
 }
 
+interface AdvanceCursorCountRequest {
+  cursor: number;
+  endKey: Key;
+}
+
 interface CloseCursorRequest {
   cursor: number;
+}
+
+interface CopyStoreRequest {
+  dstPath: string;
+  compact: boolean;
 }
 
 export interface Batch {
@@ -80,6 +92,7 @@ export type LMDBRequestBody = {
 
   [LMDBMessageType.START_CURSOR]: StartCursorRequest;
   [LMDBMessageType.ADVANCE_CURSOR]: AdvanceCursorRequest;
+  [LMDBMessageType.ADVANCE_CURSOR_COUNT]: AdvanceCursorCountRequest;
   [LMDBMessageType.CLOSE_CURSOR]: CloseCursorRequest;
 
   [LMDBMessageType.BATCH]: BatchRequest;
@@ -87,6 +100,7 @@ export type LMDBRequestBody = {
   [LMDBMessageType.STATS]: void;
 
   [LMDBMessageType.CLOSE]: void;
+  [LMDBMessageType.COPY_STORE]: CopyStoreRequest;
 };
 
 interface GetResponse {
@@ -107,6 +121,11 @@ interface AdvanceCursorResponse {
   done: boolean;
 }
 
+interface AdvanceCursorCountResponse {
+  count: number;
+  done: boolean;
+}
+
 interface BatchResponse {
   durationNs: number;
 }
@@ -122,6 +141,7 @@ interface StatsResponse {
     totalUsedSize: bigint | number;
   }>;
   dbMapSizeBytes: bigint | number;
+  dbPhysicalFileSizeBytes: bigint | number;
 }
 
 export type LMDBResponseBody = {
@@ -132,6 +152,7 @@ export type LMDBResponseBody = {
 
   [LMDBMessageType.START_CURSOR]: StartCursorResponse;
   [LMDBMessageType.ADVANCE_CURSOR]: AdvanceCursorResponse;
+  [LMDBMessageType.ADVANCE_CURSOR_COUNT]: AdvanceCursorCountResponse;
   [LMDBMessageType.CLOSE_CURSOR]: BoolResponse;
 
   [LMDBMessageType.BATCH]: BatchResponse;
@@ -139,6 +160,8 @@ export type LMDBResponseBody = {
   [LMDBMessageType.STATS]: StatsResponse;
 
   [LMDBMessageType.CLOSE]: BoolResponse;
+
+  [LMDBMessageType.COPY_STORE]: BoolResponse;
 };
 
 export interface LMDBMessageChannel {

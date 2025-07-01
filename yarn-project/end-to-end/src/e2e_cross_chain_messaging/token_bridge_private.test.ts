@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { RollupContract } from '@aztec/ethereum';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
@@ -34,7 +35,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
     rollup = new RollupContract(
-      crossChainTestHarness!.publicClient,
+      crossChainTestHarness!.l1Client,
       crossChainTestHarness!.l1ContractAddresses.rollupAddress,
     );
 
@@ -70,19 +71,24 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     const burnAuthwit = await user1Wallet.createAuthWit({
       caller: l2Bridge.address,
-      action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, nonce),
+      action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, authwitNonce),
     });
     // docs:end:authwit_to_another_sc
 
     // 5. Withdraw owner's funds from L2 to L1
-    const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
-    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(withdrawAmount, nonce, burnAuthwit);
+    const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPrivateFromAztecToL1(
+      withdrawAmount,
+      authwitNonce,
+      burnAuthwit,
+    );
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(
+      aztecNode,
       l2TxReceipt.blockNumber!,
       l2ToL1Message,
     );
@@ -95,8 +101,8 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageIndex,
-      siblingPath,
+      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   });

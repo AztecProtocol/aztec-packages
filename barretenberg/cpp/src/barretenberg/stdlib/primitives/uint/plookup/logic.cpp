@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "../../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
@@ -86,7 +92,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator>>(const si
         coefficient *= shifter;
     }
 
-    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
@@ -157,7 +163,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator<<(const si
         coefficient *= shifter;
     }
 
-    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
@@ -233,7 +239,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::ror(const size_t ta
     }
     sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) * field_t<Builder>(coefficient));
 
-    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
@@ -327,15 +333,11 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
 
 template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint8_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint16_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint32_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::MegaCircuitBuilder, uint64_t>;
-template class uint_plookup<bb::CircuitSimulatorBN254, uint64_t>;
 
 } // namespace bb::stdlib

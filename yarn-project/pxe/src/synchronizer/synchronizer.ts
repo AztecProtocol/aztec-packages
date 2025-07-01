@@ -1,6 +1,5 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { L2TipsStore } from '@aztec/kv-store/stores';
+import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -10,13 +9,11 @@ import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_p
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 
 /**
- * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the
- * latest block header and handle reorgs.
- * It provides methods to trigger a sync and get the block number we are syncec to
- * details, and fetch transactions by hash.
+ * The Synchronizer class orchestrates synchronization between the PXE and Aztec node, maintaining an up-to-date
+ * view of the L2 chain state. It handles block header retrieval, chain reorganizations, and provides an interface
+ * for querying sync status.
  */
 export class Synchronizer implements L2BlockStreamEventHandler {
-  private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: Logger;
   private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
@@ -26,8 +23,8 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private syncDataProvider: SyncDataProvider,
     private noteDataProvider: NoteDataProvider,
     private taggingDataProvider: TaggingDataProvider,
-    private l2TipsStore: L2TipsStore,
-    config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
+    private l2TipsStore: L2TipsKVStore,
+    config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
   ) {
     this.log =
@@ -37,9 +34,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
+  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>>) {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
-      startingBlock: config.l2StartingBlock,
+      batchSize: config.l2BlockBatchSize,
+      // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
+      // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
+      skipFinalized: true,
     });
   }
 
@@ -59,18 +59,18 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-pruned': {
-        this.log.warn(`Pruning data after block ${event.blockNumber} due to reorg`);
+        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         const lastSynchedBlockNumber = await this.syncDataProvider.getBlockNumber();
-        await this.noteDataProvider.unnullifyNotesAfter(event.blockNumber, lastSynchedBlockNumber);
-        await this.noteDataProvider.removeNotesAfter(event.blockNumber);
+        await this.noteDataProvider.unnullifyNotesAfter(event.block.number, lastSynchedBlockNumber);
+        await this.noteDataProvider.removeNotesAfter(event.block.number);
         // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
         // block number in which each index is used it's all we can do.
         await this.taggingDataProvider.resetNoteSyncData();
         // Update the header to the last block.
-        const newHeader = await this.node.getBlockHeader(event.blockNumber);
+        const newHeader = await this.node.getBlockHeader(event.block.number);
         if (!newHeader) {
-          this.log.error(`Block header not found for block number ${event.blockNumber} during chain prune`);
+          this.log.error(`Block header not found for block number ${event.block.number} during chain prune`);
         } else {
           await this.syncDataProvider.setHeader(newHeader);
         }
@@ -80,7 +80,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
   }
 
   /**
-   * Syncs PXE and the node by dowloading the metadata of the latest blocks, allowing simulations to use
+   * Syncs PXE and the node by downloading the metadata of the latest blocks, allowing simulations to use
    * recent data (e.g. notes), and handling any reorgs that might have occurred.
    */
   public async sync() {
@@ -105,7 +105,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
 
     try {
       currentHeader = await this.syncDataProvider.getBlockHeader();
-    } catch (e) {
+    } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
@@ -115,7 +115,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.blockStream.sync();
   }
 
-  public async getSynchedBlockNumber() {
-    return (await this.syncDataProvider.getBlockNumber()) ?? this.initialSyncBlockNumber;
+  public getSynchedBlockNumber() {
+    return this.syncDataProvider.getBlockNumber();
   }
 }

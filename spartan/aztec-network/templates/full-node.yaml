@@ -102,12 +102,16 @@ spec:
               value: "--max-old-space-size={{ .Values.fullNode.maxOldSpaceSize}}"
             - name: AZTEC_PORT
               value: "{{ .Values.fullNode.service.nodePort }}"
+            - name: AZTEC_ADMIN_PORT
+              value: "{{ .Values.fullNode.service.adminPort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.fullNode.logLevel }}"
             - name: LOG_JSON
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.fullNode.p2p.enabled }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.fullNode.p2p.floodPublish }}"
             - name: COINBASE
@@ -154,12 +158,19 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
+            - name: SENTINEL_ENABLED
+              value: "{{ .Values.fullNode.sentinelEnabled }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
           ports:
             - containerPort: {{ .Values.fullNode.service.nodePort }}
+            - containerPort: {{ .Values.fullNode.service.adminPort }}
             - containerPort: {{ .Values.fullNode.service.p2pPort }}
             - containerPort: {{ .Values.fullNode.service.p2pPort }}
               protocol: UDP
@@ -195,13 +206,14 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
     app: full-node
+  annotations:
+    {{- if hasKey .Values.fullNode "fixedStaticIpName" }}
+    cloud.google.com/backend-config: '{"default": "{{ include "aztec-network.fullname" . }}-full-node-backend-config"}'
+    {{- end }}
 spec:
   # If this is a public network, we want to expose the fulls node as a LoadBalancer
   {{- if .Values.network.public }}
   type: LoadBalancer
-  {{- if hasKey .Values.fullNode "fixedExternalIP" }}
-  loadBalancerIP: {{ .Values.fullNode.fixedExternalIP }}
-  {{- end}}
   {{- else }}
   type: ClusterIP
   clusterIP: None
@@ -221,14 +233,49 @@ spec:
     - port: {{ .Values.fullNode.service.nodePort }}
       name: node
 ---
-{{- if hasKey .Values.fullNode "fixedExternalIP" }}
-apiVersion: networking.gke.io/v1beta2
+# Internal service for accessing the admin port
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-admin
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+    app: full-node
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "aztec-network.selectorLabels" . | nindent 4 }}
+    app: full-node
+  # The admin port is restricted from public access thanks to terraform/gke-cluster/firewall.tf
+  ports:
+    - port: {{ .Values.fullNode.service.adminPort }}
+      targetPort: {{ .Values.fullNode.service.adminPort }}
+      name: admin
+---
+{{- if hasKey .Values.fullNode "fixedStaticIpName" }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-full-node-backend-config
+  namespace: {{ .Release.Namespace }}
+spec:
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 2
+    type: HTTP
+    requestPath: /status
+    port: 8080
+---
+apiVersion: networking.gke.io/v1
 kind: ManagedCertificate
 metadata:
   name: {{ include "aztec-network.fullname" . }}-full-node-cert
 spec:
   domains:
-  - aztecprotocol.com
+  # Note: A record must be added in this domain to point at  {{ .Values.fullNode.fixedStaticIpName }}
+  - {{ .Values.fullNode.staticIpUrl }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -237,13 +284,17 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: {{ include "aztec-network.fullname" . }}-full-node-cert
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.fullNode.fixedStaticIpName }}
+    kubernetes.io/ingress.allow-http: "false"
+    cloud.google.com/health-check-port: "8080"
+    cloud.google.com/healthcheck-path: "/status"
 spec:
   rules:
-  - host: aztecprotocol.com
+  - host: {{ .Values.fullNode.staticIpUrl }}
     http:
       paths:
-      - path: /*
-        pathType: ImplementationSpecific
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: {{ include "aztec-network.fullname" . }}-full-node

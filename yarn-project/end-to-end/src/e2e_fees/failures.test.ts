@@ -34,6 +34,7 @@ describe('e2e_fees failures', () => {
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
     t.setIsMarkingAsProven(false);
@@ -59,13 +60,12 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         // still use a public transfer so as to fail in the public app logic phase
         .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
-        .send({
+        .simulate({
           fee: {
             gasSettings,
             paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
@@ -77,6 +77,7 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -85,7 +86,6 @@ describe('e2e_fees failures', () => {
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
-        skipPublicSimulation: true,
         fee: {
           gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -95,15 +95,20 @@ describe('e2e_fees failures', () => {
 
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
+    const { sequencerBlockRewards } = await t.getBlockRewards();
+
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
+    await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
     const feeAmount = txReceipt.transactionFee!;
     const expectedProverFee = await t.getProverFee(txReceipt.blockNumber!);
     const newSequencerRewards = await t.getCoinbaseSequencerRewards();
-    expect(newSequencerRewards).toEqual(currentSequencerRewards + feeAmount - expectedProverFee);
+    expect(newSequencerRewards).toEqual(
+      currentSequencerRewards + sequencerBlockRewards + feeAmount - expectedProverFee,
+    );
 
     // and thus we paid the fee
     await expectMapping(
@@ -155,13 +160,12 @@ describe('e2e_fees failures', () => {
     await expect(
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
-        .send({
+        .simulate({
           fee: {
             gasSettings,
             paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
     // we did not pay the fee, because we did not submit the TX
@@ -185,7 +189,6 @@ describe('e2e_fees failures', () => {
     const txReceipt = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
       .send({
-        skipPublicSimulation: true,
         fee: {
           gasSettings,
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -221,13 +224,12 @@ describe('e2e_fees failures', () => {
     await expect(
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
-        .send({
+        .simulate({
           fee: {
             gasSettings,
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow(/unauthorized/);
 
     // so does the sequencer
@@ -235,7 +237,6 @@ describe('e2e_fees failures', () => {
       bananaCoin.methods
         .transfer_in_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
         .send({
-          skipPublicSimulation: true,
           fee: {
             gasSettings,
             paymentMethod: new BuggedSetupFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -276,19 +277,17 @@ describe('e2e_fees failures', () => {
     await expect(
       bananaCoin.methods
         .mint_to_public(aliceAddress, 1n) // random operation
-        .send({
+        .simulate({
           fee: {
             gasSettings: badGas,
             paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
           },
-        })
-        .wait(),
+        }),
     ).rejects.toThrow();
 
     const receipt = await bananaCoin.methods
       .mint_to_public(aliceAddress, 1n) // random operation
       .send({
-        skipPublicSimulation: true,
         fee: {
           gasSettings: badGas,
           paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceWallet),
@@ -326,7 +325,7 @@ describe('e2e_fees failures', () => {
 class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
   override async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
     const maxFee = gasSettings.getFeeLimit();
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
 
@@ -337,7 +336,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
         caller: this.paymentContract,
         action: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,
@@ -357,7 +356,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
           type: FunctionType.PRIVATE,
           isStatic: false,
-          args: [tooMuchFee, nonce],
+          args: [tooMuchFee, authwitNonce],
           returnTypes: [],
         },
       ],

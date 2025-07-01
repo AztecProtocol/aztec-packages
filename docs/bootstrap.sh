@@ -8,7 +8,7 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; | \
       awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
 
@@ -18,77 +18,41 @@ if semver check $REF_NAME; then
   export COMMIT_TAG=$REF_NAME
 fi
 
-function build_and_preview {
+function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     echo "Not building docs for arm64 in CI."
     return
   fi
   echo_header "build docs"
+  npm_install_deps
   if cache_download docs-$hash.tar.gz; then
     return
   fi
-  rm -rf \
-    processed-docs \
-    processed-docs-cache \
-    docs/reference/developer_references/aztecjs \
-    docs/reference/developer_references/smart_contract_reference/aztec-nr
-  npm_install_deps
-  denoise "yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
+  denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
-
-  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
-    # Included as part of build step so we can skip this consistently if the build was cached.
-    release_preview
-  fi
 }
 
-# If we're an AMD64 CI run and have a PR, do a preview release.
-function release_preview {
-  if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
-    echo "No netlify credentials available, skipping release preview."
+function release_docs {
+  echo "deploying docs to prod"
+  yarn install
+  yarn build
+
+  yarn netlify deploy --site aztec-docs-dev --prod 2>&1
+}
+
+function test_cmds {
+  if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
+    # Not running docs tests for arm64 in CI.
     return
   fi
 
-  echo_header "docs release preview"
-
-  # Deploy and capture exit code and output.
-  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev 2>&1); then
-    echo "Netlify deploy failed with error:"
-    echo "$deploy_output"
-    exit 1
-  fi
-
-  # Extract preview URL.
-  local docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
-  if [ -z "$docs_preview_url" ]; then
-    echo "Failed to extract preview URL from Netlify output."
-  else
-    echo "Docs preview URL: ${docs_preview_url}"
-  fi
-
-  local pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
-  if [ -n "$pr_number" ]; then
-    if [ -z "${GITHUB_TOKEN:-}" ]; then
-      echo_stderr "Not updating docs preview comment; no PR number."
-      return
-    fi
-    # We remove color from the URL before passing.
-    scripts/docs_preview_comment.sh $GITHUB_TOKEN $pr_number "$(echo $docs_preview_url | sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g')"
-  fi
+  local test_hash=$hash
+  echo "$test_hash cd docs && yarn spellcheck"
 }
 
-function release {
-  echo_header "docs release"
-
-  # If we download cached docs, we may not have netlify CLI in node_modules. Install in case.
-  yarn install
-
-  if [ $(dist_tag) != "latest" ]; then
-    # TODO attach to github release
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev
-  else
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
-  fi
+function test {
+  echo_header "docs test"
+  test_cmds | parallelise
 }
 
 case "$cmd" in
@@ -96,16 +60,16 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"full"|"fast")
-    build_and_preview
+    build_docs
     ;;
   "hash")
     echo "$hash"
     ;;
-  "release-preview")
-    release_preview
+  "release-docs")
+    release_docs
     ;;
-  "release")
-    release
+  test|test_cmds)
+    $cmd
     ;;
   *)
     echo "Unknown command: $cmd"

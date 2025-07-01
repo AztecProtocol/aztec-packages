@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file generic_lookup_relation.hpp
  * @author Rumata888
@@ -447,13 +453,6 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         }
     }
 
-    /**
-     * @brief Expression for generic log-derivative-based set permutation.
-     * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the fully extended Accumulator edges.
-     * @param relation_params contains beta, gamma, and public_input_delta, ....
-     * @param scaling_factor optional term to scale the evaluation before adding to evals.
-     */
     /**
      * @brief Expression for generic log-derivative-based set permutation.
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`

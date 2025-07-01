@@ -3,9 +3,9 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/address_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
@@ -17,7 +17,6 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -27,7 +26,6 @@ namespace {
 
 using tracegen::AddressDerivationTraceBuilder;
 using tracegen::EccTraceBuilder;
-using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -54,25 +52,6 @@ using ecadd_relation = bb::avm2::ecc<FF>;
 using scalar_mul_relation = bb::avm2::scalar_mul<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-using lookup_salted_initialization_hash_poseidon2_0 =
-    bb::avm2::lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF>;
-using lookup_salted_initialization_hash_poseidon2_1 =
-    bb::avm2::lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF>;
-using lookup_partial_address_poseidon2 = bb::avm2::lookup_address_derivation_partial_address_poseidon2_relation<FF>;
-using lookup_public_keys_hash_poseidon2_0 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF>;
-using lookup_public_keys_hash_poseidon2_1 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF>;
-using lookup_public_keys_hash_poseidon2_2 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF>;
-using lookup_public_keys_hash_poseidon2_3 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF>;
-using lookup_public_keys_hash_poseidon2_4 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF>;
-using lookup_public_preaddress_poseidon2 = bb::avm2::lookup_address_derivation_preaddress_poseidon2_relation<FF>;
-using lookup_public_preaddress_scalar_mul = bb::avm2::lookup_address_derivation_preaddress_scalar_mul_relation<FF>;
-using lookup_address_ecadd = bb::avm2::lookup_address_derivation_address_ecadd_relation<FF>;
-
 TEST(AddressDerivationConstrainingTest, EmptyRow)
 {
     check_relation<address_derivation_relation>(testing::empty_trace());
@@ -89,7 +68,7 @@ TEST(AddressDerivationConstrainingTest, Basic)
         { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr });
 
     FF partial_address =
-        poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS, instance.contract_class_id, salted_initialization_hash });
+        poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS, instance.original_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
     FF preaddress = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
@@ -144,30 +123,19 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     ecc_builder.process_add(ecadd_event_emitter.dump_events(), trace);
     ecc_builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_salted_initialization_hash_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_salted_initialization_hash_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_partial_address_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_3::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_4::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_preaddress_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_preaddress_scalar_mul::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_address_ecadd::Settings>().process(trace);
-
+    check_interaction<AddressDerivationTraceBuilder,
+                      lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings,
+                      lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings,
+                      lookup_address_derivation_partial_address_poseidon2_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_0_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_1_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_2_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_3_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_4_settings,
+                      lookup_address_derivation_preaddress_poseidon2_settings,
+                      lookup_address_derivation_preaddress_scalar_mul_settings,
+                      lookup_address_derivation_address_ecadd_settings>(trace);
     check_relation<address_derivation_relation>(trace);
-    check_interaction<lookup_salted_initialization_hash_poseidon2_0>(trace);
-    check_interaction<lookup_salted_initialization_hash_poseidon2_1>(trace);
-    check_interaction<lookup_partial_address_poseidon2>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_0>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_1>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_2>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_3>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_4>(trace);
-    check_interaction<lookup_public_preaddress_poseidon2>(trace);
-    check_interaction<lookup_public_preaddress_scalar_mul>(trace);
-    check_interaction<lookup_address_ecadd>(trace);
 }
 
 } // namespace

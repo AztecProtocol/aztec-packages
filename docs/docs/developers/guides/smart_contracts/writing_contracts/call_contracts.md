@@ -15,7 +15,7 @@ If a contract wishes to access or modify another contract's state, it must make 
 Import the contract that you want to call into your `Nargo.toml` under `dependencies` like this:
 
 ```toml
-token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/app/token_contract" }
 ```
 
 ### Import into your contract
@@ -39,22 +39,22 @@ To call the function, you need to
 
 To call a private function, you can just use `call()` like this:
 
-#include_code call_function noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr rust
+#include_code call_function noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr rust
 
 #### Public -> Public calls
 
 To call a public function from a public function, it is the same as above. You can just use `call()` like this:
 
-#include_code public_to_public_call noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
+#include_code public_to_public_call noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 #### Private -> Public calls
 
 To call a public function from private, you will need to enqueue it like this:
 
-#include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
+#include_code enqueue_public /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
 Public functions are always executed after private execution. To learn why, read the [concepts overview](../../../../aztec/index.md).
 
 #### Other call types
 
-There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/glossary/call_types.md).
+There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/concepts/call_types.md).

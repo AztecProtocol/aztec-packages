@@ -1,11 +1,14 @@
 network:
   public: true
+  mempoolLimitBytes: "10000000" # approx 10MB
 
 aztec:
   slotDuration: 36
   epochDuration: 32
   proofSubmissionWindow: 64
   realProofs: true
+  testAccounts: true
+  sponsoredFPC: true
 
 images:
   aztec:
@@ -16,7 +19,8 @@ telemetry:
 
 validator:
   storageSize: "100Gi"
-  replicas: 48
+  replicas: 4
+  keysPerNode: 12
   validator:
     disabled: false
   sequencer:
@@ -29,7 +33,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 32
+  replicas: 8
   bb:
     hardwareConcurrency: 31
   gke:
@@ -40,7 +44,7 @@ proverAgent:
       cpu: "31"
 
 bot:
-  replicas: 8
+  replicas: 1
   ammTxs: true
   followChain: "PENDING"
   enabled: true

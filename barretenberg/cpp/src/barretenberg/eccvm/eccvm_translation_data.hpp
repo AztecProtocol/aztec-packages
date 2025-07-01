@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
@@ -35,17 +41,17 @@ template <typename Transcript> class TranslationData {
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
 
     /**
-     * @brief Given masked `transcript_polynomials` \f$ \tilde{T}_i(X)  = T_i(X) + X^{n - 1 - \text{MASKING_OFFSET}}
-     * \cdot m_i(X) \f$, for \f$ i = 0, \ldots, \text{NUM_TRANSLATION_EVALUATIONS}-1\f$, we extract and concatenate
-     * their masking terms \f$ m_i\f$. Let \f$ M(X) \f$ be the polynomial whose first
-     * \f$ \text{MASKING_OFFSET}* \text{NUM_TRANSLATION_EVALUATIONS}\f$ Lagrange coefficients over \f$ H \f$ are given
-     * by the concatenation of \f$ m_i \f$ padded by zeroes. To mask \f$ M(X) \f$ and commit to the masked polynomial,
-     * we need to compute its coefficients in the monomial basis.
+     * @brief Given masked `transcript_polynomials` \f$ \tilde{T}_i(X)  = T_i(X) + X^{n - 1 -
+     * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}} \cdot m_i(X) \f$, for \f$ i = 0, \ldots,
+     * \text{NUM_TRANSLATION_EVALUATIONS}-1\f$, we extract and concatenate their masking terms \f$ m_i\f$. Let \f$ M(X)
+     * \f$ be the polynomial whose first \f$ \text{NUM_DISABLED_ROWS_IN_SUMCHECK}* \text{NUM_TRANSLATION_EVALUATIONS}\f$
+     * Lagrange coefficients over \f$ H \f$ are given by the concatenation of \f$ m_i \f$ padded by zeroes. To mask \f$
+     * M(X) \f$ and commit to the masked polynomial, we need to compute its coefficients in the monomial basis.
      *
      * An object of this class is fed to the SmallSubgroupIPA prover to establish the claims about the inner product of
      * Lagrange coefficients of \f$ M \f$ against the vectors of the following form.\f$(1, 1, x , x^2 ,
-     * x^{\text{MASKING_OFFSET} - 1}, v , v\cdot x ,\ldots, ... , v^{T - 1}, v^{T-1} x , v^{T-1} x^2 , v^{T-1}
-     * x^{\text{MASKING_OFFSET} - 1} ).\f$
+     * x^{\text{NUM_DISABLED_ROWS_IN_SUMCHECK} - 1}, v , v\cdot x ,\ldots, ... , v^{T - 1}, v^{T-1} x , v^{T-1} x^2 ,
+     * v^{T-1} x^{\text{NUM_DISABLED_ROWS_IN_SUMCHECK} - 1} ).\f$
      *
      * @param transcript_polynomials
      * @param transcript
@@ -53,14 +59,14 @@ template <typename Transcript> class TranslationData {
      */
     TranslationData(const RefVector<Polynomial>& transcript_polynomials,
                     const std::shared_ptr<Transcript>& transcript,
-                    std::shared_ptr<CommitmentKey>& commitment_key)
+                    CommitmentKey& commitment_key)
         : concatenated_polynomial_lagrange(SUBGROUP_SIZE)
         , masked_concatenated_polynomial(MASKED_CONCATENATED_WITNESS_LENGTH)
     {
         // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
         // polynomials that may exceed the circuit size.
-        if (commitment_key->dyadic_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
-            commitment_key = std::make_shared<typename Flavor::CommitmentKey>(MASKED_CONCATENATED_WITNESS_LENGTH);
+        if (commitment_key.dyadic_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
+            commitment_key = typename Flavor::CommitmentKey(MASKED_CONCATENATED_WITNESS_LENGTH);
         }
         // Create interpolation domain required for Lagrange interpolation
         interpolation_domain[0] = FF{ 1 };
@@ -73,12 +79,12 @@ template <typename Transcript> class TranslationData {
 
         // Commit to  M(X) + Z_H(X)*R(X), where R is a random polynomial of WITNESS_MASKING_TERM_LENGTH.
         transcript->template send_to_verifier("Translation:concatenated_masking_term_commitment",
-                                              commitment_key->commit(masked_concatenated_polynomial));
+                                              commitment_key.commit(masked_concatenated_polynomial));
     }
     /**
      * @brief   Let \f$ T = NUM_TRANSLATION_EVALUATIONS \f$ and let \f$ m_0, ..., m_{T-1}\f$ be the vectors of last \f$
-     * \text{MASKING_OFFSET} \f$  coeffs in each transcript poly \f$ \tilde{T}_i \f$,  we compute the concatenation \f$
-     * (m_0 || ... || m_{T-1})\f$ in Lagrange and monomial basis and mask the latter.
+     * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$  coeffs in each transcript poly \f$ \tilde{T}_i \f$,  we compute the
+     * concatenation \f$ (m_0 || ... || m_{T-1})\f$ in Lagrange and monomial basis and mask the latter.
      *
      * @param transcript_polynomials
      */
@@ -94,10 +100,10 @@ template <typename Transcript> class TranslationData {
 
         // Extract the Lagrange coefficients of the concatenated masking term from the transcript polynomials
         for (size_t poly_idx = 0; poly_idx < NUM_TRANSLATION_EVALUATIONS; poly_idx++) {
-            for (size_t idx = 0; idx < MASKING_OFFSET; idx++) {
-                size_t idx_to_populate = poly_idx * MASKING_OFFSET + idx;
+            for (size_t idx = 0; idx < NUM_DISABLED_ROWS_IN_SUMCHECK; idx++) {
+                size_t idx_to_populate = poly_idx * NUM_DISABLED_ROWS_IN_SUMCHECK + idx;
                 coeffs_lagrange_subgroup[idx_to_populate] =
-                    transcript_polynomials[poly_idx].at(circuit_size - MASKING_OFFSET + idx);
+                    transcript_polynomials[poly_idx].at(circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK + idx);
             }
         }
         concatenated_polynomial_lagrange = Polynomial(coeffs_lagrange_subgroup);

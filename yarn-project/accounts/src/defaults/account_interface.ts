@@ -22,16 +22,16 @@ export class DefaultAccountInterface implements AccountInterface {
   constructor(
     private authWitnessProvider: AuthWitnessProvider,
     private address: CompleteAddress,
-    nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'protocolVersion'>,
+    nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'rollupVersion'>,
   ) {
     this.entrypoint = new DefaultAccountEntrypoint(
       address.address,
       authWitnessProvider,
       nodeInfo.l1ChainId,
-      nodeInfo.protocolVersion,
+      nodeInfo.rollupVersion,
     );
     this.chainId = new Fr(nodeInfo.l1ChainId);
-    this.version = new Fr(nodeInfo.protocolVersion);
+    this.version = new Fr(nodeInfo.rollupVersion);
   }
 
   createTxExecutionRequest(

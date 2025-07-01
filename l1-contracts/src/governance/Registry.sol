@@ -2,12 +2,18 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {IHaveVersion, IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-
 import {Ownable} from "@oz/access/Ownable.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {RewardDistributor, IRewardDistributor} from "./RewardDistributor.sol";
+
+struct RegistryStorage {
+  mapping(uint256 version => IHaveVersion rollup) versionToRollup;
+  uint256[] versions;
+  address governance;
+  IRewardDistributor rewardDistributor;
+}
 
 /**
  * @title Registry
@@ -15,73 +21,61 @@ import {Ownable} from "@oz/access/Ownable.sol";
  * @notice Keeps track of addresses of current rollup and historical addresses.
  */
 contract Registry is IRegistry, Ownable {
-  uint256 public override(IRegistry) numberOfVersions;
+  RegistryStorage internal $;
 
-  DataStructures.RegistrySnapshot internal currentSnapshot;
-  mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) internal snapshots;
-  mapping(address rollup => uint256 version) internal rollupToVersion;
+  constructor(address _owner, IERC20 _rewardAsset) Ownable(_owner) {
+    $.rewardDistributor = IRewardDistributor(
+      address(new RewardDistributor(_rewardAsset, IRegistry(address(this)), _owner))
+    );
+  }
 
-  constructor(address _owner) Ownable(_owner) {
-    // Inserts a "dead" rollup at version 0
-    // This is simply done to make first version 1, which fits better with the rest of the system
-    _upgrade(address(0xdead));
+  function addRollup(IHaveVersion _rollup) external override(IRegistry) onlyOwner {
+    uint256 version = _rollup.getVersion();
+    require(
+      address($.versionToRollup[version]) == address(0),
+      Errors.Registry__RollupAlreadyRegistered(address(_rollup))
+    );
+    $.versionToRollup[version] = _rollup;
+    $.versions.push(version);
+
+    emit InstanceAdded(address(_rollup), version);
+  }
+
+  function updateGovernance(address _governance) external override(IRegistry) onlyOwner {
+    $.governance = _governance;
+    emit GovernanceUpdated(_governance);
+  }
+
+  function updateRewardDistributor(address _rewardDistributor)
+    external
+    override(IRegistry)
+    onlyOwner
+  {
+    $.rewardDistributor = IRewardDistributor(_rewardDistributor);
+    emit RewardDistributorUpdated(_rewardDistributor);
   }
 
   /**
    * @notice Returns the address of the rollup contract
    * @return The rollup address
    */
-  function getRollup() external view override(IRegistry) returns (address) {
-    return currentSnapshot.rollup;
+  function getCanonicalRollup() external view override(IRegistry) returns (IHaveVersion) {
+    require($.versions.length > 0, Errors.Registry__NoRollupsRegistered());
+    return $.versionToRollup[$.versions[$.versions.length - 1]];
   }
 
-  /**
-   * @notice Returns the version for a specific rollup contract or reverts if not listed
-   * @param _rollup - The address of the rollup contract
-   * @return The version of the rollup contract
-   */
-  function getVersionFor(address _rollup) external view override(IRegistry) returns (uint256) {
-    (uint256 version, bool exists) = _getVersionFor(_rollup);
-    require(exists, Errors.Registry__RollupNotRegistered(_rollup));
-    return version;
+  function getRollup(uint256 _version) external view override(IRegistry) returns (IHaveVersion) {
+    IHaveVersion rollup = $.versionToRollup[_version];
+    require(address(rollup) != address(0), Errors.Registry__RollupNotRegistered(_version));
+    return rollup;
   }
 
-  /**
-   * @notice Returns whther the rollup is registered
-   * @param _rollup - The address of the rollup contract
-   * @return Whether the rollup is registered
-   */
-  function isRollupRegistered(address _rollup) external view override(IRegistry) returns (bool) {
-    (, bool exists) = _getVersionFor(_rollup);
-    return exists;
+  function numberOfVersions() external view override(IRegistry) returns (uint256) {
+    return $.versions.length;
   }
 
-  /**
-   * @notice Fetches a snapshot of the registry indicated by `version`
-   * @dev the version is 0 indexed, so the first snapshot is version 0.
-   * @param _version - The version of the rollup to return (i.e. which snapshot)
-   * @return the snapshot
-   */
-  function getSnapshot(uint256 _version)
-    external
-    view
-    override(IRegistry)
-    returns (DataStructures.RegistrySnapshot memory)
-  {
-    return snapshots[_version];
-  }
-
-  /**
-   * @notice Returns the current snapshot of the registry
-   * @return The current snapshot
-   */
-  function getCurrentSnapshot()
-    external
-    view
-    override(IRegistry)
-    returns (DataStructures.RegistrySnapshot memory)
-  {
-    return currentSnapshot;
+  function getVersion(uint256 _index) external view override(IRegistry) returns (uint256) {
+    return $.versions[_index];
   }
 
   /**
@@ -89,40 +83,10 @@ contract Registry is IRegistry, Ownable {
    * @return The governance address
    */
   function getGovernance() external view override(IRegistry) returns (address) {
-    return owner();
+    return $.governance;
   }
 
-  /**
-   * @notice Creates a new snapshot of the registry
-   *
-   * @dev Only callable by the owner
-   * @dev Reverts if the rollup is already registered
-   *
-   * @param _rollup - The address of the rollup contract
-   * @return The version of the new snapshot
-   */
-  function upgrade(address _rollup) public override(IRegistry) onlyOwner returns (uint256) {
-    return _upgrade(_rollup);
-  }
-
-  function _upgrade(address _rollup) internal returns (uint256) {
-    (, bool exists) = _getVersionFor(_rollup);
-    require(!exists, Errors.Registry__RollupAlreadyRegistered(_rollup));
-
-    DataStructures.RegistrySnapshot memory newSnapshot =
-      DataStructures.RegistrySnapshot(_rollup, block.number);
-    currentSnapshot = newSnapshot;
-    uint256 version = numberOfVersions++;
-    snapshots[version] = newSnapshot;
-    rollupToVersion[_rollup] = version;
-
-    emit InstanceAdded(_rollup, version);
-
-    return version;
-  }
-
-  function _getVersionFor(address _rollup) internal view returns (uint256 version, bool exists) {
-    version = rollupToVersion[_rollup];
-    return (version, version > 0 || snapshots[0].rollup == _rollup);
+  function getRewardDistributor() external view override(IRegistry) returns (IRewardDistributor) {
+    return $.rewardDistributor;
   }
 }

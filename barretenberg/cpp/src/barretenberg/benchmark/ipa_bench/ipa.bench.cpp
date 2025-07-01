@@ -13,17 +13,16 @@ using Polynomial = Polynomial<Fr>;
 constexpr size_t MIN_POLYNOMIAL_DEGREE_LOG2 = 10;
 constexpr size_t MAX_POLYNOMIAL_DEGREE_LOG2 = 16;
 
-std::shared_ptr<CommitmentKey<Curve>> ck;
-std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
+CommitmentKey<Curve> ck;
+VerifierCommitmentKey<Curve> vk;
 std::vector<std::shared_ptr<NativeTranscript>> prover_transcripts(MAX_POLYNOMIAL_DEGREE_LOG2 -
                                                                   MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
 std::vector<OpeningClaim<Curve>> opening_claims(MAX_POLYNOMIAL_DEGREE_LOG2 - MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
 static void DoSetup(const benchmark::State&)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    ck = std::make_shared<CommitmentKey<Curve>>(1 << MAX_POLYNOMIAL_DEGREE_LOG2);
-    vk = std::make_shared<VerifierCommitmentKey<Curve>>(1 << MAX_POLYNOMIAL_DEGREE_LOG2,
-                                                        srs::get_grumpkin_crs_factory());
+    srs::init_file_crs_factory(srs::bb_crs_path());
+    ck = CommitmentKey<Curve>(1 << MAX_POLYNOMIAL_DEGREE_LOG2);
+    vk = VerifierCommitmentKey<Curve>(1 << MAX_POLYNOMIAL_DEGREE_LOG2, srs::get_grumpkin_crs_factory());
 }
 
 void ipa_open(State& state) noexcept
@@ -40,7 +39,7 @@ void ipa_open(State& state) noexcept
         auto x = Fr::random_element(&engine);
         auto eval = poly.evaluate(x);
         const OpeningPair<Curve> opening_pair = { x, eval };
-        const OpeningClaim<Curve> opening_claim{ opening_pair, ck->commit(poly) };
+        const OpeningClaim<Curve> opening_claim{ opening_pair, ck.commit(poly) };
         // initialize empty prover transcript
         auto prover_transcript = std::make_shared<NativeTranscript>();
         state.ResumeTiming();
@@ -59,7 +58,8 @@ void ipa_verify(State& state) noexcept
         auto prover_transcript = prover_transcripts[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2];
         auto opening_claim = opening_claims[static_cast<size_t>(state.range(0)) - MIN_POLYNOMIAL_DEGREE_LOG2];
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(prover_transcript->export_proof());
 
         state.ResumeTiming();
         auto result = IPA<Curve>::reduce_verify(vk, opening_claim, verifier_transcript);

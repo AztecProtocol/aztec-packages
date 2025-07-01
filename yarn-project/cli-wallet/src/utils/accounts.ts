@@ -8,7 +8,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { WalletDB } from '../storage/wallet_db.js';
 import { extractECDSAPublicKeyFromBase64String } from './ecdsa.js';
 
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
 export async function createOrRetrieveAccount(
@@ -18,7 +18,7 @@ export async function createOrRetrieveAccount(
   secretKey?: Fr,
   type: AccountType = 'schnorr',
   salt?: Fr,
-  publicKey?: string | undefined,
+  publicKey?: string,
 ): Promise<AccountManager> {
   let account;
 
@@ -40,6 +40,11 @@ export async function createOrRetrieveAccount(
     case 'schnorr': {
       const { getSchnorrAccount } = await import('@aztec/accounts/schnorr');
       account = getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
+      break;
+    }
+    case 'ecdsasecp256r1': {
+      const { getEcdsaRAccount } = await import('@aztec/accounts/ecdsa');
+      account = getEcdsaRAccount(pxe, secretKey, deriveSigningKey(secretKey).toBuffer(), salt);
       break;
     }
     case 'ecdsasecp256r1ssh': {

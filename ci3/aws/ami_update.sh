@@ -17,10 +17,10 @@ fi
 
 case "$arch" in
   "amd64")
-    ami="ami-036841078a4b68e14"
+    ami="ami-04f167a56786e4b09"
     ;;
   "arm64")
-    ami="ami-0560690593473ded1"
+    ami="ami-0ae6f07ad3a8ef182"
     ;;
   *)
     echo "Unknown arch: $ARCH"
@@ -40,7 +40,7 @@ echo "Instance ip: $ip"
 # Initial setup.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
   set -e
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt update
   sudo apt install -y apt-transport-https ca-certificates curl software-properties-common docker-ce

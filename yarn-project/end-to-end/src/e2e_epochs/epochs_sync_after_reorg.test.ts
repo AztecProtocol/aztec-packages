@@ -5,7 +5,7 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_L1_SLOTS } from './epochs_test.js';
+import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -13,11 +13,14 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
+  let L2_SLOT_DURATION_IN_S: number;
+
   let test: EpochsTestContext;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({ startProverNode: false }); // no prover!
     ({ context, logger } = test);
+    ({ L2_SLOT_DURATION_IN_S } = test);
   });
 
   afterEach(async () => {
@@ -28,7 +31,7 @@ describe('e2e_epochs/epochs_sync_after_reorg', () => {
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12206
   it('new node can sync world-state after unpruned reorg', async () => {
     // Wait until there are a few blocks in there
-    await test.waitUntilL2BlockNumber(5, L2_SLOT_DURATION_IN_L1_SLOTS * L1_BLOCK_TIME_IN_S * 5 + 30);
+    await test.waitUntilL2BlockNumber(5, L2_SLOT_DURATION_IN_S * 5 + 30);
 
     // Stop the node generating blocks
     logger.warn(`Stopping the main node`);

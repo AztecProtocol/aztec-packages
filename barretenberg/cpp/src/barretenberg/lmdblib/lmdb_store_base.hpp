@@ -21,6 +21,7 @@ class LMDBStoreBase {
     ReadTransaction::SharedPtr create_shared_read_transaction() const;
     WriteTransaction::Ptr create_write_transaction() const;
     LMDBDatabaseCreationTransaction::Ptr create_db_transaction() const;
+    void copy_store(const std::string& dstPath, bool compact);
 
   protected:
     std::string _dbDirectory;

@@ -3,9 +3,6 @@
 # Declare CI_REDIS host, allowing override.
 export CI_REDIS=${CI_REDIS:-localhost}
 
-# Default to not using the test cache.
-export USE_TEST_CACHE=${USE_TEST_CACHE:-0}
-
 # If we haven't yet checked for redis availability.
 if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   # Start by setting it as not available.
@@ -18,7 +15,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
     # We have the build_instance_key.
     # Attempt to open a port to the remote redis cache via ssh through the bastion.
     echo_stderr "Opening port to remote redis..."
-    ssh -N -L 6379:ci-redis.lzka0i.0001.use2.cache.amazonaws.com:6379 \
+    ssh -N -L 6379:ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379 \
       -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=480m \
       -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com true && true
     if nc -z $CI_REDIS 6379 &>/dev/null; then
@@ -38,9 +35,9 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
 fi
 
 # If redis isn't available, neither is the test cache.
-if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "$USE_TEST_CACHE" -eq 1 ]; then
-  echo_stderr "${yellow}Use of test cache requested, but redis unavailable. Disabling test cache.${reset}"
-  USE_TEST_CACHE=0
+if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+  echo_stderr -e "${yellow}Redis unavailable. Disabling test cache.${reset}"
+  export USE_TEST_CACHE=0
 fi
 
 # Will set log expiry to 2 weeks in CI, and 8 hours for local runs.

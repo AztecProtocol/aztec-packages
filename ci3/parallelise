@@ -3,22 +3,30 @@
 # Commands are read from stdin.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-cd $root
-jobs=$(get_num_cpus_max ${1:-})
-parallel_args="-j$jobs --memsuspend $(memsuspend_limit) --line-buffer --joblog joblog.txt --halt now,fail=1"
+[ "${STRICT_SCHEDULING:-0}" -eq 1 ] && exec parallelise_strict "$@"
 
-# If not in CI, fail fast.
-if [ "$CI" -eq 0 ]; then
+cd $root
+
+if [ -z "${1:-}" ]; then
+  num_cpus=$(get_num_cpus)
+  jobs=$((num_cpus / 2))
+else
+  jobs=$(get_num_cpus_max ${1:-})
+fi
+
+parallel_args="-j$jobs --memsuspend $(memsuspend_limit) --line-buffer --joblog joblog.txt"
+
+if [ "${NO_FAIL_FAST:-0}" -eq 0 ]; then
   parallel_args+=" --halt now,fail=1"
 fi
 
-echo "Starting test run with max $jobs jobs..."
+echo "Starting parallel run with max $jobs jobs..."
 
 # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
   set +e
-  output=$(parallel $parallel_args --bar "run_test_cmd {}" | DUP=1 cache_log "Test run"; exit ${PIPESTATUS[0]})
+  output=$(parallel $parallel_args --bar 'DUMP_FAIL=1 run_test_cmd {}' | DUP=1 cache_log "Test run"; exit ${PIPESTATUS[0]})
   code=$?
   if [ "$code" -ne 0 ]; then
     echo -e "$output"

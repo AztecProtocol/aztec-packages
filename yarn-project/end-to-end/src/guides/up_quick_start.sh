@@ -4,6 +4,7 @@
 set -eux
 
 export WALLET_DATA_DIRECTORY=$(mktemp -d)/up_quick_start
+export PXE_PROVER="none"
 
 function on_exit {
   echo "Cleaning up $WALLET_DATA_DIRECTORY..."

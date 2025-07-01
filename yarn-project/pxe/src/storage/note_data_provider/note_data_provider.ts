@@ -80,12 +80,12 @@ export class NoteDataProvider implements DataProvider {
     return true;
   }
 
-  async addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
-    if (!(await this.#scopes.hasAsync(scope.toString()))) {
-      await this.addScope(scope);
-    }
-
+  addNotes(notes: NoteDao[], scope: AztecAddress = AztecAddress.ZERO): Promise<void> {
     return this.#store.transactionAsync(async () => {
+      if (!(await this.#scopes.hasAsync(scope.toString()))) {
+        await this.addScope(scope);
+      }
+
       for (const dao of notes) {
         // store notes by their index in the notes hash tree
         // this provides the uniqueness we need to store individual notes
@@ -127,24 +127,24 @@ export class NoteDataProvider implements DataProvider {
   }
 
   public async unnullifyNotesAfter(blockNumber: number, synchedBlockNumber?: number): Promise<void> {
-    const nullifiersToUndo: string[] = [];
-    const currentBlockNumber = blockNumber + 1;
-    const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
-    for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
-      nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
-    }
-    const notesIndexesToReinsert = await Promise.all(
-      nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
-    );
-    const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
-    const nullifiedNoteBuffers = await Promise.all(
-      notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
-    );
-    const noteDaos = nullifiedNoteBuffers
-      .filter(buffer => buffer != undefined)
-      .map(buffer => NoteDao.fromBuffer(buffer!));
-
     await this.#store.transactionAsync(async () => {
+      const nullifiersToUndo: string[] = [];
+      const currentBlockNumber = blockNumber + 1;
+      const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
+      for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
+        nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
+      }
+      const notesIndexesToReinsert = await Promise.all(
+        nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
+      );
+      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
+      const nullifiedNoteBuffers = await Promise.all(
+        notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
+      );
+      const noteDaos = nullifiedNoteBuffers
+        .filter(buffer => buffer != undefined)
+        .map(buffer => NoteDao.fromBuffer(buffer!));
+
       for (const dao of noteDaos) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
         await this.#notes.set(noteIndex, dao.toBuffer());
@@ -199,20 +199,22 @@ export class NoteDataProvider implements DataProvider {
               this.#notesByRecipientAndScope.get(formattedScopeString)!.getValuesAsync(filter.recipient.toString()),
             )
           : filter.txHash
-          ? await toArray(
-              this.#notesByTxHashAndScope.get(formattedScopeString)!.getValuesAsync(filter.txHash.toString()),
-            )
-          : filter.contractAddress
-          ? await toArray(
-              this.#notesByContractAndScope
-                .get(formattedScopeString)!
-                .getValuesAsync(filter.contractAddress.toString()),
-            )
-          : filter.storageSlot
-          ? await toArray(
-              this.#notesByStorageSlotAndScope.get(formattedScopeString)!.getValuesAsync(filter.storageSlot.toString()),
-            )
-          : await toArray(this.#notesByRecipientAndScope.get(formattedScopeString)!.valuesAsync()),
+            ? await toArray(
+                this.#notesByTxHashAndScope.get(formattedScopeString)!.getValuesAsync(filter.txHash.toString()),
+              )
+            : filter.contractAddress
+              ? await toArray(
+                  this.#notesByContractAndScope
+                    .get(formattedScopeString)!
+                    .getValuesAsync(filter.contractAddress.toString()),
+                )
+              : filter.storageSlot
+                ? await toArray(
+                    this.#notesByStorageSlotAndScope
+                      .get(formattedScopeString)!
+                      .getValuesAsync(filter.storageSlot.toString()),
+                  )
+                : await toArray(this.#notesByRecipientAndScope.get(formattedScopeString)!.valuesAsync()),
       );
     }
 
@@ -226,12 +228,12 @@ export class NoteDataProvider implements DataProvider {
         ids: filter.recipient
           ? await toArray(this.#nullifiedNotesByRecipient.getValuesAsync(filter.recipient.toString()))
           : filter.txHash
-          ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
-          : filter.contractAddress
-          ? await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()))
-          : filter.storageSlot
-          ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
-          : await toArray(this.#nullifiedNotes.keysAsync()),
+            ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
+            : filter.contractAddress
+              ? await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()))
+              : filter.storageSlot
+                ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
+                : await toArray(this.#nullifiedNotes.keysAsync()),
         notes: this.#nullifiedNotes,
       });
     }
@@ -284,20 +286,18 @@ export class NoteDataProvider implements DataProvider {
         const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
         const noteIndex = await this.#nullifierToNoteId.getAsync(nullifier.toString());
         if (!noteIndex) {
-          continue;
+          throw new Error('Nullifier not found in removeNullifiedNotes');
         }
 
         const noteBuffer = noteIndex ? await this.#notes.getAsync(noteIndex) : undefined;
 
         if (!noteBuffer) {
-          // note doesn't exist. Maybe it got nullified already
-          continue;
+          throw new Error('Note not found in removeNullifiedNotes');
         }
         const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
         const note = NoteDao.fromBuffer(noteBuffer);
         if (!note.recipient.equals(recipient)) {
-          // tried to nullify someone else's note
-          continue;
+          throw new Error("Tried to nullify someone else's note");
         }
 
         nullifiedNotes.push(note);

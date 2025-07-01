@@ -35,7 +35,7 @@ describe('private_function_membership_proof', () => {
     'artifactTreeSiblingPath',
     'artifactMetadataHash',
     'functionMetadataHash',
-    'unconstrainedFunctionsArtifactTreeRoot',
+    'utilityFunctionsTreeRoot',
     'privateFunctionTreeSiblingPath',
   ] as const)('fails proof if %s is mangled', async field => {
     const proof = await createPrivateFunctionMembershipProof(selector, artifact);

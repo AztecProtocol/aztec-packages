@@ -2,6 +2,7 @@ import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -10,14 +11,14 @@ import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import type { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 
-import { REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
+import { ProtocolContractAddress } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class PrivateFunctionBroadcastedEvent {
   constructor(
     public readonly contractClassId: Fr,
     public readonly artifactMetadataHash: Fr,
-    public readonly unconstrainedFunctionsArtifactTreeRoot: Fr,
+    public readonly utilityFunctionsTreeRoot: Fr,
     public readonly privateFunctionTreeSiblingPath: Tuple<Fr, typeof FUNCTION_TREE_HEIGHT>,
     public readonly privateFunctionTreeLeafIndex: number,
     public readonly artifactFunctionTreeSiblingPath: Tuple<Fr, typeof ARTIFACT_FUNCTION_TREE_MAX_HEIGHT>,
@@ -26,11 +27,14 @@ export class PrivateFunctionBroadcastedEvent {
   ) {}
 
   static isPrivateFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields[0].equals(REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG);
+    return (
+      log.contractAddress.equals(ProtocolContractAddress.ContractClassRegisterer) &&
+      log.fields.fields[0].toBigInt() === REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE
+    );
   }
 
   static fromLog(log: ContractClassLog) {
-    const reader = new FieldReader(log.fields.slice(1));
+    const reader = new FieldReader(log.fields.fields.slice(1));
     const event = PrivateFunctionBroadcastedEvent.fromFields(reader);
     while (!reader.isFinished()) {
       const field = reader.readField();
@@ -46,7 +50,7 @@ export class PrivateFunctionBroadcastedEvent {
     const reader = FieldReader.asReader(fields);
     const contractClassId = reader.readField();
     const artifactMetadataHash = reader.readField();
-    const unconstrainedFunctionsArtifactTreeRoot = reader.readField();
+    const utilityFunctionsTreeRoot = reader.readField();
     const privateFunctionTreeSiblingPath = reader.readFieldArray(FUNCTION_TREE_HEIGHT);
     const privateFunctionTreeLeafIndex = reader.readField().toNumber();
     const artifactFunctionTreeSiblingPath = reader.readFieldArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT);
@@ -56,7 +60,7 @@ export class PrivateFunctionBroadcastedEvent {
     return new PrivateFunctionBroadcastedEvent(
       contractClassId,
       artifactMetadataHash,
-      unconstrainedFunctionsArtifactTreeRoot,
+      utilityFunctionsTreeRoot,
       privateFunctionTreeSiblingPath,
       privateFunctionTreeLeafIndex,
       artifactFunctionTreeSiblingPath,
@@ -71,7 +75,7 @@ export class PrivateFunctionBroadcastedEvent {
       bytecode: this.privateFunction.bytecode,
       functionMetadataHash: this.privateFunction.metadataHash,
       artifactMetadataHash: this.artifactMetadataHash,
-      unconstrainedFunctionsArtifactTreeRoot: this.unconstrainedFunctionsArtifactTreeRoot,
+      utilityFunctionsTreeRoot: this.utilityFunctionsTreeRoot,
       privateFunctionTreeSiblingPath: this.privateFunctionTreeSiblingPath,
       privateFunctionTreeLeafIndex: this.privateFunctionTreeLeafIndex,
       artifactTreeSiblingPath: this.artifactFunctionTreeSiblingPath.filter(fr => !fr.isZero()),

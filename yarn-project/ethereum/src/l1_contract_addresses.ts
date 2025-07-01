@@ -26,7 +26,13 @@ export const L1ContractsNames = [
 /** Provides the directory of current L1 contract addresses */
 export type L1ContractAddresses = {
   [K in (typeof L1ContractsNames)[number]]: EthAddress;
-} & { slashFactoryAddress?: EthAddress | undefined; feeAssetHandlerAddress?: EthAddress | undefined };
+} & {
+  slashFactoryAddress?: EthAddress | undefined;
+  feeAssetHandlerAddress?: EthAddress | undefined;
+  stakingAssetHandlerAddress?: EthAddress | undefined;
+  zkPassportVerifierAddress?: EthAddress | undefined;
+  gseAddress?: EthAddress | undefined;
+};
 
 export const L1ContractAddressesSchema = z.object({
   rollupAddress: schemas.EthAddress,
@@ -42,11 +48,16 @@ export const L1ContractAddressesSchema = z.object({
   governanceAddress: schemas.EthAddress,
   slashFactoryAddress: schemas.EthAddress.optional(),
   feeAssetHandlerAddress: schemas.EthAddress.optional(),
+  stakingAssetHandlerAddress: schemas.EthAddress.optional(),
+  zkPassportVerifierAddress: schemas.EthAddress.optional(),
+  gseAddress: schemas.EthAddress.optional(),
 }) satisfies ZodFor<L1ContractAddresses>;
 
 const parseEnv = (val: string) => EthAddress.fromString(val);
 
-export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses> = {
+export const l1ContractAddressesMapping: ConfigMappingsType<
+  Omit<L1ContractAddresses, 'gseAddress' | 'zkPassportVerifierAddress'>
+> = {
   rollupAddress: {
     env: 'ROLLUP_CONTRACT_ADDRESS',
     description: 'The deployed L1 rollup contract address.',
@@ -110,6 +121,11 @@ export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses>
   feeAssetHandlerAddress: {
     env: 'FEE_ASSET_HANDLER_CONTRACT_ADDRESS',
     description: 'The deployed L1 feeAssetHandler contract address',
+    parseEnv,
+  },
+  stakingAssetHandlerAddress: {
+    env: 'STAKING_ASSET_HANDLER_CONTRACT_ADDRESS',
+    description: 'The deployed L1 stakingAssetHandler contract address',
     parseEnv,
   },
 };

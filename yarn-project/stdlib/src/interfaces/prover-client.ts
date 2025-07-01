@@ -26,7 +26,7 @@ export type ProverConfig = ActualProverConfig & {
   /** The URL to the Aztec node to take proving jobs from */
   nodeUrl?: string;
   /** Identifier of the prover */
-  proverId: Fr;
+  proverId?: Fr;
   /** Number of proving agents to start within the prover. */
   proverAgentCount: number;
   /** Store for failed proof inputs. */
@@ -36,7 +36,7 @@ export type ProverConfig = ActualProverConfig & {
 export const ProverConfigSchema = z.object({
   nodeUrl: z.string().optional(),
   realProofs: z.boolean(),
-  proverId: schemas.Fr,
+  proverId: schemas.Fr.optional(),
   proverTestDelayType: z.enum(['fixed', 'realistic']),
   proverTestDelayMs: z.number(),
   proverTestDelayFactor: z.number(),
@@ -55,9 +55,8 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   },
   proverId: {
     env: 'PROVER_ID',
-    parseEnv: (val: string) => parseProverId(val),
-    description: 'Identifier of the prover',
-    defaultValue: Fr.ZERO,
+    parseEnv: (val?: string) => parseProverId(val),
+    description: 'Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.',
   },
   proverTestDelayType: {
     env: 'PROVER_TEST_DELAY_TYPE',
@@ -85,8 +84,11 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   },
 };
 
-function parseProverId(str: string) {
-  return Fr.fromHexString(str.startsWith('0x') ? str : Buffer.from(str, 'utf8').toString('hex'));
+function parseProverId(str?: string) {
+  if (!str) {
+    return undefined;
+  }
+  return Fr.fromHexString(str);
 }
 
 /**
@@ -111,7 +113,10 @@ export class BlockProofError extends Error {
   static #name = 'BlockProofError';
   override name = BlockProofError.#name;
 
-  constructor(message: string, public readonly txHashes: TxHash[]) {
+  constructor(
+    message: string,
+    public readonly txHashes: TxHash[],
+  ) {
     super(message);
   }
 

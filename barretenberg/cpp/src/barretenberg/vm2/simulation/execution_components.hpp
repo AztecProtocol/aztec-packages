@@ -12,40 +12,31 @@
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
 class ExecutionComponentsProviderInterface {
   public:
     virtual ~ExecutionComponentsProviderInterface() = default;
-
-    // TODO: separate into enqueued and nested context.
-    virtual std::unique_ptr<ContextInterface> make_context(AztecAddress address,
-                                                           AztecAddress msg_sender,
-                                                           std::span<const FF> calldata,
-                                                           bool is_static) = 0;
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
+    virtual std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) = 0;
 };
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
   public:
-    ExecutionComponentsProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
-                                EventEmitterInterface<MemoryEvent>& memory_events,
-                                const InstructionInfoDBInterface& instruction_info_db)
-        : tx_bytecode_manager(tx_bytecode_manager)
-        , memory_events(memory_events)
+    ExecutionComponentsProvider(RangeCheckInterface& range_check, const InstructionInfoDBInterface& instruction_info_db)
+        : range_check(range_check)
         , instruction_info_db(instruction_info_db)
     {}
-    std::unique_ptr<ContextInterface> make_context(AztecAddress address,
-                                                   AztecAddress msg_sender,
-                                                   std::span<const FF> calldata,
-                                                   bool is_static) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
+    std::unique_ptr<GasTrackerInterface> make_gas_tracker(ContextInterface& context) override;
+
   private:
-    TxBytecodeManagerInterface& tx_bytecode_manager;
-    EventEmitterInterface<MemoryEvent>& memory_events;
+    RangeCheckInterface& range_check;
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.

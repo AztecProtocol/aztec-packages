@@ -21,7 +21,7 @@ In this guide, we will look at how to profile the private execution of a transac
 
 The profiling tool is integrated into the `aztec-wallet`.
 
-In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L263) method in the token contract.
+In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L263) method in the token contract.
 Let us start by deploying the token contarct (included in the Sandbox) and minting some tokens to the test account.
 
 ```bash
@@ -67,6 +67,15 @@ Here you can see the gate count of each private function call in the transaction
 
 This will help you understand which parts of your transaction are bottlenecks and optimize the contract logic accordingly.
 
+## Profiling in aztec.js
+
+Call the `.profile` method on a contract interaction or deployment, specifying the `ProfileMethodOptions`:
+
+#include_code profile-method-options yarn-project/aztec.js/src/contract/interaction_options.ts javascript
+
+It will return a `TxProfileResult`:
+
+#include_code tx-profile-result yarn-project/stdlib/src/tx/profiling.ts
 
 ## Flamegraph
 

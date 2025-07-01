@@ -1,5 +1,5 @@
+import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -8,7 +8,7 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import type { InBlock } from '../block/in_block.js';
+import { CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -27,6 +27,7 @@ import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { BlockHeader } from '../tx/block_header.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
@@ -98,7 +99,7 @@ describe('ArchiverApiSchema', () => {
     const response = await context.client.getPublishedBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0].block.constructor.name).toEqual('L2Block');
-    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
 
@@ -177,7 +178,7 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getContractClass(Fr.random());
     expect(result).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
       privateFunctions: [],
     });
   });
@@ -203,7 +204,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getL1ToL2Messages', async () => {
-    const result = await context.client.getL1ToL2Messages(1n);
+    const result = await context.client.getL1ToL2Messages(1);
     expect(result).toEqual([expect.any(Fr)]);
   });
 
@@ -213,12 +214,12 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getContract', async () => {
     const address = await AztecAddress.random();
-    const result = await context.client.getContract(address, 27);
+    const result = await context.client.getContract(address, 27n);
     expect(result).toEqual({
       address,
       currentContractClassId: expect.any(Fr),
@@ -235,11 +236,23 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getL1Constants();
     expect(result).toEqual(EmptyL1RollupConstants);
   });
+
+  it('syncImmediate', async () => {
+    await context.client.syncImmediate();
+  });
+
+  it('getL1Timestamp', async () => {
+    const result = await context.client.getL1Timestamp();
+    expect(result).toBe(1n);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
+  syncImmediate() {
+    return Promise.resolve();
+  }
   getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(EthAddress.random());
   }
@@ -258,21 +271,26 @@ class MockArchiver implements ArchiverApi {
   getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
   }
-  async getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
+  async getBlocks(from: number, _limit: number, _proven?: boolean): Promise<L2Block[]> {
     return [await L2Block.random(from)];
   }
-  async getPublishedBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<PublishedL2Block[]> {
+  async getPublishedBlocks(from: number, _limit: number, _proven?: boolean): Promise<PublishedL2Block[]> {
     return [
       {
         block: await L2Block.random(from),
-        signatures: [Signature.random()],
+        attestations: [CommitteeAttestation.random()],
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
       },
     ];
   }
-  async getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
+    return {
+      l2BlockNumber: 1,
+      l2BlockHash: L2BlockHash.fromNumber(0x12),
+      data: await TxEffect.random(),
+      txIndexInBlock: randomInt(10),
+    };
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -328,7 +346,7 @@ class MockArchiver implements ArchiverApi {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return Promise.resolve({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
+    return Promise.resolve({ ...contractClass, utilityFunctions: [], privateFunctions: [] });
   }
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
     expect(id).toBeInstanceOf(Fr);
@@ -346,8 +364,8 @@ class MockArchiver implements ArchiverApi {
     );
     return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
   }
-  async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
-    expect(blockNumber).toEqual(27);
+  async getContract(address: AztecAddress, timestamp?: bigint): Promise<ContractInstanceWithAddress | undefined> {
+    expect(timestamp).toEqual(27n);
     return {
       address,
       currentContractClassId: Fr.random(),
@@ -366,13 +384,12 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    expect(address).toBeInstanceOf(AztecAddress);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    expect(blockNumber).toEqual(1n);
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+    expect(blockNumber).toEqual(1);
     return Promise.resolve([Fr.random()]);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -381,5 +398,8 @@ class MockArchiver implements ArchiverApi {
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+  getL1Timestamp(): Promise<bigint> {
+    return Promise.resolve(1n);
   }
 }

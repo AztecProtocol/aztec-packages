@@ -1,6 +1,6 @@
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
@@ -9,7 +9,15 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
+import type {
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxProvingResult,
+  TxReceipt,
+  TxSimulationResult,
+  UtilitySimulationResult,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -27,8 +35,8 @@ describe('Contract Class', () => {
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
-  const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
-  const mockUnconstrainedResultValue = 1;
+  const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
+  const mockUtilityResultValue = { type: 'UtilitySimulationResult' } as any as UtilitySimulationResult;
   const l1Addresses: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
@@ -98,7 +106,7 @@ describe('Contract Class', () => {
         name: 'qux',
         isInitializer: false,
         isStatic: false,
-        functionType: FunctionType.UNCONSTRAINED,
+        functionType: FunctionType.UTILITY,
         isInternal: false,
         parameters: [
           {
@@ -144,7 +152,7 @@ describe('Contract Class', () => {
     const mockNodeInfo: NodeInfo = {
       nodeVersion: 'vx.x.x',
       l1ChainId: 1,
-      protocolVersion: 2,
+      rollupVersion: 2,
       l1ContractAddresses: l1Addresses,
       enr: undefined,
       protocolContractAddresses: {
@@ -164,7 +172,7 @@ describe('Contract Class', () => {
       isContractPubliclyDeployed: true,
     });
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
+    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
@@ -186,17 +194,17 @@ describe('Contract Class', () => {
     expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });
 
-  it('should call view on an unconstrained function', async () => {
+  it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
-    expect(result).toBe(mockUnconstrainedResultValue);
+    expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(result).toBe(mockUtilityResultValue.result);
   });
 
-  it('should not call create on an unconstrained function', async () => {
+  it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });

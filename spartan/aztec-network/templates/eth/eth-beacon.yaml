@@ -80,22 +80,6 @@ spec:
       port: {{ .Values.ethereum.beacon.service.port }}
       targetPort: {{ .Values.ethereum.beacon.service.targetPort }}
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-data:
-  config.yaml: |
-    {{ .Files.Get "eth-devnet/out/config.yaml" | nindent 4 }}
-  deposit_contract_block.txt: |
-    {{ .Files.Get "eth-devnet/out/deposit_contract_block.txt" | nindent 4 }}
-  jwt-secret.hex: |
-    {{ .Files.Get "eth-devnet/out/jwt-secret.hex" | nindent 4 }}
-  genesis-ssz: |
-    {{ .Files.Get "eth-devnet/out/genesis-ssz" | nindent 4 }}
----
 {{- if gt (.Values.ethereum.replicas | int) 0 }}
 apiVersion: v1
 kind: PersistentVolumeClaim

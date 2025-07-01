@@ -11,8 +11,8 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2::tracegen {
@@ -37,6 +37,8 @@ class TraceContainer {
         }
         return result;
     }
+    // Extended version of get that works with shifted columns. More expensive.
+    const FF& get_column_or_shift(ColumnAndShifts col, uint32_t row) const;
 
     void set(Column col, uint32_t row, const FF& value);
     // Bulk setting for a given row.

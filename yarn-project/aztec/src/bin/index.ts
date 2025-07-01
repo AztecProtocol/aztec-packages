@@ -12,6 +12,8 @@ import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
+import { NETWORK_FLAG } from '../cli/aztec_start_options.js';
+import { type NetworkNames, enrichEnvironmentWithChainConfig } from '../cli/chain_l2_config.js';
 import { injectAztecCommands } from '../cli/index.js';
 import { getCliVersion } from '../cli/release_version.js';
 
@@ -25,6 +27,22 @@ async function main() {
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
+
+  // Intercept the setting of a network and enrich the environment with defaults for that network
+  let networkValue: string | undefined;
+
+  const args = process.argv.slice(2);
+  const networkIndex = args.findIndex(arg => arg.startsWith(`--${NETWORK_FLAG}=`) || arg === `--${NETWORK_FLAG}`);
+
+  if (networkIndex !== -1) {
+    networkValue = args[networkIndex].split('=')[1] || args[networkIndex + 1];
+  }
+
+  networkValue = networkValue || process.env.NETWORK;
+
+  if (networkValue !== undefined) {
+    await enrichEnvironmentWithChainConfig(networkValue as NetworkNames);
+  }
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');

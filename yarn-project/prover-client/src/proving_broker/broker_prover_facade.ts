@@ -1,11 +1,12 @@
 import type {
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { sha256 } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
@@ -31,6 +32,7 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   RootRollupInputs,
@@ -93,7 +95,15 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
     // Create a promise for this job id, regardless of whether it was enqueued at the broker
     // The running promise will monitor for the job to be completed and resolve it either way
+    // We install an error handler to prevent unhandled rejections in the process before the
+    // job promise is awaited by the caller (see #13166)
     const promise = promiseWithResolvers<ProvingJobResultsMap[T]>();
+    promise.promise.catch(err =>
+      this.log.error(`Job errored with '${err.message ?? err}' id=${id} type=${ProvingRequestType[type]}`, {
+        provingJobId: id,
+        provingJobType: ProvingRequestType[type],
+      }),
+    );
     const abortFn = () => {
       signal?.removeEventListener('abort', abortFn);
       void this.broker.cancelProvingJob(id).catch(err => this.log.warn(`Error cancelling job id=${id}`, err));
@@ -125,27 +135,26 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     try {
       const inputsUri = await this.proofStore.saveProofInput(id, type, inputs);
       job.inputsUri = inputsUri;
-      const jobStatus = await this.broker.enqueueProvingJob({
-        id,
-        type,
-        inputsUri,
+
+      // Send the job to the broker
+      const jobStatus = await this.broker.enqueueProvingJob({ id, type, inputsUri, epochNumber });
+
+      const jobLogText = `id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`;
+      const jobLogData = {
+        provingJobId: id,
+        provingJobType: ProvingRequestType[type],
         epochNumber,
-      });
+        inputsUri: truncate(inputsUri),
+        status: jobStatus.status,
+        numOutstandingJobs: this.jobs.size,
+      };
 
       // If we are here then the job was successfully accepted by the broker
       // the returned status is for before any action was performed
       if (jobStatus.status === 'fulfilled' || jobStatus.status === 'rejected') {
         // Job was already completed by the broker
         // No need to notify the broker on aborted job
-        this.log.verbose(
-          `Job already completed when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-          {
-            provingJobId: id,
-            provingJobType: ProvingRequestType[type],
-            epochNumber,
-            inputsUri: truncate(inputsUri),
-          },
-        );
+        this.log.verbose(`Job already completed when sent to broker ${jobLogText}`, jobLogData);
 
         // Job was not enqueued. It must be completed already, add to our set of already completed jobs
         this.jobsToRetrieve.add(id);
@@ -155,27 +164,10 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
         // Job added for the first time
         if (jobStatus.status === 'not-found') {
-          this.log.verbose(
-            `Job enqueued with broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-            {
-              provingJobId: id,
-              provingJobType: ProvingRequestType[type],
-              epochNumber,
-              inputsUri: truncate(inputsUri),
-              numOutstandingJobs: this.jobs.size,
-            },
-          );
+          this.log.verbose(`Job enqueued with broker ${jobLogText}`, jobLogData);
         } else {
           // Job was previously sent to the broker but is not completed
-          this.log.verbose(
-            `Job already in queue or in progress when sent to broker id=${id} type=${ProvingRequestType[type]} epochNumber=${epochNumber}`,
-            {
-              provingJobId: id,
-              provingJobType: ProvingRequestType[type],
-              epochNumber,
-              inputsUri: truncate(inputsUri),
-            },
-          );
+          this.log.verbose(`Job already in queue or in progress when sent to broker ${jobLogText}`, jobLogData);
         }
       }
     } catch (err) {
@@ -399,16 +391,24 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
 
   getAvmProof(
     inputs: AvmCircuitInputs,
+    skipPublicInputsValidation?: boolean, // TODO(#14234)[Unconditional PIs validation]: remove this argument
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    this.log.info(`getAvmProof() called with skipPublicInputsValidation: ${skipPublicInputsValidation}`);
+
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,
       inputs,
       epochNumber,
       signal,
-    );
+    ).then(result => {
+      // TODO(#14234)[Unconditional PIs validation]: Remove ".then()".
+      // Override the default value of skipPublicInputsValidation potentially set in BBNativeRollupProver.getAvmProof().
+      result.proof.proof[0] = skipPublicInputsValidation ? new Fr(1) : new Fr(0);
+      return result;
+    });
   }
 
   getBaseParityProof(
@@ -483,6 +483,22 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, input, epochNumber),
+      ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP,
       input,
       epochNumber,
       signal,

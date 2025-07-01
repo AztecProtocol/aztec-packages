@@ -49,6 +49,7 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     StartCursorResponse start_cursor(const StartCursorRequest& req);
     AdvanceCursorResponse advance_cursor(const AdvanceCursorRequest& req);
+    AdvanceCursorCountResponse advance_cursor_count(const AdvanceCursorCountRequest& req);
     BoolResponse close_cursor(const CloseCursorRequest& req);
 
     BatchResponse batch(const BatchRequest& req);
@@ -57,9 +58,15 @@ class LMDBStoreWrapper : public Napi::ObjectWrap<LMDBStoreWrapper> {
 
     BoolResponse close();
 
+    BoolResponse copy_store(const CopyStoreRequest& req);
+
     static std::pair<bool, lmdblib::KeyDupValuesVector> _advance_cursor(const lmdblib::LMDBCursor& cursor,
                                                                         bool reverse,
                                                                         uint64_t page_size);
+
+    static std::pair<bool, uint64_t> _advance_cursor_count(const lmdblib::LMDBCursor& cursor,
+                                                           bool reverse,
+                                                           const lmdblib::Key& end_key);
 };
 
 } // namespace bb::nodejs::lmdb_store

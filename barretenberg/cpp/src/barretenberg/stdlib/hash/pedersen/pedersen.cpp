@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -86,7 +92,6 @@ field_t<C> pedersen_hash<C>::hash_buffer(const stdlib::byte_array<C>& input, Gen
     }
     return hashed;
 }
-template class pedersen_hash<bb::StandardCircuitBuilder>;
 template class pedersen_hash<bb::UltraCircuitBuilder>;
 template class pedersen_hash<bb::MegaCircuitBuilder>;
 

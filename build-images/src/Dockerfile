@@ -14,6 +14,7 @@ RUN export DEBIAN_FRONTEND="noninteractive" \
       ninja-build \
       git \
       curl \
+      gnupg \
       python3 \
       wget \
     && apt-get -y autoremove \
@@ -74,7 +75,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git \
 ########################################################################################################################
 # Build foundry.
 FROM base-build AS foundry
-ENV FOUNDRY_TAG=25f24e677a6a32a62512ad4f561995589ac2c7dc
+ENV FOUNDRY_VERSION=nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
@@ -82,7 +83,7 @@ ENV PATH="/opt/rust/cargo/bin:$PATH"
 ENV RUSTFLAGS="-C target-cpu=generic"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN curl -L https://foundry.paradigm.xyz | bash \
-    && $FOUNDRY_BIN_DIR/foundryup -b nightly-$FOUNDRY_TAG \
+    && $FOUNDRY_BIN_DIR/foundryup -i $FOUNDRY_VERSION \
     && mkdir -p /opt/foundry/bin \
     && for t in forge cast anvil chisel; do \
         mv $FOUNDRY_BIN_DIR/$t /opt/foundry/bin/$t; \
@@ -101,12 +102,19 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # It also means we're effectively testing the devbox in CI.
 # We use this image for test isolation.
 FROM base-build AS build
+
+# APT repo for node (22.15.0)
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+ENV NODE_MAJOR=22
+RUN echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+
 RUN apt update && \
     apt install -y \
         # Utils
         curl \
         git \
         wget \
+        time \
         jq \
         gawk \
         unzip \
@@ -126,9 +134,7 @@ RUN apt update && \
         libc++-dev \
         libomp-dev \
         doxygen \
-        # Node (18.19.1)
         nodejs \
-        npm \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
@@ -208,6 +214,7 @@ RUN apt update && \
         htop \
         iproute2 \
         iputils-ping \
+        lcov \
         less \
         libfuse2 \
         lldb \
@@ -300,6 +307,7 @@ ENV PATH=/home/aztec-dev/.npm-global/bin:$PATH
 RUN mkdir .vscode-server .npm-global .ssh && chown aztec-dev:aztec-dev .*
 
 # Install docker using docker-in-docker dev-container feature install script.
+COPY docker_daemon.json /etc/docker/daemon.json
 RUN curl -fsSL https://raw.githubusercontent.com/devcontainers/features/refs/heads/main/src/docker-in-docker/install.sh | bash
 
 # Use as entrypoint when running in an environment that requires uid/gid alignment (e.g. vanilla linux docker).
@@ -368,6 +376,7 @@ ENTRYPOINT [ "/sbin/init", "--log-level=err" ]
 ###################### END OF STOCK NESTYBOX SYSTEMD CONTAINER ###############################
 
 # Install docker.
+COPY docker_daemon.json /etc/docker/daemon.json
 RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
     # Add user "ubuntu" to the Docker group
     && usermod -a -G docker ubuntu

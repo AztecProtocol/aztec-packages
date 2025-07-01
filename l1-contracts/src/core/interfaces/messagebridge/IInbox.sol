@@ -10,13 +10,27 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
  * @notice Lives on L1 and is used to pass messages into the rollup from L1.
  */
 interface IInbox {
+  struct InboxState {
+    // Rolling hash of all messages inserted into the inbox.
+    // Used by clients to check for consistency.
+    bytes16 rollingHash;
+    // This value is not used much by the contract, but it is useful for synching the node faster
+    // as it can more easily figure out if it can just skip looking for events for a time period.
+    uint64 totalMessagesInserted;
+    // Number of a tree which is currently being filled
+    uint64 inProgress;
+  }
+
   /**
    * @notice Emitted when a message is sent
    * @param l2BlockNumber - The L2 block number in which the message is included
    * @param index - The index of the message in the L1 to L2 messages tree
    * @param hash - The hash of the message
+   * @param rollingHash - The rolling hash of all messages inserted into the inbox
    */
-  event MessageSent(uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash);
+  event MessageSent(
+    uint256 indexed l2BlockNumber, uint256 index, bytes32 indexed hash, bytes16 rollingHash
+  );
 
   // docs:start:send_l1_to_l2_message
   /**
@@ -48,5 +62,13 @@ interface IInbox {
   function consume(uint256 _toConsume) external returns (bytes32);
   // docs:end:consume
 
+  function getFeeAssetPortal() external view returns (address);
+
   function getRoot(uint256 _blockNumber) external view returns (bytes32);
+
+  function getState() external view returns (InboxState memory);
+
+  function getTotalMessagesInserted() external view returns (uint64);
+
+  function getInProgress() external view returns (uint64);
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/op_count.hpp"
@@ -5,7 +11,7 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
@@ -29,12 +35,14 @@ template <typename Fr> struct PolynomialSpan {
     size_t size() const { return span.size(); }
     Fr& operator[](size_t index)
     {
-        ASSERT(index >= start_index && index < end_index());
+        BB_ASSERT_GTE(index, start_index);
+        BB_ASSERT_LT(index, end_index());
         return span[index - start_index];
     }
     const Fr& operator[](size_t index) const
     {
-        ASSERT(index >= start_index && index < end_index());
+        BB_ASSERT_GTE(index, start_index);
+        BB_ASSERT_LT(index, end_index());
         return span[index - start_index];
     }
     PolynomialSpan subspan(size_t offset, size_t length)
@@ -264,9 +272,10 @@ template <typename Fr> class Polynomial {
     void mask()
     {
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
-        ASSERT(virtual_size() >= MASKING_OFFSET);
-        ASSERT(virtual_size() == end_index());
-        for (size_t i = virtual_size() - 1; i <= virtual_size() - MASKING_OFFSET; i--) {
+        BB_ASSERT_GTE(virtual_size(), NUM_MASKED_ROWS);
+        BB_ASSERT_EQ(virtual_size(), end_index());
+
+        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
             at(i) = FF::random_element();
         }
     }
@@ -387,14 +396,20 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
+     * @details There is an underlying assumption that the relevant start index in the vector
+     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
+     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
+     *
+     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     *
      * @tparam T a convertible type
      * @param vec the vector
      */
     template <typename T> void copy_vector(const std::vector<T>& vec)
     {
-        ASSERT(vec.size() <= end_index());
-        for (size_t i : indices()) {
-            ASSERT(i < vec.size());
+        BB_ASSERT_LTE(vec.size(), end_index());
+        BB_ASSERT_LTE(vec.size() - start_index(), size());
+        for (size_t i = start_index(); i < vec.size(); i++) {
             at(i) = vec[i];
         }
     }
@@ -451,7 +466,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
 
     // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    ASSERT(coefficients.virtual_size() == static_cast<size_t>(1 << n));
+    BB_ASSERT_EQ(coefficients.virtual_size(), static_cast<size_t>(1 << n));
 
     // We first fold over dim rounds l = 0,...,dim-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
@@ -468,7 +483,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     size_t offset = 0;
     if constexpr (is_native) {
         if (shift) {
-            ASSERT(coefficients.get(0) == Fr_::zero());
+            BB_ASSERT_EQ(coefficients.get(0), Fr_::zero());
             offset++;
         }
     }

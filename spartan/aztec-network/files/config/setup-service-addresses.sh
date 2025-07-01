@@ -107,9 +107,18 @@ else
   BOOT_NODE_ADDR="http://${SERVICE_NAME}-boot-node.${NAMESPACE}:${BOOT_NODE_PORT}"
 fi
 
+# Configure Full Node address
+if [ "${EXTERNAL_FULL_NODE_HOST}" != "" ]; then
+  FULL_NODE_ADDR="${EXTERNAL_FULL_NODE_HOST}"
+elif [ "${NETWORK_PUBLIC}" = "true" ]; then
+  FULL_NODE_ADDR=$(get_service_address "full-node" "${FULL_NODE_PORT}")
+else
+  FULL_NODE_ADDR="http://${SERVICE_NAME}-full-node.${NAMESPACE}:${FULL_NODE_PORT}"
+fi
+
 # Configure Prover Node address
-if [ "${PROVER_NODE_EXTERNAL_HOST}" != "" ]; then
-  PROVER_NODE_ADDR="${PROVER_NODE_EXTERNAL_HOST}"
+if [ "${EXTERNAL_PROVER_NODE_HOST}" != "" ]; then
+  PROVER_NODE_ADDR="${EXTERNAL_PROVER_NODE_HOST}"
 elif [ "${NETWORK_PUBLIC}" = "true" ]; then
   PROVER_NODE_ADDR=$(get_service_address "prover-node" "${PROVER_NODE_PORT}")
 else
@@ -130,10 +139,11 @@ fi
 
 # Write addresses to file for sourcing
 echo "export ETHEREUM_HOSTS=${ETHEREUM_ADDR}" >>/shared/config/service-addresses
-echo "export L1_CONSENSUS_HOST_URL=${ETHEREUM_CONSENSUS_ADDR}" >>/shared/config/service-addresses
-echo "export L1_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY}" >>/shared/config/service-addresses
-echo "export L1_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER}" >>/shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_URLS=${ETHEREUM_CONSENSUS_ADDR}" >>/shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_API_KEYS=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY}" >>/shared/config/service-addresses
+echo "export L1_CONSENSUS_HOST_API_KEY_HEADERS=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER}" >>/shared/config/service-addresses
 echo "export BOOT_NODE_HOST=${BOOT_NODE_ADDR}" >>/shared/config/service-addresses
+echo "export FULL_NODE_HOST=${FULL_NODE_ADDR}" >>/shared/config/service-addresses
 echo "export PROVER_NODE_HOST=${PROVER_NODE_ADDR}" >>/shared/config/service-addresses
 echo "export PROVER_BROKER_HOST=${PROVER_BROKER_ADDR}" >>/shared/config/service-addresses
 

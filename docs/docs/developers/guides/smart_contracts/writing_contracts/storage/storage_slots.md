@@ -7,7 +7,7 @@ From the description of storage slots [in the Concepts](../../../../../aztec/con
 
 For the case of the example, we will look at what is inserted into the note hashes tree when adding a note in the Token contract. Specifically, we are looking at the last part of the `transfer` function:
 
-#include_code increase_private_balance noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code increase_private_balance noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 This function is creating a new note and inserting it into the balance set of the recipient `to`. Recall that to ensure privacy, only the note hash is really inserted into the note hashes tree. To share the contents of the note with `to` the contract can emit an encrypted log (which this one does), or it can require an out-of-band data transfer sharing the information. Below, we will walk through the steps of how the note hash is computed and inserted into the tree. For this, we don't care about the encrypted log, so we are going to ignore that part of the function call for now.
 
@@ -31,8 +31,7 @@ sequenceDiagram
     BalanceSet->>Set: insert(note)
     Set->>LifeCycle: create_note(derived_slot, note)
     LifeCycle->>LifeCycle: note.header = NoteHeader { contract_address, <br> storage_slot: derived_slot, nonce: 0, note_hash_counter }
-    Utils->>UintNote: note_hiding_point = note.compute_note_hiding_point()
-    UintNote->>Utils: note_hash = note_hiding_point.x
+    UintPartialNotePrivateContent->>UintNote: note_hash = compute_partial_commitment(storage_slot).x
     LifeCycle->>Context: push_note_hash(note_hash)
     end
     Context->>Kernel: unique_note_hash = H(nonce, note_hash)

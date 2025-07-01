@@ -20,17 +20,23 @@ PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
 rebuild_patterns=()
 for arg in "$@"; do
   if [[ -f "$arg" ]]; then
+    # If the file is a rebuild patterns file, read it and add its contents to the patterns.
     rebuild_patterns+=$(cat "$arg")
     rebuild_patterns+=$'\n'
+  elif [[ "$arg" == ^* ]]; then
+    # Add as pattern literally
+    rebuild_patterns+="$arg"$'\n'
   else
+    # Ensure the folder exists, and add folder as pattern relative to repo root
+    if [[ ! -d "$arg" ]]; then
+      echo_stderr "Error: Directory '$arg' does not exist."
+      exit 1
+    fi
+    arg=$(realpath --relative-to="$(git rev-parse --show-toplevel)" "$arg")
     rebuild_patterns+="$arg"$'\n'
   fi
 done
 
-# For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
-if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
-  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
-fi
 GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 # Concatenate patterns with '|' and double escape backslashes for AWK filter empty lines
 AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
@@ -44,12 +50,11 @@ diff="$({
   git ls-files --others --exclude-standard
 } | grep -E "$GREP_PATTERN" || true)"
 
-
 # Check for uncommitted files/changes.
 # Only use this check if AZTEC_CACHE_COMMIT is the default, otherwise the user is being explicit about using git history.
 if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
-  # Fail. We shouldn't be writing files during the build.
-  if [ "${CI:-0}" = 1 ]; then
+  # Fail. We shouldn't be changing files during the CI run.
+  if [ "$CI" -eq 1 ]; then
     echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
   fi
   # Signal to cache_upload and cache_download to not touch this file.

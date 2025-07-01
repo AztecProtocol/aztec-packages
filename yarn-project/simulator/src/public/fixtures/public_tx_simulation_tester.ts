@@ -2,24 +2,30 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
-import { getContractFunctionAbi, getFunctionSelector } from '../avm/fixtures/index.js';
-import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
-import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
-import { createTxForPublicCalls } from './utils.js';
+import {
+  DEFAULT_BLOCK_NUMBER,
+  DEFAULT_TIMESTAMP,
+  getContractFunctionAbi,
+  getFunctionSelector,
+} from '../avm/fixtures/utils.js';
+import { PublicContractsDB } from '../public_db_sources.js';
+import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
+import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
+import { TestExecutorMetrics } from '../test_executor_metrics.js';
+import { SimpleContractDataSource } from './simple_contract_data_source.js';
+import { type TestPrivateInsertions, createTxForPublicCalls } from './utils.js';
 
-const TIMESTAMP = new Fr(99833);
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
-export const DEFAULT_BLOCK_NUMBER = 42;
 
 export type TestEnqueuedCall = {
+  sender?: AztecAddress;
   address: AztecAddress;
   fnName: string;
   args: any[];
@@ -34,15 +40,40 @@ export type TestEnqueuedCall = {
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
+  private simulator: MeasuredPublicTxSimulator;
+  private metricsPrefix?: string;
 
-  constructor(private merkleTree: MerkleTreeWriteOperations, contractDataSource: SimpleContractDataSource) {
+  constructor(
+    merkleTree: MerkleTreeWriteOperations,
+    contractDataSource: SimpleContractDataSource,
+    globals: GlobalVariables = defaultGlobals(),
+    private metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+  ) {
     super(contractDataSource, merkleTree);
+
+    const contractsDB = new PublicContractsDB(contractDataSource);
+    this.simulator = new MeasuredPublicTxSimulator(
+      merkleTree,
+      contractsDB,
+      globals,
+      /*doMerkleOperations=*/ true,
+      /*skipFeeEnforcement=*/ false,
+      /*clientInitiatedSimulation=*/ true,
+      this.metrics,
+    );
   }
 
-  public static async create(): Promise<PublicTxSimulationTester> {
+  public static async create(
+    globals: GlobalVariables = defaultGlobals(),
+    metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+  ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await (await NativeWorldStateService.tmp()).fork();
-    return new PublicTxSimulationTester(merkleTree, contractDataSource);
+    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics);
+  }
+
+  public setMetricsPrefix(prefix: string) {
+    this.metricsPrefix = prefix;
   }
 
   public async createTx(
@@ -52,15 +83,27 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
-    firstNullifier = new Fr(420000 + this.txCount++),
+    privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount++)] } },
   ): Promise<Tx> {
-    const setupCallRequests = await asyncMap(setupCalls, call => this.#createPubicCallRequestForCall(call, sender));
-    const appCallRequests = await asyncMap(appCalls, call => this.#createPubicCallRequestForCall(call, sender));
+    const setupCallRequests = await asyncMap(setupCalls, call =>
+      this.#createPubicCallRequestForCall(call, call.sender ?? sender),
+    );
+    const appCallRequests = await asyncMap(appCalls, call =>
+      this.#createPubicCallRequestForCall(call, call.sender ?? sender),
+    );
     const teardownCallRequest = teardownCall
-      ? await this.#createPubicCallRequestForCall(teardownCall, sender)
+      ? await this.#createPubicCallRequestForCall(teardownCall, teardownCall.sender ?? sender)
       : undefined;
 
-    return createTxForPublicCalls(firstNullifier, setupCallRequests, appCallRequests, teardownCallRequest, feePayer);
+    return createTxForPublicCalls(
+      privateInsertions,
+      setupCallRequests,
+      appCallRequests,
+      teardownCallRequest,
+      feePayer,
+      /*gasUsedByPrivate*/ Gas.empty(),
+      defaultGlobals(),
+    );
   }
 
   public async simulateTx(
@@ -70,23 +113,47 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
-    firstNullifier = new Fr(420000 + this.txCount++),
-    globals = defaultGlobals(),
+    privateInsertions?: TestPrivateInsertions,
+    txLabel: string = 'unlabeledTx',
   ): Promise<PublicTxResult> {
-    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier);
+    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions);
 
     await this.setFeePayerBalance(feePayer);
 
-    const treesDB = new PublicTreesDB(this.merkleTree);
-    const contractsDB = new PublicContractsDB(this.contractDataSource);
-    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
+    const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}/${txLabelWithCount}` : txLabelWithCount;
 
-    const startTime = performance.now();
-    const avmResult = await simulator.simulate(tx);
-    const endTime = performance.now();
-    this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
+    const avmResult = await this.simulator.simulate(tx, fullTxLabel);
+
+    // Something like this is often useful for debugging:
+    //if (avmResult.revertReason) {
+    //  // resolve / enrich revert reason
+    //  const lastAppCall = appCalls[appCalls.length - 1];
+
+    //  const contractArtifact =
+    //    lastAppCall.contractArtifact || (await this.contractDataSource.getContractArtifact(lastAppCall.address));
+    //  const fnAbi = getContractFunctionAbi(lastAppCall.fnName, contractArtifact!);
+    //  const revertReason = resolveAssertionMessageFromRevertData(avmResult.revertReason.revertData, fnAbi!);
+    //  this.logger.debug(`Revert reason: ${revertReason}`);
+    //}
 
     return avmResult;
+  }
+
+  public async simulateTxWithLabel(
+    txLabel: string,
+    sender: AztecAddress,
+    setupCalls?: TestEnqueuedCall[],
+    appCalls?: TestEnqueuedCall[],
+    teardownCall?: TestEnqueuedCall,
+    feePayer?: AztecAddress,
+    privateInsertions?: TestPrivateInsertions,
+  ): Promise<PublicTxResult> {
+    return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
+  }
+
+  public prettyPrintMetrics() {
+    this.metrics.prettyPrint();
   }
 
   async #createPubicCallRequestForCall(
@@ -112,8 +179,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
 export function defaultGlobals() {
   const globals = GlobalVariables.empty();
-  globals.timestamp = TIMESTAMP;
+  globals.timestamp = DEFAULT_TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
-  globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
+  globals.blockNumber = DEFAULT_BLOCK_NUMBER;
   return globals;
 }

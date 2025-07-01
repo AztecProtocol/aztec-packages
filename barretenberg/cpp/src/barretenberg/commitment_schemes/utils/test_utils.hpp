@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -15,7 +21,7 @@ static std::tuple<std::vector<std::vector<bb::Polynomial<typename Curve::ScalarF
 generate_concatenation_inputs(const std::vector<typename Curve::ScalarField>& u_challenge,
                               const size_t num_concatenated,
                               const size_t group_size,
-                              const std::shared_ptr<CommitmentKey<Curve>>& ck)
+                              const CommitmentKey<Curve>& ck)
 {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -65,7 +71,7 @@ generate_concatenation_inputs(const std::vector<typename Curve::ScalarField>& u_
     for (size_t i = 0; i < num_concatenated; ++i) {
         std::vector<Commitment> concatenation_group_commitment;
         for (size_t j = 0; j < group_size; j++) {
-            concatenation_group_commitment.emplace_back(ck->commit(concatenation_groups[i][j]));
+            concatenation_group_commitment.emplace_back(ck.commit(concatenation_groups[i][j]));
         }
         concatenation_groups_commitments.emplace_back(concatenation_group_commitment);
     }

@@ -1,12 +1,10 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import {
-  type ConfigMappingsType,
-  booleanConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
+import { type GenesisStateConfig, genesisStateConfigMappings, getAddressFromPrivateKey } from '@aztec/ethereum';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverAgentConfig,
@@ -14,7 +12,12 @@ import {
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
-import { type ProverClientConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
+import {
+  type ProverClientConfig,
+  type ProverClientUserConfig,
+  bbConfigMappings,
+  proverClientConfigMappings,
+} from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
@@ -26,25 +29,25 @@ import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-st
 import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
-  ProverClientConfig &
+  ProverClientUserConfig &
   P2PConfig &
   WorldStateConfig &
   PublisherConfig &
   TxSenderConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
-  SpecificProverNodeConfig & {
-    /** Whether to populate the genesis state with initial fee juice for the test accounts */
-    testAccounts: boolean;
-  };
+  SharedNodeConfig &
+  SpecificProverNodeConfig &
+  GenesisStateConfig;
 
-type SpecificProverNodeConfig = {
+export type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
-  txGatheringTimeoutMs: number;
+  proverNodeFailedEpochStore: string | undefined;
   txGatheringIntervalMs: number;
-  txGatheringMaxParallelRequests: number;
+  txGatheringBatchSize: number;
+  txGatheringMaxParallelRequestsPerNode: number;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -63,19 +66,24 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
     ...numberConfigHelper(32),
   },
-  txGatheringTimeoutMs: {
-    env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
-    description: 'The maximum amount of time to wait for tx data to be available',
-    ...numberConfigHelper(60_000),
+  proverNodeFailedEpochStore: {
+    env: 'PROVER_NODE_FAILED_EPOCH_STORE',
+    description: 'File store where to upload node state when an epoch fails to be proven',
+    defaultValue: undefined,
   },
   txGatheringIntervalMs: {
     env: 'PROVER_NODE_TX_GATHERING_INTERVAL_MS',
     description: 'How often to check that tx data is available',
     ...numberConfigHelper(1_000),
   },
-  txGatheringMaxParallelRequests: {
-    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS',
-    description: 'How many txs to load up a time',
+  txGatheringBatchSize: {
+    env: 'PROVER_NODE_TX_GATHERING_BATCH_SIZE',
+    description: 'How many transactions to gather from a node in a single request',
+    ...numberConfigHelper(10),
+  },
+  txGatheringMaxParallelRequestsPerNode: {
+    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE',
+    description: 'How many tx requests to make in parallel to each node',
     ...numberConfigHelper(100),
   },
 };
@@ -90,11 +98,8 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
-  testAccounts: {
-    env: 'TEST_ACCOUNTS',
-    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
-    ...booleanConfigHelper(false),
-  },
+  ...genesisStateConfigMappings,
+  ...sharedNodeConfigMappings,
 };
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
@@ -112,4 +117,12 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
     ...getConfigFromMappings(proverAgentConfigMappings),
     ...getConfigFromMappings(bbConfigMappings),
   };
+}
+
+export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & ProverClientConfig {
+  const proverId =
+    userConfig.proverId && !userConfig.proverId.isZero()
+      ? userConfig.proverId
+      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey.getValue()));
+  return { ...userConfig, proverId };
 }

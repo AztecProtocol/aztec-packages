@@ -8,21 +8,19 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import { SideEffectTrace } from '../../../public/side_effect_trace.js';
 import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
-import {
-  getContractFunctionAbi,
-  getFunctionSelector,
-  initContext,
-  initExecutionEnvironment,
-  resolveContractAssertionMessage,
-} from '../../avm/fixtures/index.js';
-import { AvmPersistableStateManager } from '../../avm/journal/journal.js';
-import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
+import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
-import { SimpleContractDataSource } from './simple_contract_data_source.js';
+import { initContext, initExecutionEnvironment } from './initializers.js';
+import {
+  DEFAULT_TIMESTAMP,
+  getContractFunctionAbi,
+  getFunctionSelector,
+  resolveContractAssertionMessage,
+} from './utils.js';
 
-const TIMESTAMP = new Fr(99833);
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
 
 /**
@@ -34,7 +32,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
   constructor(
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    private stateManager: AvmPersistableStateManager,
+    private stateManager: PublicPersistableStateManager,
   ) {
     super(contractDataSource, merkleTrees);
   }
@@ -47,13 +45,13 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const trace = new SideEffectTrace();
     const firstNullifier = new Fr(420000);
 
-    const stateManager = AvmPersistableStateManager.create(
+    const stateManager = PublicPersistableStateManager.create(
       treesDB,
       contractsDB,
       trace,
       /*doMerkleOperations=*/ false,
       firstNullifier,
-      DEFAULT_BLOCK_NUMBER,
+      DEFAULT_TIMESTAMP,
     );
     return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
   }
@@ -78,7 +76,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const calldata = [fnSelector.toField(), ...encodedArgs];
 
     const globals = GlobalVariables.empty();
-    globals.timestamp = TIMESTAMP;
+    globals.timestamp = DEFAULT_TIMESTAMP;
     globals.gasFees = DEFAULT_GAS_FEES;
 
     const environment = initExecutionEnvironment({

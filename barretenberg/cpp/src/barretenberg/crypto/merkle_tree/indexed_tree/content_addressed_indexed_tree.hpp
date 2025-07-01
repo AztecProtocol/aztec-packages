@@ -1,18 +1,11 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
-#include "../hash.hpp"
-#include "../hash_path.hpp"
-#include "../signal.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
-#include "barretenberg/crypto/merkle_tree/response.hpp"
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "indexed_leaf.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -30,6 +23,22 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 namespace bb::crypto::merkle_tree {
 
@@ -630,6 +639,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
             }
             TypedResponse<GetSiblingPathResponse> response;
             response.success = true;
+
             sibling_path_completion(response);
         }
     };
@@ -706,15 +716,17 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
 
     // We now kick off multiple workers to perform the low leaf updates
     // We create set of signals to coordinate the workers as the move up the tree
-    // We don';t want toflood the provided thread pool with jobs that can't be processed so we throttle the rate
+    // We don';t want to flood the provided thread pool with jobs that can't be processed so we throttle the rate
     // at which jobs are added to the thread pool. This enables other trees to utilise the same pool
-    std::shared_ptr<std::vector<Signal>> signals = std::make_shared<std::vector<Signal>>();
+    // NOTE: Wrapping signals with unique_ptr to make them movable (re: mac build).
+    // Feel free to reconsider and make Signal movable.
+    auto signals = std::make_shared<std::vector<std::unique_ptr<Signal>>>();
     std::shared_ptr<Status> status = std::make_shared<Status>();
     // The first signal is set to 0. This ensures the first worker up the tree is not impeded
-    signals->emplace_back(0);
+    signals->emplace_back(std::make_unique<Signal>(0));
     // Workers will follow their leaders up the tree, being triggered by the signal in front of them
     for (size_t i = 0; i < updates->size(); ++i) {
-        signals->emplace_back(uint32_t(1 + depth_));
+        signals->emplace_back(std::make_unique<Signal>(static_cast<uint32_t>(1 + depth_)));
     }
 
     {
@@ -752,8 +764,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
         for (uint32_t i = 0; i < updates->size(); ++i) {
             std::function<void()> op = [=, this]() {
                 LeafUpdate& update = (*updates)[i];
-                Signal& leaderSignal = (*signals)[i];
-                Signal& followerSignal = (*signals)[i + 1];
+                Signal& leaderSignal = *(*signals)[i];
+                Signal& followerSignal = *(*signals)[i + 1];
                 try {
                     auto& current_witness_data = update_witnesses->at(i);
                     current_witness_data.leaf = update.original_leaf;
@@ -828,7 +840,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates_without_
     uint64_t numBatchesPower2Floor = numeric::get_msb(workers_->num_threads());
     index_t numBatches = static_cast<index_t>(std::pow(2UL, numBatchesPower2Floor));
     index_t batchSize = span / numBatches;
-    batchSize = std::max(batchSize, 2UL);
+    batchSize = std::max(batchSize, static_cast<index_t>(2));
     index_t startIndex = 0;
     indexPower2Ceil = log2Ceil(batchSize);
     uint32_t rootLevel = depth_ - static_cast<uint32_t>(indexPower2Ceil);
@@ -899,7 +911,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appe
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
     const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
-    const InsertionGenerationCallback& on_completion)
+    const InsertionGenerationCallback& completion)
 {
     execute_and_report<InsertionGenerationResponse>(
         [=, this](TypedResponse<InsertionGenerationResponse>& response) {
@@ -1018,10 +1030,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     if (!is_already_present) {
                         // Update the current leaf to point it to the new leaf
                         IndexedLeafValueType new_leaf =
-                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextValue);
+                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextKey);
 
                         low_leaf.nextIndex = index_of_new_leaf;
-                        low_leaf.nextValue = value;
+                        low_leaf.nextKey = value;
                         store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
 
                         // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
@@ -1039,7 +1051,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     } else if (IndexedLeafValueType::is_updateable()) {
                         // Update the current leaf's value, don't change it's link
                         IndexedLeafValueType replacement_leaf =
-                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextValue);
+                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextKey);
                         // IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
                         //  don't update the index for this empty leaf
                         // std::cout << "Low leaf updated at index " << low_leaf_index << " index of new leaf "
@@ -1064,7 +1076,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 }
             }
         },
-        on_completion);
+        completion);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -1088,7 +1100,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_
     // 3. Write the new node value
     index_t index = leaf_index;
     uint32_t level = depth_;
-    fr new_hash = leaf.value.is_empty() ? fr::zero() : HashingPolicy::hash(leaf.get_hash_inputs());
+    fr new_hash = leaf.leaf.is_empty() ? fr::zero() : HashingPolicy::hash(leaf.get_hash_inputs());
 
     // Wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about
     // to write into) this ensures that our leader is not still reading the leaves
@@ -1169,8 +1181,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
     while (level > 0) {
         std::vector<index_t> next_indices;
         std::unordered_map<index_t, fr> next_hashes;
-        for (size_t i = 0; i < indices.size(); ++i) {
-            index_t index = indices[i];
+        for (index_t index : indices) {
             index_t parent_index = index >> 1;
             auto it = unique_indices.insert(parent_index);
             if (!it.second) {
@@ -1229,8 +1240,8 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
         }
 
         // one of our leaves
-        new_hash = update.updated_leaf.value.is_empty() ? fr::zero()
-                                                        : HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
+        new_hash = update.updated_leaf.leaf.is_empty() ? fr::zero()
+                                                       : HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
 
         // std::cout << "Hashing leaf at level " << level << " index " << update.leaf_index << " batch start "
         //           << start_index << " hash " << leaf_hash << std::endl;
@@ -1253,8 +1264,7 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
     while (level > root_level) {
         std::vector<index_t> next_indices;
         std::unordered_map<index_t, fr> next_hashes;
-        for (size_t i = 0; i < indices.size(); ++i) {
-            index_t index = indices[i];
+        for (index_t index : indices) {
             index_t parent_index = index >> 1;
             auto it = unique_indices.insert(parent_index);
             if (!it.second) {
@@ -1506,10 +1516,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                 if (!is_already_present) {
                     // Update the current leaf to point it to the new leaf
                     IndexedLeafValueType new_leaf =
-                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
+                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextKey);
                     index_t index_of_new_leaf = current_size;
                     low_leaf.nextIndex = index_of_new_leaf;
-                    low_leaf.nextValue = value;
+                    low_leaf.nextKey = value;
                     current_size++;
                     // Cache the new leaf
                     store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
@@ -1522,7 +1532,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                 } else if (IndexedLeafValueType::is_updateable()) {
                     // Update the current leaf's value, don't change it's link
                     IndexedLeafValueType replacement_leaf =
-                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
+                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextKey);
 
                     store_->put_cached_leaf_by_index(low_leaf_index, replacement_leaf);
                     insertion_update.low_leaf_update.updated_leaf = replacement_leaf;

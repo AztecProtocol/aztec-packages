@@ -13,9 +13,37 @@ describe('sequencer-timetable', () => {
     timetable = new SequencerTimetable(ethereumSlotDuration, aztecSlotDuration, maxL1TxInclusionTimeIntoSlot, enforce);
   });
 
+  describe('constructor', () => {
+    it('fails to construct an instance with too short slot duration', () => {
+      const aztecSlotDuration = ethereumSlotDuration;
+      expect(
+        () => new SequencerTimetable(ethereumSlotDuration, aztecSlotDuration, maxL1TxInclusionTimeIntoSlot, enforce),
+      ).toThrow(/initialize deadline cannot be negative/i);
+    });
+
+    it('allows a slot duration of at least two ethereum slots', () => {
+      const aztecSlotDuration = ethereumSlotDuration * 2;
+      const timetable = new SequencerTimetable(
+        ethereumSlotDuration,
+        aztecSlotDuration,
+        maxL1TxInclusionTimeIntoSlot,
+        enforce,
+      );
+      expect(timetable.initializeDeadline).toEqual(
+        aztecSlotDuration -
+          ethereumSlotDuration - // time to get included on L1 given maxL1TxInclusionTimeIntoSlot=0
+          2 * timetable.attestationPropagationTime - // time to propagate the attestation
+          timetable.blockValidationTime - // time to validate the block
+          timetable.blockPrepareTime - // time to prepare the block
+          2 * timetable.minExecutionTime, // min guaranteed time to execute the block
+      );
+      expect(timetable.initializeDeadline).toEqual(4);
+    });
+  });
+
   describe('maxAllowedTime', () => {
     it('computes time from slot start', () => {
-      expect(timetable.getMaxAllowedTime(SequencerState.INITIALIZING_PROPOSAL)).toEqual(timetable.initialTime);
+      expect(timetable.getMaxAllowedTime(SequencerState.INITIALIZING_PROPOSAL)).toEqual(timetable.initializeDeadline);
     });
 
     it('computes time from slot end', () => {
@@ -25,11 +53,27 @@ describe('sequencer-timetable', () => {
           timetable.attestationPropagationTime * 2,
       );
     });
+
+    it('returns an increasing time for each stage', () => {
+      const stages = [
+        SequencerState.INITIALIZING_PROPOSAL,
+        SequencerState.CREATING_BLOCK,
+        SequencerState.COLLECTING_ATTESTATIONS,
+        SequencerState.PUBLISHING_BLOCK,
+      ];
+      for (let i = 0; i < stages.length - 1; i++) {
+        const time1 = timetable.getMaxAllowedTime(stages[i]);
+        const time2 = timetable.getMaxAllowedTime(stages[i + 1]);
+        expect(time1).toBeLessThan(time2!);
+      }
+    });
   });
 
   describe('assertTimeLeft', () => {
     it('throws if time is up', () => {
-      expect(() => timetable.assertTimeLeft(SequencerState.INITIALIZING_PROPOSAL, 5)).toThrow(/Too far into slot/);
+      expect(() =>
+        timetable.assertTimeLeft(SequencerState.INITIALIZING_PROPOSAL, timetable.initializeDeadline + 1),
+      ).toThrow(/Too far into slot/);
     });
 
     it('does not throw if enough time left', () => {
@@ -75,7 +119,7 @@ describe('sequencer-timetable', () => {
     });
 
     it('sets deadline when building on time', () => {
-      const intoSlot = timetable.initialTime + timetable.blockPrepareTime;
+      const intoSlot = timetable.initializeDeadline + timetable.blockPrepareTime;
       const actual = timetable.getBlockProposalExecTimeEnd(intoSlot);
       const available =
         aztecSlotDuration -
@@ -85,7 +129,7 @@ describe('sequencer-timetable', () => {
         intoSlot;
       const expected = available / 2 + intoSlot;
       expect(actual).toEqual(expected);
-      expect(expected).toEqual(11.5);
+      expect(expected).toEqual(18);
     });
 
     it('sets deadline before current time if too late', () => {

@@ -27,10 +27,10 @@ impl MergeRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
@@ -53,8 +53,8 @@ mod tests {
     #[test(should_fail_with = "The rollup should be filled greedily from L to R, but received a L base and R merge")]
     fn different_rollup_type_fails() {
         let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 0;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
+        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 1; // base
+        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 2; // merge
         let _output = inputs.merge_rollup_circuit();
     }
 
@@ -102,18 +102,13 @@ mod tests {
     fn rollup_fields_are_set_correctly() {
         let mut inputs = default_merge_rollup_inputs();
         let mut outputs = inputs.merge_rollup_circuit();
-        assert_eq(outputs.rollup_type, 1);
         assert_eq(outputs.num_txs, 2);
 
         // set inputs to have a merge rollup type and set the rollup height and test again.
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 2;
-
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 2;
 
         outputs = inputs.merge_rollup_circuit();
-        assert_eq(outputs.rollup_type, 1);
         assert_eq(outputs.num_txs, 4);
     }
 
@@ -124,13 +119,11 @@ mod tests {
         // Start with two bases => two single txs
         assert_eq(outputs.num_txs, 2);
         // Test one merge of 2 merged with one base
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 2;
         outputs = inputs.merge_rollup_circuit();
         // Should have one subtree of size 2, and one of size 1
         assert_eq(outputs.num_txs, 3);
         // Test two merges, each with a subtree of 2
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 2;
         outputs = inputs.merge_rollup_circuit();
         // Should have one subtree of size 4
@@ -181,15 +174,13 @@ mod tests {
     fn valid_previous_circuit_base() {
         let mut inputs = default_merge_rollup_inputs();
 
+        let vk_index = PRIVATE_BASE_ROLLUP_VK_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(PRIVATE_BASE_ROLLUP_VK_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index =
-            PRIVATE_BASE_ROLLUP_VK_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(PRIVATE_BASE_ROLLUP_VK_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
 
         let _outputs = inputs.merge_rollup_circuit();
     }
@@ -198,14 +189,13 @@ mod tests {
     fn valid_previous_circuit_merge() {
         let mut inputs = default_merge_rollup_inputs();
 
+        let vk_index = MERGE_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(MERGE_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = MERGE_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(MERGE_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
 
         let _outputs = inputs.merge_rollup_circuit();
     }
@@ -213,13 +203,15 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_circuit() {
         let mut inputs = default_merge_rollup_inputs();
+
+        let vk_index = ROOT_PARITY_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(ROOT_PARITY_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.merge_rollup_circuit();
     }
 }

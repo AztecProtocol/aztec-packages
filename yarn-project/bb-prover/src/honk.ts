@@ -1,6 +1,6 @@
 import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 
-export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk' | 'ultra_rollup_honk';
+export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk' | 'ultra_starknet_honk' | 'ultra_rollup_honk';
 
 const UltraKeccakHonkCircuits = ['RootRollupArtifact'] as const satisfies ServerProtocolArtifact[];
 const UltraHonkCircuits = ['BaseParityArtifact', 'RootParityArtifact'] as const satisfies ServerProtocolArtifact[];
@@ -17,6 +17,7 @@ export function getUltraHonkFlavorForCircuit(artifact: UltraHonkServerProtocolAr
 export function getUltraHonkFlavorForCircuit(artifact: UltraRollupHonkServerProtocolArtifact): 'ultra_rollup_honk';
 export function getUltraHonkFlavorForCircuit(artifact: ServerProtocolArtifact): UltraHonkFlavor;
 export function getUltraHonkFlavorForCircuit(artifact: ServerProtocolArtifact): UltraHonkFlavor {
+  // STARKNET: how to allow for the distinction between keccak/starknet? ultra_keccak_honk is returned in both cases
   if (isUltraKeccakHonkCircuit(artifact)) {
     return 'ultra_keccak_honk';
   } else if (UltraHonkCircuits.includes(artifact as UltraHonkServerProtocolArtifact)) {

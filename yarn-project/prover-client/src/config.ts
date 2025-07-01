@@ -1,5 +1,10 @@
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/server';
 
 import {
@@ -9,10 +14,11 @@ import {
   proverBrokerConfigMappings,
 } from './proving_broker/config.js';
 
-/**
- * The prover configuration.
- */
-export type ProverClientConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
+/** The prover configuration as defined by the user. */
+export type ProverClientUserConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
+
+/** The prover configuration with all missing fields resolved. */
+export type ProverClientConfig = ProverClientUserConfig & Required<Pick<ProverClientUserConfig, 'proverId'>>;
 
 export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   acvmWorkingDirectory: {
@@ -36,9 +42,19 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description: 'Whether to skip cleanup of bb temporary files',
     ...booleanConfigHelper(false),
   },
+  numConcurrentIVCVerifiers: {
+    env: 'BB_NUM_IVC_VERIFIERS',
+    description: 'Max number of client IVC verifiers to run concurrently',
+    ...numberConfigHelper(8),
+  },
+  bbIVCConcurrency: {
+    env: 'BB_IVC_CONCURRENCY',
+    description: 'Number of threads to use for IVC verification',
+    ...numberConfigHelper(1),
+  },
 };
 
-export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
+export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
   ...bbConfigMappings,
   ...proverConfigMappings,
   ...proverAgentConfigMappings,
@@ -50,6 +66,6 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
  * Note: If an environment variable is not set, the default value is used.
  * @returns The prover configuration.
  */
-export function getProverEnvVars(): ProverClientConfig {
-  return getConfigFromMappings<ProverClientConfig>(proverClientConfigMappings);
+export function getProverEnvVars(): ProverClientUserConfig {
+  return getConfigFromMappings<ProverClientUserConfig>(proverClientConfigMappings);
 }

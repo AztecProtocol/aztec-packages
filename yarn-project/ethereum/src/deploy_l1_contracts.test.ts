@@ -2,13 +2,14 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
 import { DefaultL1ContractsConfig } from './config.js';
 import { RollupContract } from './contracts/rollup.js';
-import { type DeployL1ContractsArgs, deployL1Contracts } from './deploy_l1_contracts.js';
+import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
 
 describe('deploy_l1_contracts', () => {
@@ -18,9 +19,7 @@ describe('deploy_l1_contracts', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let genesisArchiveRoot: Fr;
-  let genesisBlockHash: Fr;
-  let initialValidators: EthAddress[];
-  let l2FeeJuiceAddress: Fr;
+  let initialValidators: Operator[];
 
   // Use these environment variables to run against a live node. Eg to test against spartan's eth-devnet:
   // BLOCK_TIME=1 spartan/aztec-network/eth-devnet/run-locally.sh
@@ -35,10 +34,11 @@ describe('deploy_l1_contracts', () => {
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
     genesisArchiveRoot = Fr.random();
-    genesisBlockHash = Fr.random();
-    initialValidators = times(3, EthAddress.random);
-    // Valid AztecAddress represented by its xCoord as a Fr
-    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
+
+    initialValidators = times(3, () => ({
+      attester: EthAddress.random(),
+      withdrawer: EthAddress.random(),
+    }));
 
     if (!rpcUrl) {
       ({ stop, rpcUrl } = await startAnvil());
@@ -62,14 +62,13 @@ describe('deploy_l1_contracts', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      genesisBlockHash,
-      l2FeeJuiceAddress,
       l1TxConfig: { checkIntervalMs: 100 },
+      realVerifier: false,
       ...args,
     });
 
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
-    new RollupContract(deployed.publicClient, deployed.l1ContractAddresses.rollupAddress);
+    new RollupContract(deployed.l1Client, deployed.l1ContractAddresses.rollupAddress);
 
   it('deploys without salt', async () => {
     await deploy();
@@ -78,10 +77,19 @@ describe('deploy_l1_contracts', () => {
   it('deploys initializing validators', async () => {
     const deployed = await deploy({ initialValidators });
     const rollup = getRollup(deployed);
-    for (const validator of initialValidators) {
-      const { status } = await rollup.getInfo(validator);
-      expect(status).toBeGreaterThan(0);
-    }
+    await Promise.all(
+      initialValidators.map(async validator => {
+        await retryUntil(
+          async () => {
+            const view = await rollup.getAttesterView(validator.attester);
+            return view.status > 0;
+          },
+          `attester ${validator.attester} is attesting`,
+          DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+          1,
+        );
+      }),
+    );
   });
 
   it('deploys with salt on different addresses', async () => {
@@ -106,8 +114,15 @@ describe('deploy_l1_contracts', () => {
 
     const rollup = getRollup(first);
     for (const validator of initialValidators) {
-      const { status } = await rollup.getInfo(validator);
-      expect(status).toBeGreaterThan(0);
+      await retryUntil(
+        async () => {
+          const view = await rollup.getAttesterView(validator.attester);
+          return view.status > 0;
+        },
+        'attester is attesting',
+        DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+        1,
+      );
     }
   });
 });

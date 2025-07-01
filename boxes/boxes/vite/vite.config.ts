@@ -45,7 +45,10 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
-    plugins: [react(), nodePolyfillsFix({ include: ["buffer", "path"] })],
+    plugins: [
+      react(),
+      nodePolyfillsFix({ include: ["buffer", "path", "process"] }),
+    ],
     define: {
       "process.env": JSON.stringify({
         AZTEC_NODE_URL: env.AZTEC_NODE_URL,

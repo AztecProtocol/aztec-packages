@@ -34,11 +34,11 @@ void add_to_cache(
         fr value = fr::random_element();
         index_t next_index = get_index(max_index);
         fr next_value = fr::random_element();
-        IndexedLeafType leaf = IndexedLeafType(LeafValueType(slot, value), next_index, next_value);
+        IndexedLeafType leaf_preimage = IndexedLeafType(LeafValueType(slot, value), next_index, next_value);
         fr leaf_hash = fr::random_element();
-        cache.put_leaf_by_index(i + leaf_offset, leaf);
-        cache.put_leaf_preimage_by_hash(leaf_hash, leaf);
-        cache.update_leaf_key_index(i + leaf_offset, leaf.value.get_key());
+        cache.put_leaf_by_index(i + leaf_offset, leaf_preimage);
+        cache.put_leaf_preimage_by_hash(leaf_hash, leaf_preimage);
+        cache.update_leaf_key_index(i + leaf_offset, leaf_preimage.leaf.get_key());
     }
 
     for (uint64_t i = 0; i < num_nodes; i++) {
@@ -225,29 +225,29 @@ std::vector<IndexedLeafType> setup_leaves_tests(uint32_t index, CacheType& cache
     index_t next_index = 15;
     fr next_value = fr::random_element();
     // Now add a new node
-    IndexedLeafType leaf1 = IndexedLeafType(LeafValueType(slot, value1), next_index, next_value);
-    cache.put_leaf_by_index(index, leaf1);
-    cache.update_leaf_key_index(index, leaf1.value.get_key());
+    IndexedLeafType leaf_preimage1 = IndexedLeafType(LeafValueType(slot, value1), next_index, next_value);
+    cache.put_leaf_by_index(index, leaf_preimage1);
+    cache.update_leaf_key_index(index, leaf_preimage1.leaf.get_key());
 
     // Now add a new value at the same location
     fr value2 = fr::random_element();
-    IndexedLeafType leaf2 = IndexedLeafType(LeafValueType(slot, value2), next_index, next_value);
-    cache.put_leaf_by_index(index, leaf2);
-    cache.update_leaf_key_index(index, leaf2.value.get_key());
+    IndexedLeafType leaf_preimage2 = IndexedLeafType(LeafValueType(slot, value2), next_index, next_value);
+    cache.put_leaf_by_index(index, leaf_preimage2);
+    cache.update_leaf_key_index(index, leaf_preimage2.leaf.get_key());
 
     // Checkpoint again
     cache.checkpoint();
     fr value3 = fr::random_element();
-    IndexedLeafType leaf3 = IndexedLeafType(LeafValueType(slot, value3), next_index, next_value);
-    cache.put_leaf_by_index(index, leaf3);
-    cache.update_leaf_key_index(index, leaf3.value.get_key());
+    IndexedLeafType leaf_preimage3 = IndexedLeafType(LeafValueType(slot, value3), next_index, next_value);
+    cache.put_leaf_by_index(index, leaf_preimage3);
+    cache.update_leaf_key_index(index, leaf_preimage3.leaf.get_key());
 
     // Now add a new value at the same location
     fr value4 = fr::random_element();
-    IndexedLeafType leaf4 = IndexedLeafType(LeafValueType(slot, value4), next_index, next_value);
-    cache.put_leaf_by_index(index, leaf4);
-    cache.update_leaf_key_index(index, leaf4.value.get_key());
-    return { leaf1, leaf2, leaf3, leaf4 };
+    IndexedLeafType leaf_preimage4 = IndexedLeafType(LeafValueType(slot, value4), next_index, next_value);
+    cache.put_leaf_by_index(index, leaf_preimage4);
+    cache.update_leaf_key_index(index, leaf_preimage4.leaf.get_key());
+    return { leaf_preimage1, leaf_preimage2, leaf_preimage3, leaf_preimage4 };
 }
 
 TEST_F(ContentAddressedCacheTest, commit_then_revert_leaves)
@@ -257,30 +257,30 @@ TEST_F(ContentAddressedCacheTest, commit_then_revert_leaves)
 
     uint32_t index = 67;
     std::vector<IndexedLeafType> leaves = setup_leaves_tests(index, cache);
-    IndexedLeafType leaf4 = leaves[3];
+    IndexedLeafType leaf_preimage4 = leaves[3];
 
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 
     // Commit the last checkpoint
     cache.commit();
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 
     // Revert the next checkpoint, there should be no leaf at this location
     cache.revert();
     EXPECT_FALSE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_FALSE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
+    EXPECT_FALSE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
 }
 
 TEST_F(ContentAddressedCacheTest, commit_then_commit_leaves)
@@ -290,34 +290,34 @@ TEST_F(ContentAddressedCacheTest, commit_then_commit_leaves)
 
     uint32_t index = 67;
     std::vector<IndexedLeafType> leaves = setup_leaves_tests(index, cache);
-    IndexedLeafType leaf4 = leaves[3];
+    IndexedLeafType leaf_preimage4 = leaves[3];
 
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 
     // Commit the last checkpoint
     cache.commit();
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 
     // Commit the next checkpoint, should still have the same leaf
     cache.commit();
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 }
 
 TEST_F(ContentAddressedCacheTest, revert_then_commit_leaves)
@@ -327,35 +327,35 @@ TEST_F(ContentAddressedCacheTest, revert_then_commit_leaves)
 
     uint32_t index = 67;
     std::vector<IndexedLeafType> leaves = setup_leaves_tests(index, cache);
-    IndexedLeafType leaf4 = leaves[3];
-    IndexedLeafType leaf2 = leaves[1];
+    IndexedLeafType leaf_preimage4 = leaves[3];
+    IndexedLeafType leaf_preimage2 = leaves[1];
 
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 
     // Revert the last checkpoint
     cache.revert();
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf2);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage2);
 
     // Verify the indices store still has the key at the same index
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).value(), index);
 
     // Commit the next checkpoint, should still have the same leaf
     cache.commit();
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf2);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage2);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).value(), index);
 }
 
 TEST_F(ContentAddressedCacheTest, revert_then_revert_leaves)
@@ -365,31 +365,31 @@ TEST_F(ContentAddressedCacheTest, revert_then_revert_leaves)
 
     uint32_t index = 67;
     std::vector<IndexedLeafType> leaves = setup_leaves_tests(index, cache);
-    IndexedLeafType leaf4 = leaves[3];
-    IndexedLeafType leaf2 = leaves[1];
+    IndexedLeafType leaf_preimage4 = leaves[3];
+    IndexedLeafType leaf_preimage2 = leaves[1];
 
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf4);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage4);
 
     // Verify the indices store
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage4.leaf.get_key()).value(), index);
 
     // Revert the last checkpoint
     cache.revert();
     // Check current leaf value
     EXPECT_TRUE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf2);
+    EXPECT_EQ(get_leaf_by_index(cache, index).value(), leaf_preimage2);
 
     // Verify the indices store still has the key at the same index
-    EXPECT_TRUE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
-    EXPECT_EQ(cache.get_leaf_key_index(leaf4.value.get_key()).value(), index);
+    EXPECT_TRUE(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).has_value());
+    EXPECT_EQ(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).value(), index);
 
     // Revert the next checkpoint, there should be no leaf at this location
     cache.revert();
     EXPECT_FALSE(get_leaf_by_index(cache, index).has_value());
-    EXPECT_FALSE(cache.get_leaf_key_index(leaf4.value.get_key()).has_value());
+    EXPECT_FALSE(cache.get_leaf_key_index(leaf_preimage2.leaf.get_key()).has_value());
 }
 
 TEST_F(ContentAddressedCacheTest, can_revert_cache)
@@ -400,7 +400,6 @@ TEST_F(ContentAddressedCacheTest, can_revert_cache)
     cache.checkpoint();
     add_to_cache(cache, 1000, 1000, 10000);
     EXPECT_NO_THROW(cache.revert());
-    // EXPECT_TRUE(cache_copy.is_equivalent_to(cache));
 }
 
 TEST_F(ContentAddressedCacheTest, can_commit_cache)
@@ -417,6 +416,47 @@ TEST_F(ContentAddressedCacheTest, can_commit_cache)
     EXPECT_TRUE(cache_copy_2.is_equivalent_to(cache));
     cache.commit();
     EXPECT_TRUE(cache_copy_2.is_equivalent_to(cache));
+}
+
+TEST_F(ContentAddressedCacheTest, can_commit_all)
+{
+    CacheType cache = create_cache(40);
+    cache.checkpoint();
+    add_to_cache(cache, 0, 1000, 10000);
+    cache.checkpoint();
+    add_to_cache(cache, 1000, 1000, 10000);
+    cache.checkpoint();
+    add_to_cache(cache, 2000, 1000, 10000);
+    CacheType final_cache = cache;
+
+    cache.commit_all();
+
+    // Should no longer be able to revert, no checkpoints left
+    // Should no longer be able to revert or commit
+    EXPECT_THROW(cache.commit(), std::runtime_error);
+    EXPECT_THROW(cache.revert(), std::runtime_error);
+
+    EXPECT_TRUE(final_cache.is_equivalent_to(cache));
+}
+
+TEST_F(ContentAddressedCacheTest, can_revert_all)
+{
+    CacheType cache = create_cache(40);
+    add_to_cache(cache, 0, 1000, 10000);
+    CacheType original_cache = cache;
+    cache.checkpoint();
+    add_to_cache(cache, 1000, 1000, 10000);
+    cache.checkpoint();
+    add_to_cache(cache, 2000, 1000, 10000);
+
+    // Revert all checkpoints
+    cache.revert_all();
+
+    // Should no longer be able to revert or commit
+    EXPECT_THROW(cache.commit(), std::runtime_error);
+    EXPECT_THROW(cache.revert(), std::runtime_error);
+
+    EXPECT_TRUE(original_cache.is_equivalent_to(cache));
 }
 
 TEST_F(ContentAddressedCacheTest, can_revert_through_multiple_levels)

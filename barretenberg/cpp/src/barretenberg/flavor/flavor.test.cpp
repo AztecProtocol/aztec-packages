@@ -1,5 +1,5 @@
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
 
@@ -7,7 +7,7 @@ using namespace bb;
 
 TEST(Flavor, Getters)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     using Flavor = UltraFlavor;
     using FF = Flavor::FF;
     using ProvingKey = typename Flavor::ProvingKey;

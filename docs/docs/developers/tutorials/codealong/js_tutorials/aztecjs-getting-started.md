@@ -1,17 +1,21 @@
 ---
-title: Transferring Tokens with Aztec.js
+title: Getting started with Aztec.js
 sidebar_position: 0
 ---
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
+In this guide, we will retrieving the Sandbox and deploy a pre-written token contract to it using Aztec.js. We will then use Aztec.js to interact with this contract and transfer tokens.
 
 This guide assumes you have followed the [quickstart](../../../../developers/getting_started.md).
 
+:::note
+This tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+:::
+
 ## Prerequisites
 
-- A running Aztec sandbox
+- A running Aztec sandbox at version #include_version_without_prefix. Install with `aztec-up #include_version_without_prefix`.
 
 ## Set up the project
 
@@ -36,8 +40,21 @@ mkdir src
 3. Add necessary yarn packages
 
 ```sh
-yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @types/node
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix typescript @types/node
 ```
+
+:::note Match tool and dependency versions
+The version returned from `aztec -V` should match the `@aztec/...` dependencies in package.json
+
+:::
+
+and yarn config:
+
+```sh
+echo "nodeLinker: node-modules" > .yarnrc.yml
+```
+
+Then run: `yarn install`
 
 4. Add a `tsconfig.json` file into the project root and paste this:
 
@@ -75,14 +92,17 @@ yarn add @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js typescript @ty
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest tsconfig.tsbuildinfo",
-    "start": "yarn build && LOG_LEVEL='info: token' node ./dest/index.js"
+    "start": "yarn build && node ./dest/index.js"
   },
 ```
 
 6. Create an `index.ts` file in the `src` directory with the following sandbox connection setup:
 
 ```ts
-#include_code imports /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts raw
+#include_code imports1 /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts raw
+#include_code imports2 /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts raw
+#include_code imports3 /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts raw
+import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
 #include_code token_utils /yarn-project/end-to-end/src/fixtures/token_utils.ts raw
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -105,25 +125,33 @@ yarn start
 A successful run should show something like this:
 
 ```
-  token Aztec Sandbox Info  {
-  token   sandboxVersion: '#include_aztec_short_version',
-  token   chainId: 31337,
-  token   protocolVersion: 1,
-  token   l1ContractAddresses: {
-  token     rollupAddress: EthAddress {
-  token       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
-  token     },
-  token     registryAddress: EthAddress {
-  token       buffer: <Buffer 5f bd b2 31 56 78 af ec b3 67 f0 32 d9 3f 64 2f 64 18 0a a3>
-  token     },
-  token     inboxAddress: EthAddress {
-  token       buffer: <Buffer e7 f1 72 5e 77 34 ce 28 8f 83 67 e1 bb 14 3e 90 bb 3f 05 12>
-  token     },
-  token     outboxAddress: EthAddress {
-  token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
-  token     },
-  token   }
-  token } +0ms
+[21:21:57.641] INFO: e2e:token Aztec Sandbox Info  {
+  enr: undefined,
+  nodeVersion: '0.82.0',
+  l1ChainId: 31337,
+  rollupVersion: 1,
+  l1ContractAddresses: {
+    rollupAddress: EthAddress<0x759f145841f36282f23e0935697c7b2e00401902>,
+    registryAddress: EthAddress<0xd5448148ccca5b2f27784c72265fc37201741778>,
+    inboxAddress: EthAddress<0x7ba2d0f3a856cd7156a4e88d8c06e5f5cb3b7dd6>,
+    outboxAddress: EthAddress<0x6ab41414235e8e9d0e5ac42cdf430432dd6bdd02>,
+    feeJuiceAddress: EthAddress<0x5a08d997c9284780330208ecf0112f80f9e6c472>,
+    stakingAssetAddress: EthAddress<0xc34806e86bcc34feab846712e57edf6086696377>,
+    feeJuicePortalAddress: EthAddress<0x7d2ec00c17a6988c6dbf17a3ee825614cb4aaa4c>,
+    coinIssuerAddress: EthAddress<0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266>,
+    rewardDistributorAddress: EthAddress<0x5c29eba61f19c908dc3e559a80753794ab812e45>,
+    governanceProposerAddress: EthAddress<0x0b3761732e242dbf9491250b8db3b68f61dc6352>,
+    governanceAddress: EthAddress<0xeeab717ebb2dfdb1d19a6638dffe141e4111c9e2>,
+    slashFactoryAddress: EthAddress<0xbca51eb257b56ee0b3ef2bbdf865b2cc32f9b39b>,
+    feeAssetHandlerAddress: EthAddress<0xc3181f43e89f2db4949ec0dddb4e332ef188f66c>
+  },
+  protocolContractAddresses: {
+    classRegisterer: AztecAddress<0x0000000000000000000000000000000000000000000000000000000000000003>,
+    feeJuice: AztecAddress<0x0000000000000000000000000000000000000000000000000000000000000005>,
+    instanceDeployer: AztecAddress<0x0000000000000000000000000000000000000000000000000000000000000002>,
+    multiCallEntrypoint: AztecAddress<0x0000000000000000000000000000000000000000000000000000000000000004>
+  }
+}
 ```
 
 Great! The Sandbox is running and we are able to interact with it.
@@ -138,38 +166,18 @@ An explanation on accounts on Aztec can be found [here](../../../../aztec/concep
 
 ## Deploy a contract
 
-Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/token_contract/src). Add this to `index.ts` below the code you added earlier:
+Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
 #include_code Deployment /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
 
 `yarn start` will now give something like this:
 
 ```
-  token Aztec Sandbox Info  {
-  token   sandboxVersion: '#include_aztec_short_version',
-  token   chainId: 31337,
-  token   protocolVersion: 1,
-  token   l1ContractAddresses: {
-  token     rollupAddress: EthAddress {
-  token       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
-  token     },
-  token     registryAddress: EthAddress {
-  token       buffer: <Buffer 5f bd b2 31 56 78 af ec b3 67 f0 32 d9 3f 64 2f 64 18 0a a3>
-  token     },
-  token     inboxAddress: EthAddress {
-  token       buffer: <Buffer e7 f1 72 5e 77 34 ce 28 8f 83 67 e1 bb 14 3e 90 bb 3f 05 12>
-  token     },
-  token     outboxAddress: EthAddress {
-  token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
-  token     },
-  token   }
-  token } +0ms
-  token Loaded alice's account at 0x25048e8c...70d0 +4s
-  token Loaded bob's account at 0x115f123b...6483 +0ms
-  token Deploying token contract... +0ms
-  token Contract successfully deployed at address 0x11a03dce...afc7 +5s
-  token Minting tokens to Alice... +18ms
-  token 1000000 tokens were successfully minted and redeemed by Alice +10s
+[21:35:17.434] INFO: e2e:token Loaded alice's account at 0x2a4c7cded97e40031f16c917ab8da8852a1b6da7bf136b32c163d8b16a80acba
+[21:35:17.434] INFO: e2e:token Loaded bob's account at 0x0da6dbf69a48f02b09dbdb18fa77bfa526771d3df2ab75b66cb9c69de9002648
+[21:35:17.434] INFO: e2e:token Deploying Token contract...
+[21:35:20.646] INFO: aztecjs:deploy_sent_tx Contract 0x05db83a57befe646e5ce1dcd9bccce4e3af64e5c1628f69be520e527863805dd successfully deployed.
+[21:35:23.995] INFO: e2e:token L2 contract deployed
 ```
 
 We can break this down as follows:
@@ -192,33 +200,8 @@ Call the `balance_of_private` function using the following code (paste this):
 Running now should yield output:
 
 ```
-  token Aztec Sandbox Info  {
-  token   sandboxVersion: '#include_aztec_short_version',
-  token   chainId: 31337,
-  token   protocolVersion: 1,
-  token   l1ContractAddresses: {
-  token     rollupAddress: EthAddress {
-  token       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
-  token     },
-  token     registryAddress: EthAddress {
-  token       buffer: <Buffer 5f bd b2 31 56 78 af ec b3 67 f0 32 d9 3f 64 2f 64 18 0a a3>
-  token     },
-  token     inboxAddress: EthAddress {
-  token       buffer: <Buffer e7 f1 72 5e 77 34 ce 28 8f 83 67 e1 bb 14 3e 90 bb 3f 05 12>
-  token     },
-  token     outboxAddress: EthAddress {
-  token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
-  token     },
-  token   }
-  token } +0ms
-  token Loaded alice's account at 0x25048e8c...70d0 +4s
-  token Loaded bob's account at 0x115f123b...6483 +0ms
-  token Deploying token contract... +0ms
-  token Contract successfully deployed at address 0x1b388d99...4b55 +4s
-  token Minting tokens to Alice... +10ms
-  token 1000000 tokens were successfully minted and redeemed by Alice +10s
-  token Alice's balance 1000000 +80ms
-  token Bob's balance 0 +31ms
+[21:38:42.789] INFO: e2e:token Alice's balance 1000000
+[21:38:42.901] INFO: e2e:token Bob's balance 0
 ```
 
 Above, we created a second instance of the `TokenContract` contract class.
@@ -230,9 +213,11 @@ No transaction is submitted as a result but a user's state can be queried.
 
 We can see that each account has the expected balance of tokens.
 
-### Calling an unconstrained (view) function
+### Calling a view function
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png">
+<img src="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" />
+</a>
 
 ## Create and submit a transaction
 
@@ -250,36 +235,9 @@ Here is the Typescript code to call the `transfer` function, add this to your `i
 Our output should now look like this:
 
 ```
-  token Aztec Sandbox Info  {
-  token   sandboxVersion: '#include_aztec_short_version',
-  token   chainId: 31337,
-  token   protocolVersion: 1,
-  token   l1ContractAddresses: {
-  token     rollupAddress: EthAddress {
-  token       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
-  token     },
-  token     registryAddress: EthAddress {
-  token       buffer: <Buffer 5f bd b2 31 56 78 af ec b3 67 f0 32 d9 3f 64 2f 64 18 0a a3>
-  token     },
-  token     inboxAddress: EthAddress {
-  token       buffer: <Buffer e7 f1 72 5e 77 34 ce 28 8f 83 67 e1 bb 14 3e 90 bb 3f 05 12>
-  token     },
-  token     outboxAddress: EthAddress {
-  token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
-  token     },
-  token   }
-  token } +0ms
-  token Loaded alice's account at 0x25048e8c...70d0 +4s
-  token Loaded bob's account at 0x115f123b...6483 +0ms
-  token Deploying token contract... +0ms
-  token Contract successfully deployed at address 0x01d8af7d...9a4d +5s
-  token Minting tokens to Alice... +18ms
-  token 1000000 tokens were successfully minted and redeemed by Alice +11s
-  token Alice's balance 1000000 +59ms
-  token Bob's balance 0 +33ms
-  token Transferring 543 tokens from Alice to Bob... +0ms
-  token Alice's balance 999457 +6s
-  token Bob's balance 543 +39ms
+[21:38:42.901] INFO: e2e:token Transferring 543 tokens from Alice to Bob...
+[21:38:46.384] INFO: e2e:token Alice's balance 999457
+[21:38:46.644] INFO: e2e:token Bob's balance 543
 ```
 
 Here, we used the same contract abstraction as was previously used for reading Alice's balance. But this time we called `send()` generating and sending a transaction to the network. After waiting for the transaction to settle we were able to check the new balance values.
@@ -304,39 +262,8 @@ Let's now use these functions to mint some tokens to Bob's account using Typescr
 Our complete output should now be something like:
 
 ```
-  token Aztec Sandbox Info  {
-  token   sandboxVersion: '#include_aztec_short_version',
-  token   chainId: 31337,
-  token   protocolVersion: 1,
-  token   l1ContractAddresses: {
-  token     rollupAddress: EthAddress {
-  token       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>
-  token     },
-  token     registryAddress: EthAddress {
-  token       buffer: <Buffer 5f bd b2 31 56 78 af ec b3 67 f0 32 d9 3f 64 2f 64 18 0a a3>
-  token     },
-  token     inboxAddress: EthAddress {
-  token       buffer: <Buffer e7 f1 72 5e 77 34 ce 28 8f 83 67 e1 bb 14 3e 90 bb 3f 05 12>
-  token     },
-  token     outboxAddress: EthAddress {
-  token       buffer: <Buffer 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00>
-  token     },
-  token   }
-  token } +0ms
-  token Loaded alice's account at 0x25048e8c...70d0 +4s
-  token Loaded bob's account at 0x115f123b...6483 +0ms
-  token Deploying token contract... +0ms
-  token Contract successfully deployed at address 0x03a0bb2c...02c2 +7s
-  token Minting tokens to Alice... +19ms
-  token 1000000 tokens were successfully minted and redeemed by Alice +9s
-  token Alice's balance 1000000 +43ms
-  token Bob's balance 0 +31ms
-  token Transferring 543 tokens from Alice to Bob... +0ms
-  token Alice's balance 999457 +6s
-  token Bob's balance 543 +36ms
-  token Minting 10000 tokens to Bob... +5s
-  token Alice's balance 999457 +9s
-  token Bob's balance 10543 +43ms
+[21:40:29.635] INFO: e2e:token Alice's balance 999457
+[21:40:29.927] INFO: e2e:token Bob's balance 10543
 ```
 
 That's it! We have successfully deployed a token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract. To see exactly what has happened here, you can learn about the transaction flow [on the Concepts page here](../../../../aztec/concepts/transactions.md).

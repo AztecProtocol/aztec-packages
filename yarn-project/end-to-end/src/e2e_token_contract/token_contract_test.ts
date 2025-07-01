@@ -1,7 +1,7 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 
 import { jest } from '@jest/globals';
 
@@ -27,7 +27,7 @@ export class TokenContractTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
+  badAccount!: InvalidAccountContract;
   node!: AztecNode;
 
   constructor(testName: string) {
@@ -77,7 +77,7 @@ export class TokenContractTest {
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
@@ -94,7 +94,7 @@ export class TokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());

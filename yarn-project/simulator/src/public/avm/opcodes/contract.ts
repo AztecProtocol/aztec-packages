@@ -20,7 +20,6 @@ export class GetContractInstance extends Instruction {
     OperandType.UINT8, // indirect bits
     OperandType.UINT16, // addressOffset
     OperandType.UINT16, // dstOffset
-    OperandType.UINT16, // existsOfsset
     OperandType.UINT8, // member enum (immediate)
   ];
 
@@ -28,7 +27,6 @@ export class GetContractInstance extends Instruction {
     private indirect: number,
     private addressOffset: number,
     private dstOffset: number,
-    private existsOffset: number,
     private memberEnum: number,
   ) {
     super();
@@ -36,15 +34,18 @@ export class GetContractInstance extends Instruction {
 
   async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     if (!(this.memberEnum in ContractInstanceMember)) {
       throw new InstructionExecutionError(`Invalid GETCONSTRACTINSTANCE member enum ${this.memberEnum}`);
     }
 
-    const operands = [this.addressOffset, this.dstOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
-    const [addressOffset, dstOffset, existsOffset] = addressing.resolve(operands, memory);
+    const operands = [this.addressOffset, this.dstOffset];
+    const [addressOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 
     const address = memory.get(addressOffset).toAztecAddress();
@@ -66,7 +67,9 @@ export class GetContractInstance extends Instruction {
       }
     }
 
+    const existsOffset = dstOffset;
+    const memberValueOffset = dstOffset + 1;
     memory.set(existsOffset, new Uint1(exists ? 1 : 0));
-    memory.set(dstOffset, memberValue);
+    memory.set(memberValueOffset, memberValue);
   }
 }

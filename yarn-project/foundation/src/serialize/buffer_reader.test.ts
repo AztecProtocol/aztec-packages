@@ -3,7 +3,8 @@ import { jest } from '@jest/globals';
 import { randomBytes } from '../crypto/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { BufferReader } from './buffer_reader.js';
-import { serializeArrayOfBufferableToVector, serializeToBuffer } from './serialize.js';
+import { bigintToUInt64BE, bigintToUInt128BE } from './free_funcs.js';
+import { serializeArrayOfBufferableToVector, serializeBigInt, serializeToBuffer } from './serialize.js';
 
 const ARRAY = Array.from(Array(32)).map((_, idx) => (idx % 2 === 0 ? 0 : 1));
 const BUFFER = Buffer.from(ARRAY);
@@ -39,6 +40,46 @@ describe('buffer reader', () => {
     it('should read buffer by slices', () => {
       expect(bufferReader.readBytes(2)).toEqual(Buffer.from(ARRAY.slice(0, 2)));
       expect(bufferReader.readBytes(3)).toEqual(Buffer.from(ARRAY.slice(2, 5)));
+    });
+  });
+
+  describe('readUInt64', () => {
+    it('should read UInt64 from buffer', () => {
+      // mix in some non-UInt64 values
+      const content = [1n, 2n ** 64n, 2n ** 64n - 1n, BigInt(Number.MAX_SAFE_INTEGER), 3n];
+      const buffer = Buffer.concat([
+        bigintToUInt64BE(content[0]),
+        serializeBigInt(content[1]),
+        bigintToUInt64BE(content[2]),
+        serializeBigInt(content[3]),
+        bigintToUInt64BE(content[4]),
+      ]);
+      const myReader = new BufferReader(buffer);
+      expect(myReader.readUInt64()).toEqual(content[0]);
+      expect(myReader.readUInt256()).toEqual(content[1]);
+      expect(myReader.readUInt64()).toEqual(content[2]);
+      expect(myReader.readUInt256()).toEqual(content[3]);
+      expect(myReader.readUInt64()).toEqual(content[4]);
+    });
+  });
+
+  describe('readUInt128', () => {
+    it('should read UInt128 from buffer', () => {
+      // mix in some non-UInt128 values
+      const content = [1n, 2n ** 128n, 2n ** 128n - 1n, BigInt(Number.MAX_SAFE_INTEGER), 3n];
+      const buffer = Buffer.concat([
+        bigintToUInt128BE(content[0]),
+        serializeBigInt(content[1]),
+        bigintToUInt128BE(content[2]),
+        serializeBigInt(content[3]),
+        bigintToUInt128BE(content[4]),
+      ]);
+      const myReader = new BufferReader(buffer);
+      expect(myReader.readUInt128()).toEqual(content[0]);
+      expect(myReader.readUInt256()).toEqual(content[1]);
+      expect(myReader.readUInt128()).toEqual(content[2]);
+      expect(myReader.readUInt256()).toEqual(content[3]);
+      expect(myReader.readUInt128()).toEqual(content[4]);
     });
   });
 

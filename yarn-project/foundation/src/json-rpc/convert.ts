@@ -8,16 +8,7 @@ import type { ZodFor } from '../schemas/types.js';
  * @param schema - Zod schema.
  * @returns Result of parsing json with schema.
  */
-export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): Promise<T> {
-  return schema.parseAsync(JSON.parse(json));
-}
-/**
- * Parses a json string and then feeds it to a zod schema.
- * @param json - JSON string.
- * @param schema - Zod schema.
- * @returns Result of parsing json with schema.
- */
-export function jsonParseWithSchemaSync<T>(json: string, schema: ZodFor<T>): T {
+export function jsonParseWithSchema<T>(json: string, schema: ZodFor<T>): T {
   return schema.parse(JSON.parse(json));
 }
 
@@ -26,7 +17,7 @@ export function jsonParseWithSchemaSync<T>(json: string, schema: ZodFor<T>): T {
  * @param obj - The object to be stringified.
  * @returns The resulting string.
  */
-export function jsonStringify(obj: object, prettify?: boolean): string {
+export function jsonStringify(obj: unknown, prettify?: boolean): string {
   return JSON.stringify(
     obj,
     (_key, value) => {
@@ -55,7 +46,7 @@ export function jsonStringify(obj: object, prettify?: boolean): string {
 export function tryJsonStringify(obj: any, prettify?: boolean): string | undefined {
   try {
     return jsonStringify(obj, prettify);
-  } catch (e) {
+  } catch {
     return undefined;
   }
 }

@@ -1,8 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/eccvm//eccvm_fixed_vk.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -45,7 +52,11 @@ class ECCVMFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
     // Fixed size of the ECCVM circuits used in ClientIVC
+    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
     static constexpr size_t NUM_WIRES = 85;
@@ -107,7 +118,6 @@ class ECCVMFlavor {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
-  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -353,16 +363,7 @@ class ECCVMFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-        // get_wires is inherited
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
@@ -372,7 +373,6 @@ class ECCVMFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -518,7 +518,7 @@ class ECCVMFlavor {
          table (reads come from msm_x/y3, msm_x/y4)
          * @return ProverPolynomials
          */
-        ProverPolynomials(const CircuitBuilder& builder, const bool fixed_size = false)
+        ProverPolynomials(const CircuitBuilder& builder)
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -531,19 +531,17 @@ class ECCVMFlavor {
             const auto& msm_rows = std::get<0>(result);
             const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows =
-                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
+            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
+                                    NUM_DISABLED_ROWS_IN_SUMCHECK;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
-
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
-
-            if ((fixed_size) && (ECCVM_FIXED_SIZE < dyadic_num_rows)) {
-                info("The ECCVM circuit size has exceeded the fixed upper bound");
-                ASSERT(false);
+            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
+                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
+                               std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
             }
 
-            dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
-            size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
+            dyadic_num_rows = ECCVM_FIXED_SIZE;
+            size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,
@@ -732,23 +730,16 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
-        // Used to amortize the commitment time when `fixed_size` = true.
+        // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
-        // Constructor for dynamic size ProvingKey
-        ProvingKey(const CircuitBuilder& builder)
-            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
-            , real_size(this->circuit_size)
-            , polynomials(builder)
-        {}
-
         // Constructor for fixed size ProvingKey
-        ProvingKey(const CircuitBuilder& builder, bool fixed_size)
+        ProvingKey(const CircuitBuilder& builder)
             : Base(ECCVM_FIXED_SIZE, 0)
             , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
-            , polynomials(builder, fixed_size)
+            , polynomials(builder)
         {}
     };
 
@@ -760,31 +751,71 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         bool operator==(const VerificationKey&) const = default;
-        VerificationKey() = default;
+
+        // IPA verification key requires one more point.
+        VerifierCommitmentKey pcs_verification_key = VerifierCommitmentKey(ECCVM_FIXED_SIZE + 1);
+
+        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
+        VerificationKey()
+            : NativeVerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+
+            // Populate the commitments of the precomputed polynomials using the fixed VK data
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            // IPA verification key requires one more point.
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
-            // how many points they need
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
+            this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
 
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<fr> to_field_elements() const override
+        {
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<fr> elements;
+
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -916,542 +947,6 @@ class ECCVMFlavor {
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
     /**
-     * @brief Derived class that defines proof structure for ECCVM proofs, as well as supporting functions.
-     *
-     */
-    class Transcript : public NativeTranscript {
-      public:
-        uint32_t circuit_size;
-        Commitment transcript_add_comm;
-        Commitment transcript_mul_comm;
-        Commitment transcript_eq_comm;
-        Commitment transcript_msm_transition_comm;
-        Commitment transcript_pc_comm;
-        Commitment transcript_msm_count_comm;
-        Commitment transcript_Px_comm;
-        Commitment transcript_Py_comm;
-        Commitment transcript_z1_comm;
-        Commitment transcript_z2_comm;
-        Commitment transcript_z1zero_comm;
-        Commitment transcript_z2zero_comm;
-        Commitment transcript_op_comm;
-        Commitment transcript_accumulator_x_comm;
-        Commitment transcript_accumulator_y_comm;
-        Commitment transcript_msm_x_comm;
-        Commitment transcript_msm_y_comm;
-        Commitment precompute_pc_comm;
-        Commitment precompute_point_transition_comm;
-        Commitment precompute_round_comm;
-        Commitment precompute_scalar_sum_comm;
-        Commitment precompute_s1hi_comm;
-        Commitment precompute_s1lo_comm;
-        Commitment precompute_s2hi_comm;
-        Commitment precompute_s2lo_comm;
-        Commitment precompute_s3hi_comm;
-        Commitment precompute_s3lo_comm;
-        Commitment precompute_s4hi_comm;
-        Commitment precompute_s4lo_comm;
-        Commitment precompute_skew_comm;
-        Commitment precompute_dx_comm;
-        Commitment precompute_dy_comm;
-        Commitment precompute_tx_comm;
-        Commitment precompute_ty_comm;
-        Commitment msm_transition_comm;
-        Commitment msm_add_comm;
-        Commitment msm_double_comm;
-        Commitment msm_skew_comm;
-        Commitment msm_accumulator_x_comm;
-        Commitment msm_accumulator_y_comm;
-        Commitment msm_pc_comm;
-        Commitment msm_size_of_msm_comm;
-        Commitment msm_count_comm;
-        Commitment msm_round_comm;
-        Commitment msm_add1_comm;
-        Commitment msm_add2_comm;
-        Commitment msm_add3_comm;
-        Commitment msm_add4_comm;
-        Commitment msm_x1_comm;
-        Commitment msm_y1_comm;
-        Commitment msm_x2_comm;
-        Commitment msm_y2_comm;
-        Commitment msm_x3_comm;
-        Commitment msm_y3_comm;
-        Commitment msm_x4_comm;
-        Commitment msm_y4_comm;
-        Commitment msm_collision_x1_comm;
-        Commitment msm_collision_x2_comm;
-        Commitment msm_collision_x3_comm;
-        Commitment msm_collision_x4_comm;
-        Commitment msm_lambda1_comm;
-        Commitment msm_lambda2_comm;
-        Commitment msm_lambda3_comm;
-        Commitment msm_lambda4_comm;
-        Commitment msm_slice1_comm;
-        Commitment msm_slice2_comm;
-        Commitment msm_slice3_comm;
-        Commitment msm_slice4_comm;
-        Commitment transcript_accumulator_empty_comm;
-        Commitment transcript_reset_accumulator_comm;
-        Commitment precompute_select_comm;
-        Commitment lookup_read_counts_0_comm;
-        Commitment lookup_read_counts_1_comm;
-        Commitment transcript_base_infinity_comm;
-        Commitment transcript_base_x_inverse_comm;
-        Commitment transcript_base_y_inverse_comm;
-        Commitment transcript_add_x_equal_comm;
-        Commitment transcript_add_y_equal_comm;
-        Commitment transcript_add_lambda_comm;
-        Commitment transcript_msm_intermediate_x_comm;
-        Commitment transcript_msm_intermediate_y_comm;
-        Commitment transcript_msm_infinity_comm;
-        Commitment transcript_msm_x_inverse_comm;
-        Commitment transcript_msm_count_zero_at_transition_comm;
-        Commitment transcript_msm_count_at_transition_inverse_comm;
-        Commitment z_perm_comm;
-        Commitment lookup_inverses_comm;
-        Commitment libra_concatenation_commitment;
-        FF libra_sum;
-        std::array<Commitment, CONST_PROOF_SIZE_LOG_N> sumcheck_round_commitments;
-        std::array<std::array<FF, 2>, CONST_PROOF_SIZE_LOG_N> sumcheck_round_evaluations;
-        FF libra_claimed_evaluation;
-        Commitment libra_grand_sum_commitment;
-        Commitment libra_quotient_commitment;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        FF libra_concatenation_eval;
-        FF libra_shifted_grand_sum_eval;
-        FF libra_grand_sum_eval;
-        FF libra_quotient_eval;
-        Commitment hiding_polynomial_commitment;
-        FF hiding_polynomial_eval;
-        std::vector<Commitment> gemini_fold_comms;
-        std::vector<FF> gemini_fold_evals;
-        Commitment shplonk_q_comm;
-        Commitment translation_concatenated_masking_term_commitment;
-        FF translation_masking_term_eval;
-        FF translation_eval_op;
-        FF translation_eval_px;
-        FF translation_eval_py;
-        FF translation_eval_z1;
-        FF translation_eval_z2;
-        Commitment translation_grand_sum_commitment;
-        Commitment translation_quotient_commitment;
-        FF translation_concatenation_eval;
-        FF translation_grand_sum_shift_eval;
-        FF translation_grand_sum_eval;
-        FF translation_quotient_eval;
-        Commitment shplonk_q2_comm;
-
-        Transcript() = default;
-
-        Transcript(const HonkProof& proof)
-            : NativeTranscript(proof)
-        {}
-
-        void deserialize_full_transcript()
-        {
-            // take current proof and put them into the struct
-            size_t num_frs_read = 0;
-            circuit_size = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                        num_frs_read);
-            transcript_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_eq_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_transition_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_pc_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_count_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_Px_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_Py_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_z1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_z2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_z1zero_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_z2zero_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_op_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_accumulator_x_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_accumulator_y_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_x_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_y_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_pc_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_point_transition_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_round_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_scalar_sum_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s1hi_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s1lo_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s2hi_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s2lo_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s3hi_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s3lo_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s4hi_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_s4lo_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_skew_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_dx_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_dy_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_tx_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_ty_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_transition_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                          num_frs_read);
-            msm_double_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_skew_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            msm_accumulator_x_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_accumulator_y_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_pc_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_size_of_msm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_count_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_round_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_add1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            msm_add2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            msm_add3_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            msm_add4_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                           num_frs_read);
-            msm_x1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_y1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_x2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_y2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_x3_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_y3_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_x4_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_y4_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            msm_collision_x1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_collision_x2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_collision_x3_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_collision_x4_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_lambda1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_lambda2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_lambda3_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_lambda4_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_slice1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_slice2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_slice3_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            msm_slice4_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_accumulator_empty_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_reset_accumulator_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            precompute_select_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            lookup_read_counts_0_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            lookup_read_counts_1_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_base_infinity_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_base_x_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_base_y_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_add_x_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_add_y_equal_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_add_lambda_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_intermediate_x_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_intermediate_y_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_infinity_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_x_inverse_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            transcript_msm_count_zero_at_transition_comm =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                               num_frs_read);
-            transcript_msm_count_at_transition_inverse_comm =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                               num_frs_read);
-            lookup_inverses_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                NativeTranscript::proof_data, num_frs_read);
-            z_perm_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(NativeTranscript::proof_data,
-                                                                                         num_frs_read);
-            libra_concatenation_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_sum =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                sumcheck_round_commitments[i] = NativeTranscript::template deserialize_from_buffer<Commitment>(
-                    NativeTranscript::proof_data, num_frs_read);
-                sumcheck_round_evaluations[i] = NativeTranscript::template deserialize_from_buffer<std::array<FF, 2>>(
-                    NativeTranscript::proof_data, num_frs_read);
-            }
-
-            libra_claimed_evaluation = NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            sumcheck_evaluations = NativeTranscript::template deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(
-                NativeTranscript::proof_data, num_frs_read);
-            libra_grand_sum_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            libra_quotient_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            hiding_polynomial_commitment =
-                deserialize_from_buffer<Commitment>(NativeTranscript::proof_data, num_frs_read);
-            hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
-            }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            libra_concatenation_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_shifted_grand_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_grand_sum_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            libra_quotient_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-
-            translation_concatenated_masking_term_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            translation_eval_op =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            translation_eval_px =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            translation_eval_py =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            translation_eval_z1 =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            translation_eval_z2 =
-                NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-
-            translation_masking_term_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            translation_grand_sum_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            translation_quotient_commitment =
-                NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            translation_concatenation_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            translation_grand_sum_shift_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            translation_grand_sum_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            translation_quotient_eval =
-                NativeTranscript::template deserialize_from_buffer<FF>(proof_data, num_frs_read);
-            shplonk_q2_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-        }
-
-        void serialize_full_transcript()
-        {
-            size_t old_proof_length = NativeTranscript::proof_data.size();
-
-            NativeTranscript::proof_data.clear();
-
-            NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
-
-            NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_eq_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_transition_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_pc_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_count_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_Px_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_Py_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_z1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_z2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_z1zero_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_z2zero_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_op_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_accumulator_x_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_accumulator_y_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_x_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_y_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_pc_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_point_transition_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_round_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_scalar_sum_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s1hi_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s1lo_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s2hi_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s2lo_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s3hi_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s3lo_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s4hi_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_s4lo_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_skew_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_dx_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_dy_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_tx_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_ty_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_transition_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_add_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_double_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_skew_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_accumulator_x_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_accumulator_y_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_pc_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_size_of_msm_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_count_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_round_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_add1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_add2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_add3_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_add4_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_x1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_y1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_x2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_y2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_x3_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_y3_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_x4_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_y4_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_collision_x1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_collision_x2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_collision_x3_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_collision_x4_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_lambda1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_lambda2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_lambda3_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_lambda4_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_slice1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_slice2_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_slice3_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(msm_slice4_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_accumulator_empty_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_reset_accumulator_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(precompute_select_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(lookup_read_counts_0_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(lookup_read_counts_1_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_base_infinity_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_base_x_inverse_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_base_y_inverse_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_add_x_equal_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_add_y_equal_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_add_lambda_comm, NativeTranscript::proof_data);
-
-            NativeTranscript::template serialize_to_buffer(transcript_msm_intermediate_x_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_intermediate_y_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_infinity_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_x_inverse_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_count_zero_at_transition_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(transcript_msm_count_at_transition_inverse_comm,
-                                                           NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(lookup_inverses_comm, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(z_perm_comm, NativeTranscript::proof_data);
-
-            NativeTranscript::template serialize_to_buffer(libra_concatenation_commitment, proof_data);
-
-            NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
-
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(sumcheck_round_commitments[i],
-                                                               NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(sumcheck_round_evaluations[i],
-                                                               NativeTranscript::proof_data);
-            }
-
-            NativeTranscript::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
-
-            NativeTranscript::template serialize_to_buffer(sumcheck_evaluations, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_grand_sum_commitment, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_quotient_commitment, proof_data);
-            NativeTranscript::template serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                NativeTranscript::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
-            }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
-            }
-            NativeTranscript::template serialize_to_buffer(libra_concatenation_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_grand_sum_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(libra_quotient_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(shplonk_q_comm, proof_data);
-
-            NativeTranscript::template serialize_to_buffer(translation_concatenated_masking_term_commitment,
-                                                           proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_eval_op, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_eval_px, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_eval_py, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_eval_z1, NativeTranscript::proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_eval_z2, NativeTranscript::proof_data);
-
-            NativeTranscript::template serialize_to_buffer(translation_masking_term_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_grand_sum_commitment, proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_quotient_commitment, proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_concatenation_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_grand_sum_shift_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_grand_sum_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(translation_quotient_eval, proof_data);
-            NativeTranscript::template serialize_to_buffer(shplonk_q2_comm, NativeTranscript::proof_data);
-
-            ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
-        }
-    };
-
-    /**
      * @brief Derived class that defines proof structure for ECCVM IPA proof, as well as supporting functions.
      *
      */
@@ -1464,10 +959,6 @@ class ECCVMFlavor {
         FF ipa_a_0_eval;
 
         IPATranscript() = default;
-
-        IPATranscript(const HonkProof& proof)
-            : NativeTranscript(proof)
-        {}
 
         void deserialize_full_transcript()
         {
@@ -1505,6 +996,8 @@ class ECCVMFlavor {
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }
     };
+
+    using Transcript = NativeTranscript;
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)

@@ -5,7 +5,9 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { pickConfigMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';
@@ -33,7 +35,8 @@ export const ProverBrokerConfig = z.object({
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
   Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'> &
-  L1ReaderConfig;
+  L1ReaderConfig &
+  Pick<ChainConfig, 'rollupVersion'>;
 
 export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = {
   proverBrokerJobTimeoutMs: {
@@ -73,6 +76,7 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
   },
   ...dataConfigMappings,
   ...l1ReaderConfigMappings,
+  ...pickConfigMappings(chainConfigMappings, ['rollupVersion']),
 };
 
 export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);

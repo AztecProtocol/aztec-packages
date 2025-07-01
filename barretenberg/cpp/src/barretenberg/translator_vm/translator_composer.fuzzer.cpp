@@ -1,9 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/translator_vm/translator.fuzzer.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 }
 /**
  * @brief A very primitive fuzzer for the composer
@@ -29,17 +36,19 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     auto circuit_builder = TranslatorCircuitBuilder(translation_batching_challenge, x, op_queue);
 
     // Check that the circuit passes
-    bool checked = circuit_builder.check_circuit();
-
+    bool checked = TranslatorCircuitChecker::check(circuit_builder);
     // Construct proof
-    TranslatorProver prover(circuit_builder, prover_transcript);
+    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+    TranslatorProver prover(proving_key, prover_transcript);
     auto proof = prover.construct_proof();
 
     // Verify proof
-    auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
     verifier_transcript->template receive_from_prover<Fq>("init");
-    TranslatorVerifier verifier(prover.key, verifier_transcript);
-    bool verified = verifier.verify_proof(proof);
+    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
+    TranslatorVerifier verifier(verification_key, verifier_transcript);
+    bool verified = verifier.verify_proof(proof, x, translation_batching_challenge);
     (void)checked;
     (void)verified;
     return 0;

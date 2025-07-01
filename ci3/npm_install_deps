@@ -17,11 +17,13 @@ fi
 yarn_lock_path=$(realpath yarn.lock --relative-to=$REPO_PATH)
 package_json_path=$(realpath package.json --relative-to=$REPO_PATH)
 
-if [ "$CI" -eq 1 ]; then
+# We only use the node module cache in CI.
+# The checking for ci-started makes sure we really *are* on a CI machine (it's created in bootstrap_ec2).
+if [ "$CI" -eq 1 ] && [ -f $HOME/ci-started ] && [ "${NO_CACHE:-0}" -eq 0 ]; then
   nm_hash=$(cache_content_hash "^$yarn_lock_path" "^$package_json_path")
   if ! cache_download node-modules-$nm_hash.zst; then
-    denoise "retry 'yarn install --immutable'"
-    cache_upload node-modules-$nm_hash.zst node_modules
+    denoise "retry 'find . -type d -iname node_modules -not -path \"*/node_modules/*\" | xargs rm -rf && yarn install --immutable'"
+    cache_upload node-modules-$nm_hash.zst $(find . -type d -iname node_modules -not -path "*/node_modules/*")
   fi
 else
   denoise "yarn install"

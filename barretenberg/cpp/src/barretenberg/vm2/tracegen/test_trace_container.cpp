@@ -13,25 +13,38 @@ TestTraceContainer::TestTraceContainer(const TestTraceContainer& other)
     }
 }
 
-TestTraceContainer TestTraceContainer::from_rows(const RowTraceContainer& rows)
+TestTraceContainer::TestTraceContainer(const std::vector<std::vector<std::pair<Column, FF>>>& values)
+{
+    for (uint32_t row = 0; row < values.size(); ++row) {
+        set(row, values[row]);
+    }
+}
+
+TestTraceContainer TestTraceContainer::from_rows(const std::vector<AvmFullRow>& rows)
 {
     TestTraceContainer container;
     for (uint32_t row = 0; row < rows.size(); ++row) {
         const auto& full_row = rows[row];
         for (size_t i = 0; i < container.num_columns(); ++i) {
             const auto column = static_cast<Column>(i);
-            container.set(column, row, full_row.get_column(static_cast<ColumnAndShifts>(column)));
+            container.set(column, row, full_row.get(static_cast<ColumnAndShifts>(column)));
         }
     }
     return container;
 }
 
-TestTraceContainer::RowTraceContainer TestTraceContainer::as_rows() const
+AvmFullRowProxy TestTraceContainer::get_row(uint32_t row) const
 {
-    const uint32_t max_rows = get_num_rows();
-    RowTraceContainer full_row_trace(max_rows);
+    return { row, *this };
+}
+
+std::vector<AvmFullRowConstRef> TestTraceContainer::as_rows() const
+{
+    uint32_t max_rows = get_num_rows();
+    std::vector<AvmFullRowConstRef> full_row_trace;
+    full_row_trace.reserve(max_rows);
     for (uint32_t i = 0; i < max_rows; ++i) {
-        full_row_trace[i] = get_full_row(*this, i);
+        full_row_trace.push_back(get_full_row_ref(*this, i));
     }
     return full_row_trace;
 }

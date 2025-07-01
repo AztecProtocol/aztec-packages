@@ -1,8 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "aes128_constraint.hpp"
 
 #ifndef DISABLE_AZTEC_VM
-#include "avm_recursion_constraint.hpp"
+#include "avm2_recursion_constraint.hpp"
 #endif
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -173,9 +179,9 @@ struct AcirProgramStack {
     std::vector<AcirFormat> constraint_systems;
     WitnessVectorStack witness_stack;
 
-    AcirProgramStack(const std::vector<AcirFormat>& constraint_systems_in, const WitnessVectorStack& witness_stack_in)
-        : constraint_systems(constraint_systems_in)
-        , witness_stack(witness_stack_in)
+    AcirProgramStack(std::vector<AcirFormat> constraint_systems_in, WitnessVectorStack witness_stack_in)
+        : constraint_systems(std::move(constraint_systems_in))
+        , witness_stack(std::move(witness_stack_in))
     {}
 
     size_t size() const { return witness_stack.size(); }
@@ -217,21 +223,6 @@ struct ProgramMetadata {
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
-template <typename Builder = bb::UltraCircuitBuilder>
-Builder create_circuit(AcirFormat& constraint_system,
-                       // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
-                       // The proof produced when this flag is true should be friendly for recursive verification inside
-                       // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
-                       // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in
-                       // order to be able to verify SNARKs on Ethereum.
-                       bool recursive,
-                       const size_t size_hint = 0,
-                       const WitnessVector& witness = {},
-                       uint32_t honk_recursion = 0,
-                       std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
-                       bool collect_gates_per_opcode = false);
-
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);
 
@@ -269,27 +260,5 @@ template <typename Builder> class GateCounter {
     bool collect_gates_per_opcode;
     size_t prev_gate_count{};
 };
-
-void process_plonk_recursion_constraints(Builder& builder,
-                                         AcirFormat& constraint_system,
-                                         bool has_valid_witness_assignments,
-                                         GateCounter<Builder>& gate_counter);
-void process_honk_recursion_constraints(Builder& builder,
-                                        AcirFormat& constraint_system,
-                                        bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter,
-                                        uint32_t honk_recursion);
-
-void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
-                                       AcirFormat& constraints,
-                                       ClientIVC* ivc,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<MegaCircuitBuilder>& gate_counter);
-
-#ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       GateCounter<Builder>& gate_counter);
-#endif
 
 } // namespace acir_format

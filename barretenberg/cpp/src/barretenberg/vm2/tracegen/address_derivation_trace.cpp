@@ -1,10 +1,14 @@
 #include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include <memory>
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -24,7 +28,7 @@ void AddressDerivationTraceBuilder::process(
             { { { C::address_derivation_sel, 1 },
                 { C::address_derivation_salt, event.instance.salt },
                 { C::address_derivation_deployer_addr, event.instance.deployer_addr },
-                { C::address_derivation_class_id, event.instance.contract_class_id },
+                { C::address_derivation_class_id, event.instance.original_class_id },
                 { C::address_derivation_init_hash, event.instance.initialisation_hash },
                 { C::address_derivation_nullifier_key_x, event.instance.public_keys.nullifier_key.x },
                 { C::address_derivation_nullifier_key_y, event.instance.public_keys.nullifier_key.y },
@@ -50,5 +54,21 @@ void AddressDerivationTraceBuilder::process(
         row++;
     }
 }
+
+const InteractionDefinition AddressDerivationTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings,
+             InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings,
+             InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_partial_address_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_2_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_3_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_public_keys_hash_poseidon2_4_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_preaddress_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_preaddress_scalar_mul_settings, InteractionType::LookupSequential>()
+        .add<lookup_address_derivation_address_ecadd_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

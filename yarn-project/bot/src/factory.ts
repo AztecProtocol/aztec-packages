@@ -15,8 +15,9 @@ import {
   createPXEClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
+import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -45,7 +46,7 @@ export class BotFactory {
         `Either a node admin client or node admin url must be provided if transaction flushing is requested`,
       );
     }
-    if (config.senderPrivateKey && !dependencies.node) {
+    if (config.senderPrivateKey && config.senderPrivateKey.getValue() && !dependencies.node) {
       throw new Error(
         `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
       );
@@ -85,7 +86,7 @@ export class BotFactory {
     const liquidityToken = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotLPToken', 'BOTLP');
     const amm = await this.setupAmmContract(wallet, this.config.tokenSalt, token0, token1, liquidityToken);
 
-    await this.fundAmm(wallet, amm, token0, token1);
+    await this.fundAmm(wallet, amm, token0, token1, liquidityToken);
     this.log.info(`AMM initialized and funded`);
 
     return { wallet, amm, token0, token1, pxe: this.pxe };
@@ -96,8 +97,9 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
-    if (this.config.senderPrivateKey) {
-      return await this.setupAccountWithPrivateKey(this.config.senderPrivateKey);
+    const privateKey = this.config.senderPrivateKey.getValue();
+    if (privateKey) {
+      return await this.setupAccountWithPrivateKey(privateKey);
     } else {
       return await this.setupTestAccount();
     }
@@ -110,7 +112,9 @@ export class BotFactory {
     const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
     if (isInit) {
       this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
+      const timer = new Timer();
       const wallet = await account.register();
+      this.log.info(`Account at ${account.getAddress()} registered. duration=${timer.ms()}`);
       return wallet;
     } else {
       const address = account.getAddress();
@@ -151,7 +155,7 @@ export class BotFactory {
    * Registers the recipient for txs in the pxe.
    */
   private async registerRecipient() {
-    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret, Fr.ONE);
+    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret.getValue(), Fr.ONE);
     return recipient.address;
   }
 
@@ -170,7 +174,6 @@ export class BotFactory {
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
-      deployOpts.skipPublicSimulation = true;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
@@ -232,8 +235,16 @@ export class BotFactory {
     amm: AMMContract,
     token0: TokenContract,
     token1: TokenContract,
+    lpToken: TokenContract,
   ): Promise<void> {
-    const nonce = Fr.random();
+    const getPrivateBalances = () =>
+      Promise.all([
+        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
+        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
+      ]);
+
+    const authwitNonce = Fr.random();
 
     // keep some tokens for swapping
     const amount0Max = MINT_BALANCE / 2;
@@ -241,16 +252,32 @@ export class BotFactory {
     const amount1Max = MINT_BALANCE / 2;
     const amount1Min = MINT_BALANCE / 4;
 
+    const [t0Bal, t1Bal, lpBal] = await getPrivateBalances();
+
+    this.log.info(
+      `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
+    );
+
+    // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token0.methods.transfer_to_public(wallet.getAddress(), amm.address, amount0Max, nonce),
+      action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount0Max,
+        authwitNonce,
+      ),
     });
     const token1Authwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token1.methods.transfer_to_public(wallet.getAddress(), amm.address, amount1Max, nonce),
+      action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+        wallet.getAddress(),
+        amm.address,
+        amount1Max,
+        authwitNonce,
+      ),
     });
 
-    this.log.info(`Minting tokens`);
     const mintTx = new BatchCall(wallet, [
       token0.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
       token1.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
@@ -259,13 +286,20 @@ export class BotFactory {
     this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
-    this.log.info(`Funding AMM`);
-    const addLiquidityTx = amm.methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonce).send({
-      authWitnesses: [token0Authwit, token1Authwit],
-    });
+    const addLiquidityTx = amm.methods
+      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
+      .send({
+        authWitnesses: [token0Authwit, token1Authwit],
+      });
 
     this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });
+    this.log.info(`Liquidity added`);
+
+    const [newT0Bal, newT1Bal, newLPBal] = await getPrivateBalances();
+    this.log.info(
+      `Updated private balances of ${wallet.getAddress()} after minting and funding AMM: token0=${newT0Bal}, token1=${newT1Bal}, lp=${newLPBal}`,
+    );
   }
 
   private async registerOrDeployContract<T extends ContractBase>(
@@ -336,7 +370,7 @@ export class BotFactory {
     if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
-    const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
     if (!mnemonicOrPrivateKey) {
       throw new Error(
         'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
@@ -345,14 +379,14 @@ export class BotFactory {
 
     const { l1ChainId } = await this.pxe.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
-    const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+    const extendedClient = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-    const portal = await L1FeeJuicePortalManager.new(this.pxe, publicClient, walletClient, this.log);
+    const portal = await L1FeeJuicePortalManager.new(this.pxe, extendedClient, this.log);
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
     const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, this.config.l1ToL2MessageTimeoutSeconds, 1);
 
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 

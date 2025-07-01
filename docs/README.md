@@ -1,4 +1,3 @@
-
 # Aztec Network Documentation
 
 Documentation for the Aztec Network, built with docusaurus
@@ -21,6 +20,34 @@ Here are the most relevant files you should be aware of:
 
 The .md files in the `docs/` directory are the docs. See the [Docusaurus website](https://docusaurus.io/docs/docs-introduction) for the full documentation on how to create docs and to manage the metadata.
 
+## Versioning
+
+Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
+
+When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the next version (which is not currently published, but will be when the next release is cut), updating the files in `versioned_docs/version-v0.87.8` folder will update the `0.87.8` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+
+The way docs builds work is the following:
+
+- CI runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
+- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
+- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
+
+The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
+
+```bash
+COMMIT_TAG=v0.84.0 yarn build
+```
+
+You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+
+### How do I change the versions that show in the website
+
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
+## Releases
+
+A new docs site is published on every merge to the master branch.
+
 ### Installation
 
 To install the dependencies and dev dependencies, run:
@@ -36,6 +63,7 @@ Aztec docs pull some code from the rest of the repository. This allows for great
 For that reason, there's a preprocessing step. You can run that step ad-hoc with `yarn preprocess` or `yarn preprocess:dev` if you want it to stay running and watching for changes.
 
 This step does the following:
+
 - Pulls the code from the source files using the `#include` macros explained below.
 - Autogenerates documentation using the scripts in the `src` file.
 - Puts the final documentation in a `processed-docs` folder.
@@ -79,31 +107,32 @@ This is done via macros which are processed in the `process` step described abov
 ### `#include_code`
 
 You can embed code snippets into a `.md`/`.mdx` file from code which lives elsewhere in the repo.
+
 - In your markdown file:
-    - `#include_code identifier path/from/repo/root/to/file.ts language`
-    - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
-    - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
+  - `#include_code identifier path/from/repo/root/to/file.ts language`
+  - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
+  - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
 - In the corresponding code delineate the code snippet with comments:
-    - ```typescript
-      some code
-      some code
-      // docs:start:hello
-      more code
-      more code
-      // this-will-error <-- you can use docusaurus highlighting comments.
-      this code will be highlighted red
-      more code
-      // highlight-next-line
-      this line will be highlighted
-      more code
-      // highlight-start
-      this line will be highlighted
-      this line will be highlighted
-      // highlight-end
-      more code
-      // docs:end:hello
-      more code
-      ```
+  - ```typescript
+    some code
+    some code
+    // docs:start:hello
+    more code
+    more code
+    // this-will-error <-- you can use docusaurus highlighting comments.
+    this code will be highlighted red
+    more code
+    // highlight-next-line
+    this line will be highlighted
+    more code
+    // highlight-start
+    this line will be highlighted
+    this line will be highlighted
+    // highlight-end
+    more code
+    // docs:end:hello
+    more code
+    ```
 - You can even include chunks of the same piece of code (with different highlighting preferences) into different parts of the docs:
   - ```typescript
       some code
@@ -127,7 +156,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
       // docs:end:hello
       some code
       some code
-      ```
+    ```
   - Somewhere in your markdown, you can then write:
     - `#include_code hello path/from/repo/root/to/file.ts typescript`
   - And somewhere else, you can write:
@@ -148,6 +177,17 @@ Alternatively, you can also use the `AztecPackagesVersion()` js function, which 
 import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
+
+### `#include_testnet_version`
+
+This macros will be replaced inline with the provided testnet version, which is `0.87.5` at the time of these writing. This value is sourced from the `TESTNET_TAG` environment variable when running `yarn build` (e.g. `TESTNET_TAG=0.87.5 yarn build`).
+This value may be different from the `#include_aztec_version` macro, since the testnet version is not always the same as the latest aztec packages version.
+
+## Viewing (outdated) protocol specs
+
+The protocol specs pages are outdated, but it may still be useful to view them in some cases.
+
+To view the protocol specs, you can run `yarn dev` or `yarn dev:local`. When viewing the protocol specs locally, versioning is disabled, so you can view the protocol specs in the browser. It would error otherwise because the protocol specs pages are not included in the pages in `versioned_docs` and `versioned_sidebars`.
 
 ## Contributing
 

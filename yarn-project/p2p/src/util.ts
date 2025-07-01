@@ -1,24 +1,39 @@
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { SecretValue } from '@aztec/foundation/config';
+import type { Logger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
+import type { Identify } from '@libp2p/identify';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
+import { promises as fs } from 'fs';
 import type { Libp2p } from 'libp2p';
+import path from 'path';
 
 import type { P2PConfig } from './config.js';
 
-export interface PubSubLibp2p extends Libp2p {
+const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
+
+export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' | 'peerId'> {
   services: {
-    pubsub: GossipSub;
-    components: {
-      connectionManager: ConnectionManager;
-    };
+    pubsub: Pick<
+      GossipSub,
+      'addEventListener' | 'removeEventListener' | 'publish' | 'subscribe' | 'reportMessageValidationResult'
+    > & { score: Pick<GossipSub['score'], 'score'> };
   };
 }
+
+export type FullLibp2p = Libp2p<{
+  identify: Identify;
+  pubsub: GossipSub;
+  components: {
+    connectionManager: ConnectionManager;
+  };
+}>;
 
 /**
  * Converts an address string to a multiaddr string.
@@ -75,7 +90,12 @@ export async function configureP2PClientAddresses(
   _config: P2PConfig & DataStoreConfig,
 ): Promise<P2PConfig & DataStoreConfig> {
   const config = { ..._config };
-  const { p2pIp, queryForIp } = config;
+  const { p2pIp, queryForIp, p2pBroadcastPort, p2pPort } = config;
+
+  // If no broadcast port is provided, use the given p2p port as the broadcast port
+  if (!p2pBroadcastPort) {
+    config.p2pBroadcastPort = p2pPort;
+  }
 
   // check if no announce IP was provided
   if (!p2pIp) {
@@ -93,30 +113,74 @@ export async function configureP2PClientAddresses(
  * Get the peer id private key
  *
  * 1. Check if we have a peer id private key in the config
- * 2. If not, check we have a peer id private key persisted in the node
- * 3. If not, create a new one, then persist it in the node
+ * 2. If not, check if we have a peer id private key persisted in a file
+ * 3. If no file path or data directory is provided, check if we have a peer id private key in the node's store
+ * 4. If not, create a new one, then persist it in a file if a file path or data directory is provided or in the node's store otherwise
  *
  */
 export async function getPeerIdPrivateKey(
-  config: { peerIdPrivateKey?: string },
+  config: { peerIdPrivateKey?: SecretValue<string>; peerIdPrivateKeyPath?: string; dataDirectory?: string },
   store: AztecAsyncKVStore,
-): Promise<string> {
-  const peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
-  if (config.peerIdPrivateKey) {
-    await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey);
+  logger: Logger,
+): Promise<SecretValue<string>> {
+  const peerIdPrivateKeyFilePath =
+    config.peerIdPrivateKeyPath ??
+    (config.dataDirectory ? path.join(config.dataDirectory, PEER_ID_DATA_DIR_FILE) : undefined);
+  let peerIdPrivateKeySingleton: AztecAsyncSingleton<string> | undefined;
+
+  const writePrivateKeyToFile = async (filePath: string, privateKey: string) => {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, privateKey);
+  };
+
+  // If the peerIdPrivateKey is provided in the config, we use it and persist it in either a file or the node's store
+  if (config.peerIdPrivateKey && config.peerIdPrivateKey.getValue().trim()) {
+    if (peerIdPrivateKeyFilePath) {
+      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, config.peerIdPrivateKey.getValue());
+    } else {
+      peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
+      await peerIdPrivateKeySingleton.set(config.peerIdPrivateKey.getValue());
+    }
     return config.peerIdPrivateKey;
   }
 
-  const storedPeerIdPrivateKey = await peerIdPrivateKeySingleton.getAsync();
+  // Check to see if we have a peer id private key stored in a file or the node's store
+  let storedPeerIdPrivateKey: string | undefined;
+  const privateKeyFileExists =
+    peerIdPrivateKeyFilePath &&
+    (await fs
+      .access(peerIdPrivateKeyFilePath)
+      .then(() => true)
+      .catch(() => false));
+  if (peerIdPrivateKeyFilePath && privateKeyFileExists) {
+    await fs.access(peerIdPrivateKeyFilePath);
+    storedPeerIdPrivateKey = await fs.readFile(peerIdPrivateKeyFilePath, 'utf8');
+  } else {
+    peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
+    storedPeerIdPrivateKey = await peerIdPrivateKeySingleton.getAsync();
+  }
   if (storedPeerIdPrivateKey) {
-    return storedPeerIdPrivateKey;
+    if (peerIdPrivateKeyFilePath && !privateKeyFileExists) {
+      logger.verbose(`Peer ID private key found in the node's store, persisting it to ${peerIdPrivateKeyFilePath}`);
+      await writePrivateKeyToFile(peerIdPrivateKeyFilePath, storedPeerIdPrivateKey);
+    }
+    return new SecretValue(storedPeerIdPrivateKey);
   }
 
+  // Generate and persist a new private key
   const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
   const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+  if (peerIdPrivateKeyFilePath) {
+    logger.verbose(`Creating new peer ID private key and persisting it to ${peerIdPrivateKeyFilePath}`);
+    await writePrivateKeyToFile(peerIdPrivateKeyFilePath, privateKeyString);
+  } else {
+    logger.warn(
+      'Creating new peer ID private key and persisting it to the lmdb store. Key will be lost on rollup upgrade, specify the peer id private key path and restart the node to persist the peer id private key to a file',
+    );
+    await peerIdPrivateKeySingleton!.set(privateKeyString);
+  }
 
-  await peerIdPrivateKeySingleton.set(privateKeyString);
-  return privateKeyString;
+  return new SecretValue(privateKeyString);
 }
 
 /**

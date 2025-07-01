@@ -518,9 +518,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
 
         EXPECT_FALSE(proof_result);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/666):
-        if constexpr (!IsSimulator<Builder>) {
-            EXPECT_EQ(error, "Once we've hit the first zero, there must only be zeros thereafter!");
-        }
+        EXPECT_EQ(error, "Once we've hit the first zero, there must only be zeros thereafter!");
     }
 
     class MockClass {
@@ -596,7 +594,7 @@ template <typename Builder> class stdlib_array : public testing::Test {
     }
 };
 
-typedef testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254> CircuitTypes;
+typedef testing::Types<bb::UltraCircuitBuilder> CircuitTypes;
 
 TYPED_TEST_SUITE(stdlib_array, CircuitTypes);
 
@@ -634,12 +632,7 @@ TYPED_TEST(stdlib_array, test_array_push_generic)
 }
 TYPED_TEST(stdlib_array, test_array_push_generic_full)
 {
-    if constexpr (IsSimulator<TypeParam>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/666):
-        GTEST_SKIP() << "Skipped for simulator";
-    } else {
-        TestFixture::test_array_push_generic_full();
-    }
+    TestFixture::test_array_push_generic_full();
 }
 // push array to array (pata) tests
 TYPED_TEST(stdlib_array, test_pata_large_bench)

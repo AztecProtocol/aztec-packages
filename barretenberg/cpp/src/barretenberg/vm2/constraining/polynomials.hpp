@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/vm2/generated/prover.hpp"
+#include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::constraining {

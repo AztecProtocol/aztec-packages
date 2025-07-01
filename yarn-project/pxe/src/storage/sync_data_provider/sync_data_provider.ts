@@ -16,13 +16,13 @@ export class SyncDataProvider implements DataProvider {
     await this.#synchronizedHeader.set(header.toBuffer());
   }
 
-  async getBlockNumber(): Promise<number | undefined> {
+  async getBlockNumber(): Promise<number> {
     const headerBuffer = await this.#synchronizedHeader.getAsync();
     if (!headerBuffer) {
-      return undefined;
+      throw new Error(`Trying to get block number with a not-yet-synchronized PXE - this should never happen`);
     }
 
-    return Number(BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
+    return BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber;
   }
 
   async getBlockHeader(): Promise<BlockHeader> {

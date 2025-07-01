@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -10,7 +16,7 @@ template <typename FF_> class TranslatorDecompositionRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH =
-        3; // degree(lagrange_odd_in_minicircuit_in_minicircuit(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )) = 2
+        3; // degree(lagrange_even_in_minicircuit_in_minicircuit(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )) = 2
     static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
         3, // decomposition of P.x limb 0 into microlimbs subrelation
         3, // decomposition of P.x limb 1 into microlimbs subrelation
@@ -68,19 +74,19 @@ template <typename FF_> class TranslatorDecompositionRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lagrange_odd_in_minicircuit.is_zero();
+        return in.lagrange_even_in_minicircuit.is_zero();
     }
 
     /**
      * @brief Expression for decomposition of various values into smaller limbs or microlimbs.
      * @details This relation enforces three types of subrelations:
      * 1) A subrelation decomposing a value from the transcript (for example, z1) into 68-bit limbs. These relations
-     * will have the structure `lagrange_odd_in_minicircuit⋅(a - a_low - a_high⋅2⁶⁸)`
+     * will have the structure `lagrange_even_in_minicircuit⋅(a - a_low - a_high⋅2⁶⁸)`
      * 2) A subrelation decomposing a value  of one of the limbs used in bigfield computation (for example, the lower
-     * wide relation limb) into 14-bit limbs. These relations will have the structure `lagrange_odd_in_minicircuit⋅(a -
+     * wide relation limb) into 14-bit limbs. These relations will have the structure `lagrange_even_in_minicircuit⋅(a -
      * a_0 - a_1⋅2¹⁴ -
      * ....)` 3) A subrelation making a microlimb range constraint more constraining. For example, we want to constrain
-     * some values to 12 bits instead of 14. So we add a constraint `lagrange_odd_in_minicircuit⋅(a_highest⋅4 -
+     * some values to 12 bits instead of 14. So we add a constraint `lagrange_even_in_minicircuit⋅(a_highest⋅4 -
      * a_tail)`. In a separate relation both a_highest and a_tail are constrained to be 14 bits, but this relation
      * changes the constraint on a_highest to be 12 bits.
      *

@@ -17,19 +17,28 @@ export class AvmContractCallResult {
     public output: Fr[],
     public gasLeft: AvmGas,
     public revertReason?: AvmRevertReason,
+    public totalInstructions: number = 0, // including nested calls
   ) {}
 
   toString(): string {
-    let resultsStr = `reverted: ${this.reverted}, output: ${this.output}, gasLeft: ${inspect(this.gasLeft)}`;
+    let resultsStr = `reverted: ${this.reverted}, output: ${this.output}, gasLeft: ${inspect(
+      this.gasLeft,
+    )}, totalInstructions: ${this.totalInstructions}`;
     if (this.revertReason) {
-      resultsStr += `, revertReason: ${this.revertReason}`;
+      resultsStr += `, revertReason: ${this.revertReason.message}`;
     }
     return resultsStr;
   }
 
   finalize(): AvmFinalizedCallResult {
     const revertReason = this.revertReason ? createSimulationError(this.revertReason, this.output) : undefined;
-    return new AvmFinalizedCallResult(this.reverted, this.output, Gas.from(this.gasLeft), revertReason);
+    return new AvmFinalizedCallResult(
+      this.reverted,
+      this.output,
+      Gas.from(this.gasLeft),
+      revertReason,
+      this.totalInstructions,
+    );
   }
 }
 
@@ -43,12 +52,15 @@ export class AvmFinalizedCallResult {
     public output: Fr[],
     public gasLeft: Gas,
     public revertReason?: SimulationError,
+    public totalInstructions: number = 0, // including nested calls
   ) {}
 
   toString(): string {
-    let resultsStr = `reverted: ${this.reverted}, output: ${this.output}, gasLeft: ${inspect(this.gasLeft)}`;
+    let resultsStr = `reverted: ${this.reverted}, output: ${this.output}, gasLeft: ${inspect(
+      this.gasLeft,
+    )}, totalInstructions: ${this.totalInstructions}`;
     if (this.revertReason) {
-      resultsStr += `, revertReason: ${this.revertReason}`;
+      resultsStr += `, revertReason: ${this.revertReason.message}`;
     }
     return resultsStr;
   }

@@ -10,7 +10,7 @@ import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields }
 import {
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
-  createUnconstrainedFunctionMembershipProof,
+  createUtilityFunctionMembershipProof,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { Capsule } from '@aztec/stdlib/tx';
@@ -51,7 +51,7 @@ export async function broadcastPrivateFunction(
     artifactTreeLeafIndex,
     artifactMetadataHash,
     functionMetadataHash,
-    unconstrainedFunctionsArtifactTreeRoot,
+    utilityFunctionsTreeRoot,
     privateFunctionTreeSiblingPath,
     privateFunctionTreeLeafIndex,
   } = await createPrivateFunctionMembershipProof(selector, artifact);
@@ -67,7 +67,7 @@ export async function broadcastPrivateFunction(
     .broadcast_private_function(
       contractClass.id,
       artifactMetadataHash,
-      unconstrainedFunctionsArtifactTreeRoot,
+      utilityFunctionsTreeRoot,
       privateFunctionTreeSiblingPath,
       privateFunctionTreeLeafIndex,
       padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
@@ -87,7 +87,7 @@ export async function broadcastPrivateFunction(
 }
 
 /**
- * Sets up a call to broadcast an unconstrained function's bytecode via the ClassRegisterer contract.
+ * Sets up a call to broadcast a utility function's bytecode via the ClassRegisterer contract.
  * Note that this is not required for users to call the function, but is rather a convenience to make
  * this code publicly available so dapps or wallets do not need to redistribute it.
  * @param wallet - Wallet to send the transaction.
@@ -95,22 +95,22 @@ export async function broadcastPrivateFunction(
  * @param selector - Selector of the function to be broadcast.
  * @returns A ContractFunctionInteraction object that can be used to send the transaction.
  */
-export async function broadcastUnconstrainedFunction(
+export async function broadcastUtilityFunction(
   wallet: Wallet,
   artifact: ContractArtifact,
   selector: FunctionSelector,
 ): Promise<ContractFunctionInteraction> {
   const contractClass = await getContractClassFromArtifact(artifact);
-  const unconstrainedFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UNCONSTRAINED);
-  const unconstrainedFunctionsAndSelectors = await Promise.all(
-    unconstrainedFunctions.map(async fn => ({
+  const utilityFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UTILITY);
+  const utilityFunctionsAndSelectors = await Promise.all(
+    utilityFunctions.map(async fn => ({
       f: fn,
       selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
     })),
   );
-  const unconstrainedFunctionArtifact = unconstrainedFunctionsAndSelectors.find(fn => selector.equals(fn.selector))?.f;
-  if (!unconstrainedFunctionArtifact) {
-    throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
+  const utilityFunctionArtifact = utilityFunctionsAndSelectors.find(fn => selector.equals(fn.selector))?.f;
+  if (!utilityFunctionArtifact) {
+    throw new Error(`Utility function with selector ${selector.toString()} not found`);
   }
 
   const {
@@ -119,15 +119,15 @@ export async function broadcastUnconstrainedFunction(
     artifactTreeSiblingPath,
     functionMetadataHash,
     privateFunctionsArtifactTreeRoot,
-  } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
+  } = await createUtilityFunctionMembershipProof(selector, artifact);
 
   const registerer = await getRegistererContract(wallet);
   const bytecode = bufferAsFields(
-    unconstrainedFunctionArtifact.bytecode,
+    utilityFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
   return registerer.methods
-    .broadcast_unconstrained_function(
+    .broadcast_utility_function(
       contractClass.id,
       artifactMetadataHash,
       privateFunctionsArtifactTreeRoot,

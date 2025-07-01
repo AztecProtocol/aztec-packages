@@ -2,6 +2,7 @@
 #include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/api.hpp"
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -10,18 +11,14 @@ namespace bb {
 class ClientIVCAPI : public API {
 
   public:
-    void prove(const Flags& flags,
-               const std::filesystem::path& bytecode_path,
-               const std::filesystem::path& witness_path,
-               const std::filesystem::path& output_dir) override;
+    void prove(const Flags& flags, const std::filesystem::path& input_path, const std::filesystem::path& output_dir);
 
     bool verify(const Flags& flags,
+                const std::filesystem::path& public_inputs_path,
                 const std::filesystem::path& proof_path,
                 const std::filesystem::path& vk_path) override;
 
-    bool prove_and_verify(const Flags& flags,
-                          const std::filesystem::path& bytecode_path,
-                          const std::filesystem::path& witness_path) override;
+    bool prove_and_verify(const std::filesystem::path& input_path);
 
     void gates(const Flags& flags, const std::filesystem::path& bytecode_path) override;
 
@@ -29,10 +26,15 @@ class ClientIVCAPI : public API {
                                  const std::filesystem::path& output_path,
                                  const std::filesystem::path& vk_path) override;
 
+    // Two modes:
+    // - write a vk for a standalone circuit
+    // - write the vk of the hiding circuit which requires the last circuit input (e.g. a private-tail in Aztec) to be
+    // passed. This is used just to parameterize the hiding circuit with the last circuit public inputs amount.
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;
 
+    bool check_precomputed_vks(const std::filesystem::path& input_path);
     bool check(const Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path) override;
@@ -46,5 +48,4 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
 
 std::vector<uint8_t> decompress(const void* bytes, size_t size);
 
-void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path, const std::string& output_path);
 } // namespace bb

@@ -1,9 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <utility>
 
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
@@ -33,6 +38,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
+    ecc_op_tuple queue_ecc_no_op();
 
     // Metadata for propagating databus return data commitments via the public input mechanism
     DatabusPropagationData databus_propagation_data;
@@ -97,25 +103,21 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      */
     uint32_t get_ecc_op_idx(const EccOpCode& op_code)
     {
-        switch (op_code) {
-        case NULL_OP: {
-            return null_op_idx;
-        }
-        case ADD_ACCUM: {
+        if (op_code.add) {
             return add_accum_op_idx;
         }
-        case MUL_ACCUM: {
+        if (op_code.mul) {
             return mul_accum_op_idx;
         }
-        case EQUALITY: {
+        if (op_code.eq && op_code.reset) {
             return equality_op_idx;
         }
-        default: {
-            ASSERT(false);
-            break;
+        if (!op_code.add && !op_code.mul && !op_code.eq && !op_code.reset) {
+            return null_op_idx;
         }
-        }
-        return null_op_idx;
+
+        throw_or_abort("Invalid op code");
+        return 0;
     }
 
     void finalize_circuit(const bool ensure_nonzero);

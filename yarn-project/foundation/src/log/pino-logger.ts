@@ -101,15 +101,16 @@ const customLevels = { verbose: 25 };
 const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 
 const redactedPaths = [
-  'validatorPrivateKey',
+  'validatorPrivateKeys',
   // for both the validator and the prover
   'publisherPrivateKey',
   'peerIdPrivateKey',
   // bot keys
   'l1PrivateKey',
   'senderPrivateKey',
+  'recipientEncryptionSecret',
   // blob sink
-  'l1ConsensusHostApiKey',
+  'l1ConsensusHostApiKeys',
   // sensitive options used in the CLI
   'privateKey',
   'mnemonic',
@@ -248,7 +249,7 @@ export function registerLoggingStream(stream: Writable): void {
 }
 
 /** Log function that accepts an exception object */
-type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
+type ErrorLogFn = (msg: string, err?: unknown, data?: LogData) => void;
 
 /**
  * Logger that supports multiple severity levels.
@@ -265,6 +266,6 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * @param err - Error to log
  * @returns A string with both the log message and the error message.
  */
-function formatErr(msg: string, err?: Error | unknown): string {
+function formatErr(msg: string, err?: unknown): string {
   return err ? `${msg}: ${inspect(err)}` : msg;
 }

@@ -1,5 +1,3 @@
-use dep::protocol_types::debug_log::debug_log_format;
-
 use crate::{
     context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
     hash::{ArgsHasher, hash_args_array, hash_calldata_array},
@@ -22,14 +20,13 @@ use dep::protocol_types::{
         call_context::CallContext,
         function_selector::FunctionSelector,
         gas_settings::GasSettings,
-        log::Log,
+        include_by_timestamp::IncludeByTimestamp,
         log_hash::LogHash,
-        max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        private_log::PrivateLogData,
+        private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
         read_request::ReadRequest,
         side_effect::Counted,
@@ -62,7 +59,7 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: IncludeByTimestamp,
 
     pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
@@ -74,14 +71,14 @@ pub struct PrivateContext {
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
     pub public_teardown_call_request: PublicCallRequest,
-    pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     pub historical_header: BlockHeader,
 
     pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
-    pub contract_class_logs_hashes: BoundedVec<LogHash, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times.
@@ -98,7 +95,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),
@@ -145,12 +142,6 @@ impl PrivateContext {
 
     pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
-
-        // WARNING(https://github.com/AztecProtocol/aztec-packages/issues/10558): if you delete this debug_log_format line, some tests fail.
-        debug_log_format(
-            "Context.note_hashes, after pushing new note hash: {0}",
-            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
-        );
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
@@ -196,7 +187,7 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            max_block_number: self.max_block_number,
+            include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: self.note_hash_read_requests.storage(),
             nullifier_read_requests: self.nullifier_read_requests.storage(),
             key_validation_requests_and_generators: self
@@ -234,11 +225,11 @@ impl PrivateContext {
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
-    // docs:start:max-block-number
-    pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
-        // docs:end:max-block-number
-        self.max_block_number =
-            MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
+    // docs:start:include-by-timestamp
+    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
+        // docs:end:include-by-timestamp
+        self.include_by_timestamp =
+            IncludeByTimestamp::min_with_u64(self.include_by_timestamp, include_by_timestamp);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -260,8 +251,9 @@ impl PrivateContext {
     }
 
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request =
-            self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
+        let cached_request = self.last_key_validation_requests[key_index as u32].unwrap_or(
+            KeyValidationRequest::empty(),
+        );
 
         if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one
@@ -282,10 +274,10 @@ impl PrivateContext {
             self.key_validation_requests_and_generators.push(
                 KeyValidationRequestAndGenerator {
                     request,
-                    sk_app_generator: sk_generators[key_index],
+                    sk_app_generator: sk_generators[key_index as u32],
                 },
             );
-            self.last_key_validation_requests[key_index] = Option::some(request);
+            self.last_key_validation_requests[key_index as u32] = Option::some(request);
             request.sk_app
         }
     }
@@ -293,8 +285,8 @@ impl PrivateContext {
     // docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
-        let message = L2ToL1Message { recipient, content, counter: self.next_counter() };
-        self.l2_to_l1_msgs.push(message);
+        let message = L2ToL1Message { recipient, content };
+        self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
 
     // docs:start:context_consume_l1_to_l2_message
@@ -323,19 +315,22 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS]) {
+    pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter: 0, counter };
+        let private_log =
+            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0, counter };
         self.private_logs.push(private_log);
     }
 
     pub fn emit_raw_note_log(
         &mut self,
         log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+        length: u32,
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let private_log = PrivateLogData { log: Log::new(log), note_hash_counter, counter };
+        let private_log =
+            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter, counter };
         self.private_logs.push(private_log);
     }
 
@@ -564,7 +559,7 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),

@@ -1,10 +1,12 @@
+import { DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceUpdateWithAddress } from '@aztec/stdlib/contract';
 import type { PublicLog } from '@aztec/stdlib/logs';
+import type { UInt64 } from '@aztec/stdlib/types';
 
-import { DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG, ProtocolContractAddress } from '../protocol_contract_data.js';
+import { ProtocolContractAddress } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractInstanceDeployer. */
 export class ContractInstanceUpdatedEvent {
@@ -12,13 +14,13 @@ export class ContractInstanceUpdatedEvent {
     public readonly address: AztecAddress,
     public readonly prevContractClassId: Fr,
     public readonly newContractClassId: Fr,
-    public readonly blockOfChange: number,
+    public readonly timestampOfChange: UInt64,
   ) {}
 
   static isContractInstanceUpdatedEvent(log: PublicLog) {
     return (
       log.contractAddress.equals(ProtocolContractAddress.ContractInstanceDeployer) &&
-      log.log[0].equals(DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG)
+      log.fields[0].toBigInt() === DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE
     );
   }
 
@@ -28,9 +30,9 @@ export class ContractInstanceUpdatedEvent {
     const address = reader.readObject(AztecAddress);
     const prevContractClassId = reader.readObject(Fr);
     const newContractClassId = reader.readObject(Fr);
-    const blockOfChange = reader.readObject(Fr).toNumber();
+    const timestampOfChange = reader.readObject(Fr).toBigInt();
 
-    return new ContractInstanceUpdatedEvent(address, prevContractClassId, newContractClassId, blockOfChange);
+    return new ContractInstanceUpdatedEvent(address, prevContractClassId, newContractClassId, timestampOfChange);
   }
 
   toContractInstanceUpdate(): ContractInstanceUpdateWithAddress {
@@ -38,7 +40,7 @@ export class ContractInstanceUpdatedEvent {
       address: this.address,
       prevContractClassId: this.prevContractClassId,
       newContractClassId: this.newContractClassId,
-      blockOfChange: this.blockOfChange,
+      timestampOfChange: this.timestampOfChange,
     };
   }
 }

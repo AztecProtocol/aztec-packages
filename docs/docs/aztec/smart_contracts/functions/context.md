@@ -4,6 +4,8 @@ sidebar_position: 1
 tags: [functions, context]
 ---
 
+import Image from '@theme/IdealImage';
+
 ## What is the context
 
 The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of its side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
@@ -55,7 +57,7 @@ The call context contains information about the current call being made:
 
 > The graphic below illustrates how the message sender changes throughout the kernel circuit iterations.
 
-<img src="/img/context/sender_context_change.png" />
+<Image img={require("@site/static/img/context/sender_context_change.png")} />
 
 2. Storage contract address
 
@@ -91,13 +93,13 @@ The return values are a set of values that are returned from an applications exe
 ```rust
 return_values : BoundedVec\<Field, RETURN_VALUES_LENGTH\>,
 ```
-## Max Block Number
+## Include By Timestamp
 
-Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_tx_max_block_number` function can be used to set this property:
+Some data structures impose time constraints, e.g. they may make it so that a value can only be changed after a certain delay. Interacting with these in private involves creating proofs that are only valid as long as they are included before a certain future point in time. To achieve this, the `set_include_by_timestamp` function can be used to set this property:
 
-#include_code max-block-number /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
+#include_code include-by-timestamp /noir-projects/aztec-nr/aztec/src/context/private_context.nr rust
 
-A transaction that requests a maximum block number will never be included in a block with a block number larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
+A transaction that sets this value will never be included in a block with a timestamp larger than the requested value, since it would be considered invalid. This can also be used to make transactions automatically expire after some time if not included.
 
 ### Read Requests
 

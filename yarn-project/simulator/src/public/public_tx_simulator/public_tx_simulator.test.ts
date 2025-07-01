@@ -1,10 +1,10 @@
 import {
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   REGISTERER_CONTRACT_ADDRESS,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
 } from '@aztec/constants';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -19,8 +19,9 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ScopedLogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { LogHash, countAccumulatedItems } from '@aztec/stdlib/kernel';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { fr, makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -37,9 +38,9 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { AvmPersistableStateManager } from '../avm/journal/journal.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { PublicContractsDB } from '../public_db_sources.js';
+import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -60,7 +61,6 @@ describe('public_tx_simulator', () => {
 
   let merkleTrees: MerkleTreeWriteOperations;
   let merkleTreesCopy: MerkleTreeWriteOperations;
-  let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
 
   let publicDataTree: AppendOnlyTree<Fr>;
@@ -69,7 +69,7 @@ describe('public_tx_simulator', () => {
   let simulator: PublicTxSimulator;
   let simulateInternal: jest.SpiedFunction<
     (
-      stateManager: AvmPersistableStateManager,
+      stateManager: PublicPersistableStateManager,
       executionResult: any,
       allocatedGas: Gas,
       transactionFee: any,
@@ -104,8 +104,23 @@ describe('public_tx_simulator', () => {
 
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = new Fr(0x7777);
     tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] = new Fr(0x8888);
+    tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[0] = new Fr(0x9999);
+    tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[1] = new Fr(0xaaaa);
+    tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
+      new L2ToL1Message(EthAddress.fromNumber(0x5555), new Fr(0xbbbb)),
+      AztecAddress.fromField(new Fr(0x6666)),
+    );
+    tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs[1] = new ScopedL2ToL1Message(
+      new L2ToL1Message(EthAddress.fromNumber(0x6666), new Fr(0xcccc)),
+      AztecAddress.fromField(new Fr(0x7777)),
+    );
 
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = new Fr(0x9999);
+    tx.data.forPublic!.revertibleAccumulatedData.noteHashes[0] = new Fr(0xbbbb);
+    tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
+      new L2ToL1Message(EthAddress.fromNumber(0x7777), new Fr(0xdddd)),
+      AztecAddress.fromField(new Fr(0x8888)),
+    );
 
     tx.data.gasUsed = privateGasUsed;
     if (hasPublicTeardownCall) {
@@ -121,20 +136,18 @@ describe('public_tx_simulator', () => {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const balancePublicDataTreeLeafSlot = await computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
-    await merkleTrees.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
-      0,
-    );
+    await merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [
+      new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer(),
+    ]);
   };
 
   const mockPublicExecutor = (
-    mockedSimulatorExecutions: ((stateManager: AvmPersistableStateManager) => Promise<SimulationError | void>)[],
+    mockedSimulatorExecutions: ((stateManager: PublicPersistableStateManager) => Promise<SimulationError | void>)[],
   ) => {
     for (const executeSimulator of mockedSimulatorExecutions) {
       simulateInternal.mockImplementationOnce(
         async (
-          stateManager: AvmPersistableStateManager,
+          stateManager: PublicPersistableStateManager,
           _executionResult: any,
           allocatedGas: Gas,
           _transactionFee: any,
@@ -177,19 +190,16 @@ describe('public_tx_simulator', () => {
         Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
       ),
     ];
-    const contractClassLog = ContractClassLog.fromFields([
-      new Fr(REGISTERER_CONTRACT_ADDRESS),
-      ...contractClassLogFields.concat(
-        new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - contractClassLogFields.length).fill(Fr.ZERO),
-      ),
-    ]);
-    tx.contractClassLogs.push(contractClassLog);
-    const contractClassLogHash = ScopedLogHash.fromFields([
-      await contractClassLog.hash(),
-      new Fr(7),
-      new Fr(contractClassLog.getEmittedLength()),
-      new Fr(REGISTERER_CONTRACT_ADDRESS),
-    ]);
+    const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
+    const emittedLength = contractClassLogFields.length;
+    const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+
+    tx.contractClassLogFields.push(logFields);
+
+    const contractClassLogHash = LogHash.from({
+      value: await logFields.hash(),
+      length: emittedLength,
+    }).scope(contractAddress);
     if (revertible) {
       tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
     } else {
@@ -245,7 +255,7 @@ describe('public_tx_simulator', () => {
     skipFeeEnforcement?: boolean;
   }) => {
     const simulator = new PublicTxSimulator(
-      treesDB,
+      merkleTrees,
       contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
@@ -259,7 +269,7 @@ describe('public_tx_simulator', () => {
     );
     simulateInternal.mockImplementation(
       (
-        _stateManager: AvmPersistableStateManager,
+        _stateManager: PublicPersistableStateManager,
         _executionResult: any,
         allocatedGas: Gas,
         _transactionFee: any,
@@ -281,7 +291,6 @@ describe('public_tx_simulator', () => {
   beforeEach(async () => {
     merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     merkleTreesCopy = await (await NativeWorldStateService.tmp()).fork();
-    treesDB = new PublicTreesDB(merkleTrees);
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
 
     treeStore = openTmpStore();
@@ -492,17 +501,17 @@ describe('public_tx_simulator', () => {
 
     mockPublicExecutor([
       // SETUP
-      async (_stateManager: AvmPersistableStateManager) => {
+      async (_stateManager: PublicPersistableStateManager) => {
         // Nothing happened in setup phase.
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         // mock storage writes on the state manager
         await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
         await stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         // mock storage writes on the state manager
         await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x103));
         await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x201));
@@ -552,6 +561,140 @@ describe('public_tx_simulator', () => {
     expect(simulateInternal).toHaveBeenCalledTimes(1);
   });
 
+  it('non-reverting transactions keep all side effects', async function () {
+    const tx = await mockTxWithPublicCalls({
+      numberOfSetupCalls: 1,
+      numberOfAppLogicCalls: 2,
+      hasPublicTeardownCall: true,
+    });
+
+    const siloedNullifiers = [new Fr(0x10000), new Fr(0x20000), new Fr(0x30000), new Fr(0x40000), new Fr(0x50000)];
+    const noteHashes = [new Fr(0x60000), new Fr(0x70000), new Fr(0x80000), new Fr(0x90000), new Fr(0xa0000)];
+    const l2ToL1Addresses = [new Fr(0xa0000), new Fr(0xb0000), new Fr(0xc0000), new Fr(0xf0000), new Fr(0x10000)].map(
+      a => new AztecAddress(a),
+    );
+    const l2ToL1Recipients = [new Fr(0xb0000), new Fr(0xc0000), new Fr(0xd0000), new Fr(0xe0000), new Fr(0xf0000)];
+    const l2ToL1Contents = [new Fr(0x100000), new Fr(0x110000), new Fr(0x120000), new Fr(0x130000), new Fr(0x140000)];
+    const l2ToL1Messages = l2ToL1Recipients.map((recipient, i) =>
+      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i]).scope(l2ToL1Addresses[i]),
+    );
+
+    mockPublicExecutor([
+      // SETUP
+      async (stateManager: PublicPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
+        await stateManager.writeUniqueNoteHash(noteHashes[0]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[0], l2ToL1Recipients[0], l2ToL1Contents[0]);
+      },
+      // APP LOGIC
+      async (stateManager: PublicPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
+        await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
+        await stateManager.writeUniqueNoteHash(noteHashes[1]);
+        await stateManager.writeUniqueNoteHash(noteHashes[2]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[1], l2ToL1Recipients[1], l2ToL1Contents[1]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[2], l2ToL1Recipients[2], l2ToL1Contents[2]);
+      },
+      async (stateManager: PublicPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
+        await stateManager.writeUniqueNoteHash(noteHashes[3]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[3], l2ToL1Recipients[3], l2ToL1Contents[3]);
+      },
+      // TEARDOWN
+      async (stateManager: PublicPersistableStateManager) => {
+        await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
+        await stateManager.writeUniqueNoteHash(noteHashes[4]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[4], l2ToL1Recipients[4], l2ToL1Contents[4]);
+      },
+    ]);
+
+    const txResult = await simulator.simulate(tx);
+
+    expect(txResult.processedPhases).toHaveLength(3);
+    expect(txResult.processedPhases).toEqual([
+      expect.objectContaining({ phase: TxExecutionPhase.SETUP, revertReason: undefined }),
+      expect.objectContaining({ phase: TxExecutionPhase.APP_LOGIC, revertReason: undefined }),
+      expect.objectContaining({ phase: TxExecutionPhase.TEARDOWN, revertReason: undefined }),
+    ]);
+
+    expect(txResult.revertCode).toEqual(RevertCode.OK);
+    expect(txResult.revertReason).toBeUndefined();
+
+    const expectedSetupGas = enqueuedCallGasUsed;
+    const expectedAppLogicGas = enqueuedCallGasUsed.mul(2);
+    const expectedTeardownGasUsed = enqueuedCallGasUsed;
+    const expectedTotalGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(expectedTeardownGasUsed);
+    const expectedBilledGas = privateGasUsed.add(expectedSetupGas).add(expectedAppLogicGas).add(teardownGasLimits);
+    expect(txResult.gasUsed).toEqual({
+      totalGas: expectedTotalGas,
+      billedGas: expectedBilledGas,
+      teardownGas: expectedTeardownGasUsed,
+      publicGas: expectedTotalGas.sub(privateGasUsed),
+    });
+
+    const availableGasForSetup = gasLimits.sub(teardownGasLimits).sub(privateGasUsed);
+    const availableGasForFirstAppLogic = availableGasForSetup.sub(enqueuedCallGasUsed);
+    const availableGasForSecondAppLogic = availableGasForFirstAppLogic.sub(enqueuedCallGasUsed);
+    expectAvailableGasForCalls([
+      availableGasForSetup,
+      availableGasForFirstAppLogic,
+      availableGasForSecondAppLogic,
+      teardownGasLimits,
+    ]);
+
+    const output = txResult.avmProvingRequest!.inputs.publicInputs;
+
+    const expectedGasUsedForFee = expectedTotalGas.sub(expectedTeardownGasUsed).add(teardownGasLimits);
+    const expectedTxFee = expectedGasUsedForFee.computeFee(gasFees);
+    expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
+    expect(output.transactionFee).toEqual(expectedTxFee);
+
+    // We keep all side effects
+    expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(8);
+    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(8);
+    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(8);
+
+    // Verify that the actual side effects are as expected and in the right order.
+    const includedSiloedNullifiers = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      siloedNullifiers[0],
+      ...tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
+      ...siloedNullifiers.slice(1, 4),
+      // teardown
+      siloedNullifiers[4],
+    ];
+    expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+
+    const includedNoteHashes = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
+      noteHashes[0],
+      // Cannot use actual revertible note hashes because the AVM will silo them and make them unique.
+      // So we'd have to do so here to actually compare. For now, we just check that the correct number
+      // of nonzero revertible notes end up in the output.
+      //...tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
+      ...Array.from(
+        { length: tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(n => !n.isZero()).length },
+        () => expect.anything(),
+      ),
+      ...noteHashes.slice(1, 4),
+      // Teardown
+      noteHashes[4],
+    ];
+    expect(output.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
+
+    const includedL2ToL1Messages = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
+      l2ToL1Messages[0],
+      ...tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
+      ...l2ToL1Messages.slice(1, 4),
+      // Teardown
+      l2ToL1Messages[4],
+    ];
+    expect(output.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
+
+    await checkNullifierRoot(txResult);
+  });
+
   it('includes a transaction that reverts in app logic only', async function () {
     const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
@@ -562,23 +705,43 @@ describe('public_tx_simulator', () => {
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
 
     const siloedNullifiers = [new Fr(0x10000), new Fr(0x20000), new Fr(0x30000), new Fr(0x40000), new Fr(0x50000)];
+    const noteHashes = [new Fr(0x60000), new Fr(0x70000), new Fr(0x80000), new Fr(0x90000), new Fr(0xa0000)];
+    const l2ToL1Addresses = [new Fr(0xa0000), new Fr(0xb0000), new Fr(0xc0000), new Fr(0xf0000), new Fr(0x10000)].map(
+      a => new AztecAddress(a),
+    );
+    const l2ToL1Recipients = [new Fr(0xb0000), new Fr(0xc0000), new Fr(0xd0000), new Fr(0xe0000), new Fr(0xf0000)];
+    const l2ToL1Contents = [new Fr(0x100000), new Fr(0x110000), new Fr(0x120000), new Fr(0x130000), new Fr(0x140000)];
+    const l2ToL1Messages = l2ToL1Recipients.map((recipient, i) =>
+      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i]).scope(l2ToL1Addresses[i]),
+    );
+
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
+        await stateManager.writeUniqueNoteHash(noteHashes[0]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[0], l2ToL1Recipients[0], l2ToL1Contents[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
+        await stateManager.writeUniqueNoteHash(noteHashes[1]);
+        await stateManager.writeUniqueNoteHash(noteHashes[2]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[1], l2ToL1Recipients[1], l2ToL1Contents[1]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[2], l2ToL1Recipients[2], l2ToL1Contents[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
+        await stateManager.writeUniqueNoteHash(noteHashes[3]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[3], l2ToL1Recipients[3], l2ToL1Contents[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
+        await stateManager.writeUniqueNoteHash(noteHashes[4]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[4], l2ToL1Recipients[4], l2ToL1Contents[4]);
       },
     ]);
 
@@ -623,8 +786,12 @@ describe('public_tx_simulator', () => {
     expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
-    // we keep the non-revertible data.
+    // We keep only the non-revertible data and setup
     expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(4);
+    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(4);
+    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(4);
+
+    // Verify that the actual side effects are as expected and in the right order.
     const includedSiloedNullifiers = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
       siloedNullifiers[0],
@@ -635,6 +802,23 @@ describe('public_tx_simulator', () => {
       siloedNullifiers[4],
     ];
     expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+
+    const includedNoteHashes = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
+      noteHashes[0],
+      // Teardown
+      noteHashes[4],
+    ];
+    expect(output.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
+
+    const includedL2ToL1Messages = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
+      l2ToL1Messages[0],
+      // Teardown
+      l2ToL1Messages[4],
+    ];
+    expect(output.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
+
     await checkNullifierRoot(txResult);
   });
 
@@ -648,22 +832,42 @@ describe('public_tx_simulator', () => {
     const teardownFailure = new SimulationError('Simulation Failed in teardown', []);
 
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
+    const noteHashes = [new Fr(0x60000), new Fr(0x70000), new Fr(0x80000), new Fr(0x90000), new Fr(0xa0000)];
+    const l2ToL1Addresses = [new Fr(0xa0000), new Fr(0xb0000), new Fr(0xc0000), new Fr(0xf0000), new Fr(0x10000)].map(
+      a => new AztecAddress(a),
+    );
+    const l2ToL1Recipients = [new Fr(0xb0000), new Fr(0xc0000), new Fr(0xd0000), new Fr(0xe0000), new Fr(0xf0000)];
+    const l2ToL1Contents = [new Fr(0x100000), new Fr(0x110000), new Fr(0x120000), new Fr(0x130000), new Fr(0x140000)];
+    const l2ToL1Messages = l2ToL1Recipients.map((recipient, i) =>
+      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i]).scope(l2ToL1Addresses[i]),
+    );
+
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
+        await stateManager.writeUniqueNoteHash(noteHashes[0]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[0], l2ToL1Recipients[0], l2ToL1Contents[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
+        await stateManager.writeUniqueNoteHash(noteHashes[1]);
+        await stateManager.writeUniqueNoteHash(noteHashes[2]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[1], l2ToL1Recipients[1], l2ToL1Contents[1]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[2], l2ToL1Recipients[2], l2ToL1Contents[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
+        await stateManager.writeUniqueNoteHash(noteHashes[3]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[3], l2ToL1Recipients[3], l2ToL1Contents[3]);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
+        await stateManager.writeUniqueNoteHash(noteHashes[4]);
+        stateManager.writeL2ToL1Message(l2ToL1Addresses[4], l2ToL1Recipients[4], l2ToL1Contents[4]);
         return Promise.resolve(teardownFailure);
       },
     ]);
@@ -708,8 +912,12 @@ describe('public_tx_simulator', () => {
     expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
-    // We keep the non-revertible data.
+    // We keep only the non-revertible data and setup
     expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(3);
+    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(3);
+
+    // Verify that the actual side effects are as expected and in the right order.
     const includedSiloedNullifiers = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
       siloedNullifiers[0],
@@ -718,6 +926,18 @@ describe('public_tx_simulator', () => {
       //..siloedNullifiers[1...4]
     ];
     expect(output.accumulatedData.nullifiers.filter(n => !n.isZero())).toEqual(includedSiloedNullifiers);
+
+    const includedNoteHashes = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(n => !n.isZero()),
+      noteHashes[0],
+    ];
+    expect(output.accumulatedData.noteHashes.filter(n => !n.isZero())).toEqual(includedNoteHashes);
+
+    const includedL2ToL1Messages = [
+      ...tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty()),
+      l2ToL1Messages[0],
+    ];
+    expect(output.accumulatedData.l2ToL1Msgs.filter(m => !m.isEmpty())).toEqual(includedL2ToL1Messages);
     await checkNullifierRoot(txResult);
   });
 
@@ -731,23 +951,37 @@ describe('public_tx_simulator', () => {
     const appLogicFailure = new SimulationError('Simulation Failed in app logic', []);
     const teardownFailure = new SimulationError('Simulation Failed in teardown', []);
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
+    const noteHashes = [new Fr(60000), new Fr(70000), new Fr(80000), new Fr(90000), new Fr(100000)];
+    const l2ToL1Recipients = [new Fr(110000), new Fr(120000), new Fr(130000), new Fr(140000), new Fr(150000)];
+    const l2ToL1Contents = [new Fr(160000), new Fr(170000), new Fr(180000), new Fr(190000), new Fr(200000)];
+
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
+        await stateManager.writeUniqueNoteHash(noteHashes[0]);
+        stateManager.writeL2ToL1Message(await AztecAddress.random(), l2ToL1Recipients[0], l2ToL1Contents[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
+        await stateManager.writeUniqueNoteHash(noteHashes[1]);
+        await stateManager.writeUniqueNoteHash(noteHashes[2]);
+        stateManager.writeL2ToL1Message(await AztecAddress.random(), l2ToL1Recipients[1], l2ToL1Contents[1]);
+        stateManager.writeL2ToL1Message(await AztecAddress.random(), l2ToL1Recipients[2], l2ToL1Contents[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
+        await stateManager.writeUniqueNoteHash(noteHashes[3]);
+        stateManager.writeL2ToL1Message(await AztecAddress.random(), l2ToL1Recipients[3], l2ToL1Contents[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
+        await stateManager.writeUniqueNoteHash(noteHashes[4]);
+        stateManager.writeL2ToL1Message(await AztecAddress.random(), l2ToL1Recipients[4], l2ToL1Contents[4]);
         return Promise.resolve(teardownFailure);
       },
     ]);
@@ -794,8 +1028,11 @@ describe('public_tx_simulator', () => {
     expect(output.endGasUsed).toEqual(expectedGasUsedForFee);
     expect(output.transactionFee).toEqual(expectedTxFee);
 
-    // we keep the non-revertible data
+    // We keep only the non-revertible data and setup
     expect(countAccumulatedItems(output.accumulatedData.nullifiers)).toBe(3);
+    expect(countAccumulatedItems(output.accumulatedData.noteHashes)).toBe(3);
+    expect(countAccumulatedItems(output.accumulatedData.l2ToL1Msgs)).toBe(3);
+
     const includedSiloedNullifiers = [
       ...tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(n => !n.isZero()),
       siloedNullifiers[0],
@@ -818,19 +1055,19 @@ describe('public_tx_simulator', () => {
 
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
       },
     ]);
@@ -855,20 +1092,20 @@ describe('public_tx_simulator', () => {
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
       },
     ]);
@@ -885,10 +1122,8 @@ describe('public_tx_simulator', () => {
 
     const contractClass = await contractsDB.getContractClass(contractClassId);
     if (kind == 'revertible') {
-      expect(tx.contractClassLogs.length).toEqual(0);
       expect(contractClass).toBeUndefined();
     } else {
-      expect(tx.contractClassLogs.length).toEqual(1);
       expect(contractClass).toBeDefined();
     }
   });

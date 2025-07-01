@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "byte_array.hpp"
 
 #include <bitset>
@@ -43,6 +49,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
         value.create_range_constraint(8, "byte_array: vector entry larger than 1 byte.");
         values[i] = value;
     }
+    set_free_witness_tag();
 }
 
 /**
@@ -368,6 +375,10 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
     field_t<Builder> high = witness_t<Builder>(context, high_value);
     bool_t<Builder> bit = witness_t<Builder>(context, static_cast<bool>(bit_value));
 
+    low.set_origin_tag(values[byte_index].get_origin_tag());
+    high.set_origin_tag(values[byte_index].get_origin_tag());
+    bit.set_origin_tag(values[byte_index].get_origin_tag());
+
     if (num_low_bits > 0) {
         low.create_range_constraint(static_cast<size_t>(num_low_bits), "byte_array: low bits split off incorrectly.");
     } else {
@@ -394,9 +405,7 @@ typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const s
     return { low, scaled_high, bit };
 }
 
-template class byte_array<bb::StandardCircuitBuilder>;
 template class byte_array<bb::UltraCircuitBuilder>;
 template class byte_array<bb::MegaCircuitBuilder>;
-template class byte_array<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

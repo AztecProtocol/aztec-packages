@@ -19,6 +19,40 @@
       "request": "attach",
       "name": "Attach",
       "port": 9229
+    },
+    {
+      "name": "Debug Current CMake Target",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${command:cmake.launchTargetPath}",
+      "args": [],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      // Debug CIVC using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
+      "name": "Debug CIVC transaction",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack"],
+      "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/vm2_tests",
+      "args": ["--gtest_filter=AvmRecursiveTests.GoblinRecursion"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
     }
   ]
 }

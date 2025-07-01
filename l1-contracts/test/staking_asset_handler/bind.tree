@@ -1,0 +1,5 @@
+BindTest
+├── When using the bound address
+│   └── it emits {ValidatorAdded} event
+└── When not using the bound address
+    └── it reverts

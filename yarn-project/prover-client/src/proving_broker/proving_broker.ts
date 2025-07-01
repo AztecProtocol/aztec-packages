@@ -2,16 +2,17 @@ import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import type {
-  GetProvingJobResponse,
-  ProofUri,
-  ProvingJob,
-  ProvingJobConsumer,
-  ProvingJobFilter,
-  ProvingJobId,
-  ProvingJobProducer,
-  ProvingJobSettledResult,
-  ProvingJobStatus,
+import {
+  type GetProvingJobResponse,
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobConsumer,
+  type ProvingJobFilter,
+  type ProvingJobId,
+  type ProvingJobProducer,
+  type ProvingJobSettledResult,
+  type ProvingJobStatus,
+  tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
@@ -54,6 +55,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -184,7 +186,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.warn('ProvingBroker not started');
       return Promise.resolve();
     }
-    await this.cleanupPromise.stop();
+    await tryStop(this.cleanupPromise);
   }
 
   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
@@ -313,7 +315,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     return Promise.resolve(notifications.concat(completedJobs));
   }
 
-  // eslint-disable-next-line require-await
   #getProvingJob(filter: ProvingJobFilter = { allowList: [] }): { job: ProvingJob; time: number } | undefined {
     const allowedProofs: ProvingRequestType[] =
       Array.isArray(filter.allowList) && filter.allowList.length > 0
@@ -671,7 +672,7 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * The aim is that this will speed up block proving as the closer we get to a block's root proof the more likely it
  * is to get picked up by agents
  */
-const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,

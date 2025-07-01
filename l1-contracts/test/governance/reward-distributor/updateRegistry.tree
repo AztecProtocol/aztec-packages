@@ -1,6 +1,0 @@
-UpdateRegistryTest
-├── when caller is not owner
-│   └── it reverts
-└── when caller is owner
-    ├── it updates the registry
-    └── it emits a {RegistryUpdated} event

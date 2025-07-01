@@ -8,7 +8,7 @@ import {
   REGISTERER_CONTRACT_ADDRESS,
   REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
   REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-  REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -130,26 +130,13 @@ async function generateRoot(names: string[], leaves: Fr[]) {
   `;
 }
 
+// Generate the siloed log tags for events emitted via private logs.
 async function generateLogTags() {
-  // See silo_contract_class_log for all registerer tags
   return `
-  export const REGISTERER_CONTRACT_CLASS_REGISTERED_TAG = Fr.fromHexString('${await poseidon2Hash([
-    REGISTERER_CONTRACT_ADDRESS,
-    REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
-  ])}');
-  export const REGISTERER_PRIVATE_FUNCTION_BROADCASTED_TAG = Fr.fromHexString('${await poseidon2Hash([
-    REGISTERER_CONTRACT_ADDRESS,
-    REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-  ])}');
-  export const REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG = Fr.fromHexString('${await poseidon2Hash([
-    REGISTERER_CONTRACT_ADDRESS,
-    REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE,
-  ])}');
   export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
     DEPLOYER_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');
-   export const DEPLOYER_CONTRACT_INSTANCE_UPDATED_TAG = new Fr(${DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE}n);
   `;
 }
 

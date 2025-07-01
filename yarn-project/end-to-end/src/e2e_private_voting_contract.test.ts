@@ -1,5 +1,6 @@
-import { type AccountWallet, type AztecAddress, Fr, type Logger, TxStatus } from '@aztec/aztec.js';
+import { type AccountWallet, type AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
 import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
+import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { setup } from './fixtures/utils.js';
 
@@ -32,12 +33,11 @@ describe('e2e_voting_contract', () => {
 
       // We try voting again, but our TX is dropped due to trying to emit duplicate nullifiers
       // first confirm that it fails simulation
-      await expect(votingContract.methods.cast_vote(candidate).send().wait()).rejects.toThrow(/Nullifier collision/);
-      // if we skip simulation before submitting the tx,
-      // tx will be included in a block but with app logic reverted
-      await expect(
-        votingContract.methods.cast_vote(candidate).send({ skipPublicSimulation: true }).wait(),
-      ).rejects.toThrow(TxStatus.APP_LOGIC_REVERTED);
+      await expect(votingContract.methods.cast_vote(candidate).simulate()).rejects.toThrow(/Nullifier collision/);
+      // if we skip simulation, tx fails
+      await expect(votingContract.methods.cast_vote(candidate).send().wait()).rejects.toThrow(
+        TX_ERROR_EXISTING_NULLIFIER,
+      );
     });
   });
 });

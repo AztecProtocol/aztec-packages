@@ -28,8 +28,8 @@ import { BatchSpanProcessor, NodeTracerProvider } from '@opentelemetry/sdk-trace
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
 import type { TelemetryClientConfig } from './config.js';
-import { EventLoopMonitor } from './event_loop_monitor.js';
-import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
+import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
+import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
 import type { TelemetryClient } from './telemetry.js';
@@ -38,7 +38,7 @@ export type OpenTelemetryClientFactory = (resource: IResource, log: Logger) => O
 
 export class OpenTelemetryClient implements TelemetryClient {
   hostMetrics: HostMetrics | undefined;
-  eventLoopMonitor: EventLoopMonitor | undefined;
+  nodejsMetricsMonitor: NodejsMetricsMonitor | undefined;
   private meters: Map<string, Meter> = new Map<string, Meter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
@@ -47,8 +47,17 @@ export class OpenTelemetryClient implements TelemetryClient {
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
     private loggerProvider: LoggerProvider | undefined,
+    private publicMetricExporter: PublicOtelFilterMetricExporter | undefined,
     private log: Logger,
   ) {}
+
+  setExportedPublicTelemetry(metrics: string[]): void {
+    this.publicMetricExporter?.setMetricPrefixes(metrics);
+  }
+
+  setPublicTelemetryCollectFrom(roles: string[]): void {
+    this.publicMetricExporter?.setAllowedRoles(roles);
+  }
 
   getMeter(name: string): Meter {
     let meter = this.meters.get(name);
@@ -91,12 +100,12 @@ export class OpenTelemetryClient implements TelemetryClient {
       meterProvider: this.meterProvider,
     });
 
-    this.eventLoopMonitor = new EventLoopMonitor(
+    this.nodejsMetricsMonitor = new NodejsMetricsMonitor(
       this.meterProvider.getMeter(this.resource.attributes[ATTR_SERVICE_NAME] as string),
     );
 
     this.hostMetrics.start();
-    this.eventLoopMonitor.start();
+    this.nodejsMetricsMonitor.start();
   }
 
   public isEnabled() {
@@ -112,7 +121,7 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async stop() {
-    this.eventLoopMonitor?.stop();
+    this.nodejsMetricsMonitor?.stop();
 
     const flushAndShutdown = async (provider?: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
       if (!provider) {
@@ -131,16 +140,31 @@ export class OpenTelemetryClient implements TelemetryClient {
 
   public static createMeterProvider(
     resource: IResource,
-    options: Partial<PeriodicExportingMetricReaderOptions>,
+    exporters: Array<PeriodicExportingMetricReaderOptions>,
   ): MeterProvider {
     return new MeterProvider({
       resource,
-      readers: options.exporter
-        ? [new PeriodicExportingMetricReader(options as PeriodicExportingMetricReaderOptions)]
-        : [],
+      readers: exporters.map(options => new PeriodicExportingMetricReader(options)),
 
       views: [
         // Every histogram matching the selector (type + unit) gets these custom buckets assigned
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'Mmana',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [0.1, 0.5, 1, 2, 4, 8, 10, 25, 50, 100, 500, 1000, 5000, 10000],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'tx',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            // TPS
+            [0.1 * 36, 0.2 * 36, 0.5 * 36, 1 * 36, 2 * 36, 5 * 36, 10 * 36, 15 * 36].map(Math.ceil),
+            true,
+          ),
+        }),
         new View({
           instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 's',
@@ -257,20 +281,41 @@ export class OpenTelemetryClient implements TelemetryClient {
 
       tracerProvider.register();
 
-      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
-        exporter: config.metricsCollectorUrl
-          ? new OtelFilterMetricExporter(
-              new OTLPMetricExporter({ url: config.metricsCollectorUrl.href }),
-              config.otelExcludeMetrics ?? [],
-            )
-          : undefined,
-        exportTimeoutMillis: config.otelExportTimeoutMs,
-        exportIntervalMillis: config.otelCollectIntervalMs,
-      });
+      const exporters: PeriodicExportingMetricReaderOptions[] = [];
+      if (config.metricsCollectorUrl) {
+        exporters.push({
+          exporter: new OtelFilterMetricExporter(
+            new OTLPMetricExporter({ url: config.metricsCollectorUrl.href }),
+            config.otelExcludeMetrics,
+            'deny',
+          ),
+          exportTimeoutMillis: config.otelExportTimeoutMs,
+          exportIntervalMillis: config.otelCollectIntervalMs,
+        });
+      }
 
+      let publicExporter: PublicOtelFilterMetricExporter | undefined;
+      if (config.publicMetricsCollectorUrl && !config.publicMetricsOptOut) {
+        log.info(`Exporting public metrics: ${config.publicIncludeMetrics}`, {
+          publicMetrics: config.publicIncludeMetrics,
+          collectorUrl: config.publicMetricsCollectorUrl,
+        });
+        publicExporter = new PublicOtelFilterMetricExporter(
+          config.publicMetricsCollectFrom,
+          new OTLPMetricExporter({ url: config.publicMetricsCollectorUrl.href }),
+          config.publicIncludeMetrics,
+        );
+        exporters.push({
+          exporter: publicExporter,
+          exportTimeoutMillis: config.otelExportTimeoutMs,
+          exportIntervalMillis: config.otelCollectIntervalMs,
+        });
+      }
+
+      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, exporters);
       const loggerProvider = registerOtelLoggerProvider(resource, config.logsCollectorUrl);
 
-      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
+      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, publicExporter, log);
     };
   }
 

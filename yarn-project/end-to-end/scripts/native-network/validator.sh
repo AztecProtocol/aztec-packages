@@ -59,7 +59,7 @@ unset VALIDATOR_PRIVATE_KEY
 
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
-export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
+export L1_CONSENSUS_HOST_URLS=${L1_CONSENSUS_HOST_URLS:-}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
 export SEQ_MIN_TX_PER_BLOCK="1"
@@ -88,4 +88,4 @@ else
 fi
 
 # Start the Validator Node with the sequencer and archiver
-node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer --sequencer.validatorPrivateKey="$validator_private_key"
+node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --node --archiver --sequencer --sequencer.validatorPrivateKeys="$validator_private_key"

@@ -4,7 +4,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
@@ -19,7 +19,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class DataBusTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -30,10 +30,12 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
-        Prover prover{ builder };
-        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover.proving_key->proving_key);
-        Verifier verifier{ verification_key };
+        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+        auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+
+        Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
+        Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }
 
@@ -124,7 +126,7 @@ TYPED_TEST(DataBusTests, CallDataRead)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
     this->construct_circuit_with_calldata_reads(builder);
-
+    EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 

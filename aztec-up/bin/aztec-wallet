@@ -3,4 +3,7 @@ set -euo pipefail
 
 export ENV_VARS_TO_INJECT="SSH_AUTH_SOCK PXE_PROVER LOG_LEVEL"
 
+# Appends 8 char hex to avoid container name clashes
+export CONTAINER_NAME=aztec-wallet-$(printf "%08x" $((RANDOM * RANDOM)))
+
 exec $(dirname $0)/.aztec-run aztec-wallet /usr/src/yarn-project/cli-wallet/wallet-entrypoint.sh "$@"

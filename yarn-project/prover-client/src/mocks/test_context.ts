@@ -6,14 +6,8 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
-import {
-  PublicContractsDB,
-  PublicProcessor,
-  PublicTreesDB,
-  PublicTxSimulationTester,
-  PublicTxSimulator,
-  SimpleContractDataSource,
-} from '@aztec/simulator/server';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
+import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -29,18 +23,17 @@ import { promises as fs } from 'fs';
 // TODO(#12613) This means of sharing test code is not ideal.
 // eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { buildBlock } from '../block_builder/light.js';
+import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
-import { getEnvironmentConfig, getSimulationProvider, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
+import { getEnvironmentConfig, getSimulator, makeGlobals, updateExpectedTreesFromTxs } from './fixtures.js';
 
 export class TestContext {
   private headers: Map<number, BlockHeader> = new Map();
   private feePayerBalance: Fr;
 
   constructor(
-    public publicTxSimulator: PublicTxSimulator,
     public worldState: MerkleTreeAdminDatabase,
     public publicProcessor: PublicProcessor,
     public globalVariables: GlobalVariables,
@@ -66,7 +59,7 @@ export class TestContext {
     logger: Logger,
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = async (bbConfig: BBProverConfig) =>
-      new TestCircuitProver(await getSimulationProvider(bbConfig, logger)),
+      new TestCircuitProver(await getSimulator(bbConfig, logger)),
     blockNumber = 1,
   ) {
     const directoriesToCleanup: string[] = [];
@@ -79,26 +72,17 @@ export class TestContext {
 
     // Separated dbs for public processor and prover - see public_processor for context
     const ws = await NativeWorldStateService.tmp(
-      undefined /* rollupAddress */,
-      true /* cleanupTmpDir */,
+      /*rollupAddress=*/ undefined,
+      /*cleanupTmpDir=*/ true,
       prefilledPublicData,
     );
     const merkleTrees = await ws.fork();
 
     const contractDataSource = new SimpleContractDataSource();
-    const treesDB = new PublicTreesDB(merkleTrees);
-    const contractsDB = new PublicContractsDB(contractDataSource);
-
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
 
-    const publicTxSimulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, true);
-    const processor = new PublicProcessor(
-      globalVariables,
-      treesDB,
-      contractsDB,
-      publicTxSimulator,
-      new TestDateProvider(),
-    );
+    const processorFactory = new PublicProcessorFactory(contractDataSource, new TestDateProvider());
+    const processor = processorFactory.create(merkleTrees, globalVariables, /*skipFeeEnforcement=*/ false);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
@@ -111,6 +95,8 @@ export class TestContext {
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
+        numConcurrentIVCVerifiers: 2,
+        bbIVCConcurrency: 1,
       };
       localProver = await createProver(bbConfig);
     }
@@ -127,7 +113,6 @@ export class TestContext {
     facade.start();
 
     return new this(
-      publicTxSimulator,
       ws,
       processor,
       globalVariables,
@@ -154,6 +139,10 @@ export class TestContext {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
   }
 
+  public setBlockHeader(header: BlockHeader, blockNumber: number) {
+    this.headers.set(blockNumber, header);
+  }
+
   public getPreviousBlockHeader(currentBlockNumber = this.blockNumber): BlockHeader {
     return this.getBlockHeader(currentBlockNumber - 1)!;
   }
@@ -176,7 +165,7 @@ export class TestContext {
     seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
   ): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
-    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
+    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber;
     const header = this.getBlockHeader(blockNum - 1);
     const tx = await makeBloatedProcessedTx({
       header,
@@ -202,7 +191,7 @@ export class TestContext {
     makeProcessedTxOpts: (index: number) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]> = () => ({}),
   ) {
     const globalVariables = typeof blockNumOrGlobals === 'number' ? makeGlobals(blockNumOrGlobals) : blockNumOrGlobals;
-    const blockNum = globalVariables.blockNumber.toNumber();
+    const blockNum = globalVariables.blockNumber;
     const db = await this.worldState.fork();
     const msgs = times(numMsgs, i => new Fr(blockNum * 100 + i));
     const txs = await timesParallel(numTxs, i =>
@@ -210,7 +199,7 @@ export class TestContext {
     );
     await this.setTreeRoots(txs);
 
-    const block = await buildBlock(txs, globalVariables, msgs, db);
+    const block = await buildBlockWithCleanDB(txs, globalVariables, msgs, db);
     this.headers.set(blockNum, block.header);
     await this.worldState.handleL2BlockAndMessages(block, msgs);
     return { block, txs, msgs };

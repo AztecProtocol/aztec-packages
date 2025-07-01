@@ -24,6 +24,8 @@ function update_manifest {
 }
 
 function test_cmds {
+  echo "$hash aztec-up/scripts/run_test.sh amm_flow"
+  echo "$hash aztec-up/scripts/run_test.sh bridge_and_claim"
   echo "$hash aztec-up/scripts/run_test.sh basic_install"
   echo "$hash aztec-up/scripts/run_test.sh counter_contract"
 }
@@ -40,12 +42,12 @@ function release {
   # Read the current version from S3.
   local current_version=$(aws s3 cp s3://install.aztec.network/VERSION - 2>/dev/null || echo "0.0.0")
 
-  if [ $(dist_tag) != latest ]; then
+  # Temporary: while alpha-testnet is the main release, include it (later it should only push to $version)
+  if [[ $(dist_tag) != "latest" && $(dist_tag) != "alpha-testnet" && $(dist_tag) != "nightly" ]]; then
     echo_stderr -e "${yellow}Not uploading aztec-up scripts for dist-tag $(dist_tag). They are expected to still be compatible with latest."
     return
   fi
 
-  # Check if new version is greater than current version.
   if [ $(semver sort "$version" "$current_version" | tail -1) == "$version" ]; then
     echo "Uploading new version: $version"
 
@@ -59,7 +61,12 @@ function release {
   fi
 
   # Always create a version directory and upload files there.
-  do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/$version/
+  do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$version/"
+
+  if [[ $(dist_tag) != "latest" ]]; then
+    # Also upload to a $dist_tag directory, if not latest.
+    do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$(dist_tag)/"
+  fi
 }
 
 case "$cmd" in

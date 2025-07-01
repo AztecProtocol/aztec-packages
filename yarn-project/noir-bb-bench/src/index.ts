@@ -1,17 +1,16 @@
 /* eslint-disable camelcase */
+import { createLogger } from '@aztec/foundation/log';
 import { type ForeignCallOutput, Noir } from '@aztec/noir-noir_js';
 import type { InputValue } from '@aztec/noir-noirc_abi';
 
-import createDebug from 'debug';
-
 // these files are generated
-import Circuit1 from '../artifacts/circuit_1.json' assert { type: 'json' };
-import Circuit2 from '../artifacts/circuit_2.json' assert { type: 'json' };
-import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' assert { type: 'json' };
-import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' assert { type: 'json' };
+import Circuit1 from '../artifacts/circuit_1.json' with { type: 'json' };
+import Circuit2 from '../artifacts/circuit_2.json' with { type: 'json' };
+import Vk1 from '../artifacts/keys/circuit_1.vk.data.json' with { type: 'json' };
+import Vk2 from '../artifacts/keys/circuit_2.vk.data.json' with { type: 'json' };
 import type { FixedLengthArray } from './types/index.js';
 
-export const logger = createDebug('aztec:bb-bench');
+export const logger = createLogger('aztec:bb-bench');
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
 
@@ -30,7 +29,7 @@ export async function generateCircuit1(): Promise<[string, Uint8Array, InputValu
     },
     foreignCallHandler,
   );
-  logger('generated circuit 1');
+  logger.info('generated circuit 1');
   return [Circuit1.bytecode, witness, returnValue];
 }
 
@@ -49,12 +48,12 @@ export async function generateCircuit2(
     },
     foreignCallHandler,
   );
-  logger('generated circuit 2');
+  logger.info('generated circuit 2');
   return [Circuit2.bytecode, witness, returnValue];
 }
 
 export type ProverOutputForRecursion = {
-  proof: FixedLengthArray<string, 459>;
+  proof: Uint8Array;
   public_inputs: FixedLengthArray<string, 2>;
 };
 
@@ -66,11 +65,11 @@ export async function proveCircuit1(
   const { UltraHonkBackend } = await import('@aztec/bb.js');
   const backend = new UltraHonkBackend(bytecode, { threads: threads }, { recursive: true });
   try {
-    logger(`proving...`);
-    const proverOutput = await backend.generateProofForRecursiveAggregation(witness);
-    logger(`done generating recursive proof artifacts.`);
+    logger.info(`proving...`);
+    const proverOutput = await backend.generateProof(witness);
+    logger.info(`done generating recursive proof artifacts.`);
     return {
-      proof: proverOutput.proof as FixedLengthArray<string, 459>,
+      proof: proverOutput.proof,
       public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 2>,
     };
   } finally {
@@ -87,12 +86,12 @@ export async function proveThenVerifyCircuit2(
   const { UltraHonkBackend, BarretenbergVerifier } = await import('@aztec/bb.js');
   const backend = new UltraHonkBackend(bytecode, { threads: threads });
   try {
-    logger(`proving...`);
+    logger.debug(`proving...`);
     const proof = await backend.generateProof(witness);
-    logger(`done proving. verifying...`);
+    logger.debug(`done proving. verifying...`);
     const verifier = new BarretenbergVerifier({ threads });
     const verified = await verifier.verifyUltraHonkProof(proof, vk);
-    logger(`done verifying.`);
+    logger.debug(`done verifying.`);
     await verifier.destroy();
     return verified;
   } finally {
@@ -113,14 +112,14 @@ function hexStringToUint8Array(hex: string): Uint8Array {
 }
 
 export async function proveThenVerifyStack(): Promise<boolean> {
-  logger(`generating circuit and witness...`);
+  logger.debug(`generating circuit and witness...`);
   const [bytecode1, witness1] = await generateCircuit1();
-  logger(`done generating circuit and witness. proving...`);
+  logger.debug(`done generating circuit and witness. proving...`);
   const proverOutput = await proveCircuit1(bytecode1, witness1);
-  logger(`done proving. generating circuit 2 and witness...`);
+  logger.debug(`done proving. generating circuit 2 and witness...`);
   const [bytecode2, witness2] = await generateCircuit2(proverOutput, Vk1.keyAsFields);
-  logger(`done. generating circuit and witness. proving then verifying...`);
+  logger.debug(`done. generating circuit and witness. proving then verifying...`);
   const verified = await proveThenVerifyCircuit2(bytecode2, witness2, hexStringToUint8Array(Vk2.keyAsBytes));
-  logger(`verified? ${verified}`);
+  logger.debug(`verified? ${verified}`);
   return verified;
 }

@@ -24,21 +24,49 @@ export { type Span, SpanStatusCode, ValueType } from '@opentelemetry/api';
 
 type ValuesOf<T> = T extends Record<string, infer U> ? U : never;
 
+type AttributeNames = ValuesOf<typeof Attributes>;
+
+/**
+ * This is a set of attributes that could lead to high cardinality in the metrics.
+ * If you find yourself wanting to capture this data in a metric consider if it makes sense to capture
+ * as the metric value instead of an attribute or consider logging instead.
+ *
+ * Think twice before removing an attribute from this list.
+ */
+type BannedMetricAttributeNames = (typeof Attributes)[
+  | 'BLOCK_NUMBER'
+  | 'BLOCK_ARCHIVE'
+  | 'SLOT_NUMBER'
+  | 'BLOCK_PARENT'
+  | 'BLOCK_CANDIDATE_TXS_COUNT'
+  | 'BLOCK_TXS_COUNT'
+  | 'BLOCK_SIZE'
+  | 'EPOCH_SIZE'
+  | 'EPOCH_NUMBER'
+  | 'TX_HASH'
+  | 'PROVING_JOB_ID'
+  | 'P2P_ID'
+  | 'P2P_REQ_RESP_BATCH_REQUESTS_COUNT'
+  | 'TARGET_ADDRESS'
+  | 'MANA_USED'
+  | 'TOTAL_INSTRUCTIONS'];
+
 /** Global registry of attributes */
-type AttributesType = Partial<Record<ValuesOf<typeof Attributes>, AttributeValue>>;
-export type { AttributesType };
+export type AttributesType = Partial<Record<AttributeNames, AttributeValue>>;
+
+/** Subset of attributes allowed to be added to metrics */
+export type MetricAttributesType = Partial<Record<Exclude<AttributeNames, BannedMetricAttributeNames>, AttributeValue>>;
 
 /** Global registry of metrics */
-type MetricsType = (typeof Metrics)[keyof typeof Metrics];
-export type { MetricsType };
+export type MetricsType = (typeof Metrics)[keyof typeof Metrics];
 
-export type Gauge = OtelGauge<AttributesType>;
-export type Histogram = OtelHistogram<AttributesType>;
-export type UpDownCounter = OtelUpDownCounter<AttributesType>;
-export type ObservableGauge = OtelObservableGauge<AttributesType>;
-export type ObservableUpDownCounter = OtelObservableUpDownCounter<AttributesType>;
-export type ObservableResult = OtelObservableResult<AttributesType>;
-export type BatchObservableResult = OtelBatchObservableResult<AttributesType>;
+export type Gauge = OtelGauge<MetricAttributesType>;
+export type Histogram = OtelHistogram<MetricAttributesType>;
+export type UpDownCounter = OtelUpDownCounter<MetricAttributesType>;
+export type ObservableGauge = OtelObservableGauge<MetricAttributesType>;
+export type ObservableUpDownCounter = OtelObservableUpDownCounter<MetricAttributesType>;
+export type ObservableResult = OtelObservableResult<MetricAttributesType>;
+export type BatchObservableResult = OtelBatchObservableResult<MetricAttributesType>;
 
 export type { Tracer };
 
@@ -122,6 +150,16 @@ export interface TelemetryClient {
    * Flushes the telemetry client.
    */
   flush(): Promise<void>;
+
+  /**
+   * Updates what telemetry is exported to the public collector
+   */
+  setExportedPublicTelemetry(prefixes: string[]): void;
+
+  /**
+   * Updates the roles that would share telemetry (if enabled)
+   */
+  setPublicTelemetryCollectFrom(roles: string[]): void;
 }
 
 /** Objects that adhere to this interface can use @trackSpan */
@@ -165,7 +203,7 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
       // run originalMethod wrapped in an active span
       // "active" means the span will be alive for the duration of the function execution
       // and if any other spans are started during the execution of originalMethod, they will be children of this span
-      // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v18.x/docs/api/async_context.html
+      // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v22.x/docs/api/async_context.html
       return this.tracer.startActiveSpan(name, async (span: Span) => {
         span.setAttributes(currentAttrs ?? {});
 

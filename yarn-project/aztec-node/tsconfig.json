@@ -31,7 +31,16 @@
       "path": "../kv-store"
     },
     {
+      "path": "../l1-artifacts"
+    },
+    {
       "path": "../merkle-tree"
+    },
+    {
+      "path": "../node-lib"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../p2p"
@@ -47,6 +56,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../slasher"
     },
     {
       "path": "../stdlib"

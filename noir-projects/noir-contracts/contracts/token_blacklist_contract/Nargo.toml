@@ -1,9 +1,0 @@
-[package]
-name = "token_blacklist_contract"
-authors = [""]
-compiler_version = ">=0.25.0"
-type = "contract"
-
-[dependencies]
-aztec = { path = "../../../aztec-nr/aztec" }
-authwit = { path = "../../../aztec-nr/authwit" }

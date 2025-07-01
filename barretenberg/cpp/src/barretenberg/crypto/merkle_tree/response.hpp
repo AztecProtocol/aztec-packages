@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
@@ -116,6 +122,35 @@ struct FindLeafIndexResponse {
     FindLeafIndexResponse(FindLeafIndexResponse&& other) noexcept = default;
     FindLeafIndexResponse& operator=(const FindLeafIndexResponse& other) = default;
     FindLeafIndexResponse& operator=(FindLeafIndexResponse&& other) noexcept = default;
+};
+
+struct SiblingPathAndIndex {
+    index_t index;
+    fr_sibling_path path;
+
+    MSGPACK_FIELDS(index, path);
+
+    SiblingPathAndIndex() = default;
+    ~SiblingPathAndIndex() = default;
+    SiblingPathAndIndex(index_t index, fr_sibling_path path)
+        : index(index)
+        , path(path)
+    {}
+    SiblingPathAndIndex(const SiblingPathAndIndex& other) = default;
+    SiblingPathAndIndex(SiblingPathAndIndex&& other) noexcept = default;
+    SiblingPathAndIndex& operator=(const SiblingPathAndIndex& other) = default;
+    SiblingPathAndIndex& operator=(SiblingPathAndIndex&& other) noexcept = default;
+};
+
+struct FindLeafPathResponse {
+    std::vector<std::optional<SiblingPathAndIndex>> leaf_paths;
+
+    FindLeafPathResponse() = default;
+    ~FindLeafPathResponse() = default;
+    FindLeafPathResponse(const FindLeafPathResponse& other) = default;
+    FindLeafPathResponse(FindLeafPathResponse&& other) noexcept = default;
+    FindLeafPathResponse& operator=(const FindLeafPathResponse& other) = default;
+    FindLeafPathResponse& operator=(FindLeafPathResponse&& other) noexcept = default;
 };
 
 struct GetLeafResponse {

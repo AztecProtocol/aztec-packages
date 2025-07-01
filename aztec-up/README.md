@@ -19,10 +19,10 @@ the user's `PATH` variable in their shell startup script so they can be found.
 After installed, you can use `aztec-up` to upgrade or install specific versions.
 
 ```
-VERSION=master aztec-up
+VERSION=nightly aztec-up
 ```
 
-This will install the container built from the master branch.
+This will install the nightly build.
 
 ```
 VERSION=1.2.3 aztec-up

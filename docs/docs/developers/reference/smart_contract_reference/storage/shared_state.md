@@ -22,33 +22,29 @@ This results in the following key properties of shared state:
 
 ## Privacy Considerations
 
-While shared state variables are much less leaky than the assertion in public approach, they do reveal some information to external observers by setting the `max_block_number` property of the transaction request. The impact of this can be mitigated with proper selection of the delay value and schedule times.
+While shared state variables are much less leaky than the assertion in public approach, they do reveal some information to external observers by setting the `include_by_timestamp` property of the transaction request. The impact of this can be mitigated with proper selection of the delay value and schedule times.
 
 ### Choosing Delays
 
-The `max_block_number` transaction property will be set to a value close to the current block number plus the duration of the delay in blocks. The exact value depends on the historical block over which the private proof is constructed. For example, if the current block number is 100 and a shared state variable has a delay of 20 blocks, then transactions that read this value privately will set `max_block_number` to a value close to 120 (clients building proofs on older state will select a lower `max_block_number`). This implicitly leaks the duration of the delay.
+The `include_by_timestamp` transaction property will be set to a value close to the current timestamp plus the duration of the delay in seconds. The exact value depends on the historical block over which the private proof is constructed. For example, if current timestamp is `X` and a shared state variable has a delay of 3000 seconds, then transactions that read this value privately will set `include_by_timestamp` to a value close to 'X  + 3000' (clients building proofs on older state will select a lower `include_by_timestamp`). This implicitly leaks the duration of the delay.
 
 Applications using similar delays will therefore be part of the same privacy set. It is expected for social coordination to result in small set of predetermined delays that developers choose from depending on their needs, as an example a viable set might be: 12 hours (for time-sensitive operations, such as emergency mechanisms), 5 days (for middle-of-the-road operations) and 2 weeks (for operations that require lengthy public scrutiny). These delays can be changed during the contract lifetime as the application's needs evolve.
 
-Additionally, users might choose to coordinate and constrain their transactions to set `max_block_number` to a value lower than would be strictly needed by the applications they interact with (if any!) using some common delay, and by doing so prevent privacy leakage.
+Additionally, users might choose to coordinate and constrain their transactions to set `include_by_timestamp` to a value lower than would be strictly needed by the applications they interact with (if any!) using some common delay, and by doing so prevent privacy leakage.
 
 ### Choosing Epochs
 
-If a value change is scheduled in the near future, then transactions that access this shared state will be forced to set a lower `max_block_number` right before the value change. For example, if the current block number is 100 and a shared state variable with a delay of 20 blocks has a value change scheduled for block 105, then transactions that read this value privately will set `max_block_number` to 104. Since the blocks at which shared state values change are public, it might be deduced that transactions with a `max_block_number` value close to the current block number are reading some state variable with a changed scheduled at `max_block_number + 1`.
+If a value change is scheduled in the near future, then transactions that access this shared state will be forced to set a lower `include_by_timestamp` right before the value change. For example, if the current timestamp is 'x' and a shared state variable with a delay of 3000 seconds has a value change scheduled for timestamp 'x + 50', then transactions that read this value privately will set `include_by_timestamp` to 'x + 50 - 1'. Since the timestamps at which shared state values change are public, it might be deduced that transactions with an `include_by_timestamp` value close to the current timestamp are reading some state variable with a changed scheduled at `include_by_timestamp + 1`.
 
-Applications that schedule value changes at the same time will therefore be part of the same privacy set. It is expected for social coordination to result in ways to achieve this, e.g. by scheduling value changes so that they land on blocks that are multiples of some value - we call these epochs.
+Applications that schedule value changes at the same time will therefore be part of the same privacy set. It is expected for social coordination to result in ways to achieve this, e.g. by scheduling value changes so that they land on timestamps that are multiples of some value - we call these epochs.
 
 There is a tradeoff between frequent and infrequent epochs: frequent epochs means more of them, and therefore fewer updates on each, shrinking the privacy set. But infrequent epochs result in the effective delay of value changes being potentially larger than desired - though an application can always choose to do an out-of-epoch update if needed.
-
-:::note
-Shared state variables do not allow selection of the value change block number, but there are plans to make this configurable.
-:::
 
 Note that wallets can also warn users that a value change will soon take place and that sending a transaction at that time might result in reduced privacy, allowing them to choose to wait until after the epoch.
 
 ### Network Cooperation
 
-Even though only transactions that interact with shared state _need_ to set the `max_block_number` property, there is no reason why transactions that do not wouldn't also set this value. If indeed most applications converge on a small set of delays, then wallets could opt to select any of those to populate the `max_block_number` field, as if they were interacting with a shared state variable with that delay.
+Even though only transactions that interact with shared state _need_ to set the `include_by_timestamp` property, there is no reason why transactions that do not wouldn't also set this value. If indeed most applications converge on a small set of delays, then wallets could opt to select any of those to populate the `include_by_timestamp` field, as if they were interacting with a shared state variable with that delay.
 
 This prevents the network-wide privacy set from being split between transactions that read shared state and those that don't, which is beneficial to everyone.
 
@@ -56,9 +52,9 @@ This prevents the network-wide privacy set from being split between transactions
 
 `SharedMutable` is a shared state variable for mutable state. It provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/shared_mutable/shared_mutable.nr).
 
-Unlike other state variables, `SharedMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of blocks.
+Unlike other state variables, `SharedMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds.
 
-#include_code shared_mutable_storage /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_storage /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 :::note
 `SharedMutable` requires that the underlying type `T` implements both the `ToField` and `FromField` traits, meaning it must fit in a single `Field` value. There are plans to extend support by requiring instead an implementation of the `Serialize` and `Deserialize` traits, therefore allowing for multi-field variables, such as complex structs.
@@ -68,13 +64,13 @@ Since `SharedMutable` lives in public storage, by default its contents are zeroe
 
 ### `schedule_value_change`
 
-This is the means by which a `SharedMutable` variable mutates its contents. It schedules a value change for the variable at a future block after the `DELAY` has elapsed from the current block, at which point the scheduled value becomes the current value automatically and without any further action, both in public and in private. If a pending value change was scheduled but not yet effective (because insufficient blocks had elapsed), then the previous schedule value change is replaced with the new one and eliminated. There can only be one pending value change at a time.
+This is the means by which a `SharedMutable` variable mutates its contents. It schedules a value change for the variable at a future timestamp after the `DELAY` has elapsed from the current timestamp, at which point the scheduled value becomes the current value automatically and without any further action, both in public and in private. If a pending value change was scheduled but not yet effective (because insufficient time had elapsed), then the previous schedule value change is replaced with the new one and eliminated. There can only be one pending value change at a time.
 
 This function can only be called in public, typically after some access control check:
 
-#include_code shared_mutable_schedule /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_schedule /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
-If one wishes to schedule a value change from private, simply enqueue a public call to a public `internal` contract function. Recall that **all scheduled value changes, including the new value and scheduled block are public**.
+If one wishes to schedule a value change from private, simply enqueue a public call to a public `internal` contract function. Recall that **all scheduled value changes, including the new value and scheduled timestamp are public**.
 
 :::warning
 A `SharedMutable`'s storage **must** only be mutated via `schedule_value_change`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
@@ -82,20 +78,18 @@ A `SharedMutable`'s storage **must** only be mutated via `schedule_value_change`
 
 ### `get_current_value`
 
-Returns the current value in a public, private or unconstrained execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
+Returns the current value in a public, private or utility execution context. Once a value change is scheduled via `schedule_value_change` and the delay time passes, this automatically returns the new value.
 
-#include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
-Calling this function in a private execution context will have a 1 block delay, as compared to calling in the public context. This is because calling `get_current_value` in private constructs a historical state proof, using the latest proven block, for the public value, so the "current value" in private execution will be delayed by 1 block when compared to what the public value is.
+Also, calling in private will set the `include_by_timestamp` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a timestamp larger than `include_by_timestamp`. This could [potentially leak some privacy](#privacy-considerations).
 
-Also, calling in private will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
-
-#include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 ### `get_scheduled_value`
 
-Returns the last scheduled value change, along with the block number at which the scheduled value becomes the current value. This may either be a pending change, if the block number is in the future, or the last executed scheduled change if the block number is in the past (in which case there are no pending changes).
+Returns the last scheduled value change, along with the timestamp at which the scheduled value becomes the current value. This may either be a pending change, if the timestamp is in the future, or the last executed scheduled change if the timestamp is in the past (in which case there are no pending changes).
 
-#include_code shared_mutable_get_scheduled_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_get_scheduled_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.

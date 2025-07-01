@@ -1,18 +1,23 @@
 import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import type { EpochProofPublicInputArgs, ViemPublicClient } from '@aztec/ethereum';
+import type {
+  EpochProofPublicInputArgs,
+  ViemClient,
+  ViemCommitteeAttestations,
+  ViemHeader,
+  ViemPublicClient,
+  ViemStateReference,
+} from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, L2Block } from '@aztec/stdlib/block';
-import { InboxLeaf } from '@aztec/stdlib/messaging';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -21,11 +26,72 @@ import {
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
+  multicall3Abi,
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
+
+export type RetrievedL2Block = {
+  l2BlockNumber: number;
+  archiveRoot: Fr;
+  stateReference: StateReference;
+  header: ProposedBlockHeader;
+  body: Body;
+  l1: L1PublishedData;
+  chainId: Fr;
+  version: Fr;
+  attestations: CommitteeAttestation[];
+};
+
+export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
+  const {
+    l2BlockNumber,
+    archiveRoot,
+    stateReference,
+    header: proposedHeader,
+    body,
+    l1,
+    chainId,
+    version,
+    attestations,
+  } = retrievedBlock;
+
+  const archive = new AppendOnlyTreeSnapshot(
+    archiveRoot,
+    l2BlockNumber + 1, // nextAvailableLeafIndex
+  );
+
+  const globalVariables = GlobalVariables.from({
+    chainId,
+    version,
+    blockNumber: l2BlockNumber,
+    slotNumber: proposedHeader.slotNumber,
+    timestamp: proposedHeader.timestamp,
+    coinbase: proposedHeader.coinbase,
+    feeRecipient: proposedHeader.feeRecipient,
+    gasFees: proposedHeader.gasFees,
+  });
+
+  const header = BlockHeader.from({
+    lastArchive: new AppendOnlyTreeSnapshot(proposedHeader.lastArchiveRoot, l2BlockNumber),
+    contentCommitment: proposedHeader.contentCommitment,
+    state: stateReference,
+    globalVariables,
+    totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
+    totalManaUsed: proposedHeader.totalManaUsed,
+  });
+
+  const block = new L2Block(archive, header, body);
+
+  return {
+    block,
+    l1,
+    attestations,
+  };
+}
 
 /**
  * Fetches new L2 blocks.
@@ -43,8 +109,11 @@ export async function retrieveBlocksFromRollup(
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   logger: Logger = createLogger('archiver'),
-): Promise<PublishedL2Block[]> {
-  const retrievedBlocks: PublishedL2Block[] = [];
+): Promise<RetrievedL2Block[]> {
+  const retrievedBlocks: RetrievedL2Block[] = [];
+
+  let rollupConstants: { chainId: Fr; version: Fr; targetCommitteeSize: number } | undefined;
+
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -68,11 +137,25 @@ export async function retrieveBlocksFromRollup(
       `Got ${l2BlockProposedLogs.length} L2 block processed logs for L2 blocks ${l2BlockProposedLogs[0].args.blockNumber}-${lastLog.args.blockNumber} between L1 blocks ${searchStartBlock}-${searchEndBlock}`,
     );
 
+    if (rollupConstants === undefined) {
+      const [chainId, version, targetCommitteeSize] = await Promise.all([
+        publicClient.getChainId(),
+        rollup.read.getVersion(),
+        rollup.read.getTargetCommitteeSize(),
+      ]);
+      rollupConstants = {
+        chainId: new Fr(chainId),
+        version: new Fr(version),
+        targetCommitteeSize: Number(targetCommitteeSize),
+      };
+    }
+
     const newBlocks = await processL2BlockProposedLogs(
       rollup,
       publicClient,
       blobSinkClient,
       l2BlockProposedLogs,
+      rollupConstants,
       logger,
     );
     retrievedBlocks.push(...newBlocks);
@@ -90,18 +173,19 @@ export async function retrieveBlocksFromRollup(
  * @param logs - L2BlockProposed logs.
  * @returns - An array blocks.
  */
-export async function processL2BlockProposedLogs(
+async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>,
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
-): Promise<PublishedL2Block[]> {
-  const retrievedBlocks: PublishedL2Block[] = [];
+): Promise<RetrievedL2Block[]> {
+  const retrievedBlocks: RetrievedL2Block[] = [];
   await asyncPool(10, logs, async log => {
-    const l2BlockNumber = log.args.blockNumber!;
+    const l2BlockNumber = Number(log.args.blockNumber!);
     const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
+    const archiveFromChain = await rollup.read.archiveAt([BigInt(l2BlockNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
@@ -113,6 +197,7 @@ export async function processL2BlockProposedLogs(
         blobHashes,
         l2BlockNumber,
         rollup.address,
+        targetCommitteeSize,
         logger,
       );
 
@@ -122,7 +207,13 @@ export async function processL2BlockProposedLogs(
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
 
-      retrievedBlocks.push({ ...block, l1 });
+      retrievedBlocks.push({ ...block, l1, chainId, version });
+      logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
+        l1BlockNumber: log.blockNumber,
+        l2BlockNumber,
+        archive: archive.toString(),
+        attestations: block.attestations,
+      });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
         actual: archive,
@@ -140,37 +231,36 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
 }
 
 /**
- * Extracts the first 'propose' method calldata from a forwarder transaction's data.
- * @param forwarderData - The forwarder transaction input data
+ * Extracts the first 'propose' method calldata from a multicall3 transaction's data.
+ * @param multicall3Data - The multicall3 transaction input data
  * @param rollupAddress - The address of the rollup contract
  * @returns The calldata for the first 'propose' method call to the rollup contract
  */
-function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): Hex {
-  // TODO(#11451): custom forwarders
-  const { functionName: forwarderFunctionName, args: forwarderArgs } = decodeFunctionData({
-    abi: ForwarderAbi,
-    data: forwarderData,
+function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): Hex {
+  const { functionName: multicall3FunctionName, args: multicall3Args } = decodeFunctionData({
+    abi: multicall3Abi,
+    data: multicall3Data,
   });
 
-  if (forwarderFunctionName !== 'forward') {
-    throw new Error(`Unexpected forwarder method called ${forwarderFunctionName}`);
+  if (multicall3FunctionName !== 'aggregate3') {
+    throw new Error(`Unexpected multicall3 method called ${multicall3FunctionName}`);
   }
 
-  if (forwarderArgs.length !== 2) {
-    throw new Error(`Unexpected number of arguments for forwarder`);
+  if (multicall3Args.length !== 1) {
+    throw new Error(`Unexpected number of arguments for multicall3`);
   }
 
-  const [to, data] = forwarderArgs;
+  const [calls] = multicall3Args;
 
   // Find all rollup calls
   const rollupAddressLower = rollupAddress.toLowerCase();
 
-  for (let i = 0; i < to.length; i++) {
-    const addr = to[i];
+  for (let i = 0; i < calls.length; i++) {
+    const addr = calls[i].target;
     if (addr.toLowerCase() !== rollupAddressLower) {
       continue;
     }
-    const callData = data[i];
+    const callData = calls[i].callData;
 
     try {
       const { functionName: rollupFunctionName } = decodeFunctionData({
@@ -181,13 +271,13 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
       if (rollupFunctionName === 'propose') {
         return callData;
       }
-    } catch (err) {
+    } catch {
       // Skip invalid function data
       continue;
     }
   }
 
-  throw new Error(`Rollup address not found in forwarder args`);
+  throw new Error(`Rollup address not found in multicall3 args`);
 }
 
 /**
@@ -196,7 +286,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param txHash - Hash of the tx that published it.
- * @param l2BlockNum - L2 block number.
+ * @param l2BlockNumber - L2 block number.
  * @returns L2 block from the calldata, deserialized
  */
 async function getBlockFromRollupTx(
@@ -204,10 +294,11 @@ async function getBlockFromRollupTx(
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   blobHashes: Buffer[], // TODO(md): buffer32?
-  l2BlockNum: bigint,
+  l2BlockNumber: number,
   rollupAddress: Hex,
+  targetCommitteeSize: number,
   logger: Logger,
-): Promise<Omit<PublishedL2Block, 'l1'>> {
+): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
   const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
@@ -220,29 +311,31 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, signatures] = rollupArgs! as readonly [
+  const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
-      header: Hex;
       archive: Hex;
-      blockHash: Hex;
+      stateReference: ViemStateReference;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
-      txHashes: Hex[];
+      header: ViemHeader;
+      txHashes: readonly Hex[];
     },
-    ViemSignature[],
+    ViemCommitteeAttestations,
     Hex,
   ];
 
-  const header = BlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  // TODO(md): why is the proposed block header different to the actual block header?
+  // This is likely going to be a footgun
+  const header = ProposedBlockHeader.fromViem(decodedArgs.header);
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
-    throw new NoBlobBodiesFoundError(Number(l2BlockNum));
+    throw new NoBlobBodiesFoundError(l2BlockNumber);
   }
 
   let blockFields: Fr[];
   try {
-    blockFields = Blob.toEncodedFields(blobBodies);
+    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -253,23 +346,33 @@ async function getBlockFromRollupTx(
   }
 
   // The blob source gives us blockFields, and we must construct the body from them:
-  const blockBody = Body.fromBlobFields(blockFields);
+  const body = Body.fromBlobFields(blockFields);
 
-  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
+  const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
-  if (blockNumberFromHeader !== l2BlockNum) {
-    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
-  }
+  const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
-  const archive = AppendOnlyTreeSnapshot.fromBuffer(
-    Buffer.concat([
-      Buffer.from(hexToBytes(decodedArgs.archive)), // L2Block.archive.root
-      numToUInt32BE(Number(l2BlockNum + 1n)), // L2Block.archive.nextAvailableLeafIndex
-    ]),
-  );
+  return {
+    l2BlockNumber,
+    archiveRoot,
+    stateReference,
+    header,
+    body,
+    attestations: CommitteeAttestation.fromPacked(attestations, targetCommitteeSize),
+  };
+}
 
-  const block = new L2Block(archive, header, blockBody);
-  return { block, signatures: signatures.map(Signature.fromViemSignature) };
+/** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */
+export async function retrieveL1ToL2Message(
+  inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
+  leaf: Fr,
+  fromBlock: bigint,
+  toBlock: bigint,
+): Promise<InboxMessage | undefined> {
+  const logs = await inbox.getEvents.MessageSent({ hash: leaf.toString() }, { fromBlock, toBlock });
+
+  const messages = mapLogsInboxMessage(logs);
+  return messages.length > 0 ? messages[0] : undefined;
 }
 
 /**
@@ -282,39 +385,39 @@ async function getBlockFromRollupTx(
  * @returns An array of InboxLeaf and next eth block to search from.
  */
 export async function retrieveL1ToL2Messages(
-  inbox: GetContractReturnType<typeof InboxAbi, ViemPublicClient>,
+  inbox: GetContractReturnType<typeof InboxAbi, ViemClient>,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-): Promise<DataRetrieval<InboxLeaf>> {
-  const retrievedL1ToL2Messages: InboxLeaf[] = [];
-  do {
-    if (searchStartBlock > searchEndBlock) {
-      break;
-    }
-
+): Promise<InboxMessage[]> {
+  const retrievedL1ToL2Messages: InboxMessage[] = [];
+  while (searchStartBlock <= searchEndBlock) {
     const messageSentLogs = (
-      await inbox.getEvents.MessageSent(
-        {},
-        {
-          fromBlock: searchStartBlock,
-          toBlock: searchEndBlock,
-        },
-      )
+      await inbox.getEvents.MessageSent({}, { fromBlock: searchStartBlock, toBlock: searchEndBlock })
     ).filter(log => log.blockNumber! >= searchStartBlock && log.blockNumber! <= searchEndBlock);
 
     if (messageSentLogs.length === 0) {
       break;
     }
 
-    for (const log of messageSentLogs) {
-      const { index, hash } = log.args;
-      retrievedL1ToL2Messages.push(new InboxLeaf(index!, Fr.fromHexString(hash!)));
-    }
+    retrievedL1ToL2Messages.push(...mapLogsInboxMessage(messageSentLogs));
+    searchStartBlock = messageSentLogs.at(-1)!.blockNumber + 1n;
+  }
 
-    // handles the case when there are no new messages:
-    searchStartBlock = (messageSentLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
-  } while (searchStartBlock <= searchEndBlock);
-  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedL1ToL2Messages };
+  return retrievedL1ToL2Messages;
+}
+
+function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 'MessageSent'>): InboxMessage[] {
+  return logs.map(log => {
+    const { index, hash, l2BlockNumber, rollingHash } = log.args;
+    return {
+      index: index!,
+      leaf: Fr.fromHexString(hash!),
+      l1BlockNumber: log.blockNumber,
+      l1BlockHash: Buffer32.fromString(log.blockHash),
+      l2BlockNumber: Number(l2BlockNumber!),
+      rollingHash: Buffer16.fromString(rollingHash!),
+    };
+  });
 }
 
 /** Retrieves L2ProofVerified events from the rollup contract. */
@@ -323,7 +426,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr; txHash: Hex }[]> {
+): Promise<{ l1BlockNumber: bigint; l2BlockNumber: number; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -334,7 +437,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
-    l2BlockNumber: log.args.blockNumber,
+    l2BlockNumber: Number(log.args.blockNumber),
     proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));
@@ -346,9 +449,9 @@ export async function retrieveL2ProofsFromRollup(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }>> {
+): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }>> {
   const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
-  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }[] = [];
+  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }[] = [];
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
 
   for (const { txHash, proverId, l2BlockNumber } of logs) {
@@ -364,7 +467,6 @@ export async function retrieveL2ProofsFromRollup(
 export type SubmitBlockProof = {
   archiveRoot: Fr;
   proverId: Fr;
-  aggregationObject: Buffer;
   proof: Proof;
 };
 
@@ -387,7 +489,6 @@ export async function getProofFromSubmitProofTx(
 
   let proverId: Fr;
   let archiveRoot: Fr;
-  let aggregationObject: Buffer;
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
@@ -397,12 +498,10 @@ export async function getProofFromSubmitProofTx(
         end: bigint;
         args: EpochProofPublicInputArgs;
         fees: readonly Hex[];
-        aggregationObject: Hex;
         proof: Hex;
       },
     ];
 
-    aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
     proverId = Fr.fromHexString(decodedArgs.args.proverId);
     archiveRoot = Fr.fromHexString(decodedArgs.args.endArchive);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
@@ -416,7 +515,6 @@ export async function getProofFromSubmitProofTx(
 
   return {
     proverId,
-    aggregationObject,
     archiveRoot,
     proof,
   };

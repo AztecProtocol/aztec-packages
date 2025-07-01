@@ -23,8 +23,6 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -62,6 +60,10 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
@@ -73,25 +75,24 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
-    "@aztec/noir-noirc_abi": "workspace:^",
+    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "@msgpack/msgpack": "^3.0.0-beta2",
     "commander": "^12.1.0",
     "inquirer": "^10.1.8",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
-    "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.5.0",
-    "@types/node": "^18.7.23",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
-    "jest": "^29.5.0",
-    "jest-mock-extended": "^3.0.5",
-    "ts-jest": "^29.1.0",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "ts-jest": "^29.4.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -100,6 +101,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

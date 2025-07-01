@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
@@ -27,7 +33,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
                                                                const TraceSettings& trace_settings,
                                                                const bool is_kernel);
 
-ClientIVC::MergeProof create_dummy_merge_proof();
+Goblin::MergeProof create_dummy_merge_proof();
 
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,

@@ -1,14 +1,13 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 
-import type { EventEmitter } from 'events';
 import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
-import type { TxEffect } from '../tx/tx_effect.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
-import type { InBlock } from './in_block.js';
 import type { L2Block } from './l2_block.js';
 import type { PublishedL2Block } from './published_l2_block.js';
 
@@ -68,10 +67,10 @@ export interface L2BlockSource {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -119,13 +118,24 @@ export interface L2BlockSource {
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
+
+  /** Latest synced L1 timestamp. */
+  getL1Timestamp(): Promise<bigint>;
+
+  /** Force a sync. */
+  syncImmediate(): Promise<void>;
 }
 
 /**
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
-export interface L2BlockSourceEventEmitter extends L2BlockSource, EventEmitter {}
+
+export type ArchiverEmitter = TypedEventEmitter<{
+  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
+  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
+}>;
+export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
 /**
  * Identifier for L2 block tags.
@@ -140,6 +150,14 @@ export type L2Tips = Record<L2BlockTag, L2BlockId>;
 
 /** Identifies a block by number and hash. */
 export type L2BlockId = z.infer<typeof L2BlockIdSchema>;
+
+/** Creates an L2 block id */
+export function makeL2BlockId(number: number, hash?: string): L2BlockId {
+  if (number !== 0 && !hash) {
+    throw new Error(`Hash is required for non-genesis blocks (got block number ${number})`);
+  }
+  return { number, hash: hash! };
+}
 
 // TODO(palla/schemas): This package should know what is the block hash of the genesis block 0.
 const L2BlockIdSchema = z.union([
@@ -161,11 +179,18 @@ export const L2TipsSchema = z.object({
 
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
+  L2BlockProven = 'l2BlockProven',
 }
 
-export type L2BlockSourceEvent = {
-  type: 'l2PruneDetected';
+export type L2BlockProvenEvent = {
+  type: 'l2BlockProven';
   blockNumber: bigint;
   slotNumber: bigint;
   epochNumber: bigint;
+};
+
+export type L2BlockPruneEvent = {
+  type: 'l2PruneDetected';
+  epochNumber: bigint;
+  blocks: L2Block[];
 };

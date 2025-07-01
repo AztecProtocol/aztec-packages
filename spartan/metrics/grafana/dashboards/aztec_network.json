@@ -16,7 +16,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
+          "uid": "${data_source}"
         },
         "enable": false,
         "expr": "max(increase(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}[5m])) > 1",
@@ -50,7 +50,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -103,7 +103,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -122,7 +122,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Count of services running in the selected namespace",
       "fieldConfig": {
@@ -177,7 +177,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "count by (exported_job) (target_info{k8s_namespace_name=~\"$namespace\", service_name=\"\"})",
@@ -194,7 +194,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -274,7 +274,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -288,7 +288,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "max(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"\"}) - max(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"proven\"})",
@@ -301,7 +301,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "max(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}) or vector(0)",
@@ -319,7 +319,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "",
       "fieldConfig": {
@@ -418,7 +418,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "This panel calculates how much ETH has been consumed in the given time range",
       "fieldConfig": {
@@ -472,7 +472,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -494,7 +494,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "How much eth is used. Accumulated by service type",
       "fieldConfig": {
@@ -551,32 +551,7 @@
           },
           "unit": "Ξ"
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "prover-node"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 11,
@@ -601,7 +576,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -623,7 +598,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -704,7 +679,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "avg by (k8s_pod_name,aztec_address_sender) (aztec_l1_publisher_balance_eth{k8s_namespace_name=\"$namespace\"})",
@@ -734,7 +709,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Tracks how much CPU the main process is using (this does not account for bb/acvm)",
       "fieldConfig": {
@@ -800,6 +775,8 @@
         "y": 28
       },
       "id": 8,
+      "interval": "1m",
+      "maxDataPoints": 200,
       "options": {
         "legend": {
           "calcs": [],
@@ -816,7 +793,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -837,7 +814,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Tracks how much memory the main process is using (this does not account for bb/acvm)",
       "fieldConfig": {
@@ -903,6 +880,8 @@
         "y": 28
       },
       "id": 9,
+      "interval": "1m",
+      "maxDataPoints": 200,
       "options": {
         "legend": {
           "calcs": [],
@@ -919,7 +898,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -940,7 +919,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -985,7 +964,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1017,10 +997,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (aztec_db_type) (aztec_db_used_size_bytes{k8s_namespace_name=~\"$namespace\"})",
+          "expr": "avg by (aztec_db_type) (aztec_db_used_size_bytes{k8s_namespace_name=~\"$namespace\"})",
           "interval": "",
           "legendFormat": "__auto",
           "range": true,
@@ -1029,7 +1009,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "sum (avg by (aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_used_size{service_namespace=\"$namespace\"}))",
@@ -1044,691 +1024,82 @@
       "type": "timeseries"
     },
     {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 44
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
       },
-      "id": 13,
-      "panels": [
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+      "description": "Tracks how much memory the main process is using (this does not account for bb/acvm)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
           },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
               },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
+              {
+                "color": "red",
+                "value": 80
               }
-            },
-            "overrides": []
+            ]
           },
-          "gridPos": {
-            "h": 8,
-            "w": 4,
-            "x": 0,
-            "y": 34
-          },
-          "id": 5,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.2.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "disableTextWrap": false,
-              "editorMode": "code",
-              "expr": "sum(rate(aztec_node_receive_tx_count{service_namespace=\"$namespace\"}[$__rate_interval]))",
-              "fullMetaSearch": false,
-              "includeNullMetadata": true,
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A",
-              "useBackend": false
-            }
-          ],
-          "title": "TPS",
-          "type": "stat"
+          "unit": "bytes"
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 33,
+      "interval": "1m",
+      "maxDataPoints": 200,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
         {
           "datasource": {
-            "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 4,
-            "x": 4,
-            "y": 34
-          },
-          "id": 6,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.2.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "sum(aztec_node_receive_tx_count{aztec_ok=\"true\", service_namespace=\"$namespace\"})",
-              "fullMetaSearch": false,
-              "includeNullMetadata": true,
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A",
-              "useBackend": false
-            }
-          ],
-          "title": "Total received txs",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "noValue": "0",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "yellow"
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 4,
-            "x": 8,
-            "y": 34
-          },
-          "id": 7,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "area",
-            "justifyMode": "auto",
-            "orientation": "auto",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.2.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "sum(aztec_node_receive_tx_count{aztec_ok=\"false\", service_namespace=\"$namespace\"})",
-              "fullMetaSearch": false,
-              "includeNullMetadata": true,
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A",
-              "useBackend": false
-            }
-          ],
-          "title": "Total rejected txs",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "min": 0,
-              "noValue": "0",
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 4,
-            "x": 12,
-            "y": 34
-          },
-          "id": 4,
-          "options": {
-            "displayLabels": [
-              "name",
-              "value"
-            ],
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": false
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "disableTextWrap": false,
-              "editorMode": "builder",
-              "expr": "avg by(aztec_status) (aztec_mempool_tx_count{service_namespace=\"$namespace\"})",
-              "fullMetaSearch": false,
-              "includeNullMetadata": true,
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A",
-              "useBackend": false
-            }
-          ],
-          "title": "Tx mempool status",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "noValue": "0",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 34
-          },
-          "id": 29,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "editorMode": "code",
-              "expr": "avg(rate(aztec_archiver_tx_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Mined TPS",
-          "type": "timeseries"
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "avg by(service_name) (delta(process_memory_usage{service_namespace=\"$namespace\"}[24h]))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
         }
       ],
-      "title": "Mempool status",
-      "type": "row"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 45
-      },
-      "id": 17,
-      "panels": [
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 8,
-                "gradientMode": "opacity",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 14,
-            "x": 0,
-            "y": 35
-          },
-          "id": 19,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "editorMode": "code",
-              "expr": "sum by (aztec_merkle_tree_name) (avg by (aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_used_size{service_namespace=\"$namespace\"}))",
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Approx tree size on disk",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "description": "How big trees are relative to each other. \nNOTE: The L1 to L2 message tree has empty leaves added to it for every block!",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "min": 0,
-              "unit": "Leaves"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 16,
-            "w": 10,
-            "x": 14,
-            "y": 35
-          },
-          "id": 16,
-          "options": {
-            "displayLabels": [
-              "name"
-            ],
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": false
-            },
-            "pieType": "pie",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.2.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "disableTextWrap": false,
-              "editorMode": "code",
-              "exemplar": false,
-              "expr": "max by(aztec_merkle_tree_name) (aztec_world_state_tree_size{service_namespace=\"$namespace\"})",
-              "format": "time_series",
-              "fullMetaSearch": false,
-              "includeNullMetadata": true,
-              "instant": true,
-              "legendFormat": "__auto",
-              "range": false,
-              "refId": "A",
-              "useBackend": false
-            }
-          ],
-          "title": "Relative tree sizes",
-          "type": "piechart"
-        },
-        {
-          "datasource": {
-            "default": true,
-            "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
-          },
-          "description": "Tracks tree nodes, indexes, metadata. It's normal for tree sizes to fluctuate even if there are no reorgs (trees garbage collect old data)",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 8,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "stepBefore",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "decimals": 0,
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  }
-                ]
-              },
-              "unit": "Entries"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 14,
-            "x": 0,
-            "y": 43
-          },
-          "id": 18,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "11.2.1",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
-              },
-              "disableTextWrap": false,
-              "editorMode": "code",
-              "expr": "sum by (aztec_merkle_tree_name) (avg by(aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_num_items{service_namespace=\"$namespace\"}))",
-              "fullMetaSearch": false,
-              "includeNullMetadata": true,
-              "instant": false,
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A",
-              "useBackend": false
-            }
-          ],
-          "title": "Tree size",
-          "type": "timeseries"
-        }
-      ],
-      "title": "World state",
-      "type": "row"
+      "title": "Memory change 24Hrs",
+      "type": "stat"
     },
     {
       "collapsed": false,
@@ -1736,7 +1107,734 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 44
+      },
+      "id": 13,
+      "panels": [],
+      "title": "Mempool status",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 0,
+        "y": 45
+      },
+      "id": 5,
+      "interval": "5m",
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "sum(rate(aztec_node_receive_tx_count{service_namespace=\"$namespace\"}[$__rate_interval]))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "TPS",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 4,
+        "y": 45
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(aztec_node_receive_tx_count{aztec_ok=\"true\", service_namespace=\"$namespace\"})",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Total received txs",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 8,
+        "y": 45
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(aztec_node_receive_tx_count{aztec_ok=\"false\", service_namespace=\"$namespace\"})",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Total rejected txs",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 12,
+        "y": 45
+      },
+      "id": 4,
+      "interval": "1m",
+      "maxDataPoints": 32,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "avg by(aztec_status) (aztec_mempool_tx_count{service_namespace=\"$namespace\",exported_job=~\".*validator\"})",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Tx mempool status",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 45
+      },
+      "id": 29,
+      "interval": "1m",
+      "maxDataPoints": 100,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "avg(rate(aztec_archiver_tx_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Mined TPS",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "id": 17,
+      "panels": [],
+      "title": "World state",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 54
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (aztec_merkle_tree_name) (avg by (aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_used_size{service_namespace=\"$namespace\"}))",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Approx tree size on disk",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "How big trees are relative to each other. \nNOTE: The L1 to L2 message tree has empty leaves added to it for every block!",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "unit": "Leaves"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 10,
+        "x": 14,
+        "y": 54
+      },
+      "id": 16,
+      "options": {
+        "displayLabels": [
+          "name"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "max by(aztec_merkle_tree_name) (aztec_world_state_tree_size{service_namespace=\"$namespace\"})",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Relative tree sizes",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "description": "Tracks tree nodes, indexes, metadata. It's normal for tree sizes to fluctuate even if there are no reorgs (trees garbage collect old data)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepBefore",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "Entries"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 14,
+        "x": 0,
+        "y": 62
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.2.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "sum by (aztec_merkle_tree_name) (avg by(aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_num_items{service_namespace=\"$namespace\"}))",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Tree size",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 70
       },
       "id": 14,
       "panels": [],
@@ -1747,7 +1845,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1793,7 +1891,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1808,7 +1907,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 47
+        "y": 71
       },
       "id": 1,
       "options": {
@@ -1827,11 +1926,11 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "avg by(service_name, aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\"}, \"aztec_status\", \"pending\", \"aztec_status\", \"^$\"))",
+          "expr": "max by(service_name, aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\"}, \"aztec_status\", \"pending\", \"aztec_status\", \"^$\"))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1848,7 +1947,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Components synch at different rates, can restart for upgrades (resetting their graph), see multiple reorgs, etc",
       "fieldConfig": {
@@ -1894,7 +1993,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1906,7 +2006,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 47
+        "y": 71
       },
       "id": 11,
       "options": {
@@ -1926,7 +2026,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1947,7 +2047,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1992,7 +2092,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2008,7 +2109,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 79
       },
       "id": 24,
       "interval": "1m",
@@ -2029,7 +2130,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2054,14 +2155,28 @@
   "templating": {
     "list": [
       {
+        "includeAll": false,
+        "name": "data_source",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource",
         "current": {
           "selected": false,
-          "text": "ignition-testnet",
-          "value": "ignition-testnet"
+          "text": "default",
+          "value": "default"
+        }
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "alpha-testnet",
+          "value": "alpha-testnet"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
+          "uid": "${data_source}"
         },
         "definition": "label_values(target_info,k8s_namespace_name)",
         "description": "",
@@ -2092,6 +2207,6 @@
   "timezone": "browser",
   "title": "Network overview",
   "uid": "aztec-network",
-  "version": 29,
+  "version": 48,
   "weekStart": ""
 }

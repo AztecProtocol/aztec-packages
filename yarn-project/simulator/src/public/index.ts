@@ -1,8 +1,5 @@
-export * from '../common/db_interfaces.js';
-export * from './public_tx_simulator/public_tx_simulator.js';
-export * from './public_db_sources.js';
+export { PublicContractsDB } from './public_db_sources.js';
+export { GuardedMerkleTreeOperations } from './public_processor/guarded_merkle_tree.js';
 export { PublicProcessor, PublicProcessorFactory } from './public_processor/public_processor.js';
-export { SideEffectTrace } from './side_effect_trace.js';
-export { PublicTxSimulationTester } from './fixtures/index.js';
-export * from './avm/index.js';
+export { PublicTxSimulator, TelemetryPublicTxSimulator, type PublicTxResult } from './public_tx_simulator/index.js';
 export { getCallRequestsWithCalldataByPhase } from './utils.js';

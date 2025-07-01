@@ -11,7 +11,7 @@ key=${2:-$(uuid)}
 outfile=/tmp/$key
 dup=${DUP:-0}
 trap 'rm -f $outfile' EXIT
-touch $outfile
+echo -e "Parent Log: ${PARENT_LOG_URL:-none}\n" >$outfile
 
 function publish_log {
   cat $outfile | redis_setexz $key $CI_REDIS_EXPIRE
@@ -22,7 +22,10 @@ function live_publish_log {
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
       publish_log
     fi
-    sleep 5
+    for i in {1..5}; do
+      [ ! -f $outfile ] && break
+      sleep 1
+    done
   done
 }
 
@@ -31,17 +34,19 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   echo_stderr -e "$log_str"
   live_publish_log &
   if [ "$dup" -eq 1 ]; then
-    tee $outfile
+    redact | tee -a $outfile
+    # Print a second line if the log is long enough.
+    # This is to avoid having to scroll up to see the log id.
     if [ "$(cat $outfile | wc -l)" -ge 16 ]; then
       echo_stderr -e "$log_str"
     fi
   else
-    cat >$outfile
+    redact | cat >>$outfile
   fi
   publish_log
 else
   if [ "$dup" -eq 1 ]; then
-    cat
+    redact | cat
   else
     cat >/dev/null
   fi

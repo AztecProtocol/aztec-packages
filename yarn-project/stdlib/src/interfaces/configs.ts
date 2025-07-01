@@ -1,18 +1,10 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
 
 import { z } from 'zod';
 
-import type { FunctionSelector } from '../abi/function_selector.js';
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
-
-type AllowedInstance = { address: AztecAddress };
-type AllowedInstanceFunction = { address: AztecAddress; selector: FunctionSelector };
-type AllowedClass = { classId: Fr };
-type AllowedClassFunction = { classId: Fr; selector: FunctionSelector };
-
-export type AllowedElement = AllowedInstance | AllowedInstanceFunction | AllowedClass | AllowedClassFunction;
+import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 
 /**
  * The sequencer configuration.
@@ -24,6 +16,8 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
+  /** Whether to publish txs with the block proposals */
+  publishTxsWithProposals?: boolean;
   /** The maximum L2 block gas. */
   maxL2BlockGas?: number;
   /** The maximum DA block gas. */
@@ -37,7 +31,7 @@ export interface SequencerConfig {
   /** The path to the ACVM binary */
   acvmBinaryPath?: string;
   /** The list of functions calls allowed to run in setup */
-  allowedInSetup?: AllowedElement[];
+  txPublicSetupAllowList?: AllowedElement[];
   /** Max block size */
   maxBlockSizeInBytes?: number;
   /** Payload address to vote for */
@@ -48,24 +42,18 @@ export interface SequencerConfig {
   maxL1TxInclusionTimeIntoSlot?: number;
 }
 
-const AllowedElementSchema = z.union([
-  z.object({ address: schemas.AztecAddress, selector: schemas.FunctionSelector }),
-  z.object({ address: schemas.AztecAddress }),
-  z.object({ classId: schemas.Fr, selector: schemas.FunctionSelector }),
-  z.object({ classId: schemas.Fr }),
-]) satisfies ZodFor<AllowedElement>;
-
 export const SequencerConfigSchema = z.object({
   transactionPollingIntervalMS: z.number().optional(),
   maxTxsPerBlock: z.number().optional(),
   minTxsPerBlock: z.number().optional(),
   maxL2BlockGas: z.number().optional(),
+  publishTxsWithProposals: z.boolean().optional(),
   maxDABlockGas: z.number().optional(),
   coinbase: schemas.EthAddress.optional(),
   feeRecipient: schemas.AztecAddress.optional(),
   acvmWorkingDirectory: z.string().optional(),
   acvmBinaryPath: z.string().optional(),
-  allowedInSetup: z.array(AllowedElementSchema).optional(),
+  txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
   maxBlockSizeInBytes: z.number().optional(),
   governanceProposerPayload: schemas.EthAddress.optional(),
   maxL1TxInclusionTimeIntoSlot: z.number().optional(),

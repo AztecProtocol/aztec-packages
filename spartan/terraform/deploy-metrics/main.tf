@@ -57,6 +57,16 @@ provider "helm" {
   }
 }
 
+data "google_secret_manager_secret_version" "grafana_password" {
+  secret  = var.GRAFANA_PASSWORD_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook" {
+  secret  = var.SLACK_WEBHOOK_SECRET_NAME
+  project = var.project
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider          = helm.gke-cluster
@@ -71,7 +81,10 @@ resource "helm_release" "aztec-gke-cluster" {
   reuse_values      = true
 
   # base values file
-  values = [file("../../metrics/values/${var.VALUES_FILE}")]
+  values = [
+    file("../../metrics/values.yaml"),
+    file("../../metrics/values/${var.VALUES_FILE}")
+  ]
 
   set {
     name  = "grafana.service.loadBalancerIP"
@@ -79,13 +92,18 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "grafana.grafana\\.ini.server.root_url"
+    value = "http://${google_compute_address.grafana_ip.address}"
+  }
+
+  set {
     name  = "grafana.adminPassword"
-    value = var.GRAFANA_DASHBOARD_PASSWORD
+    value = data.google_secret_manager_secret_version.grafana_password.secret_data
   }
 
   set {
     name  = "grafana.env.SLACK_WEBHOOK_URL"
-    value = var.SLACK_WEBHOOK_URL
+    value = data.google_secret_manager_secret_version.slack_webhook.secret_data
   }
 
   set {
@@ -122,7 +140,6 @@ resource "helm_release" "aztec-gke-cluster" {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[2].static_configs[0].targets[0]"
     value = "${google_compute_address.otel_collector_ip.address}:8889"
   }
-
   # Setting timeout and wait conditions
   timeout       = 600 # 10 minutes in seconds
   wait          = true

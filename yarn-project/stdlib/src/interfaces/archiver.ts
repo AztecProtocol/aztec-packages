@@ -2,10 +2,9 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
-import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,
@@ -18,7 +17,7 @@ import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { BlockHeader } from '../tx/block_header.js';
-import { TxEffect } from '../tx/tx_effect.js';
+import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
@@ -46,8 +45,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getPublishedBlocks: z
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
-    .returns(z.array(PublishedL2BlockSchema)),
-  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
+    .returns(z.array(PublishedL2Block.schema)),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
   getL2EpochNumber: z.function().args().returns(schemas.BigInt),
@@ -66,12 +65,14 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBytecodeCommitment: z.function().args(schemas.Fr).returns(schemas.Fr),
   getContract: z
     .function()
-    .args(schemas.AztecAddress, optional(schemas.Integer))
+    .args(schemas.AztecAddress, optional(schemas.BigInt))
     .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
-  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
-  getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
+  registerContractFunctionSignatures: z.function().args(z.array(z.string())).returns(z.void()),
+  getL1ToL2Messages: z.function().args(schemas.Integer).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
+  getL1Timestamp: z.function().args().returns(schemas.BigInt),
+  syncImmediate: z.function().args().returns(z.void()),
 };

@@ -20,16 +20,11 @@ contract RewardDistributor is IRewardDistributor, Ownable {
   uint256 public constant BLOCK_REWARD = 50e18;
 
   IERC20 public immutable ASSET;
-  IRegistry public registry;
+  IRegistry public immutable REGISTRY;
 
   constructor(IERC20 _asset, IRegistry _registry, address _owner) Ownable(_owner) {
     ASSET = _asset;
-    registry = _registry;
-  }
-
-  function updateRegistry(IRegistry _registry) external override(IRewardDistributor) onlyOwner {
-    registry = _registry;
-    emit RegistryUpdated(_registry);
+    REGISTRY = _registry;
   }
 
   /**
@@ -77,6 +72,6 @@ contract RewardDistributor is IRewardDistributor, Ownable {
   }
 
   function canonicalRollup() public view override(IRewardDistributor) returns (address) {
-    return registry.getRollup();
+    return address(REGISTRY.getCanonicalRollup());
   }
 }

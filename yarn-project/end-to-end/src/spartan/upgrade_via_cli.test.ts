@@ -1,5 +1,5 @@
 import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
-import { GovernanceContract, RegistryContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { RegistryContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
@@ -55,37 +55,14 @@ describe('upgrade via cli', () => {
       const info = await pxe.getNodeInfo();
 
       const chain = createEthereumChain([ETHEREUM_HOSTS], info.l1ChainId);
-      const { walletClient: l1WalletClient, publicClient: l1PublicClient } = createL1Clients(
-        [ETHEREUM_HOSTS],
-        MNEMONIC,
-        chain.chainInfo,
-      );
+      const l1Client = createExtendedL1Client([ETHEREUM_HOSTS], MNEMONIC, chain.chainInfo);
 
-      const governance = new GovernanceContract(
-        info.l1ContractAddresses.governanceAddress.toString(),
-        l1PublicClient,
-        l1WalletClient,
-      );
-      const { minimumVotes, proposeConfig } = await governance.getConfiguration();
-
-      const depositAmount = proposeConfig.lockAmount + minimumVotes;
-
-      const registry = new RegistryContract(l1PublicClient, info.l1ContractAddresses.registryAddress.toString());
+      const registry = new RegistryContract(l1Client, info.l1ContractAddresses.registryAddress.toString());
       const oldNumberOfVersions = await registry.getNumberOfVersions();
 
       const exitCode = await runProjectScript(
-        'spartan/scripts/upgrade_rollup_with_lock.sh',
-        [
-          '--aztec-bin',
-          getAztecBin(),
-          '--registry',
-          info.l1ContractAddresses.registryAddress.toString(),
-          '--address',
-          l1WalletClient.account.address,
-          '--deposit-amount',
-          depositAmount.toString(),
-          '--mint',
-        ],
+        'spartan/scripts/upgrade_rollup_with_cli.sh',
+        ['--aztec-bin', getAztecBin(), '--registry', info.l1ContractAddresses.registryAddress.toString()],
         debugLogger,
         {
           MNEMONIC,

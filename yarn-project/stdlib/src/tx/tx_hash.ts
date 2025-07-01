@@ -5,6 +5,7 @@ import { schemas } from '../schemas/index.js';
 
 /**
  * A class representing hash of Aztec transaction.
+ * @dev Computed by hashing the public inputs of the private kernel tail circuit (see Tx::getTxHash function).
  */
 export class TxHash {
   constructor(
@@ -12,10 +13,6 @@ export class TxHash {
     public readonly hash: Fr,
   ) {}
 
-  /*
-   * TxHashes are generated from the first nullifier of a transaction, which is a Fr.
-   * @returns A random TxHash.
-   */
   static random() {
     return new TxHash(Fr.random());
   }
@@ -31,6 +28,10 @@ export class TxHash {
 
   static fromBigInt(value: bigint) {
     return new TxHash(new Fr(value));
+  }
+
+  static fromField(value: Fr) {
+    return new TxHash(value);
   }
 
   public toBuffer() {

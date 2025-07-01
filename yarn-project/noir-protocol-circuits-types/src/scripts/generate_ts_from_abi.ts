@@ -1,6 +1,6 @@
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { codegen } from '@aztec/noir-noir_codegen';
-import { type CompiledCircuit } from '@aztec/noir-types';
+import type { CompiledCircuit } from '@aztec/noir-types';
 
 import { pascalCase } from 'change-case';
 import { promises as fs } from 'fs';
@@ -22,6 +22,7 @@ const circuits = [
   'rollup_block_root_single_tx',
   'rollup_block_merge',
   'rollup_block_root_empty',
+  'rollup_block_root_padding',
   'rollup_root',
 ];
 
@@ -34,7 +35,7 @@ const main = async () => {
 
   try {
     await fs.access('./src/types/');
-  } catch (error) {
+  } catch {
     await fs.mkdir('./src/types', { recursive: true });
   }
   const programs: [string, CompiledCircuit][] = [];
@@ -51,6 +52,18 @@ const main = async () => {
   );
 
   code += `
+    // Types added manually.
+
+    export type L2ToL1Message = {
+      recipient: EthAddress;
+      content: Field;
+    }
+
+    export type LogHash = {
+      value: Field;
+      length: u32;
+    }
+
     export * from '../artifacts/types.js';
   `;
   await fs.writeFile('./src/types/index.ts', code);

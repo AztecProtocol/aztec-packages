@@ -74,7 +74,15 @@ export function injectCommands(program: Command, log: LogFn) {
     .description('Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)')
     .action(async () => {
       const { generateSecretAndHash } = await import('./generate_secret_and_hash.js');
-      generateSecretAndHash(log);
+      await generateSecretAndHash(log);
+    });
+
+  program
+    .command('get-canonical-sponsored-fpc-address')
+    .description('Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI')
+    .action(async () => {
+      const { getCanonicalSponsoredFPCAddress } = await import('./get_canonical_sponsored_fpc_address.js');
+      await getCanonicalSponsoredFPCAddress(log);
     });
 
   program

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
@@ -19,16 +25,12 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     using ClaimBatch = ClaimBatcher::Batch;
 
     RelationParameters<FF> relation_parameters;
-    transcript = std::make_shared<Transcript>(proof.pre_ipa_proof);
-    ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
-    transcript->enable_manifest();
-    ipa_transcript->enable_manifest();
+
+    ipa_transcript->load_proof(proof.ipa_proof);
+    transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
-
-    circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    ASSERT(circuit_size == key->circuit_size);
 
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitment_labels.get_wires())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
@@ -52,10 +54,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -70,11 +71,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
-    // If Sumcheck did not verify, return false
-    if (!sumcheck_output.verified) {
-        vinfo("eccvm sumcheck failed");
-        return false;
-    }
     // Compute the Shplemini accumulator consisting of the Shplonk evaluation and the commitments and scalars vector
     // produced by the unified protocol
     bool consistency_checked = true;
@@ -82,11 +78,15 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
+
+    std::array<FF, CONST_ECCVM_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, FF{ 1 });
+
     BatchOpeningClaim<Curve> sumcheck_batch_opening_claims =
-        Shplemini::compute_batch_opening_claim(circuit_size,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_verification_key->get_g1_identity(),
+                                               key->pcs_verification_key.get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
@@ -113,12 +113,14 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // Construct and verify the combined opening claim
     const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
+        Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
     vinfo("eccvm sumcheck verified?: ", sumcheck_output.verified);
     vinfo("batch opening verified?: ", batched_opening_verified);
+    vinfo("eccvm consistency check verified?: ", consistency_checked);
+    vinfo("translation masking consistency checked?: ", translation_masking_consistency_checked);
     return sumcheck_output.verified && batched_opening_verified && consistency_checked &&
            translation_masking_consistency_checked;
 }
@@ -135,8 +137,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 void ECCVMVerifier::compute_translation_opening_claims(
     const std::array<Commitment, NUM_TRANSLATION_EVALUATIONS>& translation_commitments)
 {
-    TranslationEvaluations_<FF> translation_evaluations;
-
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAVerifier<ECCVMFlavor::Curve>;
 
@@ -208,7 +208,7 @@ void ECCVMVerifier::compute_translation_opening_claims(
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
 
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
 

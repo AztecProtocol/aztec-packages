@@ -76,4 +76,7 @@ export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
 
   /** Stops the database */
   close(): Promise<void>;
+
+  /** Deletes the db. */
+  clear(): Promise<void>;
 }

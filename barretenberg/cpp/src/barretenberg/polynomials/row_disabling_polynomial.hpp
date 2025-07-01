@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/op_count.hpp"
@@ -174,27 +180,25 @@ template <typename FF> struct RowDisablingPolynomial {
 
         return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
+
     /**
-     * @brief stdlib version of the above that ensures that the verifier's work does not depend on `log_circuit_size`.
+     * @brief A variant of the above that uses `padding_indicator_array`.
      *
+     * @param multivariate_challenge Sumcheck evaluation challenge
+     * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      */
-    template <typename Builder>
-    static FF evaluate_at_challenge(std::vector<FF> multivariate_challenge,
-                                    const size_t log_circuit_size,
-                                    Builder* builder)
+    template <size_t virtual_log_n>
+    static FF evaluate_at_challenge(std::span<FF> multivariate_challenge,
+                                    const std::array<FF, virtual_log_n>& padding_indicator_array)
     {
         FF evaluation_at_multivariate_challenge{ 1 };
-        const FF one = FF{ 1 };
 
-        for (size_t idx = 2; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            stdlib::bool_t dummy_round = stdlib::witness_t(builder, idx >= log_circuit_size);
-            evaluation_at_multivariate_challenge =
-                FF::conditional_assign(dummy_round,
-                                       evaluation_at_multivariate_challenge * one,
-                                       evaluation_at_multivariate_challenge * multivariate_challenge[idx]);
+        for (size_t idx = 2; idx < virtual_log_n; idx++) {
+            const FF& indicator = padding_indicator_array[idx];
+            evaluation_at_multivariate_challenge *= FF{ 1 } - indicator + indicator * multivariate_challenge[idx];
         }
 
-        return one - evaluation_at_multivariate_challenge;
+        return FF{ 1 } - evaluation_at_multivariate_challenge;
     }
 };
 

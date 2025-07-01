@@ -27,92 +27,78 @@ permissions:
   issues: write
 
 jobs:
-  build-mac-intel:
-    name: Build on Mac (amd64-darwin)
-    runs-on: macos-13
+  build-mac:
+    name: Build on Mac (matrix)
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - label: amd64-darwin
+            runner: macos-13
+            cmake_flags: ""
+            optional: false
+          - label: arm64-darwin
+            runner: macos-14
+            cmake_flags: ""
+            optional: false
+          - label: amd64-darwin-starknet
+            runner: macos-13
+            cmake_flags: "-DCMAKE_CXX_FLAGS=\"-DSTARKNET_GARAGA_FLAVORS=1\""
+            optional: true
+          - label: arm64-darwin-starknet
+            runner: macos-14
+            cmake_flags: "-DCMAKE_CXX_FLAGS=\"-DSTARKNET_GARAGA_FLAVORS=1\""
+            optional: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ inputs.tag || github.sha }}
 
       - name: Create Mac Build Environment
-        run: brew install cmake ninja llvm@16
+        run: |
+          brew install cmake ninja llvm@18
+          echo "BREW_PREFIX=$(brew --prefix)" >> $GITHUB_ENV
 
       - name: Replace version string in main.cpp
         working-directory: barretenberg/cpp
         run: |
-          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag || github.ref_name }}/g" src/barretenberg/bb/main.cpp
+          version_string=${{ inputs.ref_name || inputs.tag || github.ref_name }}
+          version_string=$(echo $version_string | sed "s/\//_/")
+          sed -i.bak "s/00000000\.00000000\.00000000/$version_string/g" src/barretenberg/bb/cli.cpp
 
       - name: Compile Barretenberg
         working-directory: barretenberg/cpp
+        continue-on-error: ${{ matrix.optional }}
         run: |
-          export PATH="/usr/local/opt/llvm@16/bin:$PATH"
-          export LDFLAGS="-L/usr/local/opt/llvm@16/lib"
-          export CPPFLAGS="-I/usr/local/opt/llvm@16/include"
-          cmake -DCMAKE_BUILD_TYPE=RelWithAssert --preset default
-          cmake --build --preset default --target bb
+          cmake --preset homebrew ${{ matrix.cmake_flags }}
+          cmake --build --preset homebrew --target bb
 
-      - name: Package barretenberg artifact (amd64-darwin)
+      - name: Package barretenberg artifact (${{ matrix.label }})
         working-directory: barretenberg/cpp/build/bin
+        continue-on-error: ${{ matrix.optional }}
         run: |
           mkdir dist
           cp ./bb ./dist/bb
-          7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-amd64-darwin.tar.gz
+          7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-${{ matrix.label }}.tar.gz
 
-      - name: Upload artifact (amd64-darwin)
-        uses: actions/upload-artifact@v4
+      - name: Upload artifact (${{ matrix.label }})
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        continue-on-error: ${{ matrix.optional }}
         with:
-          name: barretenberg-amd64-darwin
-          path: ./barretenberg/cpp/build/bin/barretenberg-amd64-darwin.tar.gz
-          retention-days: 3
-
-  build-mac-m1:
-    name: Build on Mac (arm64-darwin)
-    runs-on: macos-14
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.tag || github.sha }}
-
-      - name: Create Mac Build Environment
-        run: brew install cmake ninja
-
-      - name: Replace version string in main.cpp
-        working-directory: barretenberg/cpp
-        run: |
-          sed -i.bak "s/00000000\.00000000\.00000000/${{ inputs.ref_name || inputs.tag || github.ref_name }}/g" src/barretenberg/bb/main.cpp
-
-      - name: Compile Barretenberg
-        working-directory: barretenberg/cpp
-        run: |
-          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
-          cmake --build --preset default --target bb
-
-      - name: Package barretenberg artifact (arm64-darwin)
-        working-directory: barretenberg/cpp/build/bin
-        run: |
-          mkdir dist
-          cp ./bb ./dist/bb
-          7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-arm64-darwin.tar.gz
-
-      - name: Upload artifact (arm64-darwin)
-        uses: actions/upload-artifact@v4
-        with:
-          name: barretenberg-arm64-darwin
-          path: ./barretenberg/cpp/build/bin/barretenberg-arm64-darwin.tar.gz
+          name: barretenberg-${{ matrix.label }}.tar.gz
+          path: ./barretenberg/cpp/build/bin/barretenberg-${{ matrix.label }}.tar.gz
           retention-days: 3
 
   build-check:
     name: Check builds are successful
-    needs: [build-mac-intel, build-mac-m1]
+    needs: build-mac
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Report overall success
         env:
-          FAIL: ${{ contains(needs.*.result, 'failure') }}
+          FAIL: ${{ contains(needs.build-mac.*.result, 'failure') }}
         run: |
           if [[ $FAIL == true ]]; then
               echo "At least one job failed, release is unsuccessful."
@@ -123,7 +109,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         if: ${{ failure() }}
         with:
           ref: ${{ inputs.tag || github.sha }}
@@ -141,25 +127,48 @@ jobs:
 
   release:
     name: Publish
-    needs: [build-check]
+    needs: build-check
     runs-on: ubuntu-latest
     steps:
       - name: Download artifact (amd64-darwin)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: barretenberg-amd64-darwin
+          name: barretenberg-amd64-darwin.tar.gz
 
       - name: Download artifact (arm64-darwin)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: barretenberg-arm64-darwin
+          name: barretenberg-arm64-darwin.tar.gz
+
+      - name: Download artifact (amd64-darwin-starknet)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        continue-on-error: true
+        with:
+          name: barretenberg-amd64-darwin-starknet.tar.gz
+
+      - name: Download artifact (arm64-darwin-starknet)
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        continue-on-error: true
+        with:
+          name: barretenberg-arm64-darwin-starknet.tar.gz
 
       - name: Publish to GitHub
-        uses: softprops/action-gh-release@v1
-        if: ${{ inputs.publish || github.event_name == 'schedule' }}
+        uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         with:
           tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
           prerelease: true
           files: |
             barretenberg-amd64-darwin.tar.gz
             barretenberg-arm64-darwin.tar.gz
+
+      - name: Publish to GitHub (starknet variants)
+        uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
+        continue-on-error: true
+        with:
+          tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
+          prerelease: true
+          files: |
+            barretenberg-amd64-darwin-starknet.tar.gz
+            barretenberg-arm64-darwin-starknet.tar.gz

@@ -1,3 +1,4 @@
+import { AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS, AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -6,13 +7,13 @@ import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
 import type { PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import {
-  mockGetNullifierIndex,
+  mockCheckNullifierExists,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
   mockNoteHashExists,
@@ -30,7 +31,7 @@ import {
 describe('Accrued Substate', () => {
   let treesDB: PublicTreesDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
   let context: AvmContext;
 
   const address = AztecAddress.fromNumber(1);
@@ -72,8 +73,8 @@ describe('Accrued Substate', () => {
         /*existsOffset=*/ 0x4567,
       );
 
-      expect(NoteHashExists.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(NoteHashExists.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     // Will check existence at leafIndex, but nothing may be found there and/or something may be found at mockAtLeafIndex
@@ -117,8 +118,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new EmitNoteHash(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
-      expect(EmitNoteHash.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EmitNoteHash.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append a new note hash correctly', async () => {
@@ -127,8 +128,8 @@ describe('Accrued Substate', () => {
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, 0);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });
@@ -149,8 +150,8 @@ describe('Accrued Substate', () => {
         /*existsOffset=*/ 0x4567,
       );
 
-      expect(NullifierExists.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(NullifierExists.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     describe.each([[/*exists=*/ false], [/*exists=*/ true]])('Nullifier checks', (exists: boolean) => {
@@ -159,7 +160,7 @@ describe('Accrued Substate', () => {
         const addressOffset = 1;
 
         if (exists) {
-          mockGetNullifierIndex(treesDB, leafIndex, value0);
+          mockCheckNullifierExists(treesDB, true, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
@@ -186,8 +187,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new EmitNullifier(/*indirect=*/ 0x01, /*offset=*/ 0x1234);
 
-      expect(EmitNullifier.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EmitNullifier.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append a new nullifier correctly', async () => {
@@ -210,7 +211,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockGetNullifierIndex(treesDB, leafIndex); // db will say that nullifier already exists
+      mockCheckNullifierExists(treesDB, true, leafIndex);
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
@@ -237,8 +238,8 @@ describe('Accrued Substate', () => {
         /*existsOffset=*/ 0xcdef,
       );
 
-      expect(L1ToL2MessageExists.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(L1ToL2MessageExists.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     // Will check existence at leafIndex, but nothing may be found there and/or something may be found at mockAtLeafIndex
@@ -284,8 +285,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x1234, /*lengthOffset=*/ 0xa234);
 
-      expect(EmitUnencryptedLog.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(EmitUnencryptedLog.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append public logs correctly', async () => {
@@ -304,6 +305,25 @@ describe('Accrued Substate', () => {
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
     });
+
+    it('Should charge dynamic gas', async () => {
+      const startOffset = 0;
+      const logSizeOffset = 20;
+
+      const values = [new Fr(69n), new Fr(420n), new Fr(Fr.MODULUS - 1n)];
+      context.machineState.memory.setSlice(
+        startOffset,
+        values.map(f => new Field(f)),
+      );
+      context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
+
+      const l2GasBefore = context.machineState.l2GasLeft;
+      const daGasBefore = context.machineState.daGasLeft;
+      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+
+      expect(context.machineState.l2GasLeft).toEqual(l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS);
+      expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
+    });
   });
 
   describe('SendL2ToL1Message', () => {
@@ -316,8 +336,8 @@ describe('Accrued Substate', () => {
       ]);
       const inst = new SendL2ToL1Message(/*indirect=*/ 0x01, /*recipientOffset=*/ 0x1234, /*contentOffset=*/ 0xa234);
 
-      expect(SendL2ToL1Message.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(SendL2ToL1Message.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should append l2 to l1 message correctly', async () => {

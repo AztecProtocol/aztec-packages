@@ -1,6 +1,7 @@
 import type { Database, Key } from 'lmdb';
 
 import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
+import type { Value } from '../interfaces/common.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
 /** The shape of a key that stores a value in an array */
@@ -9,7 +10,7 @@ type ArrayIndexSlot = ['array', string, 'slot', number];
 /**
  * An persistent array backed by LMDB.
  */
-export class LmdbAztecArray<T> implements AztecArray<T>, AztecAsyncArray<T> {
+export class LmdbAztecArray<T extends Value> implements AztecArray<T>, AztecAsyncArray<T> {
   #db: Database<T, ArrayIndexSlot>;
   #name: string;
   #length: LmdbAztecSingleton<number>;

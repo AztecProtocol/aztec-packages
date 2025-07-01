@@ -107,7 +107,7 @@ The `on_behalf_of` should assert that we are indeed authenticated and then retur
 
 #### Example
 
-#include_code assert_current_call_valid_authwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code assert_current_call_valid_authwit /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Utilities for public calls
 
@@ -115,7 +115,7 @@ Very similar to the above, we have variations that work in the public domain (`a
 
 #### Example
 
-#include_code assert_current_call_valid_authwit_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code assert_current_call_valid_authwit_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ## Usage
 
@@ -128,12 +128,11 @@ To add it to your project, add the `authwit` library to your `Nargo.toml` file.
 ```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 ```
 
 Then you will be able to import it into your contracts as follows.
 
-#include_code import_authwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code import_authwit /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Private Functions
 
@@ -141,7 +140,7 @@ Then you will be able to import it into your contracts as follows.
 
 Based on the diagram earlier on this page let's take a look at how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
 
-#include_code transfer_in_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 The first thing we see in the snippet above, is that if `from` is not the call we are calling the `assert_current_call_valid_authwit` function from [earlier](#private-functions). If the call is not throwing, we are all good and can continue with the transfer.
 
@@ -161,7 +160,7 @@ With private functions covered, how can we use this in a public function? Well, 
 
 #### Checking if the current call is authenticated
 
-#include_code transfer_in_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### Authenticating an action in TypeScript
 
@@ -181,7 +180,7 @@ When another contract later is consuming the authwit using `assert_current_call_
 
 An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses, where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash and update the value in the registry. When we then call the `token_bridge` to execute afterwards, it reads this value, burns the tokens, and consumes the authentication.
 
-#include_code authwit_uniswap_set /noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_set /noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
 
 Outlining more of the `swap` flow: this simplified diagram shows how it will look for contracts that are not wallets but also need to support authentication witnesses.
 

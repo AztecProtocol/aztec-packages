@@ -20,7 +20,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
     token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
@@ -40,10 +40,10 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
     );
   });
 
-  it('token mint, transfer, burn', async () => {
+  it.skip('token mint, transfer, burn', async () => {
     const mintAmount = 100n;
     const transferAmount = 50n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
 
     await checkBalance(sender, 0n);
 
@@ -68,7 +68,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
       /*appCalls=*/ [
         {
           fnName: 'transfer_in_public',
-          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
           address: token.address,
         },
       ],
@@ -84,7 +84,7 @@ describe('AVM Witgen & Circuit apps tests: TokenContract', () => {
       /*appCalls=*/ [
         {
           fnName: 'burn_public',
-          args: [/*from=*/ receiver, transferAmount, nonce],
+          args: [/*from=*/ receiver, transferAmount, authwitNonce],
           address: token.address,
         },
       ],

@@ -1,20 +1,19 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
-  AvmEnqueuedCallHint,
   AvmExecutionHints,
   type AvmProvingRequest,
+  AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import type { AvmSimulationStats } from '@aztec/stdlib/stats';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
@@ -22,21 +21,21 @@ import {
   Tx,
   TxExecutionPhase,
 } from '@aztec/stdlib/tx';
-import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { strict as assert } from 'assert';
 
-import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
-import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
-import { ExecutorMetrics } from '../executor_metrics.js';
-import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { AvmSimulator } from '../avm/index.js';
+import { getPublicFunctionDebugName } from '../debug_fn_name.js';
+import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
+import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { NullifierCollisionError } from '../state_manager/nullifiers.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
   phase: TxExecutionPhase;
-  durationMs: number;
+  durationMs?: number;
   returnValues: NestedProcessReturnValues[];
   reverted: boolean;
   revertReason?: SimulationError;
@@ -53,25 +52,19 @@ export type PublicTxResult = {
 };
 
 export class PublicTxSimulator {
-  metrics: ExecutorMetrics;
-
-  private log: Logger;
+  protected log: Logger;
 
   constructor(
-    private treesDB: PublicTreesDB,
+    private merkleTree: MerkleTreeWriteOperations,
     private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
-    telemetryClient: TelemetryClient = getTelemetryClient(),
+    private clientInitiatedSimulation: boolean = false,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
-  get tracer(): Tracer {
-    return this.metrics.tracer;
-  }
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
@@ -79,26 +72,24 @@ export class PublicTxSimulator {
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
-      const startTime = process.hrtime.bigint();
-
-      const txHash = await tx.getTxHash();
+      const txHash = await this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
+      // Create hinting DBs.
+      const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
+      const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
+      const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
+      const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
+
       const context = await PublicTxContext.create(
-        this.treesDB,
-        this.contractsDB,
+        hintingTreesDB,
+        hintingContractsDB,
         tx,
         this.globalVariables,
         this.doMerkleOperations,
       );
 
-      const nonRevertStart = process.hrtime.bigint();
-      await this.insertNonRevertiblesFromPrivate(context);
-      // add new contracts to the contracts db so that their functions may be found and called
-      // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-      await this.contractsDB.addNewNonRevertibleContracts(tx);
-      const nonRevertEnd = process.hrtime.bigint();
-      this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
+      await this.insertNonRevertiblesFromPrivate(context, tx);
 
       const processedPhases: ProcessedPhase[] = [];
       if (context.hasPhase(TxExecutionPhase.SETUP)) {
@@ -106,14 +97,8 @@ export class PublicTxSimulator {
         processedPhases.push(setupResult);
       }
 
-      const revertStart = process.hrtime.bigint();
-      const success = await this.insertRevertiblesFromPrivate(context);
+      const success = await this.insertRevertiblesFromPrivate(context, tx);
       if (success) {
-        // add new contracts to the contracts db so that their functions may be found and called
-        await this.contractsDB.addNewRevertibleContracts(tx);
-        const revertEnd = process.hrtime.bigint();
-        this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
-
         // Only proceed with app logic if there was no revert during revertible insertion
         if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
           const appLogicResult: ProcessedPhase = await this.simulateAppLogicPhase(context);
@@ -131,21 +116,17 @@ export class PublicTxSimulator {
       await context.halt();
       await this.payFee(context);
 
-      const publicInputs = await context.generateAvmCircuitPublicInputs(await this.treesDB.getStateReference());
-      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, context.hints);
+      const publicInputs = await context.generateAvmCircuitPublicInputs();
+      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, hints);
 
       const revertCode = context.getFinalRevertCode();
 
-      if (!revertCode.isOK()) {
-        await tx.filterRevertedLogs();
-      }
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
+      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+      // However things should work as they are now because the hinted db would still pick up the new contracts.
       this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
-
-      const endTime = process.hrtime.bigint();
-      this.log.debug(`Public TX simulator took ${Number(endTime - startTime) / 1_000_000} ms\n`);
 
       return {
         avmProvingRequest,
@@ -162,8 +143,14 @@ export class PublicTxSimulator {
     } finally {
       // Make sure there are no new contracts in the tx-level cache.
       // They should either be committed to block-level cache or cleared.
+      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+      // However things should work as they are now because the hinted db would still pick up the new contracts.
       this.contractsDB.clearContractsForTx();
     }
+  }
+
+  protected async computeTxHash(tx: Tx) {
+    return await tx.getTxHash();
   }
 
   /**
@@ -229,7 +216,7 @@ export class PublicTxSimulator {
    * @param context - WILL BE MUTATED. The context of the currently executing public transaction portion
    * @returns The phase result.
    */
-  private async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
+  protected async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {
     const callRequests = context.getCallRequestsForPhase(phase);
 
     this.log.debug(`Processing phase ${TxExecutionPhase[phase]} for tx ${context.txHash}`, {
@@ -241,8 +228,7 @@ export class PublicTxSimulator {
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
     let revertReason: SimulationError | undefined;
-    const phaseTimer = new Timer();
-    for (let i = callRequests.length - 1; i >= 0; i--) {
+    for (let i = 0; i < callRequests.length; i++) {
       if (reverted) {
         break;
       }
@@ -261,7 +247,6 @@ export class PublicTxSimulator {
 
     return {
       phase,
-      durationMs: phaseTimer.ms(),
       returnValues,
       reverted,
       revertReason,
@@ -275,13 +260,7 @@ export class PublicTxSimulator {
    * @param callRequest - The public function call request, including the calldata.
    * @returns The result of execution.
    */
-  @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, callRequest) => ({
-    [Attributes.TX_HASH]: context.txHash.toString(),
-    [Attributes.TARGET_ADDRESS]: callRequest.request.contractAddress.toString(),
-    [Attributes.SENDER_ADDRESS]: callRequest.request.msgSender.toString(),
-    [Attributes.SIMULATOR_PHASE]: TxExecutionPhase[phase].toString(),
-  }))
-  private async simulateEnqueuedCall(
+  protected async simulateEnqueuedCall(
     phase: TxExecutionPhase,
     context: PublicTxContext,
     callRequest: PublicCallRequestWithCalldata,
@@ -292,21 +271,8 @@ export class PublicTxSimulator {
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
-    // The reason we need enqueued hints at all (and cannot just use the public inputs) is
-    // because they don't have the actual calldata, just the hash of it.
-    // If/when we pass the whole TX to C++, we can remove this class of hints.
-    stateManager.traceEnqueuedCall(callRequest.request);
-    context.hints.enqueuedCalls.push(
-      new AvmEnqueuedCallHint(
-        callRequest.request.msgSender,
-        contractAddress,
-        callRequest.calldata,
-        callRequest.request.isStaticCall,
-      ),
-    );
-
     const result = await this.simulateEnqueuedCallInternal(
-      context.state.getActiveStateManager(),
+      stateManager,
       callRequest,
       allocatedGas,
       /*transactionFee=*/ context.getTransactionFee(phase),
@@ -335,20 +301,13 @@ export class PublicTxSimulator {
    * while still simulating phases and generating a proving request.
    *
    * @param stateManager - The state manager for AvmSimulation
-   * @param context - The context of the currently executing public transaction portion
    * @param callRequest - The public function call request, including the calldata.
    * @param allocatedGas - The gas allocated to the enqueued call
    * @param fnName - The name of the function
    * @returns The result of execution.
    */
-  @trackSpan(
-    'PublicTxSimulator.simulateEnqueuedCallInternal',
-    (_stateManager, _callRequest, _allocatedGas, _transactionFee, fnName) => ({
-      [Attributes.APP_CIRCUIT_NAME]: fnName,
-    }),
-  )
-  private async simulateEnqueuedCallInternal(
-    stateManager: AvmPersistableStateManager,
+  protected async simulateEnqueuedCallInternal(
+    stateManager: PublicPersistableStateManager,
     { request, calldata }: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,
@@ -360,7 +319,6 @@ export class PublicTxSimulator {
     this.log.debug(
       `Executing enqueued public call to external function ${fnName}@${address} with ${allocatedGas.l2Gas} allocated L2 gas.`,
     );
-    const timer = new Timer();
 
     const simulator = await AvmSimulator.create(
       stateManager,
@@ -371,37 +329,23 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
+      this.clientInitiatedSimulation,
     );
     const avmCallResult = await simulator.execute();
-    const result = avmCallResult.finalize();
-
-    this.log.verbose(
-      result.reverted
-        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
-        : `Simulation of enqueued public call ${fnName} completed successfully.`,
-      {
-        eventName: 'avm-simulation',
-        appCircuitName: fnName,
-        duration: timer.ms(),
-      } satisfies AvmSimulationStats,
-    );
-
-    if (result.reverted) {
-      this.metrics.recordFunctionSimulationFailure();
-    } else {
-      this.metrics.recordFunctionSimulation(timer.ms(), allocatedGas.sub(result.gasLeft).l2Gas, fnName);
-    }
-
-    return result;
+    return avmCallResult.finalize();
   }
 
   /**
    * Insert the non-revertible accumulated data from private into the public state.
    */
-  public async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
+  protected async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+      for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
+        n => !n.isEmpty(),
+      )) {
+        await stateManager.writeSiloedNullifier(siloedNullifier);
+      }
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
@@ -414,18 +358,31 @@ export class PublicTxSimulator {
         await stateManager.writeUniqueNoteHash(noteHash);
       }
     }
+    for (const l2ToL1Message of context.nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
+      if (!l2ToL1Message.isEmpty()) {
+        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
+      }
+    }
+
+    // add new contracts to the contracts db so that their functions may be found and called
+    // TODO(#6464): Should we allow emitting contracts in the private setup phase?
+    // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+    // However things should work as they are now because the hinted db would still pick up the new contracts.
+    await this.contractsDB.addNewNonRevertibleContracts(tx);
   }
 
   /**
    * Insert the revertible accumulated data from private into the public state.
    * Start by forking state so we can rollback to the end of setup if app logic or teardown reverts.
    */
-  public async insertRevertiblesFromPrivate(context: PublicTxContext): /*success=*/ Promise<boolean> {
+  protected async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx): /*success=*/ Promise<boolean> {
     // Fork the state manager so we can rollback to end of setup if app logic reverts.
     await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+      for (const siloedNullifier of context.revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty())) {
+        await stateManager.writeSiloedNullifier(siloedNullifier);
+      }
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         // Instead of throwing, revert the app_logic phase
@@ -448,6 +405,16 @@ export class PublicTxSimulator {
         await stateManager.writeSiloedNoteHash(noteHash);
       }
     }
+    for (const l2ToL1Message of context.revertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
+      if (!l2ToL1Message.isEmpty()) {
+        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
+      }
+    }
+    // add new contracts to the contracts db so that their functions may be found and called
+    // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+    // However things should work as they are now because the hinted db would still pick up the new contracts.
+    await this.contractsDB.addNewRevertibleContracts(tx);
+
     return /*success=*/ true;
   }
 
@@ -492,7 +459,7 @@ export class PublicTxSimulator {
   ): AvmProvingRequest {
     return {
       type: ProvingRequestType.PUBLIC_VM,
-      inputs: new AvmCircuitInputs('public_dispatch', [], hints, publicInputs),
+      inputs: new AvmCircuitInputs(hints, publicInputs),
     };
   }
 }

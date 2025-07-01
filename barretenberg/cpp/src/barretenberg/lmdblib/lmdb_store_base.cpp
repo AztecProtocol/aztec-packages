@@ -29,4 +29,18 @@ LMDBStoreBase::WriteTransaction::Ptr LMDBStoreBase::create_write_transaction() c
     _environment->wait_for_writer();
     return std::make_unique<WriteTransaction>(_environment);
 }
+
+void LMDBStoreBase::copy_store(const std::string& dstPath, bool compact)
+{
+    // Create a write tx to acquire a write lock to prevent writes while copying. From LMDB docs:
+    // "[mdb_copy] can trigger significant file size growth if run in parallel with write transactions,
+    //  because pages which they free during copying cannot be reused until the copy is done."
+    WriteTransaction::Ptr tx = create_write_transaction();
+    call_lmdb_func("mdb_env_copy2",
+                   mdb_env_copy2,
+                   _environment->underlying(),
+                   dstPath.c_str(),
+                   static_cast<unsigned int>(compact ? MDB_CP_COMPACT : 0));
+}
+
 } // namespace bb::lmdblib

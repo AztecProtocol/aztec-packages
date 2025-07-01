@@ -13,8 +13,8 @@ export function getSharedMemoryAvailable() {
  * Note we give it the type information it needs so the returned Proxy object looks like that type.
  * Node has a different implementation, needing this nodeEndpoint wrapper, hence this function exists here.
  */
-export function getRemoteBarretenbergWasm<T>(worker: Worker): T {
-  return wrap(nodeEndpoint(worker)) as T;
+export function getRemoteBarretenbergWasm<T>(worker: Worker) {
+  return wrap<T>(nodeEndpoint(worker));
 }
 
 /**
@@ -41,4 +41,15 @@ export function killSelf(): never {
   // doesn't seem to be able to abort the process. The following does.
   process.kill(process.pid);
   throw new Error();
+}
+
+export function getAvailableThreads(logger: (msg: string) => void): number {
+  try {
+    return os.cpus().length;
+  } catch (e: any) {
+    logger(
+      `Could not detect environment to query number of threads. Falling back to one thread. Error: ${e.message ?? e}`,
+    );
+    return 1;
+  }
 }

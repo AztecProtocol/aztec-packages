@@ -1,6 +1,10 @@
+import { EthAddress } from '@aztec/aztec.js';
 import type { EnvVar } from '@aztec/foundation/config';
+import type { SharedNodeConfig } from '@aztec/node-lib/config';
 
 import path from 'path';
+
+import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
 export type NetworkNames = 'testnet-ignition' | 'alpha-testnet';
 
@@ -9,14 +13,24 @@ export type L2ChainConfig = {
   ethereumSlotDuration: number;
   aztecSlotDuration: number;
   aztecEpochDuration: number;
-  aztecProofSubmissionWindow: number;
+  aztecProofSubmissionEpochs: number;
   testAccounts: boolean;
+  sponsoredFPC: boolean;
   p2pEnabled: boolean;
   p2pBootstrapNodes: string[];
   registryAddress: string;
+  slashFactoryAddress: string;
+  feeAssetHandlerAddress: string;
   seqMinTxsPerBlock: number;
   seqMaxTxsPerBlock: number;
   realProofs: boolean;
+  snapshotsUrl: string;
+  autoUpdate: SharedNodeConfig['autoUpdate'];
+  autoUpdateUrl?: string;
+  maxTxPoolSize: number;
+  publicIncludeMetrics?: string[];
+  publicMetricsCollectorUrl?: string;
+  publicMetricsCollectFrom?: string[];
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -24,14 +38,21 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
-  aztecProofSubmissionWindow: 64,
+  aztecProofSubmissionEpochs: 1,
   testAccounts: true,
+  sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
+  slashFactoryAddress: '',
+  feeAssetHandlerAddress: '',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  autoUpdate: 'disabled',
+  autoUpdateUrl: undefined,
+  maxTxPoolSize: 100_000_000, // 100MB
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -39,14 +60,24 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
-  aztecProofSubmissionWindow: 64,
+  aztecProofSubmissionEpochs: 1,
   testAccounts: false,
+  sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '', // To be updated
+  registryAddress: '0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e',
+  slashFactoryAddress: '0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be',
+  feeAssetHandlerAddress: '0x80d848dc9f52df56789e2d62ce66f19555ff1019',
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 4,
+  seqMaxTxsPerBlock: 20,
   realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
+  maxTxPoolSize: 100_000_000, // 100MB
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
+  publicMetricsCollectFrom: ['sequencer'],
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -83,6 +114,15 @@ function enrichVar(envVar: EnvVar, value: string) {
   process.env[envVar] = value;
 }
 
+function enrichEthAddressVar(envVar: EnvVar, value: string) {
+  // EthAddress doesn't like being given empty strings
+  if (value === '') {
+    enrichVar(envVar, EthAddress.ZERO.toString());
+    return;
+  }
+  enrichVar(envVar, value);
+}
+
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   const config = await getL2ChainConfig(networkName);
   if (!config) {
@@ -91,15 +131,41 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
-  enrichVar('AZTEC_PROOF_SUBMISSION_WINDOW', config.aztecProofSubmissionWindow.toString());
+  enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
+  enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
   enrichVar('P2P_ENABLED', config.p2pEnabled.toString());
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
-  enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
+  enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
+
+  if (config.autoUpdate) {
+    enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
+  }
+
+  if (config.autoUpdateUrl) {
+    enrichVar('AUTO_UPDATE_URL', config.autoUpdateUrl);
+  }
+
+  if (config.publicIncludeMetrics) {
+    enrichVar('PUBLIC_OTEL_INCLUDE_METRICS', config.publicIncludeMetrics.join(','));
+  }
+
+  if (config.publicMetricsCollectorUrl) {
+    enrichVar('PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT', config.publicMetricsCollectorUrl);
+  }
+
+  if (config.publicMetricsCollectFrom) {
+    enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
+  }
+
+  enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
+  enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
+  enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
 }

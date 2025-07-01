@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/proving_helper.hpp"
 
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <stdexcept>
@@ -7,15 +8,15 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
-#include "barretenberg/vm2/debugger.hpp"
-#include "barretenberg/vm2/generated/prover.hpp"
-#include "barretenberg/vm2/generated/verifier.hpp"
+#include "barretenberg/vm2/constraining/prover.hpp"
+#include "barretenberg/vm2/constraining/verifier.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
+
 namespace {
 
 // TODO: This doesn't need to be a shared_ptr, but BB requires it.
@@ -29,12 +30,43 @@ std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolyn
         key_poly = std::move(prover_poly);
     }
 
-    proving_key->commitment_key = std::make_shared<AvmProver::PCSCommitmentKey>(CIRCUIT_SUBGROUP_SIZE);
+    proving_key->commitment_key = AvmProver::PCSCommitmentKey(CIRCUIT_SUBGROUP_SIZE);
 
     return proving_key;
 }
 
 } // namespace
+
+// Create AvmVerifier::VerificationKey based on VkData and returns shared pointer.
+std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verification_key(const VkData& vk_data)
+{
+    using VerificationKey = AvmVerifier::VerificationKey;
+    std::vector<fr> vk_as_fields = many_from_buffer<AvmFlavorSettings::FF>(vk_data);
+
+    auto circuit_size = static_cast<uint64_t>(vk_as_fields[0]);
+    auto num_public_inputs = static_cast<uint64_t>(vk_as_fields[1]);
+    std::span vk_span(vk_as_fields);
+
+    vinfo("vk fields size: ", vk_as_fields.size());
+    vinfo("circuit size: ",
+          circuit_size,
+          " (next or eq power: 2^",
+          numeric::get_msb(numeric::round_up_power_2(circuit_size)),
+          ")");
+
+    // WARNING: The number of public inputs in the verification key is always 0!
+    // Apparently we use some other mechanism to check the public inputs.
+    vinfo("num of pub inputs: ", num_public_inputs);
+
+    std::array<VerificationKey::Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> precomputed_cmts;
+    for (size_t i = 0; i < VerificationKey::NUM_PRECOMPUTED_COMMITMENTS; i++) {
+        // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
+        precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<VerificationKey::Commitment>(
+            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
+    }
+
+    return std::make_shared<VerificationKey>(circuit_size, num_public_inputs, precomputed_cmts);
+}
 
 std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
@@ -60,12 +92,6 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     const size_t num_rows = trace.get_num_rows_without_clk() + 1;
     info("Running check circuit over ", num_rows, " rows.");
 
-    // Go into interactive debug mode if requested.
-    if (getenv("AVM_DEBUG") != nullptr) {
-        InteractiveDebugger debugger(trace);
-        debugger.run();
-    }
-
     // Warning: this destroys the trace.
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     try {
@@ -81,33 +107,7 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
 
 bool AvmProvingHelper::verify(const AvmProvingHelper::Proof& proof, const PublicInputs& pi, const VkData& vk_data)
 {
-    using VerificationKey = AvmVerifier::VerificationKey;
-    std::vector<fr> vk_as_fields = many_from_buffer<AvmFlavorSettings::FF>(vk_data);
-
-    auto circuit_size = uint64_t(vk_as_fields[0]);
-    auto num_public_inputs = uint64_t(vk_as_fields[1]);
-    std::span vk_span(vk_as_fields);
-
-    vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ",
-          circuit_size,
-          " (next or eq power: 2^",
-          numeric::get_msb(numeric::round_up_power_2(circuit_size)),
-          ")");
-    // WARNING: The number of public inputs in the verification key is always 0!
-    // Apparently we use some other mechanism to check the public inputs.
-    vinfo("num of pub inputs: ", num_public_inputs);
-
-    std::array<VerificationKey::Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> precomputed_cmts;
-    for (size_t i = 0; i < VerificationKey::NUM_PRECOMPUTED_COMMITMENTS; i++) {
-        // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
-        precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<VerificationKey::Commitment>(
-            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
-    }
-
-    auto vk = AVM_TRACK_TIME_V("proving/verify:verification_key",
-                               std::make_shared<VerificationKey>(circuit_size, num_public_inputs, precomputed_cmts));
-
+    auto vk = AVM_TRACK_TIME_V("proving/verify:create_verification_key", create_verification_key(vk_data));
     auto verifier = AVM_TRACK_TIME_V("proving/verify:construct_verifier", AvmVerifier(std::move(vk)));
     return AVM_TRACK_TIME_V("proving/verify_proof", verifier.verify_proof(proof, pi.to_columns()));
 }

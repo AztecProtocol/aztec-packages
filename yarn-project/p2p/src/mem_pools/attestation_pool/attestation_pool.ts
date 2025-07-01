@@ -8,7 +8,7 @@ import type { BlockAttestation } from '@aztec/stdlib/p2p';
  */
 export interface AttestationPool {
   /**
-   * AddAttestation
+   * AddAttestations
    *
    * @param attestations - Attestations to add into the pool
    */
@@ -50,7 +50,17 @@ export interface AttestationPool {
   deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void>;
 
   /**
-   * Get Attestations for slot
+   * Get all Attestations for all proposals for a given slot
+   *
+   * Retrieve all of the attestations observed pertaining to a given slot
+   *
+   * @param slot - The slot to query
+   * @return BlockAttestations
+   */
+  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+
+  /**
+   * Get Attestations for slot and given proposal
    *
    * Retrieve all of the attestations observed pertaining to a given slot
    *
@@ -58,5 +68,8 @@ export interface AttestationPool {
    * @param proposalId - The proposal to query
    * @return BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+  getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+
+  /** Returns whether the pool is empty. */
+  isEmpty(): Promise<boolean>;
 }

@@ -1,0 +1,53 @@
+aztec:
+  slotDuration: 36
+  epochDuration: 32
+  proofSubmissionWindow: 32
+  realProofs: false
+  testAccounts: true
+  sponsoredFPC: true
+
+ethereum:
+  acceleratedTestDeployments: true
+  blockTime: 12
+
+telemetry:
+  enabled: false
+
+validator:
+  replicas: 4
+  gke:
+    spotEnabled: false
+  validator:
+    disabled: false
+  sequencer:
+    enforceTimeTable: true
+    maxTxsPerBlock: 40
+
+fullNode:
+  enabled: false
+  gke:
+    spotEnabled: false
+
+bot:
+  followChain: "PENDING"
+  enabled: false
+  txIntervalSeconds: 1
+  gke:
+    spotEnabled: false
+
+bootNode:
+  gke:
+    spotEnabled: false
+
+proverAgent:
+  replicas: 2
+  gke:
+    spotEnabled: false
+
+proverBroker:
+  gke:
+    spotEnabled: false
+
+proverNode:
+  gke:
+    spotEnabled: false

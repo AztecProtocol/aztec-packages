@@ -6,9 +6,6 @@ aztec:
   numberOfDefaultAccounts: 0
   l1Salt: ""
 
-network:
-  setupL2Contracts: false
-
 ethereum:
   chainId: "11155111"
   l1GasPriceMax: 500

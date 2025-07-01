@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
@@ -10,12 +10,33 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
 
-  constructor(telemetry: TelemetryClient = getTelemetryClient(), private log = createLogger('p2p:attestation_pool')) {
+  constructor(
+    telemetry: TelemetryClient = getTelemetryClient(),
+    private log = createLogger('p2p:attestation_pool'),
+  ) {
     this.attestations = new Map();
-    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
 
-  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+  private poolStats: PoolStatsCallback = () => {
+    return Promise.resolve({
+      itemCount: this.attestations.size,
+    });
+  };
+
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.attestations.size === 0);
+  }
+
+  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    return Promise.resolve(
+      Array.from(this.attestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>
+        Array.from(proposalAttestationMap.values()),
+      ),
+    );
+  }
+
+  public getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
     const slotAttestationMap = this.attestations.get(slot);
     if (slotAttestationMap) {
       const proposalAttestationMap = slotAttestationMap.get(proposalId);
@@ -26,23 +47,26 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
-  public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+      const slotNumber = attestation.payload.header.slotNumber;
 
       const proposalId = attestation.archive.toString();
-      const address = await attestation.getSender();
+      const address = attestation.getSender();
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
       const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
       proposalAttestationMap.set(address.toString(), attestation);
 
-      this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+      this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
+        signature: attestation.signature.toString(),
+        slotNumber,
+        address,
+        proposalId,
+      });
     }
 
-    // TODO: set these to pending or something ????
-    this.metrics.recordAddedObjects(attestations.length);
     return Promise.resolve();
   }
 
@@ -86,7 +110,6 @@ export class InMemoryAttestationPool implements AttestationPool {
     this.attestations.delete(slot);
     this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
 
-    this.metrics.recordRemovedObjects(numberOfAttestations);
     return Promise.resolve();
   }
 
@@ -99,27 +122,25 @@ export class InMemoryAttestationPool implements AttestationPool {
         slotAttestationMap.delete(proposalId);
 
         this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-        this.metrics.recordRemovedObjects(numberOfAttestations);
       }
     }
     return Promise.resolve();
   }
 
-  public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
-      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
+      const slotNumber = attestation.payload.header.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
       if (slotAttestationMap) {
         const proposalId = attestation.archive.toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
         if (proposalAttestationMap) {
-          const address = await attestation.getSender();
+          const address = attestation.getSender();
           proposalAttestationMap.delete(address.toString());
           this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
         }
       }
     }
-    this.metrics.recordRemovedObjects(attestations.length);
     return Promise.resolve();
   }
 }

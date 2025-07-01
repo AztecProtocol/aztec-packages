@@ -1,4 +1,6 @@
 #include "g1.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -418,3 +420,11 @@ TEST(g1, InitializationCheck)
     EXPECT_NO_THROW(write<g1::affine_element>({}));
 }
 #endif
+
+TEST(g1, CheckPrecomputedGenerators)
+{
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup table offset generator", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "biggroup offset generator", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1UL>()));
+    ASSERT_TRUE((bb::check_precomputed_generators<g1, "test generators", 2UL>()));
+}

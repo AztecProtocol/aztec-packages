@@ -8,16 +8,17 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import type { UltraHonkFlavor } from '../honk.js';
-import { CLIENT_IVC_PROOF_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
+export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
+export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
-export const AVM_HINTS_FILENAME = 'avm_hints.bin';
+export const CLIENT_IVC_PROOF_FILE_NAME = 'proof';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -31,7 +32,7 @@ export type BBSuccess = {
   /** Full path of the public key. */
   pkPath?: string;
   /** Base directory for the VKs (raw, fields). */
-  vkPath?: string;
+  vkDirectoryPath?: string;
   /** Full path of the proof. */
   proofPath?: string;
   /** Full path of the contract. */
@@ -47,8 +48,6 @@ export type BBFailure = {
 };
 
 export type BBResult = BBSuccess | BBFailure;
-
-export type VerificationFunction = typeof verifyProof | typeof verifyAvmProof;
 
 type BBExecResult = {
   status: BB_RESULT;
@@ -71,13 +70,23 @@ export function executeBB(
   command: string,
   args: string[],
   logger: LogFn,
+  concurrency?: number,
   timeout?: number,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
-    const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
+
+    const env = envWithoutConcurrency;
+    // We prioritise the concurrency argument if provided and > 0
+    if (concurrency && concurrency > 0) {
+      env.HARDWARE_CONCURRENCY = concurrency.toString();
+    } else if (process.env.HARDWARE_CONCURRENCY) {
+      env.HARDWARE_CONCURRENCY = process.env.HARDWARE_CONCURRENCY;
+    }
+
+    logger(`BB concurrency: ${env.HARDWARE_CONCURRENCY}`);
     logger(`Executing BB with: ${pathToBB} ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
@@ -118,14 +127,14 @@ export function executeBB(
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
-  bytecodeStackPath: string,
-  witnessStackPath: string,
+  inputsPath: string,
   log: LogFn,
+  writeVk = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -142,28 +151,16 @@ export async function executeBbClientIvcProof(
 
   try {
     // Write the bytecode to the working directory
-    log(`bytecodePath ${bytecodeStackPath}`);
-    log(`outputPath ${outputPath}`);
-    const args = [
-      '-o',
-      outputPath,
-      '-b',
-      bytecodeStackPath,
-      '-w',
-      witnessStackPath,
-      '-v',
-      '--scheme',
-      'client_ivc',
-      '--input_type',
-      'runtime_stack',
-      '--write_vk',
-    ];
-
+    log(`inputsPath ${inputsPath}`);
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`bb - ${message}`);
     };
 
+    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
+    if (writeVk) {
+      args.push('--write_vk');
+    }
     const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 
@@ -173,7 +170,7 @@ export async function executeBbClientIvcProof(
         durationMs,
         proofPath: `${outputPath}`,
         pkPath: undefined,
-        vkPath: `${outputPath}`,
+        vkDirectoryPath: `${outputPath}`,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -194,6 +191,9 @@ function getArgs(flavor: UltraHonkFlavor) {
     }
     case 'ultra_keccak_honk': {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'keccak'];
+    }
+    case 'ultra_starknet_honk': {
+      return ['--scheme', 'ultra_honk', '--oracle_hash', 'starknet'];
     }
     case 'ultra_rollup_honk': {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation'];
@@ -220,12 +220,12 @@ export async function generateProof(
   recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
-  log: LogFn,
+  log: Logger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -246,7 +246,9 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
+    // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
+      '--disable_zk',
       '--output_format',
       'bytes_and_fields',
       '--write_vk',
@@ -261,9 +263,14 @@ export async function generateProof(
     if (recursive) {
       args.push('--init_kzg_accumulator');
     }
+    const loggingArg = log.level === 'debug' || log.level === 'trace' ? '-d' : log.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
+    }
+
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`${circuitName} BB out - ${message}`);
+      log.info(`${circuitName} BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
@@ -274,7 +281,7 @@ export async function generateProof(
         durationMs: duration,
         proofPath: `${outputPath}`,
         pkPath: undefined,
-        vkPath: `${outputPath}`,
+        vkDirectoryPath: `${outputPath}`,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -303,7 +310,7 @@ export async function generateTubeProof(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -342,7 +349,7 @@ export async function generateTubeProof(
         durationMs,
         proofPath: outputPath,
         pkPath: undefined,
-        vkPath: outputPath,
+        vkDirectoryPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -362,19 +369,21 @@ export async function generateTubeProof(
  * @param pathToBB - The full path to the bb binary
  * @param workingDirectory - A working directory for use by bb
  * @param input - The inputs for the public function to be proven
- * @param log - A logging function
+ * @param logger - A logging function
+ * @param checkCircuitOnly - A boolean to toggle a "check-circuit only" operation instead of proving.
  * @returns An object containing a result indication, the location of the proof and the duration taken
  */
-export async function generateAvmProofV2(
+export async function generateAvmProof(
   pathToBB: string,
   workingDirectory: string,
   input: AvmCircuitInputs,
   logger: Logger,
+  checkCircuitOnly: boolean = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -402,107 +411,19 @@ export async function generateAvmProofV2(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
-    const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
+    const args = checkCircuitOnly ? ['--avm-inputs', avmInputsPath] : ['--avm-inputs', avmInputsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
       args.push(loggingArg);
     }
     const timer = new Timer();
-    const logFunction = (message: string) => {
-      logger.verbose(`AvmCircuit (prove) BB out - ${message}`);
-    };
-    const result = await executeBB(pathToBB, 'avm2_prove', args, logFunction);
-    const duration = timer.ms();
 
-    if (result.status == BB_RESULT.SUCCESS) {
-      return {
-        status: BB_RESULT.SUCCESS,
-        durationMs: duration,
-        proofPath: join(outputPath, PROOF_FILENAME),
-        pkPath: undefined,
-        vkPath: outputPath,
-      };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for generating AVM proofs (or doing check-circuit).
- * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - A working directory for use by bb
- * @param bytecode - The AVM bytecode for the public function to be proven (expected to be decompressed)
- * @param log - A logging function
- * @returns An object containing a result indication, the location of the proof and the duration taken
- */
-export async function generateAvmProof(
-  pathToBB: string,
-  workingDirectory: string,
-  _input: AvmCircuitInputs,
-  logger: Logger,
-  checkCircuitOnly: boolean = false,
-): Promise<BBFailure | BBSuccess> {
-  // Check that the working directory exists
-  try {
-    await fs.access(workingDirectory);
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
-  }
-
-  // Paths for the inputs
-  const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
-  const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
-
-  // The proof is written to e.g. /workingDirectory/proof
-  const outputPath = workingDirectory;
-
-  const filePresent = async (file: string) =>
-    await fs
-      .access(file, fs.constants.R_OK)
-      .then(_ => true)
-      .catch(_ => false);
-
-  const binaryPresent = await filePresent(pathToBB);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    // Write the inputs to the working directory.
-
-    // WARNING: Not writing the inputs since VM1 is disabled!
-    // await fs.writeFile(publicInputsPath, input.publicInputs.toBuffer());
-    // if (!(await filePresent(publicInputsPath))) {
-    //   return { status: BB_RESULT.FAILURE, reason: `Could not write publicInputs at ${publicInputsPath}` };
-    // }
-
-    // await fs.writeFile(avmHintsPath, input.avmHints.toBuffer());
-    // if (!(await filePresent(avmHintsPath))) {
-    //   return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
-    // }
-
-    const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
-    const loggingArg =
-      logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
-    if (loggingArg !== '') {
-      args.push(loggingArg);
-    }
-
-    const timer = new Timer();
-    const cmd = checkCircuitOnly ? 'check_circuit' : 'prove';
+    const cmd = checkCircuitOnly ? 'avm_check_circuit' : 'avm_prove';
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, `avm_${cmd}`, args, logFunction);
+    const result = await executeBB(pathToBB, cmd, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -511,7 +432,7 @@ export async function generateAvmProof(
         durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: outputPath,
+        vkDirectoryPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -550,24 +471,7 @@ export async function verifyProof(
   );
 }
 
-/**
- * Used for verifying proofs of the AVM
- * @param pathToBB - The full path to the bb binary
- * @param proofFullPath - The full path to the proof to be verified
- * @param verificationKeyPath - The full path to the circuit verification key
- * @param log - A logging function
- * @returns An object containing a result indication and duration taken
- */
 export async function verifyAvmProof(
-  pathToBB: string,
-  proofFullPath: string,
-  verificationKeyPath: string,
-  logger: Logger,
-): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', logger);
-}
-
-export async function verifyAvmProofV2(
   pathToBB: string,
   workingDirectory: string,
   proofFullPath: string,
@@ -589,7 +493,7 @@ export async function verifyAvmProofV2(
     return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
   }
 
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm2_verify', logger, [
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'avm_verify', logger, [
     '--avm-public-inputs',
     avmInputsPath,
   ]);
@@ -601,6 +505,7 @@ export async function verifyAvmProofV2(
  * @param pathToBB - The full path to the bb binary
  * @param targetPath - The path to the folder with the proof, accumulator, and verification keys
  * @param log - A logging function
+ * @param concurrency - The number of threads to use for the verification
  * @returns An object containing a result indication and duration taken
  */
 export async function verifyClientIvcProof(
@@ -608,6 +513,7 @@ export async function verifyClientIvcProof(
   proofPath: string,
   keyPath: string,
   log: LogFn,
+  concurrency = 1,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
@@ -618,10 +524,11 @@ export async function verifyClientIvcProof(
   }
 
   try {
-    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath];
+    const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
-    const result = await executeBB(pathToBB, command, args, log);
+
+    const result = await executeBB(pathToBB, command, args, log, concurrency);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };
@@ -650,7 +557,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify' | 'avm_verify' | 'avm2_verify',
+  command: 'verify' | 'avm_verify',
   logger: Logger,
   extraArgs: string[] = [],
 ): Promise<BBFailure | BBSuccess> {
@@ -667,12 +574,26 @@ async function verifyProofInternal(
   };
 
   try {
-    const args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    let args;
+
+    if (command == 'verify') {
+      // Specify the public inputs path in the case of UH verification.
+      // Take proofFullPath and remove the suffix past the / to get the directory.
+      const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
+      const publicInputsFullPath = join(proofDir, '/public_inputs');
+      logger.debug(`public inputs path: ${publicInputsFullPath}`);
+
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, '--disable_zk', ...extraArgs];
+    } else {
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    }
+
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
       args.push(loggingArg);
     }
+
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, logFunction);
     const duration = timer.ms();
@@ -763,7 +684,7 @@ export async function computeGateCountForCircuit(
   // Check that the working directory exists
   try {
     await fs.access(workingDirectory);
-  } catch (error) {
+  } catch {
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
@@ -855,7 +776,7 @@ async function fsCache<T>(
 
   try {
     await fs.writeFile(cacheFilePath, expectedCacheKey);
-  } catch (err) {
+  } catch {
     logger(`Couldn't write cache data to ${cacheFilePath}. Skipping cache...`);
     // ignore
   }

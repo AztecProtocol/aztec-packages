@@ -1,33 +1,40 @@
 import {
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { assertLength } from '@aztec/foundation/serialize';
-import { type AvmCircuitPublicInputs, AvmExecutionHints, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import {
+  AvmAccumulatedData,
+  AvmAccumulatedDataArrayLengths,
+  AvmCircuitPublicInputs,
+  PublicDataWrite,
+  RevertCode,
+  clampGasSettingsForAVM,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
-import { computeTransactionFee } from '@aztec/stdlib/fees';
+import { computeEffectiveGasFees, computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
+  PrivateToPublicAccumulatedData,
   PublicCallRequest,
+  PublicCallRequestArrayLengths,
   countAccumulatedItems,
-  mergeAccumulatedData,
 } from '@aztec/stdlib/kernel';
+import { PublicLog } from '@aztec/stdlib/logs';
+import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
   PublicCallRequestWithCalldata,
-  type StateReference,
   TreeSnapshots,
   type Tx,
   TxExecutionPhase,
@@ -37,11 +44,10 @@ import {
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import type { PublicContractsDBInterface } from '../../server.js';
-import { AvmPersistableStateManager } from '../avm/index.js';
-import { HintingPublicContractsDB } from '../hinting_db_sources.js';
+import type { PublicContractsDBInterface } from '../db_interfaces.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
-import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
+import { SideEffectTrace } from '../side_effect_trace.js';
+import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { getCallRequestsWithCalldataByPhase } from '../utils.js';
 
 /**
@@ -61,15 +67,16 @@ export class PublicTxContext {
   private revertCode: RevertCode = RevertCode.OK;
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
-
   private constructor(
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
+    private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
-    private readonly startStateReference: StateReference,
     private readonly gasSettings: GasSettings,
+    private readonly clampedGasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
+    private readonly gasAllocatedToPublicTeardown: Gas,
     private readonly setupCallRequests: PublicCallRequestWithCalldata[],
     private readonly appLogicCallRequests: PublicCallRequestWithCalldata[],
     private readonly teardownCallRequests: PublicCallRequestWithCalldata[],
@@ -77,7 +84,6 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
     private readonly trace: SideEffectTrace,
-    public readonly hints: AvmExecutionHints, // This is public due to enqueued call hinting.
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
   }
@@ -91,47 +97,37 @@ export class PublicTxContext {
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
-      /*publicDataWrites*/ 0,
-      /*protocolPublicDataWrites*/ 0,
-      /*noteHashes*/ 0,
-      /*nullifiers=*/ 0,
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
-      /*publicLogs*/ 0,
-    );
-
-    const trace = new SideEffectTrace(/*startSideEffectCounter=*/ 0, previousAccumulatedDataArrayLengths);
+    const trace = new SideEffectTrace();
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
-    // We wrap the DB to collect AVM hints.
-    const hints = new AvmExecutionHints();
-    const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
-    // TODO: Wrap merkle db.
-
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = AvmPersistableStateManager.create(
+    const txStateManager = PublicPersistableStateManager.create(
       treesDB,
-      hintingContractsDB,
+      contractsDB,
       trace,
       doMerkleOperations,
       firstNullifier,
-      globalVariables.blockNumber.toNumber(),
+      globalVariables.timestamp,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
     // Gas allocated to public is "whatever's left" after private, but with some max applied.
-    const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
+    const clampedGasSettings = clampGasSettingsForAVM(gasSettings, gasUsedByPrivate);
+    const gasAllocatedToPublic = clampedGasSettings.gasLimits.sub(gasUsedByPrivate);
+    const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
 
     return new PublicTxContext(
       await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
+      await txStateManager.getTreeSnapshots(),
       globalVariables,
-      await treesDB.getStateReference(),
       gasSettings,
+      clampedGasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
+      gasAllocatedToPublicTeardown,
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.TEARDOWN),
@@ -139,7 +135,6 @@ export class PublicTxContext {
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
       trace,
-      hints,
     );
   }
 
@@ -161,7 +156,7 @@ export class PublicTxContext {
    * NOTE: this does not "halt" the entire transaction execution.
    */
   revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
+    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason?.message}`);
 
     if (revertReason && !this.revertReason) {
       // don't override revertReason
@@ -228,7 +223,8 @@ export class PublicTxContext {
    */
   getGasLeftAtPhase(phase: TxExecutionPhase): Gas {
     if (phase === TxExecutionPhase.TEARDOWN) {
-      return applyMaxToAvailableGas(this.gasSettings.teardownGasLimits);
+      const gasLeftForPublicTeardown = this.gasAllocatedToPublicTeardown.sub(this.teardownGasUsed);
+      return gasLeftForPublicTeardown;
     } else {
       const gasLeftForPublic = this.gasAllocatedToPublic.sub(this.gasUsedByPublic);
       return gasLeftForPublic;
@@ -308,110 +304,123 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  public async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
+  public async generateAvmCircuitPublicInputs(): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const stateManager = this.state.getActiveStateManager();
 
-    const startTreeSnapshots = new TreeSnapshots(
-      this.startStateReference.l1ToL2MessageTree,
-      this.startStateReference.partial.noteHashTree,
-      this.startStateReference.partial.nullifierTree,
-      this.startStateReference.partial.publicDataTree,
+    // We get the side effects from the AVM.
+    // The AVM will already have handled the conditional insertion of most private side-effects.
+    // (depending on the revert code of each stage). Only l2ToL1Msgs and publicLogs still need to be "merged".
+    const {
+      publicDataWrites: avmPublicDataWrites,
+      noteHashes: avmNoteHashes,
+      nullifiers: avmNullifiers,
+      l2ToL1Msgs: avmL2ToL1Msgs,
+      publicLogs: avmPublicLogs,
+    } = this.trace.getSideEffects();
+
+    // Private generates PrivateLogs, and public execution generates PublicLogs.
+    // Since these are two different categories, they should not be merged.
+    const finalPublicLogs = avmPublicLogs;
+
+    // We squash public data writes.
+    // Maps slot to value. Maps in TS are iterable in insertion order, which is exactly what we want for
+    // squashing "to the left", where the first occurrence of a slot uses the value of the last write to it,
+    // and the rest occurrences are omitted.
+    // Note: you can't write public state from private, so we only squash what we got from the AVM.
+    const finalPublicDataWrites = (() => {
+      const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
+      for (const publicDataWrite of avmPublicDataWrites) {
+        squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.newValue);
+      }
+      return Array.from(squashedPublicDataWrites.entries()).map(
+        ([slot, value]) => new PublicDataWrite(new Fr(slot), value),
+      );
+    })();
+
+    const accumulatedData = new AvmAccumulatedData(
+      /*noteHashes=*/ padArrayEnd(
+        avmNoteHashes.map(n => n.value),
+        Fr.zero(),
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      /*nullifiers=*/ padArrayEnd(
+        avmNullifiers.map(n => n.value),
+        Fr.zero(),
+        MAX_NULLIFIERS_PER_TX,
+      ),
+      /*l2ToL1Msgs=*/ padArrayEnd(avmL2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+      /*publicLogs=*/ padArrayEnd(finalPublicLogs, PublicLog.empty(), MAX_PUBLIC_LOGS_PER_TX),
+      /*publicDataWrites=*/ padArrayEnd(
+        finalPublicDataWrites,
+        PublicDataWrite.empty(),
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      ),
     );
 
-    // Will be patched/padded at the end of this fn
-    const endTreeSnapshots = new TreeSnapshots(
-      endStateReference.l1ToL2MessageTree,
-      endStateReference.partial.noteHashTree,
-      endStateReference.partial.nullifierTree,
-      endStateReference.partial.publicDataTree,
-    );
+    // Now we finally have enough information to pad the trees.
+    // NOTE(fcarreiro): a bit weird that a method that generates the PIs does this,
+    // but we do need the end tree snapshots. We can consider moving things to the caller.
+    const numNoteHashesToPad = MAX_NOTE_HASHES_PER_TX - avmNoteHashes.length;
+    const numNullifiersToPad = MAX_NULLIFIERS_PER_TX - avmNullifiers.length;
+    await stateManager.padTree(MerkleTreeId.NOTE_HASH_TREE, numNoteHashesToPad);
+    await stateManager.padTree(MerkleTreeId.NULLIFIER_TREE, numNullifiersToPad);
+    const endTreeSnapshots = await stateManager.getTreeSnapshots();
 
-    const avmCircuitPublicInputs = this.trace.toAvmCircuitPublicInputs(
-      this.globalVariables,
-      startTreeSnapshots,
-      /*startGasUsed=*/ this.gasUsedByPrivate,
-      this.gasSettings,
-      this.feePayer,
-      this.setupCallRequests.map(r => r.request),
-      this.appLogicCallRequests.map(r => r.request),
-      /*teardownCallRequest=*/ this.teardownCallRequests.length
-        ? this.teardownCallRequests[0].request
-        : PublicCallRequest.empty(),
-      endTreeSnapshots,
-      /*endGasUsed=*/ this.getTotalGasUsed(),
-      /*transactionFee=*/ this.getTransactionFeeUnsafe(),
-      /*reverted=*/ !this.revertCode.isOK(),
-    );
-
-    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+    // This converts the private accumulated data to the avm accumulated data format.
+    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
+      new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
+    const getPreviousAccumulatedDataArrayLengths = (from: PrivateToPublicAccumulatedData) =>
       new PrivateToAvmAccumulatedDataArrayLengths(
         countAccumulatedItems(from.noteHashes),
         countAccumulatedItems(from.nullifiers),
         countAccumulatedItems(from.l2ToL1Msgs),
       );
-    const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
-      new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
-    // Temporary overrides as these entries aren't yet populated in trace
-    avmCircuitPublicInputs.previousNonRevertibleAccumulatedDataArrayLengths = getArrayLengths(
-      this.nonRevertibleAccumulatedDataFromPrivate,
-    );
-    avmCircuitPublicInputs.previousRevertibleAccumulatedDataArrayLengths = getArrayLengths(
-      this.revertibleAccumulatedDataFromPrivate,
-    );
-    avmCircuitPublicInputs.previousNonRevertibleAccumulatedData = convertAccumulatedData(
-      this.nonRevertibleAccumulatedDataFromPrivate,
-    );
-    avmCircuitPublicInputs.previousRevertibleAccumulatedData = convertAccumulatedData(
-      this.revertibleAccumulatedDataFromPrivate,
-    );
+    const getAvmAccumulatedDataArrayLengths = (from: AvmAccumulatedData) =>
+      new AvmAccumulatedDataArrayLengths(
+        from.noteHashes.length,
+        from.nullifiers.length,
+        from.l2ToL1Msgs.length,
+        from.publicLogs.length,
+        from.publicDataWrites.length,
+      );
 
-    const msgsFromPrivate = this.revertCode.isOK()
-      ? mergeAccumulatedData(
-          avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs,
-          avmCircuitPublicInputs.previousRevertibleAccumulatedData.l2ToL1Msgs,
-        )
-      : avmCircuitPublicInputs.previousNonRevertibleAccumulatedData.l2ToL1Msgs;
-    avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs = assertLength(
-      mergeAccumulatedData(msgsFromPrivate, avmCircuitPublicInputs.accumulatedData.l2ToL1Msgs),
-      MAX_L2_TO_L1_MSGS_PER_TX,
+    return new AvmCircuitPublicInputs(
+      this.globalVariables,
+      this.startTreeSnapshots,
+      /*startGasUsed=*/ this.gasUsedByPrivate,
+      this.clampedGasSettings,
+      computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
+      this.feePayer,
+      /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
+        this.setupCallRequests.length,
+        this.appLogicCallRequests.length,
+        this.teardownCallRequests.length > 0,
+      ),
+      /*publicSetupCallRequests=*/ padArrayEnd(
+        this.setupCallRequests.map(r => r.request),
+        PublicCallRequest.empty(),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+      /*publicAppLogicCallRequests=*/ padArrayEnd(
+        this.appLogicCallRequests.map(r => r.request),
+        PublicCallRequest.empty(),
+        MAX_ENQUEUED_CALLS_PER_TX,
+      ),
+      /*publicTeardownCallRequests=*/ this.teardownCallRequests.length > 0
+        ? this.teardownCallRequests[0].request
+        : PublicCallRequest.empty(),
+      getPreviousAccumulatedDataArrayLengths(this.nonRevertibleAccumulatedDataFromPrivate),
+      getPreviousAccumulatedDataArrayLengths(this.revertibleAccumulatedDataFromPrivate),
+      convertAccumulatedData(this.nonRevertibleAccumulatedDataFromPrivate),
+      convertAccumulatedData(this.revertibleAccumulatedDataFromPrivate),
+      endTreeSnapshots,
+      this.getTotalGasUsed(),
+      getAvmAccumulatedDataArrayLengths(accumulatedData),
+      accumulatedData,
+      /*transactionFee=*/ this.getTransactionFeeUnsafe(),
+      /*isReverted=*/ !this.revertCode.isOK(),
     );
-
-    // Maps slot to value. Maps in TS are iterable in insertion order, which is exactly what we want for
-    // squashing "to the left", where the first occurrence of a slot uses the value of the last write to it,
-    // and the rest occurrences are omitted
-    const squashedPublicDataWrites: Map<bigint, Fr> = new Map();
-    for (const publicDataWrite of avmCircuitPublicInputs.accumulatedData.publicDataWrites) {
-      squashedPublicDataWrites.set(publicDataWrite.leafSlot.toBigInt(), publicDataWrite.value);
-    }
-
-    avmCircuitPublicInputs.accumulatedData.publicDataWrites = padArrayEnd(
-      Array.from(squashedPublicDataWrites.entries()).map(([slot, value]) => new PublicDataWrite(new Fr(slot), value)),
-      PublicDataWrite.empty(),
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    );
-    const numNoteHashesToPad =
-      MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager
-      .deprecatedGetTreesForPIGeneration()
-      .appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
-    const numNullifiersToPad =
-      MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.deprecatedGetTreesForPIGeneration().batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
-
-    const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
-    avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
-      paddedState.l1ToL2MessageTree,
-      paddedState.partial.noteHashTree,
-      paddedState.partial.nullifierTree,
-      paddedState.partial.publicDataTree,
-    );
-
-    return avmCircuitPublicInputs;
   }
 }
 
@@ -428,9 +437,9 @@ export class PublicTxContext {
 class PhaseStateManager {
   private log: Logger;
 
-  private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
+  private currentlyActiveStateManager: PublicPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {
+  constructor(private readonly txStateManager: PublicPersistableStateManager) {
     this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 
@@ -463,14 +472,4 @@ class PhaseStateManager {
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }
-}
-
-/**
- * Apply L2 gas maximum.
- */
-function applyMaxToAvailableGas(availableGas: Gas) {
-  return new Gas(
-    /*daGas=*/ availableGas.daGas,
-    /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
-  );
 }

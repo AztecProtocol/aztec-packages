@@ -2,7 +2,10 @@
  * A Buffer-like class that automatically advances the position.
  */
 export class BufferCursor {
-  constructor(private _buffer: Buffer, private _position: number = 0) {}
+  constructor(
+    private _buffer: Buffer,
+    private _position: number = 0,
+  ) {}
 
   public position(): number {
     return this._position;

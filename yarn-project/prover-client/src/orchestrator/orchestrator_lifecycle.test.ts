@@ -1,4 +1,6 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -28,7 +30,7 @@ describe('prover/orchestrator/lifecycle', () => {
   describe('lifecycle', () => {
     it('cancels proving requests', async () => {
       const prover: ServerCircuitProver = new TestCircuitProver();
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover);
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover, Fr.ONE);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -37,8 +39,8 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-
-      orchestrator.startNewEpoch(1, 1, 1);
+      const emptyChallenges = await BatchedBlob.precomputeEmptyBatchedBlobChallenges();
+      orchestrator.startNewEpoch(1, 1, 1, emptyChallenges);
       await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await sleep(1);

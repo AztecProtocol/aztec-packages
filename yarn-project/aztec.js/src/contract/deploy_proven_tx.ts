@@ -1,6 +1,6 @@
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { ProvingStats, TxProvingResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import type { Contract } from './contract.js';
@@ -13,21 +13,20 @@ import { ProvenTx } from './proven_tx.js';
 export class DeployProvenTx<TContract extends Contract = Contract> extends ProvenTx {
   constructor(
     wallet: Wallet,
-    tx: Tx,
+    txProvingResult: TxProvingResult,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
+    stats?: ProvingStats,
   ) {
-    super(wallet, tx);
+    super(wallet, txProvingResult.toTx(), txProvingResult.getOffchainEffects(), stats);
   }
 
   /**
    * Sends the transaction to the network via the provided wallet.
    */
   public override send(): DeploySentTx<TContract> {
-    const promise = (() => {
-      return this.wallet.sendTx(this);
-    })();
+    const sendTx = () => this.wallet.sendTx(this);
 
-    return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instanceGetter);
+    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, this.instanceGetter);
   }
 }

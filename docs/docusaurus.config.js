@@ -2,15 +2,22 @@
 // Note: type annotations allow type checking and IDEs autocompletion
 
 const { themes } = require("prism-react-renderer");
+// @ts-ignore
 const lightTheme = themes.github;
+// @ts-ignore
 const darkTheme = themes.dracula;
 
+// @ts-ignore
 import math from "remark-math";
+// @ts-ignore
 import katex from "rehype-katex";
 
+// @ts-ignore
 const path = require("path");
+// @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const versions = require("./versions.json");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -55,9 +62,8 @@ const config = {
             );
           },
           routeBasePath: "/",
-          include: process.env.SHOW_PROTOCOL_SPECS
-            ? ['**/*.{md,mdx}']
-            : ['**/*.{md,mdx}', '!protocol-specs/**'],
+          include: ["**/*.{md,mdx}"],
+          exclude: !process.env.PROTOCOL_SPECS ? ["protocol-specs/**"] : [],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -70,6 +76,19 @@ const config = {
               },
             ],
           ],
+          includeCurrentVersion: false,
+          versions: (() => {
+            const versionObject = {};
+            if (process.env.ENV === "dev") {
+              return versionObject;
+            }
+            versions.map((version) => {
+              versionObject[version] = {
+                banner: "none",
+              };
+            });
+            return versionObject;
+          })(),
         },
         blog: false,
         theme: {
@@ -88,35 +107,6 @@ const config = {
     },
   ],
   plugins: [
-    async function loadVersions(context, options) {
-      // ...
-      return {
-        name: "load-versions",
-        async loadContent() {
-          try {
-            const aztecVersionPath = path.resolve(
-              __dirname,
-              "../.release-please-manifest.json"
-            );
-            const aztecVersion = JSON.parse(
-              fs.readFileSync(aztecVersionPath).toString()
-            )["."];
-            return {
-              "aztec-packages": `v${aztecVersion}`,
-            };
-          } catch (err) {
-            throw new Error(
-              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
-            );
-          }
-        },
-        async contentLoaded({ content, actions }) {
-          // await actions.createData("versions.json", JSON.stringify(content));
-          actions.setGlobalData({ versions: content });
-        },
-        /* other lifecycle API */
-      };
-    },
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -223,6 +213,11 @@ const config = {
         },
         items: [
           {
+            type: "docsVersionDropdown",
+            position: "left",
+            dropdownActiveClassDisabled: true,
+          },
+          {
             type: "doc",
             docId: "aztec/index",
             position: "left",
@@ -244,6 +239,11 @@ const config = {
           {
             to: "/developers/getting_started",
             label: "Install Sandbox",
+            position: "right",
+          },
+          {
+            to: "/try_testnet",
+            label: "Try Testnet",
             position: "right",
           },
           {
@@ -305,13 +305,6 @@ const config = {
                 label: "Roadmap",
                 className: "no-external-icon",
               },
-              ...(process.env.SHOW_PROTOCOL_SPECS ?
-              [{
-                type: "docSidebar",
-                sidebarId: "protocolSpecSidebar",
-                label: "Protocol Specification",
-                className: "no-external-icon",
-              }] : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
@@ -442,5 +435,19 @@ const config = {
       },
     }),
 };
+
+if (process.env.PROTOCOL_SPECS) {
+  //@ts-ignore
+  const index = config.themeConfig.navbar.items.findIndex(
+    (e) => e.type == "dropdown"
+  );
+
+  //@ts-ignore
+  config.themeConfig.navbar.items.splice(index, 0, {
+    type: "docSidebar",
+    sidebarId: "protocolSpecSidebar",
+    label: "Protocol Specification",
+  });
+}
 
 module.exports = config;

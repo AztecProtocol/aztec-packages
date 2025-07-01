@@ -7,17 +7,14 @@ CircuitBase::CircuitBase(std::unordered_map<uint32_t, std::string>& variable_nam
                          std::vector<uint32_t>& public_inps,
                          std::vector<uint32_t>& real_variable_index,
                          std::vector<uint32_t>& real_variable_tags,
-                         std::unordered_map<uint32_t, uint64_t>& range_tags,
                          Solver* solver,
                          TermType type,
                          const std::string& tag,
                          bool enable_optimizations)
     : variables(variables)
-    , public_inps(public_inps)
     , variable_names(variable_names)
     , real_variable_index(real_variable_index)
     , real_variable_tags(real_variable_tags)
-    , range_tags(range_tags)
     , enable_optimizations(enable_optimizations)
     , solver(solver)
     , type(type)
@@ -33,8 +30,9 @@ CircuitBase::CircuitBase(std::unordered_map<uint32_t, std::string>& variable_nam
 
     this->init();
 
-    for (const auto& i : this->public_inps) {
+    for (const auto& i : public_inps) {
         this->symbolic_vars[this->real_variable_index[i]] == this->variables[i];
+        this->public_inps.insert(i);
     }
 }
 

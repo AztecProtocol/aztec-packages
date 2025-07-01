@@ -1,6 +1,5 @@
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   L2_L1_MSGS_PREFIX,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -11,10 +10,8 @@ import {
   NOTES_PREFIX,
   NULLIFIERS_PREFIX,
   PRIVATE_LOGS_PREFIX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
   PUBLIC_LOGS_PREFIX,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
   REVERT_CODE_PREFIX,
   TX_FEE_PREFIX,
 } from '@aztec/constants';
@@ -209,7 +206,6 @@ export class TxEffect {
 
   /**
    * Computes txOutHash of this tx effect.
-   * TODO(#7218): Revert to fixed height tree for outbox
    * @dev Follows new_sha in variable_merkle_tree.nr
    */
   txOutHash() {
@@ -235,16 +231,34 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static async random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): Promise<TxEffect> {
+  static async random(
+    numPublicCallsPerTx = 3,
+    numPublicLogsPerCall = 1,
+    maxEffects: number | undefined = undefined,
+  ): Promise<TxEffect> {
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
-      makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
-      makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
-      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
-      makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
+      makeTuple(
+        maxEffects === undefined ? MAX_NOTE_HASHES_PER_TX : Math.min(maxEffects, MAX_NOTE_HASHES_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined ? MAX_NULLIFIERS_PER_TX : Math.min(maxEffects, MAX_NULLIFIERS_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined ? MAX_L2_TO_L1_MSGS_PER_TX : Math.min(maxEffects, MAX_L2_TO_L1_MSGS_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined
+          ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+          : Math.min(maxEffects, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+        PublicDataWrite.random,
+      ),
+      makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => PrivateLog.random()),
       await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, async () => await PublicLog.random()),
       await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),
     );
@@ -372,41 +386,20 @@ export class TxEffect {
       flattened.push(...this.l2ToL1Msgs);
     }
     if (this.publicDataWrites.length) {
-      flattened.push(this.toPrefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, this.publicDataWrites.length * 2));
-      flattened.push(...this.publicDataWrites.map(w => [w.leafSlot, w.value]).flat());
+      flattened.push(this.toPrefix(PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, this.publicDataWrites.length));
+      flattened.push(...this.publicDataWrites.flatMap(w => w.toBlobFields()));
     }
     if (this.privateLogs.length) {
-      const totalLogLen = this.privateLogs.reduce(
-        // +1 for length prefix
-        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
-        0,
-      );
-      flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, totalLogLen));
-      flattened.push(...this.privateLogs.flatMap(l => [new Fr(l.getEmittedLength()), ...l.getEmittedFields()]));
+      flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, this.privateLogs.length));
+      flattened.push(...this.privateLogs.flatMap(l => l.toBlobFields()));
     }
     if (this.publicLogs.length) {
-      const totalLogLen = this.publicLogs.reduce(
-        // +1 for length prefix
-        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 1),
-        0,
-      );
-      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, totalLogLen));
-      flattened.push(...this.publicLogs.flatMap(l => [new Fr(l.getEmittedLength()), ...l.getEmittedFields()]));
+      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, this.publicLogs.length));
+      flattened.push(...this.publicLogs.flatMap(l => l.toBlobFields()));
     }
     if (this.contractClassLogs.length) {
-      const totalLogLen = this.contractClassLogs.reduce(
-        // +2 for length prefix and contract address
-        (total, log) => total + (log.getEmittedLength() == 0 ? 0 : log.getEmittedLength() + 2),
-        0,
-      );
-      flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, totalLogLen));
-      flattened.push(
-        ...this.contractClassLogs.flatMap(l => [
-          new Fr(l.getEmittedLength()),
-          l.contractAddress.toField(),
-          ...l.getEmittedFields(),
-        ]),
-      );
+      flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.length));
+      flattened.push(...this.contractClassLogs.flatMap(l => l.toBlobFields()));
     }
 
     // The first value appended to each list of fields representing a tx effect is:
@@ -426,16 +419,20 @@ export class TxEffect {
         throw new Error('Invalid fields given to TxEffect.fromBlobFields(): Attempted to assign property twice.');
       }
     };
+
     const effect = this.empty();
-    if (!(fields instanceof FieldReader) && !fields.length) {
+    const reader = FieldReader.asReader(fields);
+    const totalFields = reader.remainingFields();
+    if (!totalFields) {
       return effect;
     }
-    const reader = FieldReader.asReader(fields);
+
     const firstField = reader.readField();
     if (!this.isFirstField(firstField)) {
       throw new Error('Invalid fields given to TxEffect.fromBlobFields(): First field invalid.');
     }
-    const { length: _, revertCode } = this.decodeFirstField(firstField);
+
+    const { length: fieldsToProcess, revertCode } = this.decodeFirstField(firstField);
     effect.revertCode = RevertCode.fromField(new Fr(revertCode));
 
     effect.txHash = new TxHash(reader.readField());
@@ -444,7 +441,9 @@ export class TxEffect {
     // NB: Fr.fromBuffer hangs here if you provide a buffer less than 32 in len
     // todo: try new Fr(prefixedFee.toBuffer().subarray(3))
     effect.transactionFee = Fr.fromBuffer(Buffer.concat([Buffer.alloc(3), prefixedFee.toBuffer().subarray(3)]));
-    while (!reader.isFinished()) {
+
+    let fieldsProcessed = totalFields - reader.remainingFields();
+    while (fieldsProcessed < fieldsToProcess) {
       const { type, length } = this.fromPrefix(reader.readField());
       switch (type) {
         case NOTES_PREFIX:
@@ -461,58 +460,29 @@ export class TxEffect {
           break;
         case PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: {
           ensureEmpty(effect.publicDataWrites);
-          const publicDataPairs = reader.readFieldArray(length);
-          for (let i = 0; i < length; i += 2) {
-            effect.publicDataWrites.push(new PublicDataWrite(publicDataPairs[i], publicDataPairs[i + 1]));
-          }
+          effect.publicDataWrites = Array.from({ length }, () => PublicDataWrite.fromBlobFields(reader));
           break;
         }
         case PRIVATE_LOGS_PREFIX: {
           ensureEmpty(effect.privateLogs);
-          const flatPrivateLogs = reader.readFieldArray(length);
-          let i = 0;
-          while (i < length) {
-            const logLen = flatPrivateLogs[i++].toNumber();
-            const logFields = flatPrivateLogs.slice(i, (i += logLen));
-            effect.privateLogs.push(
-              PrivateLog.fromFields(logFields.concat(new Array(PRIVATE_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO))),
-            );
-          }
+          effect.privateLogs = Array.from({ length }, () => PrivateLog.fromBlobFields(reader));
           break;
         }
         case PUBLIC_LOGS_PREFIX: {
           ensureEmpty(effect.publicLogs);
-          const flatPublicLogs = reader.readFieldArray(length);
-          let i = 0;
-          while (i < length) {
-            const logLen = flatPublicLogs[i++].toNumber();
-            const logFields = flatPublicLogs.slice(i, (i += logLen));
-            effect.publicLogs.push(
-              PublicLog.fromFields(logFields.concat(new Array(PUBLIC_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO))),
-            );
-          }
+          effect.publicLogs = Array.from({ length }, () => PublicLog.fromBlobFields(reader));
           break;
         }
         case CONTRACT_CLASS_LOGS_PREFIX: {
           ensureEmpty(effect.contractClassLogs);
-          const flatContractClassLogs = reader.readFieldArray(length);
-          let i = 0;
-          while (i < length) {
-            const logLen = flatContractClassLogs[i++].toNumber();
-            // +1 for address
-            const logFields = flatContractClassLogs.slice(i, (i += logLen + 1));
-            effect.contractClassLogs.push(
-              ContractClassLog.fromFields(
-                logFields.concat(new Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - logLen).fill(Fr.ZERO)),
-              ),
-            );
-          }
+          effect.contractClassLogs = Array.from({ length }, () => ContractClassLog.fromBlobFields(reader));
           break;
         }
         case REVERT_CODE_PREFIX:
         default:
           throw new Error(`Too many fields to decode given to TxEffect.fromBlobFields()`);
       }
+      fieldsProcessed = totalFields - reader.remainingFields();
     }
     return effect;
   }
@@ -551,16 +521,23 @@ export class TxEffect {
 
   [inspect.custom]() {
     return `TxEffect {
-      revertCode: ${this.revertCode},
+      revertCode: ${this.revertCode.getCode()},
       txHash: ${this.txHash},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
-      privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
-      publicLogs: [${this.publicLogs.map(l => l.toString()).join(', ')}],
-      contractClassLogs: [${this.contractClassLogs.map(l => l.toString()).join(', ')}],
+      privateLogs: [${this.privateLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      publicLogs: [${this.publicLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      contractClassLogs: [${this.contractClassLogs
+        .map(l =>
+          l
+            .toFields()
+            .map(f => f.toString())
+            .join(','),
+        )
+        .join(', ')}],
      }`;
   }
 

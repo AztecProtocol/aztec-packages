@@ -1,0 +1,95 @@
+{
+  "name": "@aztec/node-lib",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./actions": "./dest/actions/index.js",
+    "./config": "./dest/config/index.js"
+  },
+  "inherits": [
+    "../package.common.json"
+  ],
+  "scripts": {
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "bb": "node --no-warnings ./dest/bb/index.js",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/archiver": "workspace:^",
+    "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-sink": "workspace:^",
+    "@aztec/constants": "workspace:^",
+    "@aztec/epoch-cache": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/kv-store": "workspace:^",
+    "@aztec/merkle-tree": "workspace:^",
+    "@aztec/p2p": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/prover-client": "workspace:^",
+    "@aztec/sequencer-client": "workspace:^",
+    "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "@aztec/telemetry-client": "workspace:^",
+    "@aztec/validator-client": "workspace:^",
+    "@aztec/world-state": "workspace:^",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=20.10"
+  }
+}

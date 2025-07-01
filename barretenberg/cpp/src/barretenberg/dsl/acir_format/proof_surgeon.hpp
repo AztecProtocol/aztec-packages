@@ -1,10 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
@@ -17,7 +23,8 @@ class ProofSurgeon {
     // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
     static std::string to_json(const std::vector<bb::fr>& data)
     {
-        return format("[", bb::join(map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
+        return format(
+            "[", bb::join(bb::transform::map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
     }
 
   public:
@@ -28,15 +35,17 @@ class ProofSurgeon {
      * @param verification_key
      * @param toml_path
      */
+    template <typename VerificationKey>
     static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
-                                                            const auto& verification_key,
+                                                            const std::shared_ptr<VerificationKey>& verification_key,
                                                             bool ipa_accumulation)
     {
         // Convert verification key to fields
-        std::vector<FF> vkey_fields = verification_key.to_field_elements();
+        std::vector<FF> vkey_fields = verification_key->to_field_elements();
 
         // Get public inputs by cutting them out of the proof
-        size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t num_public_inputs_to_extract =
+            static_cast<uint32_t>(verification_key->num_public_inputs) - bb::PAIRING_POINTS_SIZE;
         if (ipa_accumulation) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }

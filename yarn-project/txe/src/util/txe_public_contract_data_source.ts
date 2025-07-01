@@ -13,6 +13,7 @@ import {
 import type { TXE } from '../oracle/txe_oracle.js';
 
 export class TXEPublicContractDataSource implements ContractDataSource {
+  #privateFunctionsRoot: Map<string, Buffer> = new Map();
   constructor(private txeOracle: TXE) {}
 
   getBlockNumber(): Promise<number> {
@@ -29,12 +30,18 @@ export class TXEPublicContractDataSource implements ContractDataSource {
       return;
     }
 
-    const privateFunctions = await Promise.all(
-      artifact.functions
-        .filter(fn => fn.functionType === FunctionType.PRIVATE)
-        .map(fn => getContractClassPrivateFunctionFromArtifact(fn)),
-    );
-    const privateFunctionsRoot = await computePrivateFunctionsRoot(privateFunctions);
+    let privateFunctionsRoot;
+    if (!this.#privateFunctionsRoot.has(id.toString())) {
+      const privateFunctions = await Promise.all(
+        artifact.functions
+          .filter(fn => fn.functionType === FunctionType.PRIVATE)
+          .map(fn => getContractClassPrivateFunctionFromArtifact(fn)),
+      );
+      privateFunctionsRoot = await computePrivateFunctionsRoot(privateFunctions);
+      this.#privateFunctionsRoot.set(id.toString(), privateFunctionsRoot.toBuffer());
+    } else {
+      privateFunctionsRoot = Fr.fromBuffer(this.#privateFunctionsRoot.get(id.toString())!);
+    }
 
     return {
       id,
@@ -43,7 +50,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
       privateFunctionsRoot,
       version: contractClass!.version,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
   }
 
@@ -70,7 +77,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return await this.txeOracle.getContractDataProvider().getDebugFunctionName(address, selector);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: []): Promise<void> {
+  registerContractFunctionSignatures(_signatures: []): Promise<void> {
     return Promise.resolve();
   }
 }

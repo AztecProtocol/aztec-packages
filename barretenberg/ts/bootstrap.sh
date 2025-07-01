@@ -12,7 +12,8 @@ function build {
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:wasm build:esm build:cjs build:browser
+    yarn build:wasm
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
   fi
 
@@ -31,7 +32,12 @@ function build {
 function test_cmds {
   cd dest/node
   for test in **/*.test.js; do
-    echo "$hash barretenberg/ts/scripts/run_test.sh $test"
+    local prefix=$hash
+    # Extra resource.
+    if [[ "$test" =~ ^examples/ ]]; then
+      prefix="$prefix:CPUS=16"
+    fi
+    echo "$prefix barretenberg/ts/scripts/run_test.sh $test"
   done
 }
 
@@ -41,7 +47,7 @@ function test {
 }
 
 function release {
-  deploy_npm $(dist_tag) ${REF_NAME#v}
+  retry "deploy_npm $(dist_tag) ${REF_NAME#v}"
 }
 
 case "$cmd" in
@@ -58,7 +64,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "bench")
+  bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
   test|test_cmds|release)

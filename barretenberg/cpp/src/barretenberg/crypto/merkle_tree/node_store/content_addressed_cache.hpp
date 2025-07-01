@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "./tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -19,17 +25,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-template <> struct std::hash<uint256_t> {
-    std::size_t operator()(const uint256_t& k) const { return k.data[0]; }
-};
-template <> struct std::hash<bb::fr> {
-    std::size_t operator()(const bb::fr& k) const
-    {
-        bb::numeric::uint256_t val(k);
-        return val.data[0];
-    }
-};
 
 namespace bb::crypto::merkle_tree {
 
@@ -55,6 +50,8 @@ template <typename LeafValueType> class ContentAddressedCache {
     void checkpoint();
     void revert();
     void commit();
+    void revert_all();
+    void commit_all();
 
     void reset(uint32_t depth);
     std::pair<bool, index_t> find_low_value(const uint256_t& new_leaf_key,
@@ -230,6 +227,19 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::com
     journals_.pop_back();
 }
 
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit_all()
+{
+    while (!journals_.empty()) {
+        commit();
+    }
+}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert_all()
+{
+    while (!journals_.empty()) {
+        revert();
+    }
+}
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::reset(uint32_t depth)
 {
     nodes_ = std::unordered_map<fr, NodePayload>();

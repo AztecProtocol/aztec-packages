@@ -11,6 +11,8 @@ import request from 'supertest';
 
 import { BlobscanBlockResponseSchema } from '../archive/blobscan_archive_client.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
+import { HttpBlobSinkClient } from '../client/http.js';
+import type { BlobSinkClientInterface } from '../client/interface.js';
 import { outboundTransform } from '../encoding/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
 import type { BlobSinkConfig } from './config.js';
@@ -20,9 +22,9 @@ describe('BlobSinkService', () => {
   let service: BlobSinkServer;
 
   const startServer = async (
-    config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient; l1Client: ViemPublicClient }> = {},
+    config: Partial<BlobSinkConfig & { httpClient: BlobSinkClientInterface; l1Client: ViemPublicClient }> = {},
   ) => {
-    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.blobArchiveClient, config.l1Client);
+    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.httpClient, config.l1Client);
     await service.start();
   };
 
@@ -84,11 +86,11 @@ describe('BlobSinkService', () => {
 
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
-      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob.evaluate().proof.toString('hex'));
 
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
+      expect(retrievedBlob2.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
 
     it('should retrieve specific indicies', async () => {
@@ -105,11 +107,11 @@ describe('BlobSinkService', () => {
       const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
-      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob.evaluate().proof.toString('hex'));
 
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
+      expect(retrievedBlob2.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
 
     it('should retrieve a single index', async () => {
@@ -122,7 +124,7 @@ describe('BlobSinkService', () => {
       const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
+      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
   });
 
@@ -228,7 +230,8 @@ describe('BlobSinkService', () => {
 
     beforeEach(async () => {
       archiveClient = mock<BlobArchiveClient>();
-      await startServer({ blobArchiveClient: archiveClient });
+      const httpClient = new HttpBlobSinkClient({}, { archiveClient });
+      await startServer({ httpClient });
     });
 
     it('should retrieve the blob from archive and store locally', async () => {
@@ -248,7 +251,7 @@ describe('BlobSinkService', () => {
         await Blob.fromEncodedBlobBuffer(hexToBuffer(getResponse.body.data[0].blob)),
         getResponse.body.data[0].index,
       );
-      expect(expectedBlobWithIndex).toEqual(retrievedBlobWithIndex);
+      expect(retrievedBlobWithIndex.toJSON()).toEqual(expectedBlobWithIndex.toJSON());
 
       // Re-fetching should not hit the archive client again
       const getResponse2 = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}`);

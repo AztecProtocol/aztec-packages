@@ -9,9 +9,10 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { PublicTxSimulationTester, SimpleContractDataSource } from '../../../server.js';
-import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
+import { PublicContractsDB } from '../../public_db_sources.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
+import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
 describe('Public Processor app tests: TokenContract', () => {
@@ -22,7 +23,6 @@ describe('Public Processor app tests: TokenContract', () => {
   const sender = AztecAddress.fromNumber(111);
 
   let token: ContractInstanceWithAddress;
-  let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -34,20 +34,20 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    treesDB = new PublicTreesDB(merkleTrees);
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
       globals,
-      treesDB,
+      guardedMerkleTrees,
       contractsDB,
       simulator,
       new TestDateProvider(),
       getTelemetryClient(),
     );
 
-    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
+    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);
@@ -59,7 +59,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const mintAmount = 1_000_000n;
     const transferAmount = 10n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
 
@@ -99,7 +99,7 @@ describe('Public Processor app tests: TokenContract', () => {
             {
               address: token.address,
               fnName: 'transfer_in_public',
-              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
             },
           ],
         ),

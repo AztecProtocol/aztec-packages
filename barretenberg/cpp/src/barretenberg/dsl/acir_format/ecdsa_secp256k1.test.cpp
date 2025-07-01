@@ -2,9 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 #include <gtest/gtest.h>
@@ -14,11 +12,10 @@ using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
 using curve_ct = stdlib::secp256k1<Builder>;
-using Composer = plonk::UltraComposer;
 
 class ECDSASecp256k1 : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, WitnessVector& witness_values)
@@ -125,16 +122,12 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 1);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 // Test that the verifier can create an ECDSA circuit.
@@ -178,7 +171,10 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false);
+    AcirProgram program{ constraint_system, /*witness=*/{} };
+    auto builder = create_circuit(program);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
 TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
@@ -226,12 +222,9 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 0);
 
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-    auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

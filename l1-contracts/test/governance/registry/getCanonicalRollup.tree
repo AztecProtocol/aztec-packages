@@ -1,0 +1,5 @@
+GetCanonicalRollupTest
+├── given no listed rollups
+│   └── it should revert
+└── given multiple listed rollups
+    └── it should return the newest

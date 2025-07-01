@@ -1,0 +1,10 @@
+[package]
+name = "lending_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+token = { path = "../token_contract" }
+price_feed = { path = "../price_feed_contract" }

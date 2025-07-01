@@ -112,8 +112,11 @@ prometheus:
 # Enable and configure Grafana
 # https://artifacthub.io/packages/helm/grafana/grafana
 grafana:
+  grafana.ini:
+    server:
+      domain:
   env:
-    PRODUCTION_NAMESPACES_REGEX: "devnet|master-rc-1|ignition-testnet"
+    PRODUCTION_NAMESPACES_REGEX: "alpha-testnet|alpha-testnet-provers|alpha-validators|alpha-validators2|devnet"
     SLACK_WEBHOOK_URL: "http://127.0.0.1" # dummy value
   datasources:
     datasources.yaml:
@@ -155,6 +158,14 @@ grafana:
           editable: true
           options:
             path: /var/lib/grafana/dashboards/metrics
+        - name: "cloudprover"
+          orgId: 1
+          folder: "Cloud Prover"
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/cloudprover
   # unfortunately, we can't use the `file` helper in values.yaml, so we have to inline the dashboard
   # json. This is a limitation of Helm.
   # See the install scripts: we inject the dashboard json into a copy of this file, which is the
@@ -164,3 +175,4 @@ grafana:
     default:
     aztec:
     metrics:
+    cloudprover:

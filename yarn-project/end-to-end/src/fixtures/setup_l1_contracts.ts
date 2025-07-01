@@ -1,7 +1,7 @@
 import type { Logger } from '@aztec/aztec.js';
 import { type DeployL1ContractsArgs, type L1ContractsConfig, deployL1Contracts } from '@aztec/ethereum';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import type { HDAccount, PrivateKeyAccount } from 'viem';
 import { foundry } from 'viem/chains';
@@ -12,14 +12,13 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: Logger,
-  args: Pick<DeployL1ContractsArgs, 'genesisArchiveRoot' | 'genesisBlockHash' | 'initialValidators'> &
-    L1ContractsConfig,
+  args: Pick<DeployL1ContractsArgs, 'genesisArchiveRoot' | 'initialValidators'> & L1ContractsConfig,
 ) => {
   const l1Data = await deployL1Contracts([l1RpcUrl], account, foundry, logger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     salt: undefined,
+    realVerifier: false,
     ...args,
   });
 

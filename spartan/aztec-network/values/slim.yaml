@@ -1,9 +1,6 @@
 telemetry:
   enabled: true
 
-network:
-  setupL2Contracts: false
-
 validator:
   replicas: 1
   sequencer:

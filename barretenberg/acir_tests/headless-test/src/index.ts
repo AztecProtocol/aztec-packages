@@ -3,8 +3,14 @@ import fs from "fs";
 import { Command } from "commander";
 import chalk from "chalk";
 import os from "os";
-
+import type { ProofData } from "@aztec/bb.js";
 const { BROWSER, PORT = "8080" } = process.env;
+
+if (!["chrome", "firefox", "webkit"].includes(BROWSER || "")) {
+  throw new Error(
+    "BROWSER environment variable is not set. Set it to 'chrome', 'firefox', or 'webkit'."
+  );
+}
 
 function formatAndPrintLog(message: string): void {
   const parts = message.split("%c");
@@ -46,6 +52,11 @@ const readWitnessFile = (path: string): Uint8Array => {
   return buffer;
 };
 
+const readIvcInputsFile = (path: string): Uint8Array => {
+  const buffer = fs.readFileSync(path);
+  return buffer;
+};
+
 // Set up the command-line interface
 const program = new Command("headless_test");
 program.option("-v, --verbose", "verbose logging");
@@ -66,7 +77,7 @@ program
     "Specify the path to the gzip encoded ACIR witness",
     "./target/witness.gz"
   )
-  .action(async ({ bytecodePath, witnessPath, }) => {
+  .action(async ({ bytecodePath, witnessPath }) => {
     const acir = readBytecodeFile(bytecodePath);
     const witness = readWitnessFile(witnessPath);
     const threads = Math.min(os.cpus().length, 16);
@@ -81,30 +92,128 @@ program
       const browser = await browserType.launch();
 
       const context = await browser.newContext();
-      const page = await context.newPage();
+      const provingPage = await context.newPage();
 
       if (program.opts().verbose) {
-        page.on("console", (msg) => formatAndPrintLog(msg.text()));
+        provingPage.on("console", (msg) => formatAndPrintLog(msg.text()));
       }
 
-      await page.goto(`http://localhost:${PORT}`);
+      await provingPage.goto(`http://localhost:${PORT}`);
 
-      const result: boolean = await page.evaluate(
-        ([acir, witnessData, threads]: [string, number[], number]) => {
+      const {
+        publicInputs,
+        proof,
+        verificationKey,
+      }: {
+        publicInputs: string[];
+        proof: number[];
+        verificationKey: number[];
+      } = await provingPage.evaluate(
+        async ([acir, witnessData, threads]: [string, number[], number]) => {
           // Convert the input data to Uint8Arrays within the browser context
           const witnessUint8Array = new Uint8Array(witnessData);
 
           // Call the desired function and return the result
-          return (window as any).runTest(acir, witnessUint8Array, threads);
+          const {
+            proofData,
+            verificationKey,
+          }: { proofData: ProofData; verificationKey: Uint8Array } = await (
+            window as any
+          ).prove(acir, witnessUint8Array, threads);
+
+          return {
+            publicInputs: proofData.publicInputs,
+            proof: Array.from(proofData.proof),
+            verificationKey: Array.from(verificationKey),
+          };
         },
         [acir, Array.from(witness), threads]
+      );
+      await provingPage.close();
+
+      // Creating a new page to verify the proof, so this bug is avoided
+      // https://bugs.webkit.org/show_bug.cgi?id=245346
+      // Present at least on playwright 1.49.0
+
+      const verificationPage = await context.newPage();
+      await verificationPage.goto(`http://localhost:${PORT}`);
+
+      if (program.opts().verbose) {
+        verificationPage.on("console", (msg) => formatAndPrintLog(msg.text()));
+      }
+
+      const verificationResult: boolean = await verificationPage.evaluate(
+        ([publicInputs, proof, verificationKey]: [
+          string[],
+          number[],
+          number[]
+        ]) => {
+          const verificationKeyUint8Array = new Uint8Array(verificationKey);
+          const proofData: ProofData = {
+            publicInputs,
+            proof: new Uint8Array(proof),
+          };
+          return (window as any).verify(proofData, verificationKeyUint8Array);
+        },
+        [publicInputs, proof, verificationKey]
       );
 
       await browser.close();
 
-      if (!result) {
+      if (!verificationResult) {
         process.exit(1);
       }
+    }
+  });
+
+program
+  .command("prove_client_ivc")
+  .description(
+    "Generate a ClientIVC proof. Process exits with success or failure code."
+  )
+  .option(
+    "-i, --ivc-inputs-path <path>",
+    "Specify the path to the IVC inputs msgpack file",
+    "./target/ivc-inputs.msgpack"
+  )
+  .action(async ({ ivcInputsPath }) => {
+    const ivcInputs = readIvcInputsFile(ivcInputsPath);
+    const threads = Math.min(os.cpus().length, 16);
+
+    const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
+
+    for (const [name, browserType] of Object.entries(browsers)) {
+      if (BROWSER && !BROWSER.split(",").includes(name)) {
+        continue;
+      }
+      console.log(
+        chalk.blue(`Testing ClientIVC ${ivcInputsPath} in ${name}...`)
+      );
+      const browser = await browserType.launch();
+
+      const context = await browser.newContext();
+      const provingPage = await context.newPage();
+
+      if (program.opts().verbose) {
+        provingPage.on("console", (msg) => formatAndPrintLog(msg.text()));
+      }
+
+      await provingPage.goto(`http://localhost:${PORT}`);
+      const verificationResult: boolean = await provingPage.evaluate(
+        async ([ivcInputsData, threads]: [number[], number]) => {
+          const ivcInputsUint8Array = new Uint8Array(ivcInputsData);
+          return await (
+            window as any
+          ).proveClientIvc(ivcInputsUint8Array, threads);
+        },
+        [Array.from(ivcInputs), threads]
+      );
+
+      await browser.close();
+      if (!verificationResult) {
+        process.exit(1);
+      }
+      console.log(chalk.green(`ClientIVC proof generated and self-verified successfully in ${name}.`));
     }
   });
 

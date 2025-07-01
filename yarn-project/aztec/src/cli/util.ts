@@ -1,29 +1,67 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import type { AccountManager, Fr } from '@aztec/aztec.js';
+import type { AccountManager, EthAddress, Fr } from '@aztec/aztec.js';
+import type { ViemClient } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { PXEService } from '@aztec/pxe/server';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
+import { UpdateChecker } from '@aztec/stdlib/update-checker';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
+export const enum ExitCode {
+  SUCCESS = 0,
+  ERROR = 1,
+  ROLLUP_UPGRADE = 78, // EX_CONFIG from FreeBSD (https://man.freebsd.org/cgi/man.cgi?query=sysexits)
+  VERSION_UPGRADE = 79, // prev + 1 because there's nothing better
+  // 128 + int(SIGNAL)
+  SIGHUP = 129,
+  SIGINT = 130,
+  SIGQUIT = 131,
+  SIGTERM = 143,
+}
+
+let shutdownPromise: Promise<never> | undefined;
+export function shutdown(logFn: LogFn, exitCode: ExitCode, cb?: Array<() => Promise<void>>): Promise<never> {
+  if (shutdownPromise) {
+    logFn('Already shutting down.');
+    return shutdownPromise;
+  }
+
+  logFn('Shutting down...', { exitCode });
+  if (cb) {
+    shutdownPromise = Promise.allSettled(cb).then(() => process.exit(exitCode));
+  } else {
+    // synchronously shuts down the process
+    // no need to set shutdownPromise on this branch of the if statement because no more code will be executed
+    process.exit(exitCode);
+  }
+
+  return shutdownPromise;
+}
+
+export function isShuttingDown(): boolean {
+  return shutdownPromise !== undefined;
+}
+
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
-  const shutdown = async () => {
-    logFn('Shutting down...');
-    if (cb) {
-      await Promise.all(cb);
-    }
-    process.exit(0);
-  };
-  process.removeAllListeners('SIGINT');
-  process.removeAllListeners('SIGTERM');
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGINT', shutdown);
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGTERM', shutdown);
+  const signals = [
+    ['SIGINT', ExitCode.SIGINT],
+    ['SIGTERM', ExitCode.SIGTERM],
+    ['SIGHUP', ExitCode.SIGHUP],
+    ['SIQUIT', ExitCode.SIGQUIT],
+  ] as const;
+
+  for (const [signal, exitCode] of signals) {
+    process.removeAllListeners(signal);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    process.once(signal, () => shutdown(logFn, exitCode, cb));
+  }
 };
 
 /**
@@ -243,6 +281,93 @@ export async function preloadCrsDataForServerSideProving(
 ): Promise<void> {
   if (realProofs) {
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
-    await Promise.all([Crs.new(2 ** 25 - 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
+    await Promise.all([Crs.new(2 ** 25 + 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
   }
+}
+
+export async function setupUpdateMonitor(
+  autoUpdateMode: SharedNodeConfig['autoUpdate'],
+  updatesLocation: URL,
+  followsCanonicalRollup: boolean,
+  publicClient: ViemClient,
+  registryContractAddress: EthAddress,
+  signalHandlers: Array<() => Promise<void>>,
+  updateNodeConfig?: (config: object) => Promise<void>,
+) {
+  const logger = createLogger('update-check');
+  const checker = await UpdateChecker.new({
+    baseURL: updatesLocation,
+    publicClient,
+    registryContractAddress,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  checker.on('newRollupVersion', async ({ latestVersion, currentVersion }) => {
+    if (isShuttingDown()) {
+      return;
+    }
+
+    // if node follows canonical rollup then this is equivalent to a config update
+    if (!followsCanonicalRollup) {
+      return;
+    }
+
+    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
+      logger.info(`New rollup version detected. Please restart the node`, { latestVersion, currentVersion });
+      await shutdown(logger.info, ExitCode.ROLLUP_UPGRADE, signalHandlers);
+    } else if (autoUpdateMode === 'notify') {
+      logger.warn(`New rollup detected. Please restart the node`, { latestVersion, currentVersion });
+    }
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  checker.on('newNodeVersion', async ({ latestVersion, currentVersion }) => {
+    if (isShuttingDown()) {
+      return;
+    }
+    if (autoUpdateMode === 'config-and-version') {
+      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
+      await shutdown(logger.info, ExitCode.VERSION_UPGRADE, signalHandlers);
+    } else if (autoUpdateMode === 'notify') {
+      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
+    }
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  checker.on('updateNodeConfig', async config => {
+    if (isShuttingDown()) {
+      return;
+    }
+
+    if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
+      logger.warn(`Config change detected. Updating node`, config);
+      try {
+        await updateNodeConfig(config);
+      } catch (err) {
+        logger.warn('Failed to update config', { err });
+      }
+    }
+    // don't notify on these config changes
+  });
+
+  checker.on('updatePublicTelemetryConfig', config => {
+    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
+      logger.warn(`Public telemetry config change detected. Updating telemetry client`, config);
+      try {
+        const publicIncludeMetrics: unknown = (config as any).publicIncludeMetrics;
+        if (Array.isArray(publicIncludeMetrics) && publicIncludeMetrics.every(m => typeof m === 'string')) {
+          getTelemetryClient().setExportedPublicTelemetry(publicIncludeMetrics);
+        }
+        const publicMetricsCollectFrom: unknown = (config as any).publicMetricsCollectFrom;
+        if (Array.isArray(publicMetricsCollectFrom) && publicMetricsCollectFrom.every(m => typeof m === 'string')) {
+          getTelemetryClient().setPublicTelemetryCollectFrom(publicMetricsCollectFrom);
+        }
+      } catch (err) {
+        logger.warn('Failed to update config', { err });
+      }
+    }
+    // don't notify on these config changes
+  });
+
+  checker.start();
 }

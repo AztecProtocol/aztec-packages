@@ -1,11 +1,14 @@
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 
 #include <cstdint>
+#include <memory>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/ecc/fields/field_declarations.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using Poseidon2Perm = bb::crypto::Poseidon2Permutation<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -259,7 +262,7 @@ constexpr std::array<StateCols, 64> intermediate_round_cols = { {
       Column::poseidon2_perm_B_59_1,
       Column::poseidon2_perm_B_59_2,
       Column::poseidon2_perm_B_59_3 },
-    // Full Rounds
+    // Full rounds
     { Column::poseidon2_perm_T_60_6,
       Column::poseidon2_perm_T_60_5,
       Column::poseidon2_perm_T_60_7,
@@ -424,5 +427,8 @@ void Poseidon2TraceBuilder::process_permutation(
         row++;
     }
 }
+
+const InteractionDefinition Poseidon2TraceBuilder::interactions =
+    InteractionDefinition().add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

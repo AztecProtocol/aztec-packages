@@ -33,8 +33,8 @@ export function runBlobSinkClientTests(
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHash]);
     expect(retrievedBlobs).toHaveLength(1);
-    expect(retrievedBlobs[0].fieldsHash.toString()).toBe(blob.fieldsHash.toString());
-    expect(retrievedBlobs[0].commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+    expect(retrievedBlobs[0].blob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
+    expect(retrievedBlobs[0].blob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
   });
 
   it('should handle multiple blobs', async () => {
@@ -49,15 +49,15 @@ export function runBlobSinkClientTests(
     expect(retrievedBlobs).toHaveLength(3);
 
     for (let i = 0; i < blobs.length; i++) {
-      expect(retrievedBlobs[i].fieldsHash.toString()).toBe(blobs[i].fieldsHash.toString());
-      expect(retrievedBlobs[i].commitment.toString('hex')).toBe(blobs[i].commitment.toString('hex'));
+      expect(retrievedBlobs[i].blob.fieldsHash.toString()).toBe(blobs[i].fieldsHash.toString());
+      expect(retrievedBlobs[i].blob.commitment.toString('hex')).toBe(blobs[i].commitment.toString('hex'));
     }
 
     // Can request blobs by index
     const retrievedBlobsByIndex = await client.getBlobSidecar(blockId, blobHashes, [0, 2]);
     expect(retrievedBlobsByIndex).toHaveLength(2);
-    expect(retrievedBlobsByIndex[0].fieldsHash.toString()).toBe(blobs[0].fieldsHash.toString());
-    expect(retrievedBlobsByIndex[1].fieldsHash.toString()).toBe(blobs[2].fieldsHash.toString());
+    expect(retrievedBlobsByIndex[0].blob.fieldsHash.toString()).toBe(blobs[0].fieldsHash.toString());
+    expect(retrievedBlobsByIndex[1].blob.fieldsHash.toString()).toBe(blobs[2].fieldsHash.toString());
   });
 
   it('should return empty array for non-existent block', async () => {

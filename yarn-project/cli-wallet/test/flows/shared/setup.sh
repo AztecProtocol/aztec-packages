@@ -14,6 +14,8 @@ command="${COMMAND:-"node --no-warnings $root/yarn-project/cli-wallet/dest/bin/i
 flows=$(pwd)
 cd $root/noir-projects/noir-contracts
 
+export PXE_PROVER="none"
+
 function aztec-wallet {
   echo_header aztec-wallet "$@"
   $command "$@"

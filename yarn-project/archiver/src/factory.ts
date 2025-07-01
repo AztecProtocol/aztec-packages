@@ -14,8 +14,22 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import { Archiver } from './archiver/archiver.js';
 import type { ArchiverConfig } from './archiver/config.js';
-import { KVArchiverDataStore } from './archiver/index.js';
+import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './archiver/kv_archiver_store/kv_archiver_store.js';
 import { createArchiverClient } from './rpc/index.js';
+
+export const ARCHIVER_STORE_NAME = 'archiver';
+
+/** Creates an archiver store. */
+export async function createArchiverStore(
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+) {
+  const config = {
+    ...userConfig,
+    dataStoreMapSizeKB: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKB,
+  };
+  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
+  return new KVArchiverDataStore(store, config.maxLogs);
+}
 
 /**
  * Creates a local archiver.
@@ -26,19 +40,12 @@ import { createArchiverClient } from './rpc/index.js';
  * @returns The local archiver.
  */
 export async function createArchiver(
-  _config: ArchiverConfig & DataStoreConfig,
+  config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
-  const config = { ..._config, dataStoreMapSizeKB: _config.archiverStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
-  const store = await createStore(
-    'archiver',
-    KVArchiverDataStore.SCHEMA_VERSION,
-    config,
-    createLogger('archiver:lmdb'),
-  );
-  const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
+  const archiverStore = await createArchiverStore(config);
   await registerProtocolContracts(archiverStore);
   return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
 }
@@ -67,14 +74,14 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
     const contractClassPublic: ContractClassPublic = {
       ...contract.contractClass,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
 
     const publicFunctionSignatures = contract.artifact.functions
       .filter(fn => fn.functionType === FunctionType.PUBLIC)
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
-    await store.registerContractFunctionSignatures(contract.address, publicFunctionSignatures);
+    await store.registerContractFunctionSignatures(publicFunctionSignatures);
     const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);

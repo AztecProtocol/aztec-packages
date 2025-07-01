@@ -1,0 +1,6 @@
+RemoveUnhinged
+├── when caller of removeUnhinged is not owner
+│   └── it reverts
+└── when caller of removeUnhinged is owner
+    ├── it removes the unhinged
+    └── it emits a {UnhingedRemoved} event

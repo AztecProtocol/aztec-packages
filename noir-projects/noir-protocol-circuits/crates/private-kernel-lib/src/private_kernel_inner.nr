@@ -14,7 +14,6 @@ use dep::types::{
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
-    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -48,11 +47,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-        if !std::runtime::is_unconstrained() {
-            self.previous_kernel.verify();
-            self.private_call.verify(false);
-        }
-
         // Generate output.
         // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
@@ -67,11 +61,12 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         let private_call_stack_size = previous_kernel_array_lengths.private_call_stack;
         let call_request =
             self.previous_kernel.public_inputs.end.private_call_stack[private_call_stack_size - 1];
+        private_call_data_validator.validate_proof(false /* is_first_app */);
         private_call_data_validator.validate_against_call_request(call_request);
         private_call_data_validator.validate_against_previous_kernel(
             self.previous_kernel.public_inputs,
         );
-        private_call_data_validator.validate(
+        private_call_data_validator.validate_data(
             output.end.note_hashes,
             self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
         );
@@ -109,10 +104,10 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new_from_counter(15)
                 .in_vk_tree(PRIVATE_KERNEL_INIT_INDEX)
                 .as_parent_contract();
-            let private_call = FixtureBuilder::new_from_counter(200);
-
             // 0th nullifier must be non-zero.
             previous_kernel.append_nullifiers(1);
+
+            let private_call = FixtureBuilder::new_from_counter(200);
 
             PrivateKernelInnerInputsBuilder { previous_kernel, private_call }
         }

@@ -1,5 +1,5 @@
 #pragma once
-#include "term.hpp"
+#include "barretenberg/smt_verification/terms/term.hpp"
 
 namespace smt_terms {
 using namespace smt_solver;
@@ -9,21 +9,29 @@ using namespace smt_solver;
  *
  * @details Can be used to create non trivial constraints.
  * Supports basic boolean arithmetic: &, |.
- *
+ * Only compatible with STerm
  */
 class Bool {
   public:
     Solver* solver;
     cvc5::Term term;
+    TermType type = TermType::SBool;
     bool asserted = false;
 
-    Bool(const cvc5::Term& t, Solver* slv)
+    Bool(const cvc5::Term& t, Solver* slv, TermType type = TermType::SBool)
         : solver(slv)
-        , term(t){};
+        , term(t)
+        , type(type){};
 
     explicit Bool(const STerm& t)
         : solver(t.solver)
-        , term(t.term){};
+        , term(t.normalize().term){};
+
+    explicit Bool(const std::string& name, Solver* slv)
+        : solver(slv)
+    {
+        this->term = this->solver->term_manager.mkConst(this->solver->term_manager.getBooleanSort(), name);
+    }
 
     explicit Bool(bool t, Solver* slv)
         : solver(slv)
@@ -59,8 +67,13 @@ class Bool {
     Bool operator==(const Bool& other) const;
     Bool operator!=(const Bool& other) const;
 
-    operator std::string() const { return term.toString(); };
+    operator std::string() const { return this->solver->stringify_term(term); };
     operator cvc5::Term() const { return term; };
+
+    friend std::ostream& operator<<(std::ostream& out, const Bool& term)
+    {
+        return out << static_cast<std::string>(term);
+    };
 
     friend Bool batch_or(const std::vector<Bool>& children)
     {

@@ -1,5 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
+#include "barretenberg/ecc/groups/precomputed_generators_secp256r1_impl.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
@@ -92,7 +99,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& messag
     // TODO(Cody): Having Plookup should not determine which curve is used.
     // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
     // other curves)
-    if constexpr (HasPlookup<Builder> && Curve::type == bb::CurveType::SECP256K1) {
+    if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
         result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
@@ -167,7 +174,7 @@ bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::
     G1 result;
     // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
     // other curves)
-    if constexpr (HasPlookup<Builder> && Curve::type == bb::CurveType::SECP256K1) {
+    if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
         result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });

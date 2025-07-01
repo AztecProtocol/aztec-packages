@@ -44,5 +44,13 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
     `,
   );
 
+  program
+    .command('preload-crs')
+    .description('Preload the points data needed for proving and verifying')
+    .action(async options => {
+      const { preloadCrs } = await import('./preload_crs.js');
+      return await preloadCrs(options, userLog, debugLogger);
+    });
+
   return program;
 }

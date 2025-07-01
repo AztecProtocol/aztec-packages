@@ -1,7 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "mega_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include <unordered_map>
 #include <unordered_set>
 
@@ -130,6 +135,21 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
 }
 
 /**
+ * @brief Logic for a no-op operation.
+ *
+ * @return ecc_op_tuple with all its fields set to zero
+ */
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
+{
+    // Add the operation to the op queue
+    auto ultra_op = op_queue->no_op_ultra_only();
+
+    // Add corresponding gates for the operation
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    return op_tuple;
+}
+
+/**
  * @brief Add goblin ecc op gates for a single operation
  *
  * @param ultra_op Operation data expressed in the ultra format
@@ -161,10 +181,10 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx;
-    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-    equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
+    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
+    equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
 }
 
 /**

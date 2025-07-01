@@ -7,25 +7,20 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
 
 using namespace benchmark;
 using namespace bb::avm2;
 
 namespace {
 
-// Getters are needed for interaction accumulation to work.
-struct FullRowWithGetters : public AvmFullRow<FF> {
-    DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_ALL_ENTITIES);
-};
-
-FullRowWithGetters get_random_row()
+AvmFullRow get_random_row()
 {
-    FullRowWithGetters row;
+    AvmFullRow row;
     for (size_t i = 0; i < NUM_COLUMNS_WITH_SHIFTS; i++) {
-        row.get_column(static_cast<ColumnAndShifts>(i)) = FF::random_element();
+        row.get(static_cast<ColumnAndShifts>(i)) = FF::random_element();
     }
     return row;
 }

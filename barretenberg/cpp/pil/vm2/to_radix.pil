@@ -1,4 +1,4 @@
-include "range_check.pil";
+include "precomputed.pil";
 
 // Decomposes a field in radixes
 // Roughly, what we do is keep track of an accumulator where we reconstruct value using the limbs. We can end when the accumulator is equal to the value (found).

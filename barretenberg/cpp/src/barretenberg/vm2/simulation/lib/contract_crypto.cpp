@@ -2,7 +2,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -39,13 +39,10 @@ std::vector<FF> encode_bytecode(std::span<const uint8_t> bytecode)
 
 FF compute_public_bytecode_commitment(std::span<const uint8_t> bytecode)
 {
-    FF bytecode_length_in_bytes = FF(static_cast<uint64_t>(bytecode.size()));
-    std::vector<FF> contract_bytecode_fields = encode_bytecode(bytecode);
-    FF running_hash = bytecode_length_in_bytes;
-    for (const auto& contract_bytecode_field : contract_bytecode_fields) {
-        running_hash = poseidon2::hash({ contract_bytecode_field, running_hash });
-    }
-    return running_hash;
+    std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    auto bytecode_as_fields = encode_bytecode(bytecode);
+    inputs.insert(inputs.end(), bytecode_as_fields.begin(), bytecode_as_fields.end());
+    return poseidon2::hash(inputs);
 }
 
 FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root, const FF& public_bytecode_commitment)
@@ -75,7 +72,7 @@ FF compute_contract_address(const ContractInstance& contract_instance)
                                                       contract_instance.initialisation_hash,
                                                       contract_instance.deployer_addr });
     FF partial_address = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.contract_class_id, salted_initialization_hash });
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.original_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(contract_instance.public_keys);
     FF h = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });

@@ -15,7 +15,7 @@ import {
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { L1TxUtils } from '../l1_tx_utils.js';
-import type { ViemPublicClient, ViemWalletClient } from '../types.js';
+import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export type L1GovernanceContractAddresses = Pick<
   L1ContractAddresses,
@@ -47,72 +47,39 @@ export function extractProposalIdFromLogs(logs: Log[]): bigint {
   return parsedLogs[0].args.proposalId;
 }
 
-export class GovernanceContract {
-  private readonly publicGovernance: GetContractReturnType<typeof GovernanceAbi, ViemPublicClient>;
-  private readonly walletGovernance: GetContractReturnType<typeof GovernanceAbi, ViemWalletClient> | undefined;
+export class ReadOnlyGovernanceContract {
+  protected readonly governanceContract: GetContractReturnType<typeof GovernanceAbi, ViemClient>;
 
   constructor(
     address: Hex,
-    public readonly publicClient: ViemPublicClient,
-    public readonly walletClient: ViemWalletClient | undefined,
+    public readonly client: ViemClient,
   ) {
-    this.publicGovernance = getContract({ address, abi: GovernanceAbi, client: publicClient });
-    this.walletGovernance = walletClient
-      ? getContract({ address, abi: GovernanceAbi, client: walletClient })
-      : undefined;
+    this.governanceContract = getContract({ address, abi: GovernanceAbi, client: client });
   }
 
   public get address() {
-    return EthAddress.fromString(this.publicGovernance.address);
+    return EthAddress.fromString(this.governanceContract.address);
   }
 
   public async getGovernanceProposerAddress() {
-    return EthAddress.fromString(await this.publicGovernance.read.governanceProposer());
+    return EthAddress.fromString(await this.governanceContract.read.governanceProposer());
   }
 
   public getConfiguration() {
-    return this.publicGovernance.read.getConfiguration();
+    return this.governanceContract.read.getConfiguration();
   }
 
   public getProposal(proposalId: bigint) {
-    return this.publicGovernance.read.getProposal([proposalId]);
+    return this.governanceContract.read.getProposal([proposalId]);
   }
 
   public async getProposalState(proposalId: bigint): Promise<ProposalState> {
-    const state = await this.publicGovernance.read.getProposalState([proposalId]);
+    const state = await this.governanceContract.read.getProposalState([proposalId]);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
     if (state < 0 || state > ProposalState.Expired) {
       throw new Error(`Invalid proposal state: ${state}`);
     }
     return state as ProposalState;
-  }
-
-  private assertWalletGovernance(): NonNullable<typeof this.walletGovernance> {
-    if (!this.walletGovernance) {
-      throw new Error('Wallet client is required for this operation');
-    }
-    return this.walletGovernance;
-  }
-
-  public async deposit(onBehalfOf: Hex, amount: bigint) {
-    const walletGovernance = this.assertWalletGovernance();
-    const depositTx = await walletGovernance.write.deposit([onBehalfOf, amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash: depositTx });
-  }
-
-  public async proposeWithLock({
-    payloadAddress,
-    withdrawAddress,
-  }: {
-    payloadAddress: Hex;
-    withdrawAddress: Hex;
-  }): Promise<bigint> {
-    const walletGovernance = this.assertWalletGovernance();
-    const proposeTx = await walletGovernance.write.proposeWithLock([payloadAddress, withdrawAddress]);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: proposeTx });
-    if (receipt.status !== 'success') {
-      throw new Error(`Proposal failed: ${receipt.status}`);
-    }
-    return extractProposalIdFromLogs(receipt.logs);
   }
 
   public async awaitProposalActive({ proposalId, logger }: { proposalId: bigint; logger: Logger }) {
@@ -124,7 +91,7 @@ export class GovernanceContract {
     } else {
       const proposal = await this.getProposal(proposalId);
       const startOfActive = proposal.creation + proposal.config.votingDelay;
-      const block = await this.publicClient.getBlock();
+      const block = await this.client.getBlock();
       // Add 12 seconds to the time to make sure we don't vote too early
       const secondsToActive = Number(startOfActive - block.timestamp) + 12;
       const now = new Date();
@@ -152,7 +119,7 @@ export class GovernanceContract {
         proposal.config.votingDelay +
         proposal.config.votingDuration +
         proposal.config.executionDelay;
-      const block = await this.publicClient.getBlock();
+      const block = await this.client.getBlock();
       const secondsToExecutable = Number(startOfExecutable - block.timestamp) + 12;
       const now = new Date();
       logger.info(`
@@ -163,11 +130,45 @@ export class GovernanceContract {
       await sleep(secondsToExecutable * 1000);
     }
   }
+}
+
+export class GovernanceContract extends ReadOnlyGovernanceContract {
+  protected override readonly governanceContract: GetContractReturnType<typeof GovernanceAbi, ExtendedViemWalletClient>;
+
+  constructor(
+    address: Hex,
+    public override readonly client: ExtendedViemWalletClient,
+  ) {
+    super(address, client);
+    if (!isExtendedClient(client)) {
+      throw new Error('GovernanceContract has to be instantiated with a wallet client.');
+    }
+    this.governanceContract = getContract({ address, abi: GovernanceAbi, client });
+  }
+
+  public async deposit(onBehalfOf: Hex, amount: bigint) {
+    const depositTx = await this.governanceContract.write.deposit([onBehalfOf, amount]);
+    await this.client.waitForTransactionReceipt({ hash: depositTx });
+  }
+
+  public async proposeWithLock({
+    payloadAddress,
+    withdrawAddress,
+  }: {
+    payloadAddress: Hex;
+    withdrawAddress: Hex;
+  }): Promise<bigint> {
+    const proposeTx = await this.governanceContract.write.proposeWithLock([payloadAddress, withdrawAddress]);
+    const receipt = await this.client.waitForTransactionReceipt({ hash: proposeTx });
+    if (receipt.status !== 'success') {
+      throw new Error(`Proposal failed: ${receipt.status}`);
+    }
+    return extractProposalIdFromLogs(receipt.logs);
+  }
 
   public async getPower(): Promise<bigint> {
-    const walletGovernance = this.assertWalletGovernance();
-    const now = await this.publicClient.getBlock();
-    return walletGovernance.read.powerAt([this.walletClient!.account.address, now.timestamp]);
+    const now = await this.client.getBlock();
+    return this.governanceContract.read.powerAt([this.client.account.address, now.timestamp]);
   }
 
   public async vote({
@@ -183,8 +184,7 @@ export class GovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const walletGovernance = this.assertWalletGovernance();
-    const l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient!, logger);
+    const l1TxUtils = new L1TxUtils(this.client, logger);
     const retryDelaySeconds = 12;
 
     voteAmount = voteAmount ?? (await this.getPower());
@@ -200,7 +200,7 @@ export class GovernanceContract {
         const encodedVoteData = encodeFunctionData(voteFunctionData);
 
         const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
-          to: walletGovernance.address,
+          to: this.governanceContract.address,
           data: encodedVoteData,
         });
 
@@ -210,7 +210,7 @@ export class GovernanceContract {
         } else {
           const args = {
             ...voteFunctionData,
-            address: walletGovernance.address,
+            address: this.governanceContract.address,
           };
           const errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedVoteData, args, undefined, []);
           logger.error(`Error voting on proposal ${proposalId}: ${errorMsg}`);
@@ -241,8 +241,7 @@ export class GovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const walletGovernance = this.assertWalletGovernance();
-    const l1TxUtils = new L1TxUtils(this.publicClient, this.walletClient!, logger);
+    const l1TxUtils = new L1TxUtils(this.client, logger);
     const retryDelaySeconds = 12;
     let success = false;
     for (let i = 0; i < retries; i++) {
@@ -255,7 +254,7 @@ export class GovernanceContract {
         const encodedExecuteData = encodeFunctionData(executeFunctionData);
 
         const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
-          to: walletGovernance.address,
+          to: this.governanceContract.address,
           data: encodedExecuteData,
         });
 
@@ -265,7 +264,7 @@ export class GovernanceContract {
         } else {
           const args = {
             ...executeFunctionData,
-            address: walletGovernance.address,
+            address: this.governanceContract.address,
           };
           const errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedExecuteData, args, undefined, []);
           logger.error(`Error executing proposal ${proposalId}: ${errorMsg}`);

@@ -7,19 +7,26 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
+import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 
 contract FakeGovernance {
   address immutable GOVERNANCE_PROPOSER;
 
   mapping(IPayload => bool) public proposals;
+  mapping(uint256 => address) public proposalProposer;
+  uint256 public proposalCount;
 
   constructor(address _governanceProposer) {
     GOVERNANCE_PROPOSER = _governanceProposer;
   }
 
-  function propose(IPayload _proposal) external returns (bool) {
+  function propose(IPayload _proposal) external returns (uint256) {
+    uint256 id = proposalCount++;
     proposals[_proposal] = true;
-    return true;
+    proposalProposer[id] = GOVERNANCE_PROPOSER;
+    return id;
   }
 }
 
@@ -29,11 +36,13 @@ contract GovernanceProposerBase is Test {
   GovernanceProposer internal governanceProposer;
 
   function setUp() public virtual {
-    registry = new Registry(address(this));
+    TestERC20 asset = new TestERC20("test", "TEST", address(this));
+    registry = new Registry(address(this), asset);
 
-    governanceProposer = new GovernanceProposer(registry, 667, 1000);
+    governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 667, 1000);
     governance = new FakeGovernance(address(governanceProposer));
 
+    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }
 }

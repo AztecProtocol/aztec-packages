@@ -11,7 +11,7 @@ exec > >(tee -a "$(dirname $0)/logs/${SCRIPT_NAME}.log") 2> >(tee -a "$(dirname 
 # Starts the PXE (Private eXecution Environment) service
 # Set environment variables
 export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
-export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
+export L1_CONSENSUS_HOST_URLS=${L1_CONSENSUS_HOST_URLS:-}
 export AZTEC_NODE_URL=${AZTEC_NODE_URL:-"http://127.0.0.1:8080"}
 export VALIDATOR_NODE_URL=${VALIDATOR_NODE_URL:-"http://127.0.0.1:8081"}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}

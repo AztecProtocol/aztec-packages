@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./translator_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -54,13 +60,13 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
 };
 
 /**
- * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
+ * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor>::verify_proof(
+TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
 {
-    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
@@ -76,13 +82,10 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
-    const FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
-        throw_or_abort(
-            "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
-    }
-
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
+    // The point is prime basis limb of accumulated result can be easily recovered from binary basis limbs, so
+    // there's no meaning to use it at the circuit next and we can put it in used_witnesses
+    accumulated_result.get_context()->update_used_witnesses(accumulated_result.prime_basis_limb.witness_index);
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
@@ -91,24 +94,22 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
+    FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
 
-    relation_parameters.beta = 0;
+    relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = 0;
-    relation_parameters.lookup_grand_product_delta = 0;
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    auto sumcheck = Sumcheck(log_circuit_size, transcript);
+    Sumcheck sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -116,7 +117,13 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    FF one{ 1 };
+    one.convert_constant_to_fixed_witness(builder);
+
+    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, one);
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -131,7 +138,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(circuit_size,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
@@ -142,48 +149,59 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template <typename Flavor>
-bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
-    const TranslationEvaluations_<
-        typename stdlib::bigfield<typename Flavor::CircuitBuilder, typename Flavor::Curve::BaseFieldNative::Params>,
-        typename Flavor::FF>& translation_evaluations,
-    const BF& translation_masking_term_eval)
+void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
+    const TranslationEvaluations_<BF>& translation_evaluations, const BF& translation_masking_term_eval)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
     };
 
-    const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
-                                                               auto& relation_parameters) {
-        const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
-        const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
-        const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
-        const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
-        const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
-        const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
-        const BF& op = translation_evaluations.op;
-        const BF& Px = translation_evaluations.Px;
-        const BF& Py = translation_evaluations.Py;
-        const BF& z1 = translation_evaluations.z1;
-        const BF& z2 = translation_evaluations.z2;
+    const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
+    const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
+    const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
+    const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
+    const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
+    const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
+    const BF& op = translation_evaluations.op;
+    const BF& Px = translation_evaluations.Px;
+    const BF& Py = translation_evaluations.Py;
+    const BF& z1 = translation_evaluations.z1;
+    const BF& z2 = translation_evaluations.z2;
 
-        const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
-        // multiply by x here to deal with shift
-        eccvm_opening.assert_equal(x * accumulated_result);
-        return (eccvm_opening.get_value() == (x * accumulated_result).get_value());
-    };
+    const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
+    // multiply by x here to deal with shift
+    eccvm_opening.assert_equal(x * accumulated_result);
+}
 
-    bool is_value_reconstructed =
-        reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
-    return is_value_reconstructed;
+template <typename Flavor>
+void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
+{
+    // Check the consistency with final merge
+    for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {
+        // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
+        // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
+        // constants within biggroup logic.
+        bool consistency_check_failed = (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+                                        (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+                                        (merge_commitment.is_point_at_infinity().get_value() !=
+                                         translator_commitment.is_point_at_infinity().get_value());
+
+        if (consistency_check_failed) {
+            vinfo("translator commitments are inconsistent with the final merge commitments");
+        }
+
+        merge_commitment.x.assert_equal(translator_commitment.x);
+        merge_commitment.y.assert_equal(translator_commitment.y);
+        merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
+    }
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
-template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
-template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 } // namespace bb

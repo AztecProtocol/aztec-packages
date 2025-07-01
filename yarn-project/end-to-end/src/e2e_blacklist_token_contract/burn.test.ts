@@ -38,10 +38,10 @@ describe('e2e_blacklist_token_contract burn', () => {
       const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const amount = balance0 / 2n;
       expect(amount).toBeGreaterThan(0n);
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
+      const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, authwitNonce);
       const validateActionInteraction = await wallets[0].setPublicAuthWit(
         { caller: wallets[1].getAddress(), action },
         true,
@@ -53,7 +53,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       tokenSim.burnPublic(wallets[0].getAddress(), amount);
 
       await expect(
-        asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
+        asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
 
@@ -61,56 +61,56 @@ describe('e2e_blacklist_token_contract burn', () => {
       it('burn more than balance', async () => {
         const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
-        const nonce = 0;
-        await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).prove()).rejects.toThrow(
-          U128_UNDERFLOW_ERROR,
-        );
+        const authwitNonce = 0;
+        await expect(
+          asset.methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
+        ).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
 
       it('burn on behalf of self with non-zero nonce', async () => {
         const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
-        const nonce = 1;
-        await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate()).rejects.toThrow(
-          'Assertion failed: invalid nonce',
-        );
+        const authwitNonce = 1;
+        await expect(
+          asset.methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
+        ).rejects.toThrow('Assertion failed: invalid authwit nonce');
       });
 
       it('burn on behalf of other without "approval"', async () => {
         const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
-        const nonce = Fr.random();
+        const authwitNonce = Fr.random();
         await expect(
-          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
+          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
         ).rejects.toThrow(/unauthorized/);
       });
 
       it('burn more than balance on behalf of other', async () => {
         const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
-        const nonce = Fr.random();
+        const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, authwitNonce);
         const validateActionInteraction = await wallets[0].setPublicAuthWit(
           { caller: wallets[1].getAddress(), action },
           true,
         );
         await validateActionInteraction.send().wait();
 
-        await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
 
       it('burn on behalf of other, wrong designated caller', async () => {
         const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 + 2n;
-        const nonce = Fr.random();
+        const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, authwitNonce);
         const validateActionInteraction = await wallets[0].setPublicAuthWit(
           { caller: wallets[0].getAddress(), action },
           true,
@@ -118,12 +118,12 @@ describe('e2e_blacklist_token_contract burn', () => {
         await validateActionInteraction.send().wait();
 
         await expect(
-          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
+          asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
         ).rejects.toThrow(/unauthorized/);
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
+        await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
           /Assertion failed: Blacklisted: Sender/,
         );
       });
@@ -142,11 +142,11 @@ describe('e2e_blacklist_token_contract burn', () => {
     it('burn on behalf of other', async () => {
       const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balance0 / 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
+      const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, authwitNonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
@@ -154,7 +154,7 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       await asset
         .withWallet(wallets[1])
-        .methods.burn(wallets[0].getAddress(), amount, nonce)
+        .methods.burn(wallets[0].getAddress(), amount, authwitNonce)
         .send({ authWitnesses: [witness] })
         .wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
@@ -162,7 +162,7 @@ describe('e2e_blacklist_token_contract burn', () => {
       // Perform the transfer again, should fail
       const txReplay = asset
         .withWallet(wallets[1])
-        .methods.burn(wallets[0].getAddress(), amount, nonce)
+        .methods.burn(wallets[0].getAddress(), amount, authwitNonce)
         .send({ authWitnesses: [witness] });
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
@@ -172,7 +172,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 0).prove()).rejects.toThrow(
+        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 0).simulate()).rejects.toThrow(
           'Assertion failed: Balance too low',
         );
       });
@@ -181,51 +181,55 @@ describe('e2e_blacklist_token_contract burn', () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
-        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).prove()).rejects.toThrow(
-          'Assertion failed: invalid nonce',
+        await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).simulate()).rejects.toThrow(
+          'Assertion failed: invalid authwit nonce',
         );
       });
 
       it('burn more than balance on behalf of other', async () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 + 1n;
-        const nonce = Fr.random();
+        const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, authwitNonce);
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-        await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
+          'Assertion failed: Balance too low',
+        );
       });
 
       it('burn on behalf of other without approval', async () => {
         const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
-        const nonce = Fr.random();
+        const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, authwitNonce);
         const messageHash = await computeAuthWitMessageHash(
           { caller: wallets[1].getAddress(), action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
-        await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
+        await expect(action.simulate()).rejects.toThrow(
+          `Unknown auth witness for message hash ${messageHash.toString()}`,
+        );
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
         const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balancePriv0 + 2n;
-        const nonce = Fr.random();
+        const authwitNonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
+        const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, authwitNonce);
         const expectedMessageHash = await computeAuthWitMessageHash(
           { caller: wallets[2].getAddress(), action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
@@ -233,14 +237,14 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
 
-        await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
+        await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-          /Assertion failed: Blacklisted: Sender .*/,
+        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
+          'Assertion failed: Blacklisted: Sender',
         );
       });
     });

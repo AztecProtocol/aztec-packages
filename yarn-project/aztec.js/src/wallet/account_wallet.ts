@@ -22,7 +22,10 @@ import { BaseWallet } from './base_wallet.js';
  * A wallet implementation that forwards authentication requests to a provided account.
  */
 export class AccountWallet extends BaseWallet {
-  constructor(pxe: PXE, protected account: AccountInterface) {
+  constructor(
+    pxe: PXE,
+    protected account: AccountInterface,
+  ) {
     super(pxe);
   }
 
@@ -208,7 +211,7 @@ export class AccountWallet extends BaseWallet {
     return {
       name: 'lookup_validity',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.UTILITY,
       isInternal: false,
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
@@ -219,9 +222,9 @@ export class AccountWallet extends BaseWallet {
 
   private getIsConsumableAbi(): FunctionAbi {
     return {
-      name: 'unconstrained_is_consumable',
+      name: 'utility_is_consumable',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.UTILITY,
       isInternal: false,
       isStatic: false,
       parameters: [

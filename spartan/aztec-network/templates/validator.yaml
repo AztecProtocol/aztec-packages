@@ -44,31 +44,6 @@ spec:
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
-
-        # Get the private key from the mnemonic - based on the pod replica index
-        - name: get-private-key
-          image: {{ .Values.images.foundry.image }}
-          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
-          command:
-            - "/bin/sh"
-            - "-c"
-            - |
-              source /scripts/get-private-key.sh
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-          env:
-            - name: KEY_INDEX_START
-              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
-            - name: MNEMONIC
-              value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-
         {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
 
       containers:
@@ -78,10 +53,12 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
+              # Get the private key from the mnemonic - based on the pod replica index
+              source /scripts/get-private-key.sh && \
+              source /shared/config/keys.env && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
-              source /shared/config/keys.env && \
               source /shared/config/otel-resource && \
               env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer
@@ -102,6 +79,8 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: scripts
+              mountPath: /scripts
             - name: contracts-env
               mountPath: /shared/contracts
             - name: config
@@ -109,6 +88,13 @@ spec:
             - name: validator-data
               mountPath: {{ .Values.validator.dataDir }}
           env:
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: VALIDATORS_PER_NODE
+              value: {{ .Values.validator.keysPerNode | quote }}
+            - name: MNEMONIC
+              value: {{ .Values.aztec.l1DeploymentMnemonic }}
+
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -137,6 +123,8 @@ spec:
               value: "1"
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: P2P_MAX_TX_POOL_SIZE
+              value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
             - name: VALIDATOR_DISABLED
@@ -187,12 +175,19 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
-            {{- if .Values.blobSink.enabled }}
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
+          {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
-            {{- end }}
+          {{- else if .Values.blobs.remoteBlobSinkEnabled }}
+            - name: BLOB_SINK_URL
+              value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
+          {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "eccvm_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -5,20 +11,18 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
 
 ECCVMProver::ECCVMProver(CircuitBuilder& builder,
-                         const bool fixed_size,
                          const std::shared_ptr<Transcript>& transcript,
                          const std::shared_ptr<Transcript>& ipa_transcript)
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
-    , fixed_size(fixed_size)
 {
     PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -26,19 +30,9 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
 
     // Construct the proving key; populates all polynomials except for witness polys
-    key = fixed_size ? std::make_shared<ProvingKey>(builder, fixed_size) : std::make_shared<ProvingKey>(builder);
+    key = std::make_shared<ProvingKey>(builder);
 
-    key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
-}
-
-/**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
- */
-void ECCVMProver::execute_preamble_round()
-{
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    transcript->send_to_verifier("circuit_size", circuit_size);
+    key->commitment_key = CommitmentKey(key->circuit_size);
 }
 
 /**
@@ -48,9 +42,10 @@ void ECCVMProver::execute_preamble_round()
 void ECCVMProver::execute_wire_commitments_round()
 {
     // To commit to the masked wires when `real_size` < `circuit_size`, we use
-    // `commit_structured` that ignores 0 coefficients between the real size and the last MASKING_OFFSET wire entries.
+    // `commit_structured` that ignores 0 coefficients between the real size and the last NUM_DISABLED_ROWS_IN_SUMCHECK
+    // wire entries.
     const size_t circuit_size = key->circuit_size;
-    unmasked_witness_size = circuit_size - MASKING_OFFSET;
+    unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     CommitmentKey::CommitType commit_type =
         (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
@@ -116,12 +111,12 @@ void ECCVMProver::execute_grand_product_computation_round()
 void ECCVMProver::execute_relation_check_rounds()
 {
 
-    using Sumcheck = SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
 
-    auto sumcheck = Sumcheck(key->circuit_size, transcript);
+    Sumcheck sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
@@ -187,7 +182,6 @@ ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
-    execute_preamble_round();
     execute_wire_commitments_round();
     execute_log_derivative_commitments_round();
     execute_grand_product_computation_round();
@@ -217,8 +211,8 @@ ECCVMProof ECCVMProver::construct_proof()
  * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
  *
  * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
- * \text{MASKING_OFFSET} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
- * \text{MASKING_OFFSET}\f$. Denote
+ * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
+ * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}\f$. Denote
  * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
  *
  * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
@@ -322,9 +316,9 @@ void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
                                                CommitmentKey::CommitType commit_type,
                                                const std::vector<std::pair<size_t, size_t>>& active_ranges)
 {
-    // We add MASKING_OFFSET-1 random values to the coefficients of each wire polynomial to not leak information via the
-    // commitment and evaluations. -1 is caused by shifts.
+    // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
+    // information via the commitment and evaluations. -1 is caused by shifts.
     polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key->commit_with_type(polynomial, commit_type, active_ranges));
+    transcript->send_to_verifier(label, key->commitment_key.commit_with_type(polynomial, commit_type, active_ranges));
 }
 } // namespace bb

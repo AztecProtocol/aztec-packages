@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';
@@ -12,6 +13,7 @@ export function serializeWithMessagePack(obj: any): Buffer {
     // this makes it compatible with other MessagePack decoders
     useRecords: false,
     int64AsType: 'bigint',
+    largeBigIntToString: true,
   });
   return encoder.encode(obj);
 }
@@ -30,7 +32,7 @@ function setUpMessagePackExtensions() {
     Class: Fq,
     write: (fq: Fq) => fq.toBuffer(),
   });
-  // AztecAddress is a class that has a field in TS, but just a field in C++.
+  // AztecAddress is a class that has a field in TS, but is itself a field in C++.
   addExtension({
     Class: AztecAddress,
     write: (addr: AztecAddress) => addr.toField(),
@@ -43,6 +45,11 @@ function setUpMessagePackExtensions() {
       // TODO: should these be Frs?
       return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
     },
+  });
+  // EthAddress is a class that has a buffer in TS, but is itself just a field in C++.
+  addExtension({
+    Class: EthAddress,
+    write: (addr: EthAddress) => addr.toField().toBuffer(),
   });
   messagePackWasSetUp = true;
 }

@@ -177,7 +177,7 @@ std::string render_pil(
                                   : format("#[OP", static_cast<uint32_t>(i), "_BYTES_DECOMPOSITION]\n");
         pil_equations += (i == 0) ? "indirect = " : format(OPERAND_PREFIX, static_cast<uint32_t>(i), " = ");
 
-        pil_equations += "(1 - parsing_err) * ("; // Error gating multiplicative term
+        pil_equations += "(1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * ("; // Error gating multiplicative term
 
         std::vector<std::string> additive_terms;
         for (const auto& sel_layout : sel_layout_breakdowns[i]) {

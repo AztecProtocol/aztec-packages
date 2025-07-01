@@ -46,6 +46,24 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.findLeafIndicesAfter(treeId, values, 0n);
   }
 
+  async findSiblingPaths<N extends number>(
+    treeId: MerkleTreeId,
+    values: MerkleTreeLeafType<MerkleTreeId>[],
+  ): Promise<({ path: SiblingPath<N>; index: bigint } | undefined)[]> {
+    const response = await this.instance.call(WorldStateMessageType.FIND_SIBLING_PATHS, {
+      leaves: values.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf))),
+      revision: this.revision,
+      treeId,
+    });
+
+    return response.paths.map(path => {
+      if (!path) {
+        return undefined;
+      }
+      return { path: new SiblingPath<N>(path.path.length as N, path.path), index: BigInt(path.index) };
+    });
+  }
+
   async findLeafIndicesAfter(
     treeId: MerkleTreeId,
     leaves: MerkleTreeLeafType<MerkleTreeId>[],
@@ -277,6 +295,16 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
     await this.instance.call(WorldStateMessageType.REVERT_CHECKPOINT, { forkId: this.revision.forkId });
   }
+
+  public async commitAllCheckpoints(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.COMMIT_ALL_CHECKPOINTS, { forkId: this.revision.forkId });
+  }
+
+  public async revertAllCheckpoints(): Promise<void> {
+    assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    await this.instance.call(WorldStateMessageType.REVERT_ALL_CHECKPOINTS, { forkId: this.revision.forkId });
+  }
 }
 
 function hydrateLeaf<ID extends MerkleTreeId>(treeId: ID, leaf: Fr | Buffer) {
@@ -295,7 +323,7 @@ export function serializeLeaf(leaf: Fr | NullifierLeaf | PublicDataTreeLeaf): Se
   if (leaf instanceof Fr) {
     return leaf.toBuffer();
   } else if (leaf instanceof NullifierLeaf) {
-    return { value: leaf.nullifier.toBuffer() };
+    return { nullifier: leaf.nullifier.toBuffer() };
   } else {
     return { value: leaf.value.toBuffer(), slot: leaf.slot.toBuffer() };
   }
@@ -307,23 +335,22 @@ function deserializeLeafValue(leaf: SerializedLeafValue): Fr | NullifierLeaf | P
   } else if ('slot' in leaf) {
     return new PublicDataTreeLeaf(Fr.fromBuffer(leaf.slot), Fr.fromBuffer(leaf.value));
   } else {
-    return new NullifierLeaf(Fr.fromBuffer(leaf.value));
+    return new NullifierLeaf(Fr.fromBuffer(leaf.nullifier));
   }
 }
 
-function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
-  if ('slot' in leaf.value) {
+function deserializeIndexedLeaf(leafPreimage: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
+  if ('slot' in leafPreimage.leaf) {
     return new PublicDataTreeLeafPreimage(
-      Fr.fromBuffer(leaf.value.slot),
-      Fr.fromBuffer(leaf.value.value),
-      Fr.fromBuffer(leaf.nextValue),
-      BigInt(leaf.nextIndex),
+      new PublicDataTreeLeaf(Fr.fromBuffer(leafPreimage.leaf.slot), Fr.fromBuffer(leafPreimage.leaf.value)),
+      Fr.fromBuffer(leafPreimage.nextKey),
+      BigInt(leafPreimage.nextIndex),
     );
-  } else if ('value' in leaf.value) {
+  } else if ('nullifier' in leafPreimage.leaf) {
     return new NullifierLeafPreimage(
-      Fr.fromBuffer(leaf.value.value),
-      Fr.fromBuffer(leaf.nextValue),
-      BigInt(leaf.nextIndex),
+      new NullifierLeaf(Fr.fromBuffer(leafPreimage.leaf.nullifier)),
+      Fr.fromBuffer(leafPreimage.nextKey),
+      BigInt(leafPreimage.nextIndex),
     );
   } else {
     throw new Error('Invalid leaf type');

@@ -9,6 +9,7 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   RootRollupInputs,
@@ -25,6 +26,7 @@ import {
   mapBlockRootRollupInputsToNoir,
   mapEmptyBlockRootRollupInputsToNoir,
   mapMergeRollupInputsToNoir,
+  mapPaddingBlockRootRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
   mapPrivateBaseRollupInputsToNoir,
   mapPublicBaseRollupInputsToNoir,
@@ -46,6 +48,8 @@ import type {
   RollupRootReturnType,
 } from '../types/index.js';
 import type { DecodedInputs } from '../utils/decoded_inputs.js';
+
+export { mapAvmCircuitPublicInputsToNoir } from '../conversion/server.js';
 
 /**
  * Converts the inputs of the base parity circuit into a witness map.
@@ -168,6 +172,14 @@ export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlock
   return initialWitnessMap;
 }
 
+export function convertPaddingBlockRootRollupInputsToWitnessMap(inputs: PaddingBlockRootRollupInputs): WitnessMap {
+  const mapped = mapPaddingBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PaddingBlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
 /**
  * Converts the inputs of the block merge rollup circuit into a witness map.
  * @param inputs - The block merge rollup inputs.
@@ -284,6 +296,18 @@ export function convertEmptyBlockRootRollupOutputsFromWitnessMap(
 ): BlockRootOrBlockMergePublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+export function convertPaddingBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PaddingBlockRootRollupArtifact.abi, outputs);
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;

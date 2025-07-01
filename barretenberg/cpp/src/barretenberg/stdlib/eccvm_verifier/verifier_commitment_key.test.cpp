@@ -9,11 +9,7 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
     using NativeEmbeddedCurve = Builder::EmbeddedCurve;
     using native_VK = VerifierCommitmentKey<NativeEmbeddedCurve>;
     using VK = VerifierCommitmentKey<Curve>;
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Instantiante a recursive verifier commitment key from a Grumpkin native key and check consistency.
@@ -23,16 +19,16 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
     {
         size_t num_points = 4096;
         Builder builder;
-        auto native_vk = std::make_shared<native_VK>(num_points);
-        auto recursive_vk = std::make_shared<VK>(&builder, num_points, native_vk);
-        EXPECT_EQ(native_vk->get_g1_identity(), recursive_vk->get_g1_identity().get_value());
-        auto native_monomial_points = native_vk->get_monomial_points();
-        auto recursive_monomial_points = recursive_vk->get_monomial_points();
+        native_VK native_vk(num_points);
+        VK recursive_vk(&builder, num_points, native_vk);
+        EXPECT_EQ(native_vk.get_g1_identity(), recursive_vk.get_g1_identity().get_value());
+        auto native_monomial_points = native_vk.get_monomial_points();
+        auto recursive_monomial_points = recursive_vk.get_monomial_points();
 
         // The recursive verifier commitment key only stores the SRS so we verify against the even indices of the native
-        // key (the odd containt elements produced after applying the pippenger point table).
-        for (size_t i = 0; i < num_points * 2; i += 2) {
-            EXPECT_EQ(native_monomial_points[i], recursive_monomial_points[i >> 1].get_value());
+        // key
+        for (size_t i = 0; i < num_points; i += 1) {
+            EXPECT_EQ(native_monomial_points[i], recursive_monomial_points[i].get_value());
         }
     }
 };

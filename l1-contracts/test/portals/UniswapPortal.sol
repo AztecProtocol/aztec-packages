@@ -26,10 +26,17 @@ contract UniswapPortal {
 
   IRegistry public registry;
   bytes32 public l2UniswapAddress;
+  IRollup public rollup;
+  IOutbox public outbox;
+  uint256 public rollupVersion;
 
   function initialize(address _registry, bytes32 _l2UniswapAddress) external {
     registry = IRegistry(_registry);
     l2UniswapAddress = _l2UniswapAddress;
+
+    rollup = IRollup(address(registry.getCanonicalRollup()));
+    outbox = rollup.getOutbox();
+    rollupVersion = rollup.getVersion();
   }
 
   // Using a struct here to avoid stack too deep errors
@@ -106,11 +113,9 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      IOutbox outbox = IRollup(registry.getRollup()).getOutbox();
-
       outbox.consume(
         DataStructures.L2ToL1Msg({
-          sender: DataStructures.L2Actor(l2UniswapAddress, 1),
+          sender: DataStructures.L2Actor(l2UniswapAddress, rollupVersion),
           recipient: DataStructures.L1Actor(address(this), block.chainid),
           content: vars.contentHash
         }),
@@ -211,11 +216,9 @@ contract UniswapPortal {
 
     // Consume the message from the outbox
     {
-      IOutbox outbox = IRollup(registry.getRollup()).getOutbox();
-
       outbox.consume(
         DataStructures.L2ToL1Msg({
-          sender: DataStructures.L2Actor(l2UniswapAddress, 1),
+          sender: DataStructures.L2Actor(l2UniswapAddress, rollupVersion),
           recipient: DataStructures.L1Actor(address(this), block.chainid),
           content: vars.contentHash
         }),

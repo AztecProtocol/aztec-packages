@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
@@ -7,7 +13,7 @@ namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
 // Each entry contains a pair of values
-// N.B. Only works with the UltraPlonkBuilder at the moment!
+// N.B. Only works with the UltraBuilder at the moment!
 template <typename Builder> class twin_rom_table {
   private:
     typedef field_t<Builder> field_pt;

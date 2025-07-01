@@ -1,13 +1,21 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 /**
  * @file ultra_circuit_builder.cpp
  * @author Luke (ledwards2225) and Kesha (Rumata888)
  * @brief This file contains the implementation of field-agnostic UltraCircuitBuilder class that defines the logic
- * of ultra-style circuits and is intended for the use in UltraHonk and UltraPlonk systems
+ * of ultra-style circuits and is intended for the use in UltraHonk
  *
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include <barretenberg/plonk/proof_system/constants.hpp>
+
+#include "barretenberg/crypto/sha256/sha256.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
 #include <unordered_set>
@@ -19,7 +27,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
-     * Note that the total number of rows in an UltraPlonk program can be divided as following:
+     * Note that the total number of rows in an Ultra program can be divided as following:
      *  1. arithmetic gates:  n_computation (includes all computation gates)
      *  2. rom/memory gates:  n_rom
      *  3. range list gates:  n_range
@@ -180,8 +188,19 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     uint32_t right_witness_index = this->add_variable(right_witness_value);
     const auto dummy_accumulators = plookup::get_lookup_accumulators(
         plookup::MultiTableId::HONK_DUMMY_MULTI, left_witness_value, right_witness_value, true);
-    create_gates_from_plookup_accumulators(
+    auto read_data = create_gates_from_plookup_accumulators(
         plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
+
+    update_used_witnesses(left_witness_index);
+    update_used_witnesses(right_witness_index);
+    std::array<std::vector<uint32_t>, 3> parse_read_data{ read_data[plookup::ColumnIdx::C1],
+                                                          read_data[plookup::ColumnIdx::C2],
+                                                          read_data[plookup::ColumnIdx::C3] };
+    for (const auto& column : parse_read_data) {
+        for (const auto& index : column) {
+            update_used_witnesses(index);
+        }
+    }
 
     // mock a poseidon external gate, with all zeros as input
     blocks.poseidon2_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -301,7 +320,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
 
 /**
  * @brief Create a big addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c *
- * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then thes sum also
+ * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then the sum also
  * adds the value of the 4-th witness at the next index.
  *
  * @param in Structure with variable indexes and wire selector values
@@ -463,8 +482,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_qu
     // If we allow this overflow 'flag' to range from 0 to 3, instead of 0 to 1,
     // we can get away with chaining a few addition operations together with basic add gates,
     // before having to use this gate.
-    // (N.B. a larger value would be better, the value '3' is for TurboPlonk backwards compatibility.
-    // In TurboPlonk this method uses a custom gate,
+    // (N.B. a larger value would be better, the value '3' is for Turbo backwards compatibility.
+    // In Turbo this method uses a custom gate,
     // where we were limited to a 2-bit range check by the degree of the custom gate identity.
     create_new_range_constraint(in.d, 3);
 }
@@ -685,7 +704,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 }
 
 /**
- * @brief Add a gate equating a particular witness to a constant, fixing it the value
+ * @brief Add a gate equating a particular witness to a constant, fixing its value
  *
  * @param witness_index The index of the witness we are fixing
  * @param witness_value The value we are fixing it to
@@ -851,7 +870,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
-    // If the value is out of range, set the composer error to the given msg.
+    // If the value is out of range, set the CircuitBuilder error to the given msg.
     if (val.get_msb() >= num_bits && !this->failed()) {
         this->failure(msg);
     }
@@ -1741,18 +1760,58 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                         true);
     create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
 
+    //
+    // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
+    // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
+    //
+    // Check if lo_0 was computed correctly.
+    // The gate structure for the auxiliary gates is as follows:
+    //
+    // | a1 | b1 | r0 | lo_0 | <-- product gate 1: check lo_0
+    // | a0 | b0 | a3 | b3   |
+    // | a2 | b2 | r3 | hi_0 |
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Constaint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
+    //              w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
+    //
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
     ++this->num_gates;
 
+    //
+    // Check if hi_0 was computed correctly.
+    //
+    // | a1 | b1 | r0 | lo_0 |
+    // | a0 | b0 | a3 | b3   | <-- product gate 2: check hi_0
+    // | a2 | b2 | r3 | hi_0 |
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Constaint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0) - r2
+    //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2) - w'3
+    //
     blocks.aux.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
     ++this->num_gates;
 
+    //
+    // Check if hi_1 was computed correctly.
+    //
+    // | a1 | b1 | r0 | lo_0 |
+    // | a0 | b0 | a3 | b3   |
+    // | a2 | b2 | r3 | hi_0 | <-- product gate 3: check hi_1
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Constaint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1)
+    //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2)
+    //
     blocks.aux.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
     ++this->num_gates;
 
+    //
+    // Does nothing, but is used by the previous gate to read the hi_1 limb.
+    //
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_aux_selectors(AUX_SELECTORS::NONE);
     ++this->num_gates;
@@ -2185,6 +2244,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_ROM_gate(RomRecord& record)
 {
     record.record_witness = this->add_variable(0);
+    // record_witness is intentionally used only in a single gate
+    update_used_witnesses(record.record_witness);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
     blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
@@ -2319,7 +2380,7 @@ size_t UltraCircuitBuilder_<ExecutionTrace>::create_RAM_array(const size_t array
 /**
  * @brief Initialize a RAM cell to equal `value_witness`
  *
- * @param ram_id The index of the ROM array, which cell we are initializing
+ * @param ram_id The index of the RAM array, which cell we are initializing
  * @param index_value The index of the cell within the array (an actual index, not a witness index)
  * @param value_witness The index of the witness with the value that should be in the
  */
@@ -2590,6 +2651,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         const auto value1 = this->get_variable(record.value_column1_witness);
         const auto value2 = this->get_variable(record.value_column2_witness);
         const auto index_witness = this->add_variable(FF((uint64_t)index));
+        // the same thing as with the record witness
+        update_used_witnesses(index_witness);
         const auto value1_witness = this->add_variable(value1);
         const auto value2_witness = this->add_variable(value2);
         RomRecord sorted_record{
@@ -2852,32 +2915,34 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     ++this->num_gates;
 }
 
-template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit()
+/**
+ * @brief Compute a hash of some of the main circuit components.
+ * @note This hash can differ for circuits that will ultimately result in an identical verification key. For example,
+ * when we construct circuits from acir programs with dummy witnesses, the hash will in general disagree with the hash
+ * of the circuit constructed using a genuine witness. This is not because the hash includes geunines witness values
+ * (only indices) but rather because in the dummy witness context we use add_variable and assert_equal to set the values
+ * of dummy witnesses, which effects the content of real_variable_index, but in the end results in an identical
+ * VK/circuit.
+ *
+ */
+template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace>::hash_circuit() const
 {
-    finalize_circuit(/*ensure_nonzero=*/false);
+    // Copy the circuit and finalize without modifying the original
+    auto circuit = *this;
+    circuit.finalize_circuit(/*ensure_nonzero=*/false);
 
-    size_t sum_of_block_sizes(0);
-    for (auto& block : blocks.get()) {
-        sum_of_block_sizes += block.size();
-    }
-
-    size_t num_bytes_in_selectors = sizeof(FF) * ExecutionTrace::NUM_SELECTORS * sum_of_block_sizes;
-    size_t num_bytes_in_wires_and_copy_constraints =
-        sizeof(uint32_t) * (ExecutionTrace::NUM_WIRES * sum_of_block_sizes + this->real_variable_index.size());
-    size_t num_bytes_to_hash = num_bytes_in_selectors + num_bytes_in_wires_and_copy_constraints;
-
-    std::vector<uint8_t> to_hash(num_bytes_to_hash);
-
+    std::vector<uint8_t> to_hash;
     const auto convert_and_insert = [&to_hash](auto& vector) {
         std::vector<uint8_t> buffer = to_buffer(vector);
         to_hash.insert(to_hash.end(), buffer.begin(), buffer.end());
     };
 
+    // Hash the selectors, the wires, and the variable index array (which captures information about copy constraints)
     for (auto& block : blocks.get()) {
         std::for_each(block.selectors.begin(), block.selectors.end(), convert_and_insert);
         std::for_each(block.wires.begin(), block.wires.end(), convert_and_insert);
     }
-    convert_and_insert(this->real_variable_index);
+    convert_and_insert(circuit.real_variable_index);
 
     return from_buffer<uint256_t>(crypto::sha256(to_hash));
 }
@@ -2890,7 +2955,14 @@ template <typename ExecutionTrace> uint256_t UltraCircuitBuilder_<ExecutionTrace
  */
 template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<ExecutionTrace>::export_circuit()
 {
-    this->set_variable_name(this->zero_idx, "zero");
+    // You should not name `zero` by yourself
+    // but it will be rewritten anyway
+    auto first_zero_idx = this->get_first_variable_in_class(this->zero_idx);
+    if (!this->variable_names.contains(first_zero_idx)) {
+        this->set_variable_name(this->zero_idx, "zero");
+    } else {
+        this->variable_names[first_zero_idx] = "zero";
+    }
     using base = CircuitBuilderBase<FF>;
     CircuitSchemaInternal<FF> cir;
 
@@ -2911,10 +2983,9 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
         cir.vars_of_interest.insert({ this->real_variable_index[tup.first], tup.second });
     }
 
-    for (auto var : this->variables) {
+    for (const auto& var : this->get_variables()) {
         cir.variables.push_back(var);
     }
-    // TODO(alex): manage non native gates
 
     FF curve_b;
     if constexpr (FF::modulus == bb::fq::modulus) {
@@ -2942,7 +3013,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
             };
 
             if (idx < block.size() - 1) {
-                // TODO(alex): don't forget to handle memory_data later
                 tmp_w.push_back(block.w_l()[idx + 1]);
                 tmp_w.push_back(block.w_r()[idx + 1]);
                 tmp_w.push_back(block.w_o()[idx + 1]);
@@ -2977,6 +3047,37 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     for (const auto& list : range_lists) {
         cir.range_tags[list.second.range_tag] = list.first;
+    }
+
+    for (auto& rom_table : this->rom_arrays) {
+        std::sort(rom_table.records.begin(), rom_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(rom_table.records.size());
+        for (const auto& rom_entry : rom_table.records) {
+            table.push_back({
+                this->real_variable_index[rom_entry.index_witness],
+                this->real_variable_index[rom_entry.value_column1_witness],
+                this->real_variable_index[rom_entry.value_column2_witness],
+            });
+        }
+        cir.rom_records.push_back(table);
+        cir.rom_states.push_back(rom_table.state);
+    }
+
+    for (auto& ram_table : this->ram_arrays) {
+        std::sort(ram_table.records.begin(), ram_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(ram_table.records.size());
+        for (const auto& ram_entry : ram_table.records) {
+            table.push_back({ this->real_variable_index[ram_entry.index_witness],
+                              this->real_variable_index[ram_entry.value_witness],
+                              this->real_variable_index[ram_entry.timestamp_witness],
+                              ram_entry.access_type });
+        }
+        cir.ram_records.push_back(table);
+        cir.ram_states.push_back(ram_table.state);
     }
 
     cir.circuit_finalized = this->circuit_finalized;

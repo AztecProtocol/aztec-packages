@@ -1,5 +1,7 @@
 #pragma once
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
@@ -27,6 +29,7 @@ enum WorldStateMessageType {
 
     FIND_LEAF_INDICES,
     FIND_LOW_LEAF,
+    FIND_SIBLING_PATHS,
 
     APPEND_LEAVES,
     BATCH_INSERT,
@@ -51,6 +54,10 @@ enum WorldStateMessageType {
     CREATE_CHECKPOINT,
     COMMIT_CHECKPOINT,
     REVERT_CHECKPOINT,
+    COMMIT_ALL_CHECKPOINTS,
+    REVERT_ALL_CHECKPOINTS,
+
+    COPY_STORES,
 
     CLOSE = 999,
 };
@@ -167,6 +174,18 @@ struct FindLeafIndicesResponse {
     MSGPACK_FIELDS(indices);
 };
 
+template <typename T> struct FindLeafPathsRequest {
+    MerkleTreeId treeId;
+    WorldStateRevision revision;
+    std::vector<T> leaves;
+    MSGPACK_FIELDS(treeId, revision, leaves);
+};
+
+struct FindLeafPathsResponse {
+    std::vector<std::optional<SiblingPathAndIndex>> paths;
+    MSGPACK_FIELDS(paths);
+};
+
 struct FindLowLeafRequest {
     MerkleTreeId treeId;
     WorldStateRevision revision;
@@ -181,7 +200,7 @@ struct FindLowLeafResponse {
 };
 
 struct BlockShiftRequest {
-    index_t toBlockNumber;
+    block_number_t toBlockNumber;
     MSGPACK_FIELDS(toBlockNumber);
 };
 
@@ -215,7 +234,7 @@ struct UpdateArchiveRequest {
 };
 
 struct SyncBlockRequest {
-    uint64_t blockNumber;
+    block_number_t blockNumber;
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
@@ -229,6 +248,12 @@ struct SyncBlockRequest {
                    paddedL1ToL2Messages,
                    paddedNullifiers,
                    publicDataWrites);
+};
+
+struct CopyStoresRequest {
+    std::string dstPath;
+    std::optional<bool> compact;
+    MSGPACK_FIELDS(dstPath, compact);
 };
 
 } // namespace bb::nodejs

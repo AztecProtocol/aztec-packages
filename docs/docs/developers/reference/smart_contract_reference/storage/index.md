@@ -24,30 +24,15 @@ On this and the following pages in this section, you’ll learn:
 
 ## The `Context` parameter
 
-Aztec contracts have three different modes of execution: private, public, and top-level unconstrained. How storage is accessed depends on the execution mode: for example, `PublicImmutable` can be read in all execution modes but only initialized in public, while `PrivateMutable` is entirely unavailable in public.
+Aztec contracts have three different modes of execution: private, public, and utility. How storage is accessed depends on the execution mode: for example, `PublicImmutable` can be read in all execution modes but only initialized in public, while `PrivateMutable` is entirely unavailable in public.
 
-Aztec.nr prevents developers from calling functions unavailable in the current execution mode via the `context` variable that is injected into all contract functions. Its type indicates the current execution mode:
+Aztec.nr prevents developers from calling functions unavailable in the current execution mode via the `Context` variable that is injected into all contract functions. Its type indicates the current execution mode:
 
 - `&mut PrivateContext` for private execution
 - `&mut PublicContext` for public execution
-- `UncontrainedContext` for top-level unconstrained execution
+- `UtilityContext` for utility execution
 
-All state variables are generic over this `Context` type, and expose different methods in each execution mode. In the example above, `PublicImmutable`'s `initialize` function is only available with a public execution context, and so the following code results in a compilation error:
-
-```rust
-#[storage]
-struct Storage {
-  variable: PublicImmutable<Field>,
-}
-
-#[private]
-fn some_private_function() {
-  storage.variable.initialize(0);
-  // ^ ERROR: Expected type PublicImmutable<_, &mut PublicContext>, found type PublicImmutable<Field, &mut PrivateContext>
-}
-```
-
-The `Context` generic type parameter is not visible in the code above as it is automatically injected by the `#[storage]` macro, in order to reduce boilerplate. Similarly, all state variables in that struct (e.g. `PublicImmutable`) similarly have that same type parameter automatically passed to them.
+All state variables are generic over this `Context` type, and expose different methods in each execution mode.
 
 ## Map
 
@@ -77,7 +62,7 @@ numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
 
-#include_code storage_minters /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code storage_minters /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### `at`
 
@@ -85,7 +70,7 @@ When dealing with a Map, we can access the value at a given key using the `::at`
 
 This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
 
-#include_code read_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code read_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 Above, we are specifying that we want to get the storage in the Map `at` the `msg_sender()`, read the value stored and check that `msg_sender()` is indeed a minter. Doing a similar operation in Solidity code would look like:
 

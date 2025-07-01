@@ -14,12 +14,12 @@ enum class AluOperation {
 
 struct AluEvent {
     AluOperation operation;
-    MemoryAddress a_addr;
-    MemoryAddress b_addr;
-    MemoryAddress dst_addr;
     MemoryValue a;
     MemoryValue b;
-    MemoryValue res;
+    MemoryValue c;
+    // To be used with deduplicating event emitters.
+    using Key = std::tuple<AluOperation, MemoryValue, MemoryValue>;
+    Key get_key() const { return { operation, a, b }; }
 };
 
 } // namespace bb::avm2::simulation

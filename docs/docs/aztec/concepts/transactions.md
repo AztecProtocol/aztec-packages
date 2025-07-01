@@ -21,7 +21,7 @@ The introduction of the Private eXecution Environment (PXE) provides a safe envi
 
 The accompanying diagram illustrates the flow of interactions between a user, their wallet, the PXE, the node operators (sequencers / provers), and the L1 chain.
 
-<Image img={require("/img/transaction-lifecycle.png")} />
+<Image img={require("@site/static/img/transaction-lifecycle.png")} />
 
 1. **The user initiates a transaction** – In this example, the user decides to privately send 10 DAI to gudcause.eth. After inputting the amount and the receiving address, the user clicks the confirmation button on their wallet.
 
@@ -45,7 +45,7 @@ _The sequencer has passed the transaction information – proofs of correct exec
 
 Transactions on Aztec start with a call from Aztec.js, which creates a request containing transaction details. This request moves to the Private Execution Environment (PXE) which simulates and processes it. Then the PXE interacts with the Aztec Node which uses the sequencer to ensure that all the transaction details are enqueued properly. The sequencer then submits the block to the rollup contract, and the transaction is successfully mined.
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/835b87ead8e031ea78952f75c61b0526da290f54/docs/static/img/sandbox_sending_a_tx.png"><img src="/img/sandbox_sending_a_tx.png" alt="Sending a transaction" /></a>
+<Image img={require("@site/static/img/sandbox_sending_a_tx.png")} />
 
 See [this diagram](https://raw.githubusercontent.com/AztecProtocol/aztec-packages/2fa143e4d88b3089ebbe2a9e53645edf66157dc8/docs/static/img/sandbox_sending_a_tx.svg) for a more detailed overview of the transaction execution process. It highlights 3 different types of transaction execution: contract deployments, private transactions and public transactions.
 
@@ -68,7 +68,7 @@ Where:
 
 The `functionData` includes an `AppPayload`, which includes information about the application functions and arguments, and a `FeePayload`, which includes info about how to pay for the transaction.
 
-An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
+An account contract validates that the transaction request has been authorized via its specified authorization mechanism, via the `is_valid_impl` function (e.g. [an ECDSA signature](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/account/ecdsa_k_account_contract/src/main.nr#L56-L57), generated [in JS](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/accounts/src/ecdsa/ecdsa_k/account_contract.ts#L30)).
 
 Transaction requests are simulated in the PXE in order to generate the necessary inputs for generating proofs. Once transactions are proven, a [transaction object](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/stdlib/src/tx/tx.ts#L26) is created and can be sent to the network to be included in a block.
 

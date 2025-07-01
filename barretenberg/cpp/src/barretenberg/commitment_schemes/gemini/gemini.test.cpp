@@ -18,8 +18,8 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
 
-    static std::shared_ptr<CK> ck;
-    static std::shared_ptr<VK> vk;
+    static CK ck;
+    static VK vk;
 
     static void SetUpTestSuite()
     {
@@ -192,12 +192,8 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     fold_1.at(2) = -(Fr(1) - u[1]) * fold_1.at(1) * u[1].invert(); // fold₁[2] = -(1 - u₁) ⋅ fold₁[1] / u₁
     fold_1.at(3) = Fr(0);
 
-    prover_transcript->template send_to_verifier("Gemini:FOLD_1", this->ck->commit(fold_1));
-    prover_transcript->template send_to_verifier("Gemini:FOLD_2", this->ck->commit(fold_2));
-
-    for (size_t idx = log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        prover_transcript->template send_to_verifier("Gemini:FOLD_" + std::to_string(idx), Commitment::one());
-    }
+    prover_transcript->template send_to_verifier("Gemini:FOLD_1", this->ck.commit(fold_1));
+    prover_transcript->template send_to_verifier("Gemini:FOLD_2", this->ck.commit(fold_2));
 
     // Get Gemini evaluation challenge
     const Fr gemini_r = prover_transcript->template get_challenge<Fr>("Gemini:r");
@@ -214,13 +210,9 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     prover_transcript->template send_to_verifier("Gemini:a_1", fold_evals[0]);
     prover_transcript->template send_to_verifier("Gemini:a_2", fold_evals[1]);
     prover_transcript->template send_to_verifier("Gemini:a_3", fold_evals[2]);
-    for (size_t idx = log_n + 1; idx <= CONST_PROOF_SIZE_LOG_N; idx++) {
-        prover_transcript->template send_to_verifier("Gemini:a_" + std::to_string(idx), Fr{ 0 });
-    }
 
     // Compute the powers of r used by the verifier. It is an artifact of the const proof size logic.
-    const std::vector<Fr> gemini_eval_challenge_powers =
-        gemini::powers_of_evaluation_challenge(gemini_r, CONST_PROOF_SIZE_LOG_N);
+    const std::vector<Fr> gemini_eval_challenge_powers = gemini::powers_of_evaluation_challenge(gemini_r, log_n);
 
     std::vector<Claim> prover_opening_claims;
     prover_opening_claims.reserve(2 * log_n);
@@ -237,7 +229,7 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    std::vector<Commitment> unshifted_commitments = { this->ck->commit(fold_0) };
+    std::vector<Commitment> unshifted_commitments = { this->ck.commit(fold_0) };
     std::vector<Fr> unshifted_evals = { claimed_multilinear_eval * rho.pow(0) };
 
     ClaimBatcher claim_batcher{ .unshifted =
@@ -262,5 +254,5 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     }
 }
 
-template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::CK> GeminiTest<Curve>::ck = nullptr;
-template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::VK> GeminiTest<Curve>::vk = nullptr;
+template <class Curve> typename GeminiTest<Curve>::CK GeminiTest<Curve>::ck;
+template <class Curve> typename GeminiTest<Curve>::VK GeminiTest<Curve>::vk;

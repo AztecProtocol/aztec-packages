@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
@@ -38,6 +44,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = ECCVMFlavor::USE_PADDING;
+
     static constexpr size_t NUM_WIRES = ECCVMFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -86,15 +95,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public StdlibVerificationKey_<BuilderType, ECCVMFlavor::PrecomputedEntities<Commitment>> {
       public:
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        };
+        VerifierCommitmentKey pcs_verification_key;
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -103,16 +106,18 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
          * @param builder
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+            : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
-                builder, native_key->circuit_size, native_key->pcs_verification_key);
-            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
-            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+            // `log_circuit_size` from MSGPACK and the verification key.
+            this->circuit_size = BF{ 1UL << CONST_ECCVM_LOG_N };
+            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
+            this->log_circuit_size.convert_constant_to_fixed_witness(builder);
+            this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = BF::from_witness(builder, native_key->pub_inputs_offset);
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);

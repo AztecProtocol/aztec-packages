@@ -4,6 +4,14 @@ set -euo pipefail
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+reset_x=false
+
+# Set +x if it's currently enabled
+if [ -o xtrace ]; then
+  set +x
+  reset_x=true
+fi
+
 tmp_filename=$(mktemp)
 addresses_file=$(mktemp)
 
@@ -15,6 +23,9 @@ cleanup() {
   if [ -f "$addresses_file" ]; then
     rm -f "$addresses_file"
   fi
+  if [ $reset_x = true ]; then
+    set -x
+  fi
 }
 
 # Set up trap to call cleanup on script exit
@@ -25,7 +36,31 @@ eth_amount=${2:-"1"}
 output_file=${3:-"mnemonic.tmp"}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
+# Install bc if needed
+if ! command -v bc &>/dev/null; then
+  echo "Installing bc..."
+  apt-get update && apt-get install -y bc
+fi
+
+# Install cast if needed
+if ! command -v cast &>/dev/null; then
+  echo "Installing cast..."
+  curl -L https://foundry.paradigm.xyz | bash
+  $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
+fi
+
+# Install yq if needed
+if ! command -v yq &>/dev/null; then
+  echo "Installing yq..."
+  wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+  chmod +x /usr/local/bin/yq
+fi
+
 # Convert ETH to wei
+if [[ ! "$eth_amount" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "Error: Invalid ETH amount: $eth_amount"
+  exit 1
+fi
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
 value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
@@ -59,32 +94,18 @@ max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 # Total number of accounts needed
 total_accounts=$((num_validators + num_provers + num_bots))
 
-# Install bc if needed
-if ! command -v bc &>/dev/null; then
-  echo "Installing bc..."
-  apt-get update && apt-get install -y bc
+# Check if mnemonic is provided
+if [ "${MNEMONIC:-}" = "" ]; then
+  # Create a new mnemonic
+  echo "Creating mnemonic..."
+  cast wallet new-mnemonic --json >"$tmp_filename"
+  MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
+
+  echo "MNEMONIC:"
+  echo "::add-mask::$MNEMONIC"
+else
+  echo "Using provided mnemonic"
 fi
-
-# Install cast if needed
-if ! command -v cast &>/dev/null; then
-  echo "Installing cast..."
-  curl -L https://foundry.paradigm.xyz | bash
-  $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
-fi
-
-# Install yq if needed
-if ! command -v yq &>/dev/null; then
-  echo "Installing yq..."
-  wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
-  chmod +x /usr/local/bin/yq
-fi
-
-# Create a new mnemonic
-echo "Creating mnemonic..."
-cast wallet new-mnemonic --json >"$tmp_filename"
-MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
-
-echo "MNEMONIC: $MNEMONIC"
 
 # Cast has a limit of 255 accounts per mnemonic command
 # We'll need to derive accounts in batches

@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 
 import { type BlobSinkArchiveApiConfig, blobSinkArchiveApiConfigMappings } from '../archive/config.js';
 
@@ -17,19 +17,24 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   l1RpcUrls?: string[];
 
   /**
-   * The URL of the L1 consensus client
+   * List of URLs for L1 consensus clients
    */
-  l1ConsensusHostUrl?: string;
+  l1ConsensusHostUrls?: string[];
 
   /**
-   * The API key for the L1 consensus client. Added end of URL as "?key=<api-key>" unless a header is defined
+   * List of API keys for the corresponding L1 consensus client URLs. Added at the end of the URL as "?key=<api-key>" unless a header is defined
    */
-  l1ConsensusHostApiKey?: string;
+  l1ConsensusHostApiKeys?: SecretValue<string>[];
 
   /**
-   * The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>"
+   * List of header names for the corresponding L1 consensus client API keys, if needed. Added as "<api-key-header>: <api-key>"
    */
-  l1ConsensusHostApiKeyHeader?: string;
+  l1ConsensusHostApiKeyHeaders?: string[];
+
+  /**
+   * The map size to be provided to LMDB for each blob sink DB, optional, will inherit from the general dataStoreMapSizeKB if not specified
+   */
+  blobSinkMapSizeKb?: number;
 }
 
 export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
@@ -42,19 +47,27 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     description: 'List of URLs for L1 RPC Execution clients',
     parseEnv: (val: string) => val.split(',').map(url => url.trim()),
   },
-  l1ConsensusHostUrl: {
-    env: 'L1_CONSENSUS_HOST_URL',
-    description: 'The URL of the L1 consensus client',
+  l1ConsensusHostUrls: {
+    env: 'L1_CONSENSUS_HOST_URLS',
+    description: 'List of URLS for L1 consensus clients',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
   },
-  l1ConsensusHostApiKey: {
-    env: 'L1_CONSENSUS_HOST_API_KEY',
+  l1ConsensusHostApiKeys: {
+    env: 'L1_CONSENSUS_HOST_API_KEYS',
     description:
-      'The API key for the L1 consensus client, if needed. Added end of URL as "?key=<api-key>" unless a header is defined',
+      'List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=<api-key>" unless a header is defined',
+    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(key.trim())),
   },
-  l1ConsensusHostApiKeyHeader: {
-    env: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
+  l1ConsensusHostApiKeyHeaders: {
+    env: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
     description:
-      'The header name for the L1 consensus client API key, if needed. Added as "<api-key-header>: <api-key>"',
+      'List of header names for the corresponding L1 consensus client API keys, if needed. Added to the corresponding request as "<api-key-header>: <api-key>"',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+  },
+  blobSinkMapSizeKb: {
+    env: 'BLOB_SINK_MAP_SIZE_KB',
+    description: 'The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
   },
   ...blobSinkArchiveApiConfigMappings,
 };
@@ -65,4 +78,11 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
  */
 export function getBlobSinkConfigFromEnv(): BlobSinkConfig {
   return getConfigFromMappings<BlobSinkConfig>(blobSinkConfigMapping);
+}
+
+/**
+ * Returns whether the given blob sink config has any remote sources defined.
+ */
+export function hasRemoteBlobSinkSources(config: BlobSinkConfig = {}): boolean {
+  return !!(config.blobSinkUrl || config.l1ConsensusHostUrls?.length || config.archiveApiUrl);
 }

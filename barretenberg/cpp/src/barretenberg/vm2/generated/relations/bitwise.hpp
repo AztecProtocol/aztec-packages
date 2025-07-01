@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -16,106 +17,109 @@ template <typename FF_> class bitwiseImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return ((new_term.bitwise_sel + new_term.bitwise_last)).is_zero();
+        using C = ColumnAndShifts;
+
+        return ((in.get(C::bitwise_sel) + in.get(C::bitwise_last))).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        using C = ColumnAndShifts;
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_sel * (FF(1) - new_term.bitwise_sel);
+            auto tmp = in.get(C::bitwise_sel) * (FF(1) - in.get(C::bitwise_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_start * (FF(1) - new_term.bitwise_start);
+            auto tmp = in.get(C::bitwise_start) * (FF(1) - in.get(C::bitwise_start));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_last * (FF(1) - new_term.bitwise_last);
+            auto tmp = in.get(C::bitwise_last) * (FF(1) - in.get(C::bitwise_last));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_OP_ID_REL
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (new_term.bitwise_op_id_shift - new_term.bitwise_op_id) * (FF(1) - new_term.bitwise_last);
+            auto tmp = (in.get(C::bitwise_op_id_shift) - in.get(C::bitwise_op_id)) * (FF(1) - in.get(C::bitwise_last));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_CTR_DECREMENT
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_sel * ((new_term.bitwise_ctr_shift - new_term.bitwise_ctr) + FF(1)) *
-                       (FF(1) - new_term.bitwise_last);
+            auto tmp = in.get(C::bitwise_sel) * ((in.get(C::bitwise_ctr_shift) - in.get(C::bitwise_ctr)) + FF(1)) *
+                       (FF(1) - in.get(C::bitwise_last));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_SEL_CTR_NON_ZERO
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (new_term.bitwise_ctr * ((FF(1) - new_term.bitwise_sel) * (FF(1) - new_term.bitwise_ctr_inv) +
-                                                new_term.bitwise_ctr_inv) -
-                        new_term.bitwise_sel);
+            auto tmp =
+                (in.get(C::bitwise_ctr) * ((FF(1) - in.get(C::bitwise_sel)) * (FF(1) - in.get(C::bitwise_ctr_inv)) +
+                                           in.get(C::bitwise_ctr_inv)) -
+                 in.get(C::bitwise_sel));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_LAST_FOR_CTR_ONE
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp =
-                new_term.bitwise_sel *
-                (((new_term.bitwise_ctr - FF(1)) * (new_term.bitwise_last * (FF(1) - new_term.bitwise_ctr_min_one_inv) +
-                                                    new_term.bitwise_ctr_min_one_inv) +
-                  new_term.bitwise_last) -
-                 FF(1));
+                in.get(C::bitwise_sel) * (((in.get(C::bitwise_ctr) - FF(1)) *
+                                               (in.get(C::bitwise_last) * (FF(1) - in.get(C::bitwise_ctr_min_one_inv)) +
+                                                in.get(C::bitwise_ctr_min_one_inv)) +
+                                           in.get(C::bitwise_last)) -
+                                          FF(1));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_INIT_A
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_last * (new_term.bitwise_acc_ia - new_term.bitwise_ia_byte);
+            auto tmp = in.get(C::bitwise_last) * (in.get(C::bitwise_acc_ia) - in.get(C::bitwise_ia_byte));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_INIT_B
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_last * (new_term.bitwise_acc_ib - new_term.bitwise_ib_byte);
+            auto tmp = in.get(C::bitwise_last) * (in.get(C::bitwise_acc_ib) - in.get(C::bitwise_ib_byte));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_INIT_C
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = new_term.bitwise_last * (new_term.bitwise_acc_ic - new_term.bitwise_ic_byte);
+            auto tmp = in.get(C::bitwise_last) * (in.get(C::bitwise_acc_ic) - in.get(C::bitwise_ic_byte));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_ACC_REL_A
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp =
-                ((new_term.bitwise_acc_ia - new_term.bitwise_ia_byte) - FF(256) * new_term.bitwise_acc_ia_shift) *
-                (FF(1) - new_term.bitwise_last);
+                ((in.get(C::bitwise_acc_ia) - in.get(C::bitwise_ia_byte)) - FF(256) * in.get(C::bitwise_acc_ia_shift)) *
+                (FF(1) - in.get(C::bitwise_last));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_ACC_REL_B
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp =
-                ((new_term.bitwise_acc_ib - new_term.bitwise_ib_byte) - FF(256) * new_term.bitwise_acc_ib_shift) *
-                (FF(1) - new_term.bitwise_last);
+                ((in.get(C::bitwise_acc_ib) - in.get(C::bitwise_ib_byte)) - FF(256) * in.get(C::bitwise_acc_ib_shift)) *
+                (FF(1) - in.get(C::bitwise_last));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         { // BITW_ACC_REL_C
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp =
-                ((new_term.bitwise_acc_ic - new_term.bitwise_ic_byte) - FF(256) * new_term.bitwise_acc_ic_shift) *
-                (FF(1) - new_term.bitwise_last);
+                ((in.get(C::bitwise_acc_ic) - in.get(C::bitwise_ic_byte)) - FF(256) * in.get(C::bitwise_acc_ic_shift)) *
+                (FF(1) - in.get(C::bitwise_last));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }

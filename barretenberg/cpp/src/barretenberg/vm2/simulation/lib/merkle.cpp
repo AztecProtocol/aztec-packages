@@ -1,7 +1,8 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2::simulation {
@@ -20,6 +21,22 @@ FF root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<con
         curr_index >>= 1;
     }
     return curr_value;
+}
+
+FF silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });
+}
+
+FF silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
+}
+
+FF make_unique_note_hash(const FF& siloed_note_hash, const FF& first_nullifier, uint64_t note_hash_counter)
+{
+    FF nonce = Poseidon2::hash({ GENERATOR_INDEX__NOTE_HASH_NONCE, first_nullifier, note_hash_counter });
+    return Poseidon2::hash({ GENERATOR_INDEX__UNIQUE_NOTE_HASH, nonce, siloed_note_hash });
 }
 
 } // namespace bb::avm2::simulation

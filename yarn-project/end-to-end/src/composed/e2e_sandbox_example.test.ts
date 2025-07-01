@@ -51,14 +51,16 @@ end-to-end-1  |           at async Promise.all (index 0)
 end-to-end-1  |       at createSchnorrAccounts (composed/e2e_sandbox_example.test.ts:141:14)
 end-to-end-1  |       at Object.<anonymous> (composed/e2e_sandbox_example.test.ts:151:22)
 */
-// docs:start:imports
+// docs:start:imports1
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+// docs:end:imports1
 import {
   getDeployedBananaCoinAddress,
   getDeployedBananaFPCAddress,
   getDeployedSponsoredFPCAddress,
 } from '@aztec/aztec';
+// docs:start:imports2
 import {
   Fr,
   GrumpkinScalar,
@@ -69,13 +71,15 @@ import {
   getFeeJuiceBalance,
   waitForPXE,
 } from '@aztec/aztec.js';
+// docs:end:imports2
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { timesParallel } from '@aztec/foundation/collection';
+// docs:start:imports3
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { format } from 'util';
 
-// docs:end:imports
+// docs:end:imports3
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -96,7 +100,7 @@ describe('e2e_sandbox_example', () => {
     logger.info(format('Aztec Sandbox Info ', nodeInfo));
     // docs:end:setup
 
-    expect(typeof nodeInfo.protocolVersion).toBe('number');
+    expect(typeof nodeInfo.rollupVersion).toBe('number');
     expect(typeof nodeInfo.l1ChainId).toBe('number');
     expect(typeof nodeInfo.l1ContractAddresses.rollupAddress).toBe('object');
 
@@ -279,12 +283,13 @@ describe('e2e_sandbox_example', () => {
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
     const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, pxe);
 
+    // docs:start:transaction_with_payment_method
     const receiptForBob = await bananaCoin
       .withWallet(bobWallet)
       .methods.transfer(alice, amountTransferToAlice)
       .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
       .wait();
-
+    // docs:end:transaction_with_payment_method
     // Check the balances
     const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
     logger.info(`Alice's new balance: ${aliceNewBalance}`);

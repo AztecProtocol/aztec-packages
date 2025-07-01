@@ -1,18 +1,22 @@
 import { Encoder } from 'msgpackr/pack';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { Value } from '../interfaces/common.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { ReadTransaction } from './read_transaction.js';
 // eslint-disable-next-line import/no-cycle
 import { AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, serializeKey } from './utils.js';
 
-export class LMDBArray<T> implements AztecAsyncArray<T> {
+export class LMDBArray<T extends Value> implements AztecAsyncArray<T> {
   private length: AztecAsyncSingleton<number>;
   private encoder = new Encoder();
   private prefix: string;
 
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.length = store.openSingleton(name + ':length');
     this.prefix = `array:${name}`;
   }

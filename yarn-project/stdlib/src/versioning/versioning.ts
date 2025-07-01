@@ -4,7 +4,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type Koa from 'koa';
 
-import type { ChainConfig } from '../config/config.js';
+import type { ChainConfig } from '../config/chain-config.js';
 
 // REFACTOR: This file is not a circuit-type, but at the moment we don't have any other
 // package common to all components that we can use for this shared code.
@@ -16,7 +16,7 @@ export type ComponentsVersions = {
   // Note that we are using the rollup address as identifier in multiple places
   // such as the keystore, we need to change it so we can handle updates.
   l1RollupAddress: EthAddress;
-  l2ChainVersion: number;
+  rollupVersion: number;
   l2ProtocolContractsTreeRoot: string;
   l2CircuitsVkTreeRoot: string;
 };
@@ -30,7 +30,7 @@ export function getComponentsVersionsFromConfig(
   return {
     l1ChainId: config.l1ChainId,
     l1RollupAddress: config.l1Contracts?.rollupAddress, // This should not be undefined, but sometimes the config lies to us and it is...
-    l2ChainVersion: config.version,
+    rollupVersion: config.rollupVersion,
     l2ProtocolContractsTreeRoot: l2ProtocolContractsTreeRoot.toString(),
     l2CircuitsVkTreeRoot: l2CircuitsVkTreeRoot.toString(),
   };
@@ -50,7 +50,7 @@ export function compressComponentVersions(versions: ComponentsVersions): string 
     '00',
     versions.l1ChainId,
     versions.l1RollupAddress.toString().slice(2, 10),
-    versions.l2ChainVersion,
+    versions.rollupVersion,
     versions.l2ProtocolContractsTreeRoot.toString().slice(2, 10),
     versions.l2CircuitsVkTreeRoot.toString().slice(2, 10),
   ].join('-');
@@ -65,14 +65,8 @@ export class ComponentsVersionsError extends Error {
 
 /** Checks if the compressed string matches against the expected versions. Throws on mismatch. */
 export function checkCompressedComponentVersion(compressed: string, expected: ComponentsVersions) {
-  const [
-    versionVersion,
-    l1ChainId,
-    l1RollupAddress,
-    l2ChainVersion,
-    l2ProtocolContractsTreeRoot,
-    l2CircuitsVkTreeRoot,
-  ] = compressed.split('-');
+  const [versionVersion, l1ChainId, l1RollupAddress, rollupVersion, l2ProtocolContractsTreeRoot, l2CircuitsVkTreeRoot] =
+    compressed.split('-');
   if (versionVersion !== '00') {
     throw new ComponentsVersionsError('version', '00', versionVersion);
   }
@@ -82,8 +76,8 @@ export function checkCompressedComponentVersion(compressed: string, expected: Co
   if (l1RollupAddress !== expected.l1RollupAddress.toString().slice(2, 10)) {
     throw new ComponentsVersionsError(`L1 address`, expected.l1RollupAddress.toString(), l1RollupAddress);
   }
-  if (l2ChainVersion !== expected.l2ChainVersion.toString()) {
-    throw new ComponentsVersionsError('L2 chain version', expected.l2ChainVersion.toString(), l2ChainVersion);
+  if (rollupVersion !== expected.rollupVersion.toString()) {
+    throw new ComponentsVersionsError('L2 chain version', expected.rollupVersion.toString(), rollupVersion);
   }
   if (l2ProtocolContractsTreeRoot !== expected.l2ProtocolContractsTreeRoot.toString().slice(2, 10)) {
     throw new ComponentsVersionsError(
@@ -111,7 +105,7 @@ export function validatePartialComponentVersionsMatch(
     'l2ProtocolContractsTreeRoot',
     'l2CircuitsVkTreeRoot',
     'l1ChainId',
-    'l2ChainVersion',
+    'rollupVersion',
   ] as const) {
     const actualValue = actual[key];
     const expectedValue = expected[key];

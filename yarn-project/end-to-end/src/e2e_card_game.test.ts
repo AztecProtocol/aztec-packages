@@ -296,7 +296,7 @@ describe('e2e_card_game', () => {
       const loser = sortedByPoints[1].address;
 
       await expect(
-        contractFor(loser).methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send().wait(),
+        contractFor(loser).methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).simulate(),
       ).rejects.toThrow(/Not the winner/);
 
       await contractFor(winner).methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send().wait();

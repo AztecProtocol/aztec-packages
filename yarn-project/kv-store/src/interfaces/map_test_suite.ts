@@ -31,6 +31,12 @@ export function describeAztecMap(
         : await (sut as AztecAsyncMap<any, any>).getAsync(key);
     }
 
+    async function size(sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
+      return isSyncStore(store) && !forceAsync
+        ? (sut as AztecMap<any, any>).size()
+        : await (sut as AztecAsyncMap<any, any>).sizeAsync();
+    }
+
     async function entries() {
       return isSyncStore(store) && !forceAsync
         ? await toArray((map as AztecMap<any, any>).entries())
@@ -58,6 +64,15 @@ export function describeAztecMap(
       expect(await get('quux')).to.equal(undefined);
     });
 
+    it('should be able to set many values', async () => {
+      const pairs = Array.from({ length: 100 }, (_, i) => ({ key: `key${i}`, value: `value${i}` }));
+      await map.setMany(pairs);
+
+      for (const { key, value } of pairs) {
+        expect(await get(key)).to.equal(value);
+      }
+    });
+
     it('should be able to overwrite values', async () => {
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
@@ -80,6 +95,16 @@ export function describeAztecMap(
 
       expect(await get('foo')).to.equal(undefined);
       expect(await get('baz')).to.equal('qux');
+    });
+
+    it('should be able to return size of the map', async () => {
+      await map.set('foo', 'bar');
+      expect(await size()).to.equal(1);
+      await map.set('baz', 'qux');
+      expect(await size()).to.equal(2);
+
+      await map.delete('foo');
+      expect(await size()).to.equal(1);
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {
@@ -110,19 +135,38 @@ export function describeAztecMap(
       expect(await keys()).to.deep.equal(['baz', 'foo']);
     });
 
-    it('supports range queries', async () => {
-      await map.set('a', 'a');
-      await map.set('b', 'b');
-      await map.set('c', 'c');
-      await map.set('d', 'd');
+    it('should be able to iterate over string keys that represent numbers', async () => {
+      await map.set('0x22', 'bar');
+      await map.set('0x31', 'qux');
 
-      expect(await keys({ start: 'b', end: 'c' })).to.deep.equal(['b']);
-      expect(await keys({ start: 'b' })).to.deep.equal(['b', 'c', 'd']);
-      expect(await keys({ end: 'c' })).to.deep.equal(['a', 'b']);
-      expect(await keys({ start: 'b', end: 'c', reverse: true })).to.deep.equal(['c']);
-      expect(await keys({ start: 'b', limit: 1 })).to.deep.equal(['b']);
-      expect(await keys({ start: 'b', reverse: true })).to.deep.equal(['d', 'c']);
-      expect(await keys({ end: 'b', reverse: true })).to.deep.equal(['b', 'a']);
+      expect(await keys()).to.deep.equal(['0x22', '0x31']);
     });
+
+    for (const [name, data] of [
+      ['chars', ['a', 'b', 'c', 'd']],
+      ['numbers', [1, 2, 3, 4]],
+      // disabled because indexeddb sorts lexigographically
+      // ['negative numbers', [-4, -3, -2, -1]],
+      ['strings', ['aaa', 'bbb', 'ccc', 'ddd']],
+      ['zero-based numbers', [0, 1, 2, 3]],
+    ]) {
+      it(`supports range queries over ${name} keys`, async () => {
+        const [a, b, c, d] = data;
+
+        await map.set(a, 'a');
+        await map.set(b, 'b');
+        await map.set(c, 'c');
+        await map.set(d, 'd');
+
+        expect(await keys()).to.deep.equal([a, b, c, d]);
+        expect(await keys({ start: b, end: c })).to.deep.equal([b]);
+        expect(await keys({ start: b })).to.deep.equal([b, c, d]);
+        expect(await keys({ end: c })).to.deep.equal([a, b]);
+        expect(await keys({ start: b, end: c, reverse: true })).to.deep.equal([c]);
+        expect(await keys({ start: b, limit: 1 })).to.deep.equal([b]);
+        expect(await keys({ start: b, reverse: true })).to.deep.equal([d, c]);
+        expect(await keys({ end: b, reverse: true })).to.deep.equal([b, a]);
+      });
+    }
   });
 }

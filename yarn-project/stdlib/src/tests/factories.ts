@@ -1,10 +1,11 @@
-import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
+import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
-  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FIELDS_PER_BLOB,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -36,17 +37,16 @@ import {
   NUM_MSGS_PER_BASE_PARITY,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
+  PUBLIC_LOG_SIZE_IN_FIELDS,
   RECURSIVE_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
-import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { BLS12Point, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -55,19 +55,27 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
-  AvmAppendTreeHint,
+  AvmAccumulatedDataArrayLengths,
+  AvmAppendLeavesHint,
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
+  AvmCommitCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
-  AvmEnqueuedCallHint,
+  AvmCreateCheckpointHint,
   AvmExecutionHints,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
+  AvmGetLeafPreimageHintNullifierTree,
+  AvmGetLeafPreimageHintPublicDataTree,
+  AvmGetLeafValueHint,
+  AvmGetPreviousValueIndexHint,
+  AvmGetSiblingPathHint,
+  AvmRevertCheckpointHint,
+  AvmSequentialInsertHintNullifierTree,
+  AvmSequentialInsertHintPublicDataTree,
+  AvmTxHint,
   RevertCode,
+  clampGasSettingsForAVM,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
@@ -79,18 +87,18 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
+import { computeCalldataHash } from '../hash/hash.js';
 import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
 import { RollupValidationRequests } from '../kernel/hints/rollup_validation_requests.js';
 import {
-  CombinedConstantData,
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
@@ -101,19 +109,23 @@ import {
   PrivateToRollupAccumulatedData,
   mergeAccumulatedData,
 } from '../kernel/index.js';
-import { LogHash, ScopedLogHash } from '../kernel/log_hash.js';
+import { CountedLogHash, LogHash, ScopedLogHash } from '../kernel/log_hash.js';
 import { NoteHash } from '../kernel/note_hash.js';
 import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
 import { PrivateToRollupKernelCircuitPublicInputs } from '../kernel/private_to_rollup_kernel_circuit_public_inputs.js';
-import { CountedPublicCallRequest, PublicCallRequest } from '../kernel/public_call_request.js';
+import {
+  CountedPublicCallRequest,
+  PublicCallRequest,
+  PublicCallRequestArrayLengths,
+} from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ContractClassLog } from '../logs/contract_class_log.js';
+import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
-import { L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BaseParityInputs } from '../parity/base_parity_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
@@ -132,8 +144,9 @@ import {
   BlockRootRollupInputs,
   SingleTxBlockRootRollupInputs,
 } from '../rollup/block_root_rollup.js';
-import { ConstantRollupData } from '../rollup/constant_rollup_data.js';
 import { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import { EpochConstantData } from '../rollup/epoch_constant_data.js';
+import { BlockConstantData } from '../rollup/index.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PreviousRollupBlockData } from '../rollup/previous_rollup_block_data.js';
 import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
@@ -144,24 +157,26 @@ import { PublicTubeData } from '../rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../tx/content_commitment.js';
+import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
-import { MaxBlockNumber } from '../tx/max_block_number.js';
+import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
 import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { TxContext } from '../tx/tx_context.js';
 import { TxRequest } from '../tx/tx_request.js';
-import { RollupTypes, Vector } from '../types/index.js';
+import { Vector } from '../types/index.js';
+import { VkData } from '../vks/index.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
-import { VkWitnessData } from '../vks/vk_witness_data.js';
 import { mockTx } from './mocks.js';
 
 /**
@@ -170,7 +185,11 @@ import { mockTx } from './mocks.js';
  * @returns A side effect object.
  */
 function makeLogHash(seed: number) {
-  return new LogHash(fr(seed), seed + 1, seed + 2);
+  return new LogHash(fr(seed), seed + 1);
+}
+
+function makeCountedLogHash(seed: number) {
+  return new CountedLogHash(makeLogHash(seed), seed + 0x10);
 }
 
 function makeScopedLogHash(seed: number) {
@@ -185,16 +204,8 @@ function makeNullifier(seed: number) {
   return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
 }
 
-function makeContractClassLog(seed: number) {
-  // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
-  return new ContractClassLog(
-    makeAztecAddress(seed),
-    makeTuple(CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS * 1, fr, seed + 1),
-  );
-}
-
 function makePrivateLog(seed: number) {
-  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed));
+  return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, fr, seed), PRIVATE_LOG_SIZE_IN_FIELDS);
 }
 
 function makePrivateLogData(seed: number) {
@@ -202,7 +213,11 @@ function makePrivateLogData(seed: number) {
 }
 
 function makePublicLog(seed: number) {
-  return new PublicLog(makeAztecAddress(seed), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, fr, seed + 1));
+  return new PublicLog(
+    makeAztecAddress(seed),
+    makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, fr, seed + 1),
+    PUBLIC_LOG_SIZE_IN_FIELDS,
+  );
 }
 
 /**
@@ -293,21 +308,11 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
+  return new RollupValidationRequests(new IncludeByTimestamp(true, BigInt(seed + 0x31415)));
 }
 
 function makeTxConstantData(seed = 1) {
   return new TxConstantData(makeHeader(seed), makeTxContext(seed + 0x100), new Fr(seed + 0x200), new Fr(seed + 0x201));
-}
-
-export function makeCombinedConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(
-    makeHeader(seed),
-    makeTxContext(seed + 0x100),
-    new Fr(seed + 0x200),
-    new Fr(seed + 0x201),
-    makeGlobalVariables(seed + 0x300),
-  );
 }
 
 /**
@@ -358,6 +363,10 @@ function makeAvmAccumulatedData(seed = 1) {
     makeTuple(MAX_PUBLIC_LOGS_PER_TX, makePublicLog, seed + 0x300),
     makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
+}
+
+function makeAvmAccumulatedDataArrayLengths(seed = 1) {
+  return new AvmAccumulatedDataArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
 }
 
 export function makeGas(seed = 1) {
@@ -444,7 +453,9 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
+    makeGasFees(seed + 0x30),
     makeAztecAddress(seed + 0x40),
+    makePublicCallRequestArrayLengths(seed + 0x40),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
     makePublicCallRequest(seed + 0x300),
@@ -454,6 +465,7 @@ function makeAvmCircuitPublicInputs(seed = 1) {
     makePrivateToAvmAccumulatedData(seed + 0x600),
     makeTreeSnapshots(seed + 0x700),
     makeGas(seed + 0x750),
+    makeAvmAccumulatedDataArrayLengths(seed + 0x800),
     makeAvmAccumulatedData(seed + 0x800),
     fr(seed + 0x900),
     false,
@@ -525,6 +537,10 @@ export function makePublicCallRequest(seed = 1) {
   return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
 }
 
+export function makePublicCallRequestArrayLengths(seed = 1) {
+  return new PublicCallRequestArrayLengths(seed, seed + 1, seed % 2 === 0);
+}
+
 function makeCountedPublicCallRequest(seed = 1) {
   return new CountedPublicCallRequest(makePublicCallRequest(seed), seed + 0x100);
 }
@@ -540,6 +556,7 @@ export function makeTxRequest(seed = 1): TxRequest {
     functionData: new FunctionData(makeSelector(seed + 0x100), /*isPrivate=*/ true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
+    salt: fr(seed + 0x500),
   });
 }
 
@@ -550,7 +567,7 @@ export function makeTxRequest(seed = 1): TxRequest {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    maxBlockNumber: new MaxBlockNumber(true, new Fr(seed + 0x31415)),
+    includeByTimestamp: new IncludeByTimestamp(true, BigInt(seed + 0x31415)),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -567,9 +584,9 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
     publicCallRequests: makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
-    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
+    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeCountedL2ToL1Message, seed + 0x800),
     privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeLogHash, seed + 0xa00),
+    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
@@ -582,44 +599,22 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: new Fr(seed + 2),
+    blockNumber: seed + 2,
     slotNumber: new Fr(seed + 3),
-    timestamp: new Fr(seed + 4),
+    timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
-    gasFees: new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
+    gasFees: new GasFees(seed + 7, seed + 8),
     ...compact(overrides),
   });
 }
 
 export function makeGasFees(seed = 1) {
-  return new GasFees(fr(seed), fr(seed + 1));
+  return new GasFees(seed, seed + 1);
 }
 
 export function makeFeeRecipient(seed = 1) {
   return new FeeRecipient(EthAddress.fromField(fr(seed)), fr(seed + 1));
-}
-
-/**
- * Makes constant base rollup data.
- * @param seed - The seed to use for generating the constant base rollup data.
- * @param blockNumber - The block number to use for generating the global variables.
- * @returns A constant base rollup data.
- */
-export function makeConstantRollupData(
-  seed = 1,
-  globalVariables: GlobalVariables | undefined = undefined,
-): ConstantRollupData {
-  return ConstantRollupData.from({
-    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x300),
-    vkTreeRoot: fr(seed + 0x401),
-    protocolContractTreeRoot: fr(seed + 0x402),
-    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x500),
-  });
-}
-
-export function makeScopedL2ToL1Message(seed = 1): ScopedL2ToL1Message {
-  return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -668,6 +663,16 @@ export function makeSchnorrSignature(seed = 1): SchnorrSignature {
   return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
 }
 
+function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
+  return new BlockConstantData(
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    fr(seed + 0x300),
+    fr(seed + 0x400),
+    globalVariables ?? makeGlobalVariables(seed + 0x500),
+  );
+}
+
 /**
  * Makes arbitrary base or merge rollup circuit public inputs.
  * @param seed - The seed to use for generating the base rollup circuit public inputs.
@@ -679,9 +684,8 @@ export function makeBaseOrMergeRollupPublicInputs(
   globalVariables: GlobalVariables | undefined = undefined,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    RollupTypes.Base,
     1,
-    makeConstantRollupData(seed + 0x200, globalVariables),
+    makeBlockConstantData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
     makeSpongeBlob(seed + 0x500),
@@ -690,6 +694,10 @@ export function makeBaseOrMergeRollupPublicInputs(
     fr(seed + 0x902),
     fr(seed + 0x903),
   );
+}
+
+function makeEpochConstantData(seed = 1) {
+  return new EpochConstantData(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 /**
@@ -703,18 +711,15 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
   globalVariables: GlobalVariables | undefined = undefined,
 ): BlockRootOrBlockMergePublicInputs {
   return new BlockRootOrBlockMergePublicInputs(
+    makeEpochConstantData(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
-    fr(seed + 0x400),
-    fr(seed + 0x500),
-    globalVariables ?? makeGlobalVariables(seed + 0x501),
-    globalVariables ?? makeGlobalVariables(seed + 0x502),
+    globalVariables ?? makeGlobalVariables(seed + 0x400),
+    globalVariables ?? makeGlobalVariables(seed + 0x500),
     fr(seed + 0x600),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    fr(seed + 0x800),
-    fr(seed + 0x801),
-    fr(seed + 0x900),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x100),
+    makeBlockBlobPublicInputs(seed),
   );
 }
 
@@ -734,8 +739,7 @@ export function makePreviousRollupData(
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       seed + 0x50,
     ),
-    VerificationKeyAsFields.makeFakeHonk(),
-    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
+    makeVkData(seed + 0x100),
   );
 }
 
@@ -755,8 +759,7 @@ export function makePreviousRollupBlockData(
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       seed + 0x50,
     ),
-    VerificationKeyAsFields.makeFakeHonk(),
-    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
+    makeVkData(seed + 0x100),
   );
 }
 
@@ -767,10 +770,10 @@ export function makePreviousRollupBlockData(
  * @returns A root rollup inputs.
  */
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
-  return new RootRollupInputs(
-    [makePreviousRollupBlockData(seed, globalVariables), makePreviousRollupBlockData(seed + 0x1000, globalVariables)],
-    fr(seed + 0x2000),
-  );
+  return new RootRollupInputs([
+    makePreviousRollupBlockData(seed, globalVariables),
+    makePreviousRollupBlockData(seed + 0x1000, globalVariables),
+  ]);
 }
 
 function makeBlockRootRollupData(seed = 0) {
@@ -778,15 +781,18 @@ function makeBlockRootRollupData(seed = 0) {
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
-    makeHeader(seed + 0x2300),
-    fr(seed + 0x2400),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    makeHeader(seed + 0x2400),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 0x2500)),
+    makeBatchedBlobAccumulator(seed + 0x2600).finalBlobChallenges,
+    fr(seed + 0x2700),
   );
 }
 
 function makeBlockRootRollupBlobData(seed = 0) {
   return new BlockRootRollupBlobData(
     makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    makeTuple(BLOBS_PER_BLOCK, () => BLS12Point.random()),
     fr(seed + 0x2700),
   );
 }
@@ -825,8 +831,7 @@ export function makeEmptyBlockRootRollupInputs(
 ): EmptyBlockRootRollupInputs {
   return new EmptyBlockRootRollupInputs(
     makeBlockRootRollupData(seed + 0x1000),
-    makeConstantRollupData(0x2500, globalVariables),
-    true,
+    makeBlockConstantData(0x2500, globalVariables),
   );
 }
 
@@ -872,18 +877,16 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  */
 export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
   return new RootRollupPublicInputs(
-    makeAppendOnlyTreeSnapshot(seed + 0x200),
-    makeAppendOnlyTreeSnapshot(seed + 0x300),
-    fr(seed + 0x400),
-    fr(seed + 0x500),
-    fr(seed + 0x600),
-    fr(seed + 0x700),
-    fr(seed + 0x800),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x900),
     fr(seed + 0x100),
-    fr(seed + 0x101),
     fr(seed + 0x200),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
+    fr(seed + 0x700),
+    fr(seed + 0x701),
+    fr(seed + 0x702),
+    fr(seed + 0x703),
+    fr(seed + 0x704),
+    FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
 
@@ -891,12 +894,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
  * Makes content commitment
  */
 export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(
-    new Fr(seed),
-    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
-  );
+  return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
 /**
@@ -906,18 +904,20 @@ export function makeHeader(
   seed = 0,
   blockNumber: number | undefined = undefined,
   slotNumber: number | undefined = undefined,
+  overrides: Partial<FieldsOf<BlockHeader>> = {},
 ): BlockHeader {
-  return new BlockHeader(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment(seed + 0x200),
-    makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),
+  return BlockHeader.from({
+    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
+    contentCommitment: makeContentCommitment(seed + 0x200),
+    state: makeStateReference(seed + 0x600),
+    globalVariables: makeGlobalVariables((seed += 0x700), {
+      ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
-    fr(seed + 0x800),
-    fr(seed + 0x900),
-  );
+    totalFees: fr(seed + 0x800),
+    totalManaUsed: fr(seed + 0x900),
+    ...overrides,
+  });
 }
 
 /**
@@ -947,7 +947,15 @@ export function makeL2ToL1Message(seed = 0): L2ToL1Message {
   const recipient = EthAddress.fromField(new Fr(seed));
   const content = new Fr(seed + 1);
 
-  return new L2ToL1Message(recipient, content, seed + 2);
+  return new L2ToL1Message(recipient, content);
+}
+
+function makeCountedL2ToL1Message(seed = 0) {
+  return new CountedL2ToL1Message(makeL2ToL1Message(seed), seed + 2);
+}
+
+function makeScopedL2ToL1Message(seed = 1) {
+  return new ScopedL2ToL1Message(makeL2ToL1Message(seed), makeAztecAddress(seed + 3));
 }
 
 /**
@@ -991,12 +999,30 @@ export function makePublicDataTreeLeaf(seed = 0): PublicDataTreeLeaf {
 }
 
 /**
+ * Makes arbitrary nullifier leaf.
+ * @param seed - The seed to use for generating the nullifier leaf.
+ * @returns A nullifier leaf.
+ */
+export function makeNullifierLeaf(seed = 0): NullifierLeaf {
+  return new NullifierLeaf(new Fr(seed));
+}
+
+/**
+ * Makes arbitrary nullifier leaf preimages.
+ * @param seed - The seed to use for generating the nullifier leaf preimage.
+ * @returns A nullifier leaf preimage.
+ */
+export function makeNullifierLeafPreimage(seed = 0): NullifierLeafPreimage {
+  return new NullifierLeafPreimage(makeNullifierLeaf(seed), new Fr(seed + 1), BigInt(seed + 2));
+}
+
+/**
  * Makes arbitrary public data tree leaf preimages.
  * @param seed - The seed to use for generating the public data tree leaf preimage.
  * @returns A public data tree leaf preimage.
  */
 export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPreimage {
-  return new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3));
+  return new PublicDataTreeLeafPreimage(makePublicDataTreeLeaf(seed), new Fr(seed + 2), BigInt(seed + 3));
 }
 
 /**
@@ -1007,7 +1033,7 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHints {
   const nullifierPredecessorPreimages = makeTuple(
     MAX_NULLIFIERS_PER_TX,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+    x => makeNullifierLeafPreimage(x),
     seed + 0x1000,
   );
 
@@ -1042,16 +1068,20 @@ export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHin
   );
 }
 
-function makeVkWitnessData(seed = 1) {
-  return new VkWitnessData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
+function makeVkData(seed = 1) {
+  return new VkData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
 
 function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKernelCircuitPublicInputs) {
   return new PrivateTubeData(
     kernelPublicInputs ?? makePrivateToRollupKernelCircuitPublicInputs(seed, true),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
-    makeVkWitnessData(seed + 0x200),
+    makeVkData(seed + 0x200),
   );
+}
+
+function makeContractClassLogFields(seed = 1) {
+  return new ContractClassLogFields(makeArray(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, fr, seed));
 }
 
 function makePrivateBaseRollupHints(seed = 1) {
@@ -1063,9 +1093,9 @@ function makePrivateBaseRollupHints(seed = 1) {
 
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
-  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
+  const contractClassLogsFields = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x800);
 
-  const constants = makeConstantRollupData(0x100);
+  const constants = makeBlockConstantData(0x100);
 
   const feePayerFeeJuiceBalanceReadHint = PublicDataHint.empty();
 
@@ -1075,25 +1105,17 @@ function makePrivateBaseRollupHints(seed = 1) {
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint,
     archiveRootMembershipWitness,
-    contractClassLogsPreimages,
+    contractClassLogsFields,
     constants,
   });
 }
 
 function makePublicBaseRollupHints(seed = 1) {
-  const startSpongeBlob = makeSpongeBlob(seed + 0x200);
-
-  const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
-
-  const contractClassLogsPreimages = makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLog, seed + 0x800);
-
-  const constants = makeConstantRollupData(0x100);
-
   return PublicBaseRollupHints.from({
-    startSpongeBlob,
-    archiveRootMembershipWitness,
-    contractClassLogsPreimages,
-    constants,
+    startSpongeBlob: makeSpongeBlob(seed),
+    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x1000),
+    archiveRootMembershipWitness: makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x2000),
+    contractClassLogsFields: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x3000),
   });
 }
 
@@ -1111,15 +1133,15 @@ function makePublicTubeData(seed = 1) {
   return new PublicTubeData(
     makePrivateToPublicKernelCircuitPublicInputs(seed),
     makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
-    makeVkWitnessData(seed + 0x200),
+    makeVkData(seed + 0x200),
   );
 }
 
 function makeAvmProofData(seed = 1) {
   return new AvmProofData(
     makeAvmCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>(AVM_PROOF_LENGTH_IN_FIELDS, seed + 0x100),
-    makeVkWitnessData(seed + 0x200),
+    makeRecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, seed + 0x100),
+    makeVkData(seed + 0x200),
   );
 }
 
@@ -1147,12 +1169,12 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
     privateFunctionTreeLeafIndex: seed + 3,
     artifactMetadataHash: fr(seed + 4),
     functionMetadataHash: fr(seed + 5),
-    unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
+    utilityFunctionsTreeRoot: fr(seed + 6),
     vkHash: fr(seed + 7),
   };
 }
 
-export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
   return {
     selector: makeSelector(seed),
     bytecode: makeBytes(100, seed + 1),
@@ -1176,7 +1198,7 @@ export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer)
     packedBytecode,
     privateFunctionsRoot,
     privateFunctions: [],
-    unconstrainedFunctions: [],
+    utilityFunctions: [],
     version: 1,
   };
 }
@@ -1261,51 +1283,138 @@ export async function makeContractInstanceFromClassId(
   }).withAddress(address);
 }
 
-export function makeAvmTreeHints(seed = 0): AvmAppendTreeHint {
-  return new AvmAppendTreeHint(
-    new Fr(seed),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetSiblingPathHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    makeArray(seed % 64, i => new Fr(i), seed + 10),
   );
 }
 
-export function makeAvmNullifierReadTreeHints(seed = 0): AvmNullifierReadTreeHint {
-  const lowNullifierPreimage = new NullifierLeafPreimage(new Fr(seed), new Fr(seed + 1), BigInt(seed + 2));
-  return new AvmNullifierReadTreeHint(
-    lowNullifierPreimage,
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueIndexHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const value = new Fr(BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 128n));
+  return new AvmGetPreviousValueIndexHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    value,
+    index,
+    /*alreadyPresent=*/ index % 2n === 0n,
   );
 }
 
-export function makeAvmPublicDataReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
-  return new AvmPublicDataReadTreeHint(
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPreimageHintPublicDataTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leafPreimage=*/ makePublicDataTreeLeafPreimage(seed + 3),
   );
 }
 
-export function makeAvmNullifierInsertionTreeHints(seed = 0): AvmNullifierWriteTreeHint {
-  return new AvmNullifierWriteTreeHint(
-    makeAvmNullifierReadTreeHints(seed),
-    makeArray(20, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPreimageHintNullifierTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintNullifierTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leafPreimage=*/ makeNullifierLeafPreimage(seed + 3),
   );
 }
 
-export function makeAvmStorageReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
-  return new AvmPublicDataReadTreeHint(
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafValueHint(seed = 0): AvmGetLeafValueHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafValueHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    /*value=*/ new Fr(seed + 3),
   );
 }
 
-export function makeAvmStorageUpdateTreeHints(seed = 0): AvmPublicDataWriteTreeHint {
-  return new AvmPublicDataWriteTreeHint(
-    makeAvmStorageReadTreeHints(seed),
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    makeArray(20, i => new Fr(i), seed + 0x1000),
+export function makeAvmSequentialInsertHintPublicDataTree(seed = 0): AvmSequentialInsertHintPublicDataTree {
+  const lowLeavesWitnessData = {
+    leaf: makePublicDataTreeLeafPreimage(seed + 3),
+    index: BigInt(seed + 4),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 5),
+  };
+  const insertionWitnessData = {
+    leaf: makePublicDataTreeLeafPreimage(seed + 6),
+    index: BigInt(seed + 7),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 8),
+  };
+
+  return new AvmSequentialInsertHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    makePublicDataTreeLeaf(seed + 2),
+    lowLeavesWitnessData,
+    insertionWitnessData,
+  );
+}
+
+export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentialInsertHintNullifierTree {
+  const lowLeavesWitnessData = {
+    leaf: makeNullifierLeafPreimage(seed + 3),
+    index: BigInt(seed + 4),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 5),
+  };
+  const insertionWitnessData = {
+    leaf: makeNullifierLeafPreimage(seed + 6),
+    index: BigInt(seed + 7),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 8),
+  };
+
+  return new AvmSequentialInsertHintNullifierTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    MerkleTreeId.NULLIFIER_TREE,
+    makeNullifierLeaf(seed + 2),
+    lowLeavesWitnessData,
+    insertionWitnessData,
+  );
+}
+
+export function makeAvmAppendLeavesHint(seed = 0): AvmAppendLeavesHint {
+  return new AvmAppendLeavesHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    // Use NOTE_HASH_TREE or L1_TO_L2_MESSAGE_TREE as mentioned in the comment on AvmAppendLeavesHint
+    seed % 2 === 0 ? MerkleTreeId.NOTE_HASH_TREE : MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    makeArray((seed % 5) + 1, i => new Fr(seed + i + 2), 0),
+  );
+}
+
+export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0): AvmCreateCheckpointHint {
+  return new AvmCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0): AvmCommitCheckpointHint {
+  return new AvmCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
+  return new AvmRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+    /*beforeState=*/ makeTreeSnapshots(seed + 3),
+    /*afterState=*/ makeTreeSnapshots(seed + 7),
   );
 }
 
@@ -1346,12 +1455,39 @@ export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmByteco
   return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
 }
 
-export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
-  return new AvmEnqueuedCallHint(
+export async function makePublicCallRequestWithCalldata(seed = 0): Promise<PublicCallRequestWithCalldata> {
+  const calldata = makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000);
+  const calldataHash = await computeCalldataHash(calldata);
+  const publicCallRequest = new PublicCallRequest(
     new AztecAddress(new Fr(seed)),
-    new AztecAddress(new Fr(seed + 2)),
-    makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
-    /*isStaticCall=*/ false,
+    new AztecAddress(new Fr(seed + 1)),
+    false /*isStatic*/,
+    calldataHash,
+  );
+  return new PublicCallRequestWithCalldata(publicCallRequest, calldata);
+}
+
+export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
+  return new AvmTxHint(
+    `txhash-${seed}`,
+    makeGlobalVariables(seed),
+    makeGasSettings(),
+    makeGasFees(seed + 0x1000),
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
+      l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x3000),
+    },
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x3000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
+      l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x5000),
+    },
+    await makeArrayAsync((seed % 20) + 4, i => makePublicCallRequestWithCalldata(i), seed + 0x5000), //setupEnqueuedCalls
+    await makeArrayAsync((seed % 20) + 4, i => makePublicCallRequestWithCalldata(i), seed + 0x6000), // appLogicEnqueuedCalls
+    await makePublicCallRequestWithCalldata(seed + 0x7000), // teardownEnqueuedCall
+    makeGas(seed + 0x8000), // gasUsedByPrivate
+    makeAztecAddress(seed + 0x9000), // feePayer
   );
 }
 
@@ -1369,32 +1505,54 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
-    enqueuedCalls: makeArray(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
+    tx: await makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
-    publicDataReads: makeArray(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
-    publicDataWrites: makeArray(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
-    nullifierReads: makeArray(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
-    nullifierWrites: makeArray(baseLength + 10, makeAvmNullifierInsertionTreeHints, seed + 0x4c00),
-    noteHashReads: makeArray(baseLength + 11, makeAvmTreeHints, seed + 0x4d00),
-    noteHashWrites: makeArray(baseLength + 12, makeAvmTreeHints, seed + 0x4e00),
-    l1ToL2MessageReads: makeArray(baseLength + 13, makeAvmTreeHints, seed + 0x4f00),
+    startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
+    getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
+    getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
+    getLeafPreimageHintPublicDataTree: makeArray(
+      baseLength + 5,
+      makeAvmGetLeafPreimageHintPublicDataTree,
+      seed + 0x4f00,
+    ),
+    getLeafPreimageHintNullifierTree: makeArray(baseLength + 5, makeAvmGetLeafPreimageHintNullifierTree, seed + 0x5100),
+    getLeafValueHints: makeArray(baseLength + 5, makeAvmGetLeafValueHint, seed + 0x5300),
+    sequentialInsertHintsPublicDataTree: makeArray(
+      baseLength + 5,
+      makeAvmSequentialInsertHintPublicDataTree,
+      seed + 0x5500,
+    ),
+    sequentialInsertHintsNullifierTree: makeArray(
+      baseLength + 5,
+      makeAvmSequentialInsertHintNullifierTree,
+      seed + 0x5700,
+    ),
+    appendLeavesHints: makeArray(baseLength + 5, makeAvmAppendLeavesHint, seed + 0x5800),
+    createCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCreateCheckpointHint, seed + 0x5900),
+    commitCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCommitCheckpointHint, seed + 0x5b00),
+    revertCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionRevertCheckpointHint, seed + 0x5d00),
     ...overrides,
   };
 
   return new AvmExecutionHints(
-    fields.enqueuedCalls,
+    fields.tx,
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
-    fields.publicDataReads,
-    fields.publicDataWrites,
-    fields.nullifierReads,
-    fields.nullifierWrites,
-    fields.noteHashReads,
-    fields.noteHashWrites,
-    fields.l1ToL2MessageReads,
+    fields.startingTreeRoots,
+    fields.getSiblingPathHints,
+    fields.getPreviousValueIndexHints,
+    fields.getLeafPreimageHintPublicDataTree,
+    fields.getLeafPreimageHintNullifierTree,
+    fields.getLeafValueHints,
+    fields.sequentialInsertHintsPublicDataTree,
+    fields.sequentialInsertHintsNullifierTree,
+    fields.appendLeavesHints,
+    fields.createCheckpointHints,
+    fields.commitCheckpointHints,
+    fields.revertCheckpointHints,
   );
 }
 
@@ -1408,14 +1566,12 @@ export async function makeAvmCircuitInputs(
   overrides: Partial<FieldsOf<AvmCircuitInputs>> = {},
 ): Promise<AvmCircuitInputs> {
   const fields = {
-    functionName: `function${seed}`,
-    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
-    avmHints: await makeAvmExecutionHints(seed + 0x3000),
+    hints: await makeAvmExecutionHints(seed + 0x3000),
     publicInputs: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   };
 
-  return new AvmCircuitInputs(fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs);
+  return new AvmCircuitInputs(fields.hints, fields.publicInputs);
 }
 
 /**
@@ -1482,27 +1638,55 @@ export async function makeBloatedProcessedTx({
 
   if (privateOnly) {
     const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
+    clearContractClassLogs(data);
 
     const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
     feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
-
-    clearLogs(data);
 
     tx.data.forRollup!.end = data;
 
     return makeProcessedTxFromPrivateOnlyTx(tx, transactionFee, feePaymentPublicDataWrite, globalVariables);
   } else {
-    const nonRevertibleData = tx.data.forPublic!.nonRevertibleAccumulatedData;
+    const dataFromPrivate = tx.data.forPublic!;
+
+    const nonRevertibleData = dataFromPrivate.nonRevertibleAccumulatedData;
+
+    // Create revertible data.
     const revertibleData = makePrivateToPublicAccumulatedData(seed + 0x1000);
-
+    clearContractClassLogs(revertibleData);
     revertibleData.nullifiers[MAX_NULLIFIERS_PER_TX - 1] = Fr.ZERO; // Leave one space for the tx hash nullifier in nonRevertibleAccumulatedData.
+    dataFromPrivate.revertibleAccumulatedData = revertibleData;
 
-    clearLogs(revertibleData);
-
-    tx.data.forPublic!.revertibleAccumulatedData = revertibleData;
-
+    // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();
+    // Assign data from private.
     avmOutput.globalVariables = globalVariables;
+    avmOutput.startGasUsed = tx.data.gasUsed;
+    avmOutput.gasSettings = gasSettings;
+    avmOutput.feePayer = feePayer;
+    avmOutput.publicCallRequestArrayLengths = new PublicCallRequestArrayLengths(
+      tx.data.numberOfNonRevertiblePublicCallRequests(),
+      tx.data.numberOfRevertiblePublicCallRequests(),
+      tx.data.hasTeardownPublicCallRequest(),
+    );
+    avmOutput.publicSetupCallRequests = dataFromPrivate.nonRevertibleAccumulatedData.publicCallRequests;
+    avmOutput.publicAppLogicCallRequests = dataFromPrivate.revertibleAccumulatedData.publicCallRequests;
+    avmOutput.publicTeardownCallRequest = dataFromPrivate.publicTeardownCallRequest;
+    avmOutput.previousNonRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
+      dataFromPrivate.nonRevertibleAccumulatedData.noteHashes,
+      dataFromPrivate.nonRevertibleAccumulatedData.nullifiers,
+      dataFromPrivate.nonRevertibleAccumulatedData.l2ToL1Msgs,
+    );
+    avmOutput.previousNonRevertibleAccumulatedDataArrayLengths =
+      avmOutput.previousNonRevertibleAccumulatedData.getArrayLengths();
+    avmOutput.previousRevertibleAccumulatedData = new PrivateToAvmAccumulatedData(
+      dataFromPrivate.revertibleAccumulatedData.noteHashes,
+      dataFromPrivate.revertibleAccumulatedData.nullifiers,
+      dataFromPrivate.revertibleAccumulatedData.l2ToL1Msgs,
+    );
+    avmOutput.previousRevertibleAccumulatedDataArrayLengths =
+      avmOutput.previousRevertibleAccumulatedData.getArrayLengths();
+    // Assign final data emitted from avm.
     avmOutput.accumulatedData.noteHashes = revertibleData.noteHashes;
     avmOutput.accumulatedData.nullifiers = mergeAccumulatedData(
       nonRevertibleData.nullifiers,
@@ -1515,8 +1699,10 @@ export async function makeBloatedProcessedTx({
       i => new PublicDataWrite(new Fr(i), new Fr(i + 10)),
       seed + 0x2000,
     );
+    avmOutput.gasSettings = clampGasSettingsForAVM(gasSettings, tx.data.gasUsed);
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
+
     const gasUsed = {
       totalGas: Gas.empty(),
       teardownGas: Gas.empty(),
@@ -1537,8 +1723,8 @@ export async function makeBloatedProcessedTx({
   }
 }
 
-// Remove all logs as it's ugly to mock them at the moment and we are going to change it to have the preimages be part of the public inputs soon.
-function clearLogs(data: { publicLogs?: PublicLog[]; contractClassLogsHashes: ScopedLogHash[] }) {
-  data.publicLogs?.forEach((_, i) => (data.publicLogs![i] = PublicLog.empty()));
+// Remove all contract class log hashes from the data as they are not required for the current tests.
+// If they are needed one day, change this to create the random fields first and update the data with real hashes of those fields.
+function clearContractClassLogs(data: { contractClassLogsHashes: ScopedLogHash[] }) {
   data.contractClassLogsHashes.forEach((_, i) => (data.contractClassLogsHashes[i] = ScopedLogHash.empty()));
 }

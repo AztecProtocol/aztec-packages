@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 
 contract EmptyPayload is IPayload {
@@ -34,10 +34,15 @@ contract CallAssetPayload is IPayload {
   }
 }
 
+contract FakeRollup {
+  function getVersion() external view returns (uint256) {
+    return uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))));
+  }
+}
+
 contract UpgradePayload is IPayload {
   IRegistry public immutable REGISTRY;
-  address public constant NEW_ROLLUP =
-    address(uint160(uint256(keccak256(bytes("a new fancy rollup built with magic")))));
+  address public NEW_ROLLUP = address(new FakeRollup());
 
   constructor(IRegistry _registry) {
     REGISTRY = _registry;
@@ -48,7 +53,7 @@ contract UpgradePayload is IPayload {
 
     res[0] = Action({
       target: address(REGISTRY),
-      data: abi.encodeWithSelector(REGISTRY.upgrade.selector, NEW_ROLLUP)
+      data: abi.encodeWithSelector(REGISTRY.addRollup.selector, NEW_ROLLUP)
     });
 
     return res;

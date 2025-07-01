@@ -31,6 +31,9 @@ spec:
       {{- if .Values.storage.localSsd }}
       {{- include "aztec-network.gcpLocalSsd" . | nindent 6 }}
       {{- end }}
+      {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
@@ -41,8 +44,20 @@ spec:
             - /bin/bash
             - -c
             - |
-              source /shared/config/service-addresses && \
-              env && \
+              source /shared/config/service-addresses
+
+              if [ -z "${REGISTRY_CONTRACT_ADDRESS:-}" ]; then
+                until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+                  echo "Waiting for boot node..."
+                  sleep 5
+                done
+                echo "Boot node is ready!"
+
+                output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $BOOT_NODE_HOST --json)
+                export REGISTRY_CONTRACT_ADDRESS=$(echo $output | jq -r .l1ContractAddresses.registry)
+              fi
+
+              env
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --blob-sink
           startupProbe:
             httpGet:
@@ -59,6 +74,8 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: contracts-env
+              mountPath: /shared/contracts
             - name: blob-sink-data
               mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
             - name: config
@@ -82,6 +99,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: BLOB_SINK_PORT
               value: "{{ .Values.blobSink.service.nodePort }}"
+            - name: BLOB_SINK_ARCHIVE_API_URL
+              value: "{{ .Values.blobSink.archiveApiUrl }}"
             - name: LOG_LEVEL
               value: "{{ .Values.blobSink.logLevel }}"
             - name: LOG_JSON
@@ -94,6 +113,8 @@ spec:
               value: "{{ .Values.telemetry.useGcloudLogging }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            - name: "REGISTRY_CONTRACT_ADDRESS"
+              value: "{{ .Values.aztec.contracts.registryAddress }}"
           ports:
             - containerPort: {{ .Values.blobSink.service.nodePort }}
           resources:
@@ -103,6 +124,10 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
             defaultMode: 0755
+        - name: contracts-env
+          emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
         - name: config
           emptyDir: {}
       {{- if .Values.storage.localSsd }}

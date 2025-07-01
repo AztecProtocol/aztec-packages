@@ -51,7 +51,7 @@ export async function createPrivateFunctionMembershipProof(
   }
 
   // Compute preimage for the artifact hash
-  const { unconstrainedFunctionRoot: unconstrainedFunctionsArtifactTreeRoot, metadataHash: artifactMetadataHash } =
+  const { utilityFunctionRoot: utilityFunctionsTreeRoot, metadataHash: artifactMetadataHash } =
     await computeArtifactHashPreimage(artifact);
 
   // We need two sibling paths because private function information is split across two trees:
@@ -74,7 +74,7 @@ export async function createPrivateFunctionMembershipProof(
     functionLeaf: '0x' + functionLeaf.toString('hex'),
     artifactMetadataHash,
     privateFunctionsTreeRoot: '0x' + functionsTree.root.toString('hex'),
-    unconstrainedFunctionsArtifactTreeRoot,
+    utilityFunctionsTreeRoot,
     artifactFunctionTreeSiblingPath: artifactTreeSiblingPath.map(fr => fr.toString()).join(','),
     privateFunctionTreeSiblingPath: functionsTreeSiblingPath.map(fr => fr.toString()).join(','),
   });
@@ -84,7 +84,7 @@ export async function createPrivateFunctionMembershipProof(
     artifactTreeLeafIndex,
     artifactMetadataHash,
     functionMetadataHash,
-    unconstrainedFunctionsArtifactTreeRoot,
+    utilityFunctionsTreeRoot,
     privateFunctionTreeSiblingPath: functionsTreeSiblingPath,
     privateFunctionTreeLeafIndex: functionsTreeLeafIndex,
   };
@@ -106,7 +106,7 @@ export async function createPrivateFunctionMembershipProof(
  * // Compute artifact leaf and assert it belongs to the artifact
  * artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
  * computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path)
- * computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
+ * computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, utility_functions_artifact_tree_root, artifact_metadata_hash)
  * assert computed_artifact_hash == contract_class.artifact_hash
  * ```
  * @param fn - Function to check membership proof for.
@@ -147,7 +147,7 @@ export async function isValidPrivateFunctionMembershipProof(
   const computedArtifactPrivateFunctionTreeRoot = Fr.fromBuffer(computedArtifactPrivateFunctionTreeRootBuffer);
   const computedArtifactHash = await computeArtifactHash({
     privateFunctionRoot: computedArtifactPrivateFunctionTreeRoot,
-    unconstrainedFunctionRoot: fn.unconstrainedFunctionsArtifactTreeRoot,
+    utilityFunctionRoot: fn.utilityFunctionsTreeRoot,
     metadataHash: fn.artifactMetadataHash,
   });
   if (!contractClass.artifactHash.equals(computedArtifactHash)) {
@@ -156,7 +156,7 @@ export async function isValidPrivateFunctionMembershipProof(
       computedArtifactHash,
       computedFunctionArtifactHash: functionArtifactHash,
       computedArtifactPrivateFunctionTreeRoot,
-      unconstrainedFunctionRoot: fn.unconstrainedFunctionsArtifactTreeRoot,
+      utilityFunctionRoot: fn.utilityFunctionsTreeRoot,
       metadataHash: fn.artifactMetadataHash,
       artifactFunctionTreeSiblingPath: fn.artifactTreeSiblingPath.map(fr => fr.toString()).join(','),
     });

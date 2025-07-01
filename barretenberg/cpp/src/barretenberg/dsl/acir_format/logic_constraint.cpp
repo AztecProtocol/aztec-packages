@@ -1,9 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "logic_constraint.hpp"
 #include "barretenberg/stdlib/primitives/logic/logic.hpp"
 
 namespace acir_format {
-
-using namespace bb::plonk;
 
 template <typename Builder>
 void create_logic_gate(Builder& builder,

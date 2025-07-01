@@ -90,9 +90,26 @@ e.g. unpacking
 ```
     msgpack::unpack((const char*)encoded_data, encoded_data_size).get().convert(*value);
 ```
+
+Note that `msgpack::unpack` returns a `msgpack::object_handle` which controls the lifetime
+of the `msgpack::object` returned by `msgpack::object_handle::get`, so if you need access
+to the object itself, do break up the above to keep a reference to the handle, for example:
+
+```
+    msgpack::object_handle oh = msgpack::unpack((const char*)encoded_data, encoded_data_size);
+    msgpack::object o = oh.get();
+    try {
+        o.convert(*value);
+    } catch (const msgpack::type_error&) {
+        std::cerr << "failed to unpack: " << o << std::endl;
+        throw;
+    }
+```
 */
+// For sbuffer forward declaration:
 #include "msgpack_impl/concepts.hpp"
 #include "msgpack_impl/name_value_pair_macro.hpp"
+#include <msgpack/sbuffer_decl.hpp>
 #include <type_traits>
 
 // Helper for above documented syntax

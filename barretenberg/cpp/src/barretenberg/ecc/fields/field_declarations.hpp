@@ -1,6 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/utils.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -57,6 +64,10 @@ template <class Params_> struct alignas(32) field {
     {
         self_to_montgomery_form();
     }
+
+    constexpr field(const uint128_t& input) noexcept
+        : field(uint256_t::from_uint128(input))
+    {}
 
     // NOLINTNEXTLINE (unsigned long is platform dependent, which we want in this case)
     constexpr field(const unsigned long input) noexcept
@@ -324,7 +335,8 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
-    static_assert(Params::modulus_0 != 1);
+    // STARKNET: next line was commented as stark252 violates the assertion
+    // static_assert(Params::modulus_0 != 1);
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;
@@ -728,7 +740,8 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
 template <typename Params> struct std::hash<bb::field<Params>> {
     std::size_t operator()(const bb::field<Params>& ff) const noexcept
     {
-        return std::hash<uint64_t>()(ff.data[0]) ^ (std::hash<uint64_t>()(ff.data[1]) << 1) ^
-               (std::hash<uint64_t>()(ff.data[2]) << 2) ^ (std::hash<uint64_t>()(ff.data[3]) << 3);
+        // Just like in equality, we need to reduce the field element before hashing.
+        auto reduced = ff.reduce_once();
+        return bb::utils::hash_as_tuple(reduced.data[0], reduced.data[1], reduced.data[2], reduced.data[3]);
     }
 };

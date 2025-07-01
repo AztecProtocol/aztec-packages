@@ -1,11 +1,11 @@
-import type { Key } from '../interfaces/common.js';
+import type { Key, Value } from '../interfaces/common.js';
 import type { AztecAsyncMultiMap, AztecMultiMap } from '../interfaces/multi_map.js';
 import { LmdbAztecMap } from './map.js';
 
 /**
  * A map backed by LMDB.
  */
-export class LmdbAztecMultiMap<K extends Key, V>
+export class LmdbAztecMultiMap<K extends Key, V extends Value>
   extends LmdbAztecMap<K, V>
   implements AztecMultiMap<K, V>, AztecAsyncMultiMap<K, V>
 {

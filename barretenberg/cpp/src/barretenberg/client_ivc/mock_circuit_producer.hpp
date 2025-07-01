@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -180,13 +186,6 @@ class ClientIVCMockCircuitProducer {
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
     }
 
@@ -195,11 +194,13 @@ class ClientIVCMockCircuitProducer {
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-        if (is_kernel) {
-            ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
-        }
         while (circuit.get_num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
+        }
+        if (is_kernel) {
+            ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
+        } else {
+            stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
         }
         is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
 

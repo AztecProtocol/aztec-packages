@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -43,6 +49,8 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = TranslatorFlavor::USE_PADDING;
     // None of this parameters can be changed
 
     // Number of bits in a binary limb
@@ -58,6 +66,10 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = NativeFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = NativeFlavor::NUM_WITNESS_ENTITIES;
+
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
+    // final round of merge
+    static constexpr size_t NUM_OP_QUEUE_WIRES = NativeFlavor::NUM_OP_QUEUE_WIRES;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = NativeFlavor::REPEATED_COMMITMENTS;
 
@@ -93,21 +105,16 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, TranslatorFlavor::PrecomputedEntities<Commitment>> {
       public:
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        }
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // ?
-            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
-            this->log_circuit_size = numeric::get_msb(native_key->circuit_size);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+            // `log_circuit_size` from MSGPACK and the verification key.
+            this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };
+            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
+            this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 

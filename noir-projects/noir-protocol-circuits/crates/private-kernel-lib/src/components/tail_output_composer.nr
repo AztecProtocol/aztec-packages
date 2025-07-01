@@ -1,4 +1,4 @@
-mod meter_gas_used;
+pub(crate) mod meter_gas_used;
 
 use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
 use dep::types::{
@@ -7,13 +7,13 @@ use dep::types::{
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
         },
-        log_hash::ScopedLogHash,
+        log_hash::LogHash,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::PrivateLogData,
-        side_effect::scoped::Scoped,
+        side_effect::{counted::Counted, scoped::Scoped},
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
 };
 pub use meter_gas_used::meter_gas_used;
@@ -49,13 +49,16 @@ impl TailOutputComposer {
         let mut data = PrivateToRollupAccumulatedData::empty();
         data.note_hashes = source.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash.value);
         data.nullifiers = source.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier.value);
-        data.l2_to_l1_msgs =
-            source.l2_to_l1_msgs.storage().map(|m: ScopedL2ToL1Message| m.expose_to_public());
+        data.l2_to_l1_msgs = source
+            .l2_to_l1_msgs
+            .storage()
+            .map(|m: Scoped<Counted<L2ToL1Message>>| m.expose_to_public());
         data.private_logs =
-            source.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log);
-        data.contract_class_logs_hashes = source.contract_class_logs_hashes.storage().map(
-            |l: ScopedLogHash| l.expose_to_public(),
-        );
+            source.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.expose_to_public());
+        data.contract_class_logs_hashes = source
+            .contract_class_logs_hashes
+            .storage()
+            .map(|l: Scoped<Counted<LogHash>>| l.expose_to_public());
         data
     }
 }

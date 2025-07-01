@@ -14,10 +14,9 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
+    "run-failed-epoch": "node --no-warnings ./dest/bin/run-failed-epoch.js"
   },
   "jest": {
     "moduleNameMapper": {
@@ -50,11 +49,16 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
     "@aztec/archiver": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/blob-lib": "workspace:^",
     "@aztec/blob-sink": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
@@ -62,6 +66,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/node-lib": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
@@ -76,15 +81,14 @@
     "viem": "2.23.7"
   },
   "devDependencies": {
-    "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.5.0",
-    "@types/memdown": "^3.0.0",
-    "@types/node": "^18.7.23",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
-    "jest": "^29.5.0",
-    "jest-mock-extended": "^3.0.3",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -93,6 +97,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

@@ -1,20 +1,18 @@
 mod context;
 mod deploy;
-mod discovery;
 mod hash;
 mod history;
 mod keys;
 mod messaging;
 mod note;
-mod event;
 mod oracle;
 mod state_vars;
 mod capsules;
-mod prelude;
-mod encrypted_logs;
-mod unencrypted_logs;
+mod messages;
 pub use dep::protocol_types;
 mod utils;
+mod authwit;
+mod event;
 mod macros;
 
 mod test;

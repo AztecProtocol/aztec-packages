@@ -2,11 +2,11 @@
 #include <fstream>
 #include <iostream>
 
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/srs/io.hpp"
 
 using namespace bb;
 
@@ -17,7 +17,7 @@ const std::string protocol_name = "BARRETENBERG_GRUMPKIN_IPA_CRS";
  * @details We only provide functionality to create a single transcript file.
  * ! Note that, unlike the bn254 SRS, the first element of the Grumpkin SRS will not be equal to point one defined in
  * grumpkin.hpp as this function finds Grumpkin points in an arbitrary order.
- *
+ * As well, unlike the bn254 SRS, the Grumpkin SRS does not need a trusted setup and has no underlying secret generator.
  */
 int main(int argc, char** argv)
 {
@@ -27,19 +27,12 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Note: the number of points in one Ignition transcript file is 5'040'000; see
-    // https://github.com/AztecProtocol/ignition-verification/blob/master/Transcript_spec.md
-    const size_t subgroup_size = (size_t)atoi(args[1].c_str());
-    const std::string srs_path = (args.size() > 2) ? args[2] : "../srs_db/grumpkin/";
-    // Why is the full path derived inside the io code!? The above should have monomial on the end and io should
-    // write the files to the dir that was given.
-    std::filesystem::create_directories(std::filesystem::path(srs_path) / "monomial");
+    const size_t subgroup_size = static_cast<size_t>(atoi(args[1].c_str())); // NOLINT
+    const std::filesystem::path srs_path = (args.size() > 2) ? args[2] : "./";
+    std::filesystem::create_directories(srs_path);
 
     std::vector<bb::grumpkin::g1::affine_element> srs(subgroup_size);
 
-#ifndef NO_MULTITHREADING
-    std::mutex vector_access_mutex;
-#endif
     parallel_for_range(subgroup_size, [&](size_t start, size_t end) {
         std::vector<uint8_t> hash_input;
         for (size_t point_idx = start; point_idx < end; ++point_idx) {
@@ -70,10 +63,9 @@ int main(int argc, char** argv)
                 // (happens half of the time) and we need to continue searching
                 if (!crs_element.x.is_zero() || !crs_element.y.is_zero()) {
                     rational_point_found = true;
-                    {
-                        std::unique_lock<std::mutex> lock(vector_access_mutex);
-                        srs.at(point_idx) = static_cast<grumpkin::g1::affine_element>(crs_element);
-                    }
+                    // Note: there used to be a mutex here, however there is no need as this is just a write to a
+                    // computed (exclusive to this thread) memory location
+                    srs.at(point_idx) = static_cast<grumpkin::g1::affine_element>(crs_element);
                     break;
                 }
                 attempt += 1;
@@ -81,10 +73,7 @@ int main(int argc, char** argv)
         }
     });
 
-    bb::srs::Manifest manifest{ 0, 1, static_cast<uint32_t>(subgroup_size), 0, static_cast<uint32_t>(subgroup_size),
-                                0, 0 };
-
-    bb::srs::IO<bb::curve::Grumpkin>::write_transcript(&srs[0], manifest, srs_path);
+    write_file(srs_path / "grumpkin_g1.dat", to_buffer(srs));
 
     return 0;
 }

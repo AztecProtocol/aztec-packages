@@ -1,6 +1,6 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -19,6 +19,8 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPaddingBlockRootRollupInputsToWitnessMap,
+  convertPaddingBlockRootRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -36,7 +38,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
-import { type SimulationProvider, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
+import { type CircuitSimulator, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
   type ProofAndVerificationKey,
@@ -54,6 +56,7 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   RootRollupInputs,
@@ -88,7 +91,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   private logger = createLogger('bb-prover:test-prover');
 
   constructor(
-    private simulationProvider?: SimulationProvider,
+    private simulator?: CircuitSimulator,
     private opts: TestDelay = { proverTestDelayType: 'fixed', proverTestDelayMs: 0 },
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -262,6 +265,23 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  @trackSpan('TestCircuitProver.getPaddingBlockRootRollupProof')
+  public getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.applyDelay(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, () =>
+      this.simulate(
+        input,
+        'PaddingBlockRootRollupArtifact',
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+        convertPaddingBlockRootRollupInputsToWitnessMap,
+        convertPaddingBlockRootRollupOutputsFromWitnessMap,
+      ),
+    );
+  }
+
   /**
    * Simulates the block merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
@@ -302,14 +322,16 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+  public getAvmProof(
+    _inputs: AvmCircuitInputs,
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     return this.applyDelay(ProvingRequestType.PUBLIC_VM, () =>
       makeProofAndVerificationKey(
-        makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
-        VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+        makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+        VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       ),
     );
   }
@@ -351,22 +373,26 @@ export class TestCircuitProver implements ServerCircuitProver {
     let witness: WitnessMap;
     if (
       ['BlockRootRollupArtifact', 'SingleTxBlockRootRollupArtifact'].includes(artifactName) ||
-      this.simulationProvider == undefined
+      this.simulator == undefined
     ) {
       // TODO(#10323): Native ACVM simulator does not support foreign call handler so we use the wasm simulator
       // when simulating block root rollup and single tx block root rollup circuits or when the native ACVM simulator
       // is not provided.
-      witness = await this.wasmSimulator.executeProtocolCircuit(
-        witnessMap,
-        getSimulatedServerCircuitArtifact(artifactName),
-        foreignCallHandler,
-      );
+      witness = (
+        await this.wasmSimulator.executeProtocolCircuit(
+          witnessMap,
+          getSimulatedServerCircuitArtifact(artifactName),
+          foreignCallHandler,
+        )
+      ).witness;
     } else {
-      witness = await this.simulationProvider.executeProtocolCircuit(
-        witnessMap,
-        getSimulatedServerCircuitArtifact(artifactName),
-        undefined, // Native ACM simulator does not support foreign call handler
-      );
+      witness = (
+        await this.simulator.executeProtocolCircuit(
+          witnessMap,
+          getSimulatedServerCircuitArtifact(artifactName),
+          undefined, // Native ACM simulator does not support foreign call handler
+        )
+      ).witness;
     }
 
     const result = convertOutput(witness);

@@ -1,37 +1,37 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "trace_to_polynomials.hpp"
-#include "barretenberg/flavor/plonk_flavors.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder,
-                                          typename Flavor::ProvingKey& proving_key,
-                                          bool is_structured)
+void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key)
 {
 
     PROFILE_THIS_NAME("trace populate");
 
-    // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
-    // data
-    auto trace_data = construct_trace_data(builder, proving_key, is_structured);
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, proving_key);
 
-    if constexpr (IsUltraFlavor<Flavor>) {
-        proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
-    }
-    if constexpr (IsUltraPlonkOrHonk<Flavor>) {
+    proving_key.pub_inputs_offset = builder.blocks.pub_inputs.trace_offset();
 
+    {
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
-        add_memory_records_to_proving_key(trace_data, builder, proving_key);
+        add_memory_records_to_proving_key(builder, proving_key);
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
-
         PROFILE_THIS_NAME("add_ecc_op_wires_to_proving_key");
 
         add_ecc_op_wires_to_proving_key(builder, proving_key);
@@ -39,59 +39,56 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
-
         PROFILE_THIS_NAME("compute_permutation_argument_polynomials");
 
-        compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);
+        compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, copy_cycles);
     }
 }
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
-                                                                   Builder& builder,
+void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(Builder& builder,
                                                                    typename Flavor::ProvingKey& proving_key)
-    requires IsUltraPlonkOrHonk<Flavor>
 {
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    uint32_t ram_rom_offset = builder.blocks.aux.trace_offset();
     proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
-        proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
+        proving_key.memory_read_records.emplace_back(index + ram_rom_offset);
     }
     proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
-        proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
+        proving_key.memory_write_records.emplace_back(index + ram_rom_offset);
     }
 }
 
 template <class Flavor>
-typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::construct_trace_data(
-    Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
+std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
+    Builder& builder, typename Flavor::ProvingKey& proving_key)
 {
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    TraceData trace_data{ builder, proving_key };
+    std::vector<CyclicPermutation> copy_cycles;
+    copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
 
-    uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
+    RefArray<Polynomial, NUM_WIRES> wires = proving_key.polynomials.get_wires();
+    RefArray<Polynomial, NUM_SELECTORS> selectors = proving_key.polynomials.get_selectors();
+
     // For each block in the trace, populate wire polys, copy cycles and selector polys
-
     for (auto& block : builder.blocks.get()) {
-        auto block_size = static_cast<uint32_t>(block.size());
+        const uint32_t offset = block.trace_offset();
+        const uint32_t block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
-            PROFILE_THIS_NAME("construct_active_indices");
-            if (block.size() > 0) {
-                proving_key.active_region_data.add_range(offset, offset + block.size());
-            }
+        if (block.size() > 0) {
+            proving_key.active_region_data.add_range(offset, offset + block.size());
         }
 
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
-
             PROFILE_THIS_NAME("populating wires and copy_cycles");
 
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
@@ -100,9 +97,9 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    trace_data.wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
+                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
-                    trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+                    copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
             }
         }
@@ -113,25 +110,12 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
             auto& selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
-                trace_data.selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
+                selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }
-
-        // Store the offset of the block containing RAM/ROM read/write gates for use in updating memory records
-        if (block.has_ram_rom) {
-            trace_data.ram_rom_offset = offset;
-        }
-        // Store offset of public inputs block for use in the pub input mechanism of the permutation argument
-        if (block.is_pub_inputs) {
-            trace_data.pub_inputs_offset = offset;
-        }
-
-        // If the trace is structured, we populate the data from the next block at a fixed block size offset
-        // otherwise, the next block starts immediately following the previous one
-        offset += block.get_fixed_size(is_structured);
     }
 
-    return trace_data;
+    return copy_cycles;
 }
 
 template <class Flavor>
@@ -157,11 +141,13 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class TraceToPolynomials<UltraStarknetFlavor>;
+template class TraceToPolynomials<UltraStarknetZKFlavor>;
+#endif
 template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
-template class TraceToPolynomials<plonk::flavor::Standard>;
-template class TraceToPolynomials<plonk::flavor::Ultra>;
 
 } // namespace bb

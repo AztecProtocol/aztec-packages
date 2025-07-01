@@ -1,17 +1,15 @@
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
-import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  PaddedSideEffectAmounts,
   PrivateCallData,
   type PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
@@ -33,14 +31,14 @@ import {
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
-import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
   publicInputs: PrivateKernelCircuitPublicInputs.empty(),
-  verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+  verificationKey: VerificationKeyData.empty(),
   outputWitness: new Map(),
   bytecode: Buffer.from([]),
 };
@@ -115,14 +113,19 @@ export class PrivateKernelExecutionProver {
           validationRequestsSplitCounter,
         );
         while (resetBuilder.needsReset()) {
+          const witgenTimer = new Timer();
           const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-          output = simulate
-            ? await this.proofCreator.simulateReset(privateInputs)
-            : await this.proofCreator.generateResetOutput(privateInputs);
+          output = generateWitnesses
+            ? await this.proofCreator.generateResetOutput(privateInputs)
+            : await this.proofCreator.simulateReset(privateInputs);
           executionSteps.push({
             functionName: 'private_kernel_reset',
             bytecode: output.bytecode,
             witness: output.outputWitness,
+            vk: output.verificationKey.keyAsBytes,
+            timings: {
+              witgen: witgenTimer.ms(),
+            },
           });
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,
@@ -146,11 +149,18 @@ export class PrivateKernelExecutionProver {
         functionName: functionName!,
         bytecode: currentExecution.acir,
         witness: currentExecution.partialWitness,
+        vk: currentExecution.vk,
+        timings: {
+          witgen: currentExecution.profileResult?.timings.witgen ?? 0,
+          oracles: currentExecution.profileResult?.timings.oracles,
+        },
       });
 
       const privateCallData = await this.createPrivateCallData(currentExecution);
 
       if (firstIteration) {
+        const witgenTimer = new Timer();
+
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
           getVKTreeRoot(),
@@ -173,19 +183,25 @@ export class PrivateKernelExecutionProver {
           functionName: 'private_kernel_init',
           bytecode: output.bytecode,
           witness: output.outputWitness,
+          vk: output.verificationKey.keyAsBytes,
+          timings: {
+            witgen: witgenTimer.ms(),
+          },
         });
       } else {
-        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
-        const previousKernelData = new PrivateKernelData(
-          output.publicInputs,
+        const witgenTimer = new Timer();
+        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
+          output.verificationKey.keyAsFields,
+        );
+        const vkData = new VkData(
           output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
-          assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+          previousVkMembershipWitness.siblingPath,
         );
+        const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
         pushTestData('private-kernel-inputs-inner', proofInput);
-
         output = generateWitnesses
           ? await this.proofCreator.generateInnerOutput(proofInput)
           : await this.proofCreator.simulateInner(proofInput);
@@ -194,6 +210,10 @@ export class PrivateKernelExecutionProver {
           functionName: 'private_kernel_inner',
           bytecode: output.bytecode,
           witness: output.outputWitness,
+          vk: output.verificationKey.keyAsBytes,
+          timings: {
+            witgen: witgenTimer.ms(),
+          },
         });
       }
       firstIteration = false;
@@ -207,6 +227,7 @@ export class PrivateKernelExecutionProver {
       validationRequestsSplitCounter,
     );
     while (resetBuilder.needsReset()) {
+      const witgenTimer = new Timer();
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
@@ -216,6 +237,10 @@ export class PrivateKernelExecutionProver {
         functionName: 'private_kernel_reset',
         bytecode: output.bytecode,
         witness: output.outputWitness,
+        vk: output.verificationKey.keyAsBytes,
+        timings: {
+          witgen: witgenTimer.ms(),
+        },
       });
 
       resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -233,22 +258,25 @@ export class PrivateKernelExecutionProver {
       output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
     }
     // Private tail.
-    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey);
-    const previousKernelData = new PrivateKernelData(
-      output.publicInputs,
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey.keyAsFields);
+    const vkData = new VkData(
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
-      assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+      previousVkMembershipWitness.siblingPath,
     );
+    const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
 
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
+    // TODO: Enable padding when we have a better what are the final amounts we should pad to.
+    const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, paddedSideEffectAmounts);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
+    const witgenTimer = new Timer();
     const tailOutput = generateWitnesses
       ? await this.proofCreator.generateTailOutput(privateInputs)
       : await this.proofCreator.simulateTail(privateInputs);
@@ -257,12 +285,18 @@ export class PrivateKernelExecutionProver {
       functionName: 'private_kernel_tail',
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
+      vk: tailOutput.verificationKey.keyAsBytes,
+      timings: {
+        witgen: witgenTimer.ms(),
+      },
     });
 
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
+        const gateCountTimer = new Timer();
         const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
         entry.gateCount = gateCount;
+        entry.timings.gateCount = gateCountTimer.ms();
       }
     }
     if (profileMode === 'gates') {
@@ -279,8 +313,11 @@ export class PrivateKernelExecutionProver {
 
     let clientIvcProof: ClientIvcProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
+    let provingTime;
     if (!skipProofGeneration) {
+      const provingTimer = new Timer();
       clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      provingTime = provingTimer.ms();
     } else {
       clientIvcProof = ClientIvcProof.random();
     }
@@ -289,7 +326,7 @@ export class PrivateKernelExecutionProver {
       publicInputs: tailOutput.publicInputs,
       executionSteps,
       clientIvcProof,
-      verificationKey: tailOutput.verificationKey,
+      timings: provingTime ? { proving: provingTime } : undefined,
     };
   }
 
@@ -297,7 +334,7 @@ export class PrivateKernelExecutionProver {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
+    const vk = await VerificationKeyAsFields.fromKey(vkAsFields);
 
     const { currentContractClassId, publicKeys, saltedInitializationHash } =
       await this.oracle.getContractAddressPreimage(contractAddress);

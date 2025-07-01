@@ -1,6 +1,6 @@
 import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
-import { AuthWitTestContract } from '@aztec/noir-contracts.js/AuthWitTest';
+import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';
@@ -27,7 +27,7 @@ describe('e2e_authwit_tests', () => {
 
     const nodeInfo = await wallets[0].getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
-    version = new Fr(nodeInfo.protocolVersion);
+    version = new Fr(nodeInfo.rollupVersion);
 
     auth = await AuthWitTestContract.deploy(wallets[0]).send().deployed();
   });

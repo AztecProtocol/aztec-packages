@@ -6,16 +6,15 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/instr_fetching.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -24,9 +23,6 @@ namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::BytecodeTraceBuilder;
-using tracegen::LookupIntoDynamicTableGeneric;
-using tracegen::LookupIntoDynamicTableSequential;
-using tracegen::LookupIntoIndexedByClk;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
@@ -44,14 +40,6 @@ using simulation::InstructionFetchingEvent;
 using simulation::Operand;
 using simulation::RangeCheckEvent;
 
-using instr_abs_diff_positive_lookup = lookup_instr_fetching_instr_abs_diff_positive_relation<FF>;
-using pc_abs_diff_positive_lookup = lookup_instr_fetching_pc_abs_diff_positive_relation<FF>;
-using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
-using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
-using bytecode_size_bc_decomposition_lookup = lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF>;
-
-using testing::random_bytes;
-
 TEST(InstrFetchingConstrainingTest, EmptyRow)
 {
     check_relation<instr_fetching>(testing::empty_trace());
@@ -67,7 +55,7 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
-        .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
@@ -94,13 +82,13 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
     Instruction ecadd_instruction = {
         .opcode = WireOpCode::ECADD,
         .indirect = 0x1f1f,
-        .operands = { Operand::u16(0x1279),
-                      Operand::u16(0x127a),
-                      Operand::u16(0x127b),
-                      Operand::u16(0x127c),
-                      Operand::u16(0x127d),
-                      Operand::u16(0x127e),
-                      Operand::u16(0x127f) },
+        .operands = { Operand::from<uint16_t>(0x1279),
+                      Operand::from<uint16_t>(0x127a),
+                      Operand::from<uint16_t>(0x127b),
+                      Operand::from<uint16_t>(0x127c),
+                      Operand::from<uint16_t>(0x127d),
+                      Operand::from<uint16_t>(0x127e),
+                      Operand::from<uint16_t>(0x127f) },
     };
 
     std::vector<uint8_t> bytecode = ecadd_instruction.serialize();
@@ -214,8 +202,6 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 // It works as long as the relations are not constraining the correct range for TAG nor indirect.
 TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
 {
-    using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
-
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
     PrecomputedTraceBuilder precomputed_builder;
@@ -225,12 +211,10 @@ TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
     bytecode_builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-
     EXPECT_EQ(trace.get_num_rows(), 1 << 8); // 2^8 for selector against wire_instruction_spec
 
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(trace);
     check_relation<instr_fetching>(trace);
-    check_interaction<wire_instr_spec_lookup>(trace);
 }
 
 std::vector<RangeCheckEvent> gen_range_check_events(const std::vector<InstructionFetchingEvent>& instr_events)
@@ -247,34 +231,6 @@ std::vector<RangeCheckEvent> gen_range_check_events(const std::vector<Instructio
         });
     }
     return range_check_events;
-}
-
-// Positive test for interaction with range checks using same events as for the test
-// EachOpcodeWithTraceGen, i.e., one event/row is generated per wire opcode.
-TEST(InstrFetchingConstrainingTest, RangeCheckInteractions)
-{
-    TestTraceContainer trace;
-    BytecodeTraceBuilder bytecode_builder;
-    PrecomputedTraceBuilder precomputed_builder;
-    RangeCheckTraceBuilder range_check_builder;
-
-    const auto instr_fetch_events = gen_instr_events_each_opcode();
-    const auto range_check_events = gen_range_check_events(instr_fetch_events);
-
-    precomputed_builder.process_sel_range_8(trace);
-    precomputed_builder.process_sel_range_16(trace);
-    bytecode_builder.process_instruction_fetching(instr_fetch_events, trace);
-    range_check_builder.process(range_check_events, trace);
-    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
-
-    LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<pc_abs_diff_positive_lookup::Settings>().process(trace);
-
-    EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
-
-    check_relation<instr_fetching>(trace);
-    check_interaction<instr_abs_diff_positive_lookup>(trace);
-    check_interaction<pc_abs_diff_positive_lookup>(trace);
 }
 
 // Positive test for the interaction with bytecode decomposition table.
@@ -294,15 +250,14 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
                                            trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_instr_fetching_bytes_from_bc_dec_settings,
+                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(trace);
 
     // BC Decomposition trace is the longest here.
     EXPECT_EQ(trace.get_num_rows(), instr_fetch_events.at(0).bytecode->size() + 1);
 
     check_relation<instr_fetching>(trace);
-    check_interaction<bc_decomposition_lookup>(trace);
-    check_interaction<bytecode_size_bc_decomposition_lookup>(trace);
 }
 
 void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
@@ -317,25 +272,49 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     precomputed_builder.process_wire_instruction_spec(trace);
     precomputed_builder.process_sel_range_8(trace);
     precomputed_builder.process_sel_range_16(trace);
+    precomputed_builder.process_memory_tag_range(trace);
     bytecode_builder.process_instruction_fetching(instr_events, trace);
     bytecode_builder.process_decomposition(decomposition_events, trace);
     range_check_builder.process(range_check_events, trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<pc_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_instr_fetching_bytes_from_bc_dec_settings,
+                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings,
+                      lookup_instr_fetching_wire_instruction_info_settings,
+                      lookup_instr_fetching_tag_value_validation_settings,
+                      lookup_instr_fetching_pc_abs_diff_positive_settings,
+                      lookup_instr_fetching_instr_abs_diff_positive_settings>(trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
 
     check_relation<instr_fetching>(trace);
-    check_interaction<instr_abs_diff_positive_lookup>(trace);
-    check_interaction<pc_abs_diff_positive_lookup>(trace);
-    check_interaction<wire_instr_spec_lookup>(trace);
-    check_interaction<bc_decomposition_lookup>(trace);
-    check_interaction<bytecode_size_bc_decomposition_lookup>(trace);
+}
+
+void check_without_range_check(const std::vector<InstructionFetchingEvent>& instr_events,
+                               const std::vector<BytecodeDecompositionEvent>& decomposition_events)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    precomputed_builder.process_wire_instruction_spec(trace);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_memory_tag_range(trace);
+    bytecode_builder.process_instruction_fetching(instr_events, trace);
+    bytecode_builder.process_decomposition(decomposition_events, trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_instr_fetching_bytes_from_bc_dec_settings,
+                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings,
+                      lookup_instr_fetching_wire_instruction_info_settings,
+                      lookup_instr_fetching_tag_value_validation_settings,
+                      lookup_instr_fetching_instr_abs_diff_positive_settings>(trace);
+
+    EXPECT_EQ(trace.get_num_rows(), 1 << 8); // 2^8 for range checks
+
+    check_relation<instr_fetching>(trace);
 }
 
 // Positive test with 5 five bytecodes and bytecode_id = 0,1,2,3,4
@@ -386,7 +365,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
     Instruction add_8_instruction = {
         .opcode = WireOpCode::ADD_8,
         .indirect = 3,
-        .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
@@ -409,7 +388,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
 }
 
 // Positive test with one single instruction (SET_FF) with error INSTRUCTION_OUT_OF_RANGE.
@@ -421,9 +400,9 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
     Instruction set_ff_instruction = {
         .opcode = WireOpCode::SET_FF,
         .indirect = 0x01,
-        .operands = { Operand::u16(0x1279),
-                      Operand::u8(static_cast<uint8_t>(MemoryTag::FF)),
-                      Operand::ff(FF::modulus_minus_two) },
+        .operands = { Operand::from<uint16_t>(0x1279),
+                      Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::FF)),
+                      Operand::from<FF>(FF::modulus_minus_two) },
     };
 
     std::vector<uint8_t> bytecode = set_ff_instruction.serialize();
@@ -446,7 +425,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
 }
 
 // Positive test with error case PC_OUT_OF_RANGE. We pass a pc which is out of range.
@@ -455,7 +434,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionPcOutOfRange)
     Instruction add_8_instruction = {
         .opcode = WireOpCode::SUB_8,
         .indirect = 3,
-        .operands = { Operand::u8(0x34), Operand::u8(0x35), Operand::u8(0x36) },
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
     };
 
     std::vector<uint8_t> bytecode = add_8_instruction.serialize();
@@ -495,9 +474,9 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
     Instruction set_128_instruction = {
         .opcode = WireOpCode::SET_128,
         .indirect = 0,
-        .operands = { Operand::u16(0x1234),
-                      Operand::u8(static_cast<uint8_t>(MemoryTag::U128)),
-                      Operand::u128(static_cast<uint128_t>(0xFF) << 120) },
+        .operands = { Operand::from<uint16_t>(0x1234),
+                      Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U128)),
+                      Operand::from<uint128_t>(static_cast<uint128_t>(0xFF) << 120) },
     };
 
     std::vector<uint8_t> bytecode = set_128_instruction.serialize();
@@ -525,7 +504,41 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
+}
+
+// Positive test with one single instruction (SET_16) with error TAG_OUT_OF_RANGE.
+// The bytecode consists into a serialized single instruction with pc = 0.
+// The operand at index 1 is wrongly set to value 12
+TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
+{
+    Instruction set_16_instruction = {
+        .opcode = WireOpCode::SET_16,
+        .indirect = 0,
+        .operands = { Operand::from<uint16_t>(0x1234), Operand::from<uint8_t>(12), Operand::from<uint16_t>(0x5678) },
+    };
+
+    std::vector<uint8_t> bytecode = set_16_instruction.serialize();
+    const auto bytecode_ptr = std::make_shared<std::vector<uint8_t>>(std::move(bytecode));
+
+    const std::vector<InstructionFetchingEvent> instr_events = {
+        {
+            .bytecode_id = 1,
+            .pc = 0,
+            .instruction = set_16_instruction,
+            .bytecode = bytecode_ptr,
+            .error = InstrDeserializationError::TAG_OUT_OF_RANGE,
+        },
+    };
+
+    const std::vector<BytecodeDecompositionEvent> decomposition_events = {
+        {
+            .bytecode_id = 1,
+            .bytecode = bytecode_ptr,
+        },
+    };
+
+    check_without_range_check(instr_events, decomposition_events);
 }
 
 // Negative interaction test with some values not matching the instruction spec table.
@@ -551,19 +564,18 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
         precomputed_builder.process_sel_range_8(trace);
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-        LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(trace);
 
         ASSERT_EQ(trace.get(C::lookup_instr_fetching_wire_instruction_info_counts, static_cast<uint32_t>(opcode)), 1);
-        check_interaction<wire_instr_spec_lookup>(trace);
 
-        constexpr std::array<C, 20> mutated_cols = {
-            C::instr_fetching_exec_opcode,  C::instr_fetching_instr_size,   C::instr_fetching_sel_op_dc_0,
-            C::instr_fetching_sel_op_dc_1,  C::instr_fetching_sel_op_dc_2,  C::instr_fetching_sel_op_dc_3,
-            C::instr_fetching_sel_op_dc_4,  C::instr_fetching_sel_op_dc_5,  C::instr_fetching_sel_op_dc_6,
-            C::instr_fetching_sel_op_dc_7,  C::instr_fetching_sel_op_dc_8,  C::instr_fetching_sel_op_dc_9,
-            C::instr_fetching_sel_op_dc_10, C::instr_fetching_sel_op_dc_11, C::instr_fetching_sel_op_dc_12,
-            C::instr_fetching_sel_op_dc_13, C::instr_fetching_sel_op_dc_14, C::instr_fetching_sel_op_dc_15,
-            C::instr_fetching_sel_op_dc_16, C::instr_fetching_sel_op_dc_17,
+        constexpr std::array<C, 21> mutated_cols = {
+            C::instr_fetching_exec_opcode,    C::instr_fetching_instr_size,   C::instr_fetching_sel_has_tag,
+            C::instr_fetching_sel_tag_is_op2, C::instr_fetching_sel_op_dc_0,  C::instr_fetching_sel_op_dc_1,
+            C::instr_fetching_sel_op_dc_2,    C::instr_fetching_sel_op_dc_3,  C::instr_fetching_sel_op_dc_4,
+            C::instr_fetching_sel_op_dc_5,    C::instr_fetching_sel_op_dc_6,  C::instr_fetching_sel_op_dc_7,
+            C::instr_fetching_sel_op_dc_8,    C::instr_fetching_sel_op_dc_9,  C::instr_fetching_sel_op_dc_10,
+            C::instr_fetching_sel_op_dc_11,   C::instr_fetching_sel_op_dc_12, C::instr_fetching_sel_op_dc_13,
+            C::instr_fetching_sel_op_dc_14,   C::instr_fetching_sel_op_dc_15, C::instr_fetching_sel_op_dc_16,
         };
 
         // Mutate execution opcode
@@ -572,12 +584,10 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
             const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
             mutated_trace.set(col, 1, mutated_value);
 
-            // We do not need to re-run LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-            // because we never mutate the indexing column for this lookup (clk) and for this lookup
-            // find_in_dst only uses column C::instr_fetching_bd0 mapped to (clk). So, the counts are still valid.
-
-            EXPECT_THROW_WITH_MESSAGE(check_interaction<wire_instr_spec_lookup>(mutated_trace),
-                                      "Relation.*WIRE_INSTRUCTION_INFO.* ACCUMULATION.* is non-zero");
+            EXPECT_THROW_WITH_MESSAGE(
+                (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(
+                    mutated_trace)),
+                "Failed.*LOOKUP_INSTR_FETCHING_WIRE_INSTRUCTION_INFO.*Could not find tuple in destination.");
         }
     }
 }
@@ -610,8 +620,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
                                                trace);
 
         auto valid_trace = trace; // Keep original trace before lookup processing
-        LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(valid_trace);
-        check_interaction<bc_decomposition_lookup>(valid_trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(valid_trace);
 
         constexpr std::array<C, 39> mutated_cols = {
             C::instr_fetching_pc,   C::instr_fetching_bytecode_id, C::instr_fetching_bd0,  C::instr_fetching_bd1,
@@ -632,14 +641,12 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
             const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
             mutated_trace.set(col, 1, mutated_value);
 
-            // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this
-            // even though we know it will fail.
+            // This sets the length of the inverse polynomial via SetDummyInverses, so we
+            // still need to call this even though we know it will fail.
             EXPECT_THROW_WITH_MESSAGE(
-                LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(mutated_trace),
+                (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(
+                    mutated_trace)),
                 "Failed.*BYTES_FROM_BC_DEC. Could not find tuple in destination.");
-
-            EXPECT_THROW_WITH_MESSAGE(check_interaction<bc_decomposition_lookup>(mutated_trace),
-                                      "Relation.*BYTES_FROM_BC_DEC.* ACCUMULATION.* is non-zero");
         }
     }
 }
@@ -684,8 +691,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
         auto valid_trace = trace; // Keep original trace before lookup processing
-        LookupIntoDynamicTableSequential<bytecode_size_bc_decomposition_lookup::Settings>().process(valid_trace);
-        check_interaction<bytecode_size_bc_decomposition_lookup>(valid_trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(valid_trace);
 
         auto mutated_trace = trace;
         const FF mutated_value = trace.get(C::instr_fetching_bytecode_size, 1) + 1; // Mutate to value + 1
@@ -694,11 +700,48 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
         // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this
         // even though we know it will fail.
         EXPECT_THROW_WITH_MESSAGE(
-            LookupIntoDynamicTableSequential<bytecode_size_bc_decomposition_lookup::Settings>().process(mutated_trace),
+            (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(
+                mutated_trace)),
             "Failed.*BYTECODE_SIZE_FROM_BC_DEC. Could not find tuple in destination.");
+    }
+}
 
-        EXPECT_THROW_WITH_MESSAGE(check_interaction<bytecode_size_bc_decomposition_lookup>(mutated_trace),
-                                  "Relation.*BYTECODE_SIZE_FROM_BC_DEC.* ACCUMULATION.* is non-zero");
+TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    // Some chosen opcode with a tag. We limit to one as this unit test is costly.
+    // Test works if the following vector is extended to other opcodes though.
+    std::vector<WireOpCode> opcodes = { WireOpCode::SET_8 };
+
+    for (const auto& opcode : opcodes) {
+        TestTraceContainer trace;
+        const auto instr = testing::random_instruction(opcode);
+        bytecode_builder.process_instruction_fetching(
+            { { .bytecode_id = 1,
+                .pc = 0,
+                .instruction = instr,
+                .bytecode = std::make_shared<std::vector<uint8_t>>(instr.serialize()) } },
+            trace);
+        precomputed_builder.process_memory_tag_range(trace);
+        precomputed_builder.process_sel_range_8(trace);
+        precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_tag_value_validation_settings>(trace);
+
+        auto valid_trace = trace; // Keep original trace before lookup processing
+
+        // Mutate tag out-of-range error
+        auto mutated_trace = trace;
+        ASSERT_EQ(trace.get(C::instr_fetching_tag_out_of_range, 1), 0);
+        mutated_trace.set(C::instr_fetching_tag_out_of_range, 1, 1); // Mutate by toggling the error.
+
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_tag_value_validation_settings>(
+                mutated_trace)),
+            "Failed.*LOOKUP_INSTR_FETCHING_TAG_VALUE_VALIDATION.*Could not find tuple in destination.");
     }
 }
 

@@ -35,7 +35,7 @@ contract OutboxTest is Test {
     ROLLUP_CONTRACT = address(new FakeRollup());
     FakeRollup(ROLLUP_CONTRACT).setProvenBlockNum(1);
 
-    outbox = new Outbox(ROLLUP_CONTRACT);
+    outbox = new Outbox(ROLLUP_CONTRACT, AZTEC_VERSION);
     zeroedTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT);
     merkleTestUtil = new MerkleTestUtil();
   }
@@ -57,14 +57,14 @@ contract OutboxTest is Test {
 
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__Unauthorized.selector));
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
   }
 
   function testRevertIfInsertingDuplicate() public {
     bytes32 root = zeroedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
   }
 
   // This function tests the insertion of random arrays of L2 to L1 messages
@@ -83,13 +83,12 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(1, root, treeHeight);
+    emit IOutbox.RootAdded(1, root);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, treeHeight);
+    outbox.insert(1, root);
 
-    (bytes32 actualRoot, uint256 actualHeight) = outbox.getRootData(1);
+    bytes32 actualRoot = outbox.getRootData(1);
     assertEq(root, actualRoot);
-    assertEq(treeHeight, actualHeight);
   }
 
   function testRevertIfConsumingMessageBelongingToOther() public {
@@ -115,6 +114,19 @@ contract OutboxTest is Test {
     outbox.consume(fakeMessage, 1, 1, path);
   }
 
+  function testRevertIfVersionMismatch() public {
+    DataStructures.L2ToL1Msg memory message = _fakeMessage(address(this));
+    (bytes32[] memory path,) = zeroedTree.computeSiblingPath(0);
+
+    message.sender.version = AZTEC_VERSION + 1;
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Outbox__VersionMismatch.selector, message.sender.version, AZTEC_VERSION
+      )
+    );
+    outbox.consume(message, 1, 1, path);
+  }
+
   function testRevertIfNothingInsertedAtBlockNumber() public {
     uint256 blockNumber = 1;
     DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this));
@@ -136,7 +148,7 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
     outbox.consume(fakeMessage, 1, 0, path);
@@ -153,16 +165,15 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
 
     NaiveMerkle smallerTree = new NaiveMerkle(DEFAULT_TREE_HEIGHT - 1);
-    tree.insertLeaf(leaf);
+    smallerTree.insertLeaf(leaf);
+    bytes32 smallerTreeRoot = smallerTree.computeRoot();
 
     (bytes32[] memory path,) = smallerTree.computeSiblingPath(0);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Outbox__InvalidPathLength.selector, DEFAULT_TREE_HEIGHT, DEFAULT_TREE_HEIGHT - 1
-      )
+      abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, root, smallerTreeRoot, leaf, 0)
     );
     outbox.consume(fakeMessage, 1, 0, path);
   }
@@ -182,7 +193,7 @@ contract OutboxTest is Test {
     bytes32 modifiedRoot = modifiedTree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
 
     (bytes32[] memory path,) = modifiedTree.computeSiblingPath(0);
 
@@ -205,7 +216,7 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
 
@@ -225,7 +236,7 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
 
     (bytes32[] memory path,) = tree.computeSiblingPath(0);
 
@@ -266,9 +277,9 @@ contract OutboxTest is Test {
     bytes32 root = tree.computeRoot();
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.RootAdded(blockNumber, root, treeHeight);
+    emit IOutbox.RootAdded(blockNumber, root);
     vm.prank(ROLLUP_CONTRACT);
-    outbox.insert(blockNumber, root, treeHeight);
+    outbox.insert(blockNumber, root);
 
     for (uint256 i = 0; i < numberOfMessages; i++) {
       (bytes32[] memory path, bytes32 leaf) = tree.computeSiblingPath(i);
@@ -289,20 +300,18 @@ contract OutboxTest is Test {
     bytes32 root = zeroedTree.computeRoot();
 
     vm.startPrank(ROLLUP_CONTRACT);
-    outbox.insert(1, root, DEFAULT_TREE_HEIGHT);
-    outbox.insert(2, root, DEFAULT_TREE_HEIGHT);
+    outbox.insert(1, root);
+    outbox.insert(2, root);
     vm.stopPrank();
 
     {
-      (bytes32 actualRoot, uint256 actualHeight) = outbox.getRootData(1);
+      bytes32 actualRoot = outbox.getRootData(1);
       assertEq(root, actualRoot);
-      assertEq(DEFAULT_TREE_HEIGHT, actualHeight);
     }
 
     {
-      (bytes32 actualRoot, uint256 actualHeight) = outbox.getRootData(2);
+      bytes32 actualRoot = outbox.getRootData(2);
       assertEq(bytes32(0), actualRoot);
-      assertEq(0, actualHeight);
     }
   }
 }

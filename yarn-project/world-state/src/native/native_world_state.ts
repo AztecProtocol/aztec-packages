@@ -1,8 +1,9 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { tryRmDir } from '@aztec/foundation/fs';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type {
@@ -10,6 +11,7 @@ import type {
   MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -20,6 +22,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
@@ -36,7 +39,9 @@ import { NativeWorldState } from './native_world_state_instance.js';
 
 // The current version of the world state database schema
 // Increment this when making incompatible changes to the database schema
-export const WORLD_STATE_DB_VERSION = 1; // The initial version
+export const WORLD_STATE_DB_VERSION = 2; // The initial version
+
+export const WORLD_STATE_DIR = 'world_state';
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
@@ -44,31 +49,31 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   private cachedStatusSummary: WorldStateStatusSummary | undefined;
 
   protected constructor(
-    protected readonly instance: NativeWorldState,
+    protected instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
-    protected readonly log = createLogger('world-state:database'),
+    protected readonly log: Logger = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
-    dbMapSizeKb: number,
+    wsTreeMapSizes: WorldStateTreeMapSizes,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
-    const worldStateDirectory = join(dataDir, 'world_state');
+    const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
-    const versionManager = new DatabaseVersionManager(
-      WORLD_STATE_DB_VERSION,
+    const versionManager = new DatabaseVersionManager({
+      schemaVersion: WORLD_STATE_DB_VERSION,
       rollupAddress,
-      worldStateDirectory,
-      (dir: string) => {
-        return Promise.resolve(new NativeWorldState(dir, dbMapSizeKb, prefilledPublicData, instrumentation));
+      dataDirectory: worldStateDirectory,
+      onOpen: (dir: string) => {
+        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, prefilledPublicData, instrumentation));
       },
-    );
+    });
 
     const [instance] = await versionManager.open();
     const worldState = new this(instance, instrumentation, log, cleanup);
@@ -91,7 +96,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const log = createLogger('world-state:database');
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
     const dbMapSizeKb = 10 * 1024 * 1024;
-    log.debug(`Created temporary world state database at: ${dataDir} with size: ${dbMapSizeKb}`);
+    const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
+      archiveTreeMapSizeKb: dbMapSizeKb,
+      nullifierTreeMapSizeKb: dbMapSizeKb,
+      noteHashTreeMapSizeKb: dbMapSizeKb,
+      messageTreeMapSizeKb: dbMapSizeKb,
+      publicDataTreeMapSizeKb: dbMapSizeKb,
+    };
+    log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
 
     // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
     const cleanup = async () => {
@@ -103,7 +115,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, prefilledPublicData, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, prefilledPublicData, instrumentation, log, cleanup);
   }
 
   protected async init() {
@@ -125,6 +137,13 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const indices = await committed.findLeafIndices(MerkleTreeId.ARCHIVE, [await this.initialHeader.hash()]);
     const initialHeaderIndex = indices[0];
     assert.strictEqual(initialHeaderIndex, 0n, 'Invalid initial archive state');
+  }
+
+  public async clear() {
+    await this.instance.close();
+    this.cachedStatusSummary = undefined;
+    await tryRmDir(this.instance.getDataDir(), this.log);
+    this.instance = this.instance.clone();
   }
 
   public getCommitted(): MerkleTreeReadOperations {
@@ -314,4 +333,25 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       ),
     );
   }
+
+  public async backupTo(
+    dstPath: string,
+    compact: boolean = true,
+  ): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
+    await this.instance.call(WorldStateMessageType.COPY_STORES, {
+      dstPath,
+      compact,
+      canonical: true,
+    });
+    return fromEntries(NATIVE_WORLD_STATE_DBS.map(([name, dir]) => [name, join(dstPath, dir, 'data.mdb')] as const));
+  }
 }
+
+// The following paths are defined in cpp-land
+export const NATIVE_WORLD_STATE_DBS = [
+  ['l1-to-l2-message-tree', 'L1ToL2MessageTree'],
+  ['archive-tree', 'ArchiveTree'],
+  ['public-data-tree', 'PublicDataTree'],
+  ['note-hash-tree', 'NoteHashTree'],
+  ['nullifier-tree', 'NullifierTree'],
+] as const;

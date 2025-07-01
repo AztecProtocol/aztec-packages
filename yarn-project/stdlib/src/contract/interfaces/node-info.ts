@@ -11,8 +11,8 @@ export interface NodeInfo {
   nodeVersion: string;
   /** L1 chain id. */
   l1ChainId: number;
-  /** Protocol version. */
-  protocolVersion: number;
+  /** Rollup version. */
+  rollupVersion: number;
   /** The node's ENR. */
   enr: string | undefined;
   /** The deployed l1 contract addresses */
@@ -25,7 +25,7 @@ export const NodeInfoSchema: ZodFor<NodeInfo> = z
   .object({
     nodeVersion: z.string(),
     l1ChainId: z.number().int().nonnegative(),
-    protocolVersion: z.number().int().nonnegative(),
+    rollupVersion: z.number().int().nonnegative(),
     enr: z.string().optional(),
     l1ContractAddresses: L1ContractAddressesSchema,
     protocolContractAddresses: ProtocolContractAddressesSchema,

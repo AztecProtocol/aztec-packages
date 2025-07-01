@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -39,7 +39,7 @@ jobs:
     needs: mirror-to-barretenberg-repo
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -77,7 +77,7 @@ jobs:
             for nargo_file in $nargo_files; do
               git restore --source=origin/master -- $nargo_file
             done
-            git commit --all --amend -m "$(git log -1 --pretty=%B) [skip ci]"
+            git commit --all --amend -m "$(git log -1 --pretty=%B)"
 
             git push
           fi

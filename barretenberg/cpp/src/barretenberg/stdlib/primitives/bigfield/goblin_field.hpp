@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../bigfield/bigfield.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
@@ -21,11 +27,12 @@ namespace bb::stdlib {
  */
 template <class Builder> class goblin_field {
   public:
-    static constexpr uint1024_t DEFAULT_MAXIMUM_REMAINDER =
+    inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         bigfield<Builder, bb::Bn254FqParams>::DEFAULT_MAXIMUM_REMAINDER;
     static constexpr size_t NUM_LIMBS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMBS;
     static constexpr size_t NUM_LIMB_BITS = bigfield<Builder, bb::Bn254FqParams>::NUM_LIMB_BITS;
-    static constexpr size_t NUM_LAST_LIMB_BITS = bigfield<Builder, bb::Bn254FqParams>::NUM_LAST_LIMB_BITS;
+    static constexpr size_t NUM_LAST_LIMB_BITS =
+        static_cast<size_t>(bigfield<Builder, bb::Bn254FqParams>::NUM_LAST_LIMB_BITS);
 
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
@@ -80,7 +87,9 @@ template <class Builder> class goblin_field {
         uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
         field_ct lo = field_ct::from_witness(ctx, lo_v);
         field_ct hi = field_ct::from_witness(ctx, hi_v);
-        return goblin_field(lo, hi);
+        auto result = goblin_field(lo, hi);
+        result.set_free_witness_tag();
+        return result;
     }
 
     /**
@@ -91,6 +100,7 @@ template <class Builder> class goblin_field {
         for (auto& limb : limbs) {
             limb.convert_constant_to_fixed_witness(builder);
         }
+        this->unset_free_witness_tag();
     }
 
     static goblin_field conditional_assign(const bool_ct& predicate, const goblin_field& lhs, goblin_field& rhs)
@@ -128,12 +138,31 @@ template <class Builder> class goblin_field {
 
     OriginTag get_origin_tag() const { return OriginTag(limbs[0].get_origin_tag(), limbs[1].get_origin_tag()); }
 
-    void set_origin_tag(const OriginTag& tag)
+    void set_origin_tag(const OriginTag& tag) const
     {
         limbs[0].set_origin_tag(tag);
         limbs[1].set_origin_tag(tag);
     }
 
+    /**
+     * @brief Set the free witness flag for the goblin field's tags
+     */
+    void set_free_witness_tag()
+    {
+        for (auto& limb : limbs) {
+            limb.set_free_witness_tag();
+        }
+    }
+
+    /**
+     * @brief Unset the free witness flag for the goblin field's tags
+     */
+    void unset_free_witness_tag()
+    {
+        for (auto& limb : limbs) {
+            limb.unset_free_witness_tag();
+        }
+    }
     /**
      * @brief Set the witness indices for the limbs of the goblin field to public
      * @details For consistency with bigfield, a goblin field is represented in the public inputs using four limbs.
@@ -157,9 +186,6 @@ template <class Builder> class goblin_field {
      */
     static goblin_field reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
     {
-        for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; ++i) {
-            limbs[i].create_range_constraint(NUM_LIMB_BITS, "l" + std::to_string(i));
-        }
         return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 };

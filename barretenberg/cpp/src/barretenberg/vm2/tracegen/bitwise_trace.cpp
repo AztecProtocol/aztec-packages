@@ -2,12 +2,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -21,13 +24,14 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        const auto start_ctr = integral_tag_length(event.tag);
+        auto tag = event.a.get_tag();
+        const auto start_ctr = integral_tag_length(tag);
 
         // We start with full inputs and output and we shift
         // them byte-per-byte to the right.
-        uint128_t input_a = static_cast<uint128_t>(event.a);
-        uint128_t input_b = static_cast<uint128_t>(event.b);
-        uint128_t output_c = static_cast<uint128_t>(event.res);
+        uint128_t input_a = static_cast<uint128_t>(event.a.as_ff());
+        uint128_t input_b = static_cast<uint128_t>(event.b.as_ff());
+        uint128_t output_c = static_cast<uint128_t>(event.res.as_ff());
 
         // Note that for tag U1, we take only one bit. This is correctly
         // captured below since input_a/b and output_c are each a single bit
@@ -43,10 +47,10 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
                           { C::bitwise_ia_byte, uint256_t::from_uint128(input_a & mask_low_byte) },
                           { C::bitwise_ib_byte, uint256_t::from_uint128(input_b & mask_low_byte) },
                           { C::bitwise_ic_byte, uint256_t::from_uint128(output_c & mask_low_byte) },
-                          { C::bitwise_tag, static_cast<int>(event.tag) },
+                          { C::bitwise_tag, static_cast<int>(tag) },
                           { C::bitwise_ctr, ctr },
-                          { C::bitwise_ctr_inv, ctr != 0 ? MemoryValue(ctr).invert() : 1 },
-                          { C::bitwise_ctr_min_one_inv, ctr != 1 ? MemoryValue(ctr - 1).invert() : 1 },
+                          { C::bitwise_ctr_inv, ctr != 0 ? FF(ctr).invert() : 1 },
+                          { C::bitwise_ctr_min_one_inv, ctr != 1 ? FF(ctr - 1).invert() : 1 },
                           { C::bitwise_last, static_cast<uint8_t>(ctr == 1) },
                           { C::bitwise_sel, static_cast<uint8_t>(ctr != 0) },
                           { C::bitwise_start, static_cast<uint8_t>(ctr == start_ctr) } } });
@@ -58,5 +62,10 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         }
     }
 }
+
+const InteractionDefinition BitwiseTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_bitwise_byte_operations_settings, InteractionType::LookupIntoBitwise>()
+        .add<lookup_bitwise_integral_tag_length_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

@@ -13,21 +13,20 @@ namespace bb {
 
 TEST(MegaCircuitBuilder, CopyConstructor)
 {
-    MegaCircuitBuilder circuit_constructor = MegaCircuitBuilder();
+    MegaCircuitBuilder builder = MegaCircuitBuilder();
     fr a = fr::one();
-    circuit_constructor.add_public_variable(a);
+    builder.add_public_variable(a);
 
     for (size_t i = 0; i < 16; ++i) {
         for (size_t j = 0; j < 16; ++j) {
             uint64_t left = static_cast<uint64_t>(j);
             uint64_t right = static_cast<uint64_t>(i);
-            uint32_t left_idx = circuit_constructor.add_variable(fr(left));
-            uint32_t right_idx = circuit_constructor.add_variable(fr(right));
-            uint32_t result_idx = circuit_constructor.add_variable(fr(left ^ right));
+            uint32_t left_idx = builder.add_variable(fr(left));
+            uint32_t right_idx = builder.add_variable(fr(right));
+            uint32_t result_idx = builder.add_variable(fr(left ^ right));
 
-            uint32_t add_idx =
-                circuit_constructor.add_variable(fr(left) + fr(right) + circuit_constructor.get_variable(result_idx));
-            circuit_constructor.create_big_add_gate(
+            uint32_t add_idx = builder.add_variable(fr(left) + fr(right) + builder.get_variable(result_idx));
+            builder.create_big_add_gate(
                 { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
     }
@@ -38,25 +37,25 @@ TEST(MegaCircuitBuilder, CopyConstructor)
     auto z = fr::random_element();
 
     // Add gates corresponding to the above operations
-    circuit_constructor.queue_ecc_add_accum(P1);
-    circuit_constructor.queue_ecc_mul_accum(P2, z);
-    circuit_constructor.queue_ecc_eq();
+    builder.queue_ecc_add_accum(P1);
+    builder.queue_ecc_mul_accum(P2, z);
+    builder.queue_ecc_eq();
 
-    bool result = CircuitChecker::check(circuit_constructor);
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
-    MegaCircuitBuilder duplicate_circuit_constructor{ circuit_constructor };
+    MegaCircuitBuilder duplicate_builder{ builder };
 
-    EXPECT_EQ(duplicate_circuit_constructor, circuit_constructor);
-    EXPECT_TRUE(CircuitChecker::check(duplicate_circuit_constructor));
+    EXPECT_EQ(duplicate_builder, builder);
+    EXPECT_TRUE(CircuitChecker::check(duplicate_builder));
 }
 
 TEST(MegaCircuitBuilder, BaseCase)
 {
-    MegaCircuitBuilder circuit_constructor = MegaCircuitBuilder();
+    MegaCircuitBuilder builder = MegaCircuitBuilder();
     fr a = fr::one();
-    circuit_constructor.add_public_variable(a);
-    bool result = CircuitChecker::check(circuit_constructor);
+    builder.add_public_variable(a);
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
@@ -87,11 +86,11 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     auto eq_op_tuple = builder.queue_ecc_eq();
 
     // Check that we can reconstruct the coordinates of P_expected from the data in variables
-    auto P_result_x_lo = uint256_t(builder.variables[eq_op_tuple.x_lo]);
-    auto P_result_x_hi = uint256_t(builder.variables[eq_op_tuple.x_hi]);
+    auto P_result_x_lo = uint256_t(builder.get_variable(eq_op_tuple.x_lo));
+    auto P_result_x_hi = uint256_t(builder.get_variable(eq_op_tuple.x_hi));
     auto P_result_x = P_result_x_lo + (P_result_x_hi << CHUNK_SIZE);
-    auto P_result_y_lo = uint256_t(builder.variables[eq_op_tuple.y_lo]);
-    auto P_result_y_hi = uint256_t(builder.variables[eq_op_tuple.y_hi]);
+    auto P_result_y_lo = uint256_t(builder.get_variable(eq_op_tuple.y_lo));
+    auto P_result_y_hi = uint256_t(builder.get_variable(eq_op_tuple.y_hi));
     auto P_result_y = P_result_y_lo + (P_result_y_hi << CHUNK_SIZE);
     EXPECT_EQ(P_result_x, uint256_t(P_expected.x));
     EXPECT_EQ(P_result_y, uint256_t(P_expected.y));
@@ -103,28 +102,29 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     // Check number of ecc op "gates"/rows = 3 ops * 2 rows per op = 6
     EXPECT_EQ(builder.blocks.ecc_op.size(), 6);
 
-    // Check that the expected op codes have been correctly recorded in the 1st op wire
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[0], EccOpCode::ADD_ACCUM);
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[2], EccOpCode::MUL_ACCUM);
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[4], EccOpCode::EQUALITY);
+    // Check that the expected op codes have been correctly recorded in the 1st op wires pointed by circuit indices
+    auto opcode_wire_indexes = builder.blocks.ecc_op.w_l();
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[0]), (EccOpCode{ .add = true }).value());
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[2]), (EccOpCode{ .mul = true }).value());
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[4]), (EccOpCode{ .eq = true, .reset = true }).value());
 
     // Check that we can reconstruct the coordinates of P1 from the op_wires
-    auto P1_x_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[0]]);
-    auto P1_x_hi = uint256_t(builder.variables[builder.blocks.ecc_op.w_o()[0]]);
+    auto P1_x_lo = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_r()[0]));
+    auto P1_x_hi = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_o()[0]));
     auto P1_x = P1_x_lo + (P1_x_hi << CHUNK_SIZE);
     EXPECT_EQ(P1_x, uint256_t(P1.x));
-    auto P1_y_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_4()[0]]);
-    auto P1_y_hi = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[1]]);
+    auto P1_y_lo = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_4()[0]));
+    auto P1_y_hi = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_r()[1]));
     auto P1_y = P1_y_lo + (P1_y_hi << CHUNK_SIZE);
     EXPECT_EQ(P1_y, uint256_t(P1.y));
 
     // Check that we can reconstruct the coordinates of P2 from the op_wires
-    auto P2_x_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[2]]);
-    auto P2_x_hi = uint256_t(builder.variables[builder.blocks.ecc_op.w_o()[2]]);
+    auto P2_x_lo = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_r()[2]));
+    auto P2_x_hi = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_o()[2]));
     auto P2_x = P2_x_lo + (P2_x_hi << CHUNK_SIZE);
     EXPECT_EQ(P2_x, uint256_t(P2.x));
-    auto P2_y_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_4()[2]]);
-    auto P2_y_hi = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[3]]);
+    auto P2_y_lo = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_4()[2]));
+    auto P2_y_hi = uint256_t(builder.get_variable(builder.blocks.ecc_op.w_r()[3]));
     auto P2_y = P2_y_lo + (P2_y_hi << CHUNK_SIZE);
     EXPECT_EQ(P2_y, uint256_t(P2.y));
 }
@@ -152,7 +152,7 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
     auto ultra_ops = builder.op_queue->construct_current_ultra_ops_subtable_columns();
     for (size_t i = 1; i < 4; ++i) {
         for (size_t j = 0; j < builder.blocks.ecc_op.size(); ++j) {
-            auto op_wire_val = builder.variables[builder.blocks.ecc_op.wires[i][j]];
+            auto op_wire_val = builder.get_variable(builder.blocks.ecc_op.wires[i][j]);
             auto ultra_op_val = ultra_ops[i][j];
             ASSERT_EQ(op_wire_val, ultra_op_val);
         }

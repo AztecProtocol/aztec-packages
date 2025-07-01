@@ -35,7 +35,7 @@ METRICS=false
 DISABLE_BLOB_SINK=false
 LOG_LEVEL="info"
 ETHEREUM_HOSTS=
-L1_CONSENSUS_HOST_URL=
+L1_CONSENSUS_HOST_URLS=
 
 OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-"http://localhost:4318"}
 
@@ -55,7 +55,7 @@ function display_help {
   echo "  -c     Specify the otel collector endpoint (default: $OTEL_COLLECTOR_ENDPOINT)"
   echo "  -b     Disable the blob sink (default: false)"
   echo "  -e     Specify the ethereum host url (default: $ETHEREUM_HOSTS)"
-  echo "  -cl    Specify the l1 consensus host url (default: $L1_CONSENSUS_HOST_URL)"
+  echo "  -cl    Specify the l1 consensus host urls (default: $L1_CONSENSUS_HOST_URLS)"
   echo
   echo "Example:"
   echo "  $0 -t ./test-4epochs.sh -val 5 -v"
@@ -109,7 +109,7 @@ while [[ $# -gt 0 ]]; do
     shift 2
     ;;
   -cl)
-    L1_CONSENSUS_HOST_URL="$2"
+    L1_CONSENSUS_HOST_URLS="$2"
     shift 2
     ;;
   -b)
@@ -138,8 +138,8 @@ fi
 if [ -n "$ETHEREUM_HOSTS" ]; then
   export ETHEREUM_HOSTS
 fi
-if [ -n "$L1_CONSENSUS_HOST_URL" ]; then
-  export L1_CONSENSUS_HOST_URL
+if [ -n "$L1_CONSENSUS_HOST_URLS" ]; then
+  export L1_CONSENSUS_HOST_URLS
 fi
 
 # If an ethereum url has been provided, do not run the ethereum.sh script

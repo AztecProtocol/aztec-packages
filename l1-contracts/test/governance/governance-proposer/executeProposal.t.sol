@@ -2,18 +2,17 @@
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
-import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
 contract ExecuteProposalTest is GovernanceProposerBase {
-  using SlotLib for Slot;
-
   Fakerollup internal validatorSelection;
 
   IPayload internal proposal = IPayload(address(this));
@@ -21,10 +20,15 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
   function test_GivenCanonicalInstanceHoldNoCode(uint256 _roundNumber) external {
     // it revert
+
+    // Somehow we added a new rollup, and then its code was deleted. Or the registry implementation differed
+    address f = address(new Fakerollup());
+    vm.prank(registry.getGovernance());
+    registry.addRollup(IRollup(f));
+    vm.etch(f, "");
+
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead)
-      )
+      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
     governanceProposer.executeProposal(_roundNumber);
   }
@@ -32,7 +36,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   modifier givenCanonicalInstanceHoldCode() {
     validatorSelection = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(validatorSelection));
+    registry.addRollup(IRollup(address(validatorSelection)));
 
     // We jump into the future since slot 0, will behave as if already voted in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
@@ -64,10 +68,10 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
+      (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
         / validatorSelection.getSlotDuration()
     );
-    Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
+    Slot slotToHit = Slot.wrap(bound(_slotToHit, Slot.unwrap(lower), Slot.unwrap(upper)));
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(slotToHit)));
 
     vm.expectRevert(
@@ -223,12 +227,12 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // When using a new registry we change the governanceProposer's interpetation of time :O
     Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(freshInstance));
+    registry.addRollup(IRollup(address(freshInstance)));
 
     // The old is still there, just not executable.
-    (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
-    assertFalse(executed);
-    assertEq(address(leader), address(proposal));
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), 1);
+    assertFalse(r.executed);
+    assertEq(address(r.leader), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
     vm.expectRevert(
@@ -246,25 +250,6 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     );
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalCannotBeAddressZero.selector)
-    );
-    governanceProposer.executeProposal(1);
-  }
-
-  function test_GivenGovernanceCallReturnFalse(uint256 _yeas)
-    external
-    givenCanonicalInstanceHoldCode
-    whenRoundInPast
-    whenRoundInRecentPast
-    givenRoundNotExecutedBefore
-    givenLeaderIsNotAddress0
-    givenSufficientYea(_yeas)
-  {
-    // it revert
-    FalsyGovernance falsy = new FalsyGovernance();
-    vm.etch(address(governance), address(falsy).code);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__FailedToPropose.selector, proposal)
     );
     governanceProposer.executeProposal(1);
   }
@@ -299,10 +284,11 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it emits {ProposalExecuted} event
     // it return true
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.ProposalExecuted(proposal, 1);
+    emit IEmpire.ProposalExecuted(proposal, 1);
     assertTrue(governanceProposer.executeProposal(1));
-    (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
-    assertTrue(executed);
-    assertEq(address(leader), address(proposal));
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), 1);
+    assertTrue(r.executed);
+    assertEq(address(r.leader), address(proposal));
+    assertEq(governanceProposer.getProposalProposer(0), address(validatorSelection));
   }
 }

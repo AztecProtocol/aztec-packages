@@ -17,7 +17,9 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr), and explain what is being added as we go.
+We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr), and explain what is being added as we go.
+
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 ## Requirements
 
@@ -123,24 +125,20 @@ Step 3. Ethereum execution
 
 Aztec transactions can pass messages to Ethereum contracts through the rollup via the outbox. The data can be consumed by Ethereum contracts at a later time, but this is not part of the transaction flow for an Aztec transaction. The technical details of this are beyond the scope of this tutorial, but we will cover them in an upcoming piece.
 
-### Unconstrained functions
-
-Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage.
-
 ## Contract dependencies
 
 Before we can implement the functions, we need set up the contract storage, and before we do that we need to import the appropriate dependencies.
 
 :::info Copy required files
 
-We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
 
 :::
 
 Paste these imports:
 
 ```rust
-#include_code imports /noir-projects/noir-contracts/contracts/token_contract/src/main.nr raw
+#include_code imports /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr raw
 }
 ```
 
@@ -152,7 +150,7 @@ We are importing:
 
 ### Types files
 
-We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src).
+We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src).
 
 :::note
 
@@ -166,7 +164,7 @@ Now that we have dependencies imported into our contract we can define the stora
 
 Below the dependencies, paste the following Storage struct:
 
-#include_code storage_struct /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code storage_struct /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 Reading through the storage variables:
 
@@ -185,7 +183,7 @@ Copy and paste the body of each function into the appropriate place in your proj
 
 This function sets the creator of the contract (passed as `msg_sender` from the constructor) as the admin and makes them a minter, and sets name, symbol, and decimals.
 
-#include_code constructor /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code constructor /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Public function implementations
 
@@ -199,13 +197,13 @@ Storage is referenced as `storage.variable`.
 
 After storage is initialized, the contract checks that the `msg_sender` is the `admin`. If not, the transaction will fail. If it is, the `new_admin` is saved as the `admin`.
 
-#include_code set_admin /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code set_admin /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `set_minter`
 
 This function allows the `admin` to add or a remove a `minter` from the public `minters` mapping. It checks that `msg_sender` is the `admin` and finally adds the `minter` to the `minters` mapping.
 
-#include_code set_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code set_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `mint_to_public`
 
@@ -213,7 +211,7 @@ This function allows an account approved in the public `minters` mapping to crea
 
 First, storage is initialized. Then the function checks that the `msg_sender` is approved to mint in the `minters` mapping. If it is, a new `U128` value is created of the `amount` provided. The function reads the recipients public balance and then adds the amount to mint, saving the output as `new_balance`, then reads to total supply and adds the amount to mint, saving the output as `supply`. `new_balance` and `supply` are then written to storage.
 
-#include_code mint_to_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code mint_to_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `transfer_in_public`
 
@@ -225,7 +223,7 @@ If the `msg_sender` is **NOT** the same as the account to debit from, the functi
 
 If the `msg_sender` is the same as the account to debit tokens from, the authorization check is bypassed and the function proceeds to update the account's `public_balance`.
 
-#include_code transfer_in_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `burn_public`
 
@@ -233,19 +231,19 @@ This public function enables public burning (destroying) of tokens from the send
 
 After storage is initialized, the [authorization flow specified above](#authorizing-token-spends) is checked. Then the sender's public balance and the `total_supply` are updated and saved to storage.
 
-#include_code burn_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code burn_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `finalize_mint_to_private`
 
 This public function finalizes a transfer that has been set up by a call to `prepare_private_balance_increase` by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-#include_code finalize_mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code finalize_mint_to_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `finalize_transfer_to_private`
 
 Similar to `finalize_mint_to_private`, this public function finalizes a transfer that has been set up by a call to `prepare_private_balance_increase` by reducing the public balance of the associated account and emitting the note for the intended recipient.
 
-#include_code finalize_transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code finalize_transfer_to_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Private function implementations
 
@@ -268,7 +266,7 @@ After initializing storage, the function checks that the `msg_sender` is authori
 
 The function returns `1` to indicate successful execution.
 
-#include_code transfer_to_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_to_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `transfer`
 
@@ -276,13 +274,13 @@ This private function enables private token transfers between Aztec accounts.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. See [the Authorizing token spends section](#authorizing-token-spends) above for more detail--the only difference being that `assert_valid_message_for` is modified to work specifically in the private context. After authorization, the function gets the current balances for the sender and recipient and decrements and increments them, respectively, using the `value_note` helper functions.
 
-#include_code transfer /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `transfer_in_private`
 
 This private function enables an account to transfer tokens on behalf of another account. The account that tokens are being debited from must have authorized the `msg_sender` to spend tokens on its behalf.
 
-#include_code transfer_in_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_in_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `transfer_to_private`
 
@@ -290,19 +288,19 @@ This function execution flow starts in the private context and is completed with
 
 First a partial note is prepared then a call to the public, internal `_finalize_transfer_to_private_unsafe` is enqueued. The enqueued public call subtracts the `amount` from public balance of `msg_sender` and finalizes the partial note with the `amount`.
 
-#include_code transfer_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code transfer_to_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `mint_to_private`
 
 This private function prepares a partial `UintNote` at the recipients storage slot in the contract and enqueues a public call to `_finalize_mint_to_private_unsafe`, which asserts that the `msg_sender` is an authorized minter and finalized the mint by incrementing the total supply and emitting the complete, encrypted `UintNote` to the intended recipient. Note that the `amount` and the minter (`from`) are public, but the recipient is private.
 
-#include_code mint_to_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code mint_to_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `cancel_authwit`
 
 This private function allows a user to cancel an authwit that was previously granted. This is achieved by emitting the corresponding nullifier before it is used.
 
-#include_code cancel_authwit /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code cancel_authwit /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `burn_private`
 
@@ -310,7 +308,7 @@ This private function enables accounts to privately burn (destroy) tokens.
 
 After initializing storage, the function checks that the `msg_sender` is authorized to spend tokens. Then it gets the sender's current balance and decrements it. Finally it stages a public function call to [`_reduce_total_supply`](#_reduce_total_supply).
 
-#include_code burn_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code burn_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `prepare_private_balance_increase`
 
@@ -318,7 +316,7 @@ TODO: update from `prepare_transfer_to_private`
 
 This private function prepares to transfer from a public balance to a private balance by setting up a partial note for the recipient. The function returns the `hiding_point_slot`. After this, the public [`finalize_transfer_to_private`](#finalize_transfer_to_private) must be called, passing the amount and the hiding point slot.
 
-#include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### Internal function implementations
 
@@ -328,13 +326,13 @@ Internal functions are functions that can only be called by this contract. The f
 
 This function is called from [`transfer_to_public`](#transfer_to_public). The account's private balance is decremented in `transfer_to_public` and the public balance is increased in this function.
 
-#include_code increase_public_balance /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code increase_public_balance /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `_reduce_total_supply`
 
 This function is called from [`burn`](#burn). The account's private balance is decremented in `burn` and the public `total_supply` is reduced in this function.
 
-#include_code reduce_total_supply /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code reduce_total_supply /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `_finalize_transfer_to_private_unsafe`
 
@@ -342,17 +340,17 @@ This public internal function decrements the public balance of the `from` accoun
 
 This function is called by the private function [`transfer_to_private`](#transfer_to_private) to finalize the transfer. The `transfer_to_private` enforces the `from` argument, which is why using it `unsafe` is okay.
 
-#include_code finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code finalize_transfer_to_private_unsafe /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `_finalize_mint_to_private_unsafe`
 
 Similar to `_finalize_transfer_to_private_unsafe`, this public internal function increments the private balance of the recipient by finalizing the partial note and emitting the encrypted note. It also increments the public total supply and ensures that the sender of the transaction is authorized to mint tokens on the contract.
 
-#include_code finalize_mint_to_private_unsafe /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code finalize_mint_to_private_unsafe /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ### View function implementations
 
-View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from unconstrained functions in that the return values are constrained by their definition in the contract.
+View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from utility functions in that the return values are constrained by their definition in the contract.
 
 Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
 
@@ -360,35 +358,35 @@ Public view calls that are part of a transaction will be executed by the sequenc
 
 A getter function for reading the public `admin` value.
 
-#include_code admin /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code admin /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `is_minter`
 
 A getter function for checking the value of associated with a `minter` in the public `minters` mapping.
 
-#include_code is_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code is_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `total_supply`
 
 A getter function for checking the token `total_supply`.
 
-#include_code total_supply /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code total_supply /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 #### `balance_of_public`
 
 A getter function for checking the public balance of the provided Aztec account.
 
-#include_code balance_of_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code balance_of_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-### Unconstrained function implementations
+### Utility function implementations
 
-Unconstrained functions are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. They are different from view functions in that the values are returned from the user's PXE and are not constrained by the contract's definition--if there is bad data in the user's PXE, they will get bad data back.
+[Utility](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility) functions can be used to get contract information, both private and public, from an application - they are not callable inside a transaction.
 
 #### `balance_of_private`
 
 A getter function for checking the private balance of the provided Aztec account. Note that the [Private Execution Environment (PXE) (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/yarn-project/pxe) must have `ivsk` ([incoming viewing secret key](../../../../aztec/concepts/accounts/keys.md#incoming-viewing-keys)) in order to decrypt the notes.
 
-#include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code balance_of_private /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 ## Compiling
 
@@ -410,7 +408,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](./token_bridge) is a great follow up to this one.
+The [token bridge tutorial](../js_tutorials/token_bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 

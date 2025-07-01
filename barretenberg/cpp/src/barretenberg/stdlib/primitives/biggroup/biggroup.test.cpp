@@ -7,8 +7,6 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
-#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <vector>
 
@@ -1640,84 +1638,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     };
-
-    static void test_wnaf_secp256k1()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            fr scalar_a(fr::random_element());
-            if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-                scalar_a -= fr(1); // skew bit is 1
-            }
-            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 0, 3>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 1, 2>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 2, 1>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<4, 3, 0>(x_a);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_wnaf_8bit_secp256k1()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            fr scalar_a(fr::random_element());
-            if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-                scalar_a -= fr(1); // skew bit is 1
-            }
-            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 0, 3>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 1, 2>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 2, 1>(x_a);
-            element_ct::template compute_secp256k1_endo_wnaf<8, 3, 0>(x_a);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
-    static void test_ecdsa_mul_secp256k1()
-    {
-        Builder builder = Builder();
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            fr scalar_a(fr::random_element());
-            fr scalar_b(fr::random_element());
-            fr scalar_c(fr::random_element());
-            if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-                scalar_a -= fr(1); // skew bit is 1
-            }
-            element_ct P_a = element_ct::from_witness(&builder, g1::one * scalar_c);
-            scalar_ct u1 = scalar_ct::from_witness(&builder, scalar_a);
-            scalar_ct u2 = scalar_ct::from_witness(&builder, scalar_b);
-
-            fr alo;
-            fr ahi;
-            fr blo;
-            fr bhi;
-
-            fr::split_into_endomorphism_scalars(scalar_a.from_montgomery_form(), alo, ahi);
-            fr::split_into_endomorphism_scalars(scalar_b.from_montgomery_form(), blo, bhi);
-
-            auto output = element_ct::secp256k1_ecdsa_mul(P_a, u1, u2);
-
-            auto expected = affine_element(g1::one * (scalar_c * scalar_b) + g1::one * scalar_a);
-            EXPECT_EQ(output.x.get_value().lo, uint256_t(expected.x));
-            EXPECT_EQ(output.y.get_value().lo, uint256_t(expected.y));
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
 };
 
 enum UseBigfield { No, Yes };
-using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
-                                 TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::bn254<bb::CircuitSimulatorBN254>, UseBigfield::No>>;
+using TestTypes = testing::Types<TestType<stdlib::bn254<bb::UltraCircuitBuilder>, UseBigfield::Yes>,
+                                 TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
@@ -1875,37 +1800,28 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 /* These tests only work for Ultra Circuit Constructor */
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 {
-    if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_compute_wnaf();
-        };
-    } else {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
-    }
+    } else {
+        TestFixture::test_compute_wnaf();
+    };
 }
 
 /* These tests only work for Ultra Circuit Constructor */
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
 {
-    if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP();
-        } else {
-            TestFixture::test_compute_wnaf();
-        };
-    } else {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
-    }
+    } else {
+        TestFixture::test_compute_wnaf();
+    };
 }
 
 /* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Standard in the
    case where Fr is a bigfield. */
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
 {
-    if constexpr ((!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) ||
-                  (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>)) {
+    if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
     } else {
         TestFixture::test_compute_wnaf();
@@ -1968,32 +1884,6 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
         } else {
             TestFixture::test_mixed_mul_bn254_endo();
         };
-    } else {
-        GTEST_SKIP();
-    }
-}
-
-/* The following tests are specific to SECP256k1 */
-HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_secp256k1)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
-        TestFixture::test_wnaf_secp256k1();
-    } else {
-        GTEST_SKIP();
-    }
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_8bit_secp256k1)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
-        TestFixture::test_wnaf_8bit_secp256k1();
-    } else {
-        GTEST_SKIP();
-    }
-}
-HEAVY_TYPED_TEST(stdlib_biggroup, ecdsa_mul_secp256k1)
-{
-    if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
-        TestFixture::test_ecdsa_mul_secp256k1();
     } else {
         GTEST_SKIP();
     }

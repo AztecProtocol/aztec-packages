@@ -1,6 +1,11 @@
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+
+#include <memory>
+
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_ff_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/u256_decomposition.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -75,5 +80,10 @@ void FieldGreaterThanTraceBuilder::process(
         }
     }
 }
+
+const InteractionDefinition FieldGreaterThanTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_ff_gt_a_lo_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_ff_gt_a_hi_range_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

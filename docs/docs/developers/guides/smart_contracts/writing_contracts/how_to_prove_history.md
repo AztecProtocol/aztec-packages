@@ -37,13 +37,13 @@ Using this library, you can check that specific notes or nullifiers were part of
 
 In general you will likely have the note you want to prove inclusion of. But if you are just experimenting you can create a note with a function like below:
 
-#include_code create_note noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
+#include_code create_note noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr rust
 
 ## Get the note from the PXE
 
 Retrieve the note from the user's PXE.
 
-#include_code get_note_from_pxe noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
+#include_code get_note_from_pxe noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr rust
 
 In this example, we fetch notes located in the storage slot that we pass in from the function parameters. The notes also must match the criteria specified by the getter options that we declare and are able to customize.
 
@@ -61,7 +61,7 @@ This will only prove the note existed at the specific block number, not whether 
 
 You can easily nullify a note like so:
 
-#include_code nullify_note noir-projects/noir-contracts/contracts/test_contract/src/main.nr rust
+#include_code nullify_note noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr rust
 
 This function gets a note from the PXE and nullifies it with `remove()`.
 

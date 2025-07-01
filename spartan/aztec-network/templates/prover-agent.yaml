@@ -1,6 +1,6 @@
 {{- if .Values.proverAgent.enabled }}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-agent
   labels:
@@ -115,4 +115,5 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
+---
 {{- end }}

@@ -1,11 +1,11 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas, gasToGasLeft } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
-import type { AvmSimulator } from './avm_simulator.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
+import type { AvmSimulatorInterface } from './avm_simulator_interface.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM
@@ -20,14 +20,14 @@ export class AvmContext {
    * @returns new AvmContext instance
    */
   constructor(
-    public persistableState: AvmPersistableStateManager,
+    public persistableState: PublicPersistableStateManager,
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
   ) {}
 
   // This is needed to break a dependency cycle created by the CALL opcode,
   // which needs to create a new simulator but cannot depend directly on AvmSimulator.
-  public provideSimulator?: (ctx: this) => Promise<AvmSimulator>;
+  public provideSimulator?: (context: AvmContext) => Promise<AvmSimulatorInterface>;
 
   /**
    * Prepare a new AVM context that will be ready for an external/nested call

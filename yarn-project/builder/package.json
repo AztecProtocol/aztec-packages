@@ -21,8 +21,6 @@
     "build:dev": "tsc -b --watch",
     "generate": "tsc -b",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -64,6 +62,10 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
@@ -72,12 +74,12 @@
     "commander": "^12.1.0"
   },
   "devDependencies": {
-    "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.5.0",
-    "@types/node": "^18.7.23",
-    "jest": "^29.5.0",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "jest": "^30.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -86,6 +88,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

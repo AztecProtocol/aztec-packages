@@ -1,14 +1,14 @@
-From b36a50c9cb3cf1c18ae545596a60ff0291e65389 Mon Sep 17 00:00:00 2001
+From e17834fb9768e2d5cfc053e4ce8c82da0586a099 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 2/4] chore: turn on `skipLibCheck`
+Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
 
 ---
  tooling/noir_codegen/tsconfig.json | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/tooling/noir_codegen/tsconfig.json b/tooling/noir_codegen/tsconfig.json
-index 30dd2a7e..a2712fd7 100644
+index 30dd2a7ee..a2712fd73 100644
 --- a/tooling/noir_codegen/tsconfig.json
 +++ b/tooling/noir_codegen/tsconfig.json
 @@ -10,6 +10,7 @@
@@ -19,28 +19,5 @@ index 30dd2a7e..a2712fd7 100644
    },
    "include": [
      "src/**/*.ts"
---
-2.43.0
-
-From fd8f444eba5db51bee2173d7c2f66bebaa693d30 Mon Sep 17 00:00:00 2001
-From: aakoshh <akosh@aztecprotocol.com>
-Date: Mon, 17 Mar 2025 12:10:58 +0000
-Subject: [PATCH 4/4] Ignore package.tgz
-
----
- .gitignore | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/.gitignore b/.gitignore
-index 3349018..c93fe8e 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -59,3 +59,6 @@ codegen
-
- mutants.out
- mutants.out.old
-+
-+# Artifacts created by `noir/bootstrap.sh build_packages`
-+**/package.tgz
 --
 2.43.0

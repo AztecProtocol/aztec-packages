@@ -1,15 +1,17 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
+// docs:start:import_aztecjs
 import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+// docs:end:import_aztecjs
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 
 import { expect, jest } from '@jest/globals';
 
 import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup, setupPXEService } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
@@ -29,13 +31,12 @@ describe('e2e_2_pxes', () => {
       aztecNode,
       pxe: pxeA,
       initialFundedAccounts,
+      wallet: walletA,
       logger,
       teardown: teardownA,
-    } = await setup(0, { numberOfInitialFundedAccounts: 3 }));
+    } = await setup(1, { numberOfInitialFundedAccounts: 3 }));
 
-    // Deploy accountA via pxeA.
-    const accountA = await deployFundedSchnorrAccount(pxeA, initialFundedAccounts[0]);
-    walletA = await accountA.getWallet();
+    // Account A is already deployed in setup
 
     // Deploy accountB via pxeB.
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));

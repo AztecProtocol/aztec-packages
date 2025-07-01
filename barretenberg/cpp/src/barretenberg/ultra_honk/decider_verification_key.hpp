@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -11,7 +17,7 @@ namespace bb {
  *
  * @details This is ϕ in the paper.
  */
-template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
+template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;

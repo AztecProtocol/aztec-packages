@@ -1,5 +1,5 @@
 use crate::{
-    context::{PublicContext, UnconstrainedContext},
+    context::{PublicContext, UtilityContext},
     history::public_storage::PublicStorageHistoricalRead,
     oracle,
 };
@@ -43,8 +43,8 @@ where
         context.storage_read(storage_slot)
     }
 
-    pub unconstrained fn unconstrained_public_storage_read(
-        context: UnconstrainedContext,
+    pub unconstrained fn utility_public_storage_read(
+        context: UtilityContext,
         storage_slot: Field,
     ) -> T {
         context.storage_read(storage_slot)
@@ -55,7 +55,7 @@ where
         address: AztecAddress,
         storage_slot: Field,
     ) -> T {
-        let historical_block_number = header.global_variables.block_number as u32;
+        let historical_block_number = header.global_variables.block_number;
 
         // We could simply produce historical inclusion proofs for each field in `packed`, but that would require one
         // full sibling path per storage slot (since due to kernel siloing the storage is not contiguous). Instead, we
@@ -195,7 +195,7 @@ mod test {
         // Mock the oracle to return a non-zero hint/packed value
         let _ = OracleMock::mock("storageRead")
             .with_params((
-                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
+                address.to_field(), storage_slot, block_header.global_variables.block_number,
                 value_packed.len(),
             ))
             .returns(value_packed)

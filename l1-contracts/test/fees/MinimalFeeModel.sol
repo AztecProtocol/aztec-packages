@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {
   FeeLib,
+  FeeHeaderLib,
   OracleInput,
   L1_GAS_PER_BLOCK_PROPOSED,
   L1_GAS_PER_EPOCH_VERIFIED,
@@ -14,7 +15,8 @@ import {
   FeeHeader,
   L1FeeData,
   ManaBaseFeeComponents,
-  L1GasOracleValues
+  L1GasOracleValues,
+  CompressedFeeHeader
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
@@ -24,8 +26,10 @@ import {
   FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-
-import {Timestamp, TimeLib, Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {STFLib, TempBlockLog} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {GenesisState} from "@aztec/core/interfaces/IRollup.sol";
 
 // The data types are slightly messed up here, the reason is that
 // we just want to use the same structs from the test points making
@@ -34,8 +38,10 @@ contract MinimalFeeModel {
   using FeeLib for OracleInput;
   using FeeLib for uint256;
   using PriceLib for EthValue;
-  using SlotLib for Slot;
   using TimeLib for Timestamp;
+  using FeeHeaderLib for CompressedFeeHeader;
+  using CompressedTimeMath for CompressedSlot;
+  using CompressedTimeMath for Slot;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -51,9 +57,16 @@ contract MinimalFeeModel {
 
   uint256 public populatedThrough = 0;
 
-  constructor(uint256 _slotDuration, uint256 _epochDuration) {
-    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration);
+  constructor(uint256 _slotDuration, uint256 _epochDuration, uint256 _proofSubmissionEpochs) {
+    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
+    STFLib.initialize(
+      GenesisState({
+        vkTreeRoot: bytes32(0),
+        protocolContractTreeRoot: bytes32(0),
+        genesisArchiveRoot: bytes32(0)
+      })
+    );
   }
 
   function getL1GasOracleValues() public view returns (L1GasOracleValuesModel memory) {
@@ -61,7 +74,7 @@ contract MinimalFeeModel {
     return L1GasOracleValuesModel({
       pre: L1FeesModel({base_fee: values.pre.baseFee, blob_fee: values.pre.blobFee}),
       post: L1FeesModel({base_fee: values.post.baseFee, blob_fee: values.post.blobFee}),
-      slot_of_change: Slot.unwrap(values.slotOfChange)
+      slot_of_change: Slot.unwrap(values.slotOfChange.decompress())
     });
   }
 
@@ -76,26 +89,20 @@ contract MinimalFeeModel {
     );
 
     return ManaBaseFeeComponentsModel({
-      data_cost: components.dataCost,
-      gas_cost: components.gasCost,
-      proving_cost: components.provingCost,
       congestion_cost: components.congestionCost,
-      congestion_multiplier: components.congestionMultiplier
+      congestion_multiplier: components.congestionMultiplier,
+      prover_cost: components.proverCost,
+      sequencer_cost: components.sequencerCost
     });
   }
 
-  function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = FeeLib.getStorage().feeHeaders[_slotNumber];
+  function getFeeHeader(uint256 block_number) public view returns (FeeHeaderModel memory) {
+    FeeHeader memory feeHeader = STFLib.getFeeHeader(block_number).decompress();
     return FeeHeaderModel({
       fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
       excess_mana: feeHeader.excessMana,
       mana_used: feeHeader.manaUsed
     });
-  }
-
-  function calcExcessMana() internal view returns (uint256) {
-    FeeHeader storage parent = FeeLib.getStorage().feeHeaders[populatedThrough];
-    return (parent.excessMana + parent.manaUsed).clampedAdd(-int256(MANA_TARGET));
   }
 
   function addSlot(OracleInput memory _oracleInput) public {
@@ -104,12 +111,23 @@ contract MinimalFeeModel {
 
   // The `_manaUsed` is all the data we needed to know to calculate the excess mana.
   function addSlot(OracleInput memory _oracleInput, uint256 _manaUsed) public {
-    _oracleInput.assertValid();
-    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
+    uint256 blockNumber = ++populatedThrough;
+    STFLib.setTempBlockLog(
+      blockNumber,
+      TempBlockLog({
+        headerHash: bytes32(0),
+        blobCommitmentsHash: bytes32(0),
+        slotNumber: Slot.wrap(0),
+        feeHeader: FeeLib.computeFeeHeader(
+          blockNumber, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0
+        )
+      })
+    );
+    //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
   }
 
   function setProvingCost(EthValue _provingCost) public {
-    FeeLib.getStorage().provingCostPerMana = _provingCost;
+    FeeLib.updateProvingCostPerMana(_provingCost);
   }
 
   /**

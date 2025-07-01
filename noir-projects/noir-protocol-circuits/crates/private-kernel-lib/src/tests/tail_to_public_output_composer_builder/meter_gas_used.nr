@@ -1,23 +1,21 @@
 use crate::components::tail_to_public_output_composer::meter_gas_used;
 use dep::types::{
     abis::{
-        gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
+        accumulated_data::PrivateToPublicAccumulatedData, gas::Gas,
         public_call_request::PublicCallRequest,
     },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
-        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
+        AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
+        DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
+        L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
     },
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
-    utils::arrays::array_merge,
 };
 
 #[test]
 fn meter_gas_used_empty_succeeds() {
-    let builder = FixtureBuilder::new();
-    let empty_data = builder.to_private_to_public_accumulated_data();
+    let empty_data = PrivateToPublicAccumulatedData::empty();
     let teardown_call_request = PublicCallRequest::empty();
     let teardown_gas_limits = Gas::new(1, 2);
     let gas = meter_gas_used(
@@ -31,11 +29,10 @@ fn meter_gas_used_empty_succeeds() {
 
 #[test]
 fn meter_gas_used_with_teardown_call_succeeds() {
-    let builder = FixtureBuilder::new();
-    let empty_data = builder.to_private_to_public_accumulated_data();
+    let empty_data = PrivateToPublicAccumulatedData::empty();
 
     let mut teardown_call_request = PublicCallRequest::empty();
-    teardown_call_request.contract_address = builder.contract_address;
+    teardown_call_request.contract_address.inner = 123;
 
     let teardown_gas_limits = Gas::new(1, 2);
 
@@ -50,26 +47,54 @@ fn meter_gas_used_with_teardown_call_succeeds() {
 
 #[test]
 fn meter_gas_used_everything_succeeds() {
-    let mut non_revertible_builder = FixtureBuilder::new();
-    let mut revertible_builder = FixtureBuilder::new();
+    // Non-revertible data.
+    let mut builder = FixtureBuilder::new();
 
-    non_revertible_builder.append_note_hashes(3);
-    non_revertible_builder.append_nullifiers(1);
-    non_revertible_builder.append_l2_to_l1_msgs(0);
-    non_revertible_builder.append_private_logs(3);
-    non_revertible_builder.add_contract_class_log_hash(3001, 51);
-    non_revertible_builder.append_public_call_requests(1);
+    let num_note_hashes_non_revertible = 3;
+    builder.append_note_hashes(num_note_hashes_non_revertible);
 
-    revertible_builder.append_note_hashes(1);
-    revertible_builder.append_nullifiers(2);
-    revertible_builder.append_l2_to_l1_msgs(1);
-    non_revertible_builder.append_private_logs(2);
-    revertible_builder.append_public_call_requests(1);
+    let num_nullifiers_non_revertible = 1;
+    builder.append_nullifiers(num_nullifiers_non_revertible);
 
-    let non_revertible_data = non_revertible_builder.to_private_to_public_accumulated_data();
-    let revertible_data = revertible_builder.to_private_to_public_accumulated_data();
+    let num_l2_to_l1_msgs_non_revertible = 0;
+    builder.append_l2_to_l1_msgs(num_l2_to_l1_msgs_non_revertible);
+
+    let private_log_lengths_non_revertible = [9, 6, 3];
+    builder.append_private_logs_with_lengths(private_log_lengths_non_revertible);
+
+    let contract_class_log_length_non_revertible = 51;
+    builder.add_contract_class_log_hash(3001, contract_class_log_length_non_revertible);
+
+    let num_public_calls_non_revertible = 1;
+    builder.append_public_call_requests(num_public_calls_non_revertible);
+
+    builder.end_setup();
+
+    // Revertible data.
+    let num_note_hashes_revertible = 1;
+    builder.append_note_hashes(num_note_hashes_revertible);
+
+    let num_nullifiers_revertible = 2;
+    builder.append_nullifiers(num_nullifiers_revertible);
+
+    let num_l2_to_l1_msgs_revertible = 1;
+    builder.append_l2_to_l1_msgs(num_l2_to_l1_msgs_revertible);
+
+    let private_log_lengths_revertible = [7, 11];
+    builder.append_private_logs_with_lengths(private_log_lengths_revertible);
+
+    let contract_class_log_length_revertible = 0;
+
+    let num_public_calls_revertible = 1;
+    builder.append_public_call_requests(num_public_calls_revertible);
+
+    // Compute gas.
+    let non_revertible_data = builder.to_private_to_public_accumulated_data(false);
+    let revertible_data = builder.to_private_to_public_accumulated_data(true);
+
     let mut teardown_call_request = PublicCallRequest::empty();
-    teardown_call_request.contract_address = non_revertible_builder.contract_address;
+    teardown_call_request.contract_address = builder.contract_address;
+
     let teardown_gas_limits = Gas::new(1, 2);
 
     let gas = meter_gas_used(
@@ -79,28 +104,37 @@ fn meter_gas_used_everything_succeeds() {
         teardown_gas_limits,
     );
 
-    let total_num_private_log_fields = get_emitted_private_logs_len(array_merge(
-        non_revertible_builder.private_logs.storage(),
-        revertible_builder.private_logs.storage(),
-    )
-        .map(|l| l.inner.log));
+    // Compute gas manually.
+    let num_note_hashes = num_note_hashes_non_revertible + num_note_hashes_revertible;
+    let num_nullifiers = num_nullifiers_non_revertible + num_nullifiers_revertible;
+    let num_l2_to_l1_msgs = num_l2_to_l1_msgs_non_revertible + num_l2_to_l1_msgs_revertible;
+    let num_public_calls = num_public_calls_non_revertible + num_public_calls_revertible;
 
-    let total_num_cc_log_fields = get_emitted_contract_class_logs_len(array_merge(
-        non_revertible_builder.contract_class_logs_hashes.storage(),
-        revertible_builder.contract_class_logs_hashes.storage(),
-    ));
+    let num_private_logs =
+        private_log_lengths_non_revertible.len() + private_log_lengths_revertible.len();
+    let num_private_log_fields = private_log_lengths_non_revertible.fold(0, |acc, len| acc + len)
+        + private_log_lengths_revertible.fold(0, |acc, len| acc + len);
 
-    let total_num_side_effects = 4 + 3 + 1;
-    let total_log_bytes = total_num_private_log_fields * DA_BYTES_PER_FIELD // private_logs
-        + total_num_cc_log_fields * DA_BYTES_PER_FIELD; // contract_class_logs
-    let computed_da_gas =
-        (total_num_side_effects * DA_BYTES_PER_FIELD + total_log_bytes) * DA_GAS_PER_BYTE;
-    let computed_l2_gas = 4 * L2_GAS_PER_NOTE_HASH
-        + 3 * L2_GAS_PER_NULLIFIER
-        + 1 * L2_GAS_PER_L2_TO_L1_MSG
-        + 5 * L2_GAS_PER_PRIVATE_LOG
-        + 1 * L2_GAS_PER_CONTRACT_CLASS_LOG
-        + 2 * FIXED_AVM_STARTUP_L2_GAS;
+    let num_cc_logs = 1;
+    let num_cc_log_fields =
+        contract_class_log_length_non_revertible + contract_class_log_length_revertible;
+
+    let num_da_fields = num_note_hashes
+        + num_nullifiers
+        + num_l2_to_l1_msgs
+        + num_private_log_fields
+        + num_private_logs // One extra field per private log for its length.
+        + num_cc_log_fields
+        + (num_cc_logs * 2) // Two extra fields per contract class log: length and contract address.
+    ;
+    let computed_da_gas = num_da_fields * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+
+    let computed_l2_gas = num_note_hashes * AVM_L2_GAS_PER_NOTE_HASH_WRITE
+        + num_nullifiers * AVM_L2_GAS_PER_NULLIFIER_WRITE
+        + num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG
+        + num_private_logs * L2_GAS_PER_PRIVATE_LOG
+        + num_cc_logs * L2_GAS_PER_CONTRACT_CLASS_LOG
+        + num_public_calls * FIXED_AVM_STARTUP_L2_GAS;
 
     assert_eq(
         gas,

@@ -1,6 +1,6 @@
 import type { Database, RangeOptions } from 'lmdb';
 
-import type { Key, Range } from '../interfaces/common.js';
+import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMap, AztecMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
@@ -9,7 +9,7 @@ type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];
 /**
  * A map backed by LMDB.
  */
-export class LmdbAztecMap<K extends Key, V> implements AztecMap<K, V>, AztecAsyncMap<K, V> {
+export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K, V>, AztecAsyncMap<K, V> {
   protected db: Database<[K, V], MapValueSlot<K>>;
   protected name: string;
 
@@ -51,6 +51,12 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMap<K, V>, AztecAsyn
     await this.db.put(this.slot(key), [key, val]);
   }
 
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    for (const { key, value } of entries) {
+      await this.set(key, value);
+    }
+  }
+
   swap(key: K, fn: (val: V | undefined) => V): Promise<void> {
     return this.db.childTransaction(() => {
       const slot = this.slot(key);
@@ -82,16 +88,16 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMap<K, V>, AztecAsyn
           ? this.slot(range.end)
           : this.endSentinel
         : range.start
-        ? this.slot(range.start)
-        : this.startSentinel;
+          ? this.slot(range.start)
+          : this.startSentinel;
 
       const end = reverse
         ? range.start
           ? this.slot(range.start)
           : this.startSentinel
         : range.end
-        ? this.slot(range.end)
-        : this.endSentinel;
+          ? this.slot(range.end)
+          : this.endSentinel;
 
       const lmdbRange: RangeOptions = {
         start,
@@ -113,7 +119,7 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMap<K, V>, AztecAsyn
     }
   }
 
-  async *entriesAsync(range?: Range<K> | undefined): AsyncIterableIterator<[K, V]> {
+  async *entriesAsync(range?: Range<K>): AsyncIterableIterator<[K, V]> {
     for (const entry of this.entries(range)) {
       yield entry;
     }
@@ -129,6 +135,15 @@ export class LmdbAztecMap<K extends Key, V> implements AztecMap<K, V>, AztecAsyn
     for await (const [_, value] of this.entriesAsync(range)) {
       yield value;
     }
+  }
+
+  size(): number {
+    const iterator = this.db.getRange({ start: this.startSentinel, end: this.endSentinel });
+    return iterator.asArray.length;
+  }
+
+  sizeAsync(): Promise<number> {
+    return Promise.resolve(this.size());
   }
 
   *keys(range: Range<K> = {}): IterableIterator<K> {

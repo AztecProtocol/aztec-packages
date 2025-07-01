@@ -48,8 +48,7 @@ export {
   GlobalVariables,
 } from '@aztec/stdlib/tx';
 export { Body, L2Block } from '@aztec/stdlib/block';
-export { LogId, type LogFilter, EncryptedLogPayload } from '@aztec/stdlib/logs';
-export { L1EventPayload, EventMetadata } from '@aztec/stdlib/event';
+export { LogId, type LogFilter } from '@aztec/stdlib/logs';
 export { L1ToL2Message, L2Actor, L1Actor } from '@aztec/stdlib/messaging';
 export { UniqueNote, ExtendedNote, Comparator, Note } from '@aztec/stdlib/note';
 export { type PXE, EventType } from '@aztec/stdlib/interfaces/client';

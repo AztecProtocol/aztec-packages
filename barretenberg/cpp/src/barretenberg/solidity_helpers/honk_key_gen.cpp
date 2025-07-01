@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "barretenberg/honk/utils/honk_key_gen.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -20,10 +21,11 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
 {
     uint256_t public_inputs[4] = { 0, 0, 0, 0 };
     UltraCircuitBuilder builder = Circuit::generate(public_inputs);
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    UltraKeccakProver prover(proving_key);
     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    UltraKeccakProver prover(proving_key, verification_key);
 
     // Make verification key file upper case
     circuit_name.at(0) = static_cast<char>(std::toupper(static_cast<unsigned char>(circuit_name.at(0))));
@@ -60,7 +62,7 @@ int main(int argc, char** argv)
     const std::string output_path = args[2];
     const std::string srs_path = args[3];
 
-    bb::srs::init_crs_factory(srs_path);
+    bb::srs::init_file_crs_factory(srs_path);
 
     info("Generating keys for ", circuit_flavor, " circuit");
 

@@ -3,9 +3,6 @@
  */
 export interface BlobJson {
   blob: string;
-  index?: number;
-  // eslint-disable-next-line camelcase
+  index: string;
   kzg_commitment: string;
-  // eslint-disable-next-line camelcase
-  kzg_proof: string;
 }

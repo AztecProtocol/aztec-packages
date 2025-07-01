@@ -29,11 +29,11 @@ export async function simulateWithoutSignature(
   const gasSettings = GasSettings.default({ maxFeesPerGas });
   const fee = { gasSettings, paymentMethod };
 
-  const { l1ChainId: chainId, protocolVersion } = await wallet.getNodeInfo();
-  const entrypoint = new DefaultEntrypoint(chainId, protocolVersion);
+  const { l1ChainId: chainId, rollupVersion } = await wallet.getNodeInfo();
+  const entrypoint = new DefaultEntrypoint(chainId, rollupVersion);
   const signerlessTxExecutionRequest = await entrypoint.createTxExecutionRequest(request, fee, {});
 
-  const simulationResult = await wallet.simulateTx(signerlessTxExecutionRequest, false, undefined, undefined, true);
+  const simulationResult = await wallet.simulateTx(signerlessTxExecutionRequest, false, undefined, true);
   const rawReturnValues = simulationResult.getPrivateReturnValues().values;
   return decodeFromAbi(abi.returnTypes, rawReturnValues!);
 }

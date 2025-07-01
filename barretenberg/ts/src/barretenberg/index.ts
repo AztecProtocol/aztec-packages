@@ -3,13 +3,13 @@ import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
-import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
-import createDebug from 'debug';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
+import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { createDebugLogger } from '../log/index.js';
 
 export { BarretenbergVerifier } from './verifier.js';
-export { UltraPlonkBackend, UltraHonkBackend, AztecClientBackend } from './backend.js';
+export { UltraHonkBackend, AztecClientBackend } from './backend.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
@@ -40,7 +40,11 @@ export type CircuitOptions = {
 export class Barretenberg extends BarretenbergApi {
   private options: BackendOptions;
 
-  private constructor(private worker: any, wasm: BarretenbergWasmWorker, options: BackendOptions) {
+  private constructor(
+    private worker: any,
+    wasm: BarretenbergWasmMainWorker,
+    options: BackendOptions,
+  ) {
     super(wasm);
     this.options = options;
   }
@@ -52,13 +56,13 @@ export class Barretenberg extends BarretenbergApi {
    * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
    */
   static async new(options: BackendOptions = {}) {
-    const worker = createMainWorker();
+    const worker = await createMainWorker();
     const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
     const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
     await wasm.init(
       module,
       threads,
-      proxy(options.logger ?? createDebug('bb.js:bb_wasm_async')),
+      proxy(options.logger ?? createDebugLogger('bb_wasm_async')),
       options.memory?.initial,
       options.memory?.maximum,
     );
@@ -76,15 +80,24 @@ export class Barretenberg extends BarretenbergApi {
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }
 
-  async initSRSClientIVC(): Promise<void> {
+  async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
-    const crs = await Crs.new(2 ** 20 + 1, this.options.crsPath, this.options.logger);
+    const crs = await Crs.new(srsSize + 1, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath, this.options.logger);
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
     await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+  }
+
+  getDefaultSrsSize(): number {
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // We expect the mobile iOS browser to kill us >=1GB, so no real use in using a larger SRS.
+    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+      return 2 ** 18;
+    }
+    return 2 ** 20;
   }
 
   async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
@@ -97,9 +110,13 @@ export class Barretenberg extends BarretenbergApi {
     await this.wasm.destroy();
     await this.worker.terminate();
   }
+
+  getWasm() {
+    return this.wasm;
+  }
 }
 
-let barrentenbergSyncSingletonPromise: Promise<BarretenbergSync>;
+let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends BarretenbergApiSync {
@@ -107,19 +124,19 @@ export class BarretenbergSync extends BarretenbergApiSync {
     super(wasm);
   }
 
-  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebug('bb.js:bb_wasm_sync')) {
+  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
     const wasm = new BarretenbergWasmMain();
     const { module, threads } = await fetchModuleAndThreads(1, wasmPath, logger);
     await wasm.init(module, threads, logger);
     return new BarretenbergSync(wasm);
   }
 
-  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebug('bb.js:bb_wasm_sync')) {
-    if (!barrentenbergSyncSingletonPromise) {
-      barrentenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
+  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
+    if (!barretenbergSyncSingletonPromise) {
+      barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
     }
 
-    barretenbergSyncSingleton = await barrentenbergSyncSingletonPromise;
+    barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
     return barretenbergSyncSingleton;
   }
 

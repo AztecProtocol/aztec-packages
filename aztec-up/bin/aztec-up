@@ -31,6 +31,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ "$VERSION" = "master" ]; then
+  echo "Error: The 'master' version is deprecated. Please use 'nightly' instead."
+  exit 1
+fi
+
 if [ -n "$VERSION" ] && [ "$VERSION" != "latest" ]; then
   install_url="$INSTALL_URI/$VERSION/aztec-install"
 else

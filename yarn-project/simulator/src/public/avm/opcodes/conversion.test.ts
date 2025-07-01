@@ -1,9 +1,12 @@
+import { AVM_TORADIXBE_BASE_L2_GAS, AVM_TORADIXBE_DYN_L2_GAS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint1, type Uint8, Uint32 } from '../avm_memory_types.js';
 import { InvalidToRadixInputsError } from '../errors.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
-import { ToRadixBE } from './conversion.js';
+import { MODULUS_LIMBS_PER_RADIX, ToRadixBE } from './conversion.js';
 
 describe('Conversion Opcodes', () => {
   let context: AvmContext;
@@ -32,8 +35,8 @@ describe('Conversion Opcodes', () => {
         /*dstOffset=*/ 0x5678,
       );
 
-      expect(ToRadixBE.deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(ToRadixBE.fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Should decompose correctly to bytes - direct', async () => {
@@ -102,7 +105,7 @@ describe('Conversion Opcodes', () => {
 
     it('Should decompose correctly - indirect', async () => {
       const arg = new Field(Buffer.from('1234567890abcdef', 'hex'));
-      const indirect = new Addressing([
+      const indirect = Addressing.fromModes([
         /*srcOffset=*/ AddressingMode.INDIRECT,
         /*radixOffset*/ AddressingMode.INDIRECT,
         /*numLimbsOffset*/ AddressingMode.INDIRECT,
@@ -219,5 +222,60 @@ describe('Conversion Opcodes', () => {
         ).rejects.toThrow(InvalidToRadixInputsError);
       },
     );
+
+    it('Should charge dynamic gas', async () => {
+      const arg = new Field(27);
+      const radix = new Uint32(256); // Byte decomposition: can need 32 limbs
+      const indirect = 0;
+      const srcOffset = 0;
+      const dstOffset = 20;
+      const radixOffset = 1;
+      let numLimbs = new Uint32(40); // More limbs than needed
+      const numLimbsOffset = 100;
+      const outputBits = new Uint1(0); // false, output as bytes
+      const outputBitsOffset = 200;
+      context.machineState.memory.set(srcOffset, arg);
+      context.machineState.memory.set(radixOffset, radix);
+      context.machineState.memory.set(numLimbsOffset, numLimbs);
+      context.machineState.memory.set(outputBitsOffset, outputBits);
+
+      let gasBefore = context.machineState.l2GasLeft;
+      const opcode = new ToRadixBE(indirect, srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset);
+      await opcode.execute(context);
+
+      // Number of limbs requested is greater than the number of limbs needed for the radix: dynamic gas is applied using number of limbs
+      expect(context.machineState.l2GasLeft).toEqual(
+        gasBefore - AVM_TORADIXBE_BASE_L2_GAS - numLimbs.toNumber() * AVM_TORADIXBE_DYN_L2_GAS,
+      );
+
+      numLimbs = new Uint32(10); // Less limbs than needed
+      context.machineState.memory.set(numLimbsOffset, numLimbs);
+      gasBefore = context.machineState.l2GasLeft;
+      await opcode.execute(context);
+
+      // Number of limbs requested is less than the number of limbs needed for the radix: dynamic gas is applied using modulus limbs
+      expect(context.machineState.l2GasLeft).toEqual(
+        gasBefore - AVM_TORADIXBE_BASE_L2_GAS - MODULUS_LIMBS_PER_RADIX[radix.toNumber()] * AVM_TORADIXBE_DYN_L2_GAS,
+      );
+    });
+  });
+
+  function computeModulusLimbs(radix: bigint): bigint[] {
+    const limbs = [];
+    let p = Fr.MODULUS;
+    while (p > 0n) {
+      limbs.push(p % radix);
+      p = p / radix;
+    }
+
+    return limbs;
+  }
+
+  it('Should compute correctly the modulus limbs per radix', () => {
+    const modulusLimbsPerRadix = [0, 0];
+    for (let i = 2; i <= 256; i++) {
+      modulusLimbsPerRadix.push(computeModulusLimbs(BigInt(i)).length);
+    }
+    expect(modulusLimbsPerRadix).toEqual(MODULUS_LIMBS_PER_RADIX);
   });
 });

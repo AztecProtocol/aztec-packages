@@ -1,3 +1,8 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
 
 // #define SQR(a)                                                                                                          \
 //         "movq 0(" a "), %%rdx                      \n\t" /* load a[0] into %rdx */                                      \

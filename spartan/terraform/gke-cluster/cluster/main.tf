@@ -25,6 +25,15 @@ resource "google_container_cluster" "primary" {
       issue_client_certificate = false
     }
   }
+
+  resource_usage_export_config {
+    enable_network_egress_metering       = true
+    enable_resource_consumption_metering = true
+
+    bigquery_destination {
+      dataset_id = "egress_consumption"
+    }
+  }
 }
 
 # Create 2 core node pool with local ssd
@@ -76,12 +85,48 @@ resource "google_container_node_pool" "aztec_nodes-2core" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 512
+    max_node_count = 1024
   }
 
   # Node configuration
   node_config {
     machine_type = "t2d-standard-2"
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      local-ssd = "false"
+      node-type = "network"
+    }
+    tags = ["aztec-gke-node", "aztec"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+
+# Create 4 core node pool no ssd
+resource "google_container_node_pool" "aztec_nodes-4core" {
+  name     = "${var.cluster_name}-4core"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 256
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "t2d-standard-4"
 
     service_account = var.service_account
     oauth_scopes = [
@@ -247,12 +292,48 @@ resource "google_container_node_pool" "infra_nodes_8core_highmem" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 1
+    max_node_count = 4
   }
 
   # Node configuration
   node_config {
     machine_type = "n2-highmem-8"
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      local-ssd = "false"
+      node-type = "infra"
+    }
+    tags = ["aztec-gke-node"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+
+# Create 16 core high memory (128 GB) node pool with autoscaling, used for metrics
+resource "google_container_node_pool" "infra_nodes_16core_highmem" {
+  name     = "${var.cluster_name}-infra-16core-hi-mem"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 4
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2-highmem-16"
 
     service_account = var.service_account
     oauth_scopes = [

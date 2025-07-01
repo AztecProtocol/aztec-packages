@@ -1,17 +1,23 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "barretenberg/srs/global_crs.hpp"
 #define IPA_FUZZ_TEST
-#include "ipa.hpp"
 #include "./mock_transcript.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "ipa.hpp"
 
 namespace bb {
 
 // We actually only use 4, because fuzzing is very slow
 constexpr size_t COMMITMENT_TEST_NUM_POINTS = 32;
 using Curve = curve::Grumpkin;
-std::shared_ptr<CommitmentKey<Curve>> ck;
-std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
+CommitmentKey<Curve> ck;
+VerifierCommitmentKey<Curve> vk;
 /**
  * @brief Class that allows us to call internal IPA methods, because it's friendly
  *
@@ -19,14 +25,14 @@ std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
 class ProxyCaller {
   public:
     template <typename Transcript>
-    static void compute_opening_proof_internal(const std::shared_ptr<CommitmentKey<Curve>>& ck,
+    static void compute_opening_proof_internal(const CommitmentKey<Curve>& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
         IPA<Curve>::compute_opening_proof_internal(ck, opening_claim, transcript);
     }
     template <typename Transcript>
-    static bool verify_internal(const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
+    static bool verify_internal(const VerifierCommitmentKey<Curve>& vk,
                                 const OpeningClaim<Curve>& opening_claim,
                                 const std::shared_ptr<Transcript>& transcript)
     {
@@ -43,11 +49,9 @@ using namespace bb;
  */
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_ignition_crs_path());
-    ck = std::make_shared<CommitmentKey<Curve>>(COMMITMENT_TEST_NUM_POINTS);
-    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-        bb::srs::get_grumpkin_crs_path(), COMMITMENT_TEST_NUM_POINTS);
-    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS, crs_factory);
+    srs::init_file_crs_factory(srs::bb_crs_path());
+    ck = CommitmentKey<Curve>(COMMITMENT_TEST_NUM_POINTS);
+    vk = VerifierCommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_POINTS);
 }
 
 // This define is needed to make ProxyClass a friend of IPA
@@ -130,9 +134,9 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     for (size_t i = 0; i < polynomial_size; i++) {
         auto b = offset[i / 8];
 
-        poly[i] = polynomial_coefficients[i];
+        poly.at(i) = polynomial_coefficients[i];
         if ((b >> (i % 8)) & 1) {
-            poly[i].self_from_montgomery_form();
+            poly.at(i).self_from_montgomery_form();
         }
     }
 
@@ -144,7 +148,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
         x.self_from_montgomery_form();
     }
     auto const opening_pair = OpeningPair<Curve>{ x, poly.evaluate(x) };
-    auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck->commit(poly) };
+    auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck.commit(poly) };
     ProxyCaller::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript);
 
     // Reset challenge indices

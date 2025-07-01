@@ -2,9 +2,9 @@ use crate::macros::{
     functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
     notes::NOTES,
     utils::{
-        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_initializer, is_fn_internal,
-        is_fn_private, is_fn_public, is_fn_view, modify_fn_body, module_has_initializer,
-        module_has_storage,
+        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
+        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
+        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
     },
 };
 use protocol_types::meta::generate_serialize_to_fields;
@@ -99,7 +99,9 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
     };
 
     // All private functions perform message discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    // inefficient and could be improved by only doing it once we actually attempt to read any. Note that the message
+    // discovery call syncs private events as well. We do not sync those here if there are no notes because we don't
+    // have an API that would access events from private functions.
     let message_discovery_call = if NOTES.len() > 0 {
         create_message_discovery_call()
     } else {
@@ -196,7 +198,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let original_params = f.parameters();
     let args_len = original_params
         .map(|(name, typ): (Quoted, Type)| {
-            generate_serialize_to_fields(name, typ, &[], false).0.len()
+            generate_serialize_to_fields(name, typ, false).0.len()
         })
         .fold(0, |acc: u32, val: u32| acc + val);
 
@@ -272,48 +274,25 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub(crate) comptime fn find_and_transform_top_level_unconstrained_fns(m: Module) {
-    // Top-level unconstrained fns are contract entrypoints, but they're not explicitly designated in any way. They're
-    // the fallback case for a function that matches no other rules.
-    // TODO(#12743): improve this
+pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
+    let fn_abi = create_fn_abi_export(f);
+    let fn_stub = stub_fn(f);
+    stub_registry::register(f.module(), fn_stub);
 
-    // We first find non-standard contract entrypoints, i.e. functions in the `contract` mod that are not private or
-    // public, but which *are* contract entrypoints (i.e. they're not opting out via the #[test] or
-    // #[contract_library_method] attributes). Ideally entrypoints would be explicitly designated instead.
-    let non_private_public_entrypoint_functions = m.functions().filter(|f: FunctionDefinition| {
-        !is_fn_private(f)
-            & !is_fn_public(f)
-            & !f.has_named_attribute("contract_library_method")
-            & !f.has_named_attribute("test")
-    });
-
-    // TODO: uncomment the code below and emit a warning once support for them is added to Noir (tracked in
-    // https://github.com/noir-lang/noir/issues/7714). We can't simply print a message since that'd otherwise break the
-    // output of utils such as `nargo test --list-tests`.
-    // // We don't expect to see any custom constrained entrypoints (i.e. private functions created outside of aztec-nr's
-    // // #[private] macro, possibly resulting in a non-standard interface).
-    // for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
-    //     !f.is_unconstrained()
-    // }) {
-    //     let name = f.name();
-    //     warn(
-    //         f"found private contract function '{name}' which does not have the #[private] attribute - make sure you know what you're doing!",
-    //     );
-    // }
-
-    // An unconstrained contract entrypoints is what we call a top-level unconstrained function, to which we apply the
-    // appropriate transformation. Ideally these would be explicitly designated as such instead.
-    for f in non_private_public_entrypoint_functions.filter(|f: FunctionDefinition| {
-        f.is_unconstrained()
-    }) {
-        transform_top_level_unconstrained(f);
+    // Check if function is marked as unconstrained
+    if !f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[utility] but not marked as unconstrained, add unconstrained keyword",
+        );
     }
-}
 
-pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) {
-    let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
+    // Create utility context
+    let context_creation =
+        quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };
     let module_has_storage = module_has_storage(f.module());
 
+    // Initialize Storage if module has storage
     let storage_init = if module_has_storage {
         quote {
             // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
@@ -325,15 +304,13 @@ pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) 
         quote {}
     };
 
-    // All unconstrained functions perform message discovery, since they may need to access private notes that would be
-    // found during this process. This is slightly inefficient and could be improved by only doing it once we actually
-    // attempt to read any.
-    let message_discovery_call = if NOTES.len() > 0 {
-        create_message_discovery_call()
-    } else {
-        quote {}
-    };
+    // All utility functions perform message discovery, since they may need to access private notes that would be
+    // found during this process or they may be used to sync private events from TypeScript
+    // (`sync_private_state` function gets invoked by PXE::getPrivateEvents function).
+    let message_discovery_call = create_message_discovery_call();
 
+    // Inject context creation, storage initialization, and message discovery call at the beginning of the function
+    // body.
     let to_prepend = quote {
         $context_creation
         $storage_init
@@ -341,8 +318,11 @@ pub(crate) comptime fn transform_top_level_unconstrained(f: FunctionDefinition) 
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
-    f.set_return_public(true);
     f.set_body(modified_body);
+
+    f.set_return_public(true);
+
+    fn_abi
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -381,17 +361,34 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
         .quoted_contents()
 }
 
-/// Injects a call to `aztec::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
+/// Injects a call to `aztec::messages::discovery::discover_new_messages`, causing for new notes to be added to PXE and made
 /// available for the current execution.
 pub(crate) comptime fn create_message_discovery_call() -> Quoted {
     quote {
         /// Safety: message discovery returns nothing and is performed solely for its side-effects. It is therefore
         /// always safe to call.
         unsafe {
-            dep::aztec::discovery::discover_new_messages(
+            dep::aztec::messages::discovery::discover_new_messages(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
             );
         };
+    }
+}
+
+/// Checks if each function in the module is marked with either #[private], #[public], #[utility],
+/// #[contract_library_method], or #[test]. Non-macroified functions are not allowed in contracts.
+pub(crate) comptime fn check_each_fn_macroified(m: Module) {
+    for f in m.functions() {
+        let name = f.name();
+        if !is_fn_private(f)
+            & !is_fn_public(f)
+            & !is_fn_utility(f)
+            & !is_fn_contract_library_method(f)
+            & !is_fn_test(f) {
+            panic(
+                f"Function {name} must be marked as either #[private], #[public], #[utility], #[contract_library_method], or #[test]",
+            );
+        }
     }
 }

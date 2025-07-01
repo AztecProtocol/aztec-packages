@@ -3,8 +3,7 @@ pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Proposal, ProposalState, IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {
   ProposalLib,
   VoteTabulationReturn,
@@ -14,7 +13,7 @@ import {
 import {CallAssetPayload, UpgradePayload, CallRevertingPayload} from "./TestPayloads.sol";
 
 contract ExecuteTest is GovernanceBase {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
 
   uint256 internal depositPower;
 
@@ -27,13 +26,13 @@ contract ExecuteTest is GovernanceBase {
   function test_GivenStateIsPending() external givenStateIsNotExecutable {
     // it revert
     _statePending("empty");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Pending);
   }
 
   function test_GivenStateIsActive() external givenStateIsNotExecutable {
     // it revert
     _stateActive("empty");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Active);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Active);
   }
 
   function test_GivenStateIsQueued(
@@ -44,19 +43,19 @@ contract ExecuteTest is GovernanceBase {
   ) external givenStateIsNotExecutable {
     // it revert
     _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Queued);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
   }
 
   function test_GivenStateIsRejected() external givenStateIsNotExecutable {
     // it revert
     _stateRejected("empty");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
   function test_GivenStateIsDropped(address _governanceProposer) external givenStateIsNotExecutable {
     // it revert
     _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 
   function test_GivenStateIsExecuted(
@@ -68,7 +67,7 @@ contract ExecuteTest is GovernanceBase {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertTrue(governance.execute(proposalId));
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executed);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
   function test_GivenStateIsExpired(
@@ -79,7 +78,7 @@ contract ExecuteTest is GovernanceBase {
   ) external givenStateIsNotExecutable {
     // it revert
     _stateExpired("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Expired);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Expired);
   }
 
   modifier givenStateIsExecutable(
@@ -90,7 +89,7 @@ contract ExecuteTest is GovernanceBase {
     bytes32 _proposalName
   ) {
     _stateExecutable(_proposalName, _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executable);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
     _;
   }
 
@@ -152,9 +151,9 @@ contract ExecuteTest is GovernanceBase {
 
     proposal = governance.getProposal(proposalId);
 
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executed);
-    assertEq(proposal.state, DataStructures.ProposalState.Executed);
-    address rollup = registry.getRollup();
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
+    assertEq(proposal.state, ProposalState.Executed);
+    address rollup = address(registry.getCanonicalRollup());
     assertEq(rollup, UpgradePayload(address(proposal.payload)).NEW_ROLLUP());
   }
 }

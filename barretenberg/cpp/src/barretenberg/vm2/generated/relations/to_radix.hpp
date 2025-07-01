@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -18,283 +19,289 @@ template <typename FF_> class to_radixImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return (new_term.to_radix_sel).is_zero();
+        using C = ColumnAndShifts;
+
+        return (in.get(C::to_radix_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto to_radix_LATCH_CONDITION = new_term.to_radix_end + new_term.precomputed_first_row;
-        const auto to_radix_REM = (new_term.to_radix_value - new_term.to_radix_acc);
-        const auto to_radix_safety_diff = (new_term.to_radix_limb_index - new_term.to_radix_safe_limbs);
-        const auto to_radix_LIMB_LT_P = ((new_term.to_radix_p_limb - new_term.to_radix_limb) - FF(1));
-        const auto to_radix_LIMB_GT_P = ((new_term.to_radix_limb - new_term.to_radix_p_limb) - FF(1));
-        const auto to_radix_LIMB_EQ_P = (new_term.to_radix_limb - new_term.to_radix_p_limb) * FF(256);
+        using C = ColumnAndShifts;
+
+        const auto to_radix_LATCH_CONDITION = in.get(C::to_radix_end) + in.get(C::precomputed_first_row);
+        const auto to_radix_REM = (in.get(C::to_radix_value) - in.get(C::to_radix_acc));
+        const auto to_radix_safety_diff = (in.get(C::to_radix_limb_index) - in.get(C::to_radix_safe_limbs));
+        const auto to_radix_LIMB_LT_P = ((in.get(C::to_radix_p_limb) - in.get(C::to_radix_limb)) - FF(1));
+        const auto to_radix_LIMB_GT_P = ((in.get(C::to_radix_limb) - in.get(C::to_radix_p_limb)) - FF(1));
+        const auto to_radix_LIMB_EQ_P = (in.get(C::to_radix_limb) - in.get(C::to_radix_p_limb)) * FF(256);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_sel * (FF(1) - new_term.to_radix_sel);
+            auto tmp = in.get(C::to_radix_sel) * (FF(1) - in.get(C::to_radix_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * (FF(1) - new_term.to_radix_start);
+            auto tmp = in.get(C::to_radix_start) * (FF(1) - in.get(C::to_radix_start));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_end * (FF(1) - new_term.to_radix_end);
+            auto tmp = in.get(C::to_radix_end) * (FF(1) - in.get(C::to_radix_end));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_end * new_term.precomputed_first_row;
+            auto tmp = in.get(C::to_radix_end) * in.get(C::precomputed_first_row);
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_sel_shift * (new_term.to_radix_start_shift - to_radix_LATCH_CONDITION);
+            auto tmp = in.get(C::to_radix_sel_shift) * (in.get(C::to_radix_start_shift) - to_radix_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         { // SELECTOR_ON_START
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * (FF(1) - new_term.to_radix_sel);
+            auto tmp = in.get(C::to_radix_start) * (FF(1) - in.get(C::to_radix_sel));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // SELECTOR_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (new_term.to_radix_sel_shift - new_term.to_radix_sel) * (FF(1) - to_radix_LATCH_CONDITION);
+            auto tmp = (in.get(C::to_radix_sel_shift) - in.get(C::to_radix_sel)) * (FF(1) - to_radix_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_end * (FF(1) - new_term.to_radix_sel);
+            auto tmp = in.get(C::to_radix_end) * (FF(1) - in.get(C::to_radix_sel));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (new_term.to_radix_sel * (FF(1) - new_term.to_radix_end) - new_term.to_radix_not_end);
+            auto tmp = (in.get(C::to_radix_sel) * (FF(1) - in.get(C::to_radix_end)) - in.get(C::to_radix_not_end));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_padding_limb * (FF(1) - new_term.to_radix_not_padding_limb);
+            auto tmp = in.get(C::to_radix_not_padding_limb) * (FF(1) - in.get(C::to_radix_not_padding_limb));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * (new_term.to_radix_exponent - FF(1));
+            auto tmp = in.get(C::to_radix_start) * (in.get(C::to_radix_exponent) - FF(1));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end * new_term.to_radix_not_padding_limb_shift *
-                       (new_term.to_radix_exponent * new_term.to_radix_radix - new_term.to_radix_exponent_shift);
+            auto tmp = in.get(C::to_radix_not_end) * in.get(C::to_radix_not_padding_limb_shift) *
+                       (in.get(C::to_radix_exponent) * in.get(C::to_radix_radix) - in.get(C::to_radix_exponent_shift));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * (FF(1) - new_term.to_radix_not_padding_limb);
+            auto tmp = in.get(C::to_radix_start) * (FF(1) - in.get(C::to_radix_not_padding_limb));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end *
-                       (((FF(0) - new_term.to_radix_not_padding_limb) * new_term.to_radix_is_unsafe_limb +
-                         new_term.to_radix_not_padding_limb) -
-                        new_term.to_radix_not_padding_limb_shift);
+            auto tmp = in.get(C::to_radix_not_end) *
+                       (((FF(0) - in.get(C::to_radix_not_padding_limb)) * in.get(C::to_radix_is_unsafe_limb) +
+                         in.get(C::to_radix_not_padding_limb)) -
+                        in.get(C::to_radix_not_padding_limb_shift));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.to_radix_not_padding_limb) * new_term.to_radix_exponent;
+            auto tmp = (FF(1) - in.get(C::to_radix_not_padding_limb)) * in.get(C::to_radix_exponent);
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_found * (FF(1) - new_term.to_radix_found);
+            auto tmp = in.get(C::to_radix_found) * (FF(1) - in.get(C::to_radix_found));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * new_term.to_radix_limb_index;
+            auto tmp = in.get(C::to_radix_start) * in.get(C::to_radix_limb_index);
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end *
-                       ((new_term.to_radix_limb_index + FF(1)) - new_term.to_radix_limb_index_shift);
+            auto tmp = in.get(C::to_radix_not_end) *
+                       ((in.get(C::to_radix_limb_index) + FF(1)) - in.get(C::to_radix_limb_index_shift));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_sel * (((new_term.to_radix_radix - FF(1)) - new_term.to_radix_limb) -
-                                                new_term.to_radix_limb_radix_diff);
+            auto tmp = in.get(C::to_radix_sel) * (((in.get(C::to_radix_radix) - FF(1)) - in.get(C::to_radix_limb)) -
+                                                  in.get(C::to_radix_limb_radix_diff));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * (new_term.to_radix_acc - new_term.to_radix_limb);
+            auto tmp = in.get(C::to_radix_start) * (in.get(C::to_radix_acc) - in.get(C::to_radix_limb));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end *
-                       ((new_term.to_radix_acc + new_term.to_radix_exponent_shift * new_term.to_radix_limb_shift) -
-                        new_term.to_radix_acc_shift);
+            auto tmp =
+                in.get(C::to_radix_not_end) *
+                ((in.get(C::to_radix_acc) + in.get(C::to_radix_exponent_shift) * in.get(C::to_radix_limb_shift)) -
+                 in.get(C::to_radix_acc_shift));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_sel *
-                       ((to_radix_REM * (new_term.to_radix_found * (FF(1) - new_term.to_radix_rem_inverse) +
-                                         new_term.to_radix_rem_inverse) -
+            auto tmp = in.get(C::to_radix_sel) *
+                       ((to_radix_REM * (in.get(C::to_radix_found) * (FF(1) - in.get(C::to_radix_rem_inverse)) +
+                                         in.get(C::to_radix_rem_inverse)) -
                          FF(1)) +
-                        new_term.to_radix_found);
+                        in.get(C::to_radix_found));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end * new_term.to_radix_found * new_term.to_radix_limb_shift;
+            auto tmp = in.get(C::to_radix_not_end) * in.get(C::to_radix_found) * in.get(C::to_radix_limb_shift);
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.to_radix_found) * new_term.to_radix_end;
+            auto tmp = (FF(1) - in.get(C::to_radix_found)) * in.get(C::to_radix_end);
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_is_unsafe_limb * (FF(1) - new_term.to_radix_is_unsafe_limb);
+            auto tmp = in.get(C::to_radix_is_unsafe_limb) * (FF(1) - in.get(C::to_radix_is_unsafe_limb));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.to_radix_not_padding_limb) * new_term.to_radix_limb;
+            auto tmp = (FF(1) - in.get(C::to_radix_not_padding_limb)) * in.get(C::to_radix_limb);
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.to_radix_not_padding_limb) * new_term.to_radix_p_limb;
+            auto tmp = (FF(1) - in.get(C::to_radix_not_padding_limb)) * in.get(C::to_radix_p_limb);
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_sel *
+            auto tmp = in.get(C::to_radix_sel) *
                        ((to_radix_safety_diff *
-                             (new_term.to_radix_is_unsafe_limb * (FF(1) - new_term.to_radix_safety_diff_inverse) +
-                              new_term.to_radix_safety_diff_inverse) -
+                             (in.get(C::to_radix_is_unsafe_limb) * (FF(1) - in.get(C::to_radix_safety_diff_inverse)) +
+                              in.get(C::to_radix_safety_diff_inverse)) -
                          FF(1)) +
-                        new_term.to_radix_is_unsafe_limb);
+                        in.get(C::to_radix_is_unsafe_limb));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_acc_under_p * (FF(1) - new_term.to_radix_acc_under_p);
+            auto tmp = in.get(C::to_radix_acc_under_p) * (FF(1) - in.get(C::to_radix_acc_under_p));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_limb_lt_p * (FF(1) - new_term.to_radix_limb_lt_p);
+            auto tmp = in.get(C::to_radix_limb_lt_p) * (FF(1) - in.get(C::to_radix_limb_lt_p));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_limb_eq_p * (FF(1) - new_term.to_radix_limb_eq_p);
+            auto tmp = in.get(C::to_radix_limb_eq_p) * (FF(1) - in.get(C::to_radix_limb_eq_p));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_limb_eq_p * new_term.to_radix_limb_lt_p;
+            auto tmp = in.get(C::to_radix_limb_eq_p) * in.get(C::to_radix_limb_lt_p);
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_limb_lt_p * (to_radix_LIMB_LT_P - new_term.to_radix_limb_p_diff);
+            auto tmp = in.get(C::to_radix_limb_lt_p) * (to_radix_LIMB_LT_P - in.get(C::to_radix_limb_p_diff));
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_sel * (FF(1) - new_term.to_radix_limb_lt_p) *
-                       (((to_radix_LIMB_EQ_P - to_radix_LIMB_GT_P) * new_term.to_radix_limb_eq_p + to_radix_LIMB_GT_P) -
-                        new_term.to_radix_limb_p_diff);
+            auto tmp =
+                in.get(C::to_radix_sel) * (FF(1) - in.get(C::to_radix_limb_lt_p)) *
+                (((to_radix_LIMB_EQ_P - to_radix_LIMB_GT_P) * in.get(C::to_radix_limb_eq_p) + to_radix_LIMB_GT_P) -
+                 in.get(C::to_radix_limb_p_diff));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_start * (new_term.to_radix_acc_under_p - new_term.to_radix_limb_lt_p);
+            auto tmp = in.get(C::to_radix_start) * (in.get(C::to_radix_acc_under_p) - in.get(C::to_radix_limb_lt_p));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.to_radix_not_end * (((new_term.to_radix_acc_under_p - new_term.to_radix_limb_lt_p_shift) *
-                                                  new_term.to_radix_limb_eq_p_shift +
-                                              new_term.to_radix_limb_lt_p_shift) -
-                                             new_term.to_radix_acc_under_p_shift);
+            auto tmp = in.get(C::to_radix_not_end) *
+                       (((in.get(C::to_radix_acc_under_p) - in.get(C::to_radix_limb_lt_p_shift)) *
+                             in.get(C::to_radix_limb_eq_p_shift) +
+                         in.get(C::to_radix_limb_lt_p_shift)) -
+                        in.get(C::to_radix_acc_under_p_shift));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
         { // OVERFLOW_CHECK
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_is_unsafe_limb * (FF(1) - new_term.to_radix_acc_under_p);
+            auto tmp = in.get(C::to_radix_is_unsafe_limb) * (FF(1) - in.get(C::to_radix_acc_under_p));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
         { // CONSTANT_CONSISTENCY_RADIX
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end * (new_term.to_radix_radix - new_term.to_radix_radix_shift);
+            auto tmp = in.get(C::to_radix_not_end) * (in.get(C::to_radix_radix) - in.get(C::to_radix_radix_shift));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
         { // CONSTANT_CONSISTENCY_VALUE
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end * (new_term.to_radix_value - new_term.to_radix_value_shift);
+            auto tmp = in.get(C::to_radix_not_end) * (in.get(C::to_radix_value) - in.get(C::to_radix_value_shift));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
         { // CONSTANT_CONSISTENCY_SAFE_LIMBS
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-            auto tmp = new_term.to_radix_not_end * (new_term.to_radix_safe_limbs - new_term.to_radix_safe_limbs_shift);
+            auto tmp =
+                in.get(C::to_radix_not_end) * (in.get(C::to_radix_safe_limbs) - in.get(C::to_radix_safe_limbs_shift));
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }

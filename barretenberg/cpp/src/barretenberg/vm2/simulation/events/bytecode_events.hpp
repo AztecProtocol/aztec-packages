@@ -32,10 +32,11 @@ struct BytecodeHashingEvent {
 struct BytecodeRetrievalEvent {
     BytecodeId bytecode_id;
     AztecAddress address;
-    AztecAddress siloed_address;
     ContractInstance contract_instance;
     ContractClass contract_class;
     FF nullifier_root;
+    FF public_data_tree_root;
+    uint64_t current_timestamp;
     bool error = false;
 };
 
@@ -45,7 +46,7 @@ struct InstructionFetchingEvent {
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
-    InstrDeserializationError error = InstrDeserializationError::NO_ERROR;
+    std::optional<InstrDeserializationError> error;
 
     // To be used with deduplicating event emitters.
     using Key = std::tuple<BytecodeId, uint32_t>;

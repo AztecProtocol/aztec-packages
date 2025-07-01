@@ -1,7 +1,18 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { computeCalldataHash } from '@aztec/stdlib/hash';
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
+  TX_ERROR_CALLDATA_COUNT_TOO_LARGE,
+  TX_ERROR_CONTRACT_CLASS_LOGS,
+  TX_ERROR_CONTRACT_CLASS_LOG_COUNT,
+  TX_ERROR_CONTRACT_CLASS_LOG_LENGTH,
+  TX_ERROR_CONTRACT_CLASS_LOG_SORTING,
+  TX_ERROR_INCORRECT_CALLDATA,
+  Tx,
+  type TxValidationResult,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:tx_data');
@@ -14,8 +25,8 @@ export class DataTxValidator implements TxValidator<Tx> {
 
   async #hasCorrectCalldata(tx: Tx): Promise<TxValidationResult> {
     if (tx.publicFunctionCalldata.length !== tx.numberOfPublicCalls()) {
-      const reason = 'Wrong number of calldata for public calls';
-      this.#log.warn(
+      const reason = TX_ERROR_CALLDATA_COUNT_MISMATCH;
+      this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Expected ${tx.numberOfPublicCalls()}. Got ${
           tx.publicFunctionCalldata.length
         }.`,
@@ -24,8 +35,8 @@ export class DataTxValidator implements TxValidator<Tx> {
     }
 
     if (tx.getTotalPublicCalldataCount() > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
-      const reason = 'Total calldata too large for enqueued public calls';
-      this.#log.warn(
+      const reason = TX_ERROR_CALLDATA_COUNT_TOO_LARGE;
+      this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(
           tx,
         )}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS} fields. Got ${tx.getTotalPublicCalldataCount()}.`,
@@ -38,8 +49,8 @@ export class DataTxValidator implements TxValidator<Tx> {
       const { request, calldata } = callRequests[i];
       const hash = await computeCalldataHash(calldata);
       if (!hash.equals(request.calldataHash)) {
-        const reason = 'Incorrect calldata for public call';
-        this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Call request index: ${i}.`);
+        const reason = TX_ERROR_INCORRECT_CALLDATA;
+        this.#log.verbose(`Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Call request index: ${i}.`);
         return { result: 'invalid', reason: [reason] };
       }
     }
@@ -49,44 +60,50 @@ export class DataTxValidator implements TxValidator<Tx> {
 
   async #hasCorrectContractClassLogs(tx: Tx): Promise<TxValidationResult> {
     const contractClassLogsHashes = tx.data.getNonEmptyContractClassLogsHashes();
-    const hashedContractClasslogs = await Promise.all(tx.contractClassLogs.map(l => l.hash()));
-    if (contractClassLogsHashes.length !== hashedContractClasslogs.length) {
-      this.#log.warn(
+    if (contractClassLogsHashes.length !== tx.contractClassLogFields.length) {
+      this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
           contractClassLogsHashes.length
-        }. Got ${hashedContractClasslogs.length}.`,
+        }. Got ${tx.contractClassLogFields.length}.`,
       );
-      return { result: 'invalid', reason: ['Mismatched number of contract class logs'] };
+      return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_COUNT] };
     }
+
+    const expectedHashes = await Promise.all(tx.contractClassLogFields.map(l => l.hash()));
     for (const [i, logHash] of contractClassLogsHashes.entries()) {
-      const hashedLog = hashedContractClasslogs[i];
-      if (!logHash.value.equals(hashedLog)) {
-        if (hashedContractClasslogs.some(l => logHash.value.equals(l))) {
-          const matchingLogIndex = hashedContractClasslogs.findIndex(l => logHash.value.equals(l));
-          this.#log.warn(
+      const hash = expectedHashes[i];
+      if (!logHash.value.equals(hash)) {
+        if (expectedHashes.some(h => logHash.value.equals(h))) {
+          const matchingLogIndex = expectedHashes.findIndex(l => logHash.value.equals(l));
+          this.#log.verbose(
             `Rejecting tx ${await Tx.getHash(
               tx,
             )} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
           );
-          return { result: 'invalid', reason: ['Incorrectly sorted contract class logs'] };
+          return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_SORTING] };
         } else {
-          this.#log.warn(
+          this.#log.verbose(
             `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
               logHash.value
-            } from the kernels. Got ${hashedLog} in the tx.`,
+            } from the kernels. Got ${hash} in the tx.`,
           );
-          return { result: 'invalid', reason: ['Mismatched contract class logs'] };
+          return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOGS] };
         }
       }
-      if (logHash.logHash.length !== tx.contractClassLogs[i].getEmittedLength()) {
-        this.#log.warn(
-          `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
+
+      const expectedMinLength = 1 + tx.contractClassLogFields[i].fields.findLastIndex(f => !f.isZero());
+      if (logHash.logHash.length < expectedMinLength) {
+        this.#log.verbose(
+          `Rejecting tx ${await Tx.getHash(
+            tx,
+          )} because of incorrect contract class log length. Expected the length to be at least ${expectedMinLength}. Got ${
             logHash.logHash.length
-          } from the kernel's log hashes. Got ${tx.contractClassLogs[i].getEmittedLength()} in the tx.`,
+          }.`,
         );
-        return { result: 'invalid', reason: ['Mismatched contract class logs length'] };
+        return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_LENGTH] };
       }
     }
+
     return { result: 'valid' };
   }
 }

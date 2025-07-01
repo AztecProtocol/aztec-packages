@@ -26,7 +26,7 @@ If no blob sink url or consensus host url is provided:
 A local version of the blob sink will be used. This stores blobs in a local file system.
 
 Blob sink url is provided:
-If requesting from the blob sink, we send the blobkHash
+If requesting from the blob sink, we send the blockHash
 
 Consensus host url is provided:
 If requesting from the beacon node, we send the slot number

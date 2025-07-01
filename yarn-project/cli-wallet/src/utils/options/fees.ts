@@ -77,7 +77,11 @@ function printOptionParams(params: OptionParams) {
       params[name].default ? `Default: ${params[name].default}` : '',
     ].join(' '),
   );
-  return descriptionList.length ? `\n   Parameters:\n${descriptionList.join('\n')}` : '';
+  return descriptionList.length
+    ? `\n   Parameters:\n${descriptionList.join('\n')}\nFormat: --payment ${Object.keys(params)
+        .slice(0, 3)
+        .map(name => `${name}=${params[name].type}`)} ${Object.keys(params).length > 3 ? '...' : ''}`
+    : '';
 }
 
 function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
@@ -122,11 +126,7 @@ function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
 
 function getPaymentMethodOption(allowCustomFeePayer: boolean) {
   const params = getFeePaymentMethodParams(allowCustomFeePayer);
-  const paramList = Object.keys(params).map(name => `${name}=${params[name].type}`);
-  return new Option(
-    `--payment <${paramList.join(',')}>`,
-    `Fee payment method and arguments.${printOptionParams(params)}`,
-  );
+  return new Option(`--payment <options>`, `Fee payment method and arguments.${printOptionParams(params)}`);
 }
 
 function getFeeOptions(allowCustomFeePayer: boolean) {
@@ -138,7 +138,7 @@ function getFeeOptions(allowCustomFeePayer: boolean) {
       '--max-priority-fees-per-gas <da=0,l2=0>',
       'Maximum priority fees per gas unit for DA and L2 computation.',
     ),
-    new Option('--no-estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
+    new Option('--estimate-gas', 'Whether to automatically estimate gas limits for the tx.'),
     new Option('--estimate-gas-only', 'Only report gas estimation for the tx, do not send it.'),
   ];
 }
@@ -254,11 +254,14 @@ export function parsePaymentMethod(
   log: LogFn,
   db?: WalletDB,
 ): (sender: AccountWallet) => Promise<FeePaymentMethod> {
-  const parsed = payment.split(',').reduce((acc, item) => {
-    const [dimension, value] = item.split('=');
-    acc[dimension] = value ?? 1;
-    return acc;
-  }, {} as Record<string, string>);
+  const parsed = payment.split(',').reduce(
+    (acc, item) => {
+      const [dimension, value] = item.split('=');
+      acc[dimension] = value ?? 1;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
 
   const getFpc = () => {
     if (!parsed.fpc) {
@@ -337,11 +340,14 @@ export function parsePaymentMethod(
 }
 
 function parseGasLimits(gasLimits: string): { gasLimits: Gas; teardownGasLimits: Gas } {
-  const parsed = gasLimits.split(',').reduce((acc, limit) => {
-    const [dimension, value] = limit.split('=');
-    acc[dimension] = parseInt(value, 10);
-    return acc;
-  }, {} as Record<string, number>);
+  const parsed = gasLimits.split(',').reduce(
+    (acc, limit) => {
+      const [dimension, value] = limit.split('=');
+      acc[dimension] = parseInt(value, 10);
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const expected = ['da', 'l2', 'teardownDA', 'teardownL2'];
   for (const dimension of expected) {
@@ -357,11 +363,14 @@ function parseGasLimits(gasLimits: string): { gasLimits: Gas; teardownGasLimits:
 }
 
 export function parseGasFees(gasFees: string): GasFees {
-  const parsed = gasFees.split(',').reduce((acc, fee) => {
-    const [dimension, value] = fee.split('=');
-    acc[dimension] = parseInt(value, 10);
-    return acc;
-  }, {} as Record<string, number>);
+  const parsed = gasFees.split(',').reduce(
+    (acc, fee) => {
+      const [dimension, value] = fee.split('=');
+      acc[dimension] = parseInt(value, 10);
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   const expected = ['da', 'l2'];
   for (const dimension of expected) {

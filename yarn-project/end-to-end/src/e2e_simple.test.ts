@@ -1,10 +1,7 @@
-// docs:start:import_aztecjs
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from '@aztec/aztec.js';
-// docs:end:import_aztecjs
-// eslint-disable-next-line no-restricted-imports
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -39,10 +36,9 @@ describe('e2e_simple', () => {
         worldStateBlockCheckIntervalMS: 200,
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
-        aztecEpochDuration: 8,
-        aztecProofSubmissionWindow: 15,
+        aztecEpochDuration: 4,
         aztecSlotDuration: 12,
-        ethereumSlotDuration: 12,
+        aztecTargetCommitteeSize: 0,
         startProverNode: true,
       }));
     });
@@ -61,7 +57,7 @@ describe('e2e_simple', () => {
       });
       const tx = await provenTx.send().wait();
       await waitForProven(aztecNode, tx, {
-        provenTimeout: config.aztecProofSubmissionWindow * config.aztecSlotDuration,
+        provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
       });
       expect(tx.blockNumber).toBeDefined();
     });

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <list>
 #include <set>
@@ -58,25 +57,38 @@ struct KeyEquals {
  * variable wasn't constrained properly. If the number of connected components > 1, it means that there were some missed
  * connections between variables.
  */
-template <typename FF> class Graph_ {
+template <typename FF> class StaticAnalyzer_ {
   public:
-    Graph_() = default;
-    Graph_(const Graph_& other) = delete;
-    Graph_(Graph_&& other) = delete;
-    Graph_& operator=(const Graph_& other) = delete;
-    Graph_&& operator=(Graph_&& other) = delete;
-    Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
-    Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
+    StaticAnalyzer_() = default;
+    StaticAnalyzer_(const StaticAnalyzer_& other) = delete;
+    StaticAnalyzer_(StaticAnalyzer_&& other) = delete;
+    StaticAnalyzer_& operator=(const StaticAnalyzer_& other) = delete;
+    StaticAnalyzer_&& operator=(StaticAnalyzer_&& other) = delete;
+    StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool connect_variables = true);
+
+    /**
+     * @brief Convert a vector of variable indices to their real indices
+     * @param ultra_circuit_constructor The UltraCircuitBuilder instance
+     * @param variable_indices The vector of variable indices to convert
+     * @return std::vector<uint32_t> A vector of real variable indices
+     */
+    std::vector<uint32_t> to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor,
+                                  std::vector<uint32_t>& variable_indices)
+    {
+        std::vector<uint32_t> real_variable_indices;
+        real_variable_indices.reserve(variable_indices.size());
+        for (auto& variable_index : variable_indices) {
+            real_variable_indices.push_back(to_real(ultra_circuit_constructor, variable_index));
+        }
+        return real_variable_indices;
+    };
 
     uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index)
     {
         return ultra_circuit_constructor.real_variable_index[variable_index];
     };
     size_t find_block_index(bb::UltraCircuitBuilder& ultra_builder, const UltraBlock& block);
-    void process_gate_variables(bb::UltraCircuitBuilder& ultra_circuit_constructor,
-                                std::vector<uint32_t>& gate_variables,
-                                size_t gate_index,
-                                size_t blk_idx);
+    void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
@@ -130,8 +142,7 @@ template <typename FF> class Graph_ {
                                              const uint32_t& var_index);
 
     void connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                         const std::vector<uint32_t>& variables_vector,
-                                         bool is_sorted_variables);
+                                         const std::vector<uint32_t>& variables_vector);
     bool check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_index);
 
     std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
@@ -165,8 +176,8 @@ template <typename FF> class Graph_ {
     void print_connected_components();
     void print_variables_gate_counts();
     void print_variables_edge_counts();
-    void print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder);
-    ~Graph_() = default;
+    void print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx);
+    ~StaticAnalyzer_() = default;
 
   private:
     std::unordered_map<uint32_t, std::vector<uint32_t>>
@@ -183,6 +194,6 @@ template <typename FF> class Graph_ {
     std::unordered_set<uint32_t> fixed_variables;
 };
 
-using Graph = Graph_<bb::fr>;
+using StaticAnalyzer = StaticAnalyzer_<bb::fr>;
 
 } // namespace cdg

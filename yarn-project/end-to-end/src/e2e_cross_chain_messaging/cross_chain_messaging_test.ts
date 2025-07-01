@@ -11,10 +11,16 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import { type ViemPublicClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  type ExtendedViemWalletClient,
+  createExtendedL1Client,
+  deployL1Contract,
+} from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
@@ -38,8 +44,9 @@ export class CrossChainMessagingTest {
   aztecNode!: AztecNode;
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
+  aztecNodeAdmin!: AztecNodeAdmin;
 
-  publicClient!: ViemPublicClient | undefined;
+  l1Client!: ExtendedViemWalletClient | undefined;
 
   user1Wallet!: AccountWallet;
   user2Wallet!: AccountWallet;
@@ -51,7 +58,9 @@ export class CrossChainMessagingTest {
 
   inbox!: any; // GetContractReturnType<typeof InboxAbi> | undefined;
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
-  cheatcodes!: CheatCodes;
+  cheatCodes!: CheatCodes;
+
+  deployL1ContractsValues!: DeployL1ContractsReturnType;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
@@ -59,15 +68,17 @@ export class CrossChainMessagingTest {
   }
 
   async assumeProven() {
-    await this.cheatcodes.rollup.markAsProven();
+    await this.cheatCodes.rollup.markAsProven();
   }
 
   async setup() {
-    const { aztecNode, pxe, aztecNodeConfig } = await this.snapshotManager.setup();
+    const { aztecNode, pxe, aztecNodeConfig, deployL1ContractsValues } = await this.snapshotManager.setup();
     this.aztecNode = aztecNode;
     this.pxe = pxe;
     this.aztecNodeConfig = aztecNodeConfig;
-    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
+    this.cheatCodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
+    this.deployL1ContractsValues = deployL1ContractsValues;
+    this.aztecNodeAdmin = aztecNode;
   }
 
   snapshot = <T>(
@@ -109,22 +120,19 @@ export class CrossChainMessagingTest {
         this.logger.verbose(`Public deploy accounts...`);
         await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
 
-        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+        this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
-        const underlyingERC20Address = await deployL1Contract(
-          walletClient,
-          publicClient,
-          TestERC20Abi,
-          TestERC20Bytecode,
-          ['Underlying', 'UND', walletClient.account.address],
-        ).then(({ address }) => address);
+        const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
+          'Underlying',
+          'UND',
+          this.l1Client.account.address,
+        ]).then(({ address }) => address);
 
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(
           this.aztecNode,
           this.pxe,
-          publicClient,
-          walletClient,
+          this.l1Client,
           this.wallets[0],
           this.logger,
           underlyingERC20Address,
@@ -132,7 +140,7 @@ export class CrossChainMessagingTest {
 
         this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
 
-        return this.toCrossChainContext();
+        return this.crossChainTestHarness.toCrossChainContext();
       },
       async crossChainContext => {
         this.l2Token = await TokenContract.at(crossChainContext.l2Token, this.user1Wallet);
@@ -143,17 +151,17 @@ export class CrossChainMessagingTest {
         this.ownerAddress = AztecAddress.fromString(crossChainContext.ownerAddress.toString());
         const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-        const { publicClient, walletClient } = createL1Clients(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+        const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
         const inbox = getContract({
           address: this.aztecNodeConfig.l1Contracts.inboxAddress.toString(),
           abi: InboxAbi,
-          client: walletClient,
+          client: l1Client,
         });
         const outbox = getContract({
           address: this.aztecNodeConfig.l1Contracts.outboxAddress.toString(),
           abi: OutboxAbi,
-          client: walletClient,
+          client: l1Client,
         });
 
         this.crossChainTestHarness = new CrossChainTestHarness(
@@ -165,40 +173,15 @@ export class CrossChainMessagingTest {
           this.ethAccount,
           tokenPortalAddress,
           crossChainContext.underlying,
-          publicClient,
-          walletClient,
+          l1Client,
           this.aztecNodeConfig.l1Contracts,
           this.user1Wallet,
         );
 
-        this.publicClient = publicClient;
+        this.l1Client = l1Client;
         this.inbox = inbox;
         this.outbox = outbox;
       },
     );
   }
-
-  toCrossChainContext(): CrossChainContext {
-    return {
-      l2Token: this.crossChainTestHarness.l2Token.address,
-      l2Bridge: this.crossChainTestHarness.l2Bridge.address,
-      tokenPortal: this.crossChainTestHarness.tokenPortalAddress,
-      underlying: this.crossChainTestHarness.underlyingERC20Address,
-      ethAccount: this.crossChainTestHarness.ethAccount,
-      ownerAddress: this.crossChainTestHarness.ownerAddress,
-      inbox: this.crossChainTestHarness.l1ContractAddresses.inboxAddress,
-      outbox: this.crossChainTestHarness.l1ContractAddresses.outboxAddress,
-    };
-  }
 }
-
-type CrossChainContext = {
-  l2Token: AztecAddress;
-  l2Bridge: AztecAddress;
-  tokenPortal: EthAddress;
-  underlying: EthAddress;
-  ethAccount: EthAddress;
-  ownerAddress: AztecAddress;
-  inbox: EthAddress;
-  outbox: EthAddress;
-};

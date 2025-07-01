@@ -5,7 +5,11 @@ NETWORK=${NETWORK:-}
 VERSION=${VERSION:-${NETWORK:-"latest"}}
 
 # Take copy of command-line arguments, so we can mutate to parse.
-args=("$@")
+if [ $# -eq 0 ]; then
+  args=("--help")
+else
+  args=("$@")
+fi
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
@@ -13,9 +17,21 @@ while [ "$#" -gt 0 ]; do
       AZTEC_PORT="$2"
       shift 2
       ;;
+    --p2p.p2pPort)
+      P2P_PORT="$2"
+      shift 2
+      ;;
+    --p2p.p2pBroadcastPort)
+      P2P_BROADCAST_PORT="$2"
+      shift 2
+      ;;
     -a | --anvil-port)
       # Override default port exposed on container.
       ANVIL_PORT="$2"
+      shift 2
+      ;;
+    --admin-port)
+      ADMIN_PORT="$2"
       shift 2
       ;;
     --pxe.network)
@@ -26,6 +42,10 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
+    --help)
+      NO_PORT_FORWARDING=1
+      shift 1
+      ;;
     *)
       shift
       ;;
@@ -35,7 +55,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm aztecprotocol/aztec cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -44,12 +64,17 @@ case ${1:-} in
     shift
     # Should this just be aztec-test? It's like, a new command that doesn't exist on aztec cli.
     # Or just make this a first class command on aztec cli?
+
+    # Properly escape all arguments
+    args_str=$(printf '%q ' "$@")
+
     # TODO: Need to force ipv4 here with 127.0.0.1 for some reason. TXE's not on ipv6?
     exec $(dirname $0)/.aztec-run "" bash -c "
+      export LOG_LEVEL=${LOG_LEVEL:-"info"}
       node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
       while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
       export NARGO_FOREIGN_CALL_TIMEOUT=300000
-      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 $@
+      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 $args_str
     "
     ;;
   start)
@@ -58,6 +83,9 @@ case ${1:-} in
     # Dynamic port assignments, .aztec-run will expose the array PORTS_TO_EXPOSE as a space-separated string.
     AZTEC_PORT=${AZTEC_PORT:-8080}
     export PORTS_TO_EXPOSE="$AZTEC_PORT:$AZTEC_PORT"
+
+    # Appends 8 char hex to avoid container name clashes
+    export CONTAINER_NAME=aztec-start-$(printf "%08x" $((RANDOM * RANDOM)))
 
     if [ "${2:-}" == "--sandbox" ]; then
       # TODO: This entire special case should go away.
@@ -72,7 +100,7 @@ case ${1:-} in
       export WS_BLOCK_CHECK_INTERVAL_MS=500
       export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
       export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
-      export LOG_LEVEL=${LOG_LEVEL:-info}
+      export LOG_LEVEL=${LOG_LEVEL:-info;silent:sequencer;verbose:debug_log}
       export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}
 
 
@@ -82,16 +110,40 @@ case ${1:-} in
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+        anvil --version
         anvil --host 0.0.0.0 --silent &
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
-      "
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"\$@\"
+      " bash "$@"
     else
-      # Export p2p port forwarding only if set in env vars
-      if [ -n "${P2P_PORT:-}" ]; then
-        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
 
-        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING"
+      export P2P_PORT="${P2P_PORT:-40400}"
+      # If the p2p broadcast port if provided, then map it to the p2p port on the container.
+      if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
+        export P2P_BROADCAST_PORT
+        P2P_TCP_BROADCAST_MAPPING="$P2P_BROADCAST_PORT:$P2P_PORT"
+        P2P_UDP_BROADCAST_MAPPING="${P2P_TCP_BROADCAST_MAPPING}/udp"
+
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_BROADCAST_MAPPING $P2P_UDP_BROADCAST_MAPPING"
+      else
+        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
+        P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
+
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
       fi
+
+      if [ -n "${ADMIN_PORT:-}" ]; then
+        export ADMIN_PORT
+        ADMIN_MAPPING="$ADMIN_PORT:$ADMIN_PORT"
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $ADMIN_MAPPING"
+      fi
+
+      # unset PORTS_TO_EXPOSE if we're just running --help
+      if [ ! -z "${NO_PORT_FORWARDING:-}" ]; then
+        export PORTS_TO_EXPOSE=""
+      fi
+
+      export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
+      export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
@@ -103,7 +155,7 @@ case ${1:-} in
       --env SERVE=${SERVE:-0} \
       $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
       -v $(realpath $(dirname $2))/:/tmp \
-      aztecprotocol/aztec /tmp/$(basename $2) $3
+      aztecprotocol/aztec:$VERSION /tmp/$(basename $2) $3
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"

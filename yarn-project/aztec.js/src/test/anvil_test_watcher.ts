@@ -1,4 +1,4 @@
-import type { ViemPublicClient } from '@aztec/ethereum';
+import type { ViemClient } from '@aztec/ethereum';
 import type { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -20,11 +20,12 @@ import { RollupCheatCodes } from './rollup_cheat_codes.js';
 export class AnvilTestWatcher {
   private isSandbox: boolean = false;
 
-  private rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private rollupCheatCodes: RollupCheatCodes;
+  private l2SlotDuration!: bigint;
 
   private filledRunningPromise?: RunningPromise;
-  private mineIfOutdatedPromise?: RunningPromise;
+  private syncDateProviderPromise?: RunningPromise;
   private markingAsProvenRunningPromise?: RunningPromise;
 
   private logger: Logger = createLogger(`aztecjs:utils:watcher`);
@@ -34,13 +35,13 @@ export class AnvilTestWatcher {
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
-    publicClient: ViemPublicClient,
+    l1Client: ViemClient,
     private dateProvider?: TestDateProvider,
   ) {
     this.rollup = getContract({
       address: getAddress(rollupAddress.toString()),
       abi: RollupAbi,
-      client: publicClient,
+      client: l1Client,
     });
 
     this.rollupCheatCodes = new RollupCheatCodes(this.cheatcodes, {
@@ -63,6 +64,9 @@ export class AnvilTestWatcher {
       throw new Error('Watcher already watching for filled slot');
     }
 
+    const config = await this.rollupCheatCodes.getConfig();
+    this.l2SlotDuration = config.slotDuration;
+
     // If auto mining is not supported (e.g., we are on a real network), then we
     // will simple do nothing. But if on an anvil or the like, this make sure that
     // the sandbox and tests don't break because time is frozen and we never get to
@@ -70,11 +74,11 @@ export class AnvilTestWatcher {
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {
-      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 1000);
+      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 200);
       this.filledRunningPromise.start();
-      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 1000);
-      this.mineIfOutdatedPromise.start();
-      this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 1000);
+      this.syncDateProviderPromise = new RunningPromise(() => this.syncDateProviderToL1IfBehind(), this.logger, 200);
+      this.syncDateProviderPromise.start();
+      this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 200);
       this.markingAsProvenRunningPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
@@ -84,8 +88,14 @@ export class AnvilTestWatcher {
 
   async stop() {
     await this.filledRunningPromise?.stop();
-    await this.mineIfOutdatedPromise?.stop();
+    await this.syncDateProviderPromise?.stop();
     await this.markingAsProvenRunningPromise?.stop();
+  }
+
+  async trigger() {
+    await this.filledRunningPromise?.trigger();
+    await this.syncDateProviderPromise?.trigger();
+    await this.markingAsProvenRunningPromise?.trigger();
   }
 
   async markAsProven() {
@@ -95,7 +105,7 @@ export class AnvilTestWatcher {
     await this.rollupCheatCodes.markAsProven();
   }
 
-  async mineIfOutdated() {
+  async syncDateProviderToL1IfBehind() {
     // this doesn't apply to the sandbox, because we don't have a date provider in the sandbox
     if (!this.dateProvider) {
       return;
@@ -103,15 +113,12 @@ export class AnvilTestWatcher {
 
     const l1Time = (await this.cheatcodes.timestamp()) * 1000;
     const wallTime = this.dateProvider.now();
-
-    // If the wall time is more than 24 seconds away from L1 time,
-    // mine a block and sync the clocks
-    if (Math.abs(wallTime - l1Time) > 24 * 1000) {
-      this.logger.warn(`Wall time is more than 24 seconds away from L1 time, mining a block and syncing clocks`);
-      await this.cheatcodes.evmMine();
-      const newL1Time = await this.cheatcodes.timestamp();
-      this.logger.info(`New L1 time: ${newL1Time}`);
-      this.dateProvider.setTime(newL1Time * 1000);
+    if (l1Time > wallTime) {
+      this.logger.warn(`L1 is ahead of wall time. Syncing wall time to L1 time`);
+      this.dateProvider.setTime(l1Time);
+    } else if (l1Time + Number(this.l2SlotDuration) * 1000 < wallTime) {
+      this.logger.warn(`L1 is more than 1 L2 slot behind wall time. Warping to wall time`);
+      await this.cheatcodes.warp(Math.ceil(wallTime / 1000));
     }
   }
 
@@ -151,7 +158,7 @@ export class AnvilTestWatcher {
 
         this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
       }
-    } catch (err) {
+    } catch {
       this.logger.error('mineIfSlotFilled failed');
     }
   }

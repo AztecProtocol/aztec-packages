@@ -10,11 +10,19 @@ import { TimeoutError } from '../error/index.js';
 export class TimeoutTask<T> {
   private interruptPromise!: Promise<any>;
   private interrupt = () => {};
+  private interrupted = false;
   private totalTime = 0;
 
-  constructor(private fn: () => Promise<T>, private timeout: number, errorFn: () => any) {
+  constructor(
+    private fn: (signal: AbortSignal) => Promise<T>,
+    private timeout: number,
+    errorFn: () => any,
+  ) {
     this.interruptPromise = new Promise<T>((_, reject) => {
-      this.interrupt = () => reject(errorFn());
+      this.interrupt = () => {
+        this.interrupted = true;
+        reject(errorFn());
+      };
     });
   }
 
@@ -28,11 +36,18 @@ export class TimeoutTask<T> {
    */
   public async exec() {
     const interruptTimeout = setTimeout(this.interrupt, this.timeout);
+    const controller = new AbortController();
     try {
       const start = Date.now();
-      const result = await Promise.race<T>([this.fn(), this.interruptPromise]);
+      const result = await Promise.race<T>([this.fn(controller.signal), this.interruptPromise]);
       this.totalTime = Date.now() - start;
       return result;
+    } catch (err) {
+      if (this.interrupted) {
+        controller.abort();
+      }
+
+      throw err;
     } finally {
       clearTimeout(interruptTimeout);
     }
@@ -60,7 +75,11 @@ export class TimeoutTask<T> {
   }
 }
 
-export async function executeTimeout<T>(fn: () => Promise<T>, timeout: number, errorOrFnName?: string | (() => any)) {
+export async function executeTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  timeout: number,
+  errorOrFnName?: string | (() => any),
+) {
   const errorFn =
     typeof errorOrFnName === 'function'
       ? errorOrFnName

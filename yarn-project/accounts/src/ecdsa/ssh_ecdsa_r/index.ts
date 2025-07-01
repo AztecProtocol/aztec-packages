@@ -8,17 +8,11 @@ import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
-import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import EcdsaRAccountContractJson from '../../../artifacts/EcdsaKAccount.json' assert { type: 'json' };
+import { EcdsaRAccountContractArtifact } from '../ecdsa_r/index.js';
 import { EcdsaRSSHBaseAccountContract } from './account_contract.js';
-
-export const EcdsaRAccountContractArtifact: ContractArtifact = loadContractArtifact(
-  EcdsaRAccountContractJson as NoirCompiledContract,
-);
 
 /**
  * Account contract that authenticates transactions using ECDSA signatures

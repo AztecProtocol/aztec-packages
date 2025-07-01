@@ -13,6 +13,9 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-lib"
+    },
+    {
       "path": "../blob-sink"
     },
     {
@@ -32,6 +35,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../node-lib"
     },
     {
       "path": "../noir-protocol-circuits-types"

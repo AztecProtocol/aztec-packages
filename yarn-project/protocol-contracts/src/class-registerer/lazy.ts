@@ -5,7 +5,7 @@ import type { ProtocolContract } from '../protocol_contract.js';
 
 export * from './contract_class_registered_event.js';
 export * from './private_function_broadcasted_event.js';
-export * from './unconstrained_function_broadcasted_event.js';
+export * from './utility_function_broadcasted_event.js';
 
 let protocolContract: ProtocolContract;
 let protocolContractArtifact: ContractArtifact;

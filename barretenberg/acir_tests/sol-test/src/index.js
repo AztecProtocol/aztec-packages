@@ -6,8 +6,8 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 440;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 491;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 456;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 507;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -58,7 +58,7 @@ const [test, verifier] = await Promise.all([
 
 // If testing honk is set, then we compile the honk test suite
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
-const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+const hasZK = getEnvVarCanBeUndefined("DISABLE_ZK");
 
 export const compilationInput = {
   language: "Solidity",
@@ -216,45 +216,41 @@ const killAnvil = () => {
   console.log(testName, " complete");
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1316): Clean this code up. We are trying to use this logic for three different flows: bb plonk, bb honk, and bbjs honk, and all three have different setups.
 try {
   const proofPath = getEnvVar("PROOF");
-  let publicInputsPath;
-  try {
-    publicInputsPath = getEnvVar("PUBLIC_INPUTS");
-  } catch (e) {
-    // noop
-  }
 
-  let proofStr = '';
-  let publicInputs = [];
+  let proofStr = "";
 
-  // If "path to public inputs" is provided, it means that the proof and public inputs are saved as separate files
-  // A bit hacky, but this can go away once BB CLI saves them as separate files - #11024
-  if (publicInputsPath) {
-    const proof = readFileSync(proofPath);
-    proofStr = proof.toString("hex");
-    publicInputs = JSON.parse(readFileSync(publicInputsPath).toString()); // assumes JSON array of PI hex strings
-  } else {
-    // Proof and public inputs are saved in a single file; we need to extract the PI from the proof
-    const proof = readFileSync(proofPath);
-    proofStr = proof.toString("hex");
+  const proof = readFileSync(proofPath);
+  proofStr = proof.toString("hex");
 
-    const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
+  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
+    "PUBLIC_INPUTS_AS_FIELDS"
+  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
+  var publicInputs;
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
+  let numExtraPublicInputs = 0;
+  let extraPublicInputs = [];
+  if (proofAsFieldsPath) {
     const proofAsFields = readFileSync(proofAsFieldsPath);
-
-    let numPublicInputs;
-    [numPublicInputs, publicInputs] = readPublicInputs(
+    // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
+    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
       JSON.parse(proofAsFields.toString())
     );
-
-    proofStr = proofStr.substring(32 * 2 * numPublicInputs); // Remove the publicInput bytes from the proof
-
-    // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
-    if (testingHonk) {
-      proofStr = proofStr.substring(8);
-    }
   }
+  // We need to do this because plonk doesn't define this path
+  if (publicInputsAsFieldsPath) {
+    const innerPublicInputs = JSON.parse(
+      readFileSync(publicInputsAsFieldsPath).toString()
+    ); // assumes JSON array of PI hex strings
 
+    publicInputs = innerPublicInputs.concat(extraPublicInputs);
+  } else {
+    // for plonk, the extraPublicInputs are all of the public inputs
+    publicInputs = extraPublicInputs;
+  }
+  proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
   const key =

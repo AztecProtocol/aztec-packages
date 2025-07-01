@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Check out the repository so we can read files and create tags.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
@@ -24,10 +24,20 @@ jobs:
       # Then, create a nightly tag using the current version and the current UTC date.
       - name: Create Nightly Tag
         run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
           current_version=$(jq -r '."."' .release-please-manifest.json)
+          # Compute the next major version. e.g. if current version is 1.2.3, next major version is 2.0.0.
+          if [[ "$current_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major=$(( ${BASH_REMATCH[1]} + 1 ))
+            next_major_version="${major}.0.0"
+          else
+            echo "Error: Current version format is invalid: $current_version"
+            exit 1
+          fi
           echo "Current version: $current_version"
-          # Format the tag as: <current_version>-nightly.<YYYYMMDD>
-          nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+          echo "Next version: $next_major_version"
+          nightly_tag="v${next_major_version}-nightly.$(date -u +%Y%m%d)"
           echo "Nightly tag: $nightly_tag"
           # Tag and push.
           git tag -a "$nightly_tag" -m "$nightly_tag"

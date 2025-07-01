@@ -8,7 +8,7 @@ arch=$3
 
 cd $(dirname $0)
 
-bid_per_cpu_hour=0.03125
+bid_per_cpu_hour=0.0433
 
 instance_types_amd64=(
   m6a
@@ -33,28 +33,30 @@ cpu_map=(
   [96]="24xlarge"
   [128]="32xlarge"
   [192]="48xlarge"
+  [0192]="metal"
 )
 
 if [ "$arch" == "x86_64" ] || [ "$arch" == "amd64" ]; then
   instances=("${instance_types_amd64[@]}")
-  ami=${ami:-$(cat ./aws/ami_id_amd64)}
+  ami=${AMI:-$(cat ./aws/ami_id_amd64)}
 elif [ "$arch" == "arm64" ]; then
   instances=("${instance_types_arm64[@]}")
-  ami=${ami:-$(cat ./aws/ami_id_arm64)}
+  ami=${AMI:-$(cat ./aws/ami_id_arm64)}
 else
   echo "Unsupported arch: $arch" >&2
   exit 1
 fi
 
+set +e
 IFS=',' read -ra cpu_list <<< "$cpus"
 for cpu in "${cpu_list[@]}"; do
   price=$(jq -n "$bid_per_cpu_hour*$cpu*100000 | round / 100000")
   suffix=${cpu_map[$cpu]}
   for inst in "${instances[@]}"; do
     instance_type="$inst.$suffix"
-    if aws_request_instance_type $name $instance_type $price $ami; then
-      exit 0
-    fi
+    aws_request_instance_type $name $instance_type $price $ami
+    code=$?
+    [[ "$code" -eq 0 || "$code" -eq 143 || "$code" -eq 130 ]] && exit $code
   done
 done
 exit 1

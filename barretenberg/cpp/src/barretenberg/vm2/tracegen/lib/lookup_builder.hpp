@@ -6,17 +6,20 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
 
-template <typename LookupSettings_> class BaseLookupTraceBuilder : public InteractionBuilderInterface {
+// A lookup builder that uses a function `find_in_dst` to find the destination row for a given source tuple.
+template <typename LookupSettings_> class IndexedLookupTraceBuilder : public InteractionBuilderInterface {
   public:
-    ~BaseLookupTraceBuilder() override = default;
+    ~IndexedLookupTraceBuilder() override = default;
 
     void process(TraceContainer& trace) override
     {
@@ -29,12 +32,16 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
         // find a row dst_row in the target columns {d1, d2, ...} where the values match.
         // Then we increment the count in the counts column at dst_row.
         // The complexity is O(|src_selector|) * O(find_in_dst).
-        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
-            assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-
+        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
-            uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
+            uint32_t dst_row = 0;
+            try {
+                dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
+            } catch (const std::runtime_error& e) {
+                // Add row information and rethrow.
+                throw std::runtime_error(std::string(e.what()) + " at row " + std::to_string(row));
+            }
+
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
     }
@@ -49,9 +56,8 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
 // It calculates the counts by trying to find the tuple in the destination columns.
 // It creates an index of the destination columns on init, and uses it to find the tuple efficiently.
 // This class should work for any lookup that is not precomputed.
-// However, consider using a more specialized and faster class.
 template <typename LookupSettings_>
-class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettings_> {
+class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSettings_> {
   public:
     virtual ~LookupIntoDynamicTableGeneric() = default;
 
@@ -62,10 +68,7 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
     void init(TraceContainer& trace) override
     {
         row_idx.reserve(trace.get_column_rows(LookupSettings::DST_SELECTOR));
-        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF& dst_sel_value) {
-            assert(dst_sel_value == 1);
-            (void)dst_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-
+        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
             row_idx.insert({ dst_values, row });
         });
@@ -78,7 +81,8 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
             return it->second;
         }
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                 ". Could not find tuple in destination.");
+                                 ". Could not find tuple in destination. " +
+                                 "SRC tuple: " + column_values_to_string(tup, LookupSettings::SRC_COLUMNS));
     }
 
   private:
@@ -106,27 +110,41 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
 
         SetDummyInverses<LookupSettings>(trace);
 
-        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
-            assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
+        // For the sequential builder, it is critical that we visit the source rows in order.
+        // Since the trace does not guarantee visiting rows in order, we need to collect the rows.
+        std::vector<uint32_t> src_rows_in_order;
+        src_rows_in_order.reserve(trace.get_column_rows(LookupSettings::SRC_SELECTOR));
+        trace.visit_column(LookupSettings::SRC_SELECTOR,
+                           [&](uint32_t row, const FF&) { src_rows_in_order.push_back(row); });
+        std::sort(src_rows_in_order.begin(), src_rows_in_order.end());
 
+        for (uint32_t row : src_rows_in_order) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
 
             // We find the first row in the destination columns where the values match.
-            while (dst_row < max_dst_row) {
+            bool found = false;
+            while (!found && dst_row < max_dst_row) {
                 // TODO: As an optimization, we could try to only walk the rows where the selector is active.
                 // We can't just do a visit because we cannot skip rows with that.
                 auto dst_selector = trace.get(LookupSettings::DST_SELECTOR, dst_row);
                 if (dst_selector == 1 && src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row)) {
                     trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
-                    return; // Done with this source row.
+                    found = true;
+                    // We don't want to increment dst_row if we found a match.
+                    // It could be that the next "query" will find the same tuple.
+                    break;
                 }
                 ++dst_row;
             }
 
-            throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                     ". Could not find tuple in destination.");
-        });
+            if (!found) {
+                throw std::runtime_error(
+                    "Failed computing counts for " + std::string(LookupSettings::NAME) +
+                    ". Could not find tuple in destination.\nSRC tuple (row " + std::to_string(row) +
+                    "): " + column_values_to_string(src_values, LookupSettings::SRC_COLUMNS) +
+                    "\nNOTE: Remember that you cannot use LookupIntoDynamicTableSequential with a deduplicated trace!");
+            }
+        }
     }
 };
 
@@ -136,11 +154,8 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
 template <typename T, size_t SIZE> struct std::hash<std::array<T, SIZE>> {
     std::size_t operator()(const std::array<T, SIZE>& arr) const noexcept
     {
-        std::size_t hash = 0;
-        for (const auto& elem : arr) {
-            hash = std::rotl(hash, 1);
-            hash ^= std::hash<T>{}(elem);
-        }
-        return hash;
+        return [&arr]<size_t... Is>(std::index_sequence<Is...>) {
+            return bb::utils::hash_as_tuple(arr[Is]...);
+        }(std::make_index_sequence<SIZE>{});
     }
 };

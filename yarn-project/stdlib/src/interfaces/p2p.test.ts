@@ -36,6 +36,11 @@ describe('P2PApiSchema', () => {
     expect(txs[0]).toBeInstanceOf(Tx);
   });
 
+  it('getPendingTxCount', async () => {
+    const txs = await context.client.getPendingTxCount();
+    expect(txs).toEqual(10);
+  });
+
   it('getEncodedEnr', async () => {
     const enr = await context.client.getEncodedEnr();
     expect(enr).toEqual('enr');
@@ -59,14 +64,18 @@ const peers: PeerInfo[] = [
 ];
 
 class MockP2P implements P2PApi {
-  getAttestationsForSlot(slot: bigint, proposalId?: string | undefined): Promise<BlockAttestation[]> {
+  getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {
     expect(slot).toEqual(1n);
     expect(proposalId).toEqual('proposalId');
     return Promise.resolve([BlockAttestation.empty()]);
   }
 
-  async getPendingTxs(): Promise<Tx[]> {
-    return [await Tx.random()];
+  getPendingTxs(): Promise<Tx[]> {
+    return Promise.resolve([Tx.random()]);
+  }
+
+  getPendingTxCount(): Promise<number> {
+    return Promise.resolve(10);
   }
 
   getEncodedEnr(): Promise<string | undefined> {
@@ -76,5 +85,10 @@ class MockP2P implements P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]> {
     expect(includePending === undefined || includePending === true).toBeTruthy();
     return Promise.resolve(peers);
+  }
+
+  addAttestations(attestations: BlockAttestation[]): Promise<void> {
+    expect(attestations).toEqual([BlockAttestation.empty(), BlockAttestation.empty()]);
+    return Promise.resolve();
   }
 }

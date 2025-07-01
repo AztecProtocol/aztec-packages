@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {IMintableERC20} from "./../governance/interfaces/IMintableERC20.sol";
 
 interface IFeeAssetHandler {
   event MintAmountSet(uint256 amount);
@@ -20,11 +20,11 @@ contract FeeAssetHandler is IFeeAssetHandler, Ownable {
     mintAmount = _mintAmount;
   }
 
-  function mint(address _recipient) external override {
+  function mint(address _recipient) external override(IFeeAssetHandler) {
     FEE_ASSET.mint(_recipient, mintAmount);
   }
 
-  function setMintAmount(uint256 _amount) external override onlyOwner {
+  function setMintAmount(uint256 _amount) external override(IFeeAssetHandler) onlyOwner {
     mintAmount = _amount;
     emit MintAmountSet(_amount);
   }

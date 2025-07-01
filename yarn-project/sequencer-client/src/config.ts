@@ -12,10 +12,9 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
 
 import {
@@ -37,6 +36,7 @@ export type SequencerClientConfig = PublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
+  Pick<P2PConfig, 'txPublicSetupAllowList'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
@@ -54,6 +54,11 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_MIN_TX_PER_BLOCK',
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
+  },
+  publishTxsWithProposals: {
+    env: 'SEQ_PUBLISH_TXS_WITH_PROPOSALS',
+    description: 'Whether to publish txs with proposals.',
+    ...booleanConfigHelper(false),
   },
   maxL2BlockGas: {
     env: 'SEQ_MAX_L2_BLOCK_GAS',
@@ -83,13 +88,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'ACVM_BINARY_PATH',
     description: 'The path to the ACVM binary',
   },
-  allowedInSetup: {
-    env: 'SEQ_ALLOWED_SETUP_FN',
-    parseEnv: (val: string) => parseSequencerAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
-    printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
-  },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
     description: 'Max block size',
@@ -99,7 +97,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
     ...booleanConfigHelper(),
-    defaultValue: false,
+    defaultValue: true,
   },
   governanceProposerPayload: {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
@@ -112,6 +110,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
+  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
@@ -129,54 +128,4 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
  */
 export function getConfigEnvVars(): SequencerClientConfig {
   return getConfigFromMappings<SequencerClientConfig>(sequencerClientConfigMappings);
-}
-
-/**
- * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
- *
- * @param value The string to parse
- * @returns A list of allowed elements
- */
-export function parseSequencerAllowList(value: string): AllowedElement[] {
-  const entries: AllowedElement[] = [];
-
-  if (!value) {
-    return entries;
-  }
-
-  for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
-
-    if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
-    } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
-    }
-  }
-
-  return entries;
 }

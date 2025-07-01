@@ -1,3 +1,4 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -17,7 +18,7 @@ const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testben
 
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
-  version: 1,
+  rollupVersion: 1,
   l1Contracts: {
     rollupAddress: EthAddress.random(),
   },
@@ -55,7 +56,7 @@ class WorkerClientManager {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
-      peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
+      peerIdPrivateKey: new SecretValue(this.peerIdPrivateKeys[clientIndex]),
       listenAddress: '127.0.0.1',
       p2pIp: '127.0.0.1',
       p2pPort: port,
@@ -207,6 +208,8 @@ class WorkerClientManager {
         (_, ind) => ind !== clientIndex && ind < Math.min(this.peerEnrs.length, 10),
       );
 
+      this.logger.info(`Changing port for client ${clientIndex} to ${newPort} with other nodes `, otherNodes);
+
       const config = this.createClientConfig(clientIndex, newPort, otherNodes);
       const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
 
@@ -244,7 +247,7 @@ class WorkerClientManager {
         } catch (e) {
           this.logger.error(`Error force killing process ${index}:`, e);
         }
-      }, 10000); // 10 second timeout for graceful exit
+      }, 5000); // 5 second timeout for graceful exit
 
       // Listen for process exit
       process.once('exit', () => {
@@ -255,7 +258,7 @@ class WorkerClientManager {
       // Try to gracefully stop the process
       try {
         process.send({ type: 'STOP' });
-      } catch (e) {
+      } catch {
         // If sending the message fails, force kill immediately
         clearTimeout(forceKillTimeout);
         try {
@@ -289,12 +292,12 @@ class WorkerClientManager {
                 if (!p.killed) {
                   p.kill('SIGKILL');
                 }
-              } catch (e) {
+              } catch {
                 // Ignore errors when force killing
               }
             });
             resolve();
-          }, 30000); // 30 second timeout for all processes
+          }, 10000); // 10 second timeout for all processes
         }),
       ]);
     } catch (error) {

@@ -22,13 +22,13 @@ function process_batch {
     if [ -z "${results[$i]}" ]; then
       echo "${lines[$i]}"
     else
-      echo -e "${blue}SKIPPED${reset} (${yellow}http://ci.aztec-labs.com/${results[$i]}${reset}): ${lines[$i]}" >&3
+      echo -e "${blue}SKIPPED${reset} (${yellow}$(ci_term_link ${results[$i]})${reset}): ${lines[$i]}" >&3
     fi
   done
 }
 export -f process_batch
 
-if [ "$USE_TEST_CACHE" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   exec 3> >(cache_log "Skipped tests")
   # Process stdin in batches of 50.
   parallel --pipe -N50 --keep-order process_batch

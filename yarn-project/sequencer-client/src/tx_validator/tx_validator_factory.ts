@@ -1,52 +1,65 @@
 import { Fr } from '@aztec/foundation/fields';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import {
   AggregateTxValidator,
+  ArchiveCache,
   BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
+  GasTxValidator,
   MetadataTxValidator,
+  PhasesTxValidator,
   TxProofValidator,
 } from '@aztec/p2p';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { readPublicState } from '@aztec/simulator/server';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
+  PublicProcessorValidator,
 } from '@aztec/stdlib/interfaces/server';
-import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
+import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
-import { ArchiveCache } from './archive_cache.js';
-import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
-import { PhasesTxValidator } from './phases_validator.js';
 
 export function createValidatorForAcceptingTxs(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   verifier: ClientProtocolCircuitVerifier | undefined,
   {
-    blockNumber,
     l1ChainId,
+    rollupVersion,
     setupAllowList,
     gasFees,
     skipFeeEnforcement,
+    timestamp,
+    blockNumber,
   }: {
-    blockNumber: number;
     l1ChainId: number;
+    rollupVersion: number;
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
+    timestamp: UInt64;
+    blockNumber: number;
   },
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
     new DataTxValidator(),
-    new MetadataTxValidator(new Fr(l1ChainId), new Fr(blockNumber)),
+    new MetadataTxValidator({
+      l1ChainId: new Fr(l1ChainId),
+      rollupVersion: new Fr(rollupVersion),
+      timestamp,
+      blockNumber,
+      protocolContractTreeRoot,
+      vkTreeRoot: getVKTreeRoot(),
+    }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
-    new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
+    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
 
@@ -61,16 +74,12 @@ export function createValidatorForAcceptingTxs(
   return new AggregateTxValidator(...validators);
 }
 
-export function createValidatorsForBlockBuilding(
+export function createValidatorForBlockBuilding(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
-): {
-  preprocessValidator: TxValidator<Tx>;
-  postprocessValidator: TxValidator<ProcessedTx>;
-  nullifierCache: NullifierCache;
-} {
+): PublicProcessorValidator {
   const nullifierCache = new NullifierCache(db);
   const archiveCache = new ArchiveCache(db);
   const publicStateSource = new DatabasePublicStateSource(db);
@@ -84,17 +93,8 @@ export function createValidatorsForBlockBuilding(
       globalVariables,
       setupAllowList,
     ),
-    postprocessValidator: postprocessValidator(nullifierCache),
     nullifierCache,
   };
-}
-
-class DatabasePublicStateSource implements PublicStateSource {
-  constructor(private db: MerkleTreeReadOperations) {}
-
-  storageRead(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
-    return readPublicState(this.db, contractAddress, slot);
-  }
 }
 
 function preprocessValidator(
@@ -107,14 +107,17 @@ function preprocessValidator(
 ): TxValidator<Tx> {
   // We don't include the TxProofValidator nor the DataTxValidator here because they are already checked by the time we get to block building.
   return new AggregateTxValidator(
-    new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
+    new MetadataTxValidator({
+      l1ChainId: globalVariables.chainId,
+      rollupVersion: globalVariables.version,
+      timestamp: globalVariables.timestamp,
+      blockNumber: globalVariables.blockNumber,
+      protocolContractTreeRoot,
+      vkTreeRoot: getVKTreeRoot(),
+    }),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );
-}
-
-function postprocessValidator(nullifierCache: NullifierCache): TxValidator<ProcessedTx> {
-  return new DoubleSpendTxValidator(nullifierCache);
 }

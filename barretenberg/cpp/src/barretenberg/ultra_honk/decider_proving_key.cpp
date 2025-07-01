@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "decider_proving_key.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -11,7 +17,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
@@ -22,13 +28,13 @@ template <IsUltraFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadi
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
     size_t total_num_gates =
-        MASKING_OFFSET + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+        NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
 {
     PROFILE_THIS_NAME("allocate_wires");
 
@@ -37,7 +43,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_wires(
     }
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_permutation_argument_polynomials()
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_permutation_argument_polynomials()
 {
     PROFILE_THIS_NAME("allocate_permutation_argument_polynomials");
 
@@ -50,7 +56,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_permut
     proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
 {
     PROFILE_THIS_NAME("allocate_lagrange_polynomials");
 
@@ -65,7 +71,7 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_lagran
         /* size=*/dyadic_circuit_size, /*virtual size=*/dyadic_circuit_size, /*start_index=*/0);
 }
 
-template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
     PROFILE_THIS_NAME("allocate_selectors");
 
@@ -76,11 +82,11 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used
         // in aux block.
         if (&block == &circuit.blocks.arithmetic) {
-            size_t arith_size = circuit.blocks.aux.trace_offset - circuit.blocks.arithmetic.trace_offset +
+            size_t arith_size = circuit.blocks.aux.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.aux.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset);
+            selector = Polynomial(arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset());
         } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
+            selector = Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset());
         }
     }
 
@@ -90,18 +96,18 @@ template <IsUltraFlavor Flavor> void DeciderProvingKey_<Flavor>::allocate_select
     }
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
     PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
-    size_t table_offset = circuit.blocks.lookup.trace_offset;
+    size_t table_offset = circuit.blocks.lookup.trace_offset();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_circuit_size - table_offset;
     ASSERT(dyadic_circuit_size > max_tables_size);
 
     // Allocate the polynomials containing the actual table data
-    if constexpr (IsUltraFlavor<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : proving_key.polynomials.get_tables()) {
             poly = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
         }
@@ -112,8 +118,8 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
 
     const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
-    const auto tables_end = circuit.blocks.lookup.trace_offset + max_tables_size;
+        static_cast<size_t>(circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.get_fixed_size(is_structured));
+    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
 
     // Allocate the lookup_inverses polynomial
 
@@ -124,7 +130,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
         Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
@@ -138,7 +144,7 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
     proving_key.polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, proving_key.circuit_size);
 }
 
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -157,7 +163,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
 
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
-        circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);
+        circuit.blocks.busread.trace_offset() + circuit.blocks.busread.get_fixed_size(is_structured);
     proving_key.polynomials.calldata_inverses =
         Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
     proving_key.polynomials.secondary_calldata_inverses =
@@ -173,7 +179,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
@@ -232,7 +238,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
@@ -250,14 +256,14 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
         uint32_t fixed_block_size = block.get_fixed_size();
         if (block_size > fixed_block_size && block != overflow_block) {
             // Disallow overflow in blocks that are not expected to be used by App circuits
-            if (block.is_pub_inputs) {
+            if (&block == &blocks.pub_inputs) {
                 info("WARNING: Number of public inputs (",
                      block_size,
                      ") cannot exceed capacity specified in structured trace: ",
                      fixed_block_size);
                 ASSERT(false);
             }
-            if (block == blocks.ecc_op) {
+            if (&block == &blocks.ecc_op) {
                 info("WARNING: Number of ecc op gates (",
                      block_size,
                      ") cannot exceed capacity specified in structured trace: ",
@@ -271,10 +277,11 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // The circuit memory read/write records store the indices at which a RAM/ROM read/write has occurred. If
             // the block containing RAM/ROM gates overflows, the indices of the corresponding gates in the memory
             // records need to be updated to reflect their new position in the overflow block
-            if (block.has_ram_rom) {
-                uint32_t overflow_cur_idx = overflow_block.trace_offset + static_cast<uint32_t>(overflow_block.size());
-                overflow_cur_idx -= block.trace_offset; // we'll add block.trace_offset to everything later
-                uint32_t offset = overflow_cur_idx + 1; // +1 accounts for duplication of final gate
+            if (&block == &blocks.aux) {
+                uint32_t overflow_cur_idx =
+                    overflow_block.trace_offset() + static_cast<uint32_t>(overflow_block.size());
+                overflow_cur_idx -= block.trace_offset(); // we'll add block.trace_offset to everything later
+                uint32_t offset = overflow_cur_idx + 1;   // +1 accounts for duplication of final gate
                 for (auto& idx : circuit.memory_read_records) {
                     // last gate in the main block will be duplicated; if necessary, duplicate the memory read idx too
                     if (idx == fixed_block_size - 1) {
@@ -331,6 +338,10 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 template class DeciderProvingKey_<UltraFlavor>;
 template class DeciderProvingKey_<UltraZKFlavor>;
 template class DeciderProvingKey_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class DeciderProvingKey_<UltraStarknetFlavor>;
+template class DeciderProvingKey_<UltraStarknetZKFlavor>;
+#endif
 template class DeciderProvingKey_<UltraKeccakZKFlavor>;
 template class DeciderProvingKey_<UltraRollupFlavor>;
 template class DeciderProvingKey_<MegaFlavor>;

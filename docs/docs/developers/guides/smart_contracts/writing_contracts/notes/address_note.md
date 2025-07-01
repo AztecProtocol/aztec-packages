@@ -21,7 +21,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#i
 
 ### In your contract
 
-#include_code addressnote_import noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr rust
+#include_code addressnote_import noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr rust
 
 ## Working with AddressNote
 
@@ -32,7 +32,7 @@ Creating a new `AddressNote` takes the following args:
 - `address` (`AztecAddress`): the address to store in the AddressNote
 - `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-#include_code addressnote_new noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr rust
+#include_code addressnote_new noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr rust
 
 In this example, `owner` is the `address` and the `npk_m_hash` of the donor was computed earlier.
 

@@ -1,12 +1,15 @@
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
 #include <cassert>
+#include <memory>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -84,5 +87,13 @@ void ToRadixTraceBuilder::process(const simulation::EventEmitterInterface<simula
         }
     }
 }
+
+const InteractionDefinition ToRadixTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_to_radix_limb_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_to_radix_limb_less_than_radix_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_to_radix_fetch_safe_limbs_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_to_radix_fetch_p_limb_settings, InteractionType::LookupIntoPDecomposition>()
+        .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

@@ -3,16 +3,15 @@ import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/ab
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import {
-  BaseContractInteraction,
-  type RequestMethodOptions,
-  type SendMethodOptions,
-} from './base_contract_interaction.js';
-import type { SimulateMethodOptions } from './contract_function_interaction.js';
+import { BaseContractInteraction } from './base_contract_interaction.js';
+import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
-  constructor(wallet: Wallet, protected calls: BaseContractInteraction[]) {
+  constructor(
+    wallet: Wallet,
+    protected calls: BaseContractInteraction[],
+  ) {
     super(wallet);
   }
 
@@ -25,10 +24,10 @@ export class BatchCall extends BaseContractInteraction {
   public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
 
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
+    const { fee: userFee, txNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   /**
@@ -51,26 +50,26 @@ export class BatchCall extends BaseContractInteraction {
    * Simulate a transaction and get its return values
    * Differs from prove in a few important ways:
    * 1. It returns the values of the function execution
-   * 2. It supports `unconstrained`, `private` and `public` functions
+   * 2. It supports `utility`, `private` and `public` functions
    *
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
-    const { indexedExecutionPayloads, unconstrained } = (await this.getRequests()).reduce<{
+    const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
       /** Keep track of the number of public calls to retrieve the return values */
       publicIndex: 0;
       /** The public and private function execution requests in the batch */
       indexedExecutionPayloads: [ExecutionPayload, number, number][];
-      /** The unconstrained function calls in the batch. */
-      unconstrained: [FunctionCall, number][];
+      /** The utility function calls in the batch. */
+      utility: [FunctionCall, number][];
     }>(
       (acc, current, index) => {
         const call = current.calls[0];
-        if (call.type === FunctionType.UNCONSTRAINED) {
-          acc.unconstrained.push([call, index]);
+        if (call.type === FunctionType.UTILITY) {
+          acc.utility.push([call, index]);
         } else {
           acc.indexedExecutionPayloads.push([
             current,
@@ -80,7 +79,7 @@ export class BatchCall extends BaseContractInteraction {
         }
         return acc;
       },
-      { indexedExecutionPayloads: [], unconstrained: [], publicIndex: 0, privateIndex: 0 },
+      { indexedExecutionPayloads: [], utility: [], publicIndex: 0, privateIndex: 0 },
     );
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
@@ -91,26 +90,29 @@ export class BatchCall extends BaseContractInteraction {
       combinedPayload.capsules.concat(options.capsules ?? []),
       combinedPayload.extraHashedArgs,
     );
-    const { fee: userFee, nonce, cancellable } = options;
+    const { fee: userFee, txNonce, cancellable } = options;
     const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {
+      txNonce,
+      cancellable,
+    });
 
-    const unconstrainedCalls = unconstrained.map(
+    const utilityCalls = utility.map(
       async ([call, index]) =>
         [
-          await this.wallet.simulateUnconstrained(call.name, call.args, call.to, options?.authWitnesses, options?.from),
+          await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses, options?.from),
           index,
         ] as const,
     );
 
-    const [unconstrainedResults, simulatedTx] = await Promise.all([
-      Promise.all(unconstrainedCalls),
-      this.wallet.simulateTx(txRequest, true, options?.from, options?.skipTxValidation),
+    const [utilityResults, simulatedTx] = await Promise.all([
+      Promise.all(utilityCalls),
+      this.wallet.simulateTx(txRequest, true, options?.skipTxValidation, false, { msgSender: options?.from }),
     ]);
 
     const results: any[] = [];
 
-    unconstrainedResults.forEach(([result, index]) => {
+    utilityResults.forEach(([{ result }, index]) => {
       results[index] = result;
     });
     indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {

@@ -100,12 +100,6 @@ cd cpp
 ./bootstrap.sh
 ```
 
-You can then install the library on your system:
-
-```sh
-cmake --install build
-```
-
 ### Build Options and Instructions
 
 CMake can be passed various build options on its command line:
@@ -403,10 +397,20 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
-
 #### Debugging and profiling realistic ClientIVC flows
 
-To download realistic ClientIVC benchmark inputs from last master, use `./barretenberg/cpp/bootstrap.sh download_e2e_ivc_inputs` and run ClientIVC proving with --input runtime_stack on those inputs. By default, tries to pull from last master, but you can pass a historic commit as an argument.
+
+#### Running Realistic ClientIVC from barretenberg folder
+
+Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
+One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
+`barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
+
+To do a single benchmark you can do e.g.
+`IVC_BENCH=ecdsar1+transfer_0_recursions+sponsored_fpc ./bootstrap.sh bench_ivc origin/master~3`
+
+If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
+To use these inputs manually, just abort after input download and run ClientIVC proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 
@@ -454,3 +458,21 @@ The main memory graph will only keep track of a sum of active allocations, which
 ##### Final Thoughts
 
 What's described here is mostly relating to memory, but should in part pertain to time, gate count, and other metric analysis that we have set up with tracy. It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
+
+##### Getting Stack Traces from WASM
+
+By default, the barretenberg.wasm.gz that is used by bb.js (aka barretenberg/ts) has debug symbols stripped.
+One can get stack traces working from WASM by running root level ./bootstrap.sh (or otherwise building what you need) and then doing:
+```
+cmake --build --preset wasm-threads --target barretenberg-debug.wasm.gz
+cp build-wasm-threads/bin/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+```
+
+This will mean that any yarn-project or barretenberg/ts tests that run will get stack traces with function names.
+To get more detailed information use the following (NOTE: takes >10 minutes!):
+
+```
+cmake --preset wasm-threads-dbg
+cmake --build --preset wasm-threads-dbg --target barretenberg-debug.wasm.gz
+cp build-wasm-threads-dbg/bin/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+```

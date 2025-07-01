@@ -12,6 +12,8 @@ import type {
 } from '@aztec/stdlib/kernel';
 
 import {
+  mapPaddedSideEffectAmountsToNoir,
+  mapPaddedSideEffectsToNoir,
   mapPrivateCallDataToNoir,
   mapPrivateCircuitPublicInputsToNoir,
   mapPrivateKernelCircuitPublicInputsFromNoir,
@@ -97,16 +99,16 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
-  NUM_TRANSIENT_DATA_HINTS extends number,
+  KEY_VALIDATION_HINTS_LEN extends number,
+  TRANSIENT_DATA_HINTS_LEN extends number,
 >(
   privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputsVariants<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
-    NUM_TRANSIENT_DATA_HINTS
+    KEY_VALIDATION_HINTS_LEN,
+    TRANSIENT_DATA_HINTS_LEN
   >,
   resetAbi: Abi,
 ): WitnessMap {
@@ -115,6 +117,7 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelResetCircuitPrivateInputs.previousKernel.publicInputs,
     ),
+    padded_side_effects: mapPaddedSideEffectsToNoir(privateKernelResetCircuitPrivateInputs.paddedSideEffects),
     hints: mapPrivateKernelResetHintsToNoir(privateKernelResetCircuitPrivateInputs.hints),
   };
   const initialWitnessMap = abiEncode(resetAbi, mapped);
@@ -154,6 +157,9 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     previous_kernel: mapPrivateKernelDataToNoir(privateKernelTailToPublicCircuitPrivateInputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.previousKernel.publicInputs,
+    ),
+    padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
     ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);

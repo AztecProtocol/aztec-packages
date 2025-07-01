@@ -3,15 +3,16 @@ import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import type {
-  ActualProverConfig,
-  EpochProver,
-  EpochProverManager,
-  ForkMerkleTreeOperations,
-  ProvingJobBroker,
-  ProvingJobConsumer,
-  ProvingJobProducer,
-  ServerCircuitProver,
+import {
+  type ActualProverConfig,
+  type EpochProver,
+  type EpochProverManager,
+  type ForkMerkleTreeOperations,
+  type ProvingJobBroker,
+  type ProvingJobConsumer,
+  type ProvingJobProducer,
+  type ServerCircuitProver,
+  tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -49,7 +50,7 @@ export class ProverClient implements EpochProverManager {
   }
 
   public getProverId(): Fr {
-    return this.config.proverId ?? Fr.ZERO;
+    return this.config.proverId;
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig>): Promise<void> {
@@ -87,6 +88,7 @@ export class ProverClient implements EpochProverManager {
     }
     this.running = false;
     await this.stopAgents();
+    await tryStop(this.orchestratorClient);
   }
 
   /**
@@ -154,9 +156,9 @@ export function buildServerCircuitProver(
     return BBNativeRollupProver.new(config, telemetry);
   }
 
-  const simulationProvider = config.acvmBinaryPath
+  const simulator = config.acvmBinaryPath
     ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath)
     : undefined;
 
-  return Promise.resolve(new TestCircuitProver(simulationProvider, config, telemetry));
+  return Promise.resolve(new TestCircuitProver(simulator, config, telemetry));
 }

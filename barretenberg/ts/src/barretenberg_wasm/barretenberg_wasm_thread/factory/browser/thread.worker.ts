@@ -1,15 +1,13 @@
 import { expose } from 'comlink';
 import { BarretenbergWasmThread } from '../../index.js';
-import debug from 'debug';
+import { Ready } from '../../../helpers/browser/index.js';
+import { initLogger } from '../../../../log/browser/index.js';
 
-self.onmessage = function (e) {
-  if (e.data.debug) {
-    debug.enable(e.data.debug);
+addEventListener('message', e => {
+  if (e.data.log) {
+    initLogger(e.data.log);
   }
-};
+});
 
 expose(new BarretenbergWasmThread());
-
-self.postMessage({ ready: true });
-
-export default null as any;
+postMessage(Ready);

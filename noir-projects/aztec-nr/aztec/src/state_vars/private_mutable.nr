@@ -3,7 +3,7 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe},
     note_emission::NoteEmission,
@@ -13,7 +13,7 @@ use crate::note::{
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 
 // docs:start:struct
 pub struct PrivateMutable<Note, Context> {
@@ -24,10 +24,10 @@ pub struct PrivateMutable<Note, Context> {
 
 mod test;
 
-impl<T, Context, let N: u32> Storage<N> for PrivateMutable<T, Context>
-where
-    T: Packable<N>,
-{
+// Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
+// value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
+// one slot to be reserved, regardless of what it stores.
+impl<T, Context> HasStorageSlot<1> for PrivateMutable<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
@@ -57,12 +57,15 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext>
+impl<Note> PrivateMutable<Note, &mut PrivateContext>
 where
-    Note: NoteType + NoteHash + Packable<N>,
+    Note: NoteType + NoteHash,
 {
     // docs:start:initialize
-    pub fn initialize(self, note: Note) -> NoteEmission<Note> {
+    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    where
+        Note: Packable<N>,
+    {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
         self.context.push_nullifier(nullifier);
@@ -72,7 +75,10 @@ where
     // docs:end:initialize
 
     // docs:start:replace
-    pub fn replace(self, new_note: Note) -> NoteEmission<Note> {
+    pub fn replace<let N: u32>(self, new_note: Note) -> NoteEmission<Note>
+    where
+        Note: Packable<N>,
+    {
         let (prev_retrieved_note, note_hash_for_read_request): (RetrievedNote<Note>, Field) =
             get_note(self.context, self.storage_slot);
 
@@ -88,7 +94,10 @@ where
     }
     // docs:end:replace
 
-    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note> {
+    pub fn initialize_or_replace<let N: u32>(self, note: Note) -> NoteEmission<Note>
+    where
+        Note: Packable<N>,
+    {
         // Safety: `check_nullifier_exists` is an unconstrained function - we can constrain a true value
         // by providing an inclusion proof of the nullifier, but cannot constrain a false value since
         // a non-inclusion proof would only be valid if done in public.
@@ -111,7 +120,10 @@ where
     }
 
     // docs:start:get_note
-    pub fn get_note(self) -> NoteEmission<Note> {
+    pub fn get_note<let N: u32>(self) -> NoteEmission<Note>
+    where
+        Note: Packable<N>,
+    {
         let mut (retrieved_note, note_hash_for_read_request) =
             get_note(self.context, self.storage_slot);
 
@@ -125,9 +137,9 @@ where
     // docs:end:get_note
 }
 
-impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext>
+impl<Note> PrivateMutable<Note, UtilityContext>
 where
-    Note: NoteType + NoteHash + Packable<N> + Eq,
+    Note: NoteType + NoteHash + Eq,
 {
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
@@ -135,7 +147,10 @@ where
     }
 
     // docs:start:view_note
-    pub unconstrained fn view_note(self) -> Note {
+    pub unconstrained fn view_note<let N: u32>(self) -> Note
+    where
+        Note: Packable<N>,
+    {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

@@ -12,24 +12,24 @@ To write a contract:
 1. Import aztec.nr and declare your contract
 
 ```rust
-#include_code declaration /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr raw
+#include_code declaration /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr raw
 ```
 
 2. Define imports in your contract block
 
-#include_code imports /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code imports /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 3. Declare your contract storage below your imports
 
-#include_code storage_struct /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code storage_struct /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 4. Declare a constructor with `#[initializer]`. Constructors can be private or public functions.
 
-#include_code constructor /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code constructor /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 5. Declare your contract functions
 
-#include_code cast_vote /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code cast_vote /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 There is a lot more detail and nuance to writing contracts, but this should give you a good starting point.
 Read contents of this section for more details about authorizing contract to act on your behalf (authenticaion witnesses),

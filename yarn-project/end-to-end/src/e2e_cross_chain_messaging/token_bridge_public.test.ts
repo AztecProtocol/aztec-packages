@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/aztec.js';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -72,11 +73,11 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     const validateActionInteraction = await user1Wallet.setPublicAuthWit(
       {
         caller: l2Bridge.address,
-        action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce),
+        action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, authwitNonce),
       },
       true,
     );
@@ -84,14 +85,15 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
-    const l2ToL1Message = crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
-    const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, nonce);
+    const l2ToL1Message = await crossChainTestHarness.getL2ToL1MessageLeaf(withdrawAmount);
+    const l2TxReceipt = await crossChainTestHarness.withdrawPublicFromAztecToL1(withdrawAmount, authwitNonce);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, afterBalance - withdrawAmount);
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+    const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(
+      aztecNode,
       l2TxReceipt.blockNumber!,
       l2ToL1Message,
     );
@@ -101,8 +103,8 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageIndex,
-      siblingPath,
+      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   }, 120_000);
@@ -130,7 +132,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, claim.claimSecret, messageLeafIndex)
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2

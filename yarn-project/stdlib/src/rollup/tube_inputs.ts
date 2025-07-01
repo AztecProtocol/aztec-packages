@@ -10,7 +10,10 @@ import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
  * 'usePublicTailVk' signifies if we should prove this with the public or private kernel tail client IVC VKs.
  */
 export class TubeInputs {
-  constructor(public usePublicTailVk: boolean, public clientIVCData: ClientIvcProof) {}
+  constructor(
+    public usePublicTailVk: boolean,
+    public clientIVCData: ClientIvcProof,
+  ) {}
 
   static from(fields: FieldsOf<TubeInputs>): TubeInputs {
     return new TubeInputs(...TubeInputs.getFields(fields));

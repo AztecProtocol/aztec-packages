@@ -24,13 +24,13 @@ import {
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
-import { LogHash } from '../kernel/log_hash.js';
+import { CountedLogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
-import { L2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { CountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { MaxBlockNumber } from '../tx/max_block_number.js';
+import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { TxContext } from '../tx/tx_context.js';
 import { ReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
@@ -64,9 +64,9 @@ export class PrivateCircuitPublicInputs {
      */
     public isFeePayer: boolean,
     /**
-     * The maximum block number in which this transaction can be included and be valid.
+     * The highest timestamp of a block in which the transaction can still be included.
      */
-    public maxBlockNumber: MaxBlockNumber,
+    public includeByTimestamp: IncludeByTimestamp,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -105,7 +105,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public l2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Logs emitted in this function call.
      */
@@ -113,7 +113,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Hash of the contract class logs emitted in this function call.
      */
-    public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    public contractClassLogsHashes: Tuple<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -158,7 +158,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readBoolean(),
-      reader.readObject(MaxBlockNumber),
+      reader.readObject(IncludeByTimestamp),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
@@ -167,9 +167,9 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -185,7 +185,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readBoolean(),
-      reader.readObject(MaxBlockNumber),
+      reader.readObject(IncludeByTimestamp),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
@@ -194,9 +194,9 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -215,7 +215,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       false,
-      MaxBlockNumber.empty(),
+      IncludeByTimestamp.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
@@ -224,9 +224,9 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest.empty),
       PublicCallRequest.empty(),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash.empty),
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),
@@ -241,7 +241,7 @@ export class PrivateCircuitPublicInputs {
       this.returnsHash.isZero() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      this.maxBlockNumber.isEmpty() &&
+      this.includeByTimestamp.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.keyValidationRequestsAndGenerators) &&
@@ -272,7 +272,7 @@ export class PrivateCircuitPublicInputs {
       fields.returnsHash,
       fields.minRevertibleSideEffectCounter,
       fields.isFeePayer,
-      fields.maxBlockNumber,
+      fields.includeByTimestamp,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.keyValidationRequestsAndGenerators,

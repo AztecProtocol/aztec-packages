@@ -4,18 +4,48 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 source $ci3/source_refname
 
+# We must enable job control to ensure our test runs in it's own process group.
+# Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
+# This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
+set -m
+
 cmd=$1
+is_merge_queue=0
+[[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
+
+# Extract the first token and export any variable assignments.
+hash_part="${cmd%% *}"
+if [[ "$hash_part" == *:* ]]; then
+  IFS=':' read -ra parts <<< "$hash_part"
+  # The first element is the actual hash; remaining elements are variable assignments.
+  for var_assignment in "${parts[@]:1}"; do
+    export "$var_assignment"
+  done
+fi
+
+# Defaults, unless overridden above.
+TIMEOUT=${TIMEOUT:-600s}
+# The following are exported as they maybe used in the test command.
+# We can schedule on all CPUs by default.
+export CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
+export CPUS=${CPUS:-2}
+# TODO: Only currently enforced by docker. Investigate ulimit.
+export MEM=${MEM:-$((CPUS * 4))g}
+
 # Remove the rebuild hash (first field) that is in front of the test command.
 # Exported for use in yq.
 export test_cmd="${cmd#* }"
 key=$(hash_str_orig "$cmd")
 
+# For tracking a list of results for individual tests (excludes the rebuild hash).
+test_hash=$(hash_str_orig "$test_cmd")
+
 # We can skip the test if it's already been successfully run.
 # We actually pre-filter tests in CI runs so this is rarely hit.
-if [ "$USE_TEST_CACHE" -eq 1 ]; then
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
-    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+    log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
     exit 0
   fi
@@ -24,68 +54,106 @@ fi
 # If the test has a verbose mode, we want it enabled.
 export VERBOSE=1
 
+function cleanup {
+  if [ -n "${publish_pid:-}" ]; then
+    kill $publish_pid &>/dev/null
+  fi
+  if [ -f ${tmp_file:-} ]; then
+    rm -f $tmp_file
+  fi
+}
+trap cleanup EXIT
+
+function sig_handler {
+  # echo RTC kill $test_pid $cmd >/dev/tty;
+  kill -TERM ${test_pid:-} &>/dev/null
+  # echo RTC waiting on $test_pid >/dev/tty;
+  # wait $test_pid
+  # echo RTC wait complete for $test_pid >/dev/tty;
+  exit
+}
+trap sig_handler SIGTERM SIGINT
+
 # Run the test, capturing output, with a timeout of 10m.
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
 tmp_file=/tmp/$key
 # Print test metadata header.
 cat <<EOF >$tmp_file
+Parent Log: ${PARENT_LOG_URL:-none}
 Command: $cmd
 Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
 Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
 Date: $(date)
-Sys: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
+System: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
+Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
+History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARGET_BRANCH}
 
 EOF
-# Remove the tmp fail on exit.
-trap "rm -f $tmp_file" EXIT
 
 function publish_log {
-  cat $tmp_file | redis_setexz $log_key $CI_REDIS_EXPIRE
+  cat $tmp_file 2>/dev/null | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
 }
 
 function live_publish_log {
+  # Not replacing previous trap as we run this function in the background.
+  trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
   # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
-  sleep 30
+  sleep 30 &
+  local sleep_pid=$!
+  wait $sleep_pid
+  publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
       publish_log
     fi
-    sleep 5
+    sleep 5 &
+    sleep_pid=$!
+    wait $sleep_pid
   done
 }
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
-  log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+  log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
 
   if [ "$CI" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
     live_publish_log &
     publish_pid=$!
-    trap "kill $publish_pid &>/dev/null" EXIT
   fi
 fi
 
-# Run the test. Disable exit on error. Handle timeout override in the test_cmd.
+# Reset timer.
+# Disable exit on error so we can capture code.
+# Run the test. Bind it to the given or default range of CPUs.
+# Timeout uses foreground so we only signal the test process, not the whole group (better cleanup control).
+# Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
+SECONDS=0
 set +e
-if [[ "$test_cmd" = timeout* ]]; then
-  bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
+if [ "${ISOLATE:-0}" -eq 1 ]; then
+  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(cat | add_timestamps >> $tmp_file) &
 else
-  timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
+  [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
+  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
 fi
-timeout_pid=$!
-trap "kill -- -$timeout_pid" SIGTERM SIGINT
-wait $timeout_pid
+test_pid=$!
+# echo "RTC waiting on $test_pid" >/dev/tty
+wait $test_pid
 code=$?
+
+# If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
+if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+  exit $code
+fi
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
   # If the test succeeded and we're in CI, save the test log.
   # If the test failed, save the test log.
   if [ $code -eq 0 ]; then
-    if [ "$USE_TEST_CACHE" -eq 1 ]; then
+    if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
       redis_cli SETEX $key 604800 $log_key &>/dev/null
     fi
     if [ "$CI" -eq 1 ]; then
@@ -94,29 +162,63 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       log_info=""
     fi
   else
-    publish_log
+    # Extend lifetime of failed test logs to 12 weeks.
+    publish_log $((60 * 60 * 24 * 7 * 12))
   fi
 fi
 
+function track_test {
+  # We track tests in merge queues only.
+  if [ "$is_merge_queue" -eq 0 ]; then
+    return
+  fi
+
+  local key=$1
+  local line=$(pr_link "$2")
+
+  redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+  # Keeps only the last 1000 lines.
+  redis_cli RTRIM $key -1000 -1 &>/dev/null
+}
+
 # Show PASSED and early out on success.
 function pass {
-  echo -e "${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
+  local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
+  echo -e "$line"
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   exit
 }
 
 # Show FAILED and exit with error code.
 function fail {
-  echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
-  cat $tmp_file
-  echo -e "${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  echo -e "$line"
+
+  if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
+    cat $tmp_file
+    echo -e "$line"
+  fi
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
   exit $code
 }
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
-  echo -e "${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
+
+  # Early out if no token or not in merge queue.
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$is_merge_queue" -eq 0 ]; then
     return
   fi
 
@@ -128,7 +230,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \
@@ -138,32 +240,13 @@ EOF
   exit
 }
 
-# Prints a list of test owners based on matching test name pattern, and optional error regex.
-function get_owners {
-  entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
-
-  # Iterate over each matching entry.
-  while IFS= read -r entry; do
-    error_regex=$(echo "$entry" | jq -r '.error_regex // empty')
-
-    # If error_regex is present, check the log content.
-    if [ -n "$error_regex" ]; then
-      if grep -qE "$error_regex" $tmp_file; then
-        echo "$entry" | jq -r '.owners[]'
-      fi
-    else
-      echo "$entry" | jq -r '.owners[]'
-    fi
-  done <<< "$entries" | sort -u
-}
-
 # Test passed.
 [ $code -eq 0 ] && pass
 
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-owners=$(get_owners)
+owners=$(get_test_owner "$test_cmd" "$tmp_file")
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then

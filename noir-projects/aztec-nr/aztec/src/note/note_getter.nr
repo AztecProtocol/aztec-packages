@@ -1,18 +1,19 @@
-use crate::context::PrivateContext;
-use crate::note::{
-    constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
-    note_getter_options::{NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder},
-    note_interface::{NoteHash, NoteType},
-    note_viewer_options::NoteViewerOptions,
-    retrieved_note::RetrievedNote,
-    utils::compute_note_hash_for_read_request,
+use crate::{
+    context::PrivateContext,
+    note::{
+        note_getter_options::{
+            NoteGetterOptions, NoteStatus, PropertySelector, Select, Sort, SortOrder,
+        },
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_read_request,
+    },
+    oracle,
+    utils::{array, comparison::compare},
 };
-use crate::oracle;
-use crate::utils::{array, comparison::compare};
-use dep::protocol_types::{
-    constants::{GET_NOTES_ORACLE_RETURN_LENGTH, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
-    traits::{Packable, ToField},
-};
+
+use protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::{Packable, ToField}};
 
 pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 
@@ -25,14 +26,14 @@ fn extract_property_value_from_selector<let N: u32>(
     // Selectors use PropertySelectors in order to locate note properties inside the packed note.
     // This allows easier packing and custom (un)packing schemas. A note property is located
     // inside the packed note using the index inside the array, a byte offset and a length.
-    let value: [u8; 32] = packed_note[selector.index].to_be_bytes();
+    let value: [u8; 32] = packed_note[selector.index as u32].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
     let mut value_field = 0 as Field;
     let mut acc: Field = 1;
     for i in 0..32 {
         if i < length {
-            value_field += value[31 + offset - i] as Field * acc;
+            value_field += value[(31 + offset - i) as u32] as Field * acc;
             acc = acc * 256;
         }
     }
@@ -192,7 +193,6 @@ unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> Ret
 where
     Note: NoteType + Packable<N>,
 {
-    let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     let opt_notes: [_; 1] = oracle::notes::get_notes(
         storage_slot,
         0,
@@ -208,7 +208,6 @@ where
         1, // limit
         0, // offset
         NoteStatus.ACTIVE,
-        placeholder_fields,
     );
 
     opt_notes[0].expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
@@ -224,7 +223,6 @@ where
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);
-    let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
 
     let opt_notes = oracle::notes::get_notes(
         storage_slot,
@@ -241,14 +239,14 @@ where
         options.limit,
         options.offset,
         options.status,
-        placeholder_fields,
     );
 
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
 }
 
 /// Unconstrained variant of `get_notes`, meant to be used in unconstrained execution contexts. Notably only the note
-/// content is returned, and not any of the information used when proving its existence (e.g. nonce, note hash, etc.).
+/// content is returned, and not any of the information used when proving its existence (e.g. note nonce, note hash,
+/// etc.).
 pub unconstrained fn view_notes<Note, let N: u32>(
     storage_slot: Field,
     options: NoteViewerOptions<Note, N>,
@@ -258,7 +256,6 @@ where
 {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) =
         flatten_options(options.selects, options.sorts);
-    let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
 
     // We fetch the notes from the same oracle we use in the constrained case, except we don't bother inspecting the
     // metadata in order to prove existence.
@@ -277,7 +274,6 @@ where
         options.limit,
         options.offset,
         options.status,
-        placeholder_fields,
     );
 
     // Even though we don't expect for the opt_notes array to be sparse, collapse is still useful in this case to
@@ -302,11 +298,14 @@ unconstrained fn flatten_options<let N: u32>(
     for i in 0..selects.len() {
         let select = selects.get(i);
         if select.is_some() {
-            select_by_indexes[num_selects] = select.unwrap_unchecked().property_selector.index;
-            select_by_offsets[num_selects] = select.unwrap_unchecked().property_selector.offset;
-            select_by_lengths[num_selects] = select.unwrap_unchecked().property_selector.length;
-            select_values[num_selects] = select.unwrap_unchecked().value;
-            select_comparators[num_selects] = select.unwrap_unchecked().comparator;
+            select_by_indexes[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.index;
+            select_by_offsets[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.offset;
+            select_by_lengths[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.length;
+            select_values[num_selects as u32] = select.unwrap_unchecked().value;
+            select_comparators[num_selects as u32] = select.unwrap_unchecked().comparator;
             num_selects += 1;
         };
     }

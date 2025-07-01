@@ -4,7 +4,7 @@ import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/st
 import type { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import type { PublicContractsDB, PublicTreesDB } from '../../public/public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
 
 export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace?: PublicSideEffectTraceInterface) {
@@ -38,8 +38,8 @@ export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: Fr, 
   });
 }
 
-export function mockGetNullifierIndex(worldStateDB: PublicTreesDB, leafIndex: Fr, _ignoredValue?: Fr) {
-  (worldStateDB as jest.Mocked<PublicTreesDB>).getNullifierIndex.mockResolvedValue(leafIndex.toBigInt());
+export function mockCheckNullifierExists(worldStateDB: PublicTreesDB, exists: boolean, _ignoredValue?: Fr) {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).checkNullifierExists.mockResolvedValue(exists);
 }
 
 export function mockL1ToL2MessageExists(

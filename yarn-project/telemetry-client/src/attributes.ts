@@ -14,8 +14,17 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/attribute-naming/}
  */
 
+/** The host of an HTTP request */
+export const HTTP_REQUEST_HOST = 'http.header.request.host';
+export const HTTP_RESPONSE_STATUS_CODE = 'http.response.status_code';
+
 /** The Aztec network identifier */
 export const NETWORK_NAME = 'aztec.network_name';
+
+export const AZTEC_NODE_ROLE = 'aztec.node_role';
+export const AZTEC_ROLLUP_VERSION = 'aztec.rollup_version';
+export const AZTEC_ROLLUP_ADDRESS = 'aztec.rollup_address';
+export const AZTEC_REGISTRY_ADDRESS = 'aztec.registry_address';
 
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
@@ -24,19 +33,9 @@ export const NETWORK_NAME = 'aztec.network_name';
 export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
 
 /**
- * The type of protocol circuit being run: server or client
- */
-export const PROTOCOL_CIRCUIT_TYPE = 'aztec.circuit.protocol_circuit_type';
-
-/**
  * For an app circuit, the contract:function being run (e.g. Token:transfer)
  */
 export const APP_CIRCUIT_NAME = 'aztec.circuit.app_circuit_name';
-
-/**
- * The type of app circuit being run: server or client
- */
-export const APP_CIRCUIT_TYPE = 'aztec.circuit.app_circuit_type';
 
 /** The block archive */
 export const BLOCK_ARCHIVE = 'aztec.block.archive';
@@ -70,6 +69,8 @@ export const ERROR_TYPE = 'aztec.error_type';
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */
 export const L1_SENDER = 'aztec.l1.sender';
+/** The L1 address receiving rewards */
+export const COINBASE = 'aztec.coinbase';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 /** The reason for disconnecting a peer */
@@ -96,6 +97,7 @@ export const SIMULATOR_PHASE = 'aztec.simulator.phase';
 export const TARGET_ADDRESS = 'aztec.address.target';
 export const SENDER_ADDRESS = 'aztec.address.sender';
 export const MANA_USED = 'aztec.mana.used';
+export const TOTAL_INSTRUCTIONS = 'aztec.total_instructions';
 
 /** Whether a sync process is the initial run, which is usually slower than iterative ones. */
 export const INITIAL_SYNC = 'aztec.initial_sync';
@@ -113,3 +115,5 @@ export const GAS_DIMENSION = 'aztec.gas_dimension';
 export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
 
 export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
+
+export const TOPIC_NAME = 'aztec.gossip.topic_name';

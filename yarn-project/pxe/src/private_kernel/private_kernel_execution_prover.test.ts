@@ -1,9 +1,4 @@
-import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  MAX_NOTE_HASHES_PER_CALL,
-  MAX_NOTE_HASHES_PER_TX,
-  VK_TREE_HEIGHT,
-} from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASHES_PER_TX, VK_TREE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -21,7 +16,7 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 import { Note } from '@aztec/stdlib/note';
 import { makeTxRequest } from '@aztec/stdlib/testing';
 import { NoteAndSlot, PrivateCallExecutionResult, PrivateExecutionResult, type TxRequest } from '@aztec/stdlib/tx';
-import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import { VerificationKey, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
@@ -70,6 +65,7 @@ describe('Private Kernel Sequencer', () => {
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
+      [],
       (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
     );
@@ -87,7 +83,7 @@ describe('Private Kernel Sequencer', () => {
     publicInputs.end.noteHashes = noteHashes;
     return {
       publicInputs,
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+      verificationKey: VerificationKeyData.empty(),
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };
@@ -104,7 +100,7 @@ describe('Private Kernel Sequencer', () => {
     return {
       publicInputs,
       outputWitness: new Map(),
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+      verificationKey: VerificationKeyData.empty(),
       bytecode: Buffer.from([]),
     };
   };

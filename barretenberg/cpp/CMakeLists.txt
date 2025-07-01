@@ -71,14 +71,16 @@ if(ENABLE_ASAN)
 endif()
 
 if(FUZZING)
+    add_definitions(-DULTRA_FUZZ)
+    if(SHOW_INFORMATION)
+        add_definitions(-DSHOW_INFORMATION=1)
+    endif()
+
     add_definitions(-DFUZZING=1)
 
     if(DISABLE_CUSTOM_MUTATORS)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
-
-    add_compile_options(-fsanitize=fuzzer)
-    add_link_options(-fsanitize=fuzzer)
 
     set(MULTITHREADING OFF)
 endif()
@@ -99,7 +101,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-fbracket-depth=2048)
+    add_compile_options(-fbracket-depth=512)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14")
         message(WARNING "Clang <14 is not supported")
     endif()
@@ -121,34 +123,9 @@ if(COVERAGE)
         message(FATAL_ERROR "Creating coverage is only available for clang")
     endif()
 
-    # Get major clang version
-    string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
-    list(GET VERSION_LIST 0 CLANG_VERSION_MAJOR)
-
-    # Find llvm-profdata
-    set(PROFDATA_EXECUTABLE_NAME "llvm-profdata-${CLANG_VERSION_MAJOR}")
-    find_program(PROFDATA_EXECUTABLE ${PROFDATA_EXECUTABLE_NAME})
-
-    if(PROFDATA_EXECUTABLE MATCHES "NOTFOUND")
-        message(FATAL_ERROR "Couldn't find ${PROFDATA_EXECUTABLE_NAME}")
-    endif()
-
-    # Find llvm-cov
-    set(COV_EXECUTABLE_NAME "llvm-cov-${CLANG_VERSION_MAJOR}")
-    find_program(COV_EXECUTABLE ${COV_EXECUTABLE_NAME})
-
-    if(COV_EXECUTABLE MATCHES "NOTFOUND")
-        message(FATAL_ERROR "Couldn't find ${COV_EXECUTABLE_NAME}")
-    endif()
-
-    # Add profiling compile options and disable optimizations
-    add_compile_options(-fprofile-instr-generate -fcoverage-mapping -O0)
-
-    # Add a custom target for creating the report
-    add_custom_target(create_full_coverage_report
-        COMMAND "${CMAKE_SOURCE_DIR}/scripts/collect_coverage_information.sh" ${PROFDATA_EXECUTABLE} ${COV_EXECUTABLE}
-        VERBATIM
-    )
+    # Add profiling compile/link options and disable optimizations
+    add_definitions(-fprofile-instr-generate -fcoverage-mapping)
+    add_link_options(-fprofile-instr-generate -fcoverage-mapping)
 endif()
 
 include(cmake/build.cmake)
@@ -161,6 +138,7 @@ include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/lmdb.cmake)
+include(cmake/libdeflate.cmake)
 
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)

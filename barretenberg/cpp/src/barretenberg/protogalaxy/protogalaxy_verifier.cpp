@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "protogalaxy_verifier.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 
@@ -8,9 +14,9 @@ namespace bb {
 
 template <class DeciderVerificationKeys>
 void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
-    const std::shared_ptr<DeciderVK>& keys, const std::string& domain_separator)
+    const std::shared_ptr<DeciderVK>& key, const std::string& domain_separator)
 {
-    OinkVerifier<Flavor> oink_verifier{ keys, transcript, domain_separator + '_' };
+    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
@@ -18,15 +24,14 @@ template <class DeciderVerificationKeys>
 void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
     const std::vector<FF>& proof)
 {
-    transcript = std::make_shared<Transcript>(proof);
-    transcript->enable_manifest();
+    transcript->load_proof(proof);
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
     if (!key->is_accumulator) {
         run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
     index++;
 
@@ -139,15 +144,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
          zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
-
-    // generate recursive folding challenges to ensure manifest matches with recursive verifier
-    // (in recursive verifier we use random challenges to convert Flavor::NUM_FOLDED_ENTITIES muls
-    //  into one large multiscalar multiplication)
-    std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
-    for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
-        args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
-    }
-    transcript->template get_challenges<FF>(args);
 
     return next_accumulator;
 }

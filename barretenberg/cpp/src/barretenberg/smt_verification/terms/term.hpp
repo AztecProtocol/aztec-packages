@@ -12,7 +12,7 @@ using namespace smt_solver;
  * BVTerm - Symbolic Variables acting like bitvectors modulo prime
  *
  */
-enum class TermType { FFTerm, FFITerm, BVTerm, ITerm };
+enum class TermType { FFTerm, FFITerm, BVTerm, ITerm, SBool, STuple, SymArray, SymSet };
 std::ostream& operator<<(std::ostream& os, TermType type);
 
 enum class OpType : int32_t {
@@ -35,7 +35,8 @@ enum class OpType : int32_t {
     ROTL,
     NOT,
     EXTRACT,
-    BITVEC_PAD
+    BITVEC_PAD,
+    BIT_SUM
 };
 
 /**
@@ -107,28 +108,17 @@ const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed
  * @details Can be a Finite Field/Integer Mod/BitVector symbolic variable or a constant.
  * Supports basic arithmetic operations: +, -, *, /.
  * Additionally
- * FFITerm supports inequalities: <, <=, >, >=
- * BVTerm supports inequalities and bitwise operations: ^, &, |, >>, <<, ror, rol
- *
+ * FFITerm and ITerm support inequalities: <, <=, >, >= and %
+ * BVTerm further supports bitwise operations: ~,^, &, |, >>, <<, ror, rol, truncate, extract_bit
  */
 class STerm {
   private:
-    STerm(cvc5::Term& term, Solver* s, TermType type = TermType::FFTerm)
-        : solver(s)
-        , term(term)
-        , isFiniteField(type == TermType::FFTerm)
-        , isInteger(type == TermType::FFITerm)
-        , isBitVector(type == TermType::BVTerm)
-        , type(type)
-        , operations(typed_operations.at(type)){};
+    STerm mod() const;
+    STerm normalize() const;
 
   public:
     Solver* solver;
     cvc5::Term term;
-
-    bool isFiniteField;
-    bool isInteger;
-    bool isBitVector;
 
     TermType type;
     std::unordered_map<OpType, cvc5::Kind> operations;
@@ -136,10 +126,13 @@ class STerm {
     STerm()
         : solver(nullptr)
         , term(cvc5::Term())
-        , isFiniteField(false)
-        , isInteger(false)
-        , isBitVector(false)
         , type(TermType::FFTerm){};
+
+    STerm(const cvc5::Term& term, Solver* s, TermType type)
+        : solver(s)
+        , term(term)
+        , type(type)
+        , operations(typed_operations.at(type)){};
 
     explicit STerm(
         const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16, TermType type = TermType::FFTerm);
@@ -149,18 +142,9 @@ class STerm {
 
     static STerm Var(const std::string& name, Solver* slv, TermType type = TermType::FFTerm);
     static STerm Const(const std::string& val, Solver* slv, uint32_t base = 16, TermType type = TermType::FFTerm);
+    static STerm Const(const bb::fr& val, Solver* slv, TermType type = TermType::FFTerm);
 
-    STerm(bb::fr value, Solver* s, TermType type = TermType::FFTerm)
-    {
-        std::stringstream buf; // TODO(#893)
-        buf << value;
-        std::string tmp = buf.str();
-        tmp[1] = '0'; // avoiding `x` in 0x prefix
-
-        *this = Const(tmp, s, 16, type);
-    }
-
-    STerm mod() const;
+    STerm(bb::fr value, Solver* s, TermType type = TermType::FFTerm) { *this = Const(value, s, type); }
 
     STerm& operator=(const STerm& right) = default;
     STerm& operator=(STerm&& right) = default;
@@ -175,6 +159,13 @@ class STerm {
     void operator*=(const STerm& other);
     STerm operator/(const STerm& other) const;
     void operator/=(const STerm& other);
+    // NOTE: this is not the same as .mod(). The modulus here can be arbitrary
+    STerm operator%(const STerm& other) const;
+
+    void operator<(const STerm& other) const;
+    void operator<=(const STerm& other) const;
+    void operator>(const STerm& other) const;
+    void operator>=(const STerm& other) const;
 
     void operator==(const STerm& other) const;
     void operator!=(const STerm& other) const;
@@ -185,17 +176,7 @@ class STerm {
     void operator&=(const STerm& other);
     STerm operator|(const STerm& other) const;
     void operator|=(const STerm& other);
-    void operator<(const STerm& other) const;
-    void operator>(const STerm& other) const;
-    STerm operator%(const STerm& other) const;
     STerm operator~() const;
-    STerm operator<<(const uint32_t& n) const;
-    void operator<<=(const uint32_t& n);
-    STerm operator>>(const uint32_t& n) const;
-    void operator>>=(const uint32_t& n);
-
-    STerm rotr(const uint32_t& n) const;
-    STerm rotl(const uint32_t& n) const;
 
     /**
      * @brief Returns last `to_size` bits of variable
@@ -207,8 +188,6 @@ class STerm {
      * @param bit_index index of bit to be extracted
      */
     STerm extract_bit(const uint32_t& bit_index);
-
-    void in(const cvc5::Term& table) const;
 
     operator std::string() const { return this->solver->stringify_term(term); };
     operator cvc5::Term() const { return term; };
@@ -222,40 +201,24 @@ class STerm {
 
     static STerm batch_add(const std::vector<STerm>& children)
     {
+        if (children.size() == 0) {
+            throw std::invalid_argument("Can't use batch_add on empty vector");
+        }
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::ADD), terms);
-        return { res, slv };
+        return { res, slv, children[0].type };
     }
 
     static STerm batch_mul(const std::vector<STerm>& children)
     {
+        if (children.size() == 0) {
+            throw std::invalid_argument("Can't use batch_mul on empty vector");
+        }
         Solver* slv = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
         cvc5::Term res = slv->term_manager.mkTerm(children[0].operations.at(OpType::MUL), terms);
-        return { res, slv };
-    }
-
-    /**
-     * @brief Create an inclusion constraint
-     *
-     * @param entry the tuple entry to be checked
-     * @param table lookup table that consists of tuples of lenght 3
-     */
-    static void in_table(std::vector<STerm>& entry, cvc5::Term& table)
-    {
-        STerm entry0 = entry[0];
-        STerm entry1 = entry[1];
-        STerm entry2 = entry[2];
-
-        entry0 = entry0.type == TermType::FFITerm && entry0.term.getNumChildren() > 1 ? entry0.mod() : entry0;
-        entry1 = entry1.type == TermType::FFITerm && entry1.term.getNumChildren() > 1 ? entry1.mod() : entry1;
-        entry2 = entry2.type == TermType::FFITerm && entry2.term.getNumChildren() > 1 ? entry2.mod() : entry2;
-
-        Solver* slv = entry[0].solver;
-        cvc5::Term sym_entry = slv->term_manager.mkTuple({ entry0, entry1, entry2 });
-        cvc5::Term inc = slv->term_manager.mkTerm(cvc5::Kind::SET_MEMBER, { sym_entry, table });
-        slv->assertFormula(inc);
+        return { res, slv, children[0].type };
     }
 
     // arithmetic compatibility with Fr
@@ -264,13 +227,21 @@ class STerm {
     void operator+=(const bb::fr& other) { *this += STerm(other, this->solver, this->type); }
     STerm operator-(const bb::fr& other) const { return *this - STerm(other, this->solver, this->type); }
     void operator-=(const bb::fr& other) { *this -= STerm(other, this->solver, this->type); }
+
     STerm operator*(const bb::fr& other) const { return *this * STerm(other, this->solver, this->type); }
     void operator*=(const bb::fr& other) { *this *= STerm(other, this->solver, this->type); }
     STerm operator/(const bb::fr& other) const { return *this * STerm(other.invert(), this->solver, this->type); }
     void operator/=(const bb::fr& other) { *this *= STerm(other.invert(), this->solver, this->type); }
+    // NOTE: this is not the same as .mod(). The modulus here can be arbitrary
+    STerm operator%(const bb::fr& other) const { return *this % STerm(other, this->solver, this->type); }
 
-    void operator==(const bb::fr& other) const { *this == STerm(other, this->solver, this->type); }
-    void operator!=(const bb::fr& other) const { *this != STerm(other, this->solver, this->type); }
+    void operator<(const bb::fr& other) const { *this < STerm(other, this->solver, this->type); };
+    void operator<=(const bb::fr& other) const { *this <= STerm(other, this->solver, this->type); };
+    void operator>(const bb::fr& other) const { *this > STerm(other, this->solver, this->type); };
+    void operator>=(const bb::fr& other) const { *this >= STerm(other, this->solver, this->type); };
+
+    void operator==(const bb::fr& other) const { *this == STerm(other, this->solver, this->type); };
+    void operator!=(const bb::fr& other) const { *this != STerm(other, this->solver, this->type); };
 
     STerm operator^(const bb::fr& other) const { return *this ^ STerm(other, this->solver, this->type); };
     void operator^=(const bb::fr& other) { *this ^= STerm(other, this->solver, this->type); };
@@ -279,10 +250,15 @@ class STerm {
     STerm operator|(const bb::fr& other) const { return *this | STerm(other, this->solver, this->type); };
     void operator|=(const bb::fr& other) { *this |= STerm(other, this->solver, this->type); };
 
-    void operator<(const bb::fr& other) const;
-    void operator<=(const bb::fr& other) const;
-    void operator>(const bb::fr& other) const;
-    void operator>=(const bb::fr& other) const;
+    STerm operator<<(const uint32_t& n) const;
+    void operator<<=(const uint32_t& n);
+    STerm operator>>(const uint32_t& n) const;
+    void operator>>=(const uint32_t& n);
+
+    STerm rotr(const uint32_t& n) const;
+    STerm rotl(const uint32_t& n) const;
+
+    friend class Bool;
 };
 
 STerm operator+(const bb::fr& lhs, const STerm& rhs);
@@ -297,11 +273,18 @@ STerm operator|(const bb::fr& lhs, const STerm& rhs);
 
 STerm FFVar(const std::string& name, Solver* slv);
 STerm FFConst(const std::string& val, Solver* slv, uint32_t base = 16);
+STerm FFConst(const bb::fr& val, Solver* slv);
+
 STerm FFIVar(const std::string& name, Solver* slv);
 STerm FFIConst(const std::string& val, Solver* slv, uint32_t base = 16);
+STerm FFIConst(const bb::fr& val, Solver* slv);
+
 STerm IVar(const std::string& name, Solver* slv);
 STerm IConst(const std::string& val, Solver* slv, uint32_t base = 16);
+STerm IConst(const bb::fr& val, Solver* slv);
+
 STerm BVVar(const std::string& name, Solver* slv);
 STerm BVConst(const std::string& val, Solver* slv, uint32_t base = 16);
+STerm BVConst(const bb::fr& val, Solver* slv);
 
 } // namespace smt_terms

@@ -4,6 +4,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
+import deterministicStringify from 'json-stringify-deterministic';
+
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
 
 const VERSION = 1;
@@ -21,26 +23,26 @@ const sha256Fr = reduceFn(sha256, Fr);
  *   sha256(fn.selector, fn.metadata_hash, sha256(fn.bytecode))
  * private_functions_artifact_tree_root = merkleize(private_functions_artifact_leaves)
  *
- * unconstrained_functions_artifact_leaves = artifact.unconstrained_functions.map fn =>
+ * utility_functions_artifact_leaves = artifact.utility_functions.map fn =>
  *   sha256(fn.selector, fn.metadata_hash, sha256(fn.bytecode))
- * unconstrained_functions_artifact_tree_root = merkleize(unconstrained_functions_artifact_leaves)
+ * utility_functions_artifact_tree_root = merkleize(utility_functions_artifact_leaves)
  *
  * version = 1
  * artifact_hash = sha256(
  *   version,
  *   private_functions_artifact_tree_root,
- *   unconstrained_functions_artifact_tree_root,
+ *   utility_functions_artifact_tree_root,
  *   artifact_metadata,
  * )
  * ```
  * @param artifact - Artifact to calculate the hash for.
  */
 export async function computeArtifactHash(
-  artifact: ContractArtifact | { privateFunctionRoot: Fr; unconstrainedFunctionRoot: Fr; metadataHash: Fr },
+  artifact: ContractArtifact | { privateFunctionRoot: Fr; utilityFunctionRoot: Fr; metadataHash: Fr },
 ): Promise<Fr> {
-  if ('privateFunctionRoot' in artifact && 'unconstrainedFunctionRoot' in artifact && 'metadataHash' in artifact) {
-    const { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash } = artifact;
-    const preimage = [privateFunctionRoot, unconstrainedFunctionRoot, metadataHash].map(x => x.toBuffer());
+  if ('privateFunctionRoot' in artifact && 'utilityFunctionRoot' in artifact && 'metadataHash' in artifact) {
+    const { privateFunctionRoot, utilityFunctionRoot, metadataHash } = artifact;
+    const preimage = [privateFunctionRoot, utilityFunctionRoot, metadataHash].map(x => x.toBuffer());
     return sha256Fr(Buffer.concat([numToUInt8(VERSION), ...preimage]));
   }
 
@@ -52,13 +54,13 @@ export async function computeArtifactHash(
 
 export async function computeArtifactHashPreimage(artifact: ContractArtifact) {
   const privateFunctionRoot = await computeArtifactFunctionTreeRoot(artifact, FunctionType.PRIVATE);
-  const unconstrainedFunctionRoot = await computeArtifactFunctionTreeRoot(artifact, FunctionType.UNCONSTRAINED);
+  const utilityFunctionRoot = await computeArtifactFunctionTreeRoot(artifact, FunctionType.UTILITY);
   const metadataHash = computeArtifactMetadataHash(artifact);
-  return { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash };
+  return { privateFunctionRoot, utilityFunctionRoot, metadataHash };
 }
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
-  return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name, outputs: artifact.outputs }), 'utf-8'));
+  return sha256Fr(Buffer.from(deterministicStringify({ name: artifact.name, outputs: artifact.outputs }), 'utf-8'));
 }
 
 export async function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnType: FunctionType) {
@@ -103,7 +105,7 @@ export async function computeFunctionArtifactHash(
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
-  return sha256Fr(Buffer.from(JSON.stringify(fn.returnTypes), 'utf8'));
+  return sha256Fr(Buffer.from(deterministicStringify(fn.returnTypes), 'utf8'));
 }
 
 function getLogger() {
@@ -111,5 +113,5 @@ function getLogger() {
 }
 
 export function getArtifactMerkleTreeHasher() {
-  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(Buffer.concat([l, r])).toBuffer());
+  return (l: Buffer, r: Buffer) => Promise.resolve(sha256Fr(Buffer.concat([l, r])).toBuffer() as Buffer<ArrayBuffer>);
 }

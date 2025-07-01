@@ -1,0 +1,33 @@
+{{- if and (.Values.snapshots.uploadLocation) (.Values.snapshots.frequency) (gt (int .Values.fullNode.replicas) 0) }}
+# Cronjob for creating and uploading database snapshots to a public location
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-snapshots-cron-job
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  schedule: "{{ .Values.snapshots.frequency }}"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "aztec-network.selectorLabels" . | nindent 12 }}
+            app: request-upload-snapshot
+        spec:
+          restartPolicy: Never
+          {{- if .Values.network.public }}
+          serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+          {{- end }}
+          containers:
+            - name: request-upload-snapshot
+              image: {{ .Values.images.curl.image }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -ex
+                  echo "Starting snapshot upload to {{ .Values.snapshots.uploadLocation }} via {{ include "aztec-network.fullNodeAdminUrl" . }}"
+                  curl -XPOST {{ include "aztec-network.fullNodeAdminUrl" . }} -d '{"method": "nodeAdmin_startSnapshotUpload", "params": ["{{ .Values.snapshots.uploadLocation }}"], "id": 1, "jsonrpc": "2.0"}' -H 'Content-Type: application/json'
+{{- end }}

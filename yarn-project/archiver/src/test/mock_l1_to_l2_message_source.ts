@@ -1,4 +1,5 @@
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
+import type { L2Tips } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 
 /**
@@ -17,8 +18,8 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     this.blockNumber = blockNumber;
   }
 
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    return Promise.resolve(this.messagesPerBlock.get(Number(blockNumber)) ?? []);
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+    return Promise.resolve(this.messagesPerBlock.get(blockNumber) ?? []);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -27,5 +28,15 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
 
   getBlockNumber(): Promise<number> {
     return Promise.resolve(this.blockNumber);
+  }
+
+  getL2Tips(): Promise<L2Tips> {
+    const number = this.blockNumber;
+    const tip = { number, hash: new Fr(number).toString() };
+    return Promise.resolve({
+      latest: tip,
+      proven: tip,
+      finalized: tip,
+    });
   }
 }

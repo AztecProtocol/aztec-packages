@@ -14,7 +14,11 @@ abstract class BaseStorageInstruction extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(protected indirect: number, protected aOffset: number, protected bOffset: number) {
+  constructor(
+    protected indirect: number,
+    protected aOffset: number,
+    protected bOffset: number,
+  ) {
     super();
   }
 }
@@ -33,15 +37,24 @@ export class SStore extends BaseStorageInstruction {
     }
 
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.aOffset, this.bOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, slotOffset] = addressing.resolve(operands, memory);
+    // We read before tag checking since it's needed for gas cost calculation
+    const slot = memory.get(slotOffset).toFr();
+
+    context.machineState.consumeGas(
+      this.dynamicGasCost(Number(context.persistableState.isStorageCold(context.environment.address, slot))),
+    );
+
     memory.checkTag(TypeTag.FIELD, slotOffset);
     memory.checkTag(TypeTag.FIELD, srcOffset);
 
-    const slot = memory.get(slotOffset).toFr();
     const value = memory.get(srcOffset).toFr();
     await context.persistableState.writeStorage(context.environment.address, slot, value);
   }
@@ -57,10 +70,13 @@ export class SLoad extends BaseStorageInstruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.aOffset, this.bOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [slotOffset, dstOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
 

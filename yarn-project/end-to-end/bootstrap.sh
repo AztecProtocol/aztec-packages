@@ -3,131 +3,56 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+fi
+
 hash=$(../bootstrap.sh hash)
+bench_fixtures_dir=example-app-ivc-inputs-out
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash $run_test_script"
-
-  if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
-  else
-    echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
-  fi
+  local prefix="$hash:ISOLATE=1"
 
   # Longest-running tests first
-  echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
+  # Can't run full prover tests on ARM because AVM is disabled.
+  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
+    else
+      echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
+    fi
+  else
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+    else
+      echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    fi
+  fi
+  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
 
-  echo "$prefix simple e2e_2_pxes"
-  echo "$prefix simple e2e_account_contracts"
-  echo "$prefix simple e2e_amm"
-  echo "$prefix simple e2e_authwit"
-  echo "$prefix simple e2e_avm_simulator"
-  echo "$prefix simple e2e_contract_updates"
-
-  # blacklist_token_contract sub-tests
-  echo "$prefix simple e2e_blacklist_token_contract/access_control"
-  echo "$prefix simple e2e_blacklist_token_contract/burn"
-  echo "$prefix simple e2e_blacklist_token_contract/minting"
-  echo "$prefix simple e2e_blacklist_token_contract/shielding"
-  echo "$prefix simple e2e_blacklist_token_contract/transfer_private"
-  echo "$prefix simple e2e_blacklist_token_contract/transfer_public"
-  echo "$prefix simple e2e_blacklist_token_contract/unshielding"
-
-  echo "$prefix simple e2e_bot"
-  echo "$prefix simple e2e_card_game"
-  echo "$prefix simple e2e_cheat_codes"
-
-  # cross_chain_messaging sub-tests
-  echo "$prefix simple e2e_cross_chain_messaging/l1_to_l2"
-  echo "$prefix simple e2e_cross_chain_messaging/l2_to_l1"
-  echo "$prefix simple e2e_cross_chain_messaging/token_bridge_failure_cases"
-  echo "$prefix simple e2e_cross_chain_messaging/token_bridge_private"
-  echo "$prefix simple e2e_cross_chain_messaging/token_bridge_public"
-
-  echo "$prefix simple e2e_crowdfunding_and_claim"
-  echo "$prefix simple e2e_deploy_contract/contract_class_registration"
-  echo "$prefix simple e2e_deploy_contract/deploy_method"
-  echo "$prefix simple e2e_deploy_contract/legacy"
-  echo "$prefix simple e2e_deploy_contract/private_initialization"
-  echo "$prefix simple e2e_epochs/epochs_empty_blocks"
-  echo "$prefix simple e2e_epochs/epochs_multi_proof"
-  echo "$prefix simple e2e_epochs/epochs_proof_fails"
-  echo "$prefix simple e2e_epochs/epochs_sync_after_reorg"
-  echo "$prefix simple e2e_escrow_contract"
-  echo "$prefix simple e2e_event_logs"
-
-  # fees sub-tests
-  echo "$prefix simple e2e_fees/account_init"
-  echo "$prefix simple e2e_fees/dapp_subscription"
-  echo "$prefix simple e2e_fees/failures"
-  echo "$prefix simple e2e_fees/fee_juice_payments"
-  echo "$prefix simple e2e_fees/fee_settings"
-  echo "$prefix simple e2e_fees/gas_estimation"
-  echo "$prefix simple e2e_fees/private_payments"
-  echo "$prefix simple e2e_fees/public_payments"
-
-  echo "$prefix simple e2e_keys"
-  echo "$prefix simple e2e_l1_with_wall_time"
-  echo "$prefix simple e2e_lending_contract"
-  echo "$prefix simple e2e_max_block_number"
-  echo "$prefix simple e2e_multiple_accounts_1_enc_key"
-
-  # nested_contract sub-tests
-  echo "$prefix simple e2e_nested_contract/importer"
-  echo "$prefix simple e2e_nested_contract/manual_private_call"
-  echo "$prefix simple e2e_nested_contract/manual_private_enqueue"
-  echo "$prefix simple e2e_nested_contract/manual_public"
-
-  echo "$prefix simple e2e_nft"
-  echo "$prefix simple e2e_offchain_note_delivery"
-  echo "$prefix simple e2e_note_getter"
-  echo "$prefix simple e2e_ordering"
-  echo "$prefix simple e2e_outbox"
-
-  # p2p sub-tests
-  echo "$prefix simple e2e_p2p/gossip_network"
-  echo "$prefix simple e2e_p2p/rediscovery"
-  echo "$prefix simple e2e_p2p/reqresp"
-  echo "$prefix simple e2e_p2p/reex"
-  echo "$prefix simple e2e_p2p/slashing"
-  echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
-
-  echo "$prefix simple e2e_pending_note_hashes_contract"
-  echo "$prefix simple e2e_private_voting_contract"
-  echo "$prefix simple e2e_pruned_blocks"
-  echo "$prefix simple e2e_public_testnet_transfer"
-  echo "$prefix simple e2e_state_vars"
-  echo "$prefix simple e2e_static_calls"
-  echo "$prefix simple e2e_synching"
-
-  # token_contract sub-tests
-  echo "$prefix simple e2e_token_contract/access_control"
-  echo "$prefix simple e2e_token_contract/burn"
-  echo "$prefix simple e2e_token_contract/minting"
-  echo "$prefix simple e2e_token_contract/private_transfer_recursion"
-  echo "$prefix simple e2e_token_contract/reading_constants"
-  echo "$prefix simple e2e_token_contract/transfer_in_private"
-  echo "$prefix simple e2e_token_contract/transfer_in_public"
-  echo "$prefix simple e2e_token_contract/transfer_to_private"
-  echo "$prefix simple e2e_token_contract/transfer_to_public"
-  echo "$prefix simple e2e_token_contract/transfer.test"
-
-  # circuit_recorder sub-tests
-  echo "$prefix simple e2e_circuit_recorder"
+  local tests=(
+    # List all standalone and nested tests, except for the ones listed above.
+    src/e2e_!(prover)/*.test.ts
+    src/e2e_!(block_building).test.ts
+  )
+  for test in "${tests[@]}"; do
+    local name=${test#*e2e_}
+    name=e2e_${name%.test.ts}
+    echo "$prefix:NAME=$name $run_test_script simple $test"
+  done
 
   # compose-based tests (use running sandbox)
-  echo "$prefix compose composed/docs_examples"
-  echo "$prefix compose composed/e2e_pxe"
-  echo "$prefix compose composed/e2e_sandbox_example"
-  echo "$prefix compose composed/integration_l1_publisher"
-  echo "$prefix compose sample-dapp/index"
-  echo "$prefix compose sample-dapp/ci/index"
-  echo "$prefix compose guides/dapp_testing"
-  echo "$prefix compose guides/up_quick_start"
-  echo "$prefix compose guides/writing_an_account_contract"
-  echo "$prefix compose e2e_token_bridge_tutorial_test"
-  echo "$prefix compose uniswap_trade_on_l1_from_l2"
+  tests=(
+    src/composed/!(integration_proof_verification|e2e_persistence).test.ts
+    src/guides/*.test.ts
+    src/sample-dapp/index
+    src/sample-dapp/ci/index
+  )
+  for test in "${tests[@]}"; do
+    # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
+    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
+  done
 
   # TODO(AD): figure out workaround for mainframe subnet exhaustion
   if [ "$CI" -eq 1 ]; then
@@ -135,7 +60,7 @@ function test_cmds {
     for flow in ../cli-wallet/test/flows/*.sh; do
       # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
       # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-      echo "$hash LOG_LEVEL=info $run_test_script compose $flow"
+      echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
     done
   fi
 }
@@ -145,10 +70,30 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-# Entrypoint for barretenberg benchmarks that rely on captured e2e inputs.
-function generate_example_app_ivc_inputs {
-  export CAPTURE_IVC_FOLDER=example-app-ivc-inputs-out
-  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
+function bench_cmds {
+  echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+  echo "$hash:ISOLATE=1:CPUS=8:NAME=tx_stats BB_IVC_CONCURRENCY=1 BB_NUM_IVC_VERIFIERS=8 BENCH_OUTPUT=bench-out/tx_stats.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_stats_bench"
+
+  for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
+    echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
+  done
+
+  for dir in $bench_fixtures_dir/*; do
+    for runtime in native wasm; do
+      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
+    done
+  done
+  echo "$hash:ISOLATE=1:NET=1:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
+}
+
+# Builds the benchmark fixtures.
+function build_bench {
+  export CAPTURE_IVC_FOLDER=$bench_fixtures_dir
+  export BENCHMARK_CONFIG=key_flows
+  export LOG_LEVEL=error
+  export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
+  rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
+  rm -rf bench-out && mkdir -p bench-out
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
@@ -156,35 +101,26 @@ function generate_example_app_ivc_inputs {
     echo "Could not find ivc inputs cached!"
     exit 1
   fi
-  # Running these again separately from tests is a bit of a hack,
-  # but we need to ensure test caching does not get in the way.
-  echo "
-    scripts/run_test.sh simple e2e_amm
-    scripts/run_test.sh simple e2e_nft
-    scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
-  " | parallel --line-buffer --halt now,fail=1
+  parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/account_deployments \
+    client_flows/deployments \
+    client_flows/bridging \
+    client_flows/transfers \
+    client_flows/amm
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
 function bench {
   rm -rf bench-out
   mkdir -p bench-out
-  if cache_download yarn-project-bench-results-$hash.tar.gz; then
-    return
-  fi
-  BENCH_OUTPUT=$root/yarn-project/end-to-end/bench-out/yp-bench.json scripts/run_test.sh simple bench_build_block
-  generate_example_app_ivc_inputs
-  # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
-  # place to test them.
-  ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/example-app-ivc-inputs-out $(pwd)/bench-out
-  cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json ./bench-out/ivc-bench.json
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  test|test_cmds|bench|generate_example_app_ivc_inputs)
+  test|test_cmds|bench|bench_cmds|build_bench)
     $cmd
     ;;
   *)

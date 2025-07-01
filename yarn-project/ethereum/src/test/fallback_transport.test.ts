@@ -43,15 +43,15 @@ describe('fallback_transport', () => {
   let anvil1: Anvil;
   let anvil2: Anvil;
 
-  afterAll(async () => {
+  afterEach(async () => {
     await anvil1.stop();
     await anvil2.stop();
   }, 5_000);
 
   beforeEach(async () => {
     // Start two separate Anvil instances
-    const anvil1Result = await startAnvil();
-    const anvil2Result = await startAnvil();
+    const anvil1Result = await startAnvil({ port: 8545 });
+    const anvil2Result = await startAnvil({ port: 8546 });
 
     anvil1 = anvil1Result.anvil;
     anvil2 = anvil2Result.anvil;

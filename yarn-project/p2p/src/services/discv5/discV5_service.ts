@@ -10,9 +10,9 @@ import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 import EventEmitter from 'events';
 
 import type { P2PConfig } from '../../config.js';
+import { createNodeENR } from '../../enr/generate-enr.js';
 import { AZTEC_ENR_KEY, Discv5Event, PeerEvent } from '../../types/index.js';
 import { convertToMultiaddr } from '../../util.js';
-import { setAztecEnrKey } from '../../versioning.js';
 import { type PeerDiscoveryService, PeerDiscoveryState } from '../service.js';
 
 const delayBeforeStart = 2000; // 2sec
@@ -22,7 +22,7 @@ const delayBeforeStart = 2000; // 2sec
  */
 export class DiscV5Service extends EventEmitter implements PeerDiscoveryService {
   /** The Discv5 instance */
-  private discv5: Discv5 & Discv5EventEmitter;
+  private discv5: Discv5EventEmitter;
 
   /** This instance's ENR */
   private enr: SignableENR;
@@ -32,9 +32,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private currentState = PeerDiscoveryState.STOPPED;
 
-  public readonly bootstrapNodes: string[] = [];
   private bootstrapNodePeerIds: PeerId[] = [];
-  private bootstrapNodeEnrs: ENR[] = [];
+  public bootstrapNodeEnrs: ENR[] = [];
+  private trustedPeerEnrs: ENR[] = [];
 
   private startTime = 0;
 
@@ -47,32 +47,45 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   constructor(
     private peerId: PeerId,
     private config: P2PConfig,
+    private readonly packageVersion: string,
     telemetry: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('p2p:discv5_service'),
     configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
-    const { p2pIp, p2pPort, bootstrapNodes } = config;
-    this.bootstrapNodes = bootstrapNodes ?? [];
-    this.bootstrapNodeEnrs = this.bootstrapNodes.map(x => ENR.decodeTxt(x));
-    // create ENR from PeerId
-    this.enr = SignableENR.createFromPeerId(peerId);
-    // Add aztec identification to ENR
-    this.versions = setAztecEnrKey(this.enr, config);
+    const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
+
+    this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
+    const privatePeerEnrs = new Set(privatePeers);
+    this.trustedPeerEnrs = trustedPeers.filter(x => !privatePeerEnrs.has(x)).map(x => ENR.decodeTxt(x));
+
+    // If no overridden broadcast port is provided, use the p2p port as the broadcast port
+    if (!p2pBroadcastPort) {
+      this.logger.warn('No p2pBroadcastPort provided, using p2pPort as broadcast port');
+      config.p2pBroadcastPort = p2pPort;
+    }
 
     const bindAddrs: any = {
       ip4: multiaddr(convertToMultiaddr(config.listenAddress, p2pPort, 'udp')),
     };
 
+    let multiAddrUdp, multiAddrTcp;
     if (p2pIp) {
-      const multiAddrTcp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'tcp')}/p2p/${peerId.toString()}`);
-      // if no udp announce address is provided, use the tcp announce address
-      const multiAddrUdp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'udp')}/p2p/${peerId.toString()}`);
-
-      // set location multiaddr in ENR record
-      this.enr.setLocationMultiaddr(multiAddrUdp);
-      this.enr.setLocationMultiaddr(multiAddrTcp);
+      multiAddrTcp = multiaddr(
+        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'tcp')}/p2p/${peerId.toString()}`,
+      );
+      multiAddrUdp = multiaddr(
+        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'udp')}/p2p/${peerId.toString()}`,
+      );
     }
+
+    ({ enr: this.enr, versions: this.versions } = createNodeENR(
+      peerId,
+      multiAddrUdp,
+      multiAddrTcp,
+      config,
+      this.packageVersion,
+    ));
 
     const metricsRegistry = new OtelMetricsAdapter(telemetry);
     this.discv5 = Discv5.create({
@@ -115,9 +128,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private onMultiaddrUpdated(m: Multiaddr) {
     // We want to update our tcp port to match the udp port
-    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pPort, 'tcp'));
+    // p2pBroadcastPort is optional on config, however it is set to default within the p2p client factory
+    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pBroadcastPort!, 'tcp'));
     this.enr.setLocationMultiaddr(multiAddrTcp);
-    this.logger.info('Multiaddr updated', { multiaddr: multiaddr.toString() });
+    this.logger.info('Multiaddr updated', { multiaddr: multiAddrTcp.toString() });
   }
 
   public async start(): Promise<void> {
@@ -138,10 +152,14 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.currentState = PeerDiscoveryState.RUNNING;
 
     // Add bootnode ENR if provided
-    if (this.bootstrapNodes?.length) {
+    if (this.bootstrapNodeEnrs?.length) {
       // Do this conversion once since it involves an async function call
       this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodeEnrs.map(enr => enr.peerId()));
-      this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
+      this.logger.info(
+        `Adding ${this.bootstrapNodeEnrs.length} bootstrap nodes ENRs: ${this.bootstrapNodeEnrs
+          .map(enr => enr.encodeTxt())
+          .join(', ')}`,
+      );
       for (const enr of this.bootstrapNodeEnrs) {
         try {
           if (this.config.bootstrapNodeEnrVersionCheck) {
@@ -155,6 +173,18 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         } catch (e) {
           this.logger.error(`Error adding bootratrap node ${enr.encodeTxt()}`, e);
         }
+      }
+    }
+
+    // Add trusted peer ENRs if provided
+    if (this.trustedPeerEnrs?.length) {
+      this.logger.info(
+        `Adding ${this.trustedPeerEnrs.length} trusted peer ENRs: ${this.trustedPeerEnrs
+          .map(enr => enr.encodeTxt())
+          .join(', ')}`,
+      );
+      for (const enr of this.trustedPeerEnrs) {
+        this.discv5.addEnr(enr);
       }
     }
   }
@@ -178,7 +208,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     }
   }
 
-  public getAllPeers(): ENR[] {
+  public getKadValues(): ENR[] {
     return this.discv5.kadValues();
   }
 
@@ -244,7 +274,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {
-      this.logger.warn(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
+      this.logger.debug(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
       return false;
     }
 

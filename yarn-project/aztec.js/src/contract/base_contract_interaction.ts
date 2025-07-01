@@ -1,6 +1,5 @@
 import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -9,33 +8,9 @@ import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { getGasLimits } from './get_gas_limits.js';
+import type { RequestMethodOptions, SendMethodOptions } from './interaction_options.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
-
-/**
- * Represents the options to configure a request from a contract interaction.
- * Allows specifying additional auth witnesses and capsules to use during execution
- */
-export type RequestMethodOptions = {
-  /** Extra authwits to use during execution */
-  authWitnesses?: AuthWitness[];
-  /** Extra capsules to use during execution */
-  capsules?: Capsule[];
-};
-
-/**
- * Represents options for calling a (constrained) function in a contract.
- */
-export type SendMethodOptions = RequestMethodOptions & {
-  /** Wether to skip the simulation of the public part of the transaction. */
-  skipPublicSimulation?: boolean;
-  /** The fee options for the transaction. */
-  fee?: UserFeeOptions;
-  /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
-  nonce?: Fr;
-  /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
-  cancellable?: boolean;
-};
 
 /**
  * Base class for an interaction with a contract, be it a deployment, a function call, or a batch.
@@ -74,8 +49,7 @@ export abstract class BaseContractInteraction {
    */
   protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
     const txRequest = await this.create(options);
-    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
-    return await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    return await this.wallet.proveTx(txRequest);
   }
 
   // docs:start:prove
@@ -87,13 +61,18 @@ export abstract class BaseContractInteraction {
   public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
-    return new ProvenTx(this.wallet, txProvingResult.toTx());
+    return new ProvenTx(
+      this.wallet,
+      txProvingResult.toTx(),
+      txProvingResult.getOffchainEffects(),
+      txProvingResult.stats,
+    );
   }
 
   // docs:start:send
   /**
    * Sends a transaction to the contract function with the specified options.
-   * This function throws an error if called on an unconstrained function.
+   * This function throws an error if called on a utility function.
    * It creates and signs the transaction if necessary, and returns a SentTx instance,
    * which can be used to track the transaction status, receipt, and events.
    * @param options - An optional object containing 'from' property representing
@@ -102,11 +81,11 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}): SentTx {
     // docs:end:send
-    const promise = (async () => {
+    const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
       return this.wallet.sendTx(txProvingResult.toTx());
-    })();
-    return new SentTx(this.wallet, promise);
+    };
+    return new SentTx(this.wallet, sendTx);
   }
 
   // docs:start:estimateGas
@@ -117,14 +96,13 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    opts?: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
-      undefined /* msgSender */,
       undefined /* skipTxValidation */,
       true /* skipFeeEnforcement */,
     );
@@ -174,7 +152,6 @@ export abstract class BaseContractInteraction {
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
-        undefined /* msgSender */,
         undefined /* skipTxValidation */,
         true /* skipFeeEnforcement */,
       );

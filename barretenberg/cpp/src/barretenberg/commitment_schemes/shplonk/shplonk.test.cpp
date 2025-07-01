@@ -22,7 +22,8 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
 
     using OpeningClaim = OpeningClaim<TypeParam>;
 
-    const size_t n = 16;
+    const size_t log_n = 4;
+    const size_t n = 1UL << log_n;
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -54,7 +55,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
 
     // Execute the shplonk verifier functionality
     const auto batched_verifier_claim = ShplonkVerifier::reduce_verification(
-        this->vk()->get_g1_identity(), verifier_opening_claims, verifier_transcript);
+        this->vk().get_g1_identity(), verifier_opening_claims, verifier_transcript);
 
     this->verify_opening_claim(batched_verifier_claim, batched_opening_claim.polynomial);
 }

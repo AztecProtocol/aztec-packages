@@ -12,7 +12,9 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const initialFundedAccounts = await getInitialTestAccounts();
-    ({ teardown, pxe } = await setup(1, { initialFundedAccounts }));
+    ({ teardown, pxe } = await setup(1, {
+      initialFundedAccounts,
+    }));
   });
 
   afterAll(() => teardown());
@@ -38,7 +40,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: 1e9, l2GasLimit: 1e9, skipPublicSimulation: true });
+      bot.updateConfig({ daGasLimit: 1e9, l2GasLimit: 1e9 });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();
@@ -85,10 +87,21 @@ describe('e2e_bot', () => {
 
     it('swaps tokens from the bot', async () => {
       const balancesBefore = await bot.getBalances();
-      await expect(bot.run()).resolves.toBeUndefined();
+      await expect(bot.run()).resolves.toBeDefined();
       const balancesAfter = await bot.getBalances();
-      expect(balancesAfter.senderPrivate.token0).toBeLessThan(balancesBefore.senderPrivate.token0);
-      expect(balancesAfter.senderPrivate.token1).toBeGreaterThan(balancesBefore.senderPrivate.token1);
+
+      // the bot swaps randomly
+      // either we send token0 or token1
+      expect(
+        balancesAfter.senderPrivate.token0 < balancesBefore.senderPrivate.token0 ||
+          balancesAfter.senderPrivate.token1 < balancesBefore.senderPrivate.token1,
+      ).toBeTrue();
+
+      // and get either token0 or token1
+      expect(
+        balancesAfter.senderPrivate.token0 > balancesBefore.senderPrivate.token0 ||
+          balancesAfter.senderPrivate.token1 > balancesBefore.senderPrivate.token1,
+      ).toBeTrue();
     });
   });
 });

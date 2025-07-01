@@ -40,3 +40,15 @@ export type TreeHeights = typeof TREE_HEIGHTS;
 export function getTreeHeight<TID extends MerkleTreeId>(treeId: TID): TreeHeights[TID] {
   return TREE_HEIGHTS[treeId];
 }
+
+const TREE_NAMES = {
+  [MerkleTreeId.NULLIFIER_TREE]: 'NULLIFIER_TREE' as const,
+  [MerkleTreeId.NOTE_HASH_TREE]: 'NOTE_HASH_TREE' as const,
+  [MerkleTreeId.PUBLIC_DATA_TREE]: 'PUBLIC_DATA_TREE' as const,
+  [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: 'L1_TO_L2_MESSAGE_TREE' as const,
+  [MerkleTreeId.ARCHIVE]: 'ARCHIVE' as const,
+} as const;
+
+export function getTreeName<TID extends MerkleTreeId>(treeId: TID): (typeof TREE_NAMES)[TID] {
+  return TREE_NAMES[treeId];
+}

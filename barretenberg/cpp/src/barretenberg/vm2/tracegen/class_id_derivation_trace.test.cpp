@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -16,7 +16,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
 {
@@ -35,11 +34,11 @@ TEST(ClassIdDerivationTraceGenTest, TraceGeneration)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(ROW_FIELD_EQ(R, class_id_derivation_sel, 1),
-                          ROW_FIELD_EQ(R, class_id_derivation_class_id, FF(0xdeadbeef)),
-                          ROW_FIELD_EQ(R, class_id_derivation_artifact_hash, FF(12)),
-                          ROW_FIELD_EQ(R, class_id_derivation_private_function_root, FF(23)),
-                          ROW_FIELD_EQ(R, class_id_derivation_public_bytecode_commitment, FF(45)))));
+                    AllOf(ROW_FIELD_EQ(class_id_derivation_sel, 1),
+                          ROW_FIELD_EQ(class_id_derivation_class_id, FF(0xdeadbeef)),
+                          ROW_FIELD_EQ(class_id_derivation_artifact_hash, FF(12)),
+                          ROW_FIELD_EQ(class_id_derivation_private_function_root, FF(23)),
+                          ROW_FIELD_EQ(class_id_derivation_public_bytecode_commitment, FF(45)))));
 }
 
 } // namespace

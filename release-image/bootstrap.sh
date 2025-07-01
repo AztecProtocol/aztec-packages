@@ -5,6 +5,25 @@ cmd=${1:-}
 
 hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
 
+function build_image {
+  set -euo pipefail
+  cd ..
+  if semver check $REF_NAME; then
+    # We are a tagged release. Use the version from the tag.
+    # We strip leading 'v' so that this is a valid semver.
+    local version=${REF_NAME#v}
+  else
+    # Otherwise, use the commit hash as the version.
+    local version=$(git rev-parse HEAD)
+  fi
+  docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
+  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+
+  # Remove all but the most recent image.
+  docker images aztecprotocol/aztec --format "{{.ID}}" | uniq | tail -n +2 | xargs -r docker rmi -f
+}
+export -f build_image
+
 function build {
   echo_header "release-image build"
 
@@ -16,20 +35,22 @@ function build {
     docker load < release-image-base
   fi
 
-  denoise "cd .. && docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) ."
-  docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+  denoise "build_image"
 }
 
 case "$cmd" in
   ""|"fast"|"full")
     build
+    ;;
+  "push")
+    echo_header "release-image push"
 
-    # TOOD(#10775): see 'releases'. We want to move away from this and use nightlies.
-    if [ "$REF_NAME" == "master" ] && [ "$CI" -eq 1 ] && [ -n "${DOCKERHUB_PASSWORD:-}" ]; then
-      echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
-      docker tag aztecprotocol/aztec:$COMMIT_HASH aztecprotocol/aztec:$COMMIT_HASH-$(arch)
-      do_or_dryrun denoise "docker push aztecprotocol/aztec:$COMMIT_HASH-$(arch)"
+    if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+      echo "Missing DOCKERHUB_PASSWORD."
+      exit 1
     fi
+    echo $DOCKERHUB_PASSWORD | docker login -u ${DOCKERHUB_USERNAME:-aztecprotocolci} --password-stdin
+    do_or_dryrun docker push aztecprotocol/aztec:$COMMIT_HASH
     ;;
   "release")
     echo_header "release-image release"
@@ -59,7 +80,7 @@ case "$cmd" in
         --amend aztecprotocol/aztec:$tag-arm64
       docker manifest push aztecprotocol/aztec:$tag
 
-      # We also release with our dist_tag, e.g. 'latest' or 'nightly'.
+      # We also release with our dist_tag, e.g. 'latest', 'staging' or 'nightly'.
       docker manifest create aztecprotocol/aztec:$(dist_tag) \
         --amend aztecprotocol/aztec:$tag-amd64 \
         --amend aztecprotocol/aztec:$tag-arm64
