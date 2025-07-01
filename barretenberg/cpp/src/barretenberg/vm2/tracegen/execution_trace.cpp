@@ -18,11 +18,13 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_emit_nullifier.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -205,6 +207,10 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_success_copy;
     case ExecutionOpCode::RETURNDATASIZE:
         return C::execution_sel_returndata_size;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        return C::execution_sel_nullifier_exists;
+    case ExecutionOpCode::EMITNULLIFIER:
+        return C::execution_sel_emit_nullifier;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -550,6 +556,14 @@ void ExecutionTraceBuilder::process(
                           ex_event.before_context_event.internal_call_return_id != 0
                               ? FF(ex_event.before_context_event.internal_call_return_id).invert()
                               : 0);
+            } else if (exec_opcode == ExecutionOpCode::NULLIFIEREXISTS) {
+                assert(ex_event.addressing_event.resolution_info.size() == 3 &&
+                       "NULLIFIEREXISTS should have exactly three resolved operands (nullifier, address, output)");
+                process_nullifier_exists_opcode(trace, row);
+            } else if (exec_opcode == ExecutionOpCode::EMITNULLIFIER) {
+                assert(ex_event.addressing_event.resolution_info.size() == 1 &&
+                       "EMITNULLIFIER should have exactly one resolved operand (nullifier)");
+                process_emit_nullifier_opcode(trace, row);
             }
         }
 
@@ -980,6 +994,10 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
     assert(envvar_enum.get_tag() == ValueTag::U8);
     const auto& envvar_spec = GetEnvVarSpec::get_table(envvar_enum.as<uint8_t>());
 
+    // Note: simulation does set_output which lets main execution tracegen loop properly set
+    // the output in register 0. Output being register 0 is an artifact of its settings in
+    // EXEC_INSTRUCTION_SPEC.
+
     trace.set(row,
               { {
                   { C::execution_sel_should_get_env_var, 1 },
@@ -994,8 +1012,52 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
                   { C::execution_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
                   { C::execution_value_from_pi,
                     envvar_spec.envvar_pi_lookup_col0 || envvar_spec.envvar_pi_lookup_col1 ? output.as_ff() : 0 },
+                  // TODO(dbanks12): is this necessary, or is it handled automagically based on sim's set_output?
                   { C::execution_mem_tag_reg_0_, envvar_spec.out_tag },
               } });
+}
+
+void ExecutionTraceBuilder::process_nullifier_exists_opcode(TraceContainer& trace, uint32_t row)
+{
+    // Note: simulation does set_output which lets main execution tracegen loop properly set
+    // the output in register 2. Output being register 2 is an artifact of its settings in
+    // EXEC_INSTRUCTION_SPEC.
+
+    trace.set(row,
+              { {
+                  { C::execution_sel_should_do_nullifier_exists, 1 },
+                  // TODO(dbanks12): is this necessary, or is it handled automagically based on sim's set_output?
+                  { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U1) },
+              } });
+}
+
+void ExecutionTraceBuilder::process_emit_nullifier_opcode(TraceContainer& trace, uint32_t row)
+{
+    // Execution simulation will error for this opcode if there is a nullifier collision
+    // or limit reached. The main execution tracegen loop will handle setting sel_opcode_error
+    // in that case.
+    //
+    bool should_do_emit_nullifier = true; // should do the opcode (which might error)
+    bool limit_error = false;             // TODO(dbanks12): determine based on num_nullifiers_emitted
+    bool should_write_nullifier =
+        !limit_error; // aka should actually perform the write. Really `!limit_error&& should_do_emit_nullifier`
+
+    // Otherwise, if there is an opcode_error, we can assume it is a nullifier collision.
+
+    trace.set(row,
+              { {
+                  { C::execution_sel_should_do_emit_nullifier, should_do_emit_nullifier ? 1 : 0 },
+                  { C::execution_sel_limit_error, limit_error ? 1 : 0 },
+                  { C::execution_sel_should_write_nullifier, should_write_nullifier ? 1 : 0 },
+              } });
+    // TODO(dbanks12): how do we update context stuff:
+    // - num_nullifiers_emitted
+    // - nullifier_tree_size
+    // - nullifier_tree_root
+    // I hope that is handled by events triggered in simulation due to calls to the merkle DB.
+    // Need to confirm.
+    // We can include the context event info here so that we can USE them to do tracegen. But can we
+    // actually set those columns here?
 }
 
 const InteractionDefinition ExecutionTraceBuilder::interactions =
@@ -1046,6 +1108,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
+        // NullifierExists opcode
+        .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupGeneric>()
+        // EmitNullifier opcode
+        .add<lookup_emit_nullifier_write_nullifier_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

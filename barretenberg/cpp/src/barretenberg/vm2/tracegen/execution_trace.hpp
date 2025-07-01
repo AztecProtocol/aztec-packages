@@ -34,6 +34,8 @@ class ExecutionTraceBuilder final {
     // Sets the writes.
     void process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row);
     void process_get_env_var_opcode(TaggedValue envvar_enum, TaggedValue output, TraceContainer& trace, uint32_t row);
+    void process_nullifier_exists_opcode(TraceContainer& trace, uint32_t row);
+    void process_emit_nullifier_opcode(TraceContainer& trace, uint32_t row);
     void process_dynamic_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row);
 
     static const InteractionDefinition interactions;

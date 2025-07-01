@@ -299,6 +299,54 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, success);
 }
 
+void Execution::nullifier_exists(ContextInterface& context,
+                                 MemoryAddress nullifier_addr,
+                                 MemoryAddress address_addr,
+                                 MemoryAddress exists_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NULLIFIEREXISTS;
+    auto& memory = context.get_memory();
+
+    // Read operands from memory
+    MemoryValue nullifier = memory.get(nullifier_addr);
+    MemoryValue address = memory.get(address_addr);
+    set_and_validate_inputs(opcode, { nullifier, address });
+
+    // TODO(dbanks12): update num_nullifiers_emitted, and eventually handle limit error.
+
+    // Check nullifier existence via MerkleDB
+    // (this also tag checks address and nullifier as FFs)
+    bool exists = merkle_db.nullifier_exists(AztecAddress(address.as<FF>()), nullifier.as<FF>());
+
+    // Write result to memory
+    // (assigns tag u1 to result)
+    TaggedValue result = TaggedValue::from<uint1_t>(exists ? 1 : 0);
+    memory.set(exists_addr, result);
+    set_output(opcode, result);
+}
+
+void Execution::emit_nullifier(ContextInterface& context, MemoryAddress nullifier_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EMITNULLIFIER;
+    auto& memory = context.get_memory();
+
+    // Check static call restriction
+    if (context.get_is_static()) {
+        throw OpcodeExecutionException("Cannot emit nullifier in static call");
+    }
+
+    // Read nullifier from memory
+    MemoryValue nullifier = memory.get(nullifier_addr);
+    set_and_validate_inputs(opcode, { nullifier });
+
+    // Emit nullifier via MerkleDB
+    // (and tag check nullifier as FF)
+    bool success = merkle_db.nullifier_write(context.get_address(), nullifier.as<FF>());
+    if (!success) {
+        throw OpcodeExecutionException("Nullifier collision or limit (max nullifiers per tx) reached");
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -507,6 +555,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURNDATASIZE:
         call_with_operands(&Execution::rd_size, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NULLIFIEREXISTS:
+        call_with_operands(&Execution::nullifier_exists, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EMITNULLIFIER:
+        call_with_operands(&Execution::emit_nullifier, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

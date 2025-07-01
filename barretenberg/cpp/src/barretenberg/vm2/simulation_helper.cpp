@@ -170,7 +170,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_id_manager,
                         execution_emitter,
                         context_stack_emitter,
-                        keccakf1600);
+                        keccakf1600,
+                        merkle_db);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);

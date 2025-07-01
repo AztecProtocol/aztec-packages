@@ -801,10 +801,10 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
                            .operand<uint8_t>(45) // Dst Offset
                            .build();
     // clang-format off
-    ExecutionEvent ex_event = { 
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
-        .addressing_event = { 
+        .addressing_event = {
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
         },
@@ -835,10 +835,10 @@ TEST(ExecutionTraceGenTest, RdSize)
                            .operand<uint16_t>(1234) // Dst Offset
                            .build();
     // clang-format off
-    ExecutionEvent ex_event = { 
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .output = { TaggedValue::from_tag(ValueTag::U32, 100) }, // RdSize output
-        .addressing_event = { 
+        .addressing_event = {
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
         },
@@ -859,6 +859,131 @@ TEST(ExecutionTraceGenTest, RdSize)
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U32=*/4),       // Memory tag for dst
                           ROW_FIELD_EQ(execution_last_child_returndata_size, 100), // last_child_returndata_size = 100
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_RETURNDATASIZE))));
+}
+
+TEST(ExecutionTraceGenTest, NullifierExists)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::NULLIFIEREXISTS)
+                           .operand<uint16_t>(100) // nullifier_addr
+                           .operand<uint16_t>(200) // address_addr
+                           .operand<uint16_t>(300) // exists_addr
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = {
+            TaggedValue::from_tag(ValueTag::FF, 0x123456),  // nullifier
+            TaggedValue::from_tag(ValueTag::FF, 0xdeadbeef) // address
+        },
+        .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // exists = true
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = {
+                { .resolved_operand = MemoryValue::from<FF>(0x123456) },   // nullifier
+                { .resolved_operand = MemoryValue::from<FF>(0xdeadbeef) }, // address
+                { .resolved_operand = MemoryValue::from<uint16_t>(300) }   // exists_addr
+            }
+        }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the nullifier_exists
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_nullifier_exists, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 0x123456),        // nullifier
+                          ROW_FIELD_EQ(execution_rop_1_, 0xdeadbeef),      // address
+                          ROW_FIELD_EQ(execution_rop_2_, 300),             // exists_addr
+                          ROW_FIELD_EQ(execution_register_0_, 0x123456),   // nullifier input
+                          ROW_FIELD_EQ(execution_register_1_, 0xdeadbeef), // address input
+                          ROW_FIELD_EQ(execution_register_2_, 1),          // exists output
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::FF)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U1)),
+                          ROW_FIELD_EQ(execution_sel_should_do_nullifier_exists, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIEREXISTS))));
+}
+
+TEST(ExecutionTraceGenTest, EmitNullifier)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::EMITNULLIFIER)
+                           .operand<uint16_t>(100) // nullifier_addr
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = {
+            TaggedValue::from_tag(ValueTag::FF, 0x789abc) // nullifier
+        },
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = {
+                { .resolved_operand = MemoryValue::from<FF>(0x789abc) } // nullifier
+            }
+        }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the emit_nullifier
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_emit_nullifier, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 0x789abc),      // nullifier
+                          ROW_FIELD_EQ(execution_register_0_, 0x789abc), // nullifier input
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF)),
+                          ROW_FIELD_EQ(execution_sel_should_do_emit_nullifier, 1),
+                          ROW_FIELD_EQ(execution_sel_opcode_error, 0), // no collision
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMITNULLIFIER))));
+}
+
+TEST(ExecutionTraceGenTest, EmitNullifierCollision)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::EMITNULLIFIER)
+                           .operand<uint16_t>(100) // nullifier_addr
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = {
+        .error = simulation::ExecutionError::OPCODE_EXECUTION, // Nullifier collision
+        .wire_instruction = instr,
+        .inputs = {
+            TaggedValue::from_tag(ValueTag::FF, 0x456789) // nullifier
+        },
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = {
+                { .resolved_operand = MemoryValue::from<FF>(0x456789) } // nullifier
+            }
+        }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the emit_nullifier with error
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_emit_nullifier, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 0x456789),      // nullifier
+                          ROW_FIELD_EQ(execution_register_0_, 0x456789), // nullifier input
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF)),
+                          ROW_FIELD_EQ(execution_sel_opcode_error, 1), // nullifier collision
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_EMITNULLIFIER))));
 }
 
 } // namespace

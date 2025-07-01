@@ -9,4 +9,4 @@ bool verbose_logging = true;
 #endif
 
 // Used for `debug` in log.hpp.
-bool debug_logging = false;
+bool debug_logging = true;

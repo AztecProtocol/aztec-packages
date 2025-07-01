@@ -1,0 +1,82 @@
+ include "../constants_gen.pil";
+
+/**
+ * This virtual gadget implements the EmitNullifier opcode, which attempts to write a new nullifier
+ * to the nullifier tree for the current contract address.
+ *
+ * The opcode is gated by the `sel_should_do_emit_nullifier` selector, which is set to 1 if the
+ * EmitNullifier opcode has reached dispatch (there are no earlier errors).
+ *
+ * This opcode uses:
+ * - register[0] as the nullifier input register (FF)
+ *
+ * Interactions:
+ * - The gadget performs a lookup into the nullifier_check gadget to attempt to write the nullifier.
+ *
+ * Errors:
+ * - If the max nullifier writes limit has been reached, the operation raises an opcode error.
+ * - If the nullifier already exists (collision), the operation raises an opcode error.
+ *
+ * If there are errors in earlier temporality groups (i.e. the opcode is not dispatched),
+ * all selectors should be 0 and intermediate values should be 0.
+ */
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel_emit_nullifier = 0; // from execution.pil.
+
+    // Selector for when we should emit nullifier (gated by earlier errors)
+    pol commit sel_should_do_emit_nullifier;
+    // Should only emit nullifier if the EmitNullifier opcode has reached dispatch
+    #[SHOULD_DO_EMIT_NULLIFIER]
+    sel_should_do_emit_nullifier = sel_emit_nullifier * should_execute_opcode;
+
+    // Catch error at limit for max nullifier writes
+    // if prev_num_nullifiers_emitted == limit, raise error
+    pol commit sel_limit_error;
+    pol commit prev_num_nullifiers_emitted_inv;
+    sel_should_do_emit_nullifier * (prev_num_nullifiers_emitted * (sel_limit_error * prev_num_nullifiers_emitted_inv + prev_num_nullifiers_emitted_inv) - constants.MAX_NULLIFIERS_PER_TX + sel_limit_error) = 0;
+
+    pol commit sel_should_write_nullifier;
+    sel_should_write_nullifier = sel_should_do_emit_nullifier * (1 - sel_limit_error);
+
+    // Update tree context! (columns in context.pil)
+    // If actually writing, increment num_nullifiers_emitted and nullifier_tree_size
+    // Note: we might only want to update these if the write lookup succeeds (no collision),
+    // but I'm not sure we care since on error, the context will revert....
+    #[INCREMENT_NUM_NULLIFIERS_EMITTED]
+    sel_should_write_nullifier * (prev_num_nullifiers_emitted + 1 - num_nullifiers_emitted) = 0;
+    #[INCREMENT_NULLIFIER_TREE_SIZE]
+    sel_should_write_nullifier * (prev_nullifier_tree_size + 1 - nullifier_tree_size) = 0;
+
+    // A limit error must cause an "opcode error".
+    //     if sel_limit_error == 1, sel_opcode_error must be 1
+    //     but otherwise, we don't force a value for sel_opcode_error and instead let the lookup below set it.
+    #[OPCODE_ERROR_IF_LIMIT_ERROR]
+    sel_should_do_emit_nullifier * sel_limit_error * (1 - sel_opcode_error) = 0;
+
+    // Lookup into nullifier tree check to attempt write
+    #[WRITE_NULLIFIER]
+    sel_should_write_nullifier {
+        /*nullifier=*/ register[0],                  // input: nullifier to write
+        prev_nullifier_tree_root,                    // input: pre-write tree root (from context.pil)
+        sel_opcode_error,                            // output: 1 if nullifier already exists (error)
+        nullifier_tree_root,                         // output: new tree root (updates context.pil column!)
+        prev_nullifier_tree_size,                    // input: pre-write tree size (from context.pil)
+        discard,                                     // input: (from execution_discard) will this write eventually be reverted (so it shouldn't be written to public inputs)?
+        prev_num_nullifiers_emitted,                 // input: the nullifier index to write to in public inputs
+        /*should_silo=*/ sel_should_write_nullifier, // input: should_silo = 1 (always silo for contract nullifiers)
+        contract_address                             // input: contract address for siloing (from context)
+    } in nullifier_check.write {
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.exists,               // nullifier collision
+        nullifier_check.write_root,           // post-write tree root
+        nullifier_check.tree_size_before_write,
+        nullifier_check.discard,
+        nullifier_check.nullifier_index,      // index to write to in public inputs
+        nullifier_check.should_silo,
+        nullifier_check.address               // contract address for siloing
+    };
+

@@ -17,6 +17,7 @@
 #include "relations/data_copy.hpp"
 #include "relations/discard.hpp"
 #include "relations/ecc.hpp"
+#include "relations/emit_nullifier.hpp"
 #include "relations/execution.hpp"
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
@@ -31,6 +32,7 @@
 #include "relations/merkle_check.hpp"
 #include "relations/note_hash_tree_check.hpp"
 #include "relations/nullifier_check.hpp"
+#include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_check.hpp"
@@ -55,6 +57,7 @@
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_data_copy.hpp"
+#include "relations/lookups_emit_nullifier.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
@@ -67,6 +70,7 @@
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
+#include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
@@ -84,10 +88,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 127;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2220;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2231;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2595;
+    static constexpr size_t NUM_ALL_ENTITIES = 2606;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -108,6 +112,7 @@ struct AvmFlavorVariables {
         avm2::data_copy<FF_>,
         avm2::discard<FF_>,
         avm2::ecc<FF_>,
+        avm2::emit_nullifier<FF_>,
         avm2::execution<FF_>,
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
@@ -122,6 +127,7 @@ struct AvmFlavorVariables {
         avm2::merkle_check<FF_>,
         avm2::note_hash_tree_check<FF_>,
         avm2::nullifier_check<FF_>,
+        avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::public_data_check<FF_>,
@@ -190,6 +196,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_range_read_relation<FF_>,
         lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
+        lookup_emit_nullifier_write_nullifier_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
@@ -358,6 +365,7 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_silo_poseidon2_relation<FF_>,
         lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
+        lookup_nullifier_exists_nullifier_exists_check_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,

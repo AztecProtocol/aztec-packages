@@ -38,6 +38,8 @@ include "bytecode/update_check.pil";
 include "opcodes/get_env_var.pil";
 include "opcodes/internal_call.pil";
 include "opcodes/external_call.pil";
+include "opcodes/nullifier_exists.pil";
+include "opcodes/emit_nullifier.pil";
 
 namespace execution;
 
@@ -317,6 +319,8 @@ pol commit sel_return;
 pol commit sel_revert;
 pol commit sel_success_copy;
 pol commit sel_returndata_size;
+pol commit sel_nullifier_exists;
+pol commit sel_emit_nullifier;
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execution * (
@@ -332,7 +336,9 @@ sel_execution * (
    sel_return * constants.AVM_EXEC_OP_ID_RETURN +
    sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
    sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
-   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE
+   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
+   sel_nullifier_exists * constants.AVM_EXEC_OP_ID_NULLIFIEREXISTS +
+   sel_emit_nullifier * constants.AVM_EXEC_OP_ID_EMITNULLIFIER
    - subtrace_operation_id
 ) = 0;
 
@@ -350,6 +356,8 @@ sel_return * (1 - sel_return) = 0;
 sel_revert * (1 - sel_revert) = 0;
 sel_success_copy * (1 - sel_success_copy) = 0;
 sel_returndata_size * (1 - sel_returndata_size) = 0;
+sel_nullifier_exists * (1 - sel_nullifier_exists) = 0;
+sel_emit_nullifier * (1 - sel_emit_nullifier) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
