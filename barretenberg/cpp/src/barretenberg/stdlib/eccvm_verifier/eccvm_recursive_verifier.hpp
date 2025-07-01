@@ -26,13 +26,25 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:
+    struct StdlibEccvmProof {
+        using StdlibProof = bb::stdlib::Proof<Builder>;
+        StdlibProof pre_ipa_proof;
+        StdlibProof ipa_proof;
+
+        StdlibEccvmProof(Builder& builder, const ECCVMProof& eccvm_proof)
+            : pre_ipa_proof(builder, eccvm_proof.pre_ipa_proof)
+            , ipa_proof(builder, eccvm_proof.ipa_proof)
+        {}
+    };
+
     explicit ECCVMRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
                                      const std::shared_ptr<Transcript>& transcript);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
     [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof> verify_proof(
         const ECCVMProof& proof);
+    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof> verify_proof(
+        const StdlibEccvmProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;

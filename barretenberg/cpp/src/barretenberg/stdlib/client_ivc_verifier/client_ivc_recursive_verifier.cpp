@@ -10,8 +10,23 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Performs recursive verification of the Client IVC proof.
+ *
+ * @param proof Native proof
+ * @return ClientIVCRecursiveVerifier::Output
  */
 ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
+{
+    StdlibClientIVCProof stdlib_proof(*builder, proof);
+    return verify(stdlib_proof);
+}
+
+/**
+ * @brief Performs recursive verification of the Client IVC proof.
+ *
+ * @param proof Stdlib proof
+ * @return ClientIVCRecursiveVerifier::Output
+ */
+ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const StdlibClientIVCProof& proof)
 {
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());
     // Construct stdlib Mega verification key

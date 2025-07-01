@@ -15,9 +15,23 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief Create a circuit used to prove that a Protogalaxy folding verification was executed.
  *
+ * @param proof Native proof
  */
 template <typename Flavor>
 DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof);
+}
+
+/**
+ * @brief Create a circuit used to prove that a Protogalaxy folding verification was executed.
+ *
+ * @param proof Stdlib proof
+ */
+template <typename Flavor>
+DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -27,8 +41,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    StdlibProof stdlib_proof(*builder, proof);
-    transcript->load_proof(stdlib_proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 

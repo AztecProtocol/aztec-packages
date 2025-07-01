@@ -24,12 +24,28 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
 {}
 
 /**
- * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
+ * @brief Verifies an ECCVM proof up to IPA verification.
  *
+ * @tparam Flavor
+ * @param proof Native ECCVM proof
  */
 template <typename Flavor>
 std::pair<OpeningClaim<typename Flavor::Curve>, stdlib::Proof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
 ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
+{
+    StdlibEccvmProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof);
+}
+
+/**
+ * @brief Verifies an ECCVM proof up to IPA verification.
+ *
+ * @tparam Flavor
+ * @param proof Stdlib ECCVM proof
+ */
+template <typename Flavor>
+std::pair<OpeningClaim<typename Flavor::Curve>, stdlib::Proof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
+ECCVMRecursiveVerifier_<Flavor>::verify_proof(const StdlibEccvmProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
@@ -41,9 +57,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof stdlib_proof(*builder, proof.pre_ipa_proof);
-    StdlibProof ipa_proof(*builder, proof.ipa_proof);
-    transcript->load_proof(stdlib_proof);
+    transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -158,8 +172,8 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation:");
 
-    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of `translation_polynomials`,
-    // Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
+    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of
+    // `translation_polynomials`, Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
     small_ipa_commitments.concatenated =
         transcript->template receive_from_prover<Commitment>("Translation:concatenated_masking_term_commitment");
 
@@ -222,7 +236,8 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
 
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK}
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size -
+    // NUM_DISABLED_ROWS_IN_SUMCHECK}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
 

@@ -11,17 +11,31 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
  *
- * @param proof
+ * @param proof Native Goblin proof
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
     const GoblinProof& proof, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
 {
+    StdlibGoblinProof stdlib_proof(*builder, proof);
+    return verify(stdlib_proof, t_commitments);
+}
+
+/**
+ * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
+ *
+ * @param proof Stdlib Goblin proof
+ * @param t_commitments The commitments to the subtable for the merge being verified
+ *
+ */
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
+    const StdlibGoblinProof& proof,
+    const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
+{
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, transcript };
-    stdlib::Proof<Builder> stdlib_merge_proof(*builder, proof.merge_proof);
-    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
+    PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(proof.merge_proof, t_commitments);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };

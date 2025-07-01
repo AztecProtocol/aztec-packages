@@ -30,11 +30,24 @@ class ClientIVCRecursiveVerifier {
     using GoblinVerificationKey = Goblin::VerificationKey;
     using Output = GoblinRecursiveVerifierOutput;
 
+    struct StdlibClientIVCProof {
+        using StdlibProof = bb::stdlib::Proof<Builder>;
+        using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibGoblinProof;
+        StdlibProof mega_proof;
+        StdlibGoblinProof goblin_proof;
+
+        StdlibClientIVCProof(Builder& builder, const ClientIVC::Proof& proof)
+            : mega_proof(builder, proof.mega_proof)
+            , goblin_proof(builder, proof.goblin_proof)
+        {}
+    };
+
     ClientIVCRecursiveVerifier(std::shared_ptr<Builder> builder, IVCVerificationKey& ivc_verification_key)
         : builder(builder)
         , ivc_verification_key(ivc_verification_key){};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const ClientIVC::Proof&);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibClientIVCProof&);
 
   private:
     std::shared_ptr<Builder> builder;
