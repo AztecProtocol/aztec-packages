@@ -245,24 +245,42 @@ impl<let M: u32> Serialize for str<M> {
     }
 }
 
-// T = type of item in BoundedVec
-// M = max length of BoundedVec
-// O = field length of T
-// O * M + 1 = total serialized length of BoundedVec<T, M> (the +1 is for length of the BoundedVec)
-impl<T, let M: u32, let O: u32> Deserialize<O * M + 1> for BoundedVec<T, M>
+/// Implementation of Deserialize for BoundedVec.
+///
+/// This implementation deserializes a BoundedVec from an array of Fields. The array contains:
+/// 1. The length of the BoundedVec as the first Field
+/// 2. The serialized items, each taking up T::N Fields
+///
+/// # Type Parameters
+/// * `T` - The type of items stored in the BoundedVec, must implement Deserialize
+/// * `M` - The maximum length of the BoundedVec
+///
+/// # Fields Array Layout
+/// [length, item1_field1, item1_field2, ..., item2_field1, item2_field2, ...]
+/// Where:
+/// - length: The number of items in the BoundedVec (1 Field)
+/// - itemN_fieldM: The M-th Field of the N-th item (T::N Fields per item)
+///
+/// Total length N = T::N * M + 1, where:
+/// - T::N is the number of Fields needed to deserialize one item
+/// - M is the maximum length of the BoundedVec
+/// - +1 is for storing the length
+impl<T, let M: u32> Deserialize for BoundedVec<T, M>
 where
-    T: Deserialize<O>,
+    T: Deserialize,
 {
+    let N = <T as Deserialize>::N * M + 1;
+
     #[inline_always]
-    fn deserialize(fields: [Field; O * M + 1]) -> Self {
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
 
         let len = fields[0] as u32;
         let mut index = 1;
 
         for _ in 0..len {
-            let mut nested_fields = [0; O];
-            for j in 0..O {
+            let mut nested_fields = [0; <T as Deserialize>::N];
+            for j in 0..<T as Deserialize>::N {
                 nested_fields[j] = fields[index];
                 index += 1;
             }

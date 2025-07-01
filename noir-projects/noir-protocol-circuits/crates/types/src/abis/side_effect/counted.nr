@@ -45,11 +45,13 @@ where
     }
 }
 
-impl<T, let N: u32> Deserialize<N> for Counted<T>
+impl<T> Deserialize for Counted<T>
 where
-    T: Deserialize<N - 1>,
+    T: Deserialize,
 {
-    fn deserialize(fields: [Field; N]) -> Self {
+    let N = <T as Deserialize>::N + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
         let deserialized =
             Self { inner: reader.read_struct(T::deserialize), counter: reader.read_u32() };

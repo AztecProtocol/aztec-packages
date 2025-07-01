@@ -46,11 +46,13 @@ where
     }
 }
 
-impl<T, let N: u32> Deserialize<N> for Scoped<T>
+impl<T> Deserialize for Scoped<T>
 where
-    T: Deserialize<N - 1>,
+    T: Deserialize,
 {
-    fn deserialize(fields: [Field; N]) -> Self {
+    let N = <T as Deserialize>::N + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
         let deserialized = Self {
             inner: reader.read_struct(T::deserialize),

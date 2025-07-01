@@ -25,11 +25,14 @@ impl Empty for Point {
     }
 }
 
-impl Deserialize<POINT_LENGTH> for Point {
-    fn deserialize(serialized: [Field; POINT_LENGTH]) -> Point {
+impl Deserialize for Point {
+    let N = POINT_LENGTH;
+
+    fn deserialize(serialized: [Field; Self::N]) -> Self {
         Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] as bool }
     }
 }
+
 // TODO(#11356): use compact representation here.
 impl Packable<POINT_LENGTH> for Point {
     fn pack(self) -> [Field; POINT_LENGTH] {
