@@ -30,7 +30,7 @@ jobs:
         run: |
           set -xeuo pipefail
           
-	  MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
+          MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
           BASE="${{ github.event.pull_request.base.ref }}" # usually next
           
           # Fetch latest state
