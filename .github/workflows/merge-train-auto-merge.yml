@@ -1,4 +1,4 @@
-name: Auto-merge Inactive Merge Train PRs
+name: Merge Train Auto-Merge
 
 on:
   schedule:
@@ -21,7 +21,7 @@ jobs:
       - name: Find and auto-merge inactive PRs
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           script: |
             // Get all open PRs
             const { data: pulls } = await github.rest.pulls.list({
@@ -62,7 +62,8 @@ jobs:
                 continue;
               }
               
-              const lastCommitDate = new Date(allCommits[0].commit.committer.date);
+              // Use the most recent meaningful commit (not merge commit) for inactivity check
+              const lastCommitDate = new Date(meaningfulCommits[0].commit.committer.date);
               
               // Check if the last commit is older than 4 hours
               if (lastCommitDate < fourHoursAgo) {
