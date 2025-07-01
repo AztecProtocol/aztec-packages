@@ -187,6 +187,7 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
   [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
+  [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(Buffer.from('auth')),
 };
 
 // By default, all requests are valid
@@ -197,6 +198,7 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.TX]: noopValidator,
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
   [ReqRespSubProtocol.BLOCK]: noopValidator,
+  [ReqRespSubProtocol.AUTH]: noopValidator,
 };
 
 /**

@@ -54,7 +54,6 @@ export class PeerManager implements PeerManagerInterface {
   private privatePeers: Set<string> = new Set();
   private privatePeersInitialized: boolean = false;
   private preferredPeers: Set<string> = new Set();
-  private preferredPeersInitialized: boolean = false;
   private authenticatedPeers: Set<string> = new Set();
 
   private metrics: PeerManagerMetrics;
@@ -91,7 +90,7 @@ export class PeerManager implements PeerManagerInterface {
     this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
 
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
+    this.peerDiscoveryService?.on(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
@@ -135,9 +134,6 @@ export class PeerManager implements PeerManagerInterface {
       const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
       await Promise.all(preferredPeersEnrs.map(enr => enr.peerId()))
         .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
-        .finally(() => {
-          this.preferredPeersInitialized = true;
-        })
         .catch(e => this.logger.error('Error initializing preferred peers', e));
     }
   }
@@ -179,11 +175,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
-    if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-      this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
-    } else {
-      this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
-    }
+    this.logger.error(`PEER MANAGE ${this.config.p2pAllowOnlyValidators} Connected to peer ${peerId.toString()}`);
     if (this.config.p2pDisableStatusHandshake) {
       return;
     }
@@ -200,7 +192,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
-    if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
+    if (this.peerDiscoveryService?.isBootstrapPeer(peerId)) {
       this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
     } else {
       this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
@@ -268,7 +260,6 @@ export class PeerManager implements PeerManagerInterface {
     const peerIdStr = peerId.toString();
 
     this.preferredPeers.add(peerIdStr);
-    this.preferredPeersInitialized = true;
     this.logger.verbose(`Added preferred peer ${peerIdStr}`);
   }
 
@@ -278,10 +269,6 @@ export class PeerManager implements PeerManagerInterface {
    * @returns True if the peer is preferred, false otherwise.
    */
   private isPreferredPeer(peerId: PeerId): boolean {
-    if (!this.preferredPeersInitialized) {
-      this.logger.warn('Private peers not initialized, returning false');
-      return false;
-    }
     return this.preferredPeers.has(peerId.toString());
   }
 
@@ -748,7 +735,7 @@ export class PeerManager implements PeerManagerInterface {
 
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.trace(`Initiating auth handshake with peer ${peerId}`);
+      this.logger.error(`AUTH!!!!!!!!!!!! Initiating auth handshake with peer ${peerId}`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.AUTH,
@@ -780,6 +767,7 @@ export class PeerManager implements PeerManagerInterface {
         await this.disconnectPeer(peerId);
         return;
       }
+      this.authenticatedPeers.add(peerId.toString());
       this.logger.info(`Successfully completed auth handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future

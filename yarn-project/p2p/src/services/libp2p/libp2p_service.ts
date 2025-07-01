@@ -208,11 +208,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
-    const peerDiscoveryService = config.p2pDiscoveryDisabled
-      ? undefined
-      : new DiscV5Service(peerId, config, packageVersion, telemetry, createLogger(`${logger.module}:discv5_service`));
+    const peerDiscoveryService = new DiscV5Service(
+      peerId,
+      config,
+      packageVersion,
+      telemetry,
+      createLogger(`${logger.module}:discv5_service`),
+    );
 
-    const bootstrapNodes = peerDiscoveryService?.bootstrapNodeEnrs.map(enr => enr.encodeTxt()) ?? [];
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt()) ?? [];
 
     // If trusted peers are provided, also provide them to the p2p service
     bootstrapNodes.push(...config.trustedPeers);
@@ -240,6 +244,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         } as AddrInfo;
       }),
     );
+
+    logger.error(`Direct peers: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
 
     const node = await createLibp2p({
       start: false,
@@ -384,7 +390,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.jobQueue.start();
 
     await this.peerManager.initializePeers();
-    await this.peerDiscoveryService.start();
+    if (!this.config.p2pDiscoveryDisabled) {
+      await this.peerDiscoveryService.start();
+    }
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
