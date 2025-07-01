@@ -425,12 +425,6 @@ case "$cmd" in
     build
     release
     ;;
-  "ci-docs")
-    export CI=1
-    export USE_TEST_CACHE=1
-    ./bootstrap.sh
-    docs/bootstrap.sh ci
-    ;;
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
