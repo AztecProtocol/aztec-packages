@@ -438,7 +438,7 @@ pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let array_of_quotes_serializing_each_struct_member = params
         .map(|(param_name, param_type): (Quoted, Type)| {
             quote {
-            let serialized_member = self.$param_name.serialize();
+            let serialized_member: [Field; <$param_type as Serialize>::N] = self.$param_name.serialize();
             let serialized_member_len = <$param_type as Serialize>::N;
             for i in 0..serialized_member_len {
                 result[i + offset] = serialized_member[i];
