@@ -171,7 +171,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             verifier_output.points_accumulator.set_public();
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 verifier_output.ipa_claim.set_public();
-                outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
+                outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
             }
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
@@ -212,7 +212,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         output.points_accumulator.set_public();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
-            outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
+            outer_circuit.ipa_proof = output.ipa_proof.get_value();
         }
 
         // Check for a failure flag in the recursive verifier circuit
@@ -225,7 +225,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         native_verifier.transcript->enable_manifest();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
-            native_result = native_verifier.verify_proof(inner_proof, convert_stdlib_proof_to_native(output.ipa_proof));
+            native_result = native_verifier.verify_proof(inner_proof, output.ipa_proof.get_value());
         } else {
             native_result = native_verifier.verify_proof(inner_proof);
         }
