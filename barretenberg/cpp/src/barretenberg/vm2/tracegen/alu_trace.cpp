@@ -46,7 +46,7 @@ bool get_carry_flag(const simulation::AluEvent& event)
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         // I think the only situation in which a + b != c as fields is when c overflows the bit size
-        // if this in unclear, I can use > or actually check bit sizes
+        // if this is unclear, I can use > or actually check bit sizes
         return event.a.as_ff() + event.b.as_ff() != event.c.as_ff();
     default:
         throw std::runtime_error("Unknown ALU operation");

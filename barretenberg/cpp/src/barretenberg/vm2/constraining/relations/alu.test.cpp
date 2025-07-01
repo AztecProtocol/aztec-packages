@@ -2,7 +2,11 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <utility>
+#include <vector>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -26,6 +30,122 @@ using alu = bb::avm2::alu<FF>;
 using tracegen::AluTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 
+// auto get_test_values(MemoryTag tag)
+// {
+//     switch (tag) {
+//     case ValueTag::U1:
+//         return { 1, 1, 0, static_cast<uint8_t>(tag) };
+//     case ValueTag::U8:
+//         return 8;
+//     case ValueTag::U16:
+//         return 16;
+//     case ValueTag::U32:
+//         return 32;
+//     case ValueTag::U64:
+//         return 64;
+//     case ValueTag::U128:
+//         return 128;
+//     case ValueTag::FF:
+//         return 254;
+//     }
+// }
+
+// The below test values do not carry:
+const std::unordered_map<MemoryTag, std::array<FF, 5>> TEST_VALUES = {
+    { MemoryTag::FF,
+      { FF::modulus - 4, 2, FF::modulus - 2, static_cast<uint8_t>(MemoryTag::FF), get_tag_max_value(MemoryTag::FF) } },
+    { MemoryTag::U1, { 1, 0, 1, static_cast<uint8_t>(MemoryTag::U1), get_tag_max_value(MemoryTag::U1) } },
+    { MemoryTag::U8, { 200, 50, 250, static_cast<uint8_t>(MemoryTag::U8), get_tag_max_value(MemoryTag::U8) } },
+    { MemoryTag::U16, { 30, 65500, 65530, static_cast<uint8_t>(MemoryTag::U16), get_tag_max_value(MemoryTag::U16) } },
+    { MemoryTag::U32,
+      { (uint256_t(1) << 32) - 10,
+        5,
+        (uint256_t(1) << 32) - 5,
+        static_cast<uint8_t>(MemoryTag::U32),
+        get_tag_max_value(MemoryTag::U32) } },
+    { MemoryTag::U64,
+      { (uint256_t(1) << 64) - 10,
+        5,
+        (uint256_t(1) << 64) - 5,
+        static_cast<uint8_t>(MemoryTag::U64),
+        get_tag_max_value(MemoryTag::U64) } },
+    { MemoryTag::U128,
+      { (uint256_t(1) << 128) - 10,
+        5,
+        (uint256_t(1) << 128) - 5,
+        static_cast<uint8_t>(MemoryTag::U128),
+        get_tag_max_value(MemoryTag::U128) } },
+};
+
+auto process_basic_add_trace(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    auto [a, b, c, tag, max_value] = TEST_VALUES.at(input_tag);
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = tag,
+            .alu_max_value = max_value,
+            .alu_op_id = 1,
+            .alu_sel = 1,
+            .alu_sel_op_add = 1,
+            .execution_mem_tag_0_ = tag,          // = ia_tag
+            .execution_mem_tag_1_ = tag,          // = ib_tag
+            .execution_mem_tag_2_ = tag,          // = ic_tag
+            .execution_register_0_ = a,           // = ia
+            .execution_register_1_ = b,           // = ib
+            .execution_register_2_ = c,           // = ic
+            .execution_sel_alu = 1,               // = sel
+            .execution_subtrace_operation_id = 1, // = alu_op_id
+        },
+    });
+    // Build just enough clk rows for the lookup
+    precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+// Note: CANNOT be used for u1
+auto process_carry_add_trace(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    auto [_a, _b, _c, tag, max_value] = TEST_VALUES.at(input_tag);
+    auto a = max_value - 1;
+    auto b = 3;
+    auto c = 1;
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_cf = 1,
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = tag,
+            .alu_max_value = max_value,
+            .alu_op_id = 1,
+            .alu_sel = 1,
+            .alu_sel_op_add = 1,
+            .execution_mem_tag_0_ = tag,          // = ia_tag
+            .execution_mem_tag_1_ = tag,          // = ib_tag
+            .execution_mem_tag_2_ = tag,          // = ic_tag
+            .execution_register_0_ = a,           // = ia
+            .execution_register_1_ = b,           // = ib
+            .execution_register_2_ = c,           // = ic
+            .execution_sel_alu = 1,               // = sel
+            .execution_subtrace_operation_id = 1, // = alu_op_id
+        },
+    });
+    // Build just enough clk rows for the lookup
+    precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
 TEST(AluConstrainingTest, EmptyRow)
 {
     check_relation<alu>(testing::empty_trace());
@@ -33,15 +153,15 @@ TEST(AluConstrainingTest, EmptyRow)
 
 TEST(AluConstrainingTest, BasicAdd)
 {
-    // Using u8s here => alu_ix_tag = ValueTag::U8 = 2
+    auto tag = static_cast<uint8_t>(MemoryTag::U8);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = 1,
-            .alu_ia_tag = 2,
+            .alu_ia_tag = tag,
             .alu_ib = 2,
-            .alu_ib_tag = 2,
+            .alu_ib_tag = tag,
             .alu_ic = 3,
-            .alu_ic_tag = 2,
+            .alu_ic_tag = tag,
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -53,95 +173,49 @@ TEST(AluConstrainingTest, BasicAdd)
 
 TEST(AluConstrainingTest, BasicAddFieldWithLookups)
 {
-    PrecomputedTraceBuilder precomputed_builder;
-    // Using F here => alu_ix_tag = ValueTag::FF = 0, max_value = p - 1
-    auto trace = TestTraceContainer::from_rows({
-        // Note: tags are all 0, so not filling them here:
-        {
-            .alu_ia = 1,
-            .alu_ib = 2,
-            .alu_ic = 3,
-            .alu_max_value = FF(-1),
-            .alu_op_id = 1,
-            .alu_sel = 1,
-            .alu_sel_op_add = 1,
-            .execution_register_0_ = 1,           // = ia
-            .execution_register_1_ = 2,           // = ib
-            .execution_register_2_ = 3,           // = ic
-            .execution_sel_alu = 1,               // = sel
-            .execution_subtrace_operation_id = 1, // = alu_op_id
-        },
-    });
-    // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, 1);
-    precomputed_builder.process_tag_parameters(trace);
+    auto trace = process_basic_add_trace(MemoryTag::FF);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, BasicAddU1WithLookups)
+{
+    auto trace = process_basic_add_trace(MemoryTag::U1);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, BasicAddU8WithLookups)
+{
+    auto trace = process_basic_add_trace(MemoryTag::U8);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, BasicAddU16WithLookups)
+{
+    auto trace = process_basic_add_trace(MemoryTag::U16);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, BasicAddU32WithLookups)
+{
+    auto trace = process_basic_add_trace(MemoryTag::U32);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, BasicAddU64WithLookups)
+{
+    auto trace = process_basic_add_trace(MemoryTag::U64);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
 
 TEST(AluConstrainingTest, BasicAddU128WithLookups)
 {
-    PrecomputedTraceBuilder precomputed_builder;
-    // Using u128 here => alu_ix_tag = ValueTag::U128 = 6, max_value = 2^128 - 1
-    auto trace = TestTraceContainer::from_rows({
-        {
-            .alu_ia = 1,
-            .alu_ia_tag = 6,
-            .alu_ib = 2,
-            .alu_ib_tag = 6,
-            .alu_ic = 3,
-            .alu_ic_tag = 6,
-            .alu_max_value = (uint256_t(1) << 128) - 1,
-            .alu_op_id = 1,
-            .alu_sel = 1,
-            .alu_sel_op_add = 1,
-            .execution_mem_tag_0_ = 6,            // = ia_tag
-            .execution_mem_tag_1_ = 6,            // = ia_tag
-            .execution_mem_tag_2_ = 6,            // = ia_tag
-            .execution_register_0_ = 1,           // = ia
-            .execution_register_1_ = 2,           // = ib
-            .execution_register_2_ = 3,           // = ic
-            .execution_sel_alu = 1,               // = sel
-            .execution_subtrace_operation_id = 1, // = alu_op_id
-        },
-    });
-    // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, 7);
-    precomputed_builder.process_tag_parameters(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryWithLookups)
-{
-    PrecomputedTraceBuilder precomputed_builder;
-    // Using u16s here => alu_ix_tag = ValueTag::U16 = 3, max_value = 2^16 - 1
-    auto trace = TestTraceContainer::from_rows({
-        {
-            .alu_cf = 1,
-            .alu_ia = (1 << 16) - 2,
-            .alu_ia_tag = 3,
-            .alu_ib = 3,
-            .alu_ib_tag = 3,
-            .alu_ic = 1,
-            .alu_ic_tag = 3,
-            .alu_max_value = (1 << 16) - 1,
-            .alu_op_id = 1,
-            .alu_sel = 1,
-            .alu_sel_op_add = 1,
-            .execution_mem_tag_0_ = 3,              // = ia_tag
-            .execution_mem_tag_1_ = 3,              // = ia_tag
-            .execution_mem_tag_2_ = 3,              // = ia_tag
-            .execution_register_0_ = (1 << 16) - 2, // = ia
-            .execution_register_1_ = 3,             // = ib
-            .execution_register_2_ = 1,             // = ic
-            .execution_sel_alu = 1,                 // = sel
-            .execution_subtrace_operation_id = 1,   // = alu_op_id
-        },
-    });
-    // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, 4);
-    precomputed_builder.process_tag_parameters(trace);
+    auto trace = process_basic_add_trace(MemoryTag::U128);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
@@ -149,23 +223,23 @@ TEST(AluConstrainingTest, AddCarryWithLookups)
 TEST(AluConstrainingTest, AddCarryU1WithLookups)
 {
     PrecomputedTraceBuilder precomputed_builder;
-    // Using u1s here => alu_ix_tag = ValueTag::U1 = 1, max_value = 1
+    auto tag = static_cast<uint8_t>(MemoryTag::U1);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_cf = 1,
             .alu_ia = 1,
-            .alu_ia_tag = 1,
+            .alu_ia_tag = tag,
             .alu_ib = 1,
-            .alu_ib_tag = 1,
+            .alu_ib_tag = tag,
             .alu_ic = 0,
-            .alu_ic_tag = 1,
-            .alu_max_value = 1,
+            .alu_ic_tag = tag,
+            .alu_max_value = get_tag_max_value(MemoryTag::U1),
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .execution_mem_tag_0_ = 1,            // = ia_tag
-            .execution_mem_tag_1_ = 1,            // = ia_tag
-            .execution_mem_tag_2_ = 1,            // = ia_tag
+            .execution_mem_tag_0_ = tag,          // = ia_tag
+            .execution_mem_tag_1_ = tag,          // = ib_tag
+            .execution_mem_tag_2_ = tag,          // = ic_tag
             .execution_register_0_ = 1,           // = ia
             .execution_register_1_ = 1,           // = ib
             .execution_register_2_ = 0,           // = ic
@@ -174,9 +248,44 @@ TEST(AluConstrainingTest, AddCarryU1WithLookups)
         },
     });
     // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, 2);
+    precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
     precomputed_builder.process_tag_parameters(trace);
     check_interaction<AluTraceBuilder, lookup_alu_tag_max_value_settings>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, AddCarryU8WithLookups)
+{
+    auto trace = process_carry_add_trace(MemoryTag::U8);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, AddCarryU16WithLookups)
+{
+    auto trace = process_carry_add_trace(MemoryTag::U16);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, AddCarryU32WithLookups)
+{
+    auto trace = process_carry_add_trace(MemoryTag::U32);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, AddCarryU64WithLookups)
+{
+    auto trace = process_carry_add_trace(MemoryTag::U64);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, AddCarryU128WithLookups)
+{
+    auto trace = process_carry_add_trace(MemoryTag::U128);
+    check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
 
@@ -196,15 +305,15 @@ TEST(AluConstrainingTest, NegativeAddWrongOpId)
 
 TEST(AluConstrainingTest, NegativeBasicAdd)
 {
-    // Using u8s here => alu_ix_tag = ValueTag::U8 = 2
+    auto tag = static_cast<uint8_t>(MemoryTag::U8);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = 1,
-            .alu_ia_tag = 2,
+            .alu_ia_tag = tag,
             .alu_ib = 2,
-            .alu_ib_tag = 2,
+            .alu_ib_tag = tag,
             .alu_ic = 3,
-            .alu_ic_tag = 2,
+            .alu_ic_tag = tag,
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -213,24 +322,23 @@ TEST(AluConstrainingTest, NegativeBasicAdd)
 
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, 0);
-    // If we are overflowing, we need to set the carry flag...
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
 }
 
 TEST(AluConstrainingTest, NegativeAddCarryU1)
 {
     PrecomputedTraceBuilder precomputed_builder;
-    // Using u1s here => alu_ix_tag = ValueTag::U1 = 1, max_value = 1
+    auto tag = static_cast<uint8_t>(MemoryTag::U1);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_cf = 1,
             .alu_ia = 1,
-            .alu_ia_tag = 1,
+            .alu_ia_tag = tag,
             .alu_ib = 1,
-            .alu_ib_tag = 1,
+            .alu_ib_tag = tag,
             .alu_ic = 0,
-            .alu_ic_tag = 1,
-            .alu_max_value = 1,
+            .alu_ic_tag = tag,
+            .alu_max_value = get_tag_max_value(MemoryTag::U1),
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -254,47 +362,28 @@ TEST(AluConstrainingTest, NegativeAddCarryU1)
 
 TEST(AluConstrainingTest, NegativeAddCarryU8)
 {
-    PrecomputedTraceBuilder precomputed_builder;
-    // Using u8s here => alu_ix_tag = ValueTag::U8 = 2, max_value = 255
-    auto trace = TestTraceContainer::from_rows({
-        {
-            .alu_cf = 1,
-            .alu_ia = 2,
-            .alu_ia_tag = 2,
-            .alu_ib = 255,
-            .alu_ib_tag = 2,
-            .alu_ic = 1,
-            .alu_ic_tag = 2,
-            .alu_max_value = 255,
-            .alu_op_id = 1,
-            .alu_sel = 1,
-            .alu_sel_op_add = 1,
-        },
-    });
-    // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, 3);
-    precomputed_builder.process_tag_parameters(trace);
-    // The register lookup will pass (sel_alu = 0, not tested here):
+    auto trace = process_carry_add_trace(MemoryTag::U8);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
     // TODO(MW): The below should fail the range check on c in memory, but we cannot test this yet.
     // Instead, we assume the carry flag is correct and show an overflow fails:
     trace.set(Column::alu_ic, 0, 257);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
 }
 
 TEST(AluConstrainingTest, NegativeAddWrongTag)
 {
     PrecomputedTraceBuilder precomputed_builder;
-    // Using u16s here => alu_ix_tag = ValueTag::U16 = 3, max_value = 2^16 - 1
+    auto tag = static_cast<uint8_t>(MemoryTag::U8);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = 2,
-            .alu_ia_tag = 2, // Should be 3
+            .alu_ia_tag = tag, // Should be U16 tag
             .alu_ib = 1,
-            .alu_ib_tag = 2,
+            .alu_ib_tag = tag,
             .alu_ic = 3,
-            .alu_ic_tag = 2,
-            .alu_max_value = (1 << 16) - 1,
+            .alu_ic_tag = tag,
+            .alu_max_value = get_tag_max_value(MemoryTag::U16),
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -309,18 +398,18 @@ TEST(AluConstrainingTest, NegativeAddWrongTag)
 
 TEST(AluConstrainingTest, NegativeAddWrongTagABMismatch)
 {
-    // Using u16s here => alu_ix_tag = ValueTag::U16 = 3, max_value = 2^16 - 1
+    auto tag = static_cast<uint8_t>(MemoryTag::U16);
     auto trace = TestTraceContainer::from_rows({
         {
             // ab_tags_diff_inv = inv(a_tag - b_tag) = inv(1) = 1:
             .alu_ab_tags_diff_inv = 1,
             .alu_ia = 2,
-            .alu_ia_tag = 3,
+            .alu_ia_tag = tag,
             .alu_ib = 1,
-            .alu_ib_tag = 2, // Should be 3
+            .alu_ib_tag = tag - 1, // Incorrect
             .alu_ic = 3,
-            .alu_ic_tag = 3,
-            .alu_max_value = (1 << 16) - 1,
+            .alu_ic_tag = tag,
+            .alu_max_value = get_tag_max_value(MemoryTag::U16),
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -341,23 +430,23 @@ TEST(AluConstrainingTest, NegativeAddWrongTagABMismatch)
 
 TEST(AluConstrainingTest, NegativeAddWrongTagCMismatch)
 {
-    // Using u16s here => alu_ix_tag = ValueTag::U16 = 3, max_value = 2^16 - 1
+    auto tag = static_cast<uint8_t>(MemoryTag::U16);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = 2,
-            .alu_ia_tag = 3,
+            .alu_ia_tag = tag,
             .alu_ib = 1,
-            .alu_ib_tag = 3,
+            .alu_ib_tag = tag,
             .alu_ic = 3,
-            .alu_ic_tag = 3,
-            .alu_max_value = (1 << 16) - 1,
+            .alu_ic_tag = tag,
+            .alu_max_value = get_tag_max_value(MemoryTag::U16),
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
         },
     });
     check_relation<alu>(trace);
-    trace.set(Column::alu_ic_tag, 0, 2);
+    trace.set(Column::alu_ic_tag, 0, tag - 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
 }
 } // namespace

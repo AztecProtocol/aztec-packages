@@ -146,7 +146,7 @@ uint256_t get_tag_max_value(ValueTag tag)
     case ValueTag::U128:
         return (uint256_t(1) << get_tag_bits(tag)) - 1;
     case ValueTag::FF:
-        return FF(-1);
+        return FF::modulus - 1;
     }
 
     assert(false && "Invalid tag");
