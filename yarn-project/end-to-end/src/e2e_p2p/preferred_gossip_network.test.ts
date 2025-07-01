@@ -139,6 +139,10 @@ describe('e2e_p2p_preferred_network', () => {
 
     const preferredNodeEnrs = await Promise.all(preferredNodes.map(node => node.getEncodedEnr()));
 
+    t.logger.info('Preferred nodes created', {
+      preferredNodeEnrs: preferredNodeEnrs.map(enr => enr?.toString()),
+    });
+
     const nodeConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
       disableValidator: true,
