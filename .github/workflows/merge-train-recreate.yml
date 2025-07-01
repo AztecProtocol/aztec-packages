@@ -18,18 +18,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Recreate branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd ${{ github.workspace }}
-          ./scripts/merge-train/recreate-branch.sh \
+          GH_TOKEN=${{ secrets.GITHUB_TOKEN }} ./scripts/merge-train/recreate-branch.sh \
             "${{ github.event.pull_request.head.ref }}" \
             "${{ github.event.pull_request.base.ref }}"
 
