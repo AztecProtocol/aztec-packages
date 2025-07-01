@@ -125,7 +125,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeCheckTraceBuilder public_data_check_builder;
+    PublicDataTreeTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
@@ -226,7 +226,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeCheckTraceBuilder public_data_check_builder;
+    PublicDataTreeTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });

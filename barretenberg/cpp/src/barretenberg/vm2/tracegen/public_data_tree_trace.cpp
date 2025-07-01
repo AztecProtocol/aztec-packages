@@ -165,7 +165,7 @@ void process_squashing_trace(const std::vector<PublicDataTreeReadWriteEvent>& no
 
 } // namespace
 
-void PublicDataTreeCheckTraceBuilder::process(
+void PublicDataTreeTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::PublicDataTreeCheckEvent>::Container& events,
     TraceContainer& trace)
 {
@@ -212,7 +212,7 @@ void PublicDataTreeCheckTraceBuilder::process(
     process_squashing_trace(nondiscarded_writes, trace);
 }
 
-const InteractionDefinition PublicDataTreeCheckTraceBuilder::interactions =
+const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
     InteractionDefinition()
         // Public data read/write
         .add<lookup_public_data_check_silo_poseidon2_settings, InteractionType::LookupSequential>()

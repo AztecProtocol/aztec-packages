@@ -54,7 +54,7 @@ using simulation::unconstrained_root_from_path;
 using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
-using tracegen::PublicDataTreeCheckTraceBuilder;
+using tracegen::PublicDataTreeTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -118,7 +118,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
-    PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
+    PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
     uint64_t leaf_index = 30;
@@ -297,7 +297,7 @@ TEST(PublicDataTreeConstrainingTest, PositiveWriteExists)
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
-    PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
+    PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     FF slot = 40;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
@@ -367,7 +367,7 @@ TEST(PublicDataTreeConstrainingTest, PositiveWriteAndUpdate)
         poseidon2, merkle_check, field_gt, execution_id_manager, range_check, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
-    PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
+    PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     FF slot = 42;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);

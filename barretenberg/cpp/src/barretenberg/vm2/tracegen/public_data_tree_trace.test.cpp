@@ -132,7 +132,7 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
-    PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
+    PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
     uint64_t leaf_index = 30;
@@ -160,7 +160,7 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    constraining::check_all_interactions<PublicDataTreeCheckTraceBuilder>(trace);
+    constraining::check_all_interactions<PublicDataTreeTraceBuilder>(trace);
 }
 
 INSTANTIATE_TEST_SUITE_P(PublicDataTreeCheckTracegenTest,
@@ -207,7 +207,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
     FieldGreaterThanTraceBuilder field_gt_builder;
     PrecomputedTraceBuilder precomputed_builder;
     PublicInputsTraceBuilder public_inputs_builder;
-    PublicDataTreeCheckTraceBuilder public_data_tree_builder;
+    PublicDataTreeTraceBuilder public_data_tree_builder;
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 1), 0, 0);
     FF low_leaf_hash = poseidon2::hash(low_leaf.get_hash_inputs());
@@ -251,7 +251,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     public_data_tree_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    constraining::check_all_interactions<PublicDataTreeCheckTraceBuilder>(trace);
+    constraining::check_all_interactions<PublicDataTreeTraceBuilder>(trace);
 }
 
 TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
@@ -297,7 +297,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
     FieldGreaterThanTraceBuilder field_gt_builder;
     PrecomputedTraceBuilder precomputed_builder;
     PublicInputsTraceBuilder public_inputs_builder;
-    PublicDataTreeCheckTraceBuilder public_data_tree_read_builder;
+    PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(low_leaf_slot, 1), 0, 0);
     FF low_leaf_hash = poseidon2::hash(low_leaf.get_hash_inputs());
@@ -375,7 +375,7 @@ TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     public_data_tree_read_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
 
-    constraining::check_all_interactions<PublicDataTreeCheckTraceBuilder>(trace);
+    constraining::check_all_interactions<PublicDataTreeTraceBuilder>(trace);
 }
 
 } // namespace
