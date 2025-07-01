@@ -245,9 +245,9 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
-          'Assertion failed: Blacklisted: Sender',
-        );
+        await expect(
+          asset.withWallet(blacklisted).methods.burn(blacklisted.getAddress(), 1n, 0).simulate(),
+        ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
       });
     });
   });

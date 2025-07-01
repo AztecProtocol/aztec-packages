@@ -174,7 +174,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
     it('transfer from a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).simulate(),
+        asset
+          .withWallet(blacklisted)
+          .methods.transfer(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0)
+          .simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 

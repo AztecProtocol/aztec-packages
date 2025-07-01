@@ -128,7 +128,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
     it('unshield from blacklisted account', async () => {
       await expect(
-        asset.methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).simulate(),
+        asset
+          .withWallet(blacklisted)
+          .methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0)
+          .simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 
