@@ -72,7 +72,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -172,8 +172,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
     slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
-
-    rollup.preheatHeaders();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);

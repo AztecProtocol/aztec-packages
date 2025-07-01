@@ -1,6 +1,7 @@
 use dep::aztec::{
+    context::PrivateContext,
     macros::notes::custom_note,
-    prelude::{NoteHash, PrivateContext},
+    note::note_interface::NoteHash,
     protocol_types::{
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,

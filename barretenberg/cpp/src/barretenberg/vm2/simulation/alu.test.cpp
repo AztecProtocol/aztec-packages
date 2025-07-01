@@ -64,8 +64,9 @@ TEST(AvmSimulationAluTest, NegativeAddTag)
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint64_t>(2);
+    MemoryValue c;
 
-    auto c = alu.add(a, b);
+    EXPECT_THROW(alu.add(a, b), AluError);
 
     auto events = alu_event_emitter.dump_events();
     EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c, AluError::TAG_ERROR }));

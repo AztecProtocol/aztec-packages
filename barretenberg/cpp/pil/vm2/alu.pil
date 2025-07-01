@@ -39,14 +39,14 @@ sel * (1 - sel) = 0;
 cf * (1 - cf) = 0;
 sel_is_ff * (1 - sel_is_ff) = 0;
 
-// TODO(MW): Add other ops like: sel_op_add * 2**0 + sel_op_sub * 2**1 + sel_op_mul * 2**2 - op_id = 0;
+// TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
 #[OP_ID_CHECK]
 sel_op_add * 2**0 + sel_op_lt * 2**6 - op_id = 0;
 
 #[REGISTER_TAG_VALUE]
 execution.sel_alu {
-    execution.register[0], execution.mem_tag[0], execution.register[1],
-    execution.mem_tag[1], execution.register[2], execution.mem_tag[2], execution.subtrace_operation_id, execution.opcode_error
+    execution.register[0], execution.mem_tag_reg[0], execution.register[1],
+    execution.mem_tag_reg[1], execution.register[2], execution.mem_tag_reg[2], execution.subtrace_operation_id, execution.sel_opcode_error
 } in sel {
     ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_tag_err
 };

@@ -7,8 +7,8 @@ pub contract TestLog {
             emit_event_in_private_log, emit_event_in_public_log, PrivateLogContent,
         },
         macros::{events::event, functions::{private, public}, storage::storage},
-        prelude::PrivateSet,
         protocol_types::{address::AztecAddress, traits::FromField},
+        state_vars::PrivateSet,
     };
     use value_note::value_note::ValueNote;
 

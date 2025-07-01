@@ -115,8 +115,12 @@ pol constant exec_opcode_opcode_gas;
 pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;
-// Memory Access + Register mappings
-pol constant mem_op_reg[7], rw[7];
+// Registers: Memory Access
+pol constant sel_mem_op_reg[7];
+pol constant rw_reg[7];
+// Registers: Tag Check
+pol constant sel_tag_check_reg[7];
+pol constant expected_tag_reg[7];
 // Subtrace/Gadget Selector
 pol constant subtrace_operation_id;
 pol constant sel_dispatch_alu;
@@ -124,8 +128,8 @@ pol constant sel_dispatch_bitwise;
 pol constant sel_dispatch_poseidon_perm;
 pol constant sel_dispatch_to_radix;
 pol constant sel_dispatch_ecc;
-pol constant sel_dispatch_data_copy;
 pol constant sel_dispatch_keccakf1600;
+pol constant sel_dispatch_data_copy;
 pol constant sel_dispatch_execution;
 // Whether an operand is an address
 // NOTE: this could be encoded in bits in 1 column and reconstructed.
