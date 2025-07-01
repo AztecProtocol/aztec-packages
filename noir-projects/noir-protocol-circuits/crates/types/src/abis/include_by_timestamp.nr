@@ -1,5 +1,6 @@
 use crate::{constants::INCLUDE_BY_TIMESTAMP_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct IncludeByTimestamp {
     _opt: Option<u64>,
 }
@@ -7,30 +8,6 @@ pub struct IncludeByTimestamp {
 impl Empty for IncludeByTimestamp {
     fn empty() -> Self {
         Self { _opt: Option::none() }
-    }
-}
-
-impl Eq for IncludeByTimestamp {
-    fn eq(self, other: Self) -> bool {
-        self._opt == other._opt
-    }
-}
-
-impl Serialize<INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
-    fn serialize(self) -> [Field; INCLUDE_BY_TIMESTAMP_LENGTH] {
-        [self._opt.is_some() as Field, self._opt.unwrap_unchecked() as Field]
-    }
-}
-
-impl Deserialize<INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
-    fn deserialize(serialized: [Field; INCLUDE_BY_TIMESTAMP_LENGTH]) -> IncludeByTimestamp {
-        IncludeByTimestamp {
-            _opt: if serialized[0] != 0 {
-                Option::some(serialized[1] as u64)
-            } else {
-                Option::none()
-            },
-        }
     }
 }
 
