@@ -38,11 +38,16 @@ jobs:
             git checkout $TRAIN_BRANCH
             
             # Attempt to merge next
-            if git merge origin/next --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH [skip ci]"; then
+            if git merge origin/next --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH"; then
               echo "merge_success=true" >> $GITHUB_OUTPUT
-              # Try to push, but don't fail if it doesn't work
-              if ! git push origin $TRAIN_BRANCH; then
+              # Try to push
+              if git push origin $TRAIN_BRANCH; then
+                echo "push_success=true" >> $GITHUB_OUTPUT
+                # Get the commit SHA that was just pushed
+                echo "pushed_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+              else
                 echo "Push failed but continuing anyway"
+                echo "push_success=false" >> $GITHUB_OUTPUT
               fi
             else
               echo "merge_success=false" >> $GITHUB_OUTPUT
@@ -54,6 +59,61 @@ jobs:
             echo "Branch $TRAIN_BRANCH does not exist yet, skipping merge"
             echo "merge_success=skip" >> $GITHUB_OUTPUT
           fi
+
+      - name: Cancel old CI runs on merge commits
+        if: steps.merge.outputs.push_success == 'true'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const trainBranch = '${{ matrix.train-branch }}';
+            const pushedSha = '${{ steps.merge.outputs.pushed_sha }}';
+            
+            // Find PR for this merge-train branch
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${trainBranch}`
+            });
+            
+            if (pulls.length > 0) {
+              const pr = pulls[0];
+              
+              // Get all commits in the PR to identify merge commits
+              const { data: commits } = await github.rest.pulls.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              // Filter for merge commits (commits with 2 parents)
+              const mergeCommits = commits.filter(commit => 
+                commit.parents && commit.parents.length > 1 && commit.sha !== pushedSha
+              );
+              
+              for (const commit of mergeCommits) {
+                // Get workflow runs for this commit
+                const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head_sha: commit.sha,
+                  status: 'in_progress'
+                });
+                
+                // Cancel ci3.yml runs
+                for (const run of runs.workflow_runs) {
+                  if (run.path === '.github/workflows/ci3.yml') {
+                    console.log(`Cancelling ci3.yml run ${run.id} for old merge commit ${commit.sha}`);
+                    await github.rest.actions.cancelWorkflowRun({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      run_id: run.id
+                    });
+                  }
+                }
+              }
+            }
 
       - name: Comment on conflict
         if: steps.merge.outputs.merge_success == 'false'
