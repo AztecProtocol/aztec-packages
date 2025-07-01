@@ -10,7 +10,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
@@ -34,7 +33,6 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using GroupElement = Curve::Element;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using PCS = IPA<Curve>;
@@ -62,6 +60,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = ECCVMFlavor::NUM_SUBRELATIONS;
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = ECCVMFlavor::MAX_PARTIAL_RELATION_LENGTH;
 

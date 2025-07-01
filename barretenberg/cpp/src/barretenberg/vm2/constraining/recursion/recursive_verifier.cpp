@@ -125,6 +125,11 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    RelationSeparator alphas{ alpha };
+
+    for (size_t i = 1; i < alphas.size(); ++i) {
+        alphas[i] = alphas[i - 1] * alpha;
+    }
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -134,7 +139,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+        sumcheck.verify(relation_parameters, alphas, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks

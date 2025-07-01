@@ -20,6 +20,7 @@ class AvmProver {
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Transcript = Flavor::Transcript;
     using Proof = HonkProof;
+    using RelationSeparator = Flavor::RelationSeparator;
 
     explicit AvmProver(std::shared_ptr<ProvingKey> input_key, const PCSCommitmentKey& commitment_key);
     AvmProver(AvmProver&& prover) = default;

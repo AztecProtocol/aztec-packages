@@ -13,6 +13,7 @@ class AvmVerifier {
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Transcript = Flavor::Transcript;
+    using RelationSeparator = Flavor::RelationSeparator;
 
     explicit AvmVerifier(std::shared_ptr<VerificationKey> verifier_key);
     AvmVerifier(AvmVerifier&& other) noexcept;

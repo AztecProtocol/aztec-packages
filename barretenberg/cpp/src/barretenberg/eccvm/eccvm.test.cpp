@@ -132,6 +132,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     using FF = ECCVMFlavor::FF;
     using Transcript = Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
+    using RelationSeparator = Flavor::RelationSeparator;
 
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
@@ -144,6 +145,12 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     // Prepare the inputs for the sumcheck prover:
     // Compute and add beta to relation parameters
     const FF alpha = FF::random_element();
+    RelationSeparator alphas{ alpha };
+
+    for (size_t i = 1; i < alphas.size(); ++i) {
+        alphas[i] = alphas[i - 1] * alpha;
+    }
+
     complete_proving_key_for_test(relation_parameters, pk, gate_challenges);
 
     // Clear the transcript
@@ -156,14 +163,15 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
 
     auto prover_output =
-        sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+        sumcheck_prover.prove(pk->polynomials, relation_parameters, alphas, gate_challenges, zk_sumcheck_data);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
     SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
-    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckOutput<ECCVMFlavor> verifier_output =
+        sumcheck_verifier.verify(relation_parameters, alphas, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier

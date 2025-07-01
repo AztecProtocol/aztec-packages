@@ -109,6 +109,13 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     // Execute Sumcheck Verifier
     Sumcheck sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    RelationSeparator alphas{ alpha };
+
+    for (size_t i = 1; i < alphas.size(); ++i) {
+        alphas[i] = alphas[i - 1] * alpha;
+    }
+
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -123,7 +130,7 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, one);
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alphas, gate_challenges, padding_indicator_array);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");

@@ -60,49 +60,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
                                        avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
-// These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
+// These concept is relevant for the Sumcheck Prover, where the logic is different for BN254 and Grumpkin Flavors
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
-
-#ifdef STARKNET_GARAGA_FLAVORS
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
-                                                           // Note(md): must be here to use oink prover
-                                                           UltraKeccakFlavor,
-                                                           UltraStarknetFlavor,
-                                                           UltraKeccakZKFlavor,
-                                                           UltraStarknetZKFlavor,
-                                                           UltraRollupFlavor,
-                                                           UltraZKFlavor,
-                                                           MegaFlavor,
-                                                           MegaZKFlavor,
-                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                            MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-#else
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1426): Rename this.
-template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
-                                                           // Note(md): must be here to use oink prover
-                                                           UltraKeccakFlavor,
-                                                           UltraKeccakZKFlavor,
-                                                           UltraRollupFlavor,
-                                                           UltraZKFlavor,
-                                                           MegaFlavor,
-                                                           MegaZKFlavor,
-                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           UltraZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                                           MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                                           MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-#endif
-
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
     for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {

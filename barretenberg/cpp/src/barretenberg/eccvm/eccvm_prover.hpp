@@ -22,20 +22,21 @@ namespace bb {
 class ECCVMProver {
   public:
     using Flavor = ECCVMFlavor;
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Commitment = typename Flavor::Commitment;
-    using PCS = typename Flavor::PCS;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using Polynomial = typename Flavor::Polynomial;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
+    using FF = Flavor::FF;
+    using BF = Flavor::BF;
+    using Commitment = Flavor::Commitment;
+    using PCS = Flavor::PCS;
+    using CommitmentKey = Flavor::CommitmentKey;
+    using ProvingKey = Flavor::ProvingKey;
+    using Polynomial = Flavor::Polynomial;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using Transcript = Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
-    using CircuitBuilder = typename Flavor::CircuitBuilder;
+    using CircuitBuilder = Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
+    using RelationSeparator = Flavor::RelationSeparator;
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const std::shared_ptr<Transcript>& transcript,

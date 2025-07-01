@@ -27,6 +27,7 @@ class TranslatorProver {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
+    using RelationSeparator = Flavor::RelationSeparator;
 
     explicit TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
                               const std::shared_ptr<Transcript>& transcript);

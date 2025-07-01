@@ -88,6 +88,12 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    RelationSeparator alphas{ alpha };
+    info("avm verifier alphas size ", alphas.size());
+
+    for (size_t i = 1; i < alphas.size(); ++i) {
+        alphas[i] = alphas[i - 1] * alpha;
+    }
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -95,7 +101,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     SumcheckOutput<Flavor> output =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+        sumcheck.verify(relation_parameters, alphas, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {

@@ -72,6 +72,12 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     // Execute Sumcheck Verifier
     Sumcheck sumcheck(transcript);
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    RelationSeparator alphas{ alpha };
+
+    for (size_t i = 1; i < alphas.size(); ++i) {
+        alphas[i] = alphas[i - 1] * alpha;
+    }
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -82,7 +88,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alphas, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");

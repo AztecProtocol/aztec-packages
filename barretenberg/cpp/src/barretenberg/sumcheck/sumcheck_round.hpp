@@ -166,7 +166,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                               const RelationSeparator alpha)
+                                               const RelationSeparator& alpha)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -313,7 +313,7 @@ template <typename Flavor> class SumcheckProverRound {
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        const RelationSeparator alpha,
+        const RelationSeparator& alpha,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>

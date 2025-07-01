@@ -38,7 +38,9 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;

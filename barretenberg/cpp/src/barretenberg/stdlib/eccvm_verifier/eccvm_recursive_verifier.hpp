@@ -22,6 +22,7 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,

@@ -37,7 +37,7 @@ class AvmFlavor {
     using CommitmentHandle = AvmFlavorSettings::CommitmentHandle;
     using CommitmentKey = AvmFlavorSettings::CommitmentKey;
     using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
-    using RelationSeparator = AvmFlavorSettings::RelationSeparator;
+    // using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -78,6 +78,10 @@ class AvmFlavor {
     // Need to be templated for recursive verifier
     template <typename FF_> using Relations_ = tuple_cat_t<MainRelations_<FF_>, LookupRelations_<FF_>>;
     using Relations = Relations_<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 

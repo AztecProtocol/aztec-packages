@@ -115,6 +115,12 @@ void ECCVMProver::execute_relation_check_rounds()
 
     Sumcheck sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    RelationSeparator alphas{ alpha };
+
+    for (size_t i = 1; i < alphas.size(); ++i) {
+        alphas[i] = alphas[i - 1] * alpha;
+    }
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -122,7 +128,7 @@ void ECCVMProver::execute_relation_check_rounds()
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alphas, gate_challenges, zk_sumcheck_data);
 }
 
 /**
