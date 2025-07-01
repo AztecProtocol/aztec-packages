@@ -321,8 +321,46 @@ template <typename Curve> class ShplonkVerifier_ {
                                                    std::span<const OpeningClaim<Curve>> claims,
                                                    std::shared_ptr<Transcript>& transcript)
     {
+        std::vector<OpeningClaims<Curve>> claims_;
+        claims_.reserve(claims.size());
+        for (auto& claim : claims) {
+            claims_.emplace_back(OpeningClaims<Curve>({ claim.opening_pair }, claim.commitment));
+        }
+
+        return reduce_verification_multiple_claims_same_polynomial(g1_identity, std::span(claims_), transcript);
+    };
+
+    /**
+     * @brief Recomputes the new claim commitment [G] given the proof and
+     * the challenge r. No verification happens so this function always succeeds.
+     *
+     *
+     * @details This function operates on a list of `OpeningClaims`. Each claim in `claims` is a couple
+     * (C_j, { (x_{j,i}, v_{j,i}) } ) of a commitment C_j to a polynomial f_j and a list of challenge/evaluation s.t.
+     * f_j(x_{j,i}) = v_{j,i}. To save on the number of MSMs computed, the verifier batches together the coefficients
+     * corresponding to C_j for the various evaluations. Namely, instead of computing a batch mul with
+     * batch_mul(
+     *          commitments = {C_j, C_j, C_j, ..}, scalars = {1 / (z - x_{j,1}), \nu 1 / (z - x_{j,2}), ...}
+     * )
+     * we compute scalar = \sum_i \nu^(i-1) 1 / (z - x_{j,i}) and scalar * commitment.
+     *
+     *
+     * @param g1_identity the identity element for the Curve
+     * @param claims list of opening claims (C_j, { (x_{j,i}, v_{j,i}) } ) for a witness polynomial f_j(X), s.t.
+     * f_j(x_{j,i}) = v_{j,i}.
+     * @param transcript
+     * @return OpeningClaim
+     */
+    template <typename Transcript>
+    static OpeningClaim<Curve> reduce_verification_multiple_claims_same_polynomial(
+        Commitment g1_identity, std::span<const OpeningClaims<Curve>> claims, std::shared_ptr<Transcript>& transcript)
+    {
 
         const size_t num_claims = claims.size();
+        size_t total_claims = 0;
+        for (auto& opening_claims : claims) {
+            total_claims += opening_claims.size();
+        }
 
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
 
@@ -330,18 +368,23 @@ template <typename Curve> class ShplonkVerifier_ {
 
         const Fr z_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
 
-        // [G] = [Q] - ∑ⱼ ρʲ / (z − xⱼ )⋅[fⱼ] + G₀⋅[1]
-        //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / (z − xⱼ )]
+        // [G] = [Q] - \sum_j \sum_i ν^{k} / (z − x_{i,j} ) [f_j] + G₀ [1]
+        //     = [Q] - [\sum_j \sum_i ν^{k} (f_j(X) − v_{j,i}) / (z − x_{j,i})]
+        // k here is a running index depending on how many commitments we have already aggregated
         GroupElement G_commitment;
 
         // compute simulated commitment to [G] as a linear combination of
-        // [Q], { [fⱼ] }, [1]:
-        //  [G] = [Q] - ∑ⱼ (1/zⱼ(r))[Bⱼ]  + ( ∑ⱼ (1/zⱼ(r)) Tⱼ(r) )[1]
-        //      = [Q] - ∑ⱼ (1/zⱼ(r))[Bⱼ]  +                    G₀ [1]
-        // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / (z − xⱼ )
+        // [Q], { [f_j] }, [1]:
+        // [G] = [Q] - \sum_j \sum_i ν^{k} / (z − x_{j,i}) [f_j] + (\sum_j \sum_i ν^{k} v_{j,i} / (z − x_{j,i}))[1]
+        //     = [Q] - \sum_j \sum_i ν^{k} / (z − x_{j,i}) [f_j] +                                           G₀ [1]
+        // G₀ = \sum_j \sum_i ν^{k} ⋅ v_{j,i} / (z − x_{j,i})
         Fr G_commitment_constant(0);
 
         Fr evaluation(0);
+
+        // Container for { 1 / (z − x_{j,i}) }_{j,i}
+        std::vector<Fr> inverse_vanishing_evals;
+        inverse_vanishing_evals.reserve(total_claims);
 
         // TODO(#673): The recursive and non-recursive (native) logic is completely separated via the following
         // conditional. Much of the logic could be shared, but I've chosen to do it this way since soon the "else"
@@ -354,82 +397,102 @@ template <typename Curve> class ShplonkVerifier_ {
             std::vector<Commitment> commitments;
             std::vector<Fr> scalars;
 
-            // [G] = [Q] - ∑ⱼ νʲ / (z − xⱼ )⋅[fⱼ] + G₀⋅[1]
-            //     = [Q] - [∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / (z − xⱼ )]
+            // [G] = [Q] - \sum_j \sum_i (1 / (z − x_{j,i})) [f_j] + G₀ [1]
+            //     = [Q] - [\sum_j \sum_i ν^{k} ⋅ (f_j(X) − v_{j,i}) / (z − x_{j,i})]
             commitments.emplace_back(Q_commitment);
             scalars.emplace_back(Fr(builder, 1)); // Fr(1)
 
-            // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-            std::vector<Fr> inverse_vanishing_evals;
-            inverse_vanishing_evals.reserve(num_claims);
-            for (const auto& claim : claims) {
+            // Compute { 1 / (z − x_{j,i}) }_{j,i}
+            for (const auto& opening_claims : claims) {
                 // Note: no need for batch inversion; emulated inversion is cheap. (just show known inverse is valid)
-                inverse_vanishing_evals.emplace_back((z_challenge - claim.opening_pair.challenge).invert());
+                for (const auto& claim : opening_claims.opening_pairs) {
+                    inverse_vanishing_evals.emplace_back((z_challenge - claim.challenge).invert());
+                }
             }
 
             auto current_nu = Fr(1);
+            size_t idx_inverses = 0;
             // Note: commitments and scalars vectors used only in recursion setting for batch mul
             for (size_t j = 0; j < num_claims; ++j) {
-                // (Cⱼ, xⱼ, vⱼ)
-                const auto& [opening_pair, commitment] = claims[j];
+                // (C_j, { (x_{j,i}, v_{j,i}) })
+                const auto& [opening_pairs, commitment] = claims[j];
 
-                Fr scaling_factor = current_nu * inverse_vanishing_evals[j]; // = νʲ / (z − xⱼ )
+                auto commitment_scaling_factor = Fr(0);
+                // For each commitment C_j and challenge/evaluation { (x_{j,i}, v_{j,i}) } we compute
+                // - the update to G_commitment_constant: ν^{k} v_{j,i} / (z − x_{j,i})
+                // - the update to the scaling factor for C_j: ν^{k} / (z − x_{j,i})
+                for (size_t idx = 0; idx < opening_pairs.size(); ++idx) {
+                    auto scaling_factor =
+                        current_nu * inverse_vanishing_evals[idx_inverses]; // = ν^{k} / (z − x_{j,i} )
 
-                // G₀ += νʲ / (z − xⱼ ) ⋅ vⱼ
-                G_commitment_constant += scaling_factor * opening_pair.evaluation;
+                    // G₀ += ν^{k} v_{j,i} / (z − x_{j,i})
+                    G_commitment_constant += scaling_factor * opening_pairs[idx].evaluation;
 
-                current_nu *= nu;
+                    // commitment_scaling_factor += ν^{k} / (z − x_{j,i})
+                    commitment_scaling_factor += scaling_factor;
+
+                    current_nu *= nu;
+
+                    idx_inverses += 1;
+                }
 
                 // Store MSM inputs for batch mul
                 commitments.emplace_back(commitment);
-                scalars.emplace_back(-scaling_factor);
+                scalars.emplace_back(-commitment_scaling_factor);
             }
 
             commitments.emplace_back(g1_identity);
             scalars.emplace_back(G_commitment_constant);
 
-            // [G] += G₀⋅[1] = [G] + (∑ⱼ νʲ ⋅ vⱼ / (z − xⱼ ))⋅[1]
+            // [G] += G₀⋅[1] = [G] + \sum_j \sum_i ν^{k} v_{j,i} / (z − x_{j,i}) [1]
             G_commitment = GroupElement::batch_mul(commitments, scalars);
 
             // Set evaluation to constant witness
             evaluation.convert_constant_to_fixed_witness(z_challenge.get_context());
         } else {
-            // [G] = [Q] - ∑ⱼ νʲ / (z − xⱼ )⋅[fⱼ] + G₀⋅[1]
-            //     = [Q] - [∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / (z − xⱼ )]
+            // [G] = [Q] - \sum_j \sum_i (1 / (z − x_{j,i})) [f_j] + G₀ [1]
+            //     = [Q] - [\sum_j \sum_i ν^{k} ⋅ (f_j(X) − v_{j,i}) / (z − x_{j,i})]
             G_commitment = Q_commitment;
 
-            // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-            std::vector<Fr> inverse_vanishing_evals;
-            inverse_vanishing_evals.reserve(num_claims);
-            for (const auto& claim : claims) {
-                inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+            // Compute { 1 / (z − x_{j,i}) }_{j,i}
+            for (const auto& opening_claims : claims) {
+                for (const auto& claim : opening_claims.opening_pairs) {
+                    inverse_vanishing_evals.emplace_back(z_challenge - claim.challenge);
+                }
             }
             Fr::batch_invert(inverse_vanishing_evals);
 
             auto current_nu = Fr(1);
+            size_t idx_inverses = 0;
             // Note: commitments and scalars vectors used only in recursion setting for batch mul
             for (size_t j = 0; j < num_claims; ++j) {
-                // (Cⱼ, xⱼ, vⱼ)
-                const auto& [opening_pair, commitment] = claims[j];
+                // (C_j, { (x_{j,i}, v_{j,i}) })
+                const auto& [opening_pairs, commitment] = claims[j];
 
-                Fr scaling_factor = current_nu * inverse_vanishing_evals[j]; // = νʲ / (z − xⱼ )
+                Fr scaling_factor = Fr(0);
+                for (size_t idx = 0; idx < opening_pairs.size(); idx++) {
+                    scaling_factor = current_nu * inverse_vanishing_evals[idx_inverses]; // = ν^{k} / (z − x_{j,i} )
 
-                // G₀ += νʲ / (z − xⱼ ) ⋅ vⱼ
-                G_commitment_constant += scaling_factor * opening_pair.evaluation;
+                    // G₀ += ν^{k} v_{j,i} / (z − x_{j,i} )
+                    G_commitment_constant += scaling_factor * opening_pairs[idx].evaluation;
 
-                // [G] -= νʲ / (z − xⱼ )⋅[fⱼ]
-                G_commitment -= commitment * scaling_factor;
+                    // [G] -= ν^{k} / (z − x_{j,i} ) [f_j]
+                    G_commitment -= commitment * scaling_factor;
 
-                current_nu *= nu;
+                    current_nu *= nu;
+
+                    idx_inverses += 1;
+                }
             }
 
-            // [G] += G₀⋅[1] = [G] + (∑ⱼ νʲ ⋅ vⱼ / (z − xⱼ ))⋅[1]
+            // [G] += G₀⋅[1] = [G] + \sum_j \sum_i ν^{k} v_{j,i} / (z − x_{j,i}) [1]
             G_commitment += g1_identity * G_commitment_constant;
         }
 
         // Return opening pair (z, 0) and commitment [G]
         return { { z_challenge, evaluation }, G_commitment };
     };
+
     /**
      * @brief Computes \f$ \frac{1}{z - r}, \frac{1}{z + r}, \ldots, \frac{1}{z - r^{2^{d-1}}}, \frac{1}{z +
      * r^{2^{d-1}}} \f$.
