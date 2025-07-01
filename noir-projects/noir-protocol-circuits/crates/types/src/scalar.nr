@@ -10,7 +10,7 @@ impl Empty for Scalar {
 }
 
 impl Serialize for Scalar {
-    let N = SCALAR_SIZE;
+    let N: u32 = SCALAR_SIZE;
 
     fn serialize(self) -> [Field; Self::N] {
         [self.lo, self.hi]

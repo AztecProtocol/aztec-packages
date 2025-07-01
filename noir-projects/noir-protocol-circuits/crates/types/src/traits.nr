@@ -327,7 +327,7 @@ pub trait Serialize {
 // docs:end:serialize
 
 impl<let M: u32> Serialize for str<M> {
-    let N = M;
+    let N: u32 = M;
 
     #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
@@ -364,7 +364,7 @@ impl<T, let M: u32> Deserialize for BoundedVec<T, M>
 where
     T: Deserialize,
 {
-    let N = <T as Deserialize>::N * M + 1;
+    let N: u32 = <T as Deserialize>::N * M + 1;
 
     #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
@@ -392,7 +392,7 @@ where
 // I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
 // if someone does run into this in the future.
 impl Deserialize for () {
-    let N = 0;
+    let N: u32 = 0;
 
     fn deserialize(_fields: [Field; N]) -> Self {
         ()
@@ -403,7 +403,7 @@ impl<T, let M: u32, let O: u32> Serialize for BoundedVec<T, M>
 where
     T: Serialize,
 {
-    let N = O * M + 1; // +1 for the length of the BoundedVec
+    let N: u32 = O * M + 1; // +1 for the length of the BoundedVec
 
     #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
@@ -455,7 +455,7 @@ pub trait Deserialize {
 // docs:end:deserialize
 
 impl<let M: u32> Deserialize for str<M> {
-    let N = M;
+    let N: u32 = M;
 
     #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
