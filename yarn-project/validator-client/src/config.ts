@@ -31,9 +31,15 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
     description: 'List of private keys of the validators participating in attestation duties',
-    ...secretValueConfigHelper<`0x${string}`[]>(val =>
-      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
-    ),
+    ...secretValueConfigHelper<`0x${string}`[]>(val => {
+      if (val && val.length > 0) {
+        return val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`);
+      }
+      if (process.env.VALIDATOR_PRIVATE_KEY) {
+        return [`0x${process.env.VALIDATOR_PRIVATE_KEY.replace('0x', '')}`];
+      }
+      return [];
+    }),
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
