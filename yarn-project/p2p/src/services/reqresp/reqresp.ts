@@ -128,7 +128,6 @@ export class ReqResp implements ReqRespInterface {
   ): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
     this.subProtocolValidators[subProtocol] = validator;
-    this.logger.info(`Adding sub protocol ${subProtocol} to reqresp service`);
     await this.libp2p.handle(
       subProtocol,
       (data: IncomingStreamData) =>
@@ -477,9 +476,9 @@ export class ReqResp implements ReqRespInterface {
     try {
       this.metrics.recordRequestSent(subProtocol);
 
-      this.logger.info(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
+      this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
-      this.logger.info(
+      this.logger.trace(
         `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
       );
 
@@ -497,7 +496,7 @@ export class ReqResp implements ReqRespInterface {
       this.handleResponseError(e, peerId, subProtocol);
 
       // If there is an exception, we return an unknown response
-      this.logger.info(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
+      this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
       return { status: ReqRespStatus.FAILURE, data: Buffer.from([]) };
     } finally {
       // Only close the stream if we created it

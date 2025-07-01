@@ -218,11 +218,7 @@ export class PeerManager implements PeerManagerInterface {
       this.logger.warn('Trusted peers not initialized, returning false');
       return false;
     }
-    const isTrusted = this.trustedPeers.has(peerId.toString());
-    if (isTrusted) {
-      this.logger.info(`Peer ${peerId.toString()} is trusted`);
-    }
-    return isTrusted;
+    return this.trustedPeers.has(peerId.toString());
   }
 
   /**
@@ -234,7 +230,7 @@ export class PeerManager implements PeerManagerInterface {
 
     this.trustedPeers.add(peerIdStr);
     this.trustedPeersInitialized = true;
-    this.logger.info(`Added trusted peer ${peerIdStr}`);
+    this.logger.verbose(`Added trusted peer ${peerIdStr}`);
   }
 
   /**
@@ -319,7 +315,6 @@ export class PeerManager implements PeerManagerInterface {
 
   public getPeerScore(peerId: string): number {
     if (this.config.p2pAllowOnlyValidators && !this.isAuthenticatedPeer(peerIdFromString(peerId))) {
-      this.logger.error(`Peer ${peerId} is not authenticated, returning -Infinity score`);
       return -Infinity;
     }
     return this.peerScoring.getScore(peerId);
@@ -513,7 +508,7 @@ export class PeerManager implements PeerManagerInterface {
         peerConnections.set(peerId, conn);
       } else {
         // Keep the oldest connection for each peer
-        this.logger.info(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
+        this.logger.debug(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
         if (conn.timeline.open < existingConnection.timeline.open) {
           peerConnections.set(peerId, conn);
           void existingConnection.close();
@@ -527,7 +522,7 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
-    this.logger.info(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
+    this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
     this.metrics.recordGoodbyeSent(reason);
 
@@ -709,7 +704,7 @@ export class PeerManager implements PeerManagerInterface {
       const ourStatus = await this.createStatusMessage();
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.info(`Initiating status handshake with peer ${peerId}`);
+      this.logger.trace(`Initiating status handshake with peer ${peerId}`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.STATUS,
@@ -753,7 +748,7 @@ export class PeerManager implements PeerManagerInterface {
 
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.info(`Initiating auth handshake with peer ${peerId}`);
+      this.logger.trace(`Initiating auth handshake with peer ${peerId}`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.AUTH,
@@ -785,7 +780,7 @@ export class PeerManager implements PeerManagerInterface {
         await this.disconnectPeer(peerId);
         return;
       }
-      this.logger.error(`Successfully completed auth handshake with peer ${peerId}`, logData);
+      this.logger.info(`Successfully completed auth handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
@@ -818,7 +813,7 @@ export class PeerManager implements PeerManagerInterface {
 
   public async handleAuthFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
     if (this.shouldTrustWithIdentity(peerId)) {
-      this.logger.info(`Received auth request from trusted peer ${peerId.toString()}`);
+      this.logger.debug(`Received auth request from trusted peer ${peerId.toString()}`);
       return Promise.resolve(await this.createStatusMessage());
     }
     this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);

@@ -98,7 +98,6 @@ export async function createNode(
   const createNode = async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    console.log(`Creating Aztec Node Service on port ${tcpPort} with address index ${addressIndex}`);
     return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
