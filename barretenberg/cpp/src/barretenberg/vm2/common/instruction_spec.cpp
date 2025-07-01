@@ -493,10 +493,15 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .gas_cost = { .opcode_gas = AVM_STATICCALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
     { ExecutionOpCode::REVERT,
       { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_REVERT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+        .gas_cost = { .opcode_gas = AVM_REVERT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*rev_size*/ ValueTag::U32) } },
     { ExecutionOpCode::KECCAKF1600,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_KECCAKF1600_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::RETURNDATASIZE,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_output(/*dst*/) } },
 };
 
 } // namespace bb::avm2
