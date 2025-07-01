@@ -191,7 +191,7 @@ class AvmGoblinRecursiveVerifier {
         };
 
         // Convert the AVM proof, public inputs, and VK to stdlib Mega representations and add them to the hash buffer.
-        stdlib::Proof<MegaBuilder> mega_stdlib_proof{ mega_builder, stdlib_proof.get_value() };
+        stdlib::Proof<MegaBuilder> mega_stdlib_proof = convert_stdlib_ultra_to_stdlib_mega(stdlib_proof);
         std::vector<std::vector<FF>> mega_public_inputs;
         mega_public_inputs.reserve(public_inputs.size());
         for (const std::vector<UltraFF>& input_vec : public_inputs) {
