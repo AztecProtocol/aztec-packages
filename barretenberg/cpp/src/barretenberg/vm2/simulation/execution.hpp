@@ -15,6 +15,7 @@
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -54,7 +55,8 @@ class Execution : public ExecutionInterface {
               ExecutionIdManagerInterface& execution_id_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
-              KeccakF1600Interface& keccakf1600)
+              KeccakF1600Interface& keccakf1600,
+              ContractInstanceManagerInterface& contract_instance_manager)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
@@ -62,6 +64,7 @@ class Execution : public ExecutionInterface {
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
+        , contract_instance_manager(contract_instance_manager)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
@@ -99,6 +102,10 @@ class Execution : public ExecutionInterface {
 
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
     void success_copy(ContextInterface& context, MemoryAddress dst_addr);
+    void get_contract_instance(ContextInterface& context,
+                               MemoryAddress address_offset,
+                               MemoryAddress dst_offset,
+                               uint8_t member_enum);
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
@@ -132,6 +139,7 @@ class Execution : public ExecutionInterface {
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
+    ContractInstanceManagerInterface& contract_instance_manager;
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;

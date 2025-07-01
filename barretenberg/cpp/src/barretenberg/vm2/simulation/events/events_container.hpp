@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/events/contract_instance_events.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -60,6 +61,7 @@ struct EventsContainer {
     EventEmitterInterface<CalldataEvent>::Container calldata_events;
     EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
     EventEmitterInterface<NoteHashTreeCheckEvent>::Container note_hash_tree_check_events;
+    EventEmitterInterface<ContractInstanceRetrievalEvent>::Container contract_instance_retrieval_events;
 };
 
 } // namespace bb::avm2::simulation
