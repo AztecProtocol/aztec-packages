@@ -4,6 +4,7 @@
 #include <concepts>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -255,8 +256,8 @@ void Execution::internal_return(ContextInterface& context)
         auto next_pc = internal_call_stack_manager.pop();
         context.set_next_pc(next_pc);
     } catch (const std::exception& e) {
-        // Re-throw - this needs error handling.
-        throw e;
+        // Re-throw - so execution can handle it.
+        throw std::runtime_error("Internal return failed: " + std::string(e.what()));
     }
 }
 
