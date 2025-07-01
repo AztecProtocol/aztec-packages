@@ -31,6 +31,7 @@ import {
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
+  responseFromBuffer,
   subProtocolMap,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
@@ -272,7 +273,7 @@ export class ReqResp implements ReqRespInterface {
                 }
 
                 if (response && response.data.length > 0) {
-                  const object = subProtocolMap[subProtocol].response.fromBuffer(response.data);
+                  const object = responseFromBuffer(subProtocol, response.data);
                   const isValid = await responseValidator(requests[index], object, peer);
 
                   if (isValid) {
