@@ -39,7 +39,7 @@ export class CallAuthorizationRequest {
   ) {}
 
   static getSelector(): Promise<AuthorizationSelector> {
-    return AuthorizationSelector.fromSignature('CallAuthwit((Field),(u32),Field)');
+    return AuthorizationSelector.fromSignature('CallAuthorization((Field),(u32),Field)');
   }
 
   static async fromFields(fields: Fr[]): Promise<CallAuthorizationRequest> {
