@@ -2,7 +2,7 @@ import { shuffle } from '@aztec/foundation/array';
 import { timesAsync } from '@aztec/foundation/collection';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
-import { createStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -32,14 +32,17 @@ const batchSizes = [
 
 describe('TxPool: Benchmarks', () => {
   let pool: TxPool;
+  let store: AztecLMDBStoreV2;
   let dataDirectory: string;
   let ws: NativeWorldStateService;
   let wsSync: ServerWorldStateSynchronizer;
+  let dbSizeBytes: Record<(typeof batchSizes)[number], number>;
   let addHistogram: Record<(typeof batchSizes)[number], RecordableHistogram>;
   let getHistogram: Record<(typeof batchSizes)[number], RecordableHistogram>;
   let delHistogram: Record<(typeof batchSizes)[number], RecordableHistogram>;
 
   beforeAll(() => {
+    dbSizeBytes = Object.fromEntries(batchSizes.map(size => [size, 0])) as any;
     addHistogram = Object.fromEntries(batchSizes.map(size => [size, createHistogram()])) as any;
     getHistogram = Object.fromEntries(batchSizes.map(size => [size, createHistogram()])) as any;
     delHistogram = Object.fromEntries(batchSizes.map(size => [size, createHistogram()])) as any;
@@ -52,6 +55,12 @@ describe('TxPool: Benchmarks', () => {
         const add = addHistogram[size];
         const get = getHistogram[size];
         const del = delHistogram[size];
+
+        data.push({
+          name: `TxPool/${RUNS * size} txs/dbSize`,
+          value: dbSizeBytes[size],
+          unit: 'bytes',
+        });
 
         data.push({
           name: `TxPool/${size} txs/addTxs/avg`,
@@ -132,7 +141,7 @@ describe('TxPool: Benchmarks', () => {
 
   beforeEach(async () => {
     dataDirectory = await mkdtemp(path.join(tmpdir(), 'tx-bench-'));
-    const store = await createStore('tx', 1, {
+    store = await createStore('tx', 1, {
       dataDirectory,
       dataStoreMapSizeKB: 10 * 1024 * 1024,
     });
@@ -163,6 +172,7 @@ describe('TxPool: Benchmarks', () => {
   afterEach(async () => {
     await wsSync.stop();
     await ws.close();
+    await store.close();
     await rm(dataDirectory, { recursive: true, maxRetries: 3, retryDelay: 100 });
   });
 
@@ -173,6 +183,9 @@ describe('TxPool: Benchmarks', () => {
       await pool.addTxs(txs);
       addHistogram[batchSize].record(Math.max(1, Math.ceil(timer.ms())));
     }
+
+    const sz = await store.estimateSize();
+    dbSizeBytes[batchSize] = sz.physicalFileSize;
   });
 
   it.each(batchSizes)('get txs in batches of %d', async batchSize => {
