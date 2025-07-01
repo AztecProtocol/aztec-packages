@@ -376,6 +376,11 @@ sel_mov * (register[0] - register[1]) = 0;
 #[MOV_SAME_TAG]
 sel_mov * (mem_tag_reg[0] - mem_tag_reg[1]) = 0;
 
+#[SUCCESS_COPY_WRITE_REG]
+sel_success_copy * (register[0] - last_child_success) = 0; // Copy success flag to register[0]
+#[SUCCESS_COPY_U1_TAG]
+sel_success_copy * (mem_tag_reg[0] - constants.MEM_TAG_U1) = 0; // Write Tag must be U1
+
 /**************************************************************************************************
  *  Temporality group 6: Register write.
  **************************************************************************************************/

@@ -271,6 +271,17 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
     }
 }
 
+void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SUCCESSCOPY;
+
+    auto& memory = context.get_memory();
+    MemoryValue success = MemoryValue::from<uint1_t>(context.get_last_success());
+
+    memory.set(dst_addr, success);
+    set_output(opcode, success);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -468,6 +479,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::KECCAKF1600:
         call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SUCCESSCOPY:
+        call_with_operands(&Execution::success_copy, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.
