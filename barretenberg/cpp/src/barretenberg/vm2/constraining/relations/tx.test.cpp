@@ -213,7 +213,8 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_fee_juice_contract_address, FEE_JUICE_ADDRESS },
           { C::tx_fee_juice_balances_slot, FEE_JUICE_BALANCES_SLOT },
           { C::tx_start_phase, 1 },
-          { C::tx_end_phase, 1 } },
+          { C::tx_end_phase, 1 },
+          { C::tx_uint32_max, 0xffffffff } },
     });
 
     tracegen::PublicInputsTraceBuilder public_inputs_builder;
@@ -708,7 +709,8 @@ TEST(TxExecutionConstrainingTest, CollectFees)
           { C::tx_prev_da_gas_used, 4 },
           { C::tx_prev_l2_gas_used, 400 },
           { C::tx_next_da_gas_used, 4 },
-          { C::tx_next_l2_gas_used, 400 } },
+          { C::tx_next_l2_gas_used, 400 },
+          { C::tx_uint32_max, 0xffffffff } },
     });
 
     tracegen::PublicInputsTraceBuilder public_inputs_builder;

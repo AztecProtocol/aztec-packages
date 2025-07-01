@@ -241,6 +241,7 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
         { Column::tx_fee_write_did_append,
           next_tree_state.publicDataTree.tree.nextAvailableLeafIndex !=
               prev_tree_state.publicDataTree.tree.nextAvailableLeafIndex },
+        { Column::tx_uint32_max, 0xffffffff },
         { Column::tx_end_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
 
     };

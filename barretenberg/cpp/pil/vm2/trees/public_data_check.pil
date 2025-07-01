@@ -47,7 +47,8 @@ include "public_data_squash.pil";
  *   prev_public_data_tree_root,
  *   next_public_data_tree_root,
  *   prev_public_data_tree_size,
- *   did_append
+ *   did_append,
+ *   clk
  * } is public_data_check.write {
  *   public_data_check.value,
  *   public_data_check.address,
@@ -55,7 +56,8 @@ include "public_data_squash.pil";
  *   public_data_check.root,
  *   public_data_check.write_root,
  *   public_data_check.tree_size_before_write,
- *   public_data_check.leaf_not_exists
+ *   public_data_check.leaf_not_exists,
+ *   public_data_check.clk
  * };
  *
 **/

@@ -463,6 +463,9 @@ namespace tx;
 
     pol commit fee_write_did_append;
 
+    pol commit uint32_max;
+    is_collect_fee * (uint32_max - 0xffffffff) = 0;
+
     // Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // Lookup for now: will need multipermutation
     // #[BALANCE_UPDATE]
@@ -473,7 +476,8 @@ namespace tx;
     //     prev_public_data_tree_root,
     //     next_public_data_tree_root,
     //     prev_public_data_tree_size,
-    //     fee_write_did_append
+    //     fee_write_did_append,
+    //     uint32_max
     // } in public_data_check.write {
     //     public_data_check.value,
     //     public_data_check.address,
@@ -481,7 +485,8 @@ namespace tx;
     //     public_data_check.root,
     //     public_data_check.write_root,
     //     public_data_check.tree_size_before_write,
-    //     public_data_check.leaf_not_exists
+    //     public_data_check.leaf_not_exists,
+    //     public_data_check.clk
     // };
 
     is_collect_fee * (prev_public_data_tree_size + fee_write_did_append - next_public_data_tree_size) = 0;
