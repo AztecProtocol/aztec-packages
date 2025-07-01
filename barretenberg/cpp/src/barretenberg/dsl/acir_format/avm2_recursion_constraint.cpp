@@ -159,7 +159,6 @@ PairingPoints create_avm2_recursion_constraints(Builder& builder,
     using Flavor = avm2::AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = avm2::AvmRecursiveVerifier_<Flavor>;
-    using field_ct = stdlib::field_t<Builder>;
 
     BB_ASSERT_EQ(input.proof_type, AVM);
 

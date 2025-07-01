@@ -41,8 +41,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    stdlib::Proof<Builder> stdlib_proof(*builder, proof.pre_ipa_proof);
-    stdlib::Proof<Builder> ipa_proof(*builder, proof.ipa_proof);
+    StdlibProof stdlib_proof(*builder, proof.pre_ipa_proof);
+    StdlibProof ipa_proof(*builder, proof.ipa_proof);
     transcript->load_proof(stdlib_proof);
 
     VerifierCommitments commitments{ key };
