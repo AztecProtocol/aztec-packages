@@ -5,7 +5,7 @@ use std::meta::derive;
 pub struct Log<let N: u32> {
     pub fields: [Field; N],
     // The actual length (number of fields) of the log to be included in the blobs.
-    pub length: u32,xw
+    pub length: u32,
 }
 
 impl<let N: u32> Log<N> {
