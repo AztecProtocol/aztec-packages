@@ -221,8 +221,9 @@ export const TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT = 'aztec.tx_collector.txs_from_m
 export const TX_PROVIDER_TXS_FROM_P2P_COUNT = 'aztec.tx_collector.txs_from_p2p_count';
 export const TX_PROVIDER_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_count';
 
-export const TX_COLLECTOR_COUNT = 'aztec.tx_collection.tx_count';
-export const TX_COLLECTOR_DURATION = 'aztec.tx_collection.duration_ms';
+export const TX_COLLECTOR_COUNT = 'aztec.tx_collector.tx_count';
+export const TX_COLLECTOR_DURATION_PER_REQUEST = 'aztec.tx_collector.duration_per_request';
+export const TX_COLLECTOR_DURATION_PER_TX = 'aztec.tx_collector.duration_per_tx';
 
 export const IVC_VERIFIER_TIME = 'aztec.ivc_verifier.time';
 export const IVC_VERIFIER_TOTAL_TIME = 'aztec.ivc_verifier.total_time';

@@ -173,7 +173,10 @@ export class SlowTxCollection {
     const expiredTxs = Array.from(this.missingTxs.entries()).filter(([_, value]) => +value.deadline < now);
     expiredTxs.forEach(([txHash]) => this.missingTxs.delete(txHash));
 
-    // Collect all txs that are marked for fast collection
+    // Gather all txs that are marked for fast collection, we do not want to collect them via slow collection.
+    // There are some situations where a tx is in both slow and fast collection, for example when a prover node
+    // is fast-collecting missing txs for proving an epoch, and still has the tx in the slow collection loops
+    // from mined unproven blocks it has seen in the past.
     const fastRequests = this.fastCollection.getFastCollectionRequests();
     const fastCollectionTxs: Set<string> = new Set(
       ...Array.from(fastRequests.values()).flatMap(r => r.missingTxHashes),

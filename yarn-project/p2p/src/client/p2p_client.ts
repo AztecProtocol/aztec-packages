@@ -710,6 +710,12 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /** Request txs for unproven blocks so the prover node has more chances to get them. */
   private async startCollectingMissingTxs(blocks: L2Block[]): Promise<void> {
     try {
+      // TODO(#15435): If the archiver has lagged behind L1, the reported proven block number may
+      // be much lower than the actual one, and it does not update until the pending chain is
+      // fully synced. This could lead to a ton of tx collection requests for blocks that
+      // are already proven, but the archiver has not yet updated its state. Until this is properly
+      // fixed, it is mitigated by the expiration date of collection requests, which depends on
+      // the slot number of the block.
       const provenBlockNumber = await this.l2BlockSource.getProvenBlockNumber();
       const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
       for (const block of unprovenBlocks) {

@@ -102,7 +102,7 @@ export class FastTxCollection {
       // as we have collected all txs, whatever the source.
       const nodeCollectionPromise = this.collectFastFromNodes(request, opts);
       const waitBeforeReqResp = sleep(this.config.txCollectionFastNodesTimeoutBeforeReqRespMs);
-      await Promise.race([nodeCollectionPromise, request.promise.promise, waitBeforeReqResp]);
+      await Promise.race([request.promise.promise, waitBeforeReqResp]);
 
       // If we have collected all txs, we can stop here
       if (request.missingTxHashes.size === 0) {
@@ -149,9 +149,8 @@ export class FastTxCollection {
     // Keep a shared priority queue of all txs pending to be requested, sorted by the number of attempts made to collect them.
     const attemptsPerTx = [...request.missingTxHashes].map(txHash => ({ txHash, attempts: 0, found: false }));
 
-    // Returns once we have finished the node loops. Each loop finishes when the deadline is hit, or all txs have been collected,
-    // so we are fine waiting for just the first one to finish.
-    await Promise.race(this.nodes.map(node => this.collectFastFromNode(request, node, attemptsPerTx, opts)));
+    // Returns once we have finished all node loops. Each loop finishes when the deadline is hit, or all txs have been collected.
+    await Promise.allSettled(this.nodes.map(node => this.collectFastFromNode(request, node, attemptsPerTx, opts)));
   }
 
   private async collectFastFromNode(
@@ -160,10 +159,12 @@ export class FastTxCollection {
     attemptsPerTx: { txHash: string; attempts: number; found: boolean }[],
     opts: { deadline: Date },
   ) {
-    const notFinished = () => this.dateProvider.now() <= +opts.deadline && request.missingTxHashes.size > 0;
+    const notFinished = () =>
+      this.dateProvider.now() <= +opts.deadline && request.missingTxHashes.size > 0 && this.requests.has(request);
+
     const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
-    const activeRequestsToThisNode = new Set<string>(); // Track the txs being actively requested to this node
     const maxBatchSize = this.config.txCollectionNodeRpcMaxBatchSize;
+    const activeRequestsToThisNode = new Set<string>(); // Track the txs being actively requested to this node
 
     const processBatch = async () => {
       while (notFinished()) {
@@ -177,18 +178,21 @@ export class FastTxCollection {
             // No more txs to process
             break;
           } else if (!request.missingTxHashes.has(txToRequest.txHash)) {
-            // Mark as found if it was found somewhere else, we'll then remove it from the array
-            // We don't delete it now since 'array.splice' is pretty expensive, so we do it after sorting
+            // Mark as found if it was found somewhere else, we'll then remove it from the array.
+            // We don't delete it now since 'array.splice' is pretty expensive, so we do it after sorting.
             txToRequest.found = true;
           } else if (!activeRequestsToThisNode.has(txToRequest.txHash)) {
-            // If the tx is not alredy being requested to this node, add it to the current batch
+            // If the tx is not alredy being requested to this node, add it to the current batch and increase attempts.
+            // Note that we increase the attempts *before* making the request, so the next `collectFastFromNode` that
+            // needs to grab txs to send, will pick txs that have been requested less often, instead of all requesting
+            // the same txs at the same time.
             batch.push(txToRequest);
             activeRequestsToThisNode.add(txToRequest.txHash);
             txToRequest.attempts++;
           }
         }
 
-        // After modifying the array by removing txs or updating attempts, re-sort it and trim the found txs from the end
+        // After modifying the array by removing txs or updating attempts, re-sort it and trim the found txs from the end.
         attemptsPerTx.sort((a, b) =>
           a.found === b.found ? a.attempts - b.attempts : Number(a.found) - Number(b.found),
         );
