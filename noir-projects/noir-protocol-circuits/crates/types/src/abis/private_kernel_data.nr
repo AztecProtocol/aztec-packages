@@ -14,6 +14,10 @@ pub struct PrivateKernelData {
 
 impl PrivateKernelData {
     /// Validates that the vk hash exists in the vk tree at the expected index.
+    /// Note: There's a similarly-named function in vk_data.nr.
+    /// This function is different, in that it lets us set only PRIVATE_KERNEL_RESET_INDEX
+    /// in the allowed_indices to allow all the reset circuits.
+    /// So unfortunately we can't use the same function in vk_data.nr.
     pub fn validate_vk_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         let index_in_allowed_list = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_INDEX {
             // Kernel circuits only need to include PRIVATE_KERNEL_RESET_INDEX in the list to allow all private kernel reset variants.
@@ -23,10 +27,14 @@ impl PrivateKernelData {
         };
         // Safety: find_index_hint should return an index into allowed_indices where `index == index_in_allowed_list`.
         // The assertion below then verifies that the condition is met.
-        let index_hint = unsafe {
+        let maybe_index_hint = unsafe {
             find_index_hint(allowed_indices, |index: u32| index == index_in_allowed_list)
         };
-        assert(index_hint < N, "Invalid vk index");
+
+        // we want a custom error, which unwrap() doesn't give at the moment:
+        assert(maybe_index_hint.is_some(), "Invalid vk index");
+        let index_hint = maybe_index_hint.unwrap_unchecked();
+
         assert_eq(allowed_indices[index_hint], index_in_allowed_list, "Invalid vk index");
 
         // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.

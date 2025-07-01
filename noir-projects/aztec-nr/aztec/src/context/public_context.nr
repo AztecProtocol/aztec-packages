@@ -12,6 +12,13 @@ pub struct PublicContext {
     pub compute_args_hash: fn() -> Field,
 }
 
+impl Eq for PublicContext {
+    fn eq(self, other: Self) -> bool {
+        (self.args_hash == other.args_hash)
+        // Can't compare the function compute_args_hash
+    }
+}
+
 impl PublicContext {
     pub fn new(compute_args_hash: fn() -> Field) -> Self {
         PublicContext { args_hash: Option::none(), compute_args_hash }

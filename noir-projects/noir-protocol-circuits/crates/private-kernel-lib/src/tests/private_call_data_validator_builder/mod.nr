@@ -3,14 +3,14 @@ mod validate_against_previous_kernel;
 mod validate_against_tx_request;
 mod validate_arrays;
 mod validate_as_first_call;
-mod validate_call;
+mod restrict_side_effects;
 mod validate_call_requests;
 mod validate_contract_address;
 mod validate_counters;
 mod validate_log_lengths;
 mod validate_note_logs;
 mod validate_private_call_requests;
-mod validate_proof;
+mod verify_proof;
 
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
@@ -18,7 +18,7 @@ use dep::types::{
         note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData,
     },
-    tests::fixture_builder::FixtureBuilder,
+    tests::fixture_builder::{claimed_length_array_from_bounded_vec, FixtureBuilder},
     transaction::tx_request::TxRequest,
 };
 
@@ -59,8 +59,8 @@ impl PrivateCallDataValidatorBuilder {
         let private_call = self.private_call.to_private_call_data();
         let mut accumulated_note_hashes = self.previous_note_hashes;
         accumulated_note_hashes.extend_from_bounded_vec(self.private_call.note_hashes);
-        PrivateCallDataValidator::new(private_call).validate_data(
-            accumulated_note_hashes.storage(),
+        PrivateCallDataValidator::new(private_call).validate_common(
+            claimed_length_array_from_bounded_vec(accumulated_note_hashes),
             self.private_call.protocol_contract_tree_root,
         );
     }
@@ -82,14 +82,14 @@ impl PrivateCallDataValidatorBuilder {
 
     pub fn validate_with_private_call_data(self, data: PrivateCallData) {
         let accumulated_note_hashes = self.previous_note_hashes;
-        PrivateCallDataValidator::new(data).validate_data(
-            accumulated_note_hashes.storage(),
+        PrivateCallDataValidator::new(data).validate_common(
+            claimed_length_array_from_bounded_vec(accumulated_note_hashes),
             self.private_call.protocol_contract_tree_root,
         );
     }
 
-    pub fn validate_proof(self, is_first_call: bool) {
+    pub fn verify_proof(self, is_first_call: bool) {
         let private_call = self.private_call.to_private_call_data();
-        PrivateCallDataValidator::new(private_call).validate_proof(is_first_call);
+        PrivateCallDataValidator::new(private_call).verify_proof(is_first_call);
     }
 }

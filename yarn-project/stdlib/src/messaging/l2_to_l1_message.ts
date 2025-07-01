@@ -203,4 +203,13 @@ export class ScopedCountedL2ToL1Message {
   toBuffer(): Buffer {
     return serializeToBuffer(this.inner, this.contractAddress);
   }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new ScopedCountedL2ToL1Message(reader.readObject(CountedL2ToL1Message), reader.readObject(AztecAddress));
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(this.inner, this.contractAddress);
+  }
 }

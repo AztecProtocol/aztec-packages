@@ -1,12 +1,12 @@
-use crate::{traits::{Empty, is_empty}, utils::arrays::validate_array};
+use crate::{traits::Empty, utils::arrays::validate_array};
 
-pub fn assert_array_eq<T, let N: u32, let S: u32>(array: [T; N], expected: [T; S])
+pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
-    T: Empty + Eq,
+    T: Empty,
 {
-    assert(expected.all(|elem: T| !is_empty(elem)), "cannot expect empty element in the result");
-    assert_eq(validate_array(array), S, "mismatch array lengths");
-    for i in 0..S {
+    assert(expected.all(|elem: T| !elem.is_empty()), "cannot expect empty element in the result");
+    assert_eq(validate_array(array), M, "mismatch array lengths");
+    for i in 0..M {
         assert_eq(array[i], expected[i], "mismatch array elements");
     }
 }

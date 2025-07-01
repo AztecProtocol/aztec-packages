@@ -166,8 +166,8 @@ export function accumulatePrivateReturnValues(executionResult: PrivateExecutionR
     executionResult: PrivateCallExecutionResult,
   ): NestedProcessReturnValues => {
     const acc = new NestedProcessReturnValues(executionResult.returnValues);
-    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
-      collectPrivateReturnValuesRecursive(nestedExecution),
+    acc.nested = executionResult.nestedExecutionResults.map(nestedExecutionResult =>
+      collectPrivateReturnValuesRecursive(nestedExecutionResult),
     );
     return acc;
   };

@@ -13,7 +13,6 @@ use dep::aztec::{
         },
         hash::poseidon2_hash_with_separator,
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
-        utils::arrays::array_concat,
     },
 };
 
@@ -181,7 +180,7 @@ impl NFTPartialNotePrivateContent {
     fn compute_partial_commitment(self, storage_slot: Field) -> Field {
         // Here we commit to all private values, including the storage slot.
         poseidon2_hash_with_separator(
-            array_concat(self.pack(), [storage_slot]),
+            self.pack().concat([storage_slot]),
             GENERATOR_INDEX__NOTE_HASH,
         )
     }
@@ -273,11 +272,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{
-            address::AztecAddress,
-            traits::{FromField, Packable},
-            utils::arrays::array_concat,
-        },
+        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -337,9 +332,6 @@ mod test {
         let public_log_without_tag: [_; 1] =
             subarray(partial_note.compute_note_completion_log(token_id), 1);
 
-        assert_eq(
-            array_concat(private_log_without_public_tag, public_log_without_tag),
-            note.pack(),
-        );
+        assert_eq(private_log_without_public_tag.concat(public_log_without_tag), note.pack());
     }
 }

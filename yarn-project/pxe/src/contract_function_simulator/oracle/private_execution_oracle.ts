@@ -60,7 +60,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
-  private nestedExecutions: PrivateCallExecutionResult[] = [];
+  private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   constructor(
     private readonly argsHash: Fr,
@@ -150,8 +150,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * Return the nested execution results during this execution.
    */
-  public getNestedExecutions() {
-    return this.nestedExecutions;
+  public getNestedExecutionResults() {
+    return this.nestedExecutionResults;
   }
 
   /**
@@ -347,11 +347,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
   #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {
     if (
-      childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.privateLogs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.noteHashes.claimedLength > 0 ||
+      childExecutionResult.publicInputs.nullifiers.claimedLength > 0 ||
+      childExecutionResult.publicInputs.l2ToL1Msgs.claimedLength > 0 ||
+      childExecutionResult.publicInputs.privateLogs.claimedLength > 0 ||
+      childExecutionResult.publicInputs.contractClassLogsHashes.claimedLength > 0
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
@@ -422,7 +422,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       this.#checkValidStaticCall(childExecutionResult);
     }
 
-    this.nestedExecutions.push(childExecutionResult);
+    this.nestedExecutionResults.push(childExecutionResult);
 
     const publicInputs = childExecutionResult.publicInputs;
 
