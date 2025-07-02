@@ -380,10 +380,10 @@ export async function generateSimulatedProvingResult(
   let sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
   // If the nullifier array contains the nonce generator in position 0
   // (meaning the latter is the first nullifier in the tx), we remove it
-  // as we will add it as the first non-revertible nullifier later.
+  // as we will add it as the first non-revertible nullifier later (and we can't have dupes!)
   // This is because public processor will use that first non-revertible nullifier
   // as the nonce generator for the note hashes in the revertible part of the tx.
-  if (sortedNullifiers[0].equals(nonceGenerator)) {
+  if (sortedNullifiers.length > 0 && sortedNullifiers[0].equals(nonceGenerator)) {
     sortedNullifiers = sortedNullifiers.slice(1);
   }
 
