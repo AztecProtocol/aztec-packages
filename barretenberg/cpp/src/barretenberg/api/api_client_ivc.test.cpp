@@ -162,6 +162,7 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     EXPECT_TRUE(verify_proof());
 }
 
+// Note: very light test!
 TEST_F(ClientIVCAPITests, WriteVkFields)
 {
     // Create a simple circuit bytecode
@@ -169,26 +170,22 @@ TEST_F(ClientIVCAPITests, WriteVkFields)
 
     // Compress and write bytecode to file
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, bytecode);
+    write_file(bytecode_path, compress(bytecode));
 
     // Test write_vk with fields output format
     ClientIVCAPI::Flags flags;
     flags.verifier_type = "standalone";
     flags.output_format = "fields";
 
-    std::filesystem::path vk_path = test_dir / "standalone_fields.vk";
-
     ClientIVCAPI api;
-    api.write_vk(flags, bytecode_path, vk_path);
-    EXPECT_TRUE(std::filesystem::exists(vk_path));
+    api.write_vk(flags, bytecode_path, test_dir);
 
     // Read and verify the fields format
-    auto vk_data = read_file(vk_path);
+    auto vk_data = read_file(test_dir / "vk_fields.json");
     std::string vk_str(vk_data.begin(), vk_data.end());
-
-    // Should contain field elements separated by newlines
-    EXPECT_FALSE(vk_str.empty());
-    EXPECT_NE(vk_str.find('\n'), std::string::npos);
+    // Just check that this looks a bit like JSON.
+    EXPECT_NE(vk_str.find('['), std::string::npos);
+    EXPECT_NE(vk_str.find(']'), std::string::npos);
 }
 
 TEST_F(ClientIVCAPITests, GatesCommand)
@@ -198,43 +195,34 @@ TEST_F(ClientIVCAPITests, GatesCommand)
 
     // Write compressed bytecode to file
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, bytecode);
-
-    ClientIVCAPI::Flags flags;
-    flags.include_gates_per_opcode = false;
-
-    // Capture stdout
-    testing::internal::CaptureStdout();
-    ClientIVCAPI api;
-    api.gates(flags, bytecode_path);
-    std::string output = testing::internal::GetCapturedStdout();
-
-    // Verify output contains expected JSON structure
-    EXPECT_NE(output.find("\"functions\""), std::string::npos);
-    EXPECT_NE(output.find("\"acir_opcodes\""), std::string::npos);
-    EXPECT_NE(output.find("\"circuit_size\""), std::string::npos);
-}
-
-TEST_F(ClientIVCAPITests, GatesCommandWithOpcodeDetails)
-{
-    // Create a simple circuit bytecode
-    auto [bytecode, witness_data] = create_simple_circuit_bytecode();
-
-    // Compress and write bytecode to file
-    std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, bytecode);
+    write_file(bytecode_path, compress(bytecode));
 
     ClientIVCAPI::Flags flags;
     flags.include_gates_per_opcode = true;
 
-    // Capture stdout
-    testing::internal::CaptureStdout();
+    // Redirect stdout to a stringstream
+    std::ostringstream captured_output;
+    std::streambuf* old_cout = std::cout.rdbuf(captured_output.rdbuf());
+
     ClientIVCAPI api;
     api.gates(flags, bytecode_path);
-    std::string output = testing::internal::GetCapturedStdout();
 
-    // Verify output contains gates per opcode
-    EXPECT_NE(output.find("\"gates_per_opcode\""), std::string::npos);
+    // Restore stdout
+    std::cout.rdbuf(old_cout);
+    std::string output = captured_output.str();
+
+    // We rudimentarily output to this pattern:
+    // {"functions": [
+    //     {
+    //           "acir_opcodes": 1,
+    //           "circuit_size": *,
+    //           "gates_per_opcode": [*]
+    //     }
+    //   ]}
+    EXPECT_NE(output.find("\"functions\": ["), std::string::npos);
+    EXPECT_NE(output.find("\"acir_opcodes\": 1"), std::string::npos);
+    EXPECT_NE(output.find("\"circuit_size\": "), std::string::npos);
+    EXPECT_NE(output.find("\"gates_per_opcode\": ["), std::string::npos);
 }
 
 TEST_F(ClientIVCAPITests, ProveAndVerifyCommand)
@@ -244,8 +232,7 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyCommand)
     create_test_private_execution_steps(input_path);
 
     ClientIVCAPI api;
-    bool result = api.prove_and_verify(input_path);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(api.prove_and_verify(input_path));
 }
 
 TEST_F(ClientIVCAPITests, CheckPrecomputedVks)
@@ -255,8 +242,7 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVks)
     create_test_private_execution_steps(input_path);
 
     ClientIVCAPI api;
-    bool result = api.check_precomputed_vks(input_path);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(api.check_precomputed_vks(input_path));
 }
 
 TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
@@ -266,26 +252,30 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
     // Create a simple circuit
     auto [bytecode, witness_data] = create_simple_circuit_bytecode();
 
-    // Create a WRONG verification key (use a different circuit)
-    auto [different_bytecode, _] = create_simple_circuit_bytecode();
-    // Modify the bytecode slightly to create a different circuit
-    different_bytecode[different_bytecode.size() - 1] ^= 1;
-
     bbrpc::BBRpcRequest request;
-    request.trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE };
+    size_t vk_size =
+        from_buffer<MegaFlavor::VerificationKey>(
+            bbrpc::execute(request,
+                           bbrpc::ClientIvcComputeVk{ .circuit = { .name = "simple_circuit", .bytecode = bytecode },
+                                                      .standalone = true })
+                .verification_key)
+            .to_field_elements()
+            .size();
 
-    bbrpc::ClientIvcComputeVk derive_vk_cmd{ .circuit = bbrpc::CircuitInputNoVK{ .name = "different_circuit",
-                                                                                 .bytecode = different_bytecode },
-                                             .standalone = true };
-
-    auto vk_response = bbrpc::execute(request, std::move(derive_vk_cmd));
+    // Create a WRONG verification key (use a different circuit)
+    auto different_bytecode = create_simple_kernel(vk_size, false);
+    auto vk = bbrpc::execute(
+                  request,
+                  bbrpc::ClientIvcComputeVk{ .circuit = { .name = "different_circuit", .bytecode = different_bytecode },
+                                             .standalone = true })
+                  .verification_key;
 
     // Create PrivateExecutionStepRaw with wrong VK
     std::vector<PrivateExecutionStepRaw> raw_steps;
     PrivateExecutionStepRaw step;
     step.bytecode = bytecode;
     step.witness = witness_data;
-    step.vk = vk_response.verification_key; // Wrong VK
+    step.vk = std::move(vk); // Wrong VK
     step.function_name = "test_function";
     raw_steps.push_back(std::move(step));
 
@@ -337,11 +327,16 @@ TEST_F(ClientIVCAPITests, ProveToStdout)
     // Use "-" as output dir to write to stdout
     std::filesystem::path output_dir = "-";
 
-    // Capture stdout
-    testing::internal::CaptureStdout();
+    // Capture stdout using standard stream redirection
+    std::ostringstream captured_output;
+    std::streambuf* old_cout = std::cout.rdbuf(captured_output.rdbuf());
+
     ClientIVCAPI api;
     api.prove(flags, input_path, output_dir);
-    std::string output = testing::internal::GetCapturedStdout();
+
+    // Restore stdout
+    std::cout.rdbuf(old_cout);
+    std::string output = captured_output.str();
 
     // Should have written binary proof data to stdout
     EXPECT_FALSE(output.empty());
