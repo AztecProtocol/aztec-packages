@@ -8,9 +8,9 @@ describe('auth request', () => {
   it('should encode and decode auth request', () => {
     const status = new StatusMessage(
       'Test Version',
-      Math.random() * 400,
+      Math.ceil(Math.random() * 400),
       randomBytes(32).toString('hex'),
-      Math.random() * 300,
+      Math.ceil(Math.random() * 300),
     );
     const challenge = Fr.random();
     const request = new AuthRequest(status, challenge);
@@ -26,9 +26,9 @@ describe('auth request', () => {
   it('should encode and decode auth response', () => {
     const status = new StatusMessage(
       'Test Version',
-      Math.random() * 400,
+      Math.ceil(Math.random() * 400),
       randomBytes(32).toString('hex'),
-      Math.random() * 300,
+      Math.ceil(Math.random() * 300),
     );
     const challenge = Fr.random();
     const request = new AuthResponse(status, challenge);

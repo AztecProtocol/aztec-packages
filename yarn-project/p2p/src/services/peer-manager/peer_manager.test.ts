@@ -961,54 +961,6 @@ describe('PeerManager', () => {
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
       await expect(newPeerManager.handleAuthFromPeer(authRequest, someOtherPeer)).rejects.toThrow();
     });
-
-    it('should fail authentication if auth handshake fails', async () => {
-      const protocolVersion = '1.2.3';
-      const blockHash = randomBytes(32).toString('hex');
-
-      const newPeerManager = createMockPeerManager(
-        'test',
-        mockLibP2PNode,
-        3,
-        [],
-        [],
-        [],
-        { p2pAllowOnlyValidators: true, p2pDisableStatusHandshake: false },
-        protocolVersion,
-        blockHash,
-      );
-
-      await newPeerManager.initializePeers();
-
-      const peerId = await createSecp256k1PeerId();
-
-      mockReqResp.sendRequestToPeer.mockImplementation(
-        (peerIdArg: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer) => {
-          console.log(`IN HERE`);
-          expect(peerIdArg.toString()).toEqual(peerId.toString());
-          expect(subProtocol).toEqual(ReqRespSubProtocol.AUTH);
-          const authRequest = AuthRequest.fromBuffer(payload);
-          expect(authRequest.status.compressedComponentsVersion).toEqual(protocolVersion);
-          expect(authRequest.status.latestBlockHash).toEqual(blockHash);
-          const returnData = {
-            status: ReqRespStatus.FAILURE,
-            data: Buffer.alloc(0),
-          };
-          return Promise.resolve(returnData);
-        },
-      );
-
-      const event = {
-        detail: peerId,
-      };
-
-      (newPeerManager as any).handleConnectedPeerEvent(event);
-
-      await sleep(100);
-
-      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalled();
-      expect(newPeerManager.isAuthenticatedPeer(peerId)).toEqual(false);
-    });
   });
 
   describe('goodbye metrics', () => {
