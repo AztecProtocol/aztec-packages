@@ -707,10 +707,8 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               } });
 
     // Execution Trace opcodes - separating for clarity
-    try {
+    if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
         trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
-    } catch (const std::runtime_error&) {
-        // Execution opcode doesn't have a corresponding selector, do nothing
     }
 }
 
