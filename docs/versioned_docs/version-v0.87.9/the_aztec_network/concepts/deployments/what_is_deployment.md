@@ -5,15 +5,15 @@ title: What is a Deployment?
 
 An Aztec deployment is a set of the following contracts:
 
-| Smart Contract                | Immutability |
-|--------------------------------|--------------|
-| Hypothetical Asset             | Immutable    |
-| Issuer Contract                | Immutable    |
-| Registry Contract              | Immutable    |
-| Reward Distribution Contract   | Mutable      |
-| Proposals Contract             | Mutable      |
-| Governance Contract            | Immutable    |
-| Rollup Contract                | Immutable    |
+| Smart Contract              | Immutability |
+| --------------------------- | ------------ |
+| Hypothetical Asset          | Immutable    |
+| Issuer Contract             | Immutable    |
+| Registry Contract           | Immutable    |
+| RewardDistributor Contract  | Mutable      |
+| GovernanceProposer Contract | Mutable      |
+| Governance Contract         | Immutable    |
+| Rollup Contract             | Immutable    |
 
 ## Hypothetical Asset Contract
 
@@ -70,6 +70,7 @@ flowchart LR
     Registry --> RollupContract1["Rollup Contract<br>Instance 1"]
     Registry --> |Returns latest instance|RollupContractN["Rollup Contract<br>Instance n"]
 ```
+
 In practice, the Registry is an array of rollup instances that can only be inserted into by the Registryʼs owner - the Governance contract.
 
 ```solidity
@@ -184,6 +185,7 @@ contract Proposals is IProposals {
     // ...
 }
 ```
+
 To vote to table a proposal, the current sequencer of the canonical rollup must deploy the contracts being proposed to upgrade / migrate to, to the L1. Then the current sequencer deploys the upgrade logic i.e. `_proposal`, then call `Proposals.vote(_proposal)`.
 
 The Proposals contract will then count votes specifying that same `_proposal`. For a proposal to be nominated for voting, it must garner at least N votes in a single round, where a round is defined as a M consecutive L2 slots. Round 1 is L2 slots 0 - M - 1, while Round 2 is L2 slots M - 2M - 1 and so on.
