@@ -106,7 +106,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectFrom: ['sequencer'],
 
   // slashing stuff
-  slashPayloadTtlSeconds: 27_648, // 24 epochs
+  slashPayloadTtlSeconds: 36 * 32 * 24, // 24 epochs
   slashPruneEnabled: true,
   slashPrunePenalty: 17,
   slashPruneMaxPenalty: 17,
