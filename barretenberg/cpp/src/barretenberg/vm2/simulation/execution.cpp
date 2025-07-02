@@ -46,8 +46,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluError& e) {
-        // TODO(MW): Possibly handle the error here.
-        throw e;
+        throw OpcodeExecutionException("Alu add operation failed");
     }
 }
 
@@ -285,7 +284,6 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
     try {
         keccakf1600.permutation(context.get_memory(), dst_addr, src_addr);
     } catch (const KeccakF1600Exception& e) {
-        // Re-throw
         throw OpcodeExecutionException("Keccak permutation failed: " + std::string(e.what()));
     }
 }

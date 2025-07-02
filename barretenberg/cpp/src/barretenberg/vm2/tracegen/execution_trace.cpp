@@ -591,6 +591,8 @@ void ExecutionTraceBuilder::process(
             row,
             { {
 
+                // sel_exit_call and rollback has to be set here because they include sel_error
+                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                 { C::execution_rollback_context, rollback_context ? 1 : 0 },
                 { C::execution_sel_error, is_err ? 1 : 0 },
                 { C::execution_sel_failure, is_failure ? 1 : 0 },
