@@ -217,9 +217,26 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
             event.fee,
         },
         {
+            Column::tx_fee_juice_contract_address,
+            FEE_JUICE_ADDRESS,
+        },
+        {
+            Column::tx_fee_juice_balances_slot,
+            FEE_JUICE_BALANCES_SLOT,
+        },
+        {
+            Column::tx_fee_juice_balance_slot,
+            event.fee_juice_balance_slot,
+        },
+        {
             Column::tx_fee_payer_balance,
             event.fee_payer_balance,
         },
+        {
+            Column::tx_fee_payer_new_balance,
+            event.fee_payer_balance - event.fee,
+        },
+        { Column::tx_uint32_max, 0xffffffff },
         { Column::tx_end_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
 
     };
@@ -439,9 +456,12 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>();
-// Commented out for now, to make the bulk test pass before all opcodes are implemented.
-// .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
-// .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>()
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

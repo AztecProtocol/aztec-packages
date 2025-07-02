@@ -26,7 +26,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
@@ -41,6 +41,7 @@ using ::testing::ReturnRef;
 
 using simulation::compute_contract_address;
 using simulation::EventEmitter;
+using simulation::ExecutionIdManager;
 using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
 using simulation::MockLowLevelMerkleDB;
@@ -78,6 +79,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
 
+    ExecutionIdManager execution_id_manager(0);
+
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -92,7 +95,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_check_event_emitter);
+        poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
@@ -118,7 +121,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeCheckTraceBuilder public_data_check_builder;
+    PublicDataTreeTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
@@ -131,7 +134,6 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     constraining::check_interaction<UpdateCheckTraceBuilder,
                                     lookup_update_check_update_hash_poseidon2_settings,
                                     lookup_update_check_shared_mutable_slot_poseidon2_settings,
-                                    lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings,
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,
@@ -153,6 +155,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
 
+    ExecutionIdManager execution_id_manager(0);
+
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -167,7 +171,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_check_event_emitter);
+        poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
@@ -214,7 +218,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeCheckTraceBuilder public_data_check_builder;
+    PublicDataTreeTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
@@ -227,7 +231,6 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     constraining::check_interaction<UpdateCheckTraceBuilder,
                                     lookup_update_check_update_hash_poseidon2_settings,
                                     lookup_update_check_shared_mutable_slot_poseidon2_settings,
-                                    lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings,
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,

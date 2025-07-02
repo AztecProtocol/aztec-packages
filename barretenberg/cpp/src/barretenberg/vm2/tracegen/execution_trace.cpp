@@ -203,6 +203,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_revert;
     case ExecutionOpCode::SUCCESSCOPY:
         return C::execution_sel_success_copy;
+    case ExecutionOpCode::RETURNDATASIZE:
+        return C::execution_sel_returndata_size;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -347,8 +349,8 @@ void ExecutionTraceBuilder::process(
                       { C::execution_contract_address, ex_event.after_context_event.contract_addr },
                       { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
                       { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
-                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_size_addr },
-                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
+                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
                       { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
                       { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
                       { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
@@ -544,8 +546,7 @@ void ExecutionTraceBuilder::process(
                 // rop[1] is the envvar enum
                 TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
-            }
-            if (exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::INTERNALRETURN) {
+            } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
                           ex_event.before_context_event.internal_call_return_id != 0
