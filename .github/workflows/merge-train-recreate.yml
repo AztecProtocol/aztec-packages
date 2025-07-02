@@ -16,16 +16,19 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "AztecBot"
+          git config --global user.email "tech@aztecprotocol.com"
 
       - name: Recreate branch
         run: |
-          GH_TOKEN=${{ secrets.GITHUB_TOKEN }} ./scripts/merge-train/recreate-branch.sh \
+          # Use aztecbot token for most operations, but pass default token for PR creation
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          GITHUB_TOKEN_FOR_PR_CREATION=${{ secrets.GITHUB_TOKEN }} \
+          ./scripts/merge-train/recreate-branch.sh \
             "${{ github.event.pull_request.head.ref }}" \
             "${{ github.event.pull_request.base.ref }}"
 
