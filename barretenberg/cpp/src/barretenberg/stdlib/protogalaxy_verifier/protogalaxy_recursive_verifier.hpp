@@ -21,21 +21,12 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using DeciderVK = typename DeciderVerificationKeys::DeciderVK;
-    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
 
     using Builder = typename Flavor::CircuitBuilder;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
-
-    struct VerifierInput {
-      public:
-        using NativeFlavor = typename Flavor::NativeFlavor;
-        using DeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
-        using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-        std::shared_ptr<DeciderVK> accumulator;
-        std::vector<std::shared_ptr<NativeVerificationKey>> decider_vks;
-    };
 
     Builder* builder;
 
@@ -45,10 +36,10 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<DeciderVK>& accumulator,
-                                  const std::vector<std::shared_ptr<VerificationKey>>& decider_vks,
+                                  const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs,
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks))
+        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, vk_and_hashs))
         , transcript(transcript){};
 
     /**

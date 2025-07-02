@@ -17,20 +17,10 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
-    Builder* builder,
-    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-    const std::shared_ptr<Transcript>& transcript)
-    : key(std::make_shared<RecursiveDeciderVK>(builder, native_verifier_key))
-    , builder(builder)
-    , transcript(transcript)
-{}
-
-template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
-                                                         const std::shared_ptr<VerificationKey>& vkey,
+                                                         const std::shared_ptr<VKAndHash>& vk_and_hash,
                                                          const std::shared_ptr<Transcript>& transcript)
-    : key(std::make_shared<RecursiveDeciderVK>(builder, vkey))
+    : key(std::make_shared<RecursiveDeciderVK>(builder, vk_and_hash))
     , builder(builder)
     , transcript(transcript)
 {}
@@ -63,7 +53,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using ClaimBatch = ClaimBatcher::Batch;
     using PublicPairingPoints = PublicInputComponent<PairingPoints<Builder>>;
 
-    const size_t num_public_inputs = static_cast<uint32_t>(key->verification_key->num_public_inputs.get_value());
+    const size_t num_public_inputs = static_cast<uint32_t>(key->vk_and_hash->vk->num_public_inputs.get_value());
     BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs);
 
     Output output;
@@ -85,7 +75,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
 
-    VerifierCommitments commitments{ key->verification_key, key->witness_commitments };
+    VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
 
     auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
@@ -94,15 +84,15 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Extract the aggregation object from the public inputs
     PairingPoints nested_points_accumulator =
-        PublicPairingPoints::reconstruct(key->public_inputs, key->verification_key->pairing_inputs_public_input_key);
+        PublicPairingPoints::reconstruct(key->public_inputs, key->vk_and_hash->vk->pairing_inputs_public_input_key);
     output.points_accumulator = nested_points_accumulator;
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->verification_key->log_circuit_size);
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, key->verification_key->circuit_size);
+    constrain_log_circuit_size(padding_indicator_array, key->vk_and_hash->vk->circuit_size);
 
     auto sumcheck = Sumcheck(transcript);
 
@@ -144,7 +134,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
         output.ipa_claim =
-            PublicIpaClaim::reconstruct(key->public_inputs, key->verification_key->ipa_claim_public_input_key);
+            PublicIpaClaim::reconstruct(key->public_inputs, key->vk_and_hash->vk->ipa_claim_public_input_key);
     }
 
     return output;

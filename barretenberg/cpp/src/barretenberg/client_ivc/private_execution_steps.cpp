@@ -113,7 +113,8 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
 
     for (auto& vk : precomputed_vks) {
         if (vk == nullptr) {
-            info("DEPRECATED: No VK was provided for at least one client IVC step and it will be computed. This is "
+            info("DEPRECATED: No VK was provided for at least one client IVC step and it will be computed. This "
+                 "is "
                  "slower and insecure.");
             break;
         }

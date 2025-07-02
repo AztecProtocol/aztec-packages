@@ -30,12 +30,12 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     StdlibProof stdlib_proof(*builder, proof);
     transcript->load_proof(stdlib_proof);
 
-    VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
+    VerifierCommitments commitments{ accumulator->vk_and_hash->vk, accumulator->witness_commitments };
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(accumulator->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, accumulator->verification_key->circuit_size);
+    constrain_log_circuit_size(padding_indicator_array, accumulator->vk_and_hash->vk->circuit_size);
 
     Sumcheck sumcheck(transcript, accumulator->target_sum);
 
