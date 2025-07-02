@@ -570,7 +570,7 @@ class TestSubject extends Sequencer {
   }
 
   public override doRealWork() {
-    this.setState(SequencerState.IDLE, 0n, true /** force */);
+    this.setState(SequencerState.IDLE, undefined, { force: true });
     return super.doRealWork();
   }
 
