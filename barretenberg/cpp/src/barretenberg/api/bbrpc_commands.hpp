@@ -9,7 +9,6 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "bbrpc_common.hpp"
 #include <map>
 
 namespace bb::bbrpc {
