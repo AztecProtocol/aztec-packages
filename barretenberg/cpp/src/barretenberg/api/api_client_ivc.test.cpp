@@ -17,6 +17,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include <chrono>
 #include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <sstream>
@@ -29,7 +30,8 @@ using namespace acir_bincode_test;
 std::filesystem::path create_temp_test_dir()
 {
     std::filesystem::path temp_dir = "tmp_api_client_ivc_test";
-    temp_dir /= std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
+    // NOLINTNEXTLINE(cert-msc30-cpp,cert-msc50-cpp,cert-msc30-c,cert-msc50-c)
+    temp_dir /= std::to_string(std::chrono::system_clock::now().time_since_epoch().count() + std::rand());
     std::filesystem::create_directories(temp_dir);
     return temp_dir;
 }
