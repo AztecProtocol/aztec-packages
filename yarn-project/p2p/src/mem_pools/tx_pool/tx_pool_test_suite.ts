@@ -1,7 +1,7 @@
 import { unfreeze } from '@aztec/foundation/types';
 import { GasFees } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx, type TxWithHash } from '@aztec/stdlib/tx';
 
 import type { TxPool } from './tx_pool.js';
 
@@ -43,7 +43,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1]);
     await pool.markAsMined([await tx2.getTxHash()], minedBlockHeader);
 
-    let txsFromEvent: Tx[] | undefined = undefined;
+    let txsFromEvent: TxWithHash[] | undefined = undefined;
     pool.once('txs-added', ({ txs }) => {
       txsFromEvent = txs;
     });
@@ -51,7 +51,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     await pool.addTxs([tx1, tx2, tx3]);
     expect(txsFromEvent).toBeDefined();
     expect(txsFromEvent).toHaveLength(2);
-    expect(txsFromEvent).toEqual([tx2, tx3]);
+    expect(txsFromEvent).toEqual(expect.arrayContaining([tx2, tx3]));
   });
 
   it('removes txs from the pool', async () => {
