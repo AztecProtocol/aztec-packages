@@ -83,7 +83,7 @@ contract Governance is IGovernance {
       }),
       votingDelay: Timestamp.wrap(60),
       votingDuration: Timestamp.wrap(60 * 60),
-      executionDelay: Timestamp.wrap(60),
+      executionDelay: Timestamp.wrap(86400),
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,

@@ -31,6 +31,19 @@ export type L2ChainConfig = {
   publicIncludeMetrics?: string[];
   publicMetricsCollectorUrl?: string;
   publicMetricsCollectFrom?: string[];
+
+  // slashing stuff
+  slashPayloadTtlSeconds: number;
+  slashPruneEnabled: boolean;
+  slashPrunePenalty: number;
+  slashPruneMaxPenalty: number;
+  slashInactivityEnabled: boolean;
+  slashInactivityCreateTargetPercentage: number;
+  slashInactivitySignalTargetPercentage: number;
+  slashInactivityCreatePenalty: number;
+  slashInvalidBlockEnabled: boolean;
+  slashInvalidBlockPenalty: number;
+  slashInvalidBlockMaxPenalty: number;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -52,7 +65,20 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'disabled',
   autoUpdateUrl: undefined,
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxTxPoolSize: 100000000, // 100MB
+
+  // slashing stuff
+  slashInactivityEnabled: false,
+  slashInactivityCreateTargetPercentage: 0,
+  slashInactivitySignalTargetPercentage: 0,
+  slashInactivityCreatePenalty: 0,
+  slashInvalidBlockEnabled: false,
+  slashPayloadTtlSeconds: 0,
+  slashPruneEnabled: false,
+  slashPrunePenalty: 0,
+  slashPruneMaxPenalty: 0,
+  slashInvalidBlockPenalty: 0,
+  slashInvalidBlockMaxPenalty: 0,
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -74,10 +100,23 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
-  maxTxPoolSize: 100_000_000, // 100MB
+  maxTxPoolSize: 100000000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
   publicMetricsCollectFrom: ['sequencer'],
+
+  // slashing stuff
+  slashPayloadTtlSeconds: 27_648, // 24 epochs
+  slashPruneEnabled: true,
+  slashPrunePenalty: 17,
+  slashPruneMaxPenalty: 17,
+  slashInactivityEnabled: true,
+  slashInactivityCreateTargetPercentage: 100,
+  slashInactivitySignalTargetPercentage: 100,
+  slashInactivityCreatePenalty: 17,
+  slashInvalidBlockEnabled: true,
+  slashInvalidBlockPenalty: 100,
+  slashInvalidBlockMaxPenalty: 100,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -168,4 +207,17 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
   enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
+
+  // Slashing
+  enrichVar('SLASH_PAYLOAD_TTL_SECONDS', config.slashPayloadTtlSeconds.toString());
+  enrichVar('SLASH_PRUNE_ENABLED', config.slashPruneEnabled.toString());
+  enrichVar('SLASH_PRUNE_PENALTY', config.slashPrunePenalty.toString());
+  enrichVar('SLASH_PRUNE_MAX_PENALTY', config.slashPruneMaxPenalty.toString());
+  enrichVar('SLASH_INACTIVITY_ENABLED', config.slashInactivityEnabled.toString());
+  enrichVar('SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE', config.slashInactivityCreateTargetPercentage.toString());
+  enrichVar('SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE', config.slashInactivitySignalTargetPercentage.toString());
+  enrichVar('SLASH_INACTIVITY_CREATE_PENALTY', config.slashInactivityCreatePenalty.toString());
+  enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashInvalidBlockEnabled.toString());
+  enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashInvalidBlockPenalty.toString());
+  enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashInvalidBlockMaxPenalty.toString());
 }
