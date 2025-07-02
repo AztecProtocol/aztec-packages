@@ -110,19 +110,31 @@ uint<Builder, Native>::uint(Builder* parent_context, const std::vector<bool_t<Bu
     : context(parent_context)
     , additive_constant(0)
     , witness_status(WitnessStatus::WEAK_NORMALIZED)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {
     field_t<Builder> accumulator(context, fr::zero());
     field_t<Builder> scaling_factor(context, fr::one());
+    const size_t num_wires = wires.size();
 
-    // TODO JUMP IN STEPS OF TWO
-    for (size_t i = 0; i < wires.size(); ++i) {
-        accumulator = accumulator + scaling_factor * field_t<Builder>(wires[i]);
-        scaling_factor = scaling_factor + scaling_factor;
+    for (size_t i = 0; i < (num_wires / 2); ++i) {
+        const field_t<Builder> even_scaling_factor = scaling_factor;
+        const field_t<Builder> odd_scaling_factor = scaling_factor * fr(2);
+
+        accumulator = accumulator.add_two(field_t<Builder>(wires[2 * i]) * even_scaling_factor,
+                                          field_t<Builder>(wires[2 * i + 1]) * odd_scaling_factor);
+
+        scaling_factor = scaling_factor * fr(4); // Scale by (2^1 * 2^1).
     }
+
+    // Process the last wire if the number of wires is odd.
+    if (num_wires % 2 == 1) {
+        const field_t<Builder>& last_wire = field_t<Builder>(wires[num_wires - 1]);
+        accumulator = accumulator + (scaling_factor * last_wire);
+    }
+
+    // Normalize the accumulator and set the witness index or additive constant.
     accumulator = accumulator.normalize();
-    if (accumulator.witness_index == IS_CONSTANT) {
+    if (accumulator.is_constant()) {
         additive_constant = uint256_t(accumulator.additive_constant);
     } else {
         witness_index = accumulator.witness_index;
