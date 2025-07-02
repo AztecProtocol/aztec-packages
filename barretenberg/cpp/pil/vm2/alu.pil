@@ -1,13 +1,75 @@
+
+include "execution.pil";
+include "precomputed.pil";
 namespace alu;
 
+pol commit sel;
+
 pol commit sel_op_add;
+pol commit op_id;
+
 pol commit ia;
 pol commit ib;
 pol commit ic;
-pol commit op;
 
-#[SEL_ADD_BINARY]
+pol commit ia_tag;
+pol commit ib_tag;
+pol commit ic_tag;
+
+#[skippable_if]
+sel = 0;
+
+// carry flag
+pol commit cf;
+
+// TODO(MW): Not required for add, reinstate when needed:
+// pol commit max_bits;
+// maximum value the number can hold (i.e. 255 for a u8), we 'mod' by max_value + 1
+pol commit max_value;
+
+sel * (1 - sel) = 0;
+cf * (1 - cf) = 0;
+
+#[REGISTER_TAG_VALUE]
+execution.sel_alu {
+    execution.register[0], execution.mem_tag_reg[0], execution.register[1],
+    execution.mem_tag_reg[1], execution.register[2], execution.mem_tag_reg[2], execution.subtrace_operation_id, execution.sel_opcode_error
+} in sel {
+    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_tag_err
+};
+
+// MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
+// Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
+
+// Will become e.g. sel_op_add * ia_tag + sel_op_lt * MEM_TAG_U1 + ....
+// TODO(MW): Mutual exclusivity of selectors? sel_op_add, sel_op_mul, ...
+pol EXPECTED_C_TAG = sel_op_add * ia_tag;
+
+// No error handling here since the type of c is handled by the VM:
+#[C_TAG_CHECK]
+EXPECTED_C_TAG - ic_tag = 0;
+
+pol commit sel_tag_err;
+pol commit ab_tags_diff_inv;
+pol AB_TAGS_EQ = 1 - sel_tag_err;
+
+// TODO(MW): Add sel/flag to turn off check when we expect a/b tags to not be equal (e.g. SHR?)
+// Prove that sel_tag_err = 1 <==> we have a disallowed inequality between the tags:
+#[AB_TAGS_CHECK]
+(ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ = 0;
+
+// TODO(MW): Add max_bits -> precomputed.max_bits when required by other ops:
+#[TAG_MAX_VALUE]
+sel { ia_tag, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_value };
+
+
+// ADD
+
+// TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
+#[OP_ID_CHECK]
+sel_op_add - op_id = 0;
+
 sel_op_add * (1 - sel_op_add) = 0;
 
 #[ALU_ADD]
-ia + ib = ic;
+sel_op_add * (ia + ib - ic - cf * (max_value + 1)) = 0;
