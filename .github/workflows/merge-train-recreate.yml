@@ -3,10 +3,21 @@ name: Merge-Train Recreate
 on:
   pull_request:
     types: [closed]
+  workflow_dispatch:
+    inputs:
+      merge_train_branch:
+        description: 'Merge train branch to recreate (e.g., merge-train/docs)'
+        required: true
+        type: string
+      base_branch:
+        description: 'Base branch (e.g., next)'
+        required: true
+        type: string
+        default: 'next'
 
 jobs:
   recreate:
-    if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -16,16 +27,28 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "AztecBot"
+          git config --global user.email "tech@aztecprotocol.com"
 
       - name: Recreate branch
         run: |
-          GH_TOKEN=${{ secrets.GITHUB_TOKEN }} ./scripts/merge-train/recreate-branch.sh \
-            "${{ github.event.pull_request.head.ref }}" \
-            "${{ github.event.pull_request.base.ref }}"
+          # Determine branch names based on event type
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            MERGE_TRAIN_BRANCH="${{ github.event.inputs.merge_train_branch }}"
+            BASE_BRANCH="${{ github.event.inputs.base_branch }}"
+          else
+            MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
+            BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          fi
+          
+          # Use aztecbot token for most operations, but pass default token for PR creation
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          GITHUB_TOKEN_FOR_PR_CREATION=${{ secrets.GITHUB_TOKEN }} \
+          ./scripts/merge-train/recreate-branch.sh \
+            "$MERGE_TRAIN_BRANCH" \
+            "$BASE_BRANCH"
 
