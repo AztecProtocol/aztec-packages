@@ -29,7 +29,7 @@ function get_pr_for_branch {
 function pr_has_auto_merge {
   local pr_number="$1"
   local result=$(gh pr view "$pr_number" --json autoMergeRequest --jq '.autoMergeRequest')
-  [[ "$result" != "null" ]]
+  [[ -n "$result" ]]
 }
 
 function get_pr_merge_commits {
