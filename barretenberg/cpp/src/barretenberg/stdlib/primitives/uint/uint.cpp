@@ -72,15 +72,28 @@ uint<Builder, Native>::uint(const byte_array<Builder>& other)
 {
     field_t<Builder> accumulator(context, fr::zero());
     field_t<Builder> scaling_factor(context, fr::one());
-    const auto bytes = other.bytes();
+    const auto& bytes = other.bytes();
+    const size_t num_bytes = bytes.size();
 
-    // TODO JUMP IN STEPS OF TWO
-    for (size_t i = 0; i < bytes.size(); ++i) {
-        accumulator = accumulator + scaling_factor * bytes[bytes.size() - 1 - i];
-        scaling_factor = scaling_factor * fr(256);
+    // Process pairs of bytes from the end of the byte array.
+    for (size_t i = 0; i < (num_bytes / 2); ++i) {
+        const field_t<Builder> even_scaling_factor = scaling_factor;
+        const field_t<Builder> odd_scaling_factor = scaling_factor * fr(256);
+        accumulator = accumulator.add_two(bytes[num_bytes - 1 - (2 * i)] * even_scaling_factor,
+                                          bytes[num_bytes - 1 - (2 * i + 1)] * odd_scaling_factor);
+
+        scaling_factor = scaling_factor * fr(256 * 256); // Scale by (2^8 * 2^8).
     }
+
+    // Process the last byte if the byte array has an odd number of bytes.
+    if (num_bytes % 2 == 1) {
+        const field_t<Builder>& last_byte = bytes[0];
+        accumulator = accumulator + (scaling_factor * last_byte);
+    }
+
+    // Normalize the accumulator and set the witness index or additive constant.
     accumulator = accumulator.normalize();
-    if (accumulator.witness_index == IS_CONSTANT) {
+    if (accumulator.is_constant()) {
         additive_constant = uint256_t(accumulator.additive_constant);
     } else {
         witness_index = accumulator.witness_index;
