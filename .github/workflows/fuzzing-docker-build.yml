@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - next
-      - merge-train/barretenberg
   workflow_dispatch:
 
 jobs:
