@@ -10,7 +10,6 @@ source "$SCRIPT_DIR/merge-train-lib.sh"
 # - get_pr_for_branch: Get PR info for a branch
 # - pr_has_auto_merge: Check if PR has auto-merge enabled
 # - branch_exists: Check if branch exists on remote
-# - attempt_merge: Attempt to merge with conflict detection
 # - get_pr_merge_commits: Get merge commits for a PR
 # - cancel_ci_runs: Cancel CI runs for a commit
 
@@ -44,7 +43,7 @@ git fetch origin "$TRAIN_BRANCH" || exit 1
 git checkout "$TRAIN_BRANCH" || exit 1
 
 # Attempt to merge next
-if attempt_merge "origin/next" "Merge branch 'next' into $TRAIN_BRANCH"; then
+if git merge "origin/next" --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH"; then
   log_info "Successfully merged next into $TRAIN_BRANCH"
   
   # Try to push
@@ -69,8 +68,11 @@ if attempt_merge "origin/next" "Merge branch 'next' into $TRAIN_BRANCH"; then
     exit 1
   fi
 else
-  # Merge failed, get conflict details
-  conflicts=$(git diff --name-only --diff-filter=U || true)
+  # Merge failed, capture conflict details before aborting
+  conflicts=$(git diff --name-only --diff-filter=U)
+  git merge --abort || true
+  log_error "Merge conflicts detected:"
+  echo "$conflicts"
   
   # Create conflict comment
   conflict_comment="## ⚠️ Auto-merge to ${TRAIN_BRANCH} failed

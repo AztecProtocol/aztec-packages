@@ -9,7 +9,6 @@ source "$SCRIPT_DIR/merge-train-lib.sh"
 # - log_info: Log informational messages
 # - pr_has_auto_merge: Check if a PR has auto-merge enabled
 # - enable_auto_merge: Enable auto-merge for a PR (includes approval if needed)
-# - comment_on_pr: Add a comment to a PR
 
 # Constants
 INACTIVITY_HOURS="${INACTIVITY_HOURS:-4}"
@@ -105,7 +104,7 @@ while IFS= read -r pr_json; do
         log_info "PR #$pr_number already has auto-merge enabled"
     else
         enable_auto_merge "$pr_number"
-        comment_on_pr "$pr_number" "🤖 Auto-merge enabled after $INACTIVITY_HOURS hours of inactivity. This PR will be merged automatically once all checks pass."
+        gh pr comment "$pr_number" --body "🤖 Auto-merge enabled after $INACTIVITY_HOURS hours of inactivity. This PR will be merged automatically once all checks pass."
     fi
   else
     log_info "PR #$pr_number is still active (last commit: $last_commit_date)"

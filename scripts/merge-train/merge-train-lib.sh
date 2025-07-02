@@ -56,28 +56,6 @@ function cancel_ci_runs {
 }
 
 
-function attempt_merge {
-  local target="$1"
-  local message="${2:-Merge $target}"
-  
-  if git merge "$target" --no-edit -m "$message"; then
-    return 0
-  else
-    # Capture conflict details before aborting
-    local conflicts=$(git diff --name-only --diff-filter=U)
-    git merge --abort || true
-    log_error "Merge conflicts detected:"
-    echo "$conflicts"
-    return 1
-  fi
-}
-
-function comment_on_pr {
-  local pr_number="$1"
-  local comment="$2"
-  
-  gh pr comment "$pr_number" --body "$comment"
-}
 
 function enable_auto_merge {
   local pr_number="$1"
