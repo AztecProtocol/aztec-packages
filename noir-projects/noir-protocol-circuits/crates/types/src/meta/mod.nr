@@ -442,7 +442,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let array_of_quotes_serializing_each_struct_member = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
-                let serialized_member: [Field; <$param_type as Serialize>::N] = self.$param_name.serialize();
+                let serialized_member = self.$param_name.serialize();
                 let serialized_member_len = <$param_type as Serialize>::N;
                 for i in 0..serialized_member_len {
                     result[i + offset] = serialized_member[i];
@@ -454,9 +454,8 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let serialization_of_struct_members =
         array_of_quotes_serializing_each_struct_member.join(quote {});
 
-    let serialize_trait: TraitConstraint = quote { Serialize }.as_trait_constraint();
     quote {
-        impl $serialize_trait for $typ {
+        impl Serialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
@@ -489,14 +488,13 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let array_of_quotes_deserializing_each_struct_member = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
-            let member_len = <$param_type as Deserialize>::N;
-            let mut member_fields = [0; member_len];
-            for i in 0..member_len {
-                member_fields[i] = serialized[i + offset];
+                let mut member_fields = [0; <$param_type as Deserialize>::N];
+                for i in 0..<$param_type as Deserialize>::N {
+                    member_fields[i] = serialized[i + offset];
+                }
+                let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
+                offset += <$param_type as Deserialize>::N;
             }
-            let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
-            offset += member_len;
-        }
         });
 
     let deserialization_of_struct_members =
