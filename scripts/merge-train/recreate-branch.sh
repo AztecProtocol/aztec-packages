@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+# This script expects two tokens:
+# - GH_TOKEN: Should be set to AZTEC_BOT_GITHUB_TOKEN for all operations
+# - GITHUB_TOKEN_FOR_PR_CREATION: Should be set to default GITHUB_TOKEN for PR creation only
+# This ensures aztecbot privileges are used for everything except PR creation
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/merge-train-lib.sh"
 
@@ -20,6 +25,12 @@ fi
 MT="$1"    # merge-train/* branch that was just merged
 BASE="$2"    # base branch (usually next)
 
+# Ensure required tokens are set
+if [[ -z "${GITHUB_TOKEN_FOR_PR_CREATION:-}" ]]; then
+  log_error "GITHUB_TOKEN_FOR_PR_CREATION is not set. This token is required for PR creation."
+  exit 1
+fi
+
 # Fetch latest state
 git fetch origin "$MT" || exit 1
 git fetch origin "$BASE" || exit 1
@@ -30,8 +41,8 @@ git checkout -B "$MT" "origin/$BASE"
 git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 git push -f origin "$MT"
 
-# Create new PR
-gh pr create --base "$BASE" --head "$MT" \
+# Create new PR using the default token (not aztecbot)
+GH_TOKEN="${GITHUB_TOKEN_FOR_PR_CREATION}" gh pr create --base "$BASE" --head "$MT" \
   --title "feat: $MT" \
   --body "$(echo -e "See [merge-train-readme.md](https://github.com/${GITHUB_REPOSITORY}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train with no commits.")"
 
