@@ -321,6 +321,9 @@ export class AztecKVTxPool implements TxPool {
    * @returns Empty promise.
    */
   public deleteTxs(txHashes: TxHash[], eviction = false): Promise<void> {
+    if (txHashes.length === 0) {
+      return Promise.resolve();
+    }
     const deletedTxs: Tx[] = [];
     const poolDbTx = this.#store.transactionAsync(async () => {
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
@@ -346,7 +349,7 @@ export class AztecKVTxPool implements TxPool {
 
       await this.#pendingTxSize.set(pendingTxSize);
     });
-
+    this.#log.debug(`Deleted ${txHashes.length} txs from pool`, { txHashes });
     return this.#archivedTxLimit ? poolDbTx.then(() => this.archiveTxs(deletedTxs)) : poolDbTx;
   }
 
@@ -451,36 +454,45 @@ export class AztecKVTxPool implements TxPool {
    * @returns Empty promise.
    */
   private async archiveTxs(txs: Tx[]): Promise<void> {
-    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    await this.#archive.transactionAsync(async () => {
-      // calcualte the head and tail indices of the archived txs by insertion order.
-      let headIdx =
-        ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
-      let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
+    if (txs.length === 0) {
+      return;
+    }
+    try {
+      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+      await this.#archive.transactionAsync(async () => {
+        // calculate the head and tail indices of the archived txs by insertion order.
+        let headIdx =
+          ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
+        let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
 
-      for (let i = 0; i < txs.length; i++) {
-        const tx = txs[i];
-        while (headIdx - tailIdx >= this.#archivedTxLimit) {
-          const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
-          if (txHash) {
-            await this.#archivedTxs.delete(txHash);
-            await this.#archivedTxIndices.delete(tailIdx);
+        for (let i = 0; i < txs.length; i++) {
+          const tx = txs[i];
+          while (headIdx - tailIdx >= this.#archivedTxLimit) {
+            const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
+            if (txHash) {
+              await this.#archivedTxs.delete(txHash);
+              await this.#archivedTxIndices.delete(tailIdx);
+            }
+            tailIdx++;
           }
-          tailIdx++;
-        }
 
-        const archivedTx: Tx = new Tx(
-          tx.data,
-          ClientIvcProof.empty(),
-          tx.contractClassLogFields,
-          tx.publicFunctionCalldata,
-        );
-        const txHash = txHashes[i].toString();
-        await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
-        await this.#archivedTxIndices.set(headIdx, txHash);
-        headIdx++;
-      }
-    });
+          const archivedTx: Tx = new Tx(
+            tx.data,
+            ClientIvcProof.empty(),
+            tx.contractClassLogFields,
+            tx.publicFunctionCalldata,
+          );
+          const txHash = txHashes[i].toString();
+          await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+          await this.#archivedTxIndices.set(headIdx, txHash);
+          headIdx++;
+        }
+        this.#log.debug(`Archived ${txs.length} txs`, { txHashes });
+        this.#log.debug(`Total archived txs: ${headIdx - tailIdx}`);
+      });
+    } catch (error) {
+      this.#log.error(`Error archiving txs`, { error });
+    }
   }
 
   /**
