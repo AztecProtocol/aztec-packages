@@ -666,7 +666,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Create a witness form a constant. This way the value of the witness is fixed and public.
+     * Create a witness from a constant. This way the value of the witness is fixed and public.
      **/
     void convert_constant_to_fixed_witness(Builder* builder)
     {
