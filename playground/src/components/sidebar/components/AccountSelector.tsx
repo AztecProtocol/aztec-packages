@@ -137,7 +137,13 @@ export function AccountSelector() {
       }
     }
     await accountManager.register();
-    setWallet(await accountManager.getWallet());
+    const senders = await walletDB.listAliases('senders');
+    const senderAddresses = parseAliasedBuffersAsString(senders).map(({ value }) => AztecAddress.fromString(value));
+    const wallet = await accountManager.getWallet();
+    for(const senderAddress of senderAddresses) {
+      await wallet.registerSender(senderAddress);
+    }
+    setWallet(wallet);
     setIsAccountsLoading(false);
   };
 
