@@ -10,8 +10,8 @@
 namespace bb {
 template <class Params> class ShplonkTest : public CommitmentTest<Params> {
   public:
-    const size_t log_n = 4;
-    const size_t n = 1UL << log_n;
+    size_t log_n = 4;
+    size_t n = 1UL << log_n;
 
     using Fr = typename Params::ScalarField;
     using ProverOpeningClaim = ProverOpeningClaim<Params>;
