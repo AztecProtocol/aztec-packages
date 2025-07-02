@@ -334,12 +334,23 @@ void ExecutionTraceBuilder::process(
             dying_context_id_inv = FF(dying_context_id).invert();
         }
 
+        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
+        bool has_parent = ex_event.after_context_event.parent_id != 0;
+        if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
+            last_seen_parent_id = ex_event.after_context_event.parent_id;
+            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
+        }
+
         /**************************************************************************************************
          *  Setup.
          **************************************************************************************************/
 
         trace.set(row,
                   { {
+                      { C::execution_sel, 1 },
+                      // Selectors that indicate "dispatch" from tx trace
+                      // Note: Enqueued Call End is determined during the opcode execution temporality group
+                      { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
                       // Context
                       { C::execution_context_id, ex_event.after_context_event.id },
                       { C::execution_parent_id, ex_event.after_context_event.parent_id },
@@ -366,6 +377,9 @@ void ExecutionTraceBuilder::process(
                       { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
                       // Other.
                       { C::execution_bytecode_id, ex_event.bytecode_id },
+                      // Helpers for identifying parent context
+                      { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
+                      { C::execution_is_parent_id_inv, cached_parent_id_inv },
                   } });
 
         // Internal stack
@@ -461,59 +475,28 @@ void ExecutionTraceBuilder::process(
         /**************************************************************************************************
          *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
+        bool should_execute_opcode = should_process_dynamic_gas && !oog_dynamic;
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
+        bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
 
         // Overly verbose but maximising readibility here
+        // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
+        // temporality group (e..g in recomputing discard)
         bool is_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
         bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
         bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
         bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
-        bool is_opcode_error = ex_event.error == ExecutionError::DISPATCHING;
         bool is_err = ex_event.error != ExecutionError::NONE;
         bool is_failure = is_revert || is_err;
-        bool has_parent = ex_event.after_context_event.parent_id != 0;
         bool sel_enter_call = (is_call || is_static_call) && !is_err;
         bool sel_exit_call = is_return || is_revert || is_err;
-        bool nested_exit_call = sel_exit_call && has_parent;
-        // We rollback if we revert or error and we have a parent context.
-        bool rollback_context =
-            ((exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT) || is_err) && has_parent;
 
-        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
-        if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
-            last_seen_parent_id = ex_event.after_context_event.parent_id;
-            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
-        }
-
-        // Nested Context Control Flow and helper columns
-        trace.set(row,
-                  { {
-                      // Selectors that indicate "dispatch" from tx trace
-                      { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
-                      { C::execution_enqueued_call_end, sel_exit_call && !has_parent ? 1 : 0 },
-                      // Context & control flow
-                      { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                      { C::execution_is_parent_id_inv, cached_parent_id_inv },
-                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
-                      { C::execution_rollback_context, rollback_context ? 1 : 0 },
-                      // Helper columns
-                      { C::execution_sel, 1 },
-                      { C::execution_sel_error, is_err ? 1 : 0 },
-                      { C::execution_sel_call, is_call ? 1 : 0 },
-                      { C::execution_sel_static_call, is_static_call ? 1 : 0 },
-                      { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                      { C::execution_sel_return, is_return ? 1 : 0 },
-                      { C::execution_sel_revert, is_revert ? 1 : 0 },
-                      { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                  } });
-
-        bool should_execute_opcode = should_process_dynamic_gas && !oog_dynamic;
         if (should_execute_opcode) {
             trace.set(row,
                       { {
                           { C::execution_should_execute_opcode, 1 },
-                          { C::execution_sel_opcode_error, is_opcode_error ? 1 : 0 },
+                          { C::execution_sel_opcode_error, opcode_execution_failed ? 1 : 0 },
                       } });
 
             // Call specific logic
@@ -534,11 +517,26 @@ void ExecutionTraceBuilder::process(
 
                 trace.set(row,
                           { {
+                              { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
+                              { C::execution_sel_call, is_call ? 1 : 0 },
+                              { C::execution_sel_static_call, is_static_call ? 1 : 0 },
                               { C::execution_constant_32, 32 },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
+                          } });
+            } else if (sel_exit_call) {
+                // We rollback if we revert or error and we have a parent context.
+                trace.set(row,
+                          { {
+                              // Exit reason - opcode or error
+                              { C::execution_sel_return, is_return ? 1 : 0 },
+                              { C::execution_sel_revert, is_revert ? 1 : 0 },
+                              { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                              // Enqueued or nested exit dependent on if we are a child context
+                              { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
+                              { C::execution_nested_exit_call, has_parent ? 1 : 0 },
                           } });
             } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
@@ -559,7 +557,7 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 6: Register write.
          **************************************************************************************************/
 
-        bool should_process_register_write = should_execute_opcode && !is_opcode_error;
+        bool should_process_register_write = should_execute_opcode && !opcode_execution_failed;
         if (should_process_register_write) {
             process_registers_write(*exec_opcode, trace, row);
         }
@@ -585,9 +583,18 @@ void ExecutionTraceBuilder::process(
         bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
         bool propagate_discard = !enqueued_call_end && !resolves_dying_context && !nested_call_rom_undiscarded_context;
 
+        // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error than just
+        // an opcode error (i.e., it is on if there are any errors in any temporality group).
+        bool rollback_context = (is_revert || is_err) && has_parent;
+
         trace.set(
             row,
             { {
+
+                // sel_exit_call and rollback has to be set here because they include sel_error
+                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                { C::execution_rollback_context, rollback_context ? 1 : 0 },
+                { C::execution_sel_error, is_err ? 1 : 0 },
                 { C::execution_sel_failure, is_failure ? 1 : 0 },
                 { C::execution_discard, discard },
                 { C::execution_dying_context_id, dying_context_id },
