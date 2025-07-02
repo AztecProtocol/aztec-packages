@@ -34,15 +34,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # Pass PR context as arguments to the script
-          pr_number=${{ github.event.pull_request.number }}
           pr_head_ref=${{ github.event.pull_request.head.ref }}
           pr_base_ref=${{ github.event.pull_request.base.ref }}
-          pr_head_sha=${{ github.event.pull_request.head.sha }}
-
-          # Run the rebase script with parameters
-          ./scripts/auto_rebase_pr.sh "$pr_number" "$pr_head_ref" "$pr_base_ref" "$pr_head_sha"
-        continue-on-error: true
+          ./scripts/auto_rebase_pr.sh "$pr_head_ref" "$pr_base_ref"
 
       - name: Post failure comment
         if: failure() || steps.rebase.outcome == 'failure'
