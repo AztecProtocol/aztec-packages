@@ -51,6 +51,6 @@ if [ -z "${COMMIT_AUTHOR:-}" ]; then
 fi
 
 export CURRENT_VERSION=
-if [ -z "${CURRENT_VERSION:-}" ]; then
+if [ -z "${CURRENT_VERSION:-}" ] && [ -f "$root/.release-please-manifest.json" ]; then
   export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
 fi

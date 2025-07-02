@@ -1,7 +1,7 @@
-From e17834fb9768e2d5cfc053e4ce8c82da0586a099 Mon Sep 17 00:00:00 2001
+From d9e2fb487247e68d4ceb9b0680c0cd51d787eeca Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 1/2] chore: turn on `skipLibCheck`
+Subject: [PATCH 1/3] chore: turn on `skipLibCheck`
 
 ---
  tooling/noir_codegen/tsconfig.json | 1 +
@@ -19,5 +19,532 @@ index 30dd2a7ee..a2712fd73 100644
    },
    "include": [
      "src/**/*.ts"
---
+-- 
 2.43.0
+
+From be45adb30222e99faceb48b7dc936538f62c6936 Mon Sep 17 00:00:00 2001
+From: Charlie Lye <5764343+charlielye@users.noreply.github.com>
+Date: Wed, 2 Jul 2025 15:58:11 +0000
+Subject: [PATCH 3/3] dump cmd
+
+---
+ Cargo.lock                                    |   2 +
+ .../execution_success/strings/src/main.nr     |   2 +-
+ tooling/nargo_cli/Cargo.toml                  |   2 +
+ tooling/nargo_cli/src/cli/dump_cmd.rs         | 431 ++++++++++++++++++
+ tooling/nargo_cli/src/cli/mod.rs              |   4 +
+ 5 files changed, 440 insertions(+), 1 deletion(-)
+ create mode 100644 tooling/nargo_cli/src/cli/dump_cmd.rs
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 41cb1c0b5..ad127ef6a 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3194,10 +3194,12 @@ version = "1.0.0-beta.7"
+ dependencies = [
+  "acvm",
+  "ark-bn254 0.5.0",
++ "ark-ff 0.5.0",
+  "assert_cmd",
+  "assert_fs",
+  "async-lsp",
+  "base64 0.21.7",
++ "bincode",
+  "bn254_blackbox_solver",
+  "build-data",
+  "clap",
+diff --git a/test_programs/execution_success/strings/src/main.nr b/test_programs/execution_success/strings/src/main.nr
+index c4fa05397..5cb12c856 100644
+--- a/test_programs/execution_success/strings/src/main.nr
++++ b/test_programs/execution_success/strings/src/main.nr
+@@ -72,7 +72,7 @@ fn failed_constraint(hex_as_field: Field) {
+     assert(hex_as_field != 0x41);
+ }
+ 
+-#[test]
++#[test(should_fail)]
+ fn test_failed_constraint() {
+     failed_constraint(0x41);
+ }
+diff --git a/tooling/nargo_cli/Cargo.toml b/tooling/nargo_cli/Cargo.toml
+index ee6da9fe1..f732d3eab 100644
+--- a/tooling/nargo_cli/Cargo.toml
++++ b/tooling/nargo_cli/Cargo.toml
+@@ -75,6 +75,8 @@ color-eyre.workspace = true
+ tokio = { version = "1.0", features = ["io-std", "rt"] }
+ dap.workspace = true
+ clap-markdown = { git = "https://github.com/noir-lang/clap-markdown", rev = "450d759532c88f0dba70891ceecdbc9ff8f25d2b", optional = true }
++ark-ff.workspace = true
++bincode.workspace = true
+ 
+ notify = "6.1.1"
+ notify-debouncer-full = "0.3.1"
+diff --git a/tooling/nargo_cli/src/cli/dump_cmd.rs b/tooling/nargo_cli/src/cli/dump_cmd.rs
+new file mode 100644
+index 000000000..3b100b750
+--- /dev/null
++++ b/tooling/nargo_cli/src/cli/dump_cmd.rs
+@@ -0,0 +1,431 @@
++use std::path::{Path, PathBuf};
++use std::fs::File;
++use std::io::{BufWriter, Write};
++
++use acvm::{BlackBoxFunctionSolver, FieldElement};
++// use ark_ff::{BigInt, BigInteger};
++
++use acvm::acir::circuit::ExpressionWidth;
++use bn254_blackbox_solver::Bn254BlackBoxSolver;
++use fm::FileManager;
++use nargo::ops::{collect_errors, compile_contract, compile_program, report_errors};
++use nargo::package::Package;
++use nargo::workspace::Workspace;
++use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all, prepare_package};
++use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
++// use noirc_abi::input_parser::Format;
++use noirc_artifacts::program::ProgramArtifact;
++use noirc_driver::{check_crate, compile_no_check, DEFAULT_EXPRESSION_WIDTH};
++use noirc_driver::NOIR_ARTIFACT_VERSION_STRING;
++use noirc_driver::{CompilationResult, CompileOptions, CompiledContract};
++
++// use noirc_errors::{CustomDiagnostic, FileDiagnostic};
++use noirc_frontend::graph::CrateName;
++
++use clap::Args;
++use noirc_frontend::hir::{FunctionNameMatch, ParsedFiles};
++
++// use noir_artifact_cli::fs::inputs::read_inputs_from_file;
++use noir_artifact_cli::fs::artifact::{
++    read_program_from_file, save_contract_to_file,
++};
++use nargo::ops::check_crate_and_report_errors;
++use crate::errors::CliError;
++
++use super::NargoConfig;
++use rayon::prelude::*;
++
++fn create_named_dir(named_dir: &Path, name: &str) -> PathBuf {
++    std::fs::create_dir_all(named_dir)
++        .unwrap_or_else(|_| panic!("could not create the `{name}` directory"));
++
++    PathBuf::from(named_dir)
++}
++
++/// Compile the program and tests, dump all of their bytecode and calldata to files.
++#[derive(Debug, Clone, Args)]
++pub(crate) struct DumpCommand {
++    /// If given, only tests with names containing this string will be run
++    test_name: Option<String>,
++
++    /// The name of the package to compile
++    #[clap(long, conflicts_with = "workspace")]
++    package: Option<CrateName>,
++
++    /// Compile all packages in the workspace.
++    #[clap(long, conflicts_with = "package")]
++    workspace: bool,
++
++    #[clap(flatten)]
++    compile_options: CompileOptions,
++}
++
++pub(crate) fn run(mut args: DumpCommand, config: NargoConfig) -> Result<(), CliError> {
++    args.compile_options.silence_warnings = true;
++
++    let toml_path = get_package_manifest(&config.program_dir)?;
++    let default_selection =
++        if args.workspace { PackageSelection::All } else { PackageSelection::DefaultOrAll };
++    let selection = args.package.map_or(default_selection, PackageSelection::Selected);
++
++    let workspace = resolve_workspace_from_toml(
++        &toml_path,
++        selection,
++        Some(NOIR_ARTIFACT_VERSION_STRING.to_owned()),
++    )?;
++
++    let pattern = match &args.test_name {
++        Some(name) => {
++            FunctionNameMatch::Contains(vec![name.to_string()])
++        }
++        None => FunctionNameMatch::Anything,
++    };
++
++    if args.compile_options.force_brillig == false {
++        compile_workspace_full(&workspace, &args.compile_options, &pattern)?;
++    }
++    args.compile_options.force_brillig = true;
++    compile_workspace_full(&workspace, &args.compile_options, &pattern)?;
++
++    Ok(())
++}
++
++fn compile_workspace_full(
++    workspace: &Workspace,
++    compile_options: &CompileOptions,
++    pattern: &FunctionNameMatch,
++) -> Result<(), CliError> {
++    let mut workspace_file_manager = workspace.new_file_manager();
++    insert_all_files_for_workspace_into_file_manager(workspace, &mut workspace_file_manager);
++    let parsed_files = parse_all(&workspace_file_manager);
++
++    compile_workspace_tests(&workspace_file_manager, &parsed_files, workspace, compile_options, pattern);
++
++    if let FunctionNameMatch::Anything = pattern {
++        let compiled_workspace =
++            compile_workspace(&workspace_file_manager, &parsed_files, workspace, compile_options);
++
++        let _ = report_errors(
++            compiled_workspace,
++            &workspace_file_manager,
++            compile_options.deny_warnings,
++            compile_options.silence_warnings,
++        );
++    }
++
++    Ok(())
++}
++
++fn compile_workspace_tests(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    workspace: &Workspace,
++    compile_options: &CompileOptions,
++    pattern: &FunctionNameMatch,
++) {
++    println!("Compiling workspace {} tests...", if compile_options.force_brillig { "bvm" } else { "acvm" });
++
++    // Configure a thread pool with a larger stack size to prevent overflowing stack in large programs.
++    // Default is 2MB.
++    let pool = rayon::ThreadPoolBuilder::new().stack_size(4 * 1024 * 1024).build().unwrap();
++    pool.install(|| {
++        workspace
++            .into_iter()
++            .par_bridge()
++            .for_each(|package| {
++                println!("{:?}", package.name);
++                // Dumps all tests bytecode to target.
++                let _ = compile_tests::<Bn254BlackBoxSolver>(
++                    file_manager,
++                    parsed_files,
++                    package,
++                    pattern,
++                    false,
++                    None,
++                    Some(workspace.root_dir.clone()),
++                    Some(package.name.to_string()),
++                    &compile_options,
++                );
++            })
++    });
++}
++
++fn compile_workspace(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    workspace: &Workspace,
++    compile_options: &CompileOptions,
++) -> CompilationResult<()> {
++    println!("Compiling workspace {} program/contracts...", if compile_options.force_brillig { "bvm" } else { "acvm" });
++
++    let (binary_packages, contract_packages): (Vec<_>, Vec<_>) = workspace
++        .into_iter()
++        .filter(|package| !package.is_library())
++        // .filter(|_| false)
++        .cloned()
++        .partition(|package| package.is_binary());
++
++    // Compile all of the packages in parallel.
++    let program_warnings_or_errors: CompilationResult<()> =
++        compile_programs(file_manager, parsed_files, workspace, &binary_packages, compile_options);
++    let contract_warnings_or_errors: CompilationResult<()> = compiled_contracts(
++        file_manager,
++        parsed_files,
++        &contract_packages,
++        compile_options,
++        &workspace.target_directory_path(),
++    );
++
++    match (program_warnings_or_errors, contract_warnings_or_errors) {
++        (Ok((_, program_warnings)), Ok((_, contract_warnings))) => {
++            let warnings = [program_warnings, contract_warnings].concat();
++            Ok(((), warnings))
++        }
++        (Err(program_errors), Err(contract_errors)) => {
++            Err([program_errors, contract_errors].concat())
++        }
++        (Err(errors), _) | (_, Err(errors)) => Err(errors),
++    }
++}
++
++fn compile_programs(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    workspace: &Workspace,
++    binary_packages: &[Package],
++    compile_options: &CompileOptions,
++) -> CompilationResult<()> {
++    let load_cached_program = |package| {
++        let program_artifact_path = workspace.package_build_path(package);
++        read_program_from_file(&program_artifact_path)
++            .ok()
++            .filter(|p| p.noir_version == NOIR_ARTIFACT_VERSION_STRING)
++            .map(|p| p.into())
++    };
++
++    let circuit_dir = workspace.target_directory_path();
++    create_named_dir(&circuit_dir, "target");
++
++    let compile_package = |package| {
++        let (program, warnings) = compile_program(
++            file_manager,
++            parsed_files,
++            workspace,
++            package,
++            compile_options,
++            load_cached_program(package),
++        )?;
++
++        let target_width =
++            get_target_width(package.expression_width, compile_options.expression_width);
++        let program = nargo::ops::transform_program(program, target_width);
++
++        let circuit_dir = workspace.target_directory_path();
++
++        // Parse the initial witness values from Prover.toml
++        // if let Ok((inputs_map, _)) = read_inputs_from_file(&package.root_dir, "Prover.toml", Format::Toml, &program.abi) {
++        //     let initial_witness = program.abi.encode(&inputs_map, None)
++        //         .map_err(|err| {
++        //             FileDiagnostic::new(FileId::dummy(), CustomDiagnostic::from_message(format!("Witness error: {:?}", err).as_str()))
++        //         })?;
++        //     let calldata: Vec<_> = initial_witness.into_iter().map(|(_key, value)| value).collect();
++        //     // Write calldata to file in big-endian form
++        //     let circuit_name: String = package.name.clone().into();
++        //     let file_path = circuit_dir.join(circuit_name).with_extension("calldata");
++        //     // println!("{}", file_path);
++        //     if let Ok(file) = File::create(file_path) {
++        //         let mut writer = BufWriter::new(file);
++        //         for field in &calldata {
++        //             let big_int: BigInt<4> = field.into_repr().into();
++        //             let big_endian_bytes = big_int.to_bytes_be();
++        //             let _ = writer.write_all(&big_endian_bytes);
++        //         }
++        //         let _ = writer.flush();
++        //     }
++        // }
++
++        // Save bytecode.
++        {
++            let program_artifact: ProgramArtifact = program.clone().into();
++            let bytecode = bincode::serialize(&program_artifact.bytecode).unwrap();
++            let circuit_name: String = package.name.clone().into();
++            let file_path = circuit_dir.join(circuit_name).with_extension(if compile_options.force_brillig { "bvm_bytecode" } else { "cvm_bytecode" });
++            if let Ok(file) = File::create(file_path) {
++                let mut writer = BufWriter::new(file);
++                writer.write_all(&bytecode).unwrap();
++            }
++        }
++
++        // save_program_to_file(&program.into(), &package.name, circuit_dir);
++
++        Ok(((), warnings))
++    };
++
++    // Configure a thread pool with a larger stack size to prevent overflowing stack in large programs.
++    // Default is 2MB.
++    let pool = rayon::ThreadPoolBuilder::new().stack_size(4 * 1024 * 1024).build().unwrap();
++    let program_results: Vec<CompilationResult<()>> =
++        pool.install(|| binary_packages.par_iter().map(compile_package).collect());
++
++    // Collate any warnings/errors which were encountered during compilation.
++    collect_errors(program_results).map(|(_, warnings)| ((), warnings))
++}
++
++#[allow(clippy::too_many_arguments)]
++fn compile_tests<S: BlackBoxFunctionSolver<FieldElement> + Default>(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    package: &Package,
++    fn_name: &FunctionNameMatch,
++    show_output: bool,
++    foreign_call_resolver_url: Option<&str>,
++    root_path: Option<PathBuf>,
++    package_name: Option<String>,
++    compile_options: &CompileOptions,
++) -> Result<(), CliError> {
++    let test_functions =
++        get_tests_in_package(file_manager, parsed_files, package, fn_name, compile_options)?;
++
++    let count_all = test_functions.len();
++    if count_all == 0 {
++        println!("[{}] No matching tests found.", package.name);
++        return Ok(())
++    }
++
++    let plural = if count_all == 1 { "" } else { "s" };
++    println!("[{}] Dumping {count_all} test function{plural}", package.name);
++
++    let _ = test_functions
++        .into_par_iter()
++        .for_each(|test_name| {
++            let _ = run_test::<S>(
++                file_manager,
++                parsed_files,
++                package,
++                &test_name,
++                show_output,
++                foreign_call_resolver_url,
++                root_path.clone(),
++                package_name.clone(),
++                compile_options,
++            );
++        });
++
++    Ok(())
++}
++
++#[allow(clippy::too_many_arguments)]
++fn run_test<S: BlackBoxFunctionSolver<FieldElement> + Default>(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    package: &Package,
++    fn_name: &str,
++    _: bool,
++    _: Option<&str>,
++    _: Option<PathBuf>,
++    _: Option<String>,
++    compile_options: &CompileOptions,
++) {
++    // This is really hacky but we can't share `Context` or `S` across threads.
++    // We then need to construct a separate copy for each test.
++
++    let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
++    check_crate(&mut context, crate_id, compile_options)
++        .expect("Any errors should have occurred when collecting test functions");
++
++    let names = vec![fn_name.to_string()];
++    let test_functions = context
++        .get_all_test_functions_in_crate_matching(&crate_id, &FunctionNameMatch::Exact(names));
++    let (_, test_function) = test_functions.first().expect("Test function should exist");
++
++    // let blackbox_solver = S::default();
++
++    if let Ok(compiled_program) = compile_no_check(&mut context, compile_options, test_function.id, None, true) {
++        std::fs::create_dir_all("target/tests").unwrap();
++        let program_artifact: ProgramArtifact = compiled_program.clone().into();
++        let bytecode = bincode::serialize(&program_artifact.bytecode).unwrap();
++        // let circuit_name: String = package.name.clone().into();
++        // let file_path = circuit_dir.join(circuit_name).with_extension("calldata");
++        let file_path = format!(
++            "target/tests/{}.{}.{}",
++            fn_name.replace("::", "__"),
++            if test_function.should_fail() { "fail" } else { "pass" },
++            if compile_options.force_brillig { "bvm_bytecode" } else { "cvm_bytecode" },
++        );
++        println!("Dumping {}", file_path);
++        let mut file = File::create(file_path).unwrap();
++        file.write_all(&bytecode).unwrap();
++    } else {
++        println!("Failed to compile {}", fn_name);
++    }
++}
++
++fn get_tests_in_package(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    package: &Package,
++    fn_name: &FunctionNameMatch,
++    options: &CompileOptions,
++) -> Result<Vec<String>, CliError> {
++    let (mut context, crate_id) = prepare_package(file_manager, parsed_files, package);
++    check_crate_and_report_errors(&mut context, crate_id, options)?;
++
++    Ok(context
++        .get_all_test_functions_in_crate_matching(&crate_id, fn_name)
++        .into_iter()
++        .map(|(test_name, _)| test_name)
++        .collect())
++}
++
++fn compiled_contracts(
++    file_manager: &FileManager,
++    parsed_files: &ParsedFiles,
++    contract_packages: &[Package],
++    compile_options: &CompileOptions,
++    target_dir: &Path,
++) -> CompilationResult<()> {
++    let contract_results: Vec<CompilationResult<()>> = contract_packages
++        .par_iter()
++        .map(|package| {
++            let (contract, warnings) =
++                compile_contract(file_manager, parsed_files, package, compile_options)?;
++            let target_width =
++                get_target_width(package.expression_width, compile_options.expression_width);
++            let contract = nargo::ops::transform_contract(contract, target_width);
++            save_contract(contract, package, target_dir, compile_options.show_artifact_paths);
++            Ok(((), warnings))
++        })
++        .collect();
++
++    // Collate any warnings/errors which were encountered during compilation.
++    collect_errors(contract_results).map(|(_, warnings)| ((), warnings))
++}
++
++fn save_contract(
++    contract: CompiledContract,
++    package: &Package,
++    target_dir: &Path,
++    show_artifact_paths: bool,
++) {
++    let contract_name = contract.name.clone();
++    let artifact_path = save_contract_to_file(
++        &contract.into(),
++        &format!("{}-{}", package.name, contract_name),
++        target_dir,
++    ).unwrap();
++    if show_artifact_paths {
++        println!("Saved contract artifact to: {}", artifact_path.display());
++    }
++}
++
++/// If a target width was not specified in the CLI we can safely override the default.
++pub(crate) fn get_target_width(
++    package_default_width: Option<ExpressionWidth>,
++    compile_options_width: Option<ExpressionWidth>,
++) -> ExpressionWidth {
++    if let (Some(manifest_default_width), None) = (package_default_width, compile_options_width) {
++        manifest_default_width
++    } else {
++        compile_options_width.unwrap_or(DEFAULT_EXPRESSION_WIDTH)
++    }
++}
+diff --git a/tooling/nargo_cli/src/cli/mod.rs b/tooling/nargo_cli/src/cli/mod.rs
+index b49881a6d..ffc839afe 100644
+--- a/tooling/nargo_cli/src/cli/mod.rs
++++ b/tooling/nargo_cli/src/cli/mod.rs
+@@ -33,6 +33,7 @@ mod interpret_cmd;
+ mod lsp_cmd;
+ mod new_cmd;
+ mod test_cmd;
++mod dump_cmd;
+ 
+ const GIT_HASH: &str = env!("GIT_COMMIT");
+ const IS_DIRTY: &str = env!("GIT_DIRTY");
+@@ -115,6 +116,8 @@ enum NargoCommand {
+     #[command(hide = true)]
+     Dap(dap_cmd::DapCommand),
+     Expand(expand_cmd::ExpandCommand),
++    #[command(hide = true)]
++    Dump(dump_cmd::DumpCommand),
+     GenerateCompletionScript(generate_completion_script_cmd::GenerateCompletionScriptCommand),
+ }
+ 
+@@ -159,6 +162,7 @@ pub(crate) fn start_cli() -> eyre::Result<()> {
+         NargoCommand::Dap(args) => dap_cmd::run(args),
+         NargoCommand::Fmt(args) => with_workspace(args, config, fmt_cmd::run),
+         NargoCommand::Expand(args) => with_workspace(args, config, expand_cmd::run),
++        NargoCommand::Dump(args) => dump_cmd::run(args, config),
+         NargoCommand::GenerateCompletionScript(args) => generate_completion_script_cmd::run(args),
+     }?;
+ 
+-- 
+2.43.0
+
