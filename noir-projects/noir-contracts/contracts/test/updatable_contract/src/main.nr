@@ -1,5 +1,6 @@
 use dep::aztec::macros::aztec;
 
+/// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
