@@ -1,5 +1,9 @@
 use dep::protocol_types::{
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
+    address::AztecAddress,
+    constants::{
+        GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2,
+        PRIVATE_LOG_CIPHERTEXT_LEN,
+    },
     hash::poseidon2_hash_with_separator,
     point::Point,
 };
@@ -12,15 +16,13 @@ use crate::{
     messages::{
         encryption::log_encryption::{
             EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN,
-            PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
+            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
         },
         logs::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
     },
     oracle::{aes128_decrypt::aes128_decrypt_oracle, shared_secret::get_shared_secret},
-    prelude::AztecAddress,
     utils::{
         array,
         conversion::{
@@ -276,7 +278,7 @@ impl LogEncryption for AES128 {
         let ciphertext_without_eph_pk_x = bytes_from_fields(ciphertext_without_eph_pk_x_fields);
 
         // First byte of the ciphertext represents the ephemeral public key sign
-        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) as bool;
+        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) != 0;
         // With the sign and the x-coordinate of the ephemeral public key, we can reconstruct the point
         let eph_pk = point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool);
 

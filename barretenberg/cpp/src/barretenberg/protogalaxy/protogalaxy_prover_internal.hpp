@@ -8,7 +8,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -170,12 +170,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             num_threads, polynomial_size, /*use_prev_accumulator_tracker=*/true);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
-            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
-            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-
-            for (size_t idx = start; idx < end; idx++) {
-                // The contribution is only non-trivial at a given row if the accumulator is active at that row
-                if (trace_usage_tracker.check_is_active(idx, true)) {
+            for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
+                for (size_t idx = range.first; idx < range.second; idx++) {
                     const AllValues row = polynomials.get_row(idx);
                     // Evaluate all subrelations on given row. Separator is 1 since we are not summing across rows here.
                     const RelationEvaluations evals =
@@ -391,21 +387,19 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             // Construct extended univariates containers; one per thread
             ExtendedUnivariatesType extended_univariates;
 
-            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
-            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
-            for (size_t idx = start; idx < end; idx++) {
-                if (trace_usage_tracker.check_is_active(idx)) {
-                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
-                    // are still available for skipping relations, but all derived univariate will ignore those
-                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+            for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
+                for (size_t idx = range.first; idx < range.second; idx++) {
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices
+                    // (they are still available for skipping relations, but all derived univariate will ignore
+                    // those evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = DeciderPKs::NUM - 1;
                     extend_univariates<skip_count>(extended_univariates, keys, idx);
 
                     const FF pow_challenge = gate_separators[idx];
 
-                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
-                    // this function have already been folded. Moreover, linear-dependent relations that act over the
-                    // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed
+                    // to this function have already been folded. Moreover, linear-dependent relations that act over
+                    // the entire execution trace rather than on rows, will not be multiplied by the pow challenge.
                     accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                     extended_univariates,
                                                     relation_parameters, // these parameters have already been folded
@@ -456,7 +450,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         };
 
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
-        RelationUtils::template apply_to_tuple_of_tuples<0, 0>(result, deoptimise);
+        RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }
 
@@ -468,13 +462,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
         size_t idx = 0;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            if constexpr (outer_idx == 0 && inner_idx == 0) {
+                return;
+            }
+
             auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
             extended *= alpha[idx];
             result += extended;
             idx++;
         };
 
-        RelationUtils::template apply_to_tuple_of_tuples<0, 1>(univariate_accumulators, scale_and_sum);
+        RelationUtils::template apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
         RelationUtils::zero_univariates(univariate_accumulators);
 
         return result;

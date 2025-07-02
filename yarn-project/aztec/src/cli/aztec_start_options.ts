@@ -27,7 +27,7 @@ import { DefaultMnemonic } from '../mnemonic.js';
 export interface AztecStartOption {
   flag: string;
   description: string;
-  defaultValue: any | undefined;
+  defaultValue: any;
   printDefault?: (val: any) => string;
   envVar: EnvVar | undefined;
   parseVal?: (val: string) => any;
@@ -97,7 +97,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.noPXE [value]',
+      flag: '--sandbox.noPXE',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),

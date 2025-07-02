@@ -1,3 +1,7 @@
+import { Fr } from '@aztec/foundation/fields';
+
+import { strict as assert } from 'assert';
+
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag, Uint32 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -59,6 +63,8 @@ export class Set extends Instruction {
     private value: bigint | number,
   ) {
     super();
+
+    assert(this.value < Fr.MODULUS, 'Value is larger than Fr.MODULUS');
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -68,7 +74,9 @@ export class Set extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
@@ -95,7 +103,12 @@ export class Cast extends Instruction {
     OperandType.TAG,
   ];
 
-  constructor(private indirect: number, private srcOffset: number, private dstOffset: number, private dstTag: number) {
+  constructor(
+    private indirect: number,
+    private srcOffset: number,
+    private dstOffset: number,
+    private dstTag: number,
+  ) {
     super();
   }
 
@@ -103,7 +116,9 @@ export class Cast extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.srcOffset, this.dstOffset];
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -134,7 +149,11 @@ export class Mov extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private srcOffset: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 
@@ -142,7 +161,9 @@ export class Mov extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.srcOffset, this.dstOffset];
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
@@ -176,13 +197,17 @@ export class CalldataCopy extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.copySizeOffset, this.cdStartOffset, this.dstOffset];
     const [copySizeOffset, cdStartOffset, dstOffset] = addressing.resolve(operands, memory);
 
     memory.checkTags(TypeTag.UINT32, cdStartOffset, copySizeOffset);
     const cdStart = memory.get(cdStartOffset).toNumber();
     const copySize = memory.get(copySizeOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(copySize));
+    context.machineState.consumeGas(this.dynamicGasCost(copySize));
 
     // Values which are out-of-range of the calldata array will be set with Field(0);
     const slice = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
@@ -199,7 +224,10 @@ export class ReturndataSize extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 
@@ -207,9 +235,12 @@ export class ReturndataSize extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
-    context.machineState.consumeGas(this.gasCost());
 
     memory.set(dstOffset, new Uint32(context.machineState.nestedReturndata.length));
   }
@@ -240,13 +271,17 @@ export class ReturndataCopy extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.copySizeOffset, this.rdStartOffset, this.dstOffset];
     const [copySizeOffset, rdStartOffset, dstOffset] = addressing.resolve(operands, memory);
 
     memory.checkTags(TypeTag.UINT32, rdStartOffset, copySizeOffset);
     const rdStart = memory.get(rdStartOffset).toNumber();
     const copySize = memory.get(copySizeOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(copySize));
+    context.machineState.consumeGas(this.dynamicGasCost(copySize));
 
     // Values which are out-of-range of the returndata array will be set with Field(0);
     const slice = context.machineState.nestedReturndata.slice(rdStart, rdStart + copySize).map(f => new Field(f));

@@ -2,7 +2,15 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Capsule, HashedValues, SimulationTimings, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import {
+  type Capsule,
+  type HashedValues,
+  type OffchainEffect,
+  type SimulationStats,
+  type TxExecutionRequest,
+  type TxProfileResult,
+  collectOffchainEffects,
+} from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
@@ -16,20 +24,19 @@ import type {
 /**
  * Represents the result type of a simulation.
  * By default, it will just be the return value of the simulated function
- * so contract interfaces behave as plain functions. If `includeMetadata` is set to true,
+ * so contract interfaces behave as plain functions. If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
  * it will provide extra information.
  */
 type SimulationReturn<T extends boolean | undefined> = T extends true
   ? {
       /**
-       * Additional metadata about the simulation
+       * Additional stats about the simulation
        */
-      meta: {
-        /**
-         * Timings of the different operations performed, including per function breakdown
-         */
-        timings?: SimulationTimings;
-      };
+      stats: SimulationStats;
+      /**
+       * Offchain effects generated during the simulation
+       */
+      offchainEffects: OffchainEffect[];
       /**
        * Return value of the function
        */
@@ -53,7 +60,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   ) {
     super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {
-      throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
+      throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
   }
 
@@ -71,10 +78,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
     const requestWithoutFee = await this.request(options);
 
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
+    const { fee: userFee, txNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
 
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // docs:start:request
@@ -134,7 +141,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
       if (options.includeMetadata) {
         return {
-          meta: { timings: utilityResult.timings },
+          stats: utilityResult.stats,
           result: utilityResult.result,
         };
       } else {
@@ -146,9 +153,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const simulatedTx = await this.wallet.simulateTx(
       txRequest,
       true /* simulatePublic */,
-      options.from,
       options.skipTxValidation,
       options.skipFeeEnforcement ?? true,
+      { msgSender: options?.from },
     );
 
     let rawReturnValues;
@@ -169,7 +176,11 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
 
     if (options.includeMetadata) {
-      return { meta: { timings: simulatedTx.timings }, result: returnValue };
+      return {
+        stats: simulatedTx.stats,
+        offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
+        result: returnValue,
+      };
     } else {
       return returnValue;
     }

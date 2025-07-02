@@ -12,37 +12,65 @@ use crate::utils::field::field_from_bytes;
 // use the optional type for safety. Doing it now would lead to a worse devex
 // and would make it harder to sync up with the cpp code.
 // Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.
-pub trait Empty {
+pub trait Empty: Eq {
     fn empty() -> Self;
+
+    fn is_empty(self) -> bool {
+        self.eq(Self::empty())
+    }
+
+    // Requires this Noir fix: https://github.com/noir-lang/noir/issues/9002
+    // fn assert_not_empty<let U: u32>(self, msg: str<U>) { // This msg version was failing with weird compiler errors.
+    //     // We provide a default impl but it's likely inefficient.
+    //     // The reason we include this function is because there's a lot of
+    //     // opportunity for optimisation on a per-struct basis.
+    //     // You only need to show one element is not empty to know that the whole thing
+    //     // is not empty.
+    //     // If you know an element of your struct which should always be nonempty,
+    //     // you can write an impl that solely checks that that element is nonempty.
+    //     assert(!self.is_empty(), msg);
+    // }
+
+    // This default impl is overwritten by types like arrays, because there's a much
+    // more efficient approach.
+    fn assert_empty<let S: u32>(self, msg: str<S>) {
+        assert(self.is_empty(), msg);
+    }
 }
 
 impl Empty for Field {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 
 impl Empty for u1 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u8 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u32 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u64 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
 }
 impl Empty for u128 {
+    #[inline_always]
     fn empty() -> Self {
         0
     }
@@ -50,32 +78,92 @@ impl Empty for u128 {
 
 impl<T, let N: u32> Empty for [T; N]
 where
-    T: Empty,
+    T: Empty + Eq,
 {
+    #[inline_always]
     fn empty() -> Self {
         [T::empty(); N]
     }
+
+    fn is_empty(self) -> bool {
+        self.all(|elem| elem.is_empty())
+    }
+
+    fn assert_empty<let S: u32>(self, msg: str<S>) -> () {
+        self.for_each(|elem| elem.assert_empty(msg))
+    }
 }
 
-impl<T> Empty for Option<T> {
+impl<T> Empty for [T]
+where
+    T: Empty + Eq,
+{
+    #[inline_always]
+    fn empty() -> Self {
+        [T::empty()]
+    }
+
+    fn is_empty(self) -> bool {
+        self.all(|elem| elem.is_empty())
+    }
+
+    fn assert_empty<let S: u32>(self, msg: str<S>) -> () {
+        self.for_each(|elem| elem.assert_empty(msg))
+    }
+}
+impl<A, B> Empty for (A, B)
+where
+    A: Empty + Eq,
+    B: Empty + Eq,
+{
+    #[inline_always]
+    fn empty() -> Self {
+        (A::empty(), B::empty())
+    }
+}
+
+impl<T> Empty for Option<T>
+where
+    T: Eq,
+{
+    #[inline_always]
     fn empty() -> Self {
         Option::none()
     }
 }
 
-pub fn is_empty<T>(item: T) -> bool
-where
-    T: Empty + Eq,
-{
-    item.eq(T::empty())
-}
+// pub fn is_empty<T>(item: T) -> bool
+// where
+//     T: Empty + Eq,
+// {
+//     item.eq(T::empty())
+// }
 
-pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
-where
-    T: Empty + Eq,
-{
-    array.all(|elem| is_empty(elem))
-}
+// pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
+// where
+//     T: Empty + Eq,
+// {
+//     array.all(|elem| is_empty(elem))
+// }
+
+// pub fn assert_empty<T>(item: T) -> ()
+// where
+//     T: Empty + Eq,
+// {
+//     assert(item.eq(T::empty()))
+// }
+
+// pub fn assert_empty_array<T, let N: u32>(array: [T; N]) -> ()
+// where
+//     T: Empty + Eq,
+// {
+//     // A cheaper option than `is_empty_array` for if you don't need to gracefully
+//     // handle a bool result.
+//     // Avoids the `&` operator of `is_empty_array`'s `.all()` call.
+//     for i in 0..N {
+//         assert(is_empty(array[i]));
+//     }
+// }
 
 pub trait Hash {
     fn hash(self) -> Field;
@@ -86,42 +174,50 @@ pub trait ToField {
 }
 
 impl ToField for Field {
+    #[inline_always]
     fn to_field(self) -> Field {
         self
     }
 }
 
 impl ToField for bool {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u1 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u8 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u32 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u64 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl ToField for u128 {
+    #[inline_always]
     fn to_field(self) -> Field {
         self as Field
     }
 }
 impl<let N: u32> ToField for str<N> {
+    #[inline_always]
     fn to_field(self) -> Field {
         assert(N < 32, "String doesn't fit in a field, consider using Serialize instead");
         field_from_bytes(self.as_bytes(), true)
@@ -133,37 +229,44 @@ pub trait FromField {
 }
 
 impl FromField for Field {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value
     }
 }
 
 impl FromField for bool {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
-        value as bool
+        value != 0
     }
 }
 impl FromField for u1 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u1
     }
 }
 impl FromField for u8 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u8
     }
 }
 impl FromField for u32 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u32
     }
 }
 impl FromField for u64 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u64
     }
 }
 impl FromField for u128 {
+    #[inline_always]
     fn from_field(value: Field) -> Self {
         value as u128
     }
@@ -207,6 +310,7 @@ pub trait Serialize<let N: u32> {
 // docs:end:serialize
 
 impl<let N: u32> Serialize<N> for str<N> {
+    #[inline_always]
     fn serialize(self) -> [Field; N] {
         let bytes = self.as_bytes();
         let mut fields = [0; N];
@@ -225,17 +329,18 @@ impl<T, let M: u32, let O: u32> Deserialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Deserialize<O>,
 {
+    #[inline_always]
     fn deserialize(fields: [Field; O * M + 1]) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
 
-        let len = fields[0] as u32;
-        let mut index = 1;
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        let len = fields[O * M] as u32;
 
-        for _ in 0..len {
+        for i in 0..len {
             let mut nested_fields = [0; O];
             for j in 0..O {
-                nested_fields[j] = fields[index];
-                index += 1;
+                nested_fields[j] = fields[i * O + j];
             }
 
             let item = T::deserialize(nested_fields);
@@ -246,27 +351,36 @@ where
     }
 }
 
+// This may cause issues if used as program input, because noir disallows empty arrays for program input.
+// I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
+// if someone does run into this in the future.
+impl<let N: u32> Deserialize<0> for () {
+    fn deserialize(_fields: [Field; 0]) -> Self {
+        ()
+    }
+}
+
 impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Serialize<O>,
 {
+    #[inline_always]
     fn serialize(self) -> [Field; O * M + 1] {
         let mut fields = [0; O * M + 1];
 
-        let len = self.len();
-        fields[0] = len as Field;
+        let storage = self.storage();
 
-        let mut index: u32 = 1;
-
-        for i in 0..len {
-            let item = self.get_unchecked(i);
-            let serialized_item = item.serialize();
+        for i in 0..M {
+            let serialized_item = storage[i].serialize();
 
             for j in 0..O {
-                fields[index] = serialized_item[j];
-                index += 1;
+                fields[i * O + j] = serialized_item[j];
             }
         }
+
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        fields[O * M] = self.len() as Field;
 
         fields
     }
@@ -298,6 +412,7 @@ pub trait Deserialize<let N: u32> {
 // docs:end:deserialize
 
 impl<let N: u32> Deserialize<N> for str<N> {
+    #[inline_always]
     fn deserialize(fields: [Field; N]) -> Self {
         str::<N>::from(fields.map(|value| value as u8))
     }
@@ -318,4 +433,32 @@ pub trait Packable<let N: u32> {
 
     /// Unpacks a compact array of `Field` elements into the original value.
     fn unpack(fields: [Field; N]) -> Self;
+}
+
+#[test]
+unconstrained fn bounded_vec_serialization() {
+    // Test empty BoundedVec
+    let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
+    let serialized = empty_vec.serialize();
+    let deserialized = BoundedVec::<Field, 3>::deserialize(serialized);
+    assert_eq(empty_vec, deserialized);
+    assert_eq(deserialized.len(), 0);
+
+    // Test partially filled BoundedVec
+    let partial_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2]]);
+    let serialized = partial_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(partial_vec, deserialized);
+    assert_eq(deserialized.len(), 1);
+    assert_eq(deserialized.get(0), [1, 2]);
+
+    // Test full BoundedVec
+    let full_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2], [3, 4], [5, 6]]);
+    let serialized = full_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(full_vec, deserialized);
+    assert_eq(deserialized.len(), 3);
+    assert_eq(deserialized.get(0), [1, 2]);
+    assert_eq(deserialized.get(1), [3, 4]);
+    assert_eq(deserialized.get(2), [5, 6]);
 }

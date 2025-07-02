@@ -9,7 +9,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
 namespace bb::field_conversion {
@@ -53,7 +53,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     if constexpr (IsAnyOf<T, bool>) {
         BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(1));
-        return bool(fr_vec[0]);
+        return static_cast<bool>(fr_vec[0]);
     } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, bb::fr>) {
         BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(1));
         return static_cast<T>(fr_vec[0]);

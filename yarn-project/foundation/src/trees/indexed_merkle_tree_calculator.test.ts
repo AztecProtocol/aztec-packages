@@ -8,12 +8,12 @@ import { IndexedMerkleTreeCalculator } from './indexed_merkle_tree_calculator.js
 import type { MembershipWitness } from './membership_witness.js';
 
 class TestHasher implements AsyncHasher {
-  public async hash(lhs: Buffer, rhs: Buffer): Promise<Buffer> {
-    return (await poseidon2Hash([lhs, rhs])).toBuffer();
+  public async hash(lhs: Buffer, rhs: Buffer) {
+    return (await poseidon2Hash([lhs, rhs])).toBuffer() as Buffer<ArrayBuffer>;
   }
-  public async hashInputs(inputs: Buffer[]): Promise<Buffer> {
+  public async hashInputs(inputs: Buffer[]) {
     const inputFields = inputs.map(i => Fr.fromBuffer(i));
-    return (await poseidon2Hash(inputFields)).toBuffer();
+    return (await poseidon2Hash(inputFields)).toBuffer() as Buffer<ArrayBuffer>;
   }
 }
 

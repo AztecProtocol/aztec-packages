@@ -5,14 +5,15 @@
 // =====================
 
 #pragma once
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -39,15 +40,20 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using Output = UltraRecursiveVerifierOutput<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
-    explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
+                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit UltraRecursiveVerifier_(Builder* builder,
+                                     const std::shared_ptr<VerificationKey>& vkey,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(
         const StdlibProof<Builder>& proof);
 
-    std::shared_ptr<VerificationKey> key;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
+    // RecursiveDeciderVK here. Seems unnecessary.
+    std::shared_ptr<RecursiveDeciderVK> key;
+    VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
 };

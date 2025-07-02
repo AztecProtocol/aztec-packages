@@ -12,7 +12,7 @@ import {
   type ProtocolContractsProvider,
   protocolContractNames,
 } from '@aztec/protocol-contracts';
-import { AcirSimulator, type SimulationProvider, readCurrentClassId } from '@aztec/simulator/client';
+import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
   EventSelector,
@@ -47,17 +47,23 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import type {
+  PrivateExecutionStep,
+  PrivateKernelExecutionProofOutput,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
 import type { LogFilter } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type ContractOverrides,
   type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   type ProvingTimings,
   PublicSimulationOutput,
+  SimulationOverrides,
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
@@ -74,11 +80,18 @@ import { inspect } from 'util';
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
 import {
+  ContractFunctionSimulator,
+  generateSimulatedProvingResult,
+} from '../contract_function_simulator/contract_function_simulator.js';
+import { readCurrentClassId } from '../contract_function_simulator/oracle/private_execution.js';
+import { ProxiedContractDataProviderFactory } from '../contract_function_simulator/proxied_contract_data_source.js';
+import { ProxiedNodeFactory } from '../contract_function_simulator/proxied_node.js';
+import { PXEOracleInterface } from '../contract_function_simulator/pxe_oracle_interface.js';
+import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
 } from '../private_kernel/private_kernel_execution_prover.js';
 import { PrivateKernelOracleImpl } from '../private_kernel/private_kernel_oracle_impl.js';
-import { PXEOracleInterface } from '../pxe_oracle_interface/pxe_oracle_interface.js';
 import { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
@@ -106,7 +119,7 @@ export class PXEService implements PXE {
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
     private privateEventDataProvider: PrivateEventDataProvider,
-    private simulator: AcirSimulator,
+    private simulator: CircuitSimulator,
     private packageVersion: string,
     private proverEnabled: boolean,
     private proofCreator: PrivateKernelProver,
@@ -126,7 +139,7 @@ export class PXEService implements PXE {
     node: AztecNode,
     store: AztecAsyncKVStore,
     proofCreator: PrivateKernelProver,
-    simulationProvider: SimulationProvider,
+    simulator: CircuitSimulator,
     protocolContractsProvider: ProtocolContractsProvider,
     config: PXEServiceConfig,
     loggerOrSuffix?: string | Logger,
@@ -156,19 +169,7 @@ export class PXEService implements PXE {
       config,
       loggerOrSuffix,
     );
-    const pxeOracleInterface = new PXEOracleInterface(
-      node,
-      keyStore,
-      contractDataProvider,
-      noteDataProvider,
-      capsuleDataProvider,
-      syncDataProvider,
-      taggingDataProvider,
-      addressDataProvider,
-      privateEventDataProvider,
-      log,
-    );
-    const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
+
     const jobQueue = new SerialQueue();
 
     const pxeService = new PXEService(
@@ -205,8 +206,15 @@ export class PXEService implements PXE {
     return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
-  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
-    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
+  public async getL2ToL1MembershipWitness(
+    blockNumber: number,
+    l2Tol1Message: Fr,
+  ): Promise<[bigint, SiblingPath<number>]> {
+    const result = await computeL2ToL1MembershipWitness(this.node, blockNumber, l2Tol1Message);
+    if (!result) {
+      throw new Error(`L2 to L1 message not found in block ${blockNumber}`);
+    }
+    return [result.l2MessageIndex, result.siblingPath];
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
@@ -246,6 +254,22 @@ export class PXEService implements PXE {
   }
 
   // Internal methods
+
+  #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
+    const pxeOracleInterface = new PXEOracleInterface(
+      ProxiedNodeFactory.create(this.node),
+      this.keyStore,
+      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
+      this.noteDataProvider,
+      this.capsuleDataProvider,
+      this.syncDataProvider,
+      this.taggingDataProvider,
+      this.addressDataProvider,
+      this.privateEventDataProvider,
+      this.log,
+    );
+    return new ContractFunctionSimulator(pxeOracleInterface, this.simulator);
+  }
 
   #contextualizeError(err: Error, ...context: string[]): Error {
     let contextStr = '';
@@ -327,7 +351,10 @@ export class PXEService implements PXE {
     };
   }
 
+  // Executes the entrypoint private function, as well as all nested private
+  // functions that might arise.
   async #executePrivate(
+    contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
     scopes?: AztecAddress[],
@@ -335,7 +362,13 @@ export class PXEService implements PXE {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
-      const result = await this.simulator.run(txRequest, contractAddress, functionSelector, msgSender, scopes);
+      const result = await contractFunctionSimulator.run(
+        txRequest,
+        contractAddress,
+        functionSelector,
+        msgSender,
+        scopes,
+      );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
     } catch (err) {
@@ -348,15 +381,21 @@ export class PXEService implements PXE {
 
   /**
    * Simulate a utility function call on the given contract.
+   * @param contractFunctionSimulator - The simulator to use for the function call.
    * @param call - The function call to execute.
    * @param authWitnesses - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
    * @returns The simulation result containing the outputs of the utility function.
    */
-  async #simulateUtility(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
+  async #simulateUtility(
+    contractFunctionSimulator: ContractFunctionSimulator,
+    call: FunctionCall,
+    authWitnesses?: AuthWitness[],
+    scopes?: AztecAddress[],
+  ) {
     try {
-      return this.simulator.runUtility(call, authWitnesses ?? [], scopes);
+      return contractFunctionSimulator.runUtility(call, authWitnesses ?? [], scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);
@@ -560,7 +599,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
+      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
@@ -594,7 +633,8 @@ export class PXEService implements PXE {
         contractAddress,
         currentInstance,
         this.node,
-        header.globalVariables.blockNumber.toNumber(),
+        header.globalVariables.blockNumber,
+        header.globalVariables.timestamp,
       );
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');
@@ -605,7 +645,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
       await this.contractDataProvider.addContractInstance(currentInstance);
@@ -633,7 +673,7 @@ export class PXEService implements PXE {
         }
         recipient = completeAddress.address;
       }
-      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.nonce);
+      return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
     return Promise.all(extendedNotes);
   }
@@ -660,11 +700,13 @@ export class PXEService implements PXE {
       const totalTimer = new Timer();
       try {
         let syncTime: number | undefined;
+        let contractFunctionSimulator: ContractFunctionSimulator | undefined;
         if (!privateExecutionResult) {
           const syncTimer = new Timer();
           await this.synchronizer.sync();
           syncTime = syncTimer.ms();
-          privateExecutionResult = await this.#executePrivate(txRequest);
+          contractFunctionSimulator = this.#getSimulatorForTx();
+          privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
         }
         const {
           publicInputs,
@@ -679,9 +721,10 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
           functionName,
           time: witgen,
+          oracles,
         }));
 
         const timings: ProvingTimings = {
@@ -696,8 +739,10 @@ export class PXEService implements PXE {
         this.log.info(`Proving completed in ${totalTime}ms`, {
           timings,
         });
-
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, timings);
+        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
+          timings,
+          nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
+        });
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       }
@@ -731,7 +776,8 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
 
-        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender);
+        const contractFunctionSimulator = this.#getSimulatorForTx();
+        const privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest, msgSender);
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
@@ -746,29 +792,31 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
-          functionName,
-          time: witgen,
-        }));
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => {
+          return {
+            functionName,
+            time: witgen,
+            oracles,
+          };
+        });
 
         // Gate computation is time is not relevant for profiling, so we subtract it from the total time.
         const gateCountComputationTime =
           executionSteps.reduce((acc, { timings }) => acc + (timings.gateCount ?? 0), 0) ?? 0;
 
+        const total = totalTime - gateCountComputationTime;
+
         const timings: ProvingTimings = {
-          total: totalTime - gateCountComputationTime,
+          total,
           sync: syncTime,
           proving,
           perFunction,
           unaccounted:
-            totalTime -
-            ((syncTime ?? 0) +
-              (proving ?? 0) +
-              perFunction.reduce((acc, { time }) => acc + time, 0) +
-              gateCountComputationTime),
+            total - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        return new TxProfileResult(executionSteps, timings);
+        const simulatorStats = contractFunctionSimulator.getStats();
+        return new TxProfileResult(executionSteps, { timings, nodeRPCCalls: simulatorStats.nodeRPCCalls });
       } catch (err: any) {
         throw this.#contextualizeError(
           err,
@@ -784,9 +832,9 @@ export class PXEService implements PXE {
   public simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
-    msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
     skipFeeEnforcement: boolean = false,
+    overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -799,7 +847,7 @@ export class PXEService implements PXE {
           origin: txRequest.origin,
           functionSelector: txRequest.functionSelector,
           simulatePublic,
-          msgSender,
+          msgSender: overrides?.msgSender,
           chainId: txRequest.txContext.chainId,
           version: txRequest.txContext.version,
           authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
@@ -812,18 +860,43 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
 
-        const privateExecutionResult = await this.#executePrivate(txRequest, msgSender, scopes);
+        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
+        // Temporary: in case there are overrides, we have to skip the kernels or validations
+        // will fail. Consider handing control to the user/wallet on whether they want to run them
+        // or not.
+        const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
 
-        const { publicInputs, executionSteps } = await this.#prove(
+        // Execution of private functions only; no proving, and no kernel logic.
+        const privateExecutionResult = await this.#executePrivate(
+          contractFunctionSimulator,
           txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-          {
+          overrides?.msgSender,
+          scopes,
+        );
+
+        let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
+        let executionSteps: PrivateExecutionStep[] = [];
+
+        if (skipKernels) {
+          // According to the protocol rules, the nonce generator for the note hashes
+          // can either be the first nullifier in the tx or the hash of the initial tx request
+          // if there are none.
+          const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
+            ? await txRequest.toTxRequest().hash()
+            : privateExecutionResult.firstNullifier;
+          ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
+            privateExecutionResult,
+            nonceGenerator,
+            this.contractDataProvider,
+          ));
+        } else {
+          // Kernel logic, plus proving of all private functions and kernels.
+          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
             simulate: true,
             skipFeeEnforcement,
             profileMode: 'none',
-          },
-        );
+          }));
+        }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
         const simulatedTx = privateSimulationResult.toSimulatedTx();
@@ -836,7 +909,7 @@ export class PXEService implements PXE {
         }
 
         let validationTime: number | undefined;
-        if (!skipTxValidation) {
+        if (!skipTxValidation && !skipKernels) {
           const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
@@ -849,9 +922,10 @@ export class PXEService implements PXE {
 
         const totalTime = totalTimer.ms();
 
-        const perFunction = executionSteps.map(({ functionName, timings: { witgen } }) => ({
+        const perFunction = executionSteps.map(({ functionName, timings: { witgen, oracles } }) => ({
           functionName,
           time: witgen,
+          oracles,
         }));
 
         const timings: SimulationTimings = {
@@ -878,20 +952,19 @@ export class PXEService implements PXE {
                 revertReason: publicOutput.revertReason,
               }
             : {}),
-          timings,
         });
 
-        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(
-          privateSimulationResult,
-          publicOutput,
+        const simulatorStats = contractFunctionSimulator.getStats();
+        return TxSimulationResult.fromPrivateSimulationResultAndPublicOutput(privateSimulationResult, publicOutput, {
           timings,
-        );
+          nodeRPCCalls: simulatorStats.nodeRPCCalls,
+        });
       } catch (err: any) {
         throw this.#contextualizeError(
           err,
           inspect(txRequest),
           `simulatePublic=${simulatePublic}`,
-          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `msgSender=${overrides?.msgSender?.toString() ?? 'undefined'}`,
           `skipTxValidation=${skipTxValidation}`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
@@ -932,7 +1005,13 @@ export class PXEService implements PXE {
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
         const functionTimer = new Timer();
-        const executionResult = await this.#simulateUtility(functionCall, authwits ?? [], scopes);
+        const contractFunctionSimulator = this.#getSimulatorForTx();
+        const executionResult = await this.#simulateUtility(
+          contractFunctionSimulator,
+          functionCall,
+          authwits ?? [],
+          scopes,
+        );
         const functionTime = functionTimer.ms();
 
         const totalTime = totalTimer.ms();
@@ -946,7 +1025,8 @@ export class PXEService implements PXE {
           unaccounted: totalTime - (syncTime + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        return { result: executionResult, timings };
+        const simulationStats = contractFunctionSimulator.getStats();
+        return { result: executionResult, stats: { timings, nodeRPCCalls: simulationStats.nodeRPCCalls } };
       } catch (err: any) {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
@@ -961,7 +1041,7 @@ export class PXEService implements PXE {
   public async getNodeInfo(): Promise<NodeInfo> {
     // This assumes we're connected to a single node, so we cache the info to avoid repeated calls.
     // Load balancers and a myriad other configurations can break this assumption, so review this!
-    // Temporary mesure to avoid hammering full nodes with requests on testnet.
+    // Temporary measure to avoid hammering full nodes with requests on testnet.
     if (!this.#nodeInfo) {
       const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
         await Promise.all([
@@ -1011,8 +1091,8 @@ export class PXEService implements PXE {
 
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
-    // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
-    await this.simulateUtility('sync_notes', [], contractAddress);
+    // We need to manually trigger private state sync to have a guarantee that all the events are available.
+    await this.simulateUtility('sync_private_state', [], contractAddress);
 
     const events = await this.privateEventDataProvider.getPrivateEvents(
       contractAddress,
@@ -1058,5 +1138,9 @@ export class PXEService implements PXE {
 
   async resetNoteSyncData() {
     return await this.taggingDataProvider.resetNoteSyncData();
+  }
+
+  public stop(): Promise<void> {
+    return this.jobQueue.end();
   }
 }

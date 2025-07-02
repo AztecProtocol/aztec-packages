@@ -1,6 +1,5 @@
 name: release-please
 
-# Trigger on merges to 'master' branch
 on:
   push:
     branches:
@@ -22,11 +21,11 @@ jobs:
     steps:
       - name: Run Release Please
         id: release
-        uses: google-github-actions/release-please-action@v3
+        uses: googleapis/release-please-action@7d28262f14160787a44a6be36146a18e6f575a3f
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          command: manifest
-          default-branch: ${{ env.BRANCH_NAME }}
+          config-file: .github/release-please-${{ github.ref_name }}.json
+          target-branch: ${{ github.ref_name }}
 
   update-docs:
     name: Update docs
@@ -38,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout release branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -72,7 +71,8 @@ jobs:
         working-directory: ./docs
         run: |
           COMMIT_TAG=${{ steps.version.outputs.semver }}
-          echo "[]" > versions.json
+          # need to specify at least one version in versions.json for it to build
+          echo "[ \"$(./scripts/get_current_version.sh)\" ]" > versions.json
           yarn
           COMMIT_TAG=$COMMIT_TAG yarn build
           COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}

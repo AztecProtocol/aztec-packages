@@ -22,7 +22,7 @@ where
         // which is already in the note hash tree).
         let siloed_note_hash = compute_siloed_note_hash(retrieved_note.contract_address, note_hash);
         compute_unique_note_hash(
-            retrieved_note.metadata.to_settled().nonce(),
+            retrieved_note.metadata.to_settled().note_nonce(),
             siloed_note_hash,
         )
     } else {
@@ -66,9 +66,9 @@ pub fn compute_note_hash_for_nullify_from_read_request<Note>(
     if retrieved_note.metadata.is_pending_previous_phase() {
         let siloed_note_hash =
             compute_siloed_note_hash(retrieved_note.contract_address, note_hash_for_read_request);
-        let nonce = retrieved_note.metadata.to_pending_previous_phase().nonce();
+        let note_nonce = retrieved_note.metadata.to_pending_previous_phase().note_nonce();
 
-        compute_unique_note_hash(nonce, siloed_note_hash)
+        compute_unique_note_hash(note_nonce, siloed_note_hash)
     } else {
         note_hash_for_read_request
     }

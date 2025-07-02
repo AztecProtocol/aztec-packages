@@ -11,7 +11,6 @@
 
 namespace acir_format {
 
-using namespace bb::plonk;
 using namespace bb;
 
 template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly_triple poly, Builder& builder)

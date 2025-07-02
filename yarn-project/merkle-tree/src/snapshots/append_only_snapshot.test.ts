@@ -23,9 +23,10 @@ describe('AppendOnlySnapshot', () => {
   describeSnapshotBuilderTestSuite(
     () => tree,
     () => snapshotBuilder,
-    async tree => {
+    tree => {
       const newLeaves = Array.from({ length: 2 }).map(() => Fr.random().toBuffer());
-      await tree.appendLeaves(newLeaves);
+      tree.appendLeaves(newLeaves);
+      return Promise.resolve();
     },
   );
 });

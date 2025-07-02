@@ -2,18 +2,32 @@ AddValidatorTest
 ├── when caller is unhinged
 │   ├── it exits the attester if needed
 │   ├── it deposits into the rollup
+│   ├── it does not need a valid proof
 │   └── it emits a {ValidatorAdded} event
 └── when caller is not unhinged
     ├── given balance LT depositamount
     │   ├── when insufficient time passed
     │   │   └── it reverts
     │   └── when sufficient time passed
+    │       ├── it emits an {ValidatorAdded} event
+    │       ├── it adds validator to the queue
     │       ├── it mints staking asset
     │       ├── it emits a {ToppedUp} event
     │       ├── it updates the lastMintTimestamp
+    │       ├── it pops the validator from the queue
     │       ├── it deposits into the rollup
     │       └── it emits a {ValidatorAdded} event
     └── given balance GE depositAmount
-        ├── it exits the attester if needed
-        ├── it deposits into the rollup
-        └── it emits a {ValidatorAdded} event
+        ├── given passport proof is not valid
+        │   └── it reverts
+        └── given passport proof is valid
+            ├── when user is new
+            │   ├── it exits the attester if needed
+            │   ├── it deposits into the rollup
+            │   └── it emits a {ValidatorAdded} event
+            ├── when passport proof has been used
+            │   └── it reverts
+            ├── when passport proof is in devMode
+            │   └── it reverts
+            └── when passport proof is in the past
+                └── it reverts

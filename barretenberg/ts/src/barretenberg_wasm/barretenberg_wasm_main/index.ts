@@ -1,11 +1,11 @@
 import { type Worker } from 'worker_threads';
-import createDebug from 'debug';
 import { Remote } from 'comlink';
 import { getNumCpu, getRemoteBarretenbergWasm, getSharedMemoryAvailable } from '../helpers/index.js';
 import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/index.js';
 import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
+import { createDebugLogger } from '../../log/index.js';
 
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
@@ -29,9 +29,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   public async init(
     module: WebAssembly.Module,
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
-    logger: (msg: string) => void = createDebug('bb.js:bb_wasm'),
+    logger: (msg: string) => void = createDebugLogger('bb_wasm'),
     initial = 32,
-    maximum = 2 ** 16,
+    maximum = this.getDefaultMaximumMemoryPages(),
   ) {
     this.logger = logger;
 
@@ -61,6 +61,15 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
     }
+  }
+
+  private getDefaultMaximumMemoryPages(): number {
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // We at any rate expect the mobile iOS browser to kill us >=1GB, so we don't set a maximum higher than that.
+    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+      return 2 ** 14;
+    }
+    return 2 ** 16;
   }
 
   /**

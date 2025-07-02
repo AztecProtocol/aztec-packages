@@ -112,8 +112,8 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator*(const uin
 
     const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
 
-    const uint256_t lhs = ctx->variables[witness_index];
-    const uint256_t rhs = ctx->variables[rhs_idx];
+    const uint256_t lhs = ctx->get_variable(witness_index);
+    const uint256_t rhs = ctx->get_variable(rhs_idx);
 
     const uint256_t product = (lhs * rhs) + (lhs * other.additive_constant) + (rhs * additive_constant);
     const uint256_t overflow = product >> width;

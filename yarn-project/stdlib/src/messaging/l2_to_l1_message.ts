@@ -1,25 +1,25 @@
-import { L2_TO_L1_MESSAGE_LENGTH, SCOPED_L2_TO_L1_MESSAGE_LENGTH } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
 export class L2ToL1Message {
-  constructor(public recipient: EthAddress, public content: Fr, public counter: number) {}
+  constructor(
+    public recipient: EthAddress,
+    public content: Fr,
+  ) {}
 
   static get schema() {
     return z
       .object({
         recipient: schemas.EthAddress,
         content: schemas.Fr,
-        counter: z.number().int().nonnegative(),
       })
-      .transform(({ recipient, content, counter }) => new L2ToL1Message(recipient, content, counter));
+      .transform(({ recipient, content }) => new L2ToL1Message(recipient, content));
   }
 
   /**
@@ -27,7 +27,7 @@ export class L2ToL1Message {
    * @returns An instance of L2ToL1Message with empty fields.
    */
   static empty(): L2ToL1Message {
-    return new L2ToL1Message(EthAddress.ZERO, Fr.zero(), 0);
+    return new L2ToL1Message(EthAddress.ZERO, Fr.zero());
   }
 
   /**
@@ -36,9 +36,7 @@ export class L2ToL1Message {
    * @returns True if both recipient and content are equal.
    */
   equals(other: L2ToL1Message): boolean {
-    return (
-      this.recipient.equals(other.recipient) && this.content.equals(other.content) && this.counter === other.counter
-    );
+    return this.recipient.equals(other.recipient) && this.content.equals(other.content);
   }
 
   /**
@@ -46,7 +44,7 @@ export class L2ToL1Message {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.recipient, this.content, this.counter);
+    return serializeToBuffer(this.recipient, this.content);
   }
 
   /**
@@ -54,13 +52,7 @@ export class L2ToL1Message {
    * @returns An array of fields representing the serialized message.
    */
   toFields(): Fr[] {
-    const fields = [this.recipient.toField(), this.content, new Fr(this.counter)];
-    if (fields.length !== L2_TO_L1_MESSAGE_LENGTH) {
-      throw new Error(
-        `Invalid number of fields for L2ToL1Message. Expected ${L2_TO_L1_MESSAGE_LENGTH}, got ${fields.length}`,
-      );
-    }
-    return fields;
+    return [this.recipient.toField(), this.content];
   }
 
   /**
@@ -70,7 +62,7 @@ export class L2ToL1Message {
    */
   static fromFields(fields: Fr[] | FieldReader): L2ToL1Message {
     const reader = FieldReader.asReader(fields);
-    return new L2ToL1Message(reader.readObject(EthAddress), reader.readField(), reader.readU32());
+    return new L2ToL1Message(reader.readObject(EthAddress), reader.readField());
   }
 
   /**
@@ -80,7 +72,7 @@ export class L2ToL1Message {
    */
   static fromBuffer(buffer: Buffer | BufferReader): L2ToL1Message {
     const reader = BufferReader.asReader(buffer);
-    return new L2ToL1Message(reader.readObject(EthAddress), reader.readObject(Fr), reader.readNumber());
+    return new L2ToL1Message(reader.readObject(EthAddress), reader.readObject(Fr));
   }
 
   /**
@@ -88,16 +80,61 @@ export class L2ToL1Message {
    * @returns True if both recipient and content are zero.
    */
   isEmpty(): boolean {
-    return this.recipient.isZero() && this.content.isZero() && !this.counter;
+    return this.recipient.isZero() && this.content.isZero();
   }
 
-  scope(contractAddress: AztecAddress) {
+  scope(contractAddress: AztecAddress): ScopedL2ToL1Message {
     return new ScopedL2ToL1Message(this, contractAddress);
   }
 }
 
+export class CountedL2ToL1Message {
+  constructor(
+    public message: L2ToL1Message,
+    public counter: number,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        message: L2ToL1Message.schema,
+        counter: z.number().int().nonnegative(),
+      })
+      .transform(({ message, counter }) => new CountedL2ToL1Message(message, counter));
+  }
+
+  static empty() {
+    return new CountedL2ToL1Message(L2ToL1Message.empty(), 0);
+  }
+
+  isEmpty(): boolean {
+    return this.message.isEmpty() && !this.counter;
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new CountedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readNumber());
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer(this.message, this.counter);
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new CountedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readU32());
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(this.message, this.counter);
+  }
+}
+
 export class ScopedL2ToL1Message {
-  constructor(public message: L2ToL1Message, public contractAddress: AztecAddress) {}
+  constructor(
+    public message: L2ToL1Message,
+    public contractAddress: AztecAddress,
+  ) {}
 
   static get schema() {
     return z
@@ -108,25 +145,21 @@ export class ScopedL2ToL1Message {
       .transform(({ message, contractAddress }) => new ScopedL2ToL1Message(message, contractAddress));
   }
 
-  static getFields(fields: FieldsOf<ScopedL2ToL1Message>) {
-    return [fields.message, fields.contractAddress] as const;
-  }
-
   static empty() {
     return new ScopedL2ToL1Message(L2ToL1Message.empty(), AztecAddress.ZERO);
   }
 
-  equals(other: ScopedL2ToL1Message): boolean {
-    return this.message.equals(other.message) && this.contractAddress.equals(other.contractAddress);
-  }
-
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.message, this.contractAddress);
+  isEmpty(): boolean {
+    return this.message.isEmpty() && this.contractAddress.isZero();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new ScopedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readObject(AztecAddress));
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer(this.message, this.contractAddress);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -135,16 +168,48 @@ export class ScopedL2ToL1Message {
   }
 
   toFields(): Fr[] {
-    const fields = serializeToFields(...ScopedL2ToL1Message.getFields(this));
-    if (fields.length !== SCOPED_L2_TO_L1_MESSAGE_LENGTH) {
-      throw new Error(
-        `Invalid number of fields for ScopedL2ToL1Message. Expected ${SCOPED_L2_TO_L1_MESSAGE_LENGTH}, got ${fields.length}`,
-      );
-    }
-    return fields;
+    return serializeToFields(this.message, this.contractAddress);
+  }
+}
+
+export class ScopedCountedL2ToL1Message {
+  constructor(
+    public inner: CountedL2ToL1Message,
+    public contractAddress: AztecAddress,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        inner: CountedL2ToL1Message.schema,
+        contractAddress: AztecAddress.schema,
+      })
+      .transform(({ inner, contractAddress }) => new ScopedCountedL2ToL1Message(inner, contractAddress));
+  }
+
+  static empty() {
+    return new ScopedCountedL2ToL1Message(CountedL2ToL1Message.empty(), AztecAddress.ZERO);
   }
 
   isEmpty(): boolean {
-    return this.message.isEmpty() && this.contractAddress.isZero();
+    return this.inner.isEmpty() && this.contractAddress.isZero();
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new ScopedCountedL2ToL1Message(reader.readObject(CountedL2ToL1Message), reader.readObject(AztecAddress));
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer(this.inner, this.contractAddress);
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new ScopedCountedL2ToL1Message(reader.readObject(CountedL2ToL1Message), reader.readObject(AztecAddress));
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(this.inner, this.contractAddress);
   }
 }

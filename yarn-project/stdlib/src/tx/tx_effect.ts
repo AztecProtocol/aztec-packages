@@ -206,7 +206,6 @@ export class TxEffect {
 
   /**
    * Computes txOutHash of this tx effect.
-   * TODO(#7218): Revert to fixed height tree for outbox
    * @dev Follows new_sha in variable_merkle_tree.nr
    */
   txOutHash() {
@@ -232,15 +231,33 @@ export class TxEffect {
     return thisLayer[0];
   }
 
-  static async random(numPublicCallsPerTx = 3, numPublicLogsPerCall = 1): Promise<TxEffect> {
+  static async random(
+    numPublicCallsPerTx = 3,
+    numPublicLogsPerCall = 1,
+    maxEffects: number | undefined = undefined,
+  ): Promise<TxEffect> {
     return new TxEffect(
       RevertCode.random(),
       TxHash.random(),
       new Fr(Math.floor(Math.random() * 100_000)),
-      makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.random),
-      makeTuple(MAX_NULLIFIERS_PER_TX, Fr.random),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
-      makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
+      makeTuple(
+        maxEffects === undefined ? MAX_NOTE_HASHES_PER_TX : Math.min(maxEffects, MAX_NOTE_HASHES_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined ? MAX_NULLIFIERS_PER_TX : Math.min(maxEffects, MAX_NULLIFIERS_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined ? MAX_L2_TO_L1_MSGS_PER_TX : Math.min(maxEffects, MAX_L2_TO_L1_MSGS_PER_TX),
+        Fr.random,
+      ),
+      makeTuple(
+        maxEffects === undefined
+          ? MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+          : Math.min(maxEffects, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+        PublicDataWrite.random,
+      ),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => PrivateLog.random()),
       await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, async () => await PublicLog.random()),
       await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),
@@ -504,16 +521,23 @@ export class TxEffect {
 
   [inspect.custom]() {
     return `TxEffect {
-      revertCode: ${this.revertCode},
+      revertCode: ${this.revertCode.getCode()},
       txHash: ${this.txHash},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
-      privateLogs: [${this.privateLogs.map(l => l.toString()).join(', ')}],
-      publicLogs: [${this.publicLogs.map(l => l.toString()).join(', ')}],
-      contractClassLogs: [${this.contractClassLogs.map(l => l.toString()).join(', ')}],
+      privateLogs: [${this.privateLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      publicLogs: [${this.publicLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      contractClassLogs: [${this.contractClassLogs
+        .map(l =>
+          l
+            .toFields()
+            .map(f => f.toString())
+            .join(','),
+        )
+        .join(', ')}],
      }`;
   }
 

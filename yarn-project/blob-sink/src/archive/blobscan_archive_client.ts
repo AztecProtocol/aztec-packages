@@ -37,8 +37,6 @@ export const BlobscanBlockResponseSchema = z
           blob: blob.data,
           // eslint-disable-next-line camelcase
           kzg_commitment: blob.commitment,
-          // eslint-disable-next-line camelcase
-          kzg_proof: blob.proof,
         })),
       )
       .map((blob, index) => ({ ...blob, index: index.toString() })),
@@ -61,6 +59,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
   private readonly fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
     return await retry(
       () => fetch(...args),
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       `Fetching ${args[0]}`,
       makeBackoff([1, 1, 3]),
       this.logger,

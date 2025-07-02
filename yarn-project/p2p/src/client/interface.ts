@@ -1,11 +1,13 @@
 import type { L2BlockId } from '@aztec/stdlib/block';
-import type { P2PApi } from '@aztec/stdlib/interfaces/server';
-import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
+import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
+import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { ENR } from '@chainsafe/enr';
+import type { PeerId } from '@libp2p/interface';
 
 import type { P2PConfig } from '../config.js';
+import type { P2PBlockReceivedCallback } from '../services/service.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -34,13 +36,13 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
+export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & {
   /**
    * Broadcasts a block proposal to other peers.
    *
    * @param proposal - the block proposal
    */
-  broadcastProposal(proposal: BlockProposal): void;
+  broadcastProposal(proposal: BlockProposal): Promise<void>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -50,20 +52,15 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    */
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+  registerBlockProposalHandler(callback: P2PBlockReceivedCallback): void;
 
   /**
    * Request a list of transactions from another peer by their tx hashes.
    * @param txHashes - Hashes of the txs to query.
+   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
    * @returns A list of transactions or undefined if the transactions are not found.
    */
-  requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
-
-  /**
-   * Request a transaction from another peer by its tx hash.
-   * @param txHash - Hash of the tx to query.
-   */
-  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<(Tx | undefined)[]>;
 
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
@@ -74,8 +71,9 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   /**
    * Adds transactions to the pool. Does not send to peers or validate the tx.
    * @param txs - The transactions.
+   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
    **/
-  addTxs(txs: Tx[]): Promise<void>;
+  addTxsToPool(txs: Tx[]): Promise<number>;
 
   /**
    * Deletes 'txs' from the pool, given hashes.
@@ -106,18 +104,12 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
-   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
-
-  /**
    * Returns transactions in the transaction pool by hash, requesting from the network if not found.
    * @param txHashes  - Hashes of tx to return.
+   * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
    * @returns An array of tx or undefined.
    */
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]>;
 
   /**
    * Returns an archived transaction from the transaction pool by its hash.

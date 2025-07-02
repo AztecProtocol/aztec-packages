@@ -1,6 +1,5 @@
 import {
   MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -10,16 +9,24 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { AvmAccumulatedData, AvmCircuitPublicInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import {
+  AvmAccumulatedData,
+  AvmAccumulatedDataArrayLengths,
+  AvmCircuitPublicInputs,
+  PublicDataWrite,
+  RevertCode,
+  clampGasSettingsForAVM,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
-import { computeTransactionFee } from '@aztec/stdlib/fees';
+import { computeEffectiveGasFees, computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
-  type PrivateToPublicAccumulatedData,
+  PrivateToPublicAccumulatedData,
   PublicCallRequest,
+  PublicCallRequestArrayLengths,
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
@@ -66,8 +73,10 @@ export class PublicTxContext {
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
     private readonly gasSettings: GasSettings,
+    private readonly clampedGasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
+    private readonly gasAllocatedToPublicTeardown: Gas,
     private readonly setupCallRequests: PublicCallRequestWithCalldata[],
     private readonly appLogicCallRequests: PublicCallRequestWithCalldata[],
     private readonly teardownCallRequests: PublicCallRequestWithCalldata[],
@@ -99,13 +108,15 @@ export class PublicTxContext {
       trace,
       doMerkleOperations,
       firstNullifier,
-      globalVariables.blockNumber.toNumber(),
+      globalVariables.timestamp,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
     // Gas allocated to public is "whatever's left" after private, but with some max applied.
-    const gasAllocatedToPublic = applyMaxToAvailableGas(gasSettings.gasLimits.sub(gasUsedByPrivate));
+    const clampedGasSettings = clampGasSettingsForAVM(gasSettings, gasUsedByPrivate);
+    const gasAllocatedToPublic = clampedGasSettings.gasLimits.sub(gasUsedByPrivate);
+    const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
 
     return new PublicTxContext(
       await tx.getTxHash(),
@@ -113,8 +124,10 @@ export class PublicTxContext {
       await txStateManager.getTreeSnapshots(),
       globalVariables,
       gasSettings,
+      clampedGasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
+      gasAllocatedToPublicTeardown,
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.APP_LOGIC),
       getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.TEARDOWN),
@@ -143,7 +156,7 @@ export class PublicTxContext {
    * NOTE: this does not "halt" the entire transaction execution.
    */
   revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
+    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason?.message}`);
 
     if (revertReason && !this.revertReason) {
       // don't override revertReason
@@ -210,7 +223,8 @@ export class PublicTxContext {
    */
   getGasLeftAtPhase(phase: TxExecutionPhase): Gas {
     if (phase === TxExecutionPhase.TEARDOWN) {
-      return applyMaxToAvailableGas(this.gasSettings.teardownGasLimits);
+      const gasLeftForPublicTeardown = this.gasAllocatedToPublicTeardown.sub(this.teardownGasUsed);
+      return gasLeftForPublicTeardown;
     } else {
       const gasLeftForPublic = this.gasAllocatedToPublic.sub(this.gasUsedByPublic);
       return gasLeftForPublic;
@@ -356,19 +370,33 @@ export class PublicTxContext {
     // This converts the private accumulated data to the avm accumulated data format.
     const convertAccumulatedData = (from: PrivateToPublicAccumulatedData) =>
       new PrivateToAvmAccumulatedData(from.noteHashes, from.nullifiers, from.l2ToL1Msgs);
-    const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
+    const getPreviousAccumulatedDataArrayLengths = (from: PrivateToPublicAccumulatedData) =>
       new PrivateToAvmAccumulatedDataArrayLengths(
         countAccumulatedItems(from.noteHashes),
         countAccumulatedItems(from.nullifiers),
         countAccumulatedItems(from.l2ToL1Msgs),
+      );
+    const getAvmAccumulatedDataArrayLengths = (from: AvmAccumulatedData) =>
+      new AvmAccumulatedDataArrayLengths(
+        from.noteHashes.length,
+        from.nullifiers.length,
+        from.l2ToL1Msgs.length,
+        from.publicLogs.length,
+        from.publicDataWrites.length,
       );
 
     return new AvmCircuitPublicInputs(
       this.globalVariables,
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
-      this.gasSettings,
+      this.clampedGasSettings,
+      computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
       this.feePayer,
+      /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
+        this.setupCallRequests.length,
+        this.appLogicCallRequests.length,
+        this.teardownCallRequests.length > 0,
+      ),
       /*publicSetupCallRequests=*/ padArrayEnd(
         this.setupCallRequests.map(r => r.request),
         PublicCallRequest.empty(),
@@ -382,12 +410,13 @@ export class PublicTxContext {
       /*publicTeardownCallRequests=*/ this.teardownCallRequests.length > 0
         ? this.teardownCallRequests[0].request
         : PublicCallRequest.empty(),
-      getArrayLengths(this.nonRevertibleAccumulatedDataFromPrivate),
-      getArrayLengths(this.revertibleAccumulatedDataFromPrivate),
+      getPreviousAccumulatedDataArrayLengths(this.nonRevertibleAccumulatedDataFromPrivate),
+      getPreviousAccumulatedDataArrayLengths(this.revertibleAccumulatedDataFromPrivate),
       convertAccumulatedData(this.nonRevertibleAccumulatedDataFromPrivate),
       convertAccumulatedData(this.revertibleAccumulatedDataFromPrivate),
       endTreeSnapshots,
       this.getTotalGasUsed(),
+      getAvmAccumulatedDataArrayLengths(accumulatedData),
       accumulatedData,
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*isReverted=*/ !this.revertCode.isOK(),
@@ -443,14 +472,4 @@ class PhaseStateManager {
     // Drop the forked state manager. We don't want it!
     this.currentlyActiveStateManager = undefined;
   }
-}
-
-/**
- * Apply L2 gas maximum.
- */
-function applyMaxToAvailableGas(availableGas: Gas) {
-  return new Gas(
-    /*daGas=*/ availableGas.daGas,
-    /*l2Gas=*/ Math.min(availableGas.l2Gas, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
-  );
 }

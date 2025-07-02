@@ -6,6 +6,8 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/streams.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
@@ -22,7 +24,8 @@ ClientIVC::ClientIVC(TraceSettings trace_settings)
     size_t commitment_key_size =
         std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     info("BN254 commitment key size: ", commitment_key_size);
-    bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
+    bn254_commitment_key = CommitmentKey<curve::BN254>(commitment_key_size);
 }
 
 /**
@@ -47,18 +50,20 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 
     size_t key_idx = 0;
-    for (auto& [proof, merge_proof, vkey, type] : verification_queue) {
+    while (!verification_queue.empty()) {
+        auto& [proof, vkey, type] = verification_queue.front();
+
         // Construct stdlib proof directly from the internal native queue data
         auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
-        auto stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&circuit, merge_proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
         auto stdlib_vkey =
             vkeys_provided ? input_keys[key_idx++] : std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
-        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_merge_proof, stdlib_vkey, type });
+        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
+
+        verification_queue.pop_front(); // the native data is not needed beyond this point
     }
-    verification_queue.clear(); // the native data is not needed beyond this point
 }
 
 /**
@@ -69,7 +74,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier.
  *
  * @param circuit
- * @param verifier_inputs {proof, merge_proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
+ * @param verifier_inputs {proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
  */
 ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit, const StdlibVerifierInputs& verifier_inputs)
@@ -77,13 +82,18 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
 
+    // Shared transcript between Oink/PG and Merge
+    std::shared_ptr<RecursiveTranscript> oink_pg_merge_transcript = std::make_shared<RecursiveTranscript>();
+
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::PG: {
         // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
         // Perform folding recursive verification to update the verifier accumulator
-        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { verifier_inputs.honk_verification_key } };
+        FoldingRecursiveVerifier verifier{
+            &circuit, stdlib_verifier_accum, { verifier_inputs.honk_verification_key }, oink_pg_merge_transcript
+        };
         auto verifier_accum = verifier.verify_folding_proof(verifier_inputs.proof);
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -99,7 +109,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
             std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_verification_key);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
-        OinkRecursiveVerifier oink{ &circuit, verifier_accum };
+        OinkRecursiveVerifier oink{ &circuit, verifier_accum, oink_pg_merge_transcript };
         oink.verify_proof(verifier_inputs.proof);
         verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
@@ -114,10 +124,15 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
     }
 
-    // Recursively verify the merge proof for the circuit being recursively verified
-    RecursiveMergeVerifier merge_verifier{ &circuit };
-    PairingPoints pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
+    // Recursively verify the corresponding merge proof
+    PairingPoints pairing_points = goblin.recursively_verify_merge(
+        circuit, decider_vk->witness_commitments.get_ecc_op_wires(), oink_pg_merge_transcript);
 
+    // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
+    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
+        decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
+
+    pairing_points.aggregate(nested_pairing_points);
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
     // inputs
@@ -127,11 +142,6 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->witness_commitments.secondary_calldata,
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
-
-    // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
-    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
-        decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
-    pairing_points.aggregate(nested_pairing_points);
 
     return pairing_points;
 }
@@ -153,19 +163,22 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    // Perform recursive verification and databus consistency checks for each entry in the verification queue
-    PairingPoints current_points_accumulator;
-    for (auto& verifier_input : stdlib_verification_queue) {
+    // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
+    PairingPoints points_accumulator;
+    while (!stdlib_verification_queue.empty()) {
+        const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         PairingPoints pairing_points =
             perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
-        if (current_points_accumulator.has_data) {
-            current_points_accumulator.aggregate(pairing_points);
-        } else {
-            current_points_accumulator = pairing_points;
-        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
+        // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
+        points_accumulator.aggregate(pairing_points);
+
+        stdlib_verification_queue.pop_front();
     }
-    current_points_accumulator.set_public();
-    stdlib_verification_queue.clear();
+
+    // Propagate the pairing points accumulator via the public inputs
+    points_accumulator.set_public();
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
     bus_depot.propagate_return_data_commitments(circuit);
@@ -188,13 +201,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
-    // Construct merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_merge();
+    // Shared transcript between Oink/PG and Merge
+    std::shared_ptr<Transcript> oink_pg_merge_transcript = std::make_shared<Transcript>();
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (proving_key->proving_key.circuit_size > bn254_commitment_key->dyadic_size) {
-        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
+    if (proving_key->proving_key.circuit_size > bn254_commitment_key.dyadic_size) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
+        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->proving_key.circuit_size);
         goblin.commitment_key = bn254_commitment_key;
     }
     proving_key->proving_key.commitment_key = bn254_commitment_key;
@@ -216,9 +230,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     if (!initialized) {
         // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
         // proof
-        MegaOinkProver oink_prover{ proving_key };
+        MegaOinkProver oink_prover{ proving_key, honk_vk, oink_pg_merge_transcript };
         vinfo("computing oink proof...");
-        HonkProof oink_proof = oink_prover.prove();
+        oink_prover.prove();
+        HonkProof oink_proof = oink_prover.export_proof();
         vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
@@ -227,18 +242,25 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
         // Add oink proof and corresponding verification key to the verification queue
-        verification_queue.push_back(VerifierInputs{ oink_proof, merge_proof, honk_vk, QUEUE_TYPE::OINK });
+        verification_queue.push_back(VerifierInputs{ oink_proof, honk_vk, QUEUE_TYPE::OINK });
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
+        auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+        FoldingProver folding_prover({ fold_output.accumulator, proving_key },
+                                     { verifier_accumulator, vk },
+                                     oink_pg_merge_transcript,
+                                     trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
         // Add fold proof and corresponding verification key to the verification queue
-        verification_queue.push_back(VerifierInputs{ fold_output.proof, merge_proof, honk_vk, QUEUE_TYPE::PG });
+        verification_queue.push_back(VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
     }
+
+    // Construct merge proof for the present circuit
+    goblin.prove_merge(oink_pg_merge_transcript);
 }
 
 /**
@@ -264,8 +286,7 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
  * decider proof.
  */
-std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof> ClientIVC::
-    construct_hiding_circuit_key()
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
@@ -276,6 +297,11 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     fold_output.accumulator = nullptr;
 
     ClientCircuit builder{ goblin.op_queue };
+
+    // Shared transcript between PG and Merge
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
+    // share a transcript
+    std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
 
     // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
     // circuit are well formed to allow correctly representing shiftable polynomials (which are
@@ -295,12 +321,6 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
         builder.add_public_variable(fold_proof[i]);
     }
 
-    const StdlibProof<ClientCircuit> stdlib_merge_proof =
-        bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
-
-    RecursiveMergeVerifier merge_verifier{ &builder };
-    PairingPoints points_accumulator = merge_verifier.verify_proof(stdlib_merge_proof);
-
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
@@ -311,9 +331,15 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
     auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
 
     // Perform recursive folding verification of the last folding proof
-    FoldingRecursiveVerifier folding_verifier{ &builder, stdlib_verifier_accumulator, { stdlib_decider_vk } };
+    FoldingRecursiveVerifier folding_verifier{
+        &builder, stdlib_verifier_accumulator, { stdlib_decider_vk }, pg_merge_transcript
+    };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
+
+    // Perform recursive verification of the last merge proof
+    PairingPoints points_accumulator = goblin.recursively_verify_merge(
+        builder, folding_verifier.keys_to_fold[1]->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
 
     // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
@@ -330,10 +356,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
-    // Construct the last merge proof for the present circuit
-    MergeProof merge_proof = goblin.prove_merge();
 
-    return { decider_pk, merge_proof };
+    return decider_pk;
 }
 
 /**
@@ -341,14 +365,18 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
  *
  * @return HonkProof - a Mega proof
  */
-std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
+HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
-    auto [decider_pk, merge_proof] = construct_hiding_circuit_key();
-    // FoldingRecursiveVerifier circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk);
+    // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
+    std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
+    // key during proving. Precompute instead.
+    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->proving_key);
+    // Hiding circuit is proven by a MegaZKProver
+    MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
     HonkProof proof = prover.construct_proof();
 
-    return { proof, merge_proof };
+    return proof;
 }
 
 /**
@@ -358,19 +386,28 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
  */
 ClientIVC::Proof ClientIVC::prove()
 {
-    auto [mega_proof, merge_proof] = construct_and_prove_hiding_circuit();
-    return { mega_proof, goblin.prove(merge_proof) };
+    auto mega_proof = construct_and_prove_hiding_circuit();
+
+    // A transcript is shared between the Hiding circuit prover and the Goblin prover
+    goblin.transcript = transcript;
+
+    // Prove ECCVM and Translator
+    return { mega_proof, goblin.prove() };
 };
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
+    // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
+    std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega };
+    MegaZKVerifier verifer{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(proof.goblin_proof);
+    bool goblin_verified = Goblin::verify(
+        proof.goblin_proof, verifer.verification_key->witness_commitments.get_ecc_op_wires(), civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;
 }
 
@@ -395,8 +432,8 @@ HonkProof ClientIVC::decider_prove() const
     vinfo("prove decider...");
     fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
-    vinfo("finished decider proving.");
-    return decider_prover.construct_proof();
+    decider_prover.construct_proof();
+    return decider_prover.export_proof();
 }
 
 /**
@@ -421,36 +458,6 @@ bool ClientIVC::prove_and_verify()
     vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
 
     return verified;
-}
-
-/**
- * @brief Given a set of circuits, compute the verification keys that will be required by the IVC scheme
- * @details The verification keys computed here are in general not the same as the verification keys for the
- * raw input circuits because recursive verifier circuits (merge and/or folding) may be appended to the incoming
- * circuits as part accumulation.
- * @note This method exists for convenience and is not not meant to be used in practice for IVC. Given a set of
- * circuits, it could be run once and for all to compute then save the required VKs. It also provides a convenient
- * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
- *
- * @param circuits A copy of the circuits to be accumulated (passing by reference would alter the original circuits)
- * @return std::vector<std::shared_ptr<MegaFlavor::VerificationKey>>
- */
-std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> ClientIVC::precompute_folding_verification_keys(
-    std::vector<ClientCircuit> circuits)
-{
-    std::vector<std::shared_ptr<MegaVerificationKey>> vkeys;
-
-    for (auto& circuit : circuits) {
-        accumulate(circuit);
-        vkeys.emplace_back(honk_vk);
-    }
-
-    // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
-    TraceSettings settings = trace_settings;
-    *this = ClientIVC();
-    this->trace_settings = settings;
-
-    return vkeys;
 }
 
 // Proof methods

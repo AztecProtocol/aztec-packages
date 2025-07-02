@@ -212,6 +212,12 @@ export function injectCommands(
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .option('--no-class-registration', "Don't register this contract class")
     .option('--no-public-deployment', "Don't emit this contract's public bytecode")
+    .addOption(
+      new Option(
+        '--timeout <number>',
+        'The amount of time in seconds to wait for the deployment to post to L2',
+      ).conflicts('wait'),
+    )
     .addOption(createVerboseOption());
 
   addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPathPromise, _options, command) => {
@@ -231,6 +237,7 @@ export function injectCommands(
       rpcUrl,
       from: parsedFromAddress,
       alias,
+      timeout,
       verbose,
     } = options;
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
@@ -254,6 +261,7 @@ export function injectCommands(
       universal,
       wait,
       await FeeOpts.fromCli(options, client, log, db),
+      timeout,
       verbose,
       debugLogger,
       log,
@@ -328,7 +336,7 @@ export function injectCommands(
       log,
     );
     if (db && sentTx) {
-      const txAlias = alias ? alias : `${functionName}-${sentTx.nonce.toString().slice(-4)}`;
+      const txAlias = alias ? alias : `${functionName}-${sentTx.txNonce.toString().slice(-4)}`;
       await db.storeTx(sentTx, log, txAlias);
     }
   });

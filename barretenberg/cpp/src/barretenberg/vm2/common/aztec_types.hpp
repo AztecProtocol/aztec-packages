@@ -10,10 +10,46 @@ namespace bb::avm2 {
 
 using AztecAddress = FF;
 using ContractClassId = FF;
+using PC = uint32_t;
 using AffinePoint = grumpkin::g1::affine_element;
 // In typescript the EthAddress is a byte vector, but in our circuit implementation
 // it's represented as a field element for simplicity
 using EthAddress = FF;
+
+enum TransactionPhase {
+    NR_NULLIFIER_INSERTION = 1,
+    NR_NOTE_INSERTION = 2,
+    NR_L2_TO_L1_MESSAGE = 3,
+    SETUP = 4,
+    R_NULLIFIER_INSERTION = 5,
+    R_NOTE_INSERTION = 6,
+    R_L2_TO_L1_MESSAGE = 7,
+    APP_LOGIC = 8,
+    TEARDOWN = 9,
+    COLLECT_GAS_FEES = 10,
+};
+
+using InternalCallId = uint32_t;
+
+/**
+ * Enum for environment variables, representing the various environment values
+ * that can be accessed by the AVM GETENVVAR opcode.
+ */
+enum class EnvironmentVariable {
+    ADDRESS,
+    SENDER,
+    TRANSACTIONFEE,
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    BASEFEEPERL2GAS,
+    BASEFEEPERDAGAS,
+    ISSTATICCALL,
+    L2GASLEFT,
+    DAGASLEFT,
+    MAX = DAGASLEFT,
+};
 
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
@@ -59,11 +95,10 @@ struct ContractClass {
 struct L2ToL1Message {
     EthAddress recipient;
     FF content;
-    uint32_t counter;
 
     bool operator==(const L2ToL1Message& other) const = default;
 
-    MSGPACK_FIELDS(recipient, content, counter);
+    MSGPACK_FIELDS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {
@@ -99,8 +134,8 @@ struct PublicDataWrite {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GasFees {
-    FF feePerDaGas;
-    FF feePerL2Gas;
+    uint128_t feePerDaGas;
+    uint128_t feePerL2Gas;
 
     bool operator==(const GasFees& other) const = default;
 
@@ -112,6 +147,9 @@ struct Gas {
     uint32_t daGas;
 
     bool operator==(const Gas& other) const = default;
+
+    Gas operator+(const Gas& other) const { return { l2Gas + other.l2Gas, daGas + other.daGas }; }
+    Gas operator-(const Gas& other) const { return { l2Gas - other.l2Gas, daGas - other.daGas }; }
 
     MSGPACK_FIELDS(l2Gas, daGas);
 };
@@ -140,6 +178,28 @@ struct PublicCallRequest {
     bool operator==(const PublicCallRequest& other) const = default;
 
     MSGPACK_FIELDS(msgSender, contractAddress, isStaticCall, calldataHash);
+};
+
+struct PublicCallRequestArrayLengths {
+    uint32_t setupCalls;
+    uint32_t appLogicCalls;
+    bool teardownCall;
+
+    bool operator==(const PublicCallRequestArrayLengths& other) const = default;
+
+    MSGPACK_FIELDS(setupCalls, appLogicCalls, teardownCall);
+};
+
+struct AvmAccumulatedDataArrayLengths {
+    uint32_t noteHashes;
+    uint32_t nullifiers;
+    uint32_t l2ToL1Msgs;
+    uint32_t publicLogs;
+    uint32_t publicDataWrites;
+
+    bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
+
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -185,9 +245,9 @@ struct AvmAccumulatedData {
 struct GlobalVariables {
     FF chainId;
     FF version;
-    FF blockNumber;
+    uint32_t blockNumber;
     FF slotNumber;
-    FF timestamp;
+    uint64_t timestamp;
     EthAddress coinbase;
     AztecAddress feeRecipient;
     GasFees gasFees;
@@ -225,6 +285,22 @@ struct TreeSnapshots {
     bool operator==(const TreeSnapshots& other) const = default;
 
     MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
+};
+
+struct TreeState {
+    AppendOnlyTreeSnapshot tree;
+    uint32_t counter;
+
+    bool operator==(const TreeState& other) const = default;
+};
+
+struct TreeStates {
+    TreeState noteHashTree;
+    TreeState nullifierTree;
+    TreeState l1ToL2MessageTree;
+    TreeState publicDataTree;
+
+    bool operator==(const TreeStates& other) const = default;
 };
 
 } // namespace bb::avm2

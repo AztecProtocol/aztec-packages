@@ -63,7 +63,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_55_bytes)
     std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
     fix_vector(output);
 
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -106,7 +106,7 @@ HEAVY_TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_five)
     std::vector<field_pt> output = output_bits.to_unverified_byte_slices(4);
     fix_vector(output);
 
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
@@ -130,7 +130,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_one)
     fix_byte_array(input);
     packed_byte_array_pt output_bits = stdlib::sha256(input);
     fix_byte_array(output_bits);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -150,7 +150,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_two)
     fix_byte_array(input);
     packed_byte_array_pt output_bits = stdlib::sha256(input);
     fix_byte_array(output_bits);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -172,7 +172,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_three)
     fix_byte_array(input);
     packed_byte_array_pt output_bits = stdlib::sha256(input);
     fix_byte_array(output_bits);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -194,7 +194,7 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_NIST_vector_four)
     fix_byte_array(input);
     packed_byte_array_pt output_bits = stdlib::sha256<Builder>(input);
     fix_byte_array(output_bits);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);

@@ -129,12 +129,12 @@ describe('GasTxValidator', () => {
   });
 
   it('skips txs with not enough fee per da gas', async () => {
-    gasFees.feePerDaGas = gasFees.feePerDaGas.add(new Fr(1));
+    gasFees.feePerDaGas = gasFees.feePerDaGas + 1n;
     await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 
   it('skips txs with not enough fee per l2 gas', async () => {
-    gasFees.feePerL2Gas = gasFees.feePerL2Gas.add(new Fr(1));
+    gasFees.feePerL2Gas = gasFees.feePerL2Gas + 1n;
     await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 });

@@ -11,6 +11,7 @@ import type {
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { DatabasePublicStateSource, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { ArchiveCache } from './archive_cache.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
@@ -29,6 +30,7 @@ export interface MessageValidator {
 }
 
 export function createTxMessageValidators(
+  timestamp: UInt64,
   blockNumber: number,
   worldStateSynchronizer: WorldStateSynchronizer,
   gasFees: GasFees,
@@ -51,7 +53,8 @@ export function createTxMessageValidators(
         validator: new MetadataTxValidator({
           l1ChainId: new Fr(l1ChainId),
           rollupVersion: new Fr(rollupVersion),
-          blockNumber: new Fr(blockNumber),
+          timestamp,
+          blockNumber,
           protocolContractTreeRoot,
           vkTreeRoot: getVKTreeRoot(),
         }),
@@ -76,7 +79,7 @@ export function createTxMessageValidators(
         severity: PeerErrorSeverity.HighToleranceError,
       },
       phasesValidator: {
-        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, blockNumber),
+        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       blockHeaderValidator: {

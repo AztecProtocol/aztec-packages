@@ -5,8 +5,8 @@
 // =====================
 
 #include "decider_proving_key.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -82,11 +82,11 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used
         // in aux block.
         if (&block == &circuit.blocks.arithmetic) {
-            size_t arith_size = circuit.blocks.aux.trace_offset - circuit.blocks.arithmetic.trace_offset +
+            size_t arith_size = circuit.blocks.aux.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.aux.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset);
+            selector = Polynomial(arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset());
         } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
+            selector = Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset());
         }
     }
 
@@ -101,7 +101,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
 {
     PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
-    size_t table_offset = circuit.blocks.lookup.trace_offset;
+    size_t table_offset = circuit.blocks.lookup.trace_offset();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
     const size_t max_tables_size = dyadic_circuit_size - table_offset;
     ASSERT(dyadic_circuit_size > max_tables_size);
@@ -118,8 +118,8 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
     proving_key.polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_circuit_size, table_offset);
 
     const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset + circuit.blocks.lookup.get_fixed_size(is_structured));
-    const auto tables_end = circuit.blocks.lookup.trace_offset + max_tables_size;
+        static_cast<size_t>(circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.get_fixed_size(is_structured));
+    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
 
     // Allocate the lookup_inverses polynomial
 
@@ -163,7 +163,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
 
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
-        circuit.blocks.busread.trace_offset + circuit.blocks.busread.get_fixed_size(is_structured);
+        circuit.blocks.busread.trace_offset() + circuit.blocks.busread.get_fixed_size(is_structured);
     proving_key.polynomials.calldata_inverses =
         Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
     proving_key.polynomials.secondary_calldata_inverses =
@@ -256,14 +256,14 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
         uint32_t fixed_block_size = block.get_fixed_size();
         if (block_size > fixed_block_size && block != overflow_block) {
             // Disallow overflow in blocks that are not expected to be used by App circuits
-            if (block.is_pub_inputs) {
+            if (&block == &blocks.pub_inputs) {
                 info("WARNING: Number of public inputs (",
                      block_size,
                      ") cannot exceed capacity specified in structured trace: ",
                      fixed_block_size);
                 ASSERT(false);
             }
-            if (block == blocks.ecc_op) {
+            if (&block == &blocks.ecc_op) {
                 info("WARNING: Number of ecc op gates (",
                      block_size,
                      ") cannot exceed capacity specified in structured trace: ",
@@ -277,10 +277,11 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
             // The circuit memory read/write records store the indices at which a RAM/ROM read/write has occurred. If
             // the block containing RAM/ROM gates overflows, the indices of the corresponding gates in the memory
             // records need to be updated to reflect their new position in the overflow block
-            if (block.has_ram_rom) {
-                uint32_t overflow_cur_idx = overflow_block.trace_offset + static_cast<uint32_t>(overflow_block.size());
-                overflow_cur_idx -= block.trace_offset; // we'll add block.trace_offset to everything later
-                uint32_t offset = overflow_cur_idx + 1; // +1 accounts for duplication of final gate
+            if (&block == &blocks.aux) {
+                uint32_t overflow_cur_idx =
+                    overflow_block.trace_offset() + static_cast<uint32_t>(overflow_block.size());
+                overflow_cur_idx -= block.trace_offset(); // we'll add block.trace_offset to everything later
+                uint32_t offset = overflow_cur_idx + 1;   // +1 accounts for duplication of final gate
                 for (auto& idx : circuit.memory_read_records) {
                     // last gate in the main block will be duplicated; if necessary, duplicate the memory read idx too
                     if (idx == fixed_block_size - 1) {

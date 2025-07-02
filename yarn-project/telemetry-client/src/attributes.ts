@@ -21,6 +21,11 @@ export const HTTP_RESPONSE_STATUS_CODE = 'http.response.status_code';
 /** The Aztec network identifier */
 export const NETWORK_NAME = 'aztec.network_name';
 
+export const AZTEC_NODE_ROLE = 'aztec.node_role';
+export const AZTEC_ROLLUP_VERSION = 'aztec.rollup_version';
+export const AZTEC_ROLLUP_ADDRESS = 'aztec.rollup_address';
+export const AZTEC_REGISTRY_ADDRESS = 'aztec.registry_address';
+
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
  * @see {@link @aztec/stdlib/stats:CircuitName}
@@ -110,3 +115,5 @@ export const GAS_DIMENSION = 'aztec.gas_dimension';
 export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
 
 export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
+
+export const TOPIC_NAME = 'aztec.gossip.topic_name';

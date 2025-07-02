@@ -1,15 +1,9 @@
-use crate::{NFT, types::nft_note::NFTNote};
+use crate::NFT;
 use dep::aztec::{
-    oracle::{
-        execution::{get_block_number, get_contract_address},
-        random::random,
-        storage::storage_read,
-    },
-    prelude::AztecAddress,
-    protocol_types::storage::map::derive_storage_slot_in_map,
+    oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
+    protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
-use std::test::OracleMock;
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
@@ -60,11 +54,6 @@ pub unconstrained fn setup_mint_and_transfer_to_private(
 ) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
     let (env, nft_contract_address, owner, recipient, minted_token_id) =
         setup_and_mint(with_account_contracts);
-
-    let note_randomness = random();
-
-    // We mock the Oracle to return the note randomness such that later on we can manually add the note
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
 
     // We transfer the public NFT to private.
     let _ = env.call_private_void(

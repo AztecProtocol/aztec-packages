@@ -20,7 +20,6 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 ```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/uint-note" }
 compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/compressed-string"}
 ```
@@ -60,7 +59,7 @@ Create a new file `src/deploy.mjs`. We import the contract artifacts we have gen
 ```js
 // src/deploy.mjs
 #include_code deploy-imports yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw
-import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
+import TokenContractJson from "../contracts/token/target/token-Token.json" with { type: "json" };
 import { writeFileSync } from 'fs';
 
 const TokenContractArtifact = loadContractArtifact(TokenContractJson);

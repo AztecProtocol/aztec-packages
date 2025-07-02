@@ -55,7 +55,7 @@ function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
       const options = command.optsWithGlobals();
       const { alias } = options;
       const value = Fr.random();
-      const hash = computeSecretHash(value);
+      const hash = await computeSecretHash(value);
 
       await db.storeAlias('secrets', alias, Buffer.from(value.toString()), log);
       await db.storeAlias('secrets', `${alias}:hash`, Buffer.from(hash.toString()), log);

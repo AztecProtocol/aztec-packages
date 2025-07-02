@@ -50,6 +50,8 @@ template <typename LeafValueType> class ContentAddressedCache {
     void checkpoint();
     void revert();
     void commit();
+    void revert_all();
+    void commit_all();
 
     void reset(uint32_t depth);
     std::pair<bool, index_t> find_low_value(const uint256_t& new_leaf_key,
@@ -225,6 +227,19 @@ template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::com
     journals_.pop_back();
 }
 
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::commit_all()
+{
+    while (!journals_.empty()) {
+        commit();
+    }
+}
+
+template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::revert_all()
+{
+    while (!journals_.empty()) {
+        revert();
+    }
+}
 template <typename LeafValueType> void ContentAddressedCache<LeafValueType>::reset(uint32_t depth)
 {
     nodes_ = std::unordered_map<fr, NodePayload>();

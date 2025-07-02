@@ -99,7 +99,9 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
     };
 
     // All private functions perform message discovery, since they may need to access notes. This is slightly
-    // inefficient and could be improved by only doing it once we actually attempt to read any.
+    // inefficient and could be improved by only doing it once we actually attempt to read any. Note that the message
+    // discovery call syncs private events as well. We do not sync those here if there are no notes because we don't
+    // have an API that would access events from private functions.
     let message_discovery_call = if NOTES.len() > 0 {
         create_message_discovery_call()
     } else {
@@ -303,13 +305,9 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
     };
 
     // All utility functions perform message discovery, since they may need to access private notes that would be
-    // found during this process. This is slightly inefficient and could be improved by only doing it once we actually
-    // attempt to read any.
-    let message_discovery_call = if NOTES.len() > 0 {
-        create_message_discovery_call()
-    } else {
-        quote {}
-    };
+    // found during this process or they may be used to sync private events from TypeScript
+    // (`sync_private_state` function gets invoked by PXE::getPrivateEvents function).
+    let message_discovery_call = create_message_discovery_call();
 
     // Inject context creation, storage initialization, and message discovery call at the beginning of the function
     // body.

@@ -15,7 +15,7 @@ export function createProofStore(config: string | undefined, logger = createLogg
       const path = url.pathname.replace(/^\/+/, '');
       logger.info(`Creating google cloud proof store at ${bucket}`, { bucket, path });
       return new GoogleCloudStorageProofStore(bucket, path);
-    } catch (err) {
+    } catch {
       throw new Error(
         `Invalid google cloud proof store definition: '${config}'. Supported values are 'gs://bucket-name/path/to/store'.`,
       );

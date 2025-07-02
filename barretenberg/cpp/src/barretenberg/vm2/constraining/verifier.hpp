@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 
@@ -29,7 +28,7 @@ class AvmVerifier {
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
     FF evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges);

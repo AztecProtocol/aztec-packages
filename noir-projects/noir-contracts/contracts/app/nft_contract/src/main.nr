@@ -2,41 +2,39 @@
 mod types;
 mod test;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // Minimal NFT implementation with `AuthWit` support that allows minting in public-only and transfers in both public
 // and private.
 #[aztec]
 pub contract NFT {
     use crate::types::nft_note::{NFTNote, PartialNFTNote};
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-        compute_authwit_nullifier,
-    };
-    use dep::aztec::{
+    use aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+            compute_authwit_nullifier,
+        },
+        context::{PrivateContext, PublicContext},
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
-        note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
-        prelude::{
-            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicImmutable, PublicMutable,
+        note::{
+            constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
+            note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
-        protocol_types::traits::Serialize,
+        protocol_types::{address::AztecAddress, traits::ToField},
+        state_vars::{Map, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };
-    use dep::compressed_string::FieldCompressedString;
-    use aztec::protocol_types::traits::ToField;
-    use std::meta::derive;
+    use compressed_string::FieldCompressedString;
 
     // docs:end:imports
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
-    #[derive(Serialize)]
     #[event]
     struct NFTTransfer {
         from: AztecAddress,
@@ -147,11 +145,16 @@ pub contract NFT {
 
     // docs:start:transfer_in_public
     #[public]
-    fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+    fn transfer_in_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        token_id: Field,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let public_owners_storage = storage.public_owners.at(token_id);
@@ -197,75 +200,85 @@ pub contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialNFTNote {
-        // We create a partial note with unpopulated/zero token id for 'to'
+        let sender_and_completer = context.msg_sender();
+
+        // We setup a partial note with unpopulated/zero token id for 'to'.
         let partial_note = NFTNote::partial(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
-            context.msg_sender(),
+            sender_and_completer,
+            sender_and_completer,
         );
-
-        NFT::at(context.this_address())._store_nft_set_partial_note(partial_note).enqueue(context);
 
         partial_note
     }
     // docs:end:prepare_private_balance_increase
 
-    // docs:start:store_payload_in_transient_storage_unsafe
-    #[public]
-    #[internal]
-    fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
-        // We store the partial note in a slot equal to its commitment. This is safe because the commitment is computed
-        // using a generator different from the one used to compute storage slots, so there can be no collisions.
-        // We could consider storing all pending partial notes in e.g. some array, but ultimately this is pointless: all
-        // we need to verify is that the note is valid.
-        context.storage_write(partial_note.commitment(), true);
-    }
-    // docs:end:store_payload_in_transient_storage_unsafe
-    /// Finalizes a transfer of NFT with `token_id` from public balance of `from` to a private balance of `to`.
-    /// The transfer must be prepared by calling `prepare_private_balance_increase` first and the resulting
-    /// `partial_note` must be passed as an argument to this function.
+    /// Finalizes a transfer of NFT with `token_id` from public balance of `msg_sender` to a private balance of `to`.
+    /// The transfer must be prepared by calling `prepare_private_balance_increase` from `msg_sender` account and the
+    /// resulting `partial_note` must be passed as an argument to this function.
+    ///
+    /// Note that this contract does not protect against a `partial_note` being used multiple times and it is up to
+    /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
+    /// times, the NFT with `token_id` would most likely get lost (the partial note log processing functionality
+    /// would fail to find the pending partial note when trying to complete it).
     // docs:start:finalize_transfer_to_private
     #[public]
     fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
-        let from = context.msg_sender();
-        _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
+        // Completer is the entity that can complete the partial note. In this case, it's the same as the account
+        // `from` from whose account the token is being transferred.
+        let from_and_completer = context.msg_sender();
+        _finalize_transfer_to_private(
+            from_and_completer,
+            token_id,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
     // docs:end:finalize_transfer_to_private
 
     // docs:start:finalize_transfer_to_private_unsafe
+    /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
+    /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
+    /// (this has to be done in the calling function).
     #[public]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
-        from: AztecAddress,
+        from_and_completer: AztecAddress,
         token_id: Field,
         partial_note: PartialNFTNote,
     ) {
-        _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
+        _finalize_transfer_to_private(
+            from_and_completer,
+            token_id,
+            partial_note,
+            &mut context,
+            storage,
+        );
     }
     // docs:end:finalize_transfer_to_private_unsafe
 
+    // In all the flows in this contract, `from` (the account from which we're transferring the NFT) and `completer`
+    // (the entity that can complete the partial note) are the same so we represent them with a single argument.
     #[contract_library_method]
     fn _finalize_transfer_to_private(
-        from: AztecAddress,
+        from_and_completer: AztecAddress,
         token_id: Field,
         partial_note: PartialNFTNote,
         context: &mut PublicContext,
         storage: Storage<&mut PublicContext>,
     ) {
         let public_owners_storage = storage.public_owners.at(token_id);
-        assert(public_owners_storage.read().eq(from), "invalid NFT owner");
+        assert(public_owners_storage.read().eq(from_and_completer), "invalid NFT owner");
 
         // Set the public NFT owner to zero
         public_owners_storage.write(AztecAddress::zero());
 
-        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
-        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
-        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
-        // expensive.
-        assert(context.storage_read(partial_note.commitment()), "Invalid partial note");
-        partial_note.complete(token_id, context);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, from_and_completer, token_id);
     }
 
     /**
@@ -283,11 +296,16 @@ pub contract NFT {
 
     // docs:start:transfer_in_private
     #[private]
-    fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+    fn transfer_in_private(
+        from: AztecAddress,
+        to: AztecAddress,
+        token_id: Field,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let nfts = storage.private_nfts;
@@ -305,11 +323,16 @@ pub contract NFT {
 
     // docs:start:transfer_to_public
     #[private]
-    fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, nonce: Field) {
+    fn transfer_to_public(
+        from: AztecAddress,
+        to: AztecAddress,
+        token_id: Field,
+        authwit_nonce: Field,
+    ) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let notes = storage.private_nfts.at(from).pop_notes(NoteGetterOptions::new()

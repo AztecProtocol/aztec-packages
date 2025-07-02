@@ -19,7 +19,7 @@ impl<let N: u32> Reader<N> {
     }
 
     pub fn read_bool(&mut self) -> bool {
-        self.read() as bool
+        self.read() != 0
     }
 
     pub fn read_array<let K: u32>(&mut self) -> [Field; K] {
@@ -48,6 +48,6 @@ impl<let N: u32> Reader<N> {
     }
 
     pub fn finish(self) {
-        assert(self.offset == self.data.len(), "Reader did not read all data");
+        assert_eq(self.offset, self.data.len(), "Reader did not read all data");
     }
 }

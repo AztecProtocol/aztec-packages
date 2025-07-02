@@ -7,11 +7,12 @@ pub contract Counter {
     // docs:end:setup
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
-    use aztec::prelude::{AztecAddress, Map};
     use aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
+        address::AztecAddress,
         traits::{FromField, ToField},
     };
+    use aztec::state_vars::Map;
     use easy_private_state::EasyPrivateUint;
     use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports
@@ -174,7 +175,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.impersonate(contract_address);
-        sync_notes();
+        sync_private_state();
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
@@ -196,7 +197,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
@@ -212,7 +213,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(notes.len() == 4);
@@ -227,7 +228,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);

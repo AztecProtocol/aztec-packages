@@ -31,7 +31,6 @@ describe('e2e_fees public_payment', () => {
   let initialAlicePublicBananas: bigint;
   let initialAliceGas: bigint;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let initialBobPublicBananas: bigint;
 
   let initialFPCPublicBananas: bigint;

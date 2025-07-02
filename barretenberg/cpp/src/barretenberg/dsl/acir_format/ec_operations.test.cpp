@@ -2,10 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/plonk/composer/standard_composer.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 
@@ -14,7 +11,6 @@
 
 namespace acir_format::tests {
 
-using Composer = plonk::UltraComposer;
 using curve_ct = bb::stdlib::secp256k1<Builder>;
 
 class EcOperations : public ::testing::Test {
@@ -93,16 +89,10 @@ TEST_F(EcOperations, TestECOperations)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
-
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(EcOperations, TestECMultiScalarMul)
@@ -228,16 +218,10 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
-
-    auto composer = Composer();
-    auto prover = composer.create_prover(builder);
-
-    auto proof = prover.construct_proof();
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 } // namespace acir_format::tests

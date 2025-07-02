@@ -7,9 +7,8 @@
 #pragma once
 #include <utility>
 
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 

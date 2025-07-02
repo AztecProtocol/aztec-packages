@@ -1,17 +1,21 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import type {
+  WorldStateSyncStatus,
+  WorldStateSynchronizer,
+  WorldStateSynchronizerStatus,
+} from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type ENR, SignableENR } from '@chainsafe/enr';
 import { jest } from '@jest/globals';
-import type { PeerId } from '@libp2p/interface';
+import type { Libp2p, PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
 
 import { getP2PDefaultConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
-import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason } from '../reqresp/protocols/index.js';
 import { PeerManager } from './peer_manager.js';
@@ -48,7 +52,7 @@ describe('PeerManager', () => {
 
     // Capture the callback for discovered peers
     mockPeerDiscoveryService.on.mockImplementation((event: string, callback: any) => {
-      if (event === PeerEvent.DISCOVERED) {
+      if ((event as PeerEvent) === PeerEvent.DISCOVERED) {
         discoveredPeerCallback = callback;
       }
     });
@@ -868,7 +872,7 @@ describe('PeerManager', () => {
 
   function createMockPeerManager(
     name: string,
-    node: PubSubLibp2p,
+    node: Libp2p,
     maxPeerCount: number,
     trustedPeers?: SignableENR[],
     privatePeers?: SignableENR[],
@@ -880,6 +884,12 @@ describe('PeerManager', () => {
       maxPeerCount: maxPeerCount,
     };
     peerScoring = new PeerScoring(config);
+    const mockWorldStateSynchronizer = {
+      status: () =>
+        Promise.resolve({
+          syncSummary: {} as WorldStateSyncStatus,
+        } as WorldStateSynchronizerStatus),
+    };
 
     return new PeerManager(
       node,
@@ -889,6 +899,8 @@ describe('PeerManager', () => {
       createLogger(name),
       peerScoring,
       mockReqResp,
+      mockWorldStateSynchronizer as WorldStateSynchronizer,
+      '',
     );
   }
 });

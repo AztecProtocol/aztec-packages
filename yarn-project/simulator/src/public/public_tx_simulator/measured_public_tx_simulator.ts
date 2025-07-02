@@ -84,7 +84,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
 
     this.log.verbose(
       result.reverted
-        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
+        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason?.message}.`
         : `Simulation of enqueued public call ${fnName} completed successfully.`,
       {
         eventName: 'avm-simulation',

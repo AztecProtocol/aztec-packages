@@ -61,7 +61,7 @@ export class ProverNodeRewardsMetrics {
   private rewards: ObservableGauge;
   private accumulatedRewards: UpDownCounter;
   private prevEpoch = -1n;
-  private proofSubmissionWindow = 0n;
+  private proofSubmissionEpochs = 0;
 
   constructor(
     private meter: Meter,
@@ -81,7 +81,8 @@ export class ProverNodeRewardsMetrics {
   }
 
   public async start() {
-    this.proofSubmissionWindow = await this.rollup.getProofSubmissionWindow();
+    const proofSubmissionEpochs = await this.rollup.getProofSubmissionEpochs();
+    this.proofSubmissionEpochs = Number(proofSubmissionEpochs);
     this.meter.addBatchObservableCallback(this.observe, [this.rewards]);
   }
 
@@ -90,11 +91,13 @@ export class ProverNodeRewardsMetrics {
   }
 
   private observe = async (observer: BatchObservableResult): Promise<void> => {
-    const slot = await this.rollup.getSlotNumber();
+    const epoch = await this.rollup.getEpochNumber();
 
-    // look at the prev epoch so that we get an accurate value, after proof submission window has closed
-    if (slot > this.proofSubmissionWindow) {
-      const closedEpoch = await this.rollup.getEpochNumberForSlotNumber(slot - this.proofSubmissionWindow);
+    if (epoch > this.proofSubmissionEpochs) {
+      // look at the prev epoch so that we get an accurate value, after proof submission window has closed
+      // For example, if proof submission window is 1 epoch, and we are in epoch 2, we should be looking at epoch 0.
+      // Similarly, if the proof submission window is 0, and we are in epoch 1, we should be looking at epoch 0.
+      const closedEpoch = epoch - BigInt(this.proofSubmissionEpochs) - 1n;
       const rewards = await this.rollup.getSpecificProverRewardsForEpoch(closedEpoch, this.coinbase);
 
       const fmt = parseFloat(formatUnits(rewards, 18));
@@ -242,7 +245,7 @@ export class ProverNodePublisherMetrics {
 
     try {
       this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
-    } catch (e) {
+    } catch {
       // ignore
     }
 
@@ -252,7 +255,7 @@ export class ProverNodePublisherMetrics {
 
     try {
       this.txTotalFee.record(parseFloat(formatEther(totalFee)));
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

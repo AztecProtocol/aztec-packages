@@ -6,17 +6,28 @@ import {
   TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
-  TX_ERROR_INVALID_BLOCK_NUMBER,
+  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
   Tx,
   type TxValidationResult,
   type TxValidator,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_metadata');
 
   constructor(
-    private values: { l1ChainId: Fr; rollupVersion: Fr; blockNumber: Fr; vkTreeRoot: Fr; protocolContractTreeRoot: Fr },
+    private values: {
+      l1ChainId: Fr;
+      rollupVersion: Fr;
+      // Timestamp at which we will validate that the tx is not expired. This is typically the timestamp of the block
+      // being built.
+      timestamp: UInt64;
+      // Block number in which the tx is considered to be included.
+      blockNumber: number;
+      vkTreeRoot: Fr;
+      protocolContractTreeRoot: Fr;
+    },
   ) {}
 
   async validateTx(tx: T): Promise<TxValidationResult> {
@@ -27,8 +38,8 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     if (!(await this.#hasCorrectRollupVersion(tx))) {
       errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
-    if (!(await this.#isValidForBlockNumber(tx))) {
-      errors.push(TX_ERROR_INVALID_BLOCK_NUMBER);
+    if (!(await this.#isValidForTimestamp(tx))) {
+      errors.push(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
     }
     if (!(await this.#hasCorrectVkTreeRoot(tx))) {
       errors.push(TX_ERROR_INCORRECT_VK_TREE_ROOT);
@@ -78,14 +89,20 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     }
   }
 
-  async #isValidForBlockNumber(tx: T): Promise<boolean> {
-    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
+  async #isValidForTimestamp(tx: T): Promise<boolean> {
+    const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
+    // If building block 1, we skip the expiration check. For details on why see the `validate_include_by_timestamp`
+    // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    const buildingBlock1 = this.values.blockNumber === 1;
 
-    if (maxBlockNumber.isSome && maxBlockNumber.value < this.values.blockNumber) {
+    if (!buildingBlock1 && includeByTimestamp.isSome && includeByTimestamp.value < this.values.timestamp) {
+      if (tx.data.constants.historicalHeader.globalVariables.blockNumber === 0) {
+        this.#log.warn(
+          `A tx built against a genesis block failed to be included in block 1 which is the only block in which txs built against a genesis block are allowed to be included.`,
+        );
+      }
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(tx)} for low max block number. Tx max block number: ${
-          maxBlockNumber.value
-        }, current block number: ${this.values.blockNumber}.`,
+        `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp.value}, timestamp: ${this.values.timestamp}.`,
       );
       return false;
     } else {

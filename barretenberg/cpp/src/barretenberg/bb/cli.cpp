@@ -17,15 +17,14 @@
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
-#include "barretenberg/api/api_ultra_plonk.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 
 namespace bb {
 // This is updated in-place by bootstrap.sh during the release process. This prevents
@@ -101,6 +100,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
+#ifdef DISABLE_AZTEC_VM
+    name += "\nAztec Virtual Machine (AVM): disabled";
+#else
+    name += "\nAztec Virtual Machine (AVM): enabled";
+#endif
+#ifdef STARKNET_GARAGA_FLAVORS
+    name += "\nStarknet Garaga Extensions: enabled";
+#else
+    name += "\nStarknet Garaga Extensions: disabled";
+#endif
     CLI::App app{ name };
     argv = app.ensure_utf8(argv);
     app.formatter(std::make_shared<Formatter>());
@@ -208,8 +217,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
     };
 
-    const auto add_zk_option = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--zk", flags.zk, "Use a zk version of --scheme, if available.");
+    const auto remove_zk_option = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--disable_zk",
+                                    flags.disable_zk,
+                                    "Use a non-zk version of --scheme. This flag is set to false by default.");
     };
 
     const auto add_init_kzg_accumulator_option = [&](CLI::App* subcommand) {
@@ -324,6 +335,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
+    add_vk_path_option(prove);
 
     add_verbose_flag(prove);
     add_debug_flag(prove);
@@ -331,7 +343,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(prove);
     add_output_format_option(prove);
     add_write_vk_flag(prove);
-    add_zk_option(prove);
+    remove_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
     add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
@@ -363,6 +375,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
+    remove_zk_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -378,7 +391,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_scheme_option(verify);
     add_crs_path_option(verify);
     add_oracle_hash_option(verify);
-    add_zk_option(verify);
+    remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
     add_init_kzg_accumulator_option(verify);
     add_honk_recursion_option(verify);
@@ -398,7 +411,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(write_solidity_verifier, output_path);
 
     add_verbose_flag(write_solidity_verifier);
-    add_zk_option(write_solidity_verifier);
+    remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
 
     /***************************************************************************************************************
@@ -463,31 +476,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(OLD_API_gates);
 
     /***************************************************************************************************************
-     * Subcommand: OLD_API prove
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_prove = OLD_API->add_subcommand("prove", "");
-    add_verbose_flag(OLD_API_prove);
-    add_debug_flag(OLD_API_prove);
-    add_crs_path_option(OLD_API_prove);
-    add_recursive_flag(OLD_API_prove);
-    std::string plonk_prove_output_path{ "./proofs/proof" };
-    add_output_path_option(OLD_API_prove, plonk_prove_output_path);
-    add_bytecode_path_option(OLD_API_prove);
-    add_witness_path_option(OLD_API_prove);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API prove_output_all
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_output_all = OLD_API->add_subcommand("prove_output_all", "");
-    add_verbose_flag(OLD_API_prove_output_all);
-    add_debug_flag(OLD_API_prove_output_all);
-    add_crs_path_option(OLD_API_prove_output_all);
-    add_recursive_flag(OLD_API_prove_output_all);
-    std::string plonk_prove_output_all_output_path{ "./proofs" };
-    add_output_path_option(OLD_API_prove_output_all, plonk_prove_output_all_output_path);
-    add_bytecode_path_option(OLD_API_prove_output_all);
-
-    /***************************************************************************************************************
      * Subcommand: OLD_API verify
      ***************************************************************************************************************/
     CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "");
@@ -509,75 +497,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_recursive_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
-    /***************************************************************************************************************
-     * Subcommand: OLD_API contract
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_contract = OLD_API->add_subcommand("contract", "");
-    add_verbose_flag(OLD_API_contract);
-    add_debug_flag(OLD_API_contract);
-    add_crs_path_option(OLD_API_contract);
-    std::string plonk_contract_output_path{ "./target/contract.sol" };
-    add_output_path_option(OLD_API_contract, plonk_contract_output_path);
-    add_bytecode_path_option(OLD_API_contract);
-    add_vk_path_option(OLD_API_contract);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API write_vk
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_vk = OLD_API->add_subcommand("write_vk", "");
-    add_verbose_flag(OLD_API_write_vk);
-    add_debug_flag(OLD_API_write_vk);
-    add_crs_path_option(OLD_API_write_vk);
-    add_recursive_flag(OLD_API_write_vk);
-    std::string plonk_vk_output_path{ "./target/vk" };
-    add_output_path_option(OLD_API_write_vk, plonk_vk_output_path);
-    add_bytecode_path_option(OLD_API_write_vk);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API write_pk
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_pk = OLD_API->add_subcommand("write_pk", "");
-    add_verbose_flag(OLD_API_write_pk);
-    add_debug_flag(OLD_API_write_pk);
-    add_crs_path_option(OLD_API_write_pk);
-    add_recursive_flag(OLD_API_write_pk);
-    std::string plonk_pk_output_path{ "./target/pk" };
-    add_output_path_option(OLD_API_write_pk, plonk_pk_output_path);
-    add_bytecode_path_option(OLD_API_write_pk);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API proof_as_fields
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_proof_as_fields = OLD_API->add_subcommand("proof_as_fields", "");
-    add_verbose_flag(OLD_API_proof_as_fields);
-    add_debug_flag(OLD_API_proof_as_fields);
-    add_crs_path_option(OLD_API_proof_as_fields);
-    std::string plonk_proof_as_fields_output_path;
-    auto* output_path_option = add_output_path_option(OLD_API_proof_as_fields, plonk_proof_as_fields_output_path);
-    add_proof_path_option(OLD_API_proof_as_fields);
-    add_vk_path_option(OLD_API_proof_as_fields);
-    // Attach a final callback to the subcommand (or the main app) that will run after parsing.
-    // This callback will update the output path default if the user did not supply an explicit value.
-    OLD_API_proof_as_fields->final_callback([&]() {
-        // If the output option was not set (i.e. its count is 0), update it.
-        if (output_path_option->count() == 0) {
-            // Update the default output based on the (possibly changed) proof_path.
-            plonk_proof_as_fields_output_path = proof_path.stem().string() + "_fields.json";
-        }
-    });
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API vk_as_fields
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_vk_as_fields = OLD_API->add_subcommand("vk_as_fields", "");
-    add_verbose_flag(OLD_API_vk_as_fields);
-    add_debug_flag(OLD_API_vk_as_fields);
-    add_crs_path_option(OLD_API_vk_as_fields);
-    std::string plonk_vk_as_fields_output_path{ vk_path / "_fields.json" };
-    add_output_path_option(OLD_API_vk_as_fields, plonk_vk_as_fields_output_path);
-    add_vk_path_option(OLD_API_vk_as_fields);
-
-#ifndef DISABLE_AZTEC_VM
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
@@ -588,38 +507,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     /***************************************************************************************************************
-     * Subcommand: avm2_prove
+     * Subcommand: avm_prove
      ***************************************************************************************************************/
-    CLI::App* avm2_prove_command = app.add_subcommand("avm2_prove", "");
-    avm2_prove_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm2_prove_command);
-    add_debug_flag(avm2_prove_command);
-    add_crs_path_option(avm2_prove_command);
-    std::filesystem::path avm2_prove_output_path{ "./proofs" };
-    add_output_path_option(avm2_prove_command, avm2_prove_output_path);
-    add_avm_inputs_option(avm2_prove_command);
-
-    /***************************************************************************************************************
-     * Subcommand: avm2_check_circuit
-     ***************************************************************************************************************/
-    CLI::App* avm2_check_circuit_command = app.add_subcommand("avm2_check_circuit", "");
-    avm2_check_circuit_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm2_check_circuit_command);
-    add_debug_flag(avm2_check_circuit_command);
-    add_crs_path_option(avm2_check_circuit_command);
-    add_avm_inputs_option(avm2_check_circuit_command);
-
-    /***************************************************************************************************************
-     * Subcommand: avm2_verify
-     ***************************************************************************************************************/
-    CLI::App* avm2_verify_command = app.add_subcommand("avm2_verify", "");
-    avm2_verify_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm2_verify_command);
-    add_debug_flag(avm2_verify_command);
-    add_crs_path_option(avm2_verify_command);
-    add_avm_public_inputs_option(avm2_verify_command);
-    add_proof_path_option(avm2_verify_command);
-    add_vk_path_option(avm2_verify_command);
+    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
+    avm_prove_command->group(""); // hide from list of subcommands
+    add_verbose_flag(avm_prove_command);
+    add_debug_flag(avm_prove_command);
+    add_crs_path_option(avm_prove_command);
+    std::filesystem::path avm_prove_output_path{ "./proofs" };
+    add_output_path_option(avm_prove_command, avm_prove_output_path);
+    add_avm_inputs_option(avm_prove_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_check_circuit
@@ -629,20 +526,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(avm_check_circuit_command);
     add_debug_flag(avm_check_circuit_command);
     add_crs_path_option(avm_check_circuit_command);
-    add_avm_public_inputs_option(avm_check_circuit_command);
-    add_output_path_option(avm_check_circuit_command, output_path);
-
-    /***************************************************************************************************************
-     * Subcommand: avm_prove
-     ***************************************************************************************************************/
-    CLI::App* avm_prove_command = app.add_subcommand("avm_prove", "");
-    avm_prove_command->group(""); // hide from list of subcommands
-    add_verbose_flag(avm_prove_command);
-    add_debug_flag(avm_prove_command);
-    add_crs_path_option(avm_prove_command);
-    std::filesystem::path avm_prove_output_path{ "./proofs" };
-    add_avm_public_inputs_option(avm_prove_command);
-    add_output_path_option(avm_prove_command, avm_prove_output_path);
+    add_avm_inputs_option(avm_check_circuit_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_verify
@@ -653,10 +537,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(avm_verify_command);
     add_crs_path_option(avm_verify_command);
     add_avm_public_inputs_option(avm_verify_command);
-    add_output_path_option(avm_verify_command, output_path);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
-#endif
 
     /***************************************************************************************************************
      * Subcommand: prove_tube
@@ -690,7 +572,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
-    if (prove->parsed() || verify->parsed() || write_vk->parsed()) {
+    if (prove->parsed() || write_vk->parsed()) {
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
@@ -734,26 +616,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
-        // ULTRA PLONK
-        auto deprecated_plonk_commands = std::vector<CLI::App*>{ OLD_API_gates,
-                                                                 OLD_API_prove,
-                                                                 OLD_API_prove_output_all,
-                                                                 OLD_API_verify,
-                                                                 OLD_API_prove_and_verify,
-                                                                 OLD_API_contract,
-                                                                 OLD_API_write_vk,
-                                                                 OLD_API_write_pk,
-                                                                 OLD_API_proof_as_fields,
-                                                                 OLD_API_vk_as_fields };
-
-        for (auto* cmd : deprecated_plonk_commands) {
-            if (cmd->parsed()) {
-                std::cerr << "Error: UltraPlonk is now deprecated (see "
-                             "https://github.com/AztecProtocol/barretenberg/issues/1377). Use UltraHonk!"
-                          << std::endl;
-                std::exit(1);
-            }
-        }
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
@@ -769,20 +631,21 @@ int parse_and_run_cli_command(int argc, char* argv[])
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM
-        else if (avm2_prove_command->parsed()) {
+        else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            avm2_prove(avm_inputs_path, avm2_prove_output_path);
-        } else if (avm2_check_circuit_command->parsed()) {
-            avm2_check_circuit(avm_inputs_path);
-        } else if (avm2_verify_command->parsed()) {
-            return avm2_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+            avm_prove(avm_inputs_path, avm_prove_output_path);
         } else if (avm_check_circuit_command->parsed()) {
-            avm_check_circuit(avm_public_inputs_path, "ignored");
-        } else if (avm_prove_command->parsed()) {
-            // This outputs both files: proof and vk, under the given directory.
-            avm_prove(avm_public_inputs_path, "ignored", avm_prove_output_path);
+            avm_check_circuit(avm_inputs_path);
         } else if (avm_verify_command->parsed()) {
-            return avm_verify(proof_path, vk_path) ? 0 : 1;
+            return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+        }
+#else
+        else if (avm_prove_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        } else if (avm_check_circuit_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        } else if (avm_verify_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
         }
 #endif
         // CLIENT IVC EXTRA COMMAND
@@ -817,15 +680,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
-            if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The write_vk command for ClientIVC expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
-                }
-                api.write_ivc_vk(ivc_inputs_path, output_path);
-                return 0;
-            }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
@@ -837,7 +691,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
             if (prove->parsed()) {
-                api.prove(flags, bytecode_path, witness_path, output_path);
+                api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);

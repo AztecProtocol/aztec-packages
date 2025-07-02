@@ -11,8 +11,6 @@
 using namespace bb;
 using namespace cdg;
 
-using byte_array = stdlib::byte_array<bb::StandardCircuitBuilder>;
-using public_witness_t = stdlib::public_witness_t<bb::StandardCircuitBuilder>;
 using byte_array_plookup = stdlib::byte_array<bb::UltraCircuitBuilder>;
 using public_witness_t_plookup = stdlib::public_witness_t<bb::UltraCircuitBuilder>;
 using UltraBuilder = UltraCircuitBuilder;
@@ -38,7 +36,7 @@ TEST(boomerang_stdlib_blake3s, test_single_block_plookup)
     byte_array_plookup input_arr(&builder, input_v);
     byte_array_plookup output = stdlib::blake3s(input_arr);
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -62,7 +60,7 @@ TEST(boomerang_stdlib_blake3s, test_double_block_plookup)
 
     std::vector<uint8_t> expected = blake3::blake3s(input_v);
 
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);

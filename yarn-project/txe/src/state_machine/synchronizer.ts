@@ -28,7 +28,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero),
     );
 
-    this.blockNumber = block.header.globalVariables.blockNumber.toNumber();
+    this.blockNumber = block.header.globalVariables.blockNumber;
   }
 
   /**
@@ -61,7 +61,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     return this.nativeWorldStateService.backupTo(dstPath, compact);
   }
 
-  public start(): void {
+  public start(): Promise<void> {
     throw new Error('TXE Synchronizer does not implement "start"');
   }
 

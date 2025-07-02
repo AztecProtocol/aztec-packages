@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AbiType, FunctionAbi } from './abi.js';
-import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
+import { isAddressStruct, isBoundedVecStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
 
 /**
  * Encodes arguments for a function call.
@@ -10,7 +10,10 @@ import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from 
 class ArgumentEncoder {
   private flattened: Fr[] = [];
 
-  constructor(private abi: FunctionAbi, private args: any[]) {}
+  constructor(
+    private abi: FunctionAbi,
+    private args: any[],
+  ) {}
 
   static typeSize(abiType: AbiType): number {
     switch (abiType.kind) {
@@ -110,6 +113,11 @@ class ArgumentEncoder {
           this.encodeArgument({ kind: 'field' }, arg.inner ?? arg, `${name}.inner`);
           break;
         }
+        if (isBoundedVecStruct(abiType)) {
+          this.#encodeBoundedVec(abiType, arg, name);
+          break;
+        }
+
         for (const field of abiType.fields) {
           this.encodeArgument(field.type, arg[field.name], `${name}.${field.name}`);
         }
@@ -124,7 +132,7 @@ class ArgumentEncoder {
         }
         break;
       default:
-        throw new Error(`Unsupported type: ${abiType}`);
+        throw new Error(`Unsupported type: ${abiType.kind}`);
     }
   }
 
@@ -138,6 +146,83 @@ class ArgumentEncoder {
       this.encodeArgument(parameterAbi.type, this.args[i], parameterAbi.name);
     }
     return this.flattened;
+  }
+
+  /**
+   * Encodes an array as a BoundedVec struct.
+   * @dev BoundedVec is handled as a special case rather than a generic struct for two reasons:
+   * 1. It is a commonly used type
+   * 2. Manual encoding it is cumbersome
+   * Therefore, the input is simplified to accept a plain array of type T.
+   * @param abiType - The ABI type definition.
+   * @param arg - An array of items to encode.
+   * @param name - The name of the parameter.
+   *
+   * The BoundedVec struct is defined in Noir as:
+   *
+   * ```noir
+   * pub struct BoundedVec<T, let MaxLen: u32> {
+   *   storage: [T; MaxLen],
+   *   len: u32,
+   * }
+   * ```
+   *
+   * The encoding follows Noir's serialization format:
+   * 1. The storage array is encoded first
+   * 2. The length field is encoded second
+   */
+  #encodeBoundedVec(abiType: AbiType, arg: any, name?: string) {
+    // First we encode the storage array
+    {
+      // Get the storage array type from the BoundedVec struct
+      const storageField = (abiType as unknown as any).fields.find((f: any) => f.name === 'storage')!;
+      const maxLength = storageField.type.length;
+
+      if (arg.length > maxLength) {
+        // Create a preview of the array for the error message, limiting to first few elements
+        const preview = arg
+          .slice(0, 3)
+          .map((x: any) => {
+            if (typeof x === 'object' && x !== null) {
+              if (Array.isArray(x)) {
+                return `[${x.join(', ')}]`;
+              }
+              // Convert object to string representation of its key-value pairs
+              return `{${Object.entries(x)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(', ')}}`;
+            }
+            return `${x}`;
+          })
+          .join(', ');
+        const suffix = arg.length > 3 ? ', ...' : '';
+        throw new Error(
+          `Error encoding param '${name ?? 'unnamed'}': ` +
+            `expected an array of maximum length ${maxLength} and got ${arg.length} instead: [ ${preview}${suffix} ]`,
+        );
+      }
+
+      const storageArrayItemType = storageField.type.type;
+
+      // Now we encode each item in the input array
+      for (let i = 0; i < arg.length; i++) {
+        this.encodeArgument(storageArrayItemType, arg[i], `storage[${i}]`);
+      }
+
+      // Then we pad the storage array with zeros such that the BoundedVec max length is correct.
+      const numItemsToPad = maxLength - arg.length;
+      if (numItemsToPad > 0) {
+        const numFieldsToPad = numItemsToPad * ArgumentEncoder.typeSize(storageArrayItemType);
+        const paddingFields = new Array(numFieldsToPad).fill(Fr.ZERO);
+        this.flattened.push(...paddingFields);
+      }
+    }
+
+    // At last we encode the length field
+    {
+      const lenField = (abiType as unknown as any).fields.find((f: any) => f.name === 'len')!;
+      this.encodeArgument(lenField.type, arg.length, 'len');
+    }
   }
 }
 

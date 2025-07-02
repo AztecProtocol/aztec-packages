@@ -6,12 +6,12 @@ import {
   VK_FILENAME,
   executeBbClientIvcProof,
   extractVkData,
-  generateAvmProofV2,
+  generateAvmProof,
   generateProof,
   generateTubeProof,
   readClientIVCProofFromOutputDirectory,
   readProofAsFields,
-  verifyAvmProofV2,
+  verifyAvmProof,
   verifyProof,
 } from '@aztec/bb-prover';
 import {
@@ -28,7 +28,8 @@ import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
-import type { VerificationKeyData } from '@aztec/stdlib/vks';
+import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
+import { VerificationKeyAsFields, type VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as fs from 'fs/promises';
 import { Encoder } from 'msgpackr';
@@ -99,7 +100,7 @@ export async function proveTube(pathToBB: string, workingDirectory: string, logg
     throw new Error('Failed to prove tube');
   }
 
-  const tubeVK = await extractVkData(tubeResult.vkPath!);
+  const tubeVK = await extractVkData(tubeResult.vkDirectoryPath!);
   const tubeProof = await readProofAsFields(tubeResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH, logger);
 
   // Sanity check the tube proof
@@ -127,14 +128,14 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     true,
     path.join(workingDirectory, 'witness.gz'),
     flavor,
-    logger.info,
+    logger,
   );
 
   if (proofResult.status != BB_RESULT.SUCCESS) {
     throw new Error(`Failed to generate proof for ${name} with flavor ${flavor}`);
   }
 
-  const vk = await extractVkData(proofResult.vkPath!);
+  const vk = await extractVkData(proofResult.vkDirectoryPath!);
   const proof = await readProofAsFields(proofResult.proofPath!, vk, proofLength, logger);
 
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
@@ -186,8 +187,9 @@ export async function proveAvm(
   avmCircuitInputs: AvmCircuitInputs,
   workingDirectory: string,
   logger: Logger,
+  skipPublicInputsValidation: boolean = false,
 ): Promise<{
-  vk: Fr[];
+  vk: VerificationKeyAsFields;
   proof: Fr[];
   publicInputs: AvmCircuitPublicInputs;
 }> {
@@ -195,7 +197,7 @@ export async function proveAvm(
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
 
   // Then we prove.
-  const proofRes = await generateAvmProofV2(bbPath, workingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProof(bbPath, workingDirectory, avmCircuitInputs, logger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     throw new Error(`AVM V2 proof generation failed: ${proofRes.reason}`);
   } else if (proofRes.status === BB_RESULT.ALREADY_PRESENT) {
@@ -203,9 +205,11 @@ export async function proveAvm(
   }
 
   const avmProofPath = proofRes.proofPath;
-  const avmVkPath = proofRes.vkPath;
+  const avmVkDirectoryPath = proofRes.vkDirectoryPath;
   expect(avmProofPath).toBeDefined();
-  expect(avmVkPath).toBeDefined();
+  expect(avmVkDirectoryPath).toBeDefined();
+
+  const avmVkPath = path.join(proofRes.vkDirectoryPath as string, VK_FILENAME);
 
   // Read the binary proof
   const avmProofBuffer = await fs.readFile(avmProofPath!);
@@ -237,21 +241,25 @@ export async function proveAvm(
     vk.push(new Fr(0));
   }
 
-  const verificationResult = await verifyAvmProofV2(
+  const verificationResult = await verifyAvmProof(
     bbPath,
     workingDirectory,
     proofRes.proofPath!,
     avmCircuitInputs.publicInputs,
-    proofRes.vkPath!,
+    path.join(proofRes.vkDirectoryPath!, VK_FILENAME),
     logger,
   );
 
   if (verificationResult.status === BB_RESULT.FAILURE) {
     throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
   }
+
+  // TODO(#14234)[Unconditional PIs validation]: Remove next lines and return proof instead of proofWithPublicInputsValidationFlag
+  const proofWithPublicInputsValidationFlag = enhanceProofWithPiValidationFlag(proof, skipPublicInputsValidation);
+
   return {
-    proof,
-    vk,
+    proof: proofWithPublicInputsValidationFlag,
+    vk: await VerificationKeyAsFields.fromKey(vk),
     publicInputs: avmCircuitInputs.publicInputs,
   };
 }

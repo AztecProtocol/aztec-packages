@@ -9,6 +9,7 @@ import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/st
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -112,7 +113,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
         blockHash: Buffer32.random().toString(),
         timestamp: BigInt(block.number),
       },
-      signatures: [],
+      attestations: [],
     }));
   }
 
@@ -150,7 +151,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: (await block.hash()).toString(),
+      l2BlockHash: L2BlockHash.fromField(await block.hash()),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -221,6 +222,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     throw new Error('Method not implemented.');
   }
 
+  getL1Timestamp(): Promise<bigint> {
+    throw new Error('Method not implemented.');
+  }
+
   /**
    * Starts the block source. In this mock implementation, this is a noop.
    * @returns A promise that signals the initialization of the l2 block source on completion.
@@ -247,7 +252,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+  getContract(_address: AztecAddress, _timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve(undefined);
   }
 
@@ -259,7 +264,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 

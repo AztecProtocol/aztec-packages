@@ -3,7 +3,7 @@ use dep::types::{
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
     },
-    utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints},
+    utils::arrays::{get_split_order_hints_asc, SplitOrderHints},
 };
 
 pub struct TailToPublicOutputHints {
@@ -22,17 +22,19 @@ pub unconstrained fn generate_tail_to_public_output_hints(
 
     // l2_to_l1_msgss
     let sorted_l2_to_l1_msg_hints =
-        get_split_order_hints_asc(previous_kernel.end.l2_to_l1_msgs, split_counter);
+        get_split_order_hints_asc(previous_kernel.end.l2_to_l1_msgs.array, split_counter);
 
     // contract_class_logs
     let sorted_contract_class_log_hash_hints = get_split_order_hints_asc(
-        previous_kernel.end.contract_class_logs_hashes,
+        previous_kernel.end.contract_class_logs_hashes.array,
         split_counter,
     );
 
     // public_call_requests
-    let sorted_public_call_request_hints =
-        get_split_order_hints_desc(previous_kernel.end.public_call_requests, split_counter);
+    let sorted_public_call_request_hints = get_split_order_hints_asc(
+        previous_kernel.end.public_call_requests.array,
+        split_counter,
+    );
 
     TailToPublicOutputHints {
         sorted_l2_to_l1_msg_hints,

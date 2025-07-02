@@ -1,7 +1,6 @@
 import { type Logger, retryUntil } from '@aztec/aztec.js';
 import type { ChainMonitor } from '@aztec/ethereum/test';
 
-// eslint-disable-next-line no-restricted-imports
 import { jest } from '@jest/globals';
 
 import { EpochsTestContext } from './epochs_test.js';
@@ -25,7 +24,7 @@ describe('e2e_epochs/epochs_partial_proof', () => {
   });
 
   it('submits partial proofs when instructed manually', async () => {
-    await test.waitUntilL2BlockNumber(4, 60);
+    await test.waitUntilL2BlockNumber(4, test.L2_SLOT_DURATION_IN_S * 6);
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.startProof(0);

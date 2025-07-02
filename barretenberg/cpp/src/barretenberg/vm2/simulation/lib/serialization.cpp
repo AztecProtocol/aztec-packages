@@ -12,6 +12,7 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -320,12 +321,31 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 std::string Instruction::to_string() const
 {
     std::ostringstream oss;
-    oss << opcode << " indirect: " << indirect << ", operands: [ ";
-    for (const auto& operand : operands) {
-        oss << std::to_string(operand) << " ";
+    oss << opcode << " ";
+    for (size_t operand_pos = 0; operand_pos < operands.size(); ++operand_pos) {
+        const auto& operand = operands[operand_pos];
+        oss << std::to_string(operand);
+        if (is_operand_relative(indirect, static_cast<uint8_t>(operand_pos))) {
+            oss << "R";
+        }
+        if (is_operand_indirect(indirect, static_cast<uint8_t>(operand_pos))) {
+            oss << "I";
+        }
+        oss << " ";
     }
-    oss << "]";
     return oss.str();
+}
+
+size_t Instruction::size_in_bytes() const
+{
+    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
+    return WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+}
+
+ExecutionOpCode Instruction::get_exec_opcode() const
+{
+    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
+    return WIRE_INSTRUCTION_SPEC.at(opcode).exec_opcode;
 }
 
 std::vector<uint8_t> Instruction::serialize() const

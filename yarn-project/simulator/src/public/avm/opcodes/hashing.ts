@@ -19,7 +19,11 @@ export class Poseidon2 extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private inputStateOffset: number, private outputStateOffset: number) {
+  constructor(
+    private indirect: number,
+    private inputStateOffset: number,
+    private outputStateOffset: number,
+  ) {
     super();
   }
 
@@ -27,7 +31,9 @@ export class Poseidon2 extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.inputStateOffset, this.outputStateOffset];
 
@@ -56,7 +62,11 @@ export class KeccakF1600 extends Instruction {
     OperandType.UINT16,
   ];
 
-  constructor(private indirect: number, private dstOffset: number, private inputOffset: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+    private inputOffset: number,
+  ) {
     super();
   }
 
@@ -66,9 +76,12 @@ export class KeccakF1600 extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.dstOffset, this.inputOffset];
     const [dstOffset, inputOffset] = addressing.resolve(operands, memory);
-    context.machineState.consumeGas(this.gasCost());
 
     const stateData = memory.getSlice(inputOffset, inputSize).map(word => word.toBigInt());
     memory.checkTagsRange(TypeTag.UINT64, inputOffset, inputSize);
@@ -109,11 +122,14 @@ export class Sha256Compression extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.outputOffset, this.stateOffset, this.inputsOffset];
     const [outputOffset, stateOffset, inputsOffset] = addressing.resolve(operands, memory);
 
     // Note: size of output is same as size of state
-    context.machineState.consumeGas(this.gasCost());
     const inputs = Uint32Array.from(memory.getSlice(inputsOffset, INPUTS_SIZE).map(word => word.toNumber()));
     const state = Uint32Array.from(memory.getSlice(stateOffset, STATE_SIZE).map(word => word.toNumber()));
 

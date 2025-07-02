@@ -6,10 +6,10 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
@@ -27,7 +27,14 @@ template <typename Flavor> class DeciderVerifier_ {
         bool libra_evals_verified;
         PairingPoints pairing_points;
 
-        bool check() { return sumcheck_verified && libra_evals_verified && pairing_points.check(); }
+        bool check()
+        {
+            bool pairing_check_verified = pairing_points.check();
+            vinfo("sumcheck_verified: ", sumcheck_verified);
+            vinfo("libra_evals_verified: ", libra_evals_verified);
+            vinfo("pairing_check_verified: ", pairing_check_verified);
+            return sumcheck_verified && libra_evals_verified && pairing_check_verified;
+        }
     };
 
   public:
@@ -39,9 +46,7 @@ template <typename Flavor> class DeciderVerifier_ {
      *
      */
     explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key,
-                              const std::shared_ptr<Transcript>& transcript);
-
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key);
+                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     Output verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     Output verify();                          // used with a transcript that has been initialized with a proof

@@ -6,7 +6,8 @@
 
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb {
@@ -24,53 +25,6 @@ template <class Flavor> class TraceToPolynomials {
 
     static constexpr size_t NUM_SELECTORS = Builder::ExecutionTrace::NUM_SELECTORS;
 
-    struct TraceData {
-        std::array<Polynomial, NUM_WIRES> wires;
-        std::array<Polynomial, NUM_SELECTORS> selectors;
-        // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
-        std::vector<CyclicPermutation> copy_cycles;
-        uint32_t ram_rom_offset = 0;    // offset of the RAM/ROM block in the execution trace
-        uint32_t pub_inputs_offset = 0; // offset of the public inputs block in the execution trace
-
-        TraceData(Builder& builder, ProvingKey& proving_key)
-        {
-
-            PROFILE_THIS_NAME("TraceData constructor");
-
-            if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                // Initialize and share the wire and selector polynomials
-                for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
-                    wire = other_wire.share();
-                }
-                for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
-                    selector = other_selector.share();
-                }
-            } else {
-                // Initialize and share the wire and selector polynomials
-                for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-                    wires[idx] = Polynomial(proving_key.circuit_size);
-                    std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-                    proving_key.polynomial_store.put(wire_tag, wires[idx].share());
-                }
-                {
-
-                    PROFILE_THIS_NAME("selector initialization");
-
-                    for (size_t idx = 0; idx < Builder::ExecutionTrace::NUM_SELECTORS; ++idx) {
-                        selectors[idx] = Polynomial(proving_key.circuit_size);
-                        std::string selector_tag = builder.selector_names[idx] + "_lagrange";
-                        proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
-                    }
-                }
-            }
-            {
-                PROFILE_THIS_NAME("copy cycle initialization");
-
-                copy_cycles.resize(builder.variables.size());
-            }
-        }
-    };
-
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
      * @note By default, this method constructs an exectution trace that is sorted by gate type. Optionally, it
@@ -82,7 +36,7 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
-    static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
+    static void populate(Builder& builder, ProvingKey&);
 
   private:
     /**
@@ -97,22 +51,17 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param proving_key
      */
-    static void add_memory_records_to_proving_key(TraceData& trace_data,
-                                                  Builder& builder,
-                                                  typename Flavor::ProvingKey& proving_key)
-        requires IsUltraPlonkOrHonk<Flavor>;
+    static void add_memory_records_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key);
 
     /**
-     * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
+     * @brief Populate wire polynomials, selector polynomials and copy cycles from raw circuit data
      *
      * @param builder
-     * @param dyadic_circuit_size
-     * @param is_structured whether or not the trace is to be structured with a fixed block size
-     * @return TraceData
+     * @param proving_key
+     * @return std::vector<CyclicPermutation> copy cycles describing the copy constraints in the circuit
      */
-    static TraceData construct_trace_data(Builder& builder,
-                                          typename Flavor::ProvingKey& proving_key,
-                                          bool is_structured = false);
+    static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(
+        Builder& builder, typename Flavor::ProvingKey& proving_key);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

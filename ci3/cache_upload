@@ -8,7 +8,7 @@ if [ "$#" -lt 2 ]; then
 fi
 
 if [[ "$1" == *"disabled-cache"* ]]; then
-  echo "Skipping upload of $1 due to uncommitted changes/files."
+  echo_stderr "Skipping upload of $1 due to uncommitted changes/files."
   exit 0
 fi
 
@@ -17,12 +17,17 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
+if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
+  echo_stderr "Skipping upload because CI=0 and S3_FORCE_UPLOAD not set."
+  exit 0
+fi
+
 if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
   echo_stderr "Skipping upload, no AWS credentials found."
   exit 0
 fi
 
-if [ -z ${S3_FORCE_UPLOAD:-} ] && \
+if [ -z "${S3_FORCE_UPLOAD:-}" ] && \
   aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
     echo_stderr "Skipping upload, already exists: $name"
     exit 0

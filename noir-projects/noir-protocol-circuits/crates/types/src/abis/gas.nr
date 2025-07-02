@@ -20,7 +20,8 @@ impl Gas {
     }
 
     pub fn compute_fee(self, fees: GasFees) -> Field {
-        (self.da_gas as Field) * fees.fee_per_da_gas + (self.l2_gas as Field) * fees.fee_per_l2_gas
+        (self.da_gas as Field) * (fees.fee_per_da_gas as Field)
+            + (self.l2_gas as Field) * (fees.fee_per_l2_gas as Field)
     }
 
     pub fn is_empty(self) -> bool {

@@ -7,7 +7,10 @@ import { inspect } from 'util';
 import { AztecAddress } from '../aztec-address/index.js';
 
 export class LogHash {
-  constructor(public value: Fr, public length: number) {}
+  constructor(
+    public value: Fr,
+    public length: number,
+  ) {}
 
   static from(fields: FieldsOf<LogHash>) {
     return new LogHash(fields.value, fields.length);
@@ -53,7 +56,10 @@ export class LogHash {
 }
 
 export class CountedLogHash {
-  constructor(public logHash: LogHash, public counter: number) {}
+  constructor(
+    public logHash: LogHash,
+    public counter: number,
+  ) {}
 
   toFields(): Fr[] {
     return [...this.logHash.toFields(), new Fr(this.counter)];
@@ -83,7 +89,10 @@ export class CountedLogHash {
 }
 
 export class ScopedLogHash {
-  constructor(public logHash: LogHash, public contractAddress: AztecAddress) {}
+  constructor(
+    public logHash: LogHash,
+    public contractAddress: AztecAddress,
+  ) {}
 
   get value() {
     return this.logHash.value;
@@ -121,7 +130,10 @@ export class ScopedLogHash {
 }
 
 export class ScopedCountedLogHash {
-  constructor(public inner: CountedLogHash, public contractAddress: AztecAddress) {}
+  constructor(
+    public inner: CountedLogHash,
+    public contractAddress: AztecAddress,
+  ) {}
 
   toFields(): Fr[] {
     return [...this.inner.toFields(), this.contractAddress.toField()];

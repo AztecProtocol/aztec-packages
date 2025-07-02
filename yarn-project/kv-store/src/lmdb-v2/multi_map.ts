@@ -9,7 +9,10 @@ import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncMultiMap<K, V> {
   private prefix: string;
   private encoder = new Encoder();
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.prefix = `multimap:${name}`;
   }
 
@@ -20,6 +23,14 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
    */
   set(key: K, val: V): Promise<void> {
     return execInWriteTx(this.store, tx => tx.setIndex(serializeKey(this.prefix, key), this.encoder.pack(val)));
+  }
+
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    await execInWriteTx(this.store, async tx => {
+      for (const { key, value } of entries) {
+        await tx.setIndex(serializeKey(this.prefix, key), this.encoder.pack(value));
+      }
+    });
   }
 
   /**
@@ -55,6 +66,10 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
 
   hasAsync(key: K): Promise<boolean> {
     return execInReadTx(this.store, async tx => (await tx.getIndex(serializeKey(this.prefix, key))).length > 0);
+  }
+
+  sizeAsync(): Promise<number> {
+    return execInReadTx(this.store, tx => tx.countEntriesIndex(minKey(this.prefix), maxKey(this.prefix), false));
   }
 
   /**

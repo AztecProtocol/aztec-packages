@@ -1,39 +1,42 @@
 // SPDX-License-Identifier: UNLICENSED
+// solhint-disable
 pragma solidity >=0.8.27;
 
-import {StakingBase} from "./base.t.sol";
+import {Timestamp, Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  Timestamp, Status, ValidatorInfo, Exit, IStakingCore
-} from "@aztec/core/interfaces/IStaking.sol";
+import {StakingBase} from "./base.t.sol";
 
 contract FinaliseWithdrawTest is StakingBase {
   function test_GivenStatusIsNotExiting() external {
     // it revert
 
-    for (uint256 i = 0; i < 3; i++) {
-      staking.cheat__SetStatus(ATTESTER, Status(i));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    staking.finaliseWithdraw(ATTESTER);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
-      staking.finaliseWithdraw(ATTESTER);
-    }
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    staking.finaliseWithdraw(ATTESTER);
+
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, DEPOSIT_AMOUNT);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    staking.finaliseWithdraw(ATTESTER);
   }
 
   modifier givenStatusIsExiting() {
     // We deposit and initiate a withdraw
 
-    stakingAsset.mint(address(this), MINIMUM_STAKE);
-    stakingAsset.approve(address(staking), MINIMUM_STAKE);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
-    staking.deposit({
-      _attester: ATTESTER,
-      _proposer: PROPOSER,
-      _withdrawer: WITHDRAWER,
-      _amount: MINIMUM_STAKE
-    });
-
-    // Progress into the next epoch
-    staking.cheat__progressEpoch();
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);
@@ -54,35 +57,39 @@ contract FinaliseWithdrawTest is StakingBase {
     staking.finaliseWithdraw(ATTESTER);
   }
 
-  function test_GivenTimeIsAfterUnlock() external givenStatusIsExiting {
+  function test_GivenTimeIsAfterUnlock(bool _claimedFromGov) external givenStatusIsExiting {
     // it deletes the exit
     // it deletes the operator info
     // it transfer funds to recipient
     // it emits a {WithdrawFinalised} event
 
-    Exit memory exit = staking.getExit(ATTESTER);
-    assertEq(exit.recipient, RECIPIENT);
-    assertEq(exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
-    ValidatorInfo memory info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.EXITING);
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.EXITING);
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
+    assertEq(attesterView.exit.isRecipient, true);
+    assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
 
-    assertEq(stakingAsset.balanceOf(address(staking)), MINIMUM_STAKE);
+    vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
+
+    if (_claimedFromGov) {
+      staking.getGSE().getGovernance().finaliseWithdraw(0);
+    }
+
+    address lookup = _claimedFromGov ? address(staking) : address(staking.getGSE().getGovernance());
+
+    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
-    vm.warp(Timestamp.unwrap(exit.exitableAt));
-
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, MINIMUM_STAKE);
+    emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, DEPOSIT_AMOUNT);
     staking.finaliseWithdraw(ATTESTER);
 
-    exit = staking.getExit(ATTESTER);
-    assertEq(exit.recipient, address(0));
-    assertEq(exit.exitableAt, Timestamp.wrap(0));
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(0));
+    assertTrue(attesterView.status == Status.NONE);
 
-    info = staking.getInfo(ATTESTER);
-    assertTrue(info.status == Status.NONE);
-
-    assertEq(stakingAsset.balanceOf(address(staking)), 0);
-    assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(lookup), 0);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), DEPOSIT_AMOUNT);
   }
 }

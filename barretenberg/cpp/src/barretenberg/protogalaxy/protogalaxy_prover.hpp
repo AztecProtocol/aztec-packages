@@ -5,40 +5,45 @@
 // =====================
 
 #pragma once
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb {
 
-template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1437): Change template params back to DeciderProvingKeys
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver_ {
   public:
-    using DeciderProvingKey = typename DeciderProvingKeys_::DeciderPK;
-    using Flavor = typename DeciderProvingKeys_::Flavor;
-    using FF = typename DeciderProvingKeys_::Flavor::FF;
-    static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
-    using CombinerQuotient = Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH, NUM_KEYS>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor, NUM_KEYS>;
+    using FF = typename Flavor::FF;
+    using CombinerQuotient = Univariate<FF, DeciderProvingKeys::BATCHED_EXTENDED_LENGTH, NUM_KEYS>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_KEYS>;
     using UnivariateRelationParameters =
-        bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
+        bb::RelationParameters<Univariate<FF, DeciderProvingKeys::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
     using UnivariateRelationSeparator =
-        std::array<Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
+        std::array<Univariate<FF, DeciderProvingKeys::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
-    using DeciderPK = typename DeciderProvingKeys_::DeciderPK;
+    using DeciderPK = DeciderProvingKeys::DeciderPK;
+    using DeciderVK = DeciderVerificationKeys::DeciderVK;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using DeciderProvingKeys = DeciderProvingKeys_;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
-    static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
+    static_assert(DeciderProvingKeys::NUM == 2, "Protogalaxy currently only supports folding one instance at a time.");
 
-    DeciderProvingKeys_ keys_to_fold;
-    std::shared_ptr<CommitmentKey> commitment_key;
+    static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys::NUM_SUBRELATIONS;
+
+    DeciderProvingKeys keys_to_fold;
+    DeciderVerificationKeys vks_to_fold;
+    CommitmentKey commitment_key;
 
     // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-    std::shared_ptr<DeciderProvingKey> accumulator;
+    std::shared_ptr<DeciderPK> accumulator;
     Polynomial<FF> perturbator;
     std::vector<FF> deltas;
     CombinerQuotient combiner_quotient;
@@ -50,10 +55,19 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
 
     ProtogalaxyProver_() = default;
     ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys,
+                       const std::vector<std::shared_ptr<DeciderVK>>& vks,
+                       const std::shared_ptr<Transcript>& transcript,
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
+        , vks_to_fold(DeciderVerificationKeys_(vks))
         , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
-        , pg_internal(trace_usage_tracker){};
+        , transcript(transcript)
+        , pg_internal(trace_usage_tracker)
+    {
+        BB_ASSERT_EQ(keys.size(), NUM_KEYS, "Number of prover keys does not match the number of keys to fold");
+        BB_ASSERT_EQ(
+            vks.size(), NUM_KEYS, "Number of verification keys does not match the number of vks to Fiat-Shamir");
+    }
 
     /**
      * @brief For each key produced by a circuit, prior to folding, we need to complete the computation of its
@@ -62,7 +76,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      *
      * @param domain_separator a label used for tracking data in the transcript
      */
-    void run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK>, const std::string& domain_separator);
+    void run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK>,
+                                               std::shared_ptr<DeciderVK>,
+                                               const std::string& domain_separator);
 
     /**
      * @brief Create inputs to folding protocol (an Oink interaction).
@@ -88,7 +104,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     std::tuple<std::vector<FF>, UnivariateRelationSeparator, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
-                            const DeciderProvingKeys_& keys);
+                            const DeciderProvingKeys& keys);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
@@ -97,11 +113,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      * multiplication of matrices whose columns are polynomials, as well as taking similar linear combinations of the
      * relation parameters.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& keys,
-                                                     const CombinerQuotient& combiner_quotient,
-                                                     const UnivariateRelationSeparator& alphas,
-                                                     const UnivariateRelationParameters& univariate_relation_parameters,
-                                                     const FF& perturbator_evaluation);
+    void update_target_sum_and_fold(const DeciderProvingKeys& keys,
+                                    const CombinerQuotient& combiner_quotient,
+                                    const UnivariateRelationSeparator& alphas,
+                                    const UnivariateRelationParameters& univariate_relation_parameters,
+                                    const FF& perturbator_evaluation);
 
     /**
      * @brief Execute the folding prover.

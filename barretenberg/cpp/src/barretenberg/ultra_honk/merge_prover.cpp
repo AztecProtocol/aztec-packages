@@ -5,7 +5,7 @@
 // =====================
 
 #include "merge_prover.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
 
@@ -14,11 +14,14 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key)
+MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
+                         CommitmentKey commitment_key,
+                         const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
-    , pcs_commitment_key(commitment_key ? commitment_key
-                                        : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
-{}
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
+    , pcs_commitment_key(commitment_key.initialized() ? commitment_key
+                                                      : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
+    , transcript(transcript){};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -30,13 +33,13 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::share
  *
  *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1270): connect [t_j] used herein those used in PG verifier
+ * @note: the prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
+ * circuit, and therefore t_j has already been added to the transcript by PG.
  *
  * @return honk::proof
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
-    transcript = std::make_shared<Transcript>();
 
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
     std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
@@ -51,19 +54,17 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
-        Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
-        Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
-        Commitment T_commitment = pcs_commitment_key->commit(T_current[idx]);
+        Commitment T_prev_commitment = pcs_commitment_key.commit(T_prev[idx]);
+        Commitment T_commitment = pcs_commitment_key.commit(T_current[idx]);
 
         std::string suffix = std::to_string(idx);
-        transcript->send_to_verifier("t_CURRENT_" + suffix, t_commitment);
         transcript->send_to_verifier("T_PREV_" + suffix, T_prev_commitment);
         transcript->send_to_verifier("T_CURRENT_" + suffix, T_commitment);
     }
 
     // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
     // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
-    FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
 
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
@@ -102,6 +103,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
     OpeningClaim batched_claim = { std::move(batched_polynomial), { kappa, batched_eval } };
     PCS::compute_opening_proof(pcs_commitment_key, batched_claim, transcript);
 
-    return transcript->proof_data;
+    return transcript->export_proof();
 }
 } // namespace bb

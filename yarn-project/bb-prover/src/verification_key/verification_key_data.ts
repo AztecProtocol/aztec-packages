@@ -1,6 +1,6 @@
-import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { hashVK } from '@aztec/stdlib/hash';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { strict as assert } from 'assert';
@@ -21,25 +21,28 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   ]);
   const fieldsJson = JSON.parse(rawFields);
   const fields = fieldsJson.map(Fr.fromHexString);
-  // The hash is not included in the BB response
-  const vkHash = await hashVK(fields);
-  const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
+  const vkAsFields = await VerificationKeyAsFields.fromKey(fields);
   return new VerificationKeyData(vkAsFields, rawBinary);
 }
 
-// TODO: This was adapted from the above function. A refactor might be needed.
+/**
+ * Reads the verification key data stored in a binary file at the specified directory location and parses into a VerificationKeyData.
+ * We do not assume any JSON file available but only the binary version, contrary to the above extractVkData() method.
+ * @param vkDirectoryPath - The directory containing the verification key binary data file.
+ * @returns The verification key data
+ */
 export async function extractAvmVkData(vkDirectoryPath: string): Promise<VerificationKeyData> {
-  const [rawFields, rawBinary] = await Promise.all([
-    fs.readFile(path.join(vkDirectoryPath, VK_FIELDS_FILENAME), { encoding: 'utf-8' }),
-    fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
-  ]);
-  const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromHexString);
-  // The first item is the hash, this is not part of the actual VK
-  // TODO: is the above actually the case?
-  const vkHash = fields[0];
-  assert(fields.length === AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, 'Invalid AVM verification key length');
-  const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
+  const rawBinary = await fs.readFile(path.join(vkDirectoryPath, VK_FILENAME));
+
+  const numFields = rawBinary.length / Fr.SIZE_IN_BYTES;
+  assert(numFields <= AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED, 'Invalid AVM verification key length');
+  const reader = BufferReader.asReader(rawBinary);
+  const fieldsArray = reader.readArray(numFields, Fr);
+
+  const fieldsArrayPadded = fieldsArray.concat(
+    Array(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED - fieldsArray.length).fill(new Fr(0)),
+  );
+  const vkAsFields = await VerificationKeyAsFields.fromKey(fieldsArrayPadded);
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }

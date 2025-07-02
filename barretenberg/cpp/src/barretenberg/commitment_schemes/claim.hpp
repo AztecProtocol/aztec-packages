@@ -7,7 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 

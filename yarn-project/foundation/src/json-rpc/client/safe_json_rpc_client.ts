@@ -3,6 +3,7 @@ import { format } from 'util';
 import { type Logger, createLogger } from '../../log/pino-logger.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
+import { jsonStringify } from '../convert.js';
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
 // batch window of 0 would capture all requests in the current sync iteration of the event loop
@@ -10,11 +11,19 @@ import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 // minimal latency
 const DEFAULT_BATCH_WINDOW_MS = 0;
 
+// the maximum size of a batched request
+const DEFAULT_MAX_BATCH_SIZE = 100;
+
+// 10 mb
+const DEFAULT_MAX_REQUESTY_BODY_SIZE = 10 * 1024 * 1024;
+
 export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
   fetch?: JsonRpcFetch;
   log?: Logger;
   batchWindowMS?: number;
+  maxBatchSize?: number;
+  maxRequestBodySize?: number;
   onResponse?: (res: {
     response: any;
     headers: { get: (header: string) => string | null | undefined };
@@ -62,26 +71,58 @@ export function createSafeJsonRpcClient<T extends object>(
 ): T {
   const fetch = config.fetch ?? defaultFetch;
   const log = config.log ?? createLogger('json-rpc:client');
-  const { namespaceMethods = false, batchWindowMS = DEFAULT_BATCH_WINDOW_MS } = config;
+  const {
+    namespaceMethods = false,
+    batchWindowMS = DEFAULT_BATCH_WINDOW_MS,
+    maxBatchSize = DEFAULT_MAX_BATCH_SIZE,
+    maxRequestBodySize = DEFAULT_MAX_REQUESTY_BODY_SIZE,
+  } = config;
 
   let id = 0;
   let sendBatchTimeoutHandle: NodeJS.Timeout | undefined;
-  let queue: Array<{ request: JsonRpcRequest; deferred: PromiseWithResolvers<JsonRpcResponse> }> = [];
+  const queue: Array<{
+    request: JsonRpcRequest;
+    deferred: PromiseWithResolvers<JsonRpcResponse>;
+    encodedLength: number;
+  }> = [];
 
-  const sendBatch = async () => {
+  const sendBatch = async (): Promise<void> => {
     if (sendBatchTimeoutHandle !== undefined) {
       clearTimeout(sendBatchTimeoutHandle);
       sendBatchTimeoutHandle = undefined;
     }
 
-    const rpcCalls = queue;
-    queue = [];
+    const rpcCalls: typeof queue = [];
+    let bodySize = 0;
 
+    while (queue.length > 0 && rpcCalls.length < maxBatchSize && bodySize < maxRequestBodySize) {
+      const item = queue[0];
+      if (!item) {
+        break;
+      }
+
+      const tmpBodySize = bodySize + item.encodedLength;
+      if (tmpBodySize >= maxRequestBodySize) {
+        break;
+      }
+
+      bodySize = tmpBodySize;
+      queue.shift();
+      rpcCalls.push(item);
+    }
+
+    // no-op
     if (rpcCalls.length === 0) {
       return;
     }
 
-    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length}`, {
+    // schedule another call if there are more items to send
+    if (queue.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
+    }
+
+    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length} body size: ${bodySize} bytes`, {
       methods: rpcCalls.map(({ request }) => request.method),
     });
     try {
@@ -161,10 +202,16 @@ export function createSafeJsonRpcClient<T extends object>(
     const body: JsonRpcRequest = { jsonrpc: '2.0', id: id++, method, params };
 
     const deferred = promiseWithResolvers<JsonRpcResponse>();
-    queue.push({ request: body, deferred });
+    const encodedLength = jsonStringify(body).length;
+    if (encodedLength >= maxRequestBodySize) {
+      throw new Error(`Request body too large: ${encodedLength}`);
+    }
+
+    queue.push({ request: body, deferred, encodedLength });
 
     if (sendBatchTimeoutHandle === undefined) {
-      sendBatchTimeoutHandle = setTimeout(sendBatch as any, batchWindowMS);
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
     }
 
     log.debug(format(`request`, method, params));

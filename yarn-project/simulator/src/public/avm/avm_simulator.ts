@@ -110,7 +110,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
         throw err;
       }
       return await this.handleFailureToRetrieveBytecode(
-        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err}. Reverting...`,
+        `Bytecode retrieval for contract '${this.context.environment.address}' failed with ${err.message}. Reverting...`,
       );
     }
 

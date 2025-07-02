@@ -5,6 +5,7 @@ use crate::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct PublicDataHint {
     pub leaf_slot: Field,
     pub value: Field,
@@ -24,7 +25,7 @@ impl PublicDataHint {
                     "Hinted public data value does not match the value in leaf preimage",
                 );
             } else {
-                assert(self.value == 0, "Value must be 0 for non-existent public data");
+                assert_eq(self.value, 0, "Value must be 0 for non-existent public data");
             }
 
             conditionally_assert_check_membership(

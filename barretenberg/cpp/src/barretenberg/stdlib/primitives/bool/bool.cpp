@@ -38,6 +38,7 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value)
     context->create_bool_gate(witness_index);
     witness_bool = (value.witness == bb::fr::one());
     witness_inverted = false;
+    set_free_witness_tag();
 }
 
 template <typename Builder>
@@ -107,6 +108,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const wi
     witness_index = other.witness_index;
     witness_inverted = false;
     context->create_bool_gate(witness_index);
+    set_free_witness_tag();
     return *this;
 }
 
@@ -420,7 +422,7 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
 {
     const bool_t lhs = *this;
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
-
+    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
@@ -574,7 +576,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     return *this;
 }
 
-template class bool_t<bb::StandardCircuitBuilder>;
 template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::MegaCircuitBuilder>;
 

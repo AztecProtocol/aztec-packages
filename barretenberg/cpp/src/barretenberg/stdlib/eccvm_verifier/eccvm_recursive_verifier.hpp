@@ -25,18 +25,19 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
 
   public:
     explicit ECCVMRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
+                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                     const std::shared_ptr<Transcript>& transcript);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
-    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, std::shared_ptr<Transcript>>
-    verify_proof(const ECCVMProof& proof);
+    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof<Builder>> verify_proof(
+        const ECCVMProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript;
+    StdlibProof<Builder> ipa_proof;
     TranslationEvaluations_<FF> translation_evaluations;
 
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a

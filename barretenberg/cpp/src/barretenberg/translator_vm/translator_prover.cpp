@@ -9,7 +9,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -20,8 +20,8 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     PROFILE_THIS();
-    if (key->proving_key->commitment_key == nullptr) {
-        key->proving_key->commitment_key = std::make_shared<CommitmentKey>(key->proving_key->circuit_size);
+    if (!key->proving_key->commitment_key.initialized()) {
+        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
     }
 }
 
@@ -57,7 +57,7 @@ void TranslatorProver::execute_preamble_round()
  */
 void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
-    transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(polynomial));
+    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
 }
 
 /**
@@ -144,7 +144,7 @@ void TranslatorProver::execute_relation_check_rounds()
     // // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
     // // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
     // //  until we enter the PCS round
-    auto ck = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+    CommitmentKey ck(1 << (log_subgroup_size + 1));
 
     zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
@@ -167,7 +167,9 @@ void TranslatorProver::execute_pcs_rounds()
 
     // Check whether the commitment key has been deallocated and reinitialise it if necessary
     auto& ck = key->proving_key->commitment_key;
-    ck = ck ? ck : std::make_shared<CommitmentKey>(key->proving_key->circuit_size);
+    if (!ck.initialized()) {
+        ck = CommitmentKey(key->proving_key->circuit_size);
+    }
 
     SmallSubgroupIPA small_subgroup_ipa_prover(
         zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
@@ -192,8 +194,7 @@ void TranslatorProver::execute_pcs_rounds()
 
 HonkProof TranslatorProver::export_proof()
 {
-    proof = transcript->export_proof();
-    return proof;
+    return transcript->export_proof();
 }
 
 HonkProof TranslatorProver::construct_proof()
@@ -212,7 +213,7 @@ HonkProof TranslatorProver::construct_proof()
 
     // #ifndef __wasm__
     // Free the commitment key
-    key->proving_key->commitment_key = nullptr;
+    key->proving_key->commitment_key = CommitmentKey();
     // #endif
 
     // Fiat-Shamir: alpha

@@ -39,11 +39,11 @@ describe('e2e_snapshot_sync', () => {
     log = context.logger;
     snapshotDir = await mkdtemp(join(tmpdir(), 'snapshots-'));
     snapshotLocation = `file://${snapshotDir}`;
-    monitor = new ChainMonitor(RollupContract.getFromConfig(context.config), log).start();
+    monitor = new ChainMonitor(RollupContract.getFromConfig(context.config), context.dateProvider, log).start();
   });
 
   afterAll(async () => {
-    monitor.stop();
+    await monitor.stop();
     await context.teardown();
     await tryRmDir(snapshotDir, log);
   });

@@ -1,5 +1,4 @@
 import { type Logger, sleep } from '@aztec/aztec.js';
-// eslint-disable-next-line no-restricted-imports
 import { ChainMonitor } from '@aztec/ethereum/test';
 
 import { jest } from '@jest/globals';
@@ -24,7 +23,7 @@ describe('e2e_epochs/epochs_long_proving_time', () => {
     const { aztecSlotDuration } = EpochsTestContext.getSlotDurations({ aztecEpochDuration });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
-    test = await EpochsTestContext.setup({ aztecEpochDuration, aztecProofSubmissionWindow: 16, proverTestDelayMs });
+    test = await EpochsTestContext.setup({ aztecEpochDuration, aztecProofSubmissionEpochs: 8, proverTestDelayMs });
     ({ logger, monitor, L1_BLOCK_TIME_IN_S } = test);
     logger.warn(`Initialized with prover delay set to ${proverTestDelayMs}ms (epoch is ${epochDurationInSeconds}s)`);
   });

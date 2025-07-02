@@ -1,5 +1,5 @@
+export * from './claimed_length_array.js';
 export * from './private_to_rollup_accumulated_data.js';
-export * from './combined_constant_data.js';
 export * from './private_to_rollup_kernel_circuit_public_inputs.js';
 export * from './private_accumulated_data.js';
 export * from './private_call_data.js';
@@ -28,3 +28,4 @@ export * from './private_call_request.js';
 export * from './private_validation_requests.js';
 export * from './private_kernel_simulated_output.js';
 export * from './private_kernel_prover_output.js';
+export * from './padded_side_effects.js';

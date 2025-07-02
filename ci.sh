@@ -20,6 +20,8 @@ function print_usage {
   echo
   echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
   echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
+  echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
+  echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
   echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
@@ -68,6 +70,14 @@ function tail_live_instance {
   "
 }
 
+# Used in merge-queue, nightly, and release flows.
+function prep_vars {
+  export RUN_ID=${RUN_ID:-$(date +%s%3N)}
+  export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+}
+
 case "$cmd" in
   "fast")
     # Spin up ec2 instance and run the fast flow.
@@ -79,36 +89,68 @@ case "$cmd" in
     export JOB_ID="x1-full"
     exec bootstrap_ec2 "./bootstrap.sh ci-full"
     ;;
-  "merge-queue")
+  "docs")
+    # Spin up ec2 instance and run docs-only CI.
+    export JOB_ID="x1-docs"
+    exec bootstrap_ec2 "./bootstrap.sh ci-docs"
+    ;;
+  "barretenberg")
+    # Spin up ec2 instance and run barretenberg-only CI.
+    export JOB_ID="x1-barretenberg"
+    exec bootstrap_ec2 "./bootstrap.sh ci-barretenberg"
+    ;;
+  "grind")
     # Spin up ec2 instance and run the merge-queue flow.
-    export RUN_ID=${RUN_ID:-$(date +%s%3N)}
-    export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
-    export DENOISE=1
-    export DENOISE_WIDTH=32
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+    }
+    export -f run
+    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full'
+    ;;
+  "merge-queue")
+    prep_vars
+    # Spin up ec2 instance and run the merge-queue flow.
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x1-full amd64 ci-full' \
       'run x2-full amd64 ci-full' \
+      'run x3-full amd64 ci-full' \
+      'run x4-full amd64 ci-full' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "nightly")
+    prep_vars
     # Spin up ec2 instance and run the nightly flow.
-    export JOB_ID="x1-nightly"
-    exec bootstrap_ec2 "./bootstrap.sh ci-nightly"
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
+    }
+    export -f run
+    # We need to run the release flow on both x86 and arm64.
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-nightly amd64' \
+      'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
     ;;
   "release")
+    prep_vars
     # Spin up ec2 instance and run the release flow.
-    export JOB_ID="x1-release"
-    exec bootstrap_ec2 "./bootstrap.sh ci-release"
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
+    }
+    export -f run
+    # We need to run the release flow on both x86 and arm64.
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-release amd64' \
+      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
     ;;
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
-    exec bootstrap_ec2 "false"
+    cmd="${1:-false}"
+    exec bootstrap_ec2 "$cmd"
     ;;
   "shell-container")
     # Drop into a shell in the current running build instance container.

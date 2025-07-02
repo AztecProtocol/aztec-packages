@@ -36,6 +36,9 @@ export class BenchmarkTelemetryClient implements TelemetryClient {
     log.info(`Using benchmark telemetry client`);
   }
 
+  setExportedPublicTelemetry(_prefixes: string[]): void {}
+  setPublicTelemetryCollectFrom(_roles: string[]): void {}
+
   getMeter(name: string): Meter {
     const meter = new InMemoryPlainMeter(name);
     this.meters.push(meter);
@@ -76,23 +79,23 @@ class InMemoryPlainMeter implements Meter {
     this.metrics.forEach(metric => metric.clear());
   }
 
-  createGauge(name: MetricsType, options?: MetricOptions | undefined): Gauge {
+  createGauge(name: MetricsType, options?: MetricOptions): Gauge {
     return this.createMetric('gauge', name, options);
   }
 
-  createObservableGauge(name: MetricsType, options?: MetricOptions | undefined): ObservableGauge {
+  createObservableGauge(name: MetricsType, options?: MetricOptions): ObservableGauge {
     return this.createMetric('gauge', name, options);
   }
 
-  createHistogram(name: MetricsType, options?: MetricOptions | undefined): Histogram {
+  createHistogram(name: MetricsType, options?: MetricOptions): Histogram {
     return this.createMetric('histogram', name, options);
   }
 
-  createUpDownCounter(name: MetricsType, options?: MetricOptions | undefined): UpDownCounter {
+  createUpDownCounter(name: MetricsType, options?: MetricOptions): UpDownCounter {
     return this.createMetric('counter', name, options);
   }
 
-  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions | undefined): ObservableUpDownCounter {
+  createObservableUpDownCounter(name: MetricsType, options?: MetricOptions): ObservableUpDownCounter {
     return this.createMetric('counter', name, options);
   }
 

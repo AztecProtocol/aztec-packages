@@ -21,18 +21,13 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerifica
     , transcript(transcript)
 {}
 
-template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator)
-    : accumulator(accumulator)
-{}
-
 /**
  * @brief Verify a decider proof relative to a decider verification key (ϕ, \vec{β*}, e*).
  */
 template <typename Flavor>
 typename DeciderVerifier_<Flavor>::Output DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
 {
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
     return verify();
 }
 
@@ -74,10 +69,6 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
 
-    // If Sumcheck did not verify, return false
-    if (!sumcheck_output.verified) {
-        return { /*sumcheck_verified=*/false, /*libra_evals_verified=*/false, PairingPoints{} };
-    }
     bool consistency_checked = true;
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), sumcheck_output.claimed_evaluations.get_unshifted() },

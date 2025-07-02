@@ -6,6 +6,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
+import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function createAccount(
   client: PXE,
@@ -107,7 +108,7 @@ export async function createAccount(
     } else {
       const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
       if (verbose) {
-        printProfileResult(provenTx.timings!, log);
+        printProfileResult(provenTx.stats!, log);
       }
       tx = provenTx.send();
 
@@ -118,7 +119,7 @@ export async function createAccount(
         if (!json) {
           log(`\nWaiting for account contract deployment...`);
         }
-        txReceipt = await tx.wait();
+        txReceipt = await tx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
         out.txReceipt = {
           status: txReceipt.status,
           transactionFee: txReceipt.transactionFee,

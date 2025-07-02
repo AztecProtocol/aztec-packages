@@ -5,7 +5,10 @@ export class NoBlobBodiesFoundError extends Error {
 }
 
 export class InitialBlockNumberNotSequentialError extends Error {
-  constructor(public readonly newBlockNumber: number, public readonly previousBlockNumber: number | undefined) {
+  constructor(
+    public readonly newBlockNumber: number,
+    public readonly previousBlockNumber: number | undefined,
+  ) {
     super(
       `Cannot insert new block ${newBlockNumber} given previous block number in store is ${
         previousBlockNumber ?? 'undefined'

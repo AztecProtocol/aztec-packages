@@ -75,6 +75,8 @@ template <typename Builder> class bool_t {
 
     void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
     OriginTag get_origin_tag() const { return tag; }
+    void set_free_witness_tag() { tag.set_free_witness(); }
+    void unset_free_witness_tag() { tag.unset_free_witness(); }
     mutable Builder* context = nullptr;
     mutable bool witness_bool = false;
     mutable bool witness_inverted = false;

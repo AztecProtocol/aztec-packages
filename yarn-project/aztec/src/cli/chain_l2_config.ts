@@ -4,6 +4,8 @@ import type { SharedNodeConfig } from '@aztec/node-lib/config';
 
 import path from 'path';
 
+import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
+
 export type NetworkNames = 'testnet-ignition' | 'alpha-testnet';
 
 export type L2ChainConfig = {
@@ -11,7 +13,7 @@ export type L2ChainConfig = {
   ethereumSlotDuration: number;
   aztecSlotDuration: number;
   aztecEpochDuration: number;
-  aztecProofSubmissionWindow: number;
+  aztecProofSubmissionEpochs: number;
   testAccounts: boolean;
   sponsoredFPC: boolean;
   p2pEnabled: boolean;
@@ -25,6 +27,10 @@ export type L2ChainConfig = {
   snapshotsUrl: string;
   autoUpdate: SharedNodeConfig['autoUpdate'];
   autoUpdateUrl?: string;
+  maxTxPoolSize: number;
+  publicIncludeMetrics?: string[];
+  publicMetricsCollectorUrl?: string;
+  publicMetricsCollectFrom?: string[];
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -32,7 +38,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
-  aztecProofSubmissionWindow: 64,
+  aztecProofSubmissionEpochs: 1,
   testAccounts: true,
   sponsoredFPC: false,
   p2pEnabled: true,
@@ -46,6 +52,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'disabled',
   autoUpdateUrl: undefined,
+  maxTxPoolSize: 100_000_000, // 100MB
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -53,7 +60,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
-  aztecProofSubmissionWindow: 64,
+  aztecProofSubmissionEpochs: 1,
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
@@ -65,8 +72,12 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
-  autoUpdate: 'enabled',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
+  maxTxPoolSize: 100_000_000, // 100MB
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
+  publicMetricsCollectFrom: ['sequencer'],
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -120,7 +131,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
-  enrichVar('AZTEC_PROOF_SUBMISSION_WINDOW', config.aztecProofSubmissionWindow.toString());
+  enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
   enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
@@ -132,6 +143,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
@@ -139,6 +151,18 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
 
   if (config.autoUpdateUrl) {
     enrichVar('AUTO_UPDATE_URL', config.autoUpdateUrl);
+  }
+
+  if (config.publicIncludeMetrics) {
+    enrichVar('PUBLIC_OTEL_INCLUDE_METRICS', config.publicIncludeMetrics.join(','));
+  }
+
+  if (config.publicMetricsCollectorUrl) {
+    enrichVar('PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT', config.publicMetricsCollectorUrl);
+  }
+
+  if (config.publicMetricsCollectFrom) {
+    enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);

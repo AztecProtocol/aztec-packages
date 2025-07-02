@@ -12,6 +12,7 @@
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
@@ -20,7 +21,6 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
@@ -159,35 +159,6 @@ class GoblinMockCircuits {
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
-    }
-
-    /**
-     * @brief A minimal version of the mock kernel (recursive verifiers only) for faster testing
-     *
-     */
-    static void construct_mock_kernel_small(MegaBuilder& builder,
-                                            const KernelInput& function_accum,
-                                            const KernelInput& prev_kernel_accum)
-    {
-        PROFILE_THIS();
-        using PairingPoints = stdlib::recursion::PairingPoints<MegaBuilder>;
-
-        // Execute recursive aggregation of function proof
-        auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
-        auto proof = bb::convert_native_proof_to_stdlib(&builder, function_accum.proof);
-        RecursiveVerifier verifier_1{ &builder, verification_key };
-        RecursiveVerifier::Output output_1 = verifier_1.verify_proof(proof);
-        PairingPoints points_accumulator = output_1.points_accumulator;
-        // Execute recursive aggregation of previous kernel proof if one exists
-        if (!prev_kernel_accum.proof.empty()) {
-            auto verification_key =
-                std::make_shared<RecursiveVerificationKey>(&builder, prev_kernel_accum.verification_key);
-            auto proof = bb::convert_native_proof_to_stdlib(&builder, prev_kernel_accum.proof);
-            RecursiveVerifier verifier_2{ &builder, verification_key };
-            RecursiveVerifier::Output output_2 = verifier_2.verify_proof(proof);
-            points_accumulator = output_2.points_accumulator;
-        }
-        points_accumulator.set_public();
     }
 };
 } // namespace bb

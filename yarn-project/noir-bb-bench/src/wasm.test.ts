@@ -1,9 +1,6 @@
 import { jest } from '@jest/globals';
-import createDebug from 'debug';
 
 import { proveThenVerifyStack } from './index.js';
-
-createDebug.enable('*');
 
 /* eslint-disable camelcase */
 

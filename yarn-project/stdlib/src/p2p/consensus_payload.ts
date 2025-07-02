@@ -4,7 +4,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { encodeAbiParameters, parseAbiParameters, toHex } from 'viem';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { L2Block } from '../block/l2_block.js';
@@ -41,9 +41,19 @@ export class ConsensusPayload implements Signable {
   }
 
   getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    const abi = parseAbiParameters('uint8, (bytes32, bytes, (uint256), bytes32, bytes32[])');
+    const abi = parseAbiParameters(
+      'uint8, ' + //domainSeperator
+        '(' +
+        'bytes32, ' + // archive
+        '((bytes32,uint32),((bytes32,uint32),(bytes32,uint32),(bytes32,uint32))), ' + // stateReference
+        '(int256), ' + // oracleInput
+        'bytes32, ' + // headerHash
+        'bytes32[]' + // txHashes
+        ')',
+    );
     const archiveRoot = this.archive.toString();
-    const stateReference = toHex(this.stateReference.toBuffer());
+    const stateReference = this.stateReference.toAbi();
+
     const headerHash = this.header.hash().toString();
     const txArray = this.txHashes.map(tx => tx.toString());
     const encodedData = encodeAbiParameters(abi, [
@@ -104,5 +114,11 @@ export class ConsensusPayload implements Signable {
     }
     this.size = this.toBuffer().length;
     return this.size;
+  }
+
+  toString() {
+    return `header: ${this.header.toString()}, archive: ${this.archive.toString()}, stateReference: ${this.stateReference.l1ToL2MessageTree.root.toString()}, txHashes: ${this.txHashes.join(
+      ', ',
+    )}`;
   }
 }

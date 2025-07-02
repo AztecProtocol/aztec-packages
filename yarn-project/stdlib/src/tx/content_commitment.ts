@@ -1,45 +1,31 @@
-import { CONTENT_COMMITMENT_LENGTH } from '@aztec/constants';
+import type { ViemContentCommitment } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-export const NUM_BYTES_PER_SHA256 = 32;
-
 export class ContentCommitment {
-  constructor(public numTxs: Fr, public blobsHash: Buffer, public inHash: Buffer, public outHash: Buffer) {
-    // NB: we do not calculate blobHash in the circuit, but we still truncate it so it fits in a field
-    if (blobsHash.length !== NUM_BYTES_PER_SHA256) {
-      throw new Error(`blobsHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
-    }
-    if (blobsHash[0] !== 0) {
-      throw new Error(`blobsHash buffer should be truncated and left padded`);
-    }
-    if (inHash.length !== NUM_BYTES_PER_SHA256) {
-      throw new Error(`inHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
-    }
-    if (inHash[0] !== 0) {
-      throw new Error(`inHash buffer should be truncated and left padded`);
-    }
-    if (outHash.length !== NUM_BYTES_PER_SHA256) {
-      throw new Error(`outHash buffer must be ${NUM_BYTES_PER_SHA256} bytes`);
-    }
-    if (outHash[0] !== 0) {
-      throw new Error(`outHash buffer should be truncated and left padded`);
-    }
-  }
+  constructor(
+    public blobsHash: Fr,
+    public inHash: Fr,
+    public outHash: Fr,
+  ) {}
 
   static get schema() {
     return z
       .object({
-        numTxs: schemas.Fr,
-        blobsHash: schemas.Buffer,
-        inHash: schemas.Buffer,
-        outHash: schemas.Buffer,
+        blobsHash: schemas.Fr,
+        inHash: schemas.Fr,
+        outHash: schemas.Fr,
       })
-      .transform(({ numTxs, blobsHash, inHash, outHash }) => new ContentCommitment(numTxs, blobsHash, inHash, outHash));
+      .transform(({ blobsHash, inHash, outHash }) => new ContentCommitment(blobsHash, inHash, outHash));
+  }
+
+  static getFields(fields: FieldsOf<ContentCommitment>) {
+    return [fields.blobsHash, fields.inHash, fields.outHash] as const;
   }
 
   getSize() {
@@ -47,70 +33,54 @@ export class ContentCommitment {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.numTxs, this.blobsHash, this.inHash, this.outHash);
-  }
-
-  toInspect() {
-    return {
-      numTxs: this.numTxs.toNumber(),
-      blobsHash: bufferToHex(this.blobsHash),
-      inHash: bufferToHex(this.inHash),
-      outHash: bufferToHex(this.outHash),
-    };
-  }
-
-  toFields(): Fr[] {
-    const serialized = [
-      this.numTxs,
-      Fr.fromBuffer(this.blobsHash),
-      Fr.fromBuffer(this.inHash),
-      Fr.fromBuffer(this.outHash),
-    ];
-    if (serialized.length !== CONTENT_COMMITMENT_LENGTH) {
-      throw new Error(
-        `Expected content commitment to have ${CONTENT_COMMITMENT_LENGTH} fields, but it has ${serialized.length} fields`,
-      );
-    }
-    return serialized;
+    return serializeToBuffer(...ContentCommitment.getFields(this));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): ContentCommitment {
     const reader = BufferReader.asReader(buffer);
 
+    return new ContentCommitment(reader.readObject(Fr), reader.readObject(Fr), reader.readObject(Fr));
+  }
+
+  toInspect() {
+    return {
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
+      outHash: this.outHash.toString(),
+    };
+  }
+
+  toViem(): ViemContentCommitment {
+    return {
+      blobsHash: this.blobsHash.toString(),
+      inHash: this.inHash.toString(),
+      outHash: this.outHash.toString(),
+    };
+  }
+
+  static fromViem(contentCommitment: ViemContentCommitment) {
     return new ContentCommitment(
-      reader.readObject(Fr),
-      reader.readBytes(NUM_BYTES_PER_SHA256),
-      reader.readBytes(NUM_BYTES_PER_SHA256),
-      reader.readBytes(NUM_BYTES_PER_SHA256),
+      Fr.fromString(contentCommitment.blobsHash),
+      Fr.fromString(contentCommitment.inHash),
+      Fr.fromString(contentCommitment.outHash),
     );
+  }
+
+  toFields(): Fr[] {
+    return serializeToFields(...ContentCommitment.getFields(this));
   }
 
   static fromFields(fields: Fr[] | FieldReader): ContentCommitment {
     const reader = FieldReader.asReader(fields);
-    return new ContentCommitment(
-      reader.readField(),
-      reader.readField().toBuffer(),
-      reader.readField().toBuffer(),
-      reader.readField().toBuffer(),
-    );
+    return new ContentCommitment(reader.readField(), reader.readField(), reader.readField());
   }
 
   static empty(): ContentCommitment {
-    return new ContentCommitment(
-      Fr.zero(),
-      Buffer.alloc(NUM_BYTES_PER_SHA256),
-      Buffer.alloc(NUM_BYTES_PER_SHA256),
-      Buffer.alloc(NUM_BYTES_PER_SHA256),
-    );
+    return new ContentCommitment(Fr.zero(), Fr.zero(), Fr.zero());
   }
 
   isEmpty(): boolean {
-    return (
-      this.numTxs.isZero() &&
-      this.blobsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
-      this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
-      this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))
-    );
+    return this.blobsHash.isZero() && this.inHash.isZero() && this.outHash.isZero();
   }
 
   public toString(): string {
@@ -124,10 +94,7 @@ export class ContentCommitment {
 
   public equals(other: this): boolean {
     return (
-      this.inHash.equals(other.inHash) &&
-      this.outHash.equals(other.outHash) &&
-      this.numTxs.equals(other.numTxs) &&
-      this.blobsHash.equals(other.blobsHash)
+      this.blobsHash.equals(other.blobsHash) && this.inHash.equals(other.inHash) && this.outHash.equals(other.outHash)
     );
   }
 }

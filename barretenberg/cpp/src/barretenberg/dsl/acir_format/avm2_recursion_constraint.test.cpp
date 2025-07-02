@@ -51,13 +51,16 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         auto [trace, public_inputs] = avm2::testing::get_minimal_trace_with_pi();
 
         InnerProver prover;
-        const auto [proof, vk_data] = prover.prove(std::move(trace));
+        auto [proof, vk_data] = prover.prove(std::move(trace));
         const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
         const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
+
+        // TODO(#14234)[Unconditional PIs validation]: Remove next line
+        proof.insert(proof.begin(), 0);
         return { proof, verification_key, public_inputs_flat };
     }
 
@@ -131,11 +134,11 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-    OuterProver prover(proving_key);
+    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+    OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
     EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
 }
@@ -162,13 +165,13 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        OuterProver prover(proving_key);
+        expected_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, expected_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
-        expected_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         OuterVerifier verifier(expected_vk, ipa_verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
     }
@@ -186,9 +189,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        OuterProver prover(proving_key);
+        actual_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, actual_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
-        actual_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
     }
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking

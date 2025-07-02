@@ -18,7 +18,7 @@ template <typename Builder> class bit_array;
  *
  * Creates constraints that evaluate the Keccak256 hash algorithm.
  *
- * UltraPlonk only due to heavy lookup table use.
+ * Ultra only due to heavy lookup table use.
  *
  * Current cost 17,329 constraints for a 1-block hash
  * using small(ish) lookup tables (total size < 2^64)

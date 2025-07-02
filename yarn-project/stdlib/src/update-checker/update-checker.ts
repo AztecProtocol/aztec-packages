@@ -12,18 +12,19 @@ import { z } from 'zod';
 
 const updateConfigSchema = z.object({
   version: z.string().optional(),
+  publicTelemetry: z.any().optional(),
   config: z.any().optional(),
 });
 
 export type EventMap = {
-  newVersion: [{ currentVersion: string; latestVersion: string }];
-  updateConfig: [object];
-  newRollup: [{ currentRollup: EthAddress; latestRollup: EthAddress }];
+  newRollupVersion: [{ currentVersion: bigint; latestVersion: bigint }];
+  newNodeVersion: [{ currentVersion: string; latestVersion: string }];
+  updateNodeConfig: [object];
+  updatePublicTelemetryConfig: [object];
 };
 
 type Config = {
   baseURL: URL;
-  rollupVersion?: number | 'canonical';
   nodeVersion?: string;
   checkIntervalMs?: number;
   registryContractAddress: EthAddress;
@@ -34,14 +35,14 @@ type Config = {
 export class UpdateChecker extends EventEmitter<EventMap> {
   private runningPromise: RunningPromise;
   private lastPatchedConfig: object = {};
+  private lastPatchedPublicTelemetryConfig: object = {};
 
   constructor(
-    private configBasePath: URL,
+    private updatesUrl: URL,
     private nodeVersion: string | undefined,
-    private rollupVersion: number | 'canonical',
-    private rollupAddressAtStart: EthAddress,
+    private rollupVersion: bigint,
     private fetch: typeof globalThis.fetch,
-    private getRollupAddress: (version: number | 'canonical') => Promise<EthAddress>,
+    private getLatestRollupVersion: () => Promise<bigint>,
     private checkIntervalMs = 60_000, // every minute
     private log = createLogger('foundation:update-check'),
   ) {
@@ -51,15 +52,14 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 
   public static async new(config: Config): Promise<UpdateChecker> {
     const registryContract = new RegistryContract(config.publicClient, config.registryContractAddress);
-    const rollupAddress = await registryContract.getRollupAddress(config.rollupVersion ?? 'canonical');
+    const getLatestRollupVersion = () => registryContract.getRollupVersions().then(versions => versions.at(-1)!);
 
     return new UpdateChecker(
       config.baseURL,
       config.nodeVersion ?? getPackageVersion(),
-      config.rollupVersion ?? 'canonical',
-      rollupAddress,
+      await getLatestRollupVersion(),
       config.fetch ?? fetch,
-      version => registryContract.getRollupAddress(version),
+      getLatestRollupVersion,
       config.checkIntervalMs,
     );
   }
@@ -70,6 +70,10 @@ export class UpdateChecker extends EventEmitter<EventMap> {
       return;
     }
 
+    this.log.info('Starting update checker', {
+      nodeVersion: this.nodeVersion,
+      rollupVersion: this.rollupVersion,
+    });
     this.runningPromise.start();
   }
 
@@ -91,9 +95,13 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 
   private async checkRollupVersion(): Promise<void> {
     try {
-      const canonicalRollup = await this.getRollupAddress(this.rollupVersion);
-      if (!canonicalRollup.equals(this.rollupAddressAtStart)) {
-        this.emit('newRollup', { currentRollup: this.rollupAddressAtStart, latestRollup: canonicalRollup });
+      const canonicalRollupVersion = await this.getLatestRollupVersion();
+      if (canonicalRollupVersion !== this.rollupVersion) {
+        this.log.debug('New canonical rollup version', {
+          currentVersion: this.rollupVersion,
+          latestVersion: canonicalRollupVersion,
+        });
+        this.emit('newRollupVersion', { currentVersion: this.rollupVersion, latestVersion: canonicalRollupVersion });
       }
     } catch (err) {
       this.log.warn(`Failed to check if there is a new rollup`, err);
@@ -102,26 +110,37 @@ export class UpdateChecker extends EventEmitter<EventMap> {
 
   private async checkConfig(): Promise<void> {
     try {
-      const response = await this.fetch(
-        new URL('aztec-' + this.rollupAddressAtStart.toString() + '/index.json', this.configBasePath),
-      );
+      const response = await this.fetch(this.updatesUrl);
       const body = await response.json();
       if (!response.ok) {
         this.log.warn(`Unexpected HTTP response checking for updates`, {
           status: response.status,
           body: await response.text(),
+          url: this.updatesUrl,
         });
       }
 
-      const { version, config } = updateConfigSchema.parse(body);
+      const { version, config, publicTelemetry } = updateConfigSchema.parse(body);
 
-      if (this.nodeVersion !== undefined && version !== undefined && version !== this.nodeVersion) {
-        this.emit('newVersion', { currentVersion: this.nodeVersion, latestVersion: version });
+      if (this.nodeVersion && version && version !== this.nodeVersion) {
+        this.log.debug('New node version', { currentVersion: this.nodeVersion, latestVersion: version });
+        this.emit('newNodeVersion', { currentVersion: this.nodeVersion, latestVersion: version });
       }
 
       if (config && Object.keys(config).length > 0 && !isDeepStrictEqual(config, this.lastPatchedConfig)) {
+        this.log.debug('New node config', { config });
         this.lastPatchedConfig = config;
-        this.emit('updateConfig', config);
+        this.emit('updateNodeConfig', config);
+      }
+
+      if (
+        publicTelemetry &&
+        Object.keys(publicTelemetry).length > 0 &&
+        !isDeepStrictEqual(publicTelemetry, this.lastPatchedPublicTelemetryConfig)
+      ) {
+        this.log.debug('New metrics config', { config });
+        this.lastPatchedPublicTelemetryConfig = publicTelemetry;
+        this.emit('updatePublicTelemetryConfig', publicTelemetry);
       }
     } catch (err) {
       this.log.warn(`Failed to check if there is an update`, err);
@@ -140,7 +159,7 @@ export function getPackageVersion(): string | undefined {
     );
     const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString())['.'];
     return version;
-  } catch (err) {
+  } catch {
     return undefined;
   }
 }

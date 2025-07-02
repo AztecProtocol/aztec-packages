@@ -3,6 +3,7 @@ import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from 
 import { EthAddress, Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY, getAddressFromPrivateKey, getPublicClient } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
@@ -97,6 +98,8 @@ export async function startNode(
       nodeConfig.rollupVersion,
     );
 
+    process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
+
     if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
       throw new Error(
         `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
@@ -133,9 +136,9 @@ export async function startNode(
       ...extractNamespacedOptions(options, 'sequencer'),
     };
     let account;
-    if (!sequencerConfig.publisherPrivateKey || sequencerConfig.publisherPrivateKey === NULL_KEY) {
-      if (sequencerConfig.validatorPrivateKey) {
-        sequencerConfig.publisherPrivateKey = sequencerConfig.validatorPrivateKey as `0x${string}`;
+    if (sequencerConfig.publisherPrivateKey.getValue() === NULL_KEY) {
+      if (sequencerConfig.validatorPrivateKeys.getValue().length) {
+        sequencerConfig.publisherPrivateKey = new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0]);
       } else if (!options.l1Mnemonic) {
         userLog(
           '--sequencer.publisherPrivateKey or --l1-mnemonic is required to start Aztec Node with --sequencer option',
@@ -144,11 +147,11 @@ export async function startNode(
       } else {
         account = mnemonicToAccount(options.l1Mnemonic);
         const privKey = account.getHdKey().privateKey;
-        sequencerConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+        sequencerConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
       }
     }
     nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
-    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey));
+    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey.getValue()));
   }
 
   if (nodeConfig.p2pEnabled) {
@@ -189,11 +192,11 @@ export async function startNode(
     await setupUpdateMonitor(
       nodeConfig.autoUpdate,
       new URL(nodeConfig.autoUpdateUrl),
-      followsCanonicalRollup ? 'canonical' : nodeConfig.rollupVersion,
+      followsCanonicalRollup,
       getPublicClient(nodeConfig!),
       nodeConfig.l1Contracts.registryAddress,
       signalHandlers,
-      config => node.setConfig(config),
+      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
     );
   }
 

@@ -22,7 +22,6 @@ export class BarretenbergVerifier {
       const api = await Barretenberg.new(this.options);
       await api.initSRSForCircuitSize(0);
 
-      this.acirComposer = await api.acirNewAcirComposer(0);
       this.api = api;
     }
   }

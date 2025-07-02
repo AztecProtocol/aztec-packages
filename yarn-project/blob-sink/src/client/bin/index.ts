@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /* eslint-disable no-console */
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';

@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { randomBigInt } from '@aztec/foundation/crypto';
 
 import { jest } from '@jest/globals';
 
@@ -7,8 +7,8 @@ import { type EventMap, UpdateChecker } from './update-checker.js';
 describe('UpdateChecker', () => {
   let checker: UpdateChecker;
   let fetch: jest.Mock<typeof globalThis.fetch>;
-  let getRollupAddress: jest.Mock<(version: number | 'canonical') => Promise<EthAddress>>;
-  let rollupAddressAtStart: EthAddress;
+  let getCanonicalRollupVersion: jest.Mock<() => Promise<bigint>>;
+  let rollupVersionAtStart: bigint;
   let nodeVersionAtStart: string;
   let eventHandlers: {
     [K in keyof EventMap]: jest.Mock<(...args: EventMap[K]) => void>;
@@ -16,24 +16,24 @@ describe('UpdateChecker', () => {
 
   beforeEach(() => {
     nodeVersionAtStart = '0.1.0';
-    rollupAddressAtStart = EthAddress.random();
+    rollupVersionAtStart = randomBigInt(1000n);
     fetch = jest.fn(() => Promise.resolve(new Response(JSON.stringify({ version: nodeVersionAtStart }))));
-    getRollupAddress = jest.fn(() => Promise.resolve(rollupAddressAtStart));
+    getCanonicalRollupVersion = jest.fn(() => Promise.resolve(rollupVersionAtStart));
 
     checker = new UpdateChecker(
       new URL('http://localhost'),
       nodeVersionAtStart,
-      'canonical',
-      rollupAddressAtStart,
+      rollupVersionAtStart,
       fetch,
-      getRollupAddress,
+      getCanonicalRollupVersion,
       100,
     );
 
     eventHandlers = {
-      updateConfig: jest.fn(),
-      newVersion: jest.fn(),
-      newRollup: jest.fn(),
+      updateNodeConfig: jest.fn(),
+      newNodeVersion: jest.fn(),
+      newRollupVersion: jest.fn(),
+      updatePublicTelemetryConfig: jest.fn(),
     };
 
     for (const [event, fn] of Object.entries(eventHandlers)) {
@@ -52,7 +52,7 @@ describe('UpdateChecker', () => {
     [
       'fetching rollup address fails',
       () => {
-        getRollupAddress.mockRejectedValue(new Error('test error'));
+        getCanonicalRollupVersion.mockRejectedValue(new Error('test error'));
       },
     ],
     [
@@ -91,21 +91,30 @@ describe('UpdateChecker', () => {
 
   it.each<[keyof EventMap, () => void]>([
     [
-      'newRollup',
+      'newRollupVersion',
       () => {
-        getRollupAddress.mockResolvedValueOnce(EthAddress.random());
+        // ensure the new version is completely different to the previous one
+        getCanonicalRollupVersion.mockResolvedValueOnce(1000n + randomBigInt(1000n));
       },
     ],
     [
-      'newVersion',
+      'newNodeVersion',
       () => {
         fetch.mockResolvedValueOnce(new Response(JSON.stringify({ version: '0.1.0-foo' })));
       },
     ],
     [
-      'updateConfig',
+      'updateNodeConfig',
       () => {
         fetch.mockResolvedValueOnce(new Response(JSON.stringify({ config: { maxTxsPerBlock: 16 } })));
+      },
+    ],
+    [
+      'updatePublicTelemetryConfig',
+      () => {
+        fetch.mockResolvedValueOnce(
+          new Response(JSON.stringify({ publicTelemetry: { publicIncludeMetrics: ['aztec'] } })),
+        );
       },
     ],
   ])('emits event: %s', async (event, patchFn) => {
@@ -127,10 +136,10 @@ describe('UpdateChecker', () => {
     );
 
     await checker.trigger();
-    expect(eventHandlers.updateConfig).toHaveBeenCalledTimes(1);
+    expect(eventHandlers.updateNodeConfig).toHaveBeenCalledTimes(1);
 
     await checker.trigger();
-    expect(eventHandlers.updateConfig).toHaveBeenCalledTimes(1);
+    expect(eventHandlers.updateNodeConfig).toHaveBeenCalledTimes(1);
 
     fetch.mockResolvedValue(
       new Response(
@@ -144,11 +153,42 @@ describe('UpdateChecker', () => {
     );
 
     await checker.trigger();
-    expect(eventHandlers.updateConfig).toHaveBeenCalledTimes(2);
+    expect(eventHandlers.updateNodeConfig).toHaveBeenCalledTimes(2);
+  });
+
+  it('calls updatePublicTelemetryConfig only when config changes', async () => {
+    fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          publicTelemetry: {
+            publicIncludeMetrics: ['aztec'],
+          },
+        }),
+      ),
+    );
+
+    await checker.trigger();
+    expect(eventHandlers.updatePublicTelemetryConfig).toHaveBeenCalledTimes(1);
+
+    await checker.trigger();
+    expect(eventHandlers.updatePublicTelemetryConfig).toHaveBeenCalledTimes(1);
+
+    fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          publicTelemetry: {
+            publicIncludeMetrics: ['aztec.validator'],
+          },
+        }),
+      ),
+    );
+
+    await checker.trigger();
+    expect(eventHandlers.updatePublicTelemetryConfig).toHaveBeenCalledTimes(2);
   });
 
   it('reaches out to the expected config URL', async () => {
     await checker.trigger();
-    expect(fetch).toHaveBeenCalledWith(new URL(`http://localhost/aztec-${rollupAddressAtStart}/index.json`));
+    expect(fetch).toHaveBeenCalledWith(new URL(`http://localhost`));
   });
 });

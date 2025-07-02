@@ -18,9 +18,11 @@ import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
+  PublicProcessorValidator,
 } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
 import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { NullifierCache } from './nullifier_cache.js';
 
@@ -29,19 +31,21 @@ export function createValidatorForAcceptingTxs(
   contractDataSource: ContractDataSource,
   verifier: ClientProtocolCircuitVerifier | undefined,
   {
-    blockNumber,
     l1ChainId,
     rollupVersion,
     setupAllowList,
     gasFees,
     skipFeeEnforcement,
+    timestamp,
+    blockNumber,
   }: {
-    blockNumber: number;
     l1ChainId: number;
     rollupVersion: number;
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
+    timestamp: UInt64;
+    blockNumber: number;
   },
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
@@ -49,12 +53,13 @@ export function createValidatorForAcceptingTxs(
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),
       rollupVersion: new Fr(rollupVersion),
-      blockNumber: new Fr(blockNumber),
+      timestamp,
+      blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
-    new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
+    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
 
@@ -74,10 +79,7 @@ export function createValidatorForBlockBuilding(
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
-): {
-  preprocessValidator: TxValidator<Tx>;
-  nullifierCache: NullifierCache;
-} {
+): PublicProcessorValidator {
   const nullifierCache = new NullifierCache(db);
   const archiveCache = new ArchiveCache(db);
   const publicStateSource = new DatabasePublicStateSource(db);
@@ -108,12 +110,13 @@ function preprocessValidator(
     new MetadataTxValidator({
       l1ChainId: globalVariables.chainId,
       rollupVersion: globalVariables.version,
+      timestamp: globalVariables.timestamp,
       blockNumber: globalVariables.blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );

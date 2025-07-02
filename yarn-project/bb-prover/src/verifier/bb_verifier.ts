@@ -1,8 +1,9 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
+import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { CircuitVerificationStats } from '@aztec/stdlib/stats';
 import { Tx } from '@aztec/stdlib/tx';
@@ -32,7 +33,14 @@ export const PRIVATE_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/privat
 export const PUBLIC_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/public-civc-vk');
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
-  private constructor(private config: BBConfig, private logger: Logger) {}
+  private constructor(
+    private config: BBConfig,
+    private logger: Logger,
+  ) {}
+
+  public stop(): Promise<void> {
+    return Promise.resolve();
+  }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
@@ -84,8 +92,10 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
   }
 
-  public async verifyProof(tx: Tx): Promise<boolean> {
+  public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
     try {
+      const totalTimer = new Timer();
+      let verificationDuration = 0;
       // TODO(#7370) The verification keys should be supplied separately and based on the expectedCircuit
       // rather than read from the tx object itself. We also need the vks for the translator and ecc, which
       // are not being saved along the other vks yet. Reuse the 'verifyProofForCircuit' method above once
@@ -102,12 +112,15 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         };
 
         await writeClientIVCProofToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
+        const timer = new Timer();
         const result = await verifyClientIvcProof(
           this.config.bbBinaryPath,
           bbWorkingDirectory.concat('/proof'),
           tx.data.forPublic ? PUBLIC_TAIL_CIVC_VK : PRIVATE_TAIL_CIVC_VK,
           logFunction,
+          this.config.bbIVCConcurrency,
         );
+        verificationDuration = timer.ms();
 
         if (result.status === BB_RESULT.FAILURE) {
           const errorMessage = `Failed to verify ${circuit} proof for ${expectedCircuit}!`;
@@ -122,10 +135,10 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         } satisfies CircuitVerificationStats);
       };
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
-      return true;
+      return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
     } catch (err) {
       this.logger.warn(`Failed to verify ClientIVC proof for tx ${await Tx.getHash(tx)}: ${String(err)}`);
-      return false;
+      return { valid: false, durationMs: 0, totalDurationMs: 0 };
     }
   }
 }

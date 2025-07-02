@@ -8,6 +8,7 @@ import {
   getAllFunctionAbis,
   getDefaultInitializer,
   isAztecAddressStruct,
+  isBoundedVecStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
   isWrappedFieldStruct,
@@ -43,9 +44,14 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';
       }
+      if (isBoundedVecStruct(type)) {
+        // To make BoundedVec easier to work with, we expect a simple array on the input and then we encode it
+        // as a BoundedVec in the ArgumentsEncoder.
+        return `${abiTypeToTypescript(type.fields[0].type)}`;
+      }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
-      throw new Error(`Unknown type ${type}`);
+      throw new Error(`Unknown type ${type.kind}`);
   }
 }
 
@@ -185,7 +191,7 @@ function generateArtifactGetters(name: string) {
  */
 function generateAbiStatement(name: string, artifactImportPath: string) {
   const stmts = [
-    `import ${name}ContractArtifactJson from '${artifactImportPath}' assert { type: 'json' };`,
+    `import ${name}ContractArtifactJson from '${artifactImportPath}' with { type: 'json' };`,
     `export const ${name}ContractArtifact = loadContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
   ];
   return stmts.join('\n');

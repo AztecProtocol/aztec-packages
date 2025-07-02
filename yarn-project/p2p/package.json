@@ -60,11 +60,16 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
@@ -90,6 +95,7 @@
     "@libp2p/prometheus-metrics": "^4.2.4",
     "@libp2p/tcp": "9.0.24",
     "@multiformats/multiaddr": "12.1.14",
+    "abortable-iterator": "^5.1.0",
     "interface-datastore": "^8.2.11",
     "interface-store": "^5.1.8",
     "it-pipe": "^3.0.1",
@@ -102,16 +108,17 @@
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
-    "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.5.0",
-    "@types/node": "^18.14.6",
+    "@aztec/world-state": "workspace:^",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
     "get-port": "^7.1.0",
     "it-drain": "^3.0.5",
     "it-length": "^3.0.6",
-    "jest": "^29.5.0",
-    "jest-mock-extended": "^3.0.4",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4",
+    "typescript": "^5.3.3",
     "uint8arrays": "^5.0.3",
     "viem": "2.23.7"
   },
@@ -122,6 +129,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

@@ -11,7 +11,10 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
   private prefix: string;
   private encoder = new Encoder();
 
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.prefix = `map:${name}`;
   }
   /**
@@ -21,6 +24,18 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
    */
   set(key: K, val: V): Promise<void> {
     return execInWriteTx(this.store, tx => tx.set(serializeKey(this.prefix, key), this.encoder.pack(val)));
+  }
+
+  /**
+   * Sets the values at the given keys.
+   * @param entries - The entries to set
+   */
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    await execInWriteTx(this.store, async tx => {
+      for (const { key, value } of entries) {
+        await tx.set(serializeKey(this.prefix, key), this.encoder.pack(value));
+      }
+    });
   }
 
   /**
@@ -57,6 +72,10 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
 
   hasAsync(key: K): Promise<boolean> {
     return execInReadTx(this.store, async tx => !!(await tx.get(serializeKey(this.prefix, key))));
+  }
+
+  sizeAsync(): Promise<number> {
+    return execInReadTx(this.store, tx => tx.countEntries(minKey(this.prefix), maxKey(this.prefix), false));
   }
 
   /**

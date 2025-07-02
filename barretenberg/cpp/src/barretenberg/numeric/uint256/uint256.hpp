@@ -13,7 +13,7 @@
  * Constructor and all methods are constexpr.
  * Ideally, uint256_t should be able to be treated like any other literal type.
  *
- * Not optimized for performance, this code doesn't touch any of our hot paths when constructing PLONK proofs.
+ * Not optimized for performance, this code doesn't touch any of our hot paths when constructing proofs.
  **/
 #pragma once
 
@@ -210,6 +210,11 @@ class alignas(32) uint256_t {
     [[nodiscard]] constexpr std::pair<uint256_t, uint256_t> divmod(const uint256_t& b) const;
 
     size_t hash() const noexcept { return utils::hash_as_tuple(data[0], data[1], data[2], data[3]); }
+
+    // For serialization
+    void msgpack_pack(auto& packer) const;
+    void msgpack_unpack(auto o);
+    void msgpack_schema(auto& packer) const { packer.pack_alias("uint256_t", "bin32"); }
 
   private:
     [[nodiscard]] static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b);

@@ -1,33 +1,41 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
-    constants::VK_TREE_HEIGHT,
-    merkle_tree::{membership::assert_check_membership, MembershipWitness},
-    proof::{
-        rollup_recursive_proof::NestedRecursiveProof,
-        verification_key::{RollupHonkVerificationKey, VerificationKey},
-    },
+    constants::ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+    proof::{rollup_recursive_proof::NestedRecursiveProof, vk_data::VkData},
     traits::{Empty, Serialize},
-    utils::arrays::find_index_hint,
 };
 
+#[derive(Eq)]
 pub struct PreviousRollupBlockData {
     pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     pub proof: NestedRecursiveProof,
-    pub vk: RollupHonkVerificationKey,
-    pub vk_witness: MembershipWitness<VK_TREE_HEIGHT>,
+    pub vk_data: VkData<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
 }
 
 impl PreviousRollupBlockData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     pub fn verify(self, proof_type_id: u32) {
         let inputs = BlockRootOrBlockMergePublicInputs::serialize(
             self.block_root_or_block_merge_public_inputs,
         );
         std::verify_proof_with_type(
-            self.vk.key,
+            self.vk_data.vk.key,
             self.proof.fields,
             inputs,
-            self.vk.hash,
+            self.vk_data.vk.hash,
             proof_type_id,
+        );
+    }
+}
+
+impl PreviousRollupBlockData {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
+    pub fn validate_vk_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
+        self.vk_data.validate_allowed_in_vk_tree(
+            self.block_root_or_block_merge_public_inputs.constants.vk_tree_root,
+            allowed_indices,
         );
     }
 }
@@ -37,28 +45,7 @@ impl Empty for PreviousRollupBlockData {
         PreviousRollupBlockData {
             block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs::empty(),
             proof: NestedRecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-            vk_witness: MembershipWitness::empty(),
+            vk_data: VkData::empty(),
         }
-    }
-}
-
-impl PreviousRollupBlockData {
-    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
-        self.vk.check_hash();
-
-        let leaf_index = self.vk_witness.leaf_index as u32;
-        // Safety: This is a hint which is constrained by the asserts below.
-        let index_hint =
-            unsafe { find_index_hint(allowed_indices, |index: u32| index == leaf_index) };
-        assert(index_hint < N, "Invalid vk index");
-        assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
-
-        assert_check_membership(
-            self.vk.hash,
-            self.vk_witness.leaf_index,
-            self.vk_witness.sibling_path,
-            self.block_root_or_block_merge_public_inputs.vk_tree_root,
-        );
     }
 }

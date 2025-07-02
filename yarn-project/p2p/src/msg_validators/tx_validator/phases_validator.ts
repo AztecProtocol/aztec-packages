@@ -11,12 +11,17 @@ import {
   type TxValidationResult,
   type TxValidator,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractsDB: PublicContractsDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
+  constructor(
+    contracts: ContractDataSource,
+    private setupAllowList: AllowedElement[],
+    private timestamp: UInt64,
+  ) {
     this.contractsDB = new PublicContractsDB(contracts);
   }
 
@@ -82,7 +87,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
+      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
 
       if (!contractClass) {
         throw new Error(`Contract not found: ${contractAddress}`);

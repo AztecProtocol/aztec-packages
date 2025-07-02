@@ -14,9 +14,12 @@ namespace bb {
 
 template <typename Flavor>
 ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verifier_key)
+    Builder* builder,
+    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
+    , transcript(transcript)
 {}
 
 /**
@@ -24,7 +27,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  *
  */
 template <typename Flavor>
-std::pair<OpeningClaim<typename Flavor::Curve>, std::shared_ptr<typename ECCVMRecursiveVerifier_<Flavor>::Transcript>>
+std::pair<OpeningClaim<typename Flavor::Curve>, StdlibProof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
 ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
@@ -38,11 +41,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     RelationParameters<FF> relation_parameters;
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
-    StdlibProof<Builder> stdlib_ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
-    ipa_transcript = std::make_shared<Transcript>(stdlib_ipa_proof);
-    transcript->enable_manifest();
-    ipa_transcript->enable_manifest();
+    StdlibProof<Builder> ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
+    transcript->load_proof(stdlib_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -105,7 +105,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_verification_key->get_g1_identity(),
+                                               key->pcs_verification_key.get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
@@ -131,9 +131,9 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
     const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
+        Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
 
-    return { batch_opening_claim, ipa_transcript };
+    return { batch_opening_claim, ipa_proof };
 }
 
 /**

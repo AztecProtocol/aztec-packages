@@ -1,6 +1,6 @@
 
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -29,8 +29,8 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    Prover prover(instance, verification_key);
     Verifier verifier(verification_key);
 
     HonkProof proof = prover.construct_proof();

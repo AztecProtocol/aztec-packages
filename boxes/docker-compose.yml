@@ -43,7 +43,7 @@ services:
     volumes:
       - ../:/root/aztec-packages
     working_dir: /root/aztec-packages/boxes
-    command: "yarn workspace @aztec/$BOX test --project=$BROWSER"
+    command: "yarn workspace aztec-example-$BOX test --project=$BROWSER"
     environment:
       HARDWARE_CONCURRENCY: 4
       DEBUG: "aztec:*"

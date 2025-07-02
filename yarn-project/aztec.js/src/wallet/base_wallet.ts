@@ -15,6 +15,7 @@ import type {
 } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionResult,
+  SimulationOverrides,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -87,11 +88,11 @@ export abstract class BaseWallet implements Wallet {
   simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
-    msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, skipFeeEnforcement);
+    return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, overrides);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -104,7 +105,7 @@ export abstract class BaseWallet implements Wallet {
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
-    from?: AztecAddress | undefined,
+    from?: AztecAddress,
   ): Promise<UtilitySimulationResult> {
     return this.pxe.simulateUtility(functionName, args, to, authwits, from);
   }

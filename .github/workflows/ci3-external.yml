@@ -27,12 +27,12 @@ jobs:
       # Prepare Env
       #############
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      # NOTE: in ci3.yml we just rely on draft mode not being mergable. 
+      # NOTE: in ci3.yml we just rely on draft mode not being mergable.
       # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
       - name: Fail If Draft
         if: github.event.pull_request.draft
@@ -49,9 +49,10 @@ jobs:
             exit 1
           fi
           if [[ "${{ github.event.pull_request.base.ref }}" != "master" && \
-                "${{ github.event.pull_request.base.ref }}" != "alpha-testnet" && \
-                "${{ github.event.pull_request.base.ref }}" != "next" ]]; then
-            echo "Error: External PRs can only target master, alpha-testnet, or next. Targeted: ${{ github.event.pull_request.base.ref }}."
+                "${{ github.event.pull_request.base.ref }}" != "staging" && \
+                "${{ github.event.pull_request.base.ref }}" != "next" && \
+                "${{ github.event.pull_request.base.ref }}" != merge-train/* ]]; then
+            echo "Error: External PRs can only target master, staging, next or merge-train/* branches. Targeted: ${{ github.event.pull_request.base.ref }}."
             exit 1
           fi
           labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once'}}"
@@ -69,6 +70,10 @@ jobs:
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
+
+      - name: Fail Fast Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
+        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
       - name: Setup
         run: |

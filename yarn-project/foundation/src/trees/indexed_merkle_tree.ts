@@ -6,7 +6,11 @@ import { MerkleTree } from './merkle_tree.js';
 
 /** A simple immutable indexed merkle tree container. Use a IndexedMerkleTreeCalculator to create a new instance from a set of leaves. */
 export class IndexedMerkleTree<T extends IndexedTreeLeafPreimage, N extends number> extends MerkleTree {
-  constructor(height: N, nodes: Buffer[], public readonly leafPreimages: T[]) {
+  constructor(
+    height: N,
+    nodes: Buffer[],
+    public readonly leafPreimages: T[],
+  ) {
     super(height, nodes);
   }
 

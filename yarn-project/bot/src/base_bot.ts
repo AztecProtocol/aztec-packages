@@ -20,7 +20,11 @@ export abstract class BaseBot {
   protected attempts: number = 0;
   protected successes: number = 0;
 
-  protected constructor(public readonly pxe: PXE, public readonly wallet: Wallet, public config: BotConfig) {}
+  protected constructor(
+    public readonly pxe: PXE,
+    public readonly wallet: Wallet,
+    public config: BotConfig,
+  ) {}
 
   public async run(): Promise<TxReceipt | TxHash> {
     this.attempts++;

@@ -42,7 +42,15 @@ if [ -z "${COMMIT_HASH:-}" ]; then
   export COMMIT_HASH=$(git rev-parse HEAD)
 fi
 
+if [ -z "${COMMIT_MSG:-}" ]; then
+  export COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+fi
+
+if [ -z "${COMMIT_AUTHOR:-}" ]; then
+  export COMMIT_AUTHOR="$(git log -1 --pretty=format:"%an")"
+fi
+
 export CURRENT_VERSION=
-if [ -z "${CURRENT_VERSION:-}" ] && [ -f "$root/.release-please-manifest.json" ]; then
+if [ -z "${CURRENT_VERSION:-}" ]; then
   export CURRENT_VERSION=$(jq -r '."."' $root/.release-please-manifest.json)
 fi

@@ -10,9 +10,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -57,21 +55,21 @@ constexpr std::array<uint32_t, 64> round_constants = {
 }; // namespace
 
 // These are helper functions to iterate and set repetitive columns in the trace.
-void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_helpers)
+void Sha256TraceBuilder::set_helper_cols(const std::array<uint32_t, 16>& prev_w_helpers, TraceContainer& trace)
 {
     for (size_t i = 0; i < 16; i++) {
         trace.set(row, { { { w_cols[i], prev_w_helpers[i] } } });
     }
 }
 
-void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state)
+void Sha256TraceBuilder::set_state_cols(const std::array<uint32_t, 8>& state, TraceContainer& trace)
 {
     for (size_t i = 0; i < 8; i++) {
         trace.set(row, { { { state_cols[i], state[i] } } });
     }
 }
 
-void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init_state)
+void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init_state, TraceContainer& trace)
 {
     for (size_t i = 0; i < 8; i++) {
         trace.set(row, { { { init_state_cols[i], init_state[i] } } });
@@ -79,7 +77,8 @@ void Sha256TraceBuilder::set_init_state_cols(const std::array<uint32_t, 8>& init
 }
 
 // Decomposes a into two 32-bit values at the bit position b and inserts witness data into the trace.
-void Sha256TraceBuilder::into_limbs_with_witness(uint64_t a, const uint8_t b, Column c_lhs, Column c_rhs)
+void Sha256TraceBuilder::into_limbs_with_witness(
+    uint64_t a, const uint8_t b, Column c_lhs, Column c_rhs, TraceContainer& trace)
 {
     uint32_t a_lhs = static_cast<uint32_t>(a >> b);
     uint32_t a_rhs = static_cast<uint32_t>(a) & static_cast<uint32_t>((static_cast<uint64_t>(1) << b) - 1);
@@ -88,26 +87,27 @@ void Sha256TraceBuilder::into_limbs_with_witness(uint64_t a, const uint8_t b, Co
 
 // Performs 32-bit rotation with witness data inserted into the trace.
 uint32_t Sha256TraceBuilder::ror_with_witness(
-    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs)
+    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace)
 {
     auto result = (val >> (shift & 31U)) | (val << (32U - (shift & 31U)));
-    into_limbs_with_witness(val, shift, c_lhs, c_rhs);
+    into_limbs_with_witness(val, shift, c_lhs, c_rhs, trace);
     trace.set(c_result, row, result);
     return result;
 }
 
 // Performs 32-bit shift right with witness data inserted into the trace.
 uint32_t Sha256TraceBuilder::shr_with_witness(
-    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs)
+    const uint32_t val, const uint8_t shift, Column c_result, Column c_lhs, Column c_rhs, TraceContainer& trace)
 {
     auto result = val >> shift;
-    into_limbs_with_witness(val, shift, c_lhs, c_rhs);
+    into_limbs_with_witness(val, shift, c_lhs, c_rhs, trace);
     trace.set(c_result, row, result);
     return result;
 }
 
 // Computes and returns the message schedule (w) value for that round, and inserts witness data into the trace.
-uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers)
+uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 16>& prev_w_helpers,
+                                                    TraceContainer& trace)
 {
     using C = Column;
 
@@ -116,13 +116,13 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Step (1) s0 := ror(w[i - 15], 7) ^ ror(w[i - 15], 18) ^ (w[i - 15] >> 3);
     // Compute ror(w[i - 15], 7)
     uint32_t rot_7 =
-        ror_with_witness(prev_w_helpers[1], 7, C::sha256_w_15_rotr_7, C::sha256_lhs_w_7, C::sha256_rhs_w_7);
+        ror_with_witness(prev_w_helpers[1], 7, C::sha256_w_15_rotr_7, C::sha256_lhs_w_7, C::sha256_rhs_w_7, trace);
     // Compute ror(w[i - 15], 18)
     uint32_t rot_18 =
-        ror_with_witness(prev_w_helpers[1], 18, C::sha256_w_15_rotr_18, C::sha256_lhs_w_18, C::sha256_rhs_w_18);
+        ror_with_witness(prev_w_helpers[1], 18, C::sha256_w_15_rotr_18, C::sha256_lhs_w_18, C::sha256_rhs_w_18, trace);
     // Compute (w[i - 15] >> 3)
     uint32_t shift_3 =
-        shr_with_witness(prev_w_helpers[1], 3, C::sha256_w_15_rshift_3, C::sha256_lhs_w_3, C::sha256_rhs_w_3);
+        shr_with_witness(prev_w_helpers[1], 3, C::sha256_w_15_rshift_3, C::sha256_lhs_w_3, C::sha256_rhs_w_3, trace);
 
     // Compute ror(w[i - 15], 7) ^ ror(w[i - 15], 18)
     trace.set(C::sha256_w_15_rotr_7_xor_w_15_rotr_18, row, rot_7 ^ rot_18);
@@ -133,13 +133,13 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     // Step (2) s1 := ror(w[i - 2], 17) ^ ror(w[i - 2], 19) ^ (w[i - 2] >> 10);
     // Compute ror(w[i - 2], 17)
     uint32_t rot_17 =
-        ror_with_witness(prev_w_helpers[14], 17, C::sha256_w_2_rotr_17, C::sha256_lhs_w_17, C::sha256_rhs_w_17);
+        ror_with_witness(prev_w_helpers[14], 17, C::sha256_w_2_rotr_17, C::sha256_lhs_w_17, C::sha256_rhs_w_17, trace);
     // Compute ror(wi - 2, 19)
     uint32_t rot_19 =
-        ror_with_witness(prev_w_helpers[14], 19, C::sha256_w_2_rotr_19, C::sha256_lhs_w_19, C::sha256_rhs_w_19);
+        ror_with_witness(prev_w_helpers[14], 19, C::sha256_w_2_rotr_19, C::sha256_lhs_w_19, C::sha256_rhs_w_19, trace);
     // Compute (w[i - 2] >> 10)
-    uint32_t shift_10 =
-        shr_with_witness(prev_w_helpers[14], 10, C::sha256_w_2_rshift_10, C::sha256_lhs_w_10, C::sha256_rhs_w_10);
+    uint32_t shift_10 = shr_with_witness(
+        prev_w_helpers[14], 10, C::sha256_w_2_rshift_10, C::sha256_lhs_w_10, C::sha256_rhs_w_10, trace);
 
     // Compute ror(w[i - 2], 17) ^ ror(w[i - 2], 19)
     trace.set(C::sha256_w_2_rotr_17_xor_w_2_rotr_19, row, rot_17 ^ rot_19);
@@ -152,7 +152,7 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
     uint64_t computed_w =
         prev_w_helpers[0] + static_cast<uint64_t>(w_s_0) + prev_w_helpers[9] + static_cast<uint64_t>(w_s_1);
 
-    into_limbs_with_witness(computed_w, 32, C::sha256_computed_w_lhs, C::sha256_computed_w_rhs);
+    into_limbs_with_witness(computed_w, 32, C::sha256_computed_w_lhs, C::sha256_computed_w_rhs, trace);
     return static_cast<uint32_t>(computed_w);
 }
 
@@ -160,18 +160,21 @@ uint32_t Sha256TraceBuilder::compute_w_with_witness(const std::array<uint32_t, 1
 std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(const std::array<uint32_t, 8>& state,
                                                                              uint32_t round_w,
                                                                              uint32_t round_constant,
-                                                                             uint32_t row)
+                                                                             uint32_t row,
+                                                                             TraceContainer& trace)
 {
     using C = Column;
 
     // Apply SHA-256 compression function to the message schedule
     // Compute S1 := ror(e, 6U) ^ ror(e, 11U) ^ ror(e, 25U);
     // Compute ror(e, 6)
-    uint32_t rot_6 = ror_with_witness(state[4], 6, C::sha256_e_rotr_6, C::sha256_lhs_e_6, C::sha256_rhs_e_6);
+    uint32_t rot_6 = ror_with_witness(state[4], 6, C::sha256_e_rotr_6, C::sha256_lhs_e_6, C::sha256_rhs_e_6, trace);
     // Compute ror(e, 11)
-    uint32_t rot_11 = ror_with_witness(state[4], 11, C::sha256_e_rotr_11, C::sha256_lhs_e_11, C::sha256_rhs_e_11);
+    uint32_t rot_11 =
+        ror_with_witness(state[4], 11, C::sha256_e_rotr_11, C::sha256_lhs_e_11, C::sha256_rhs_e_11, trace);
     // Compute ror(e, 25)
-    uint32_t rot_25 = ror_with_witness(state[4], 25, C::sha256_e_rotr_25, C::sha256_lhs_e_25, C::sha256_rhs_e_25);
+    uint32_t rot_25 =
+        ror_with_witness(state[4], 25, C::sha256_e_rotr_25, C::sha256_lhs_e_25, C::sha256_rhs_e_25, trace);
 
     // Compute ror(e, 6) ^ ror(e, 11)
     trace.set(C::sha256_e_rotr_6_xor_e_rotr_11, row, rot_6 ^ rot_11);
@@ -195,11 +198,13 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
 
     // Compute S0 := ror(a, 2U) ^ ror(a, 13U) ^ ror(a, 22U);
     // Compute ror(a, 2)
-    uint32_t rot_2 = ror_with_witness(state[0], 2, C::sha256_a_rotr_2, C::sha256_lhs_a_2, C::sha256_rhs_a_2);
+    uint32_t rot_2 = ror_with_witness(state[0], 2, C::sha256_a_rotr_2, C::sha256_lhs_a_2, C::sha256_rhs_a_2, trace);
     // Compute ror(a, 13)
-    uint32_t rot_13 = ror_with_witness(state[0], 13, C::sha256_a_rotr_13, C::sha256_lhs_a_13, C::sha256_rhs_a_13);
+    uint32_t rot_13 =
+        ror_with_witness(state[0], 13, C::sha256_a_rotr_13, C::sha256_lhs_a_13, C::sha256_rhs_a_13, trace);
     // Compute ror(a, 22)
-    uint32_t rot_22 = ror_with_witness(state[0], 22, C::sha256_a_rotr_22, C::sha256_lhs_a_22, C::sha256_rhs_a_22);
+    uint32_t rot_22 =
+        ror_with_witness(state[0], 22, C::sha256_a_rotr_22, C::sha256_lhs_a_22, C::sha256_rhs_a_22, trace);
 
     // Compute ror(a, 2) ^ ror(a, 13)
     trace.set(C::sha256_a_rotr_2_xor_a_rotr_13, row, rot_2 ^ rot_13);
@@ -227,13 +232,13 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
     uint64_t temp1 = static_cast<uint64_t>(state[7]) + S1 + ch + round_constant + round_w;
     uint64_t temp2 = S0 + maj;
     uint64_t next_a = temp1 + temp2;
-    into_limbs_with_witness(next_a, 32, C::sha256_next_a_lhs, C::sha256_next_a_rhs);
+    into_limbs_with_witness(next_a, 32, C::sha256_next_a_lhs, C::sha256_next_a_rhs, trace);
     trace.set(C::sha256_round_constant, row, round_constant);
     uint32_t a = static_cast<uint32_t>(next_a);
 
     // Additions can overflow 32 bits so we perform modulo reduction
     uint64_t next_e = state[3] + temp1;
-    into_limbs_with_witness(next_e, 32, C::sha256_next_e_lhs, C::sha256_next_e_rhs);
+    into_limbs_with_witness(next_e, 32, C::sha256_next_e_lhs, C::sha256_next_e_rhs, trace);
     uint32_t e = static_cast<uint32_t>(next_e);
 
     return {
@@ -250,18 +255,20 @@ std::array<uint32_t, 8> Sha256TraceBuilder::compute_compression_with_witness(con
 
 // Computes the final output from the final round state and inserts witness data into the trace.
 void Sha256TraceBuilder::compute_sha256_output(const std::array<uint32_t, 8>& out_state,
-                                               const std::array<uint32_t, 8>& init_state)
+                                               const std::array<uint32_t, 8>& init_state,
+                                               TraceContainer& trace)
 {
     uint32_t counter = 0;
     for (const auto& [init, state] : zip_view(init_state, out_state)) {
         uint64_t output = static_cast<uint64_t>(init) + static_cast<uint64_t>(state);
-        into_limbs_with_witness(output, 32, output_cols[counter], output_cols[counter + 1]);
+        into_limbs_with_witness(output, 32, output_cols[counter], output_cols[counter + 1], trace);
         counter += 2;
     }
 }
 
 void Sha256TraceBuilder::process(
-    const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events)
+    const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events,
+    TraceContainer& trace)
 {
     using C = Column;
 
@@ -290,6 +297,7 @@ void Sha256TraceBuilder::process(
             FF inv = FF(64 - i).invert();
             trace.set(row,
                       { {
+                          { C::sha256_clk, event.execution_clk },
                           { C::sha256_sel, 1 },
                           { C::sha256_xor_sel, 2 },
                           { C::sha256_perform_round, 1 },
@@ -302,7 +310,7 @@ void Sha256TraceBuilder::process(
             // Computing W
             // TODO: we currently perform the w computation even for the input round
             // This might not be what we want to do when we end up solving the xors (since it will involve lookups)
-            uint32_t round_w = compute_w_with_witness(prev_w_helpers);
+            uint32_t round_w = compute_w_with_witness(prev_w_helpers, trace);
             // W is set based on if we are still using the input values
             if (is_an_input_round) {
                 trace.set(C::sha256_w, row, prev_w_helpers[0]);
@@ -312,14 +320,14 @@ void Sha256TraceBuilder::process(
             }
 
             // Set the init state columns - propagated down
-            set_init_state_cols(event.state);
+            set_init_state_cols(event.state, trace);
             // Set the state columns
-            set_state_cols(round_state);
+            set_state_cols(round_state, trace);
             // Set the round columns
-            set_helper_cols(prev_w_helpers);
+            set_helper_cols(prev_w_helpers, trace);
 
             // Apply SHA-256 compression function to the message schedule and update the state
-            round_state = compute_compression_with_witness(round_state, round_w, round_constants[i], row);
+            round_state = compute_compression_with_witness(round_state, round_w, round_constants[i], row, trace);
 
             // Update the prev_w_helpers, we shift all the values to the left and add the new round_w to
             // the end
@@ -334,6 +342,7 @@ void Sha256TraceBuilder::process(
         // Set the final row
         trace.set(row,
                   { {
+                      { C::sha256_clk, event.execution_clk },
                       { C::sha256_latch, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_xor_sel, 2 },
@@ -341,22 +350,19 @@ void Sha256TraceBuilder::process(
                   } });
 
         // Set the init state columns - propagated down
-        set_init_state_cols(event.state);
+        set_init_state_cols(event.state, trace);
         // Set the state column
-        set_state_cols(round_state);
+        set_state_cols(round_state, trace);
         // Set the round columns
-        set_helper_cols(prev_w_helpers);
+        set_helper_cols(prev_w_helpers, trace);
         // Compute the output from the final round state
-        compute_sha256_output(round_state, event.state);
+        compute_sha256_output(round_state, event.state, trace);
 
         row++;
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> Sha256TraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>());
-}
+const InteractionDefinition Sha256TraceBuilder::interactions =
+    InteractionDefinition().add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

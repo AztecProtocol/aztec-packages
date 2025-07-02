@@ -161,12 +161,12 @@ describe('e2e_cheat_codes', () => {
     afterAll(() => teardown());
 
     it('load public', async () => {
-      expect(await cc.aztec.loadPublic(token.address, 1n)).toEqual(admin.toField());
+      expect(admin.toField().equals(await cc.aztec.loadPublic(token.address, 1n))).toBeTrue();
     });
 
     it('load public returns 0 for non existent value', async () => {
       const storageSlot = Fr.random();
-      expect(await cc.aztec.loadPublic(token.address, storageSlot)).toEqual(new Fr(0n));
+      expect(Fr.ZERO.equals(await cc.aztec.loadPublic(token.address, storageSlot))).toBeTrue();
     });
 
     it('load private works as expected for no notes', async () => {
@@ -182,7 +182,7 @@ describe('e2e_cheat_codes', () => {
       const mintAmount = 100n;
 
       await mintTokensToPrivate(token, wallet, admin, mintAmount);
-      await token.methods.sync_notes().simulate();
+      await token.methods.sync_private_state().simulate();
 
       const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
 

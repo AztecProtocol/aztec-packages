@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Private Voting on Aztec</title>
+  </head>
+
+  <body>
+    <nav class="navbar">
+      <div class="nav-title">Private Voting</div>
+
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div id="account-display" class="account-display"></div>
+
+        <select id="test-account-number" style="display: none">
+          <option value="1">Account 1</option>
+          <option value="2">Account 2</option>
+          <option value="3">Account 3</option>
+        </select>
+        <button id="connect-test-account" type="button" style="display: none">
+          Connect Test Account
+        </button>
+        <button id="create-account" type="button" style="display: none">
+          Create Account
+        </button>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="card">
+        <div class="vote-display">
+          <div class="vote-title">Current Vote Count</div>
+          <div id="vote-results" class="vote-results"></div>
+        </div>
+
+        <form class="vote-form" style="display: none">
+          <h4>Cast Vote</h4>
+          <select id="vote-input">
+            <option value="" disabled selected>Select a candidate (1-5)</option>
+            <option value="1">Candidate 1</option>
+            <option value="2">Candidate 2</option>
+            <option value="3">Candidate 3</option>
+            <option value="4">Candidate 4</option>
+            <option value="5">Candidate 5</option>
+          </select>
+          <button id="vote-button" type="button">Vote</button>
+        </form>
+      </div>
+
+      <div id="status-message" class="status-message"></div>
+    </main>
+  </body>
+</html>

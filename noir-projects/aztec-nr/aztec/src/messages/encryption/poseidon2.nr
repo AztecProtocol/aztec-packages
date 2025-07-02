@@ -24,14 +24,15 @@ global TWO_POW_128: Field = 0x100000000000000000000000000000000;
 ///
 /// Note: The return length is: L padded to the next multiple of 3, plus 1 for a message auth code of s[1].
 ///
-/// @param nonce is only needed if your use case needs to protect against replay attacks.
+/// @param encryption_nonce is only needed if your use case needs to protect against replay attacks.
 pub fn poseidon2_encrypt<let L: u32>(
     msg: [Field; L],
     shared_secret: Point,
-    nonce: Field,
+    encryption_nonce: Field,
 ) -> [Field; ((L + 2) / 3) * 3 + 1] {
-    // TODO: assert(nonce < 2^128), assert(L < 2^120);
-    let mut s = [0, shared_secret.x, shared_secret.y, nonce + (L as Field) * TWO_POW_128];
+    // TODO: assert(encryption_nonce < 2^128), assert(L < 2^120);
+    let mut s =
+        [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
 
     // We wish to compute NUM_MISSING_ELEMENTS, which is how many elements we must add as padding so
     // that the message length becomes a multiple of 3.
@@ -79,9 +80,10 @@ pub fn poseidon2_encrypt<let L: u32>(
 pub fn poseidon2_decrypt<let L: u32>(
     ciphertext: [Field; ((L + 3 - 1) / 3) * 3 + 1],
     shared_secret: Point,
-    nonce: Field,
+    encryption_nonce: Field,
 ) -> Option<[Field; L]> {
-    let mut s = [0, shared_secret.x, shared_secret.y, nonce + (L as Field) * TWO_POW_128];
+    let mut s =
+        [0, shared_secret.x, shared_secret.y, encryption_nonce + (L as Field) * TWO_POW_128];
 
     let CEIL = (L + 3 - 1) / 3; // ceil(L / 3)
     let L_UPPER_BOUND = CEIL * 3;
@@ -156,17 +158,17 @@ mod test {
         let eph_pk = fixed_base_scalar_mul(EmbeddedCurveScalar::from_field(eph_sk));
         let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
 
-        let nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
+        let encryption_nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
 
-        let ciphertext = poseidon2_encrypt(msg, shared_secret, nonce);
+        let ciphertext = poseidon2_encrypt(msg, shared_secret, encryption_nonce);
 
         // ******************
 
-        // Bob sees: [Epk, ciphertext, nonce]:
+        // Bob sees: [Epk, ciphertext, encryption_nonce]:
 
         let shared_secret = multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
 
-        let result = poseidon2_decrypt(ciphertext, shared_secret, nonce);
+        let result = poseidon2_decrypt(ciphertext, shared_secret, encryption_nonce);
 
         assert(result.is_some());
         assert(msg == result.unwrap_unchecked());
@@ -199,20 +201,20 @@ mod test {
 
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-        let nonce = 3;
+        let encryption_nonce = 3;
 
-        let ciphertext = poseidon2_encrypt(msg, shared_secret, nonce);
+        let ciphertext = poseidon2_encrypt(msg, shared_secret, encryption_nonce);
 
         // ******************
 
-        // Bob sees: [Epk, ciphertext, nonce]:
+        // Bob sees: [Epk, ciphertext, encryption_nonce]:
 
         let mut shared_secret =
             multi_scalar_mul([eph_pk], [EmbeddedCurveScalar::from_field(bob_sk)]);
         // Let's intentionally corrupt the shared secret, so that decryption should fail
         shared_secret.x += 1;
 
-        let result = poseidon2_decrypt(ciphertext, shared_secret, nonce);
+        let result = poseidon2_decrypt(ciphertext, shared_secret, encryption_nonce);
 
         assert(result.is_none());
     }
@@ -227,9 +229,9 @@ mod test {
         let eph_sk = 0x5678;
         let shared_secret = multi_scalar_mul([bob_pk], [EmbeddedCurveScalar::from_field(eph_sk)]);
 
-        let nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
+        let encryption_nonce = 3; // TODO. Can even be a timestamp. Why is this even needed?
 
-        let ciphertext = poseidon2_encrypt(msg, shared_secret, nonce);
+        let ciphertext = poseidon2_encrypt(msg, shared_secret, encryption_nonce);
 
         ciphertext.len()
     }

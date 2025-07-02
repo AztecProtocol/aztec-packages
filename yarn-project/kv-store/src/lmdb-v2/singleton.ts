@@ -8,7 +8,10 @@ import { serializeKey } from './utils.js';
 export class LMDBSingleValue<T> implements AztecAsyncSingleton<T> {
   private key: Uint8Array;
   private encoder = new Encoder();
-  constructor(private store: AztecLMDBStoreV2, name: string) {
+  constructor(
+    private store: AztecLMDBStoreV2,
+    name: string,
+  ) {
     this.key = serializeKey(`singleton:${name}`, 'value');
   }
 

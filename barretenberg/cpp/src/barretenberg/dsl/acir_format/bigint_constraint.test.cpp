@@ -3,17 +3,12 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <vector>
 
 namespace acir_format::tests {
-
-using Composer = plonk::UltraComposer;
 
 class BigIntTests : public ::testing::Test {
   protected:
@@ -208,14 +203,10 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(BigIntTests, TestBigIntConstraintSimple)
@@ -276,13 +267,10 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
     WitnessVector witness{
         0, 3, 6, 3, 0,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
+
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 // Based on TestBigIntConstraintMultiple, we generate constraints re-using the bigfields created by the first two
@@ -337,14 +325,10 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(BigIntTests, TestBigIntConstraintReuse2)
@@ -397,14 +381,10 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
 TEST_F(BigIntTests, TestBigIntDIV)
@@ -472,15 +452,9 @@ TEST_F(BigIntTests, TestBigIntDIV)
     WitnessVector witness{
         0, 6, 3, 2, 0,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
-    auto composer = Composer();
-    auto prover = composer.create_ultra_with_keccak_prover(builder);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
-    auto builder2 = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, WitnessVector{});
     EXPECT_TRUE(CircuitChecker::check(builder));
-    auto verifier2 = composer.create_ultra_with_keccak_verifier(builder);
-    EXPECT_EQ(verifier2.verify_proof(proof), true);
 }
 } // namespace acir_format::tests

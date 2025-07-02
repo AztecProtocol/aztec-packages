@@ -25,6 +25,7 @@ import {
   getTreeName,
 } from '@aztec/stdlib/trees';
 import { TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
@@ -89,12 +90,8 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    */
   private async addNonRevertibleContractClasses(tx: Tx) {
     const siloedContractClassLogs = tx.data.forPublic
-      ? await tx.filterContractClassLogs(
-          tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes,
-          /*siloed=*/ true,
-        )
-      : await tx.filterContractClassLogs(tx.data.forRollup!.end.contractClassLogsHashes, /*siloed=*/ true);
-
+      ? tx.getSplitContractClassLogs(false /* revertible */)
+      : tx.getContractClassLogs();
     await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxNonRevertibleCache, 'non-revertible');
   }
 
@@ -104,13 +101,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    * @param tx - The transaction to add revertible contract classes from.
    */
   private async addRevertibleContractClasses(tx: Tx) {
-    const siloedContractClassLogs = tx.data.forPublic
-      ? await tx.filterContractClassLogs(
-          tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
-          /*siloed=*/ true,
-        )
-      : [];
-
+    const siloedContractClassLogs = tx.data.forPublic ? tx.getSplitContractClassLogs(true /* revertible */) : [];
     await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxRevertibleCache, 'revertible');
   }
 
@@ -220,16 +211,18 @@ export class PublicContractsDB implements PublicContractsDBInterface {
   // to the constructor right now. If we can make this class more private, we should
   // reconsider this. A litmus test is in how many places we need to initialize with a
   // dummy block number (tests or not) and pass block numbers to `super`.
+  // Note: Block number got changed to timestamp so this comment ^ is outdated. Keeping
+  // the comment as is as I am not part of the AVM cabal.
   public async getContractInstance(
     address: AztecAddress,
-    blockNumber: number,
+    timestamp: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
     // Check caches in order: tx revertible -> tx non-revertible -> block -> data source
     return (
       this.currentTxRevertibleCache.getInstance(address) ??
       this.currentTxNonRevertibleCache.getInstance(address) ??
       this.blockCache.getInstance(address) ??
-      (await this.dataSource.getContract(address, blockNumber))
+      (await this.dataSource.getContract(address, timestamp))
     );
   }
 

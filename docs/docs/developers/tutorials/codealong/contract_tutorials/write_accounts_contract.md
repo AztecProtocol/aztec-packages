@@ -15,7 +15,7 @@ You will learn:
 - Typescript glue code to format and authenticate transactions
 - Deploying and testing the account contract
 
-This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up #include_aztec_version`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
 Writing your own account contract allows you to define the rules by which user transactions are authorized and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of account abstraction in the Aztec network.
 
@@ -38,17 +38,16 @@ For this to compile, you will need to add the following dependencies to your `Na
 ```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit" }
 schnorr = { git = "https://github.com/noir-lang/schnorr", tag = "v0.1.1" }
 ```
 
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding authentication witness from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
 
-#include_code entrypoint noir-projects/aztec-nr/authwit/src/account.nr rust
+#include_code entrypoint noir-projects/aztec-nr/aztec/src/authwit/account.nr rust
 
-#include_code app-payload-struct noir-projects/aztec-nr/authwit/src/entrypoint/app.nr rust
+#include_code app-payload-struct noir-projects/aztec-nr/aztec/src/authwit/entrypoint/app.nr rust
 
-#include_code fee-payload-struct noir-projects/aztec-nr/authwit/src/entrypoint/fee.nr rust
+#include_code fee-payload-struct noir-projects/aztec-nr/aztec/src/authwit/entrypoint/fee.nr rust
 
 :::info
 Using the `AccountActions` module and the payload structs is not mandatory. You can package the instructions to be carried out by your account contract however you want. However, using these modules can save you a lot of time when writing a new account contract, both in Noir and in Typescript.

@@ -143,7 +143,7 @@ export class PublicKeys {
 
   toNoirStruct() {
     // We need to use lowercase identifiers as those are what the noir interface expects
-    // eslint-disable-next-line camelcase
+
     return {
       // TODO(#6337): Directly dump account.publicKeys here
       /* eslint-disable camelcase */

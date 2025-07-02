@@ -32,6 +32,7 @@ export default {
     plugins: [new ResolveTypeScriptPlugin()],
     fallback: {
       tty: false,
+      os: false,
     },
   },
   devServer: {

@@ -105,7 +105,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
 
     try {
       currentHeader = await this.syncDataProvider.getBlockHeader();
-    } catch (e) {
+    } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {

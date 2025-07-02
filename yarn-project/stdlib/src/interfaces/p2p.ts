@@ -4,6 +4,8 @@ import { BlockAttestation } from '../p2p/block_attestation.js';
 import type { P2PClientType } from '../p2p/client_type.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
+import { TxHash } from '../tx/tx_hash.js';
+import { MAX_RPC_TXS_LEN } from './api_limit.js';
 
 export type PeerInfo =
   | { status: 'connected'; score: number; id: string }
@@ -26,9 +28,14 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 export interface P2PApiWithoutAttestations {
   /**
    * Returns all pending transactions in the transaction pool.
+   * @param limit - The number of items to returns
+   * @param after - The last known pending tx. Used for pagination
    * @returns An array of Txs.
    */
-  getPendingTxs(): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
+
+  /** Returns the number of pending txs in the p2p tx pool. */
+  getPendingTxCount(): Promise<number>;
 
   /**
    * Returns the ENR for this node, if any.
@@ -41,7 +48,7 @@ export interface P2PApiWithoutAttestations {
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 }
 
-export interface P2PClient extends P2PApiWithoutAttestations {
+export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
   /**
    * Queries the Attestation pool for attestations for the given slot
    *
@@ -50,13 +57,19 @@ export interface P2PClient extends P2PApiWithoutAttestations {
    * @returns BlockAttestations
    */
   getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
+}
 
+export interface P2PClient extends P2PApiWithAttestations {
   /** Manually adds an attestation to the p2p client attestation pool. */
-  addAttestation(attestation: BlockAttestation): Promise<void>;
+  addAttestations(attestations: BlockAttestation[]): Promise<void>;
 }
 
 export type P2PApi<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
-  ? P2PClient & P2PApiWithoutAttestations
+  ? P2PApiWithAttestations
+  : P2PApiWithoutAttestations;
+
+export type P2PApiFull<T extends P2PClientType = P2PClientType.Full> = T extends P2PClientType.Full
+  ? P2PApiWithAttestations & P2PClient
   : P2PApiWithoutAttestations;
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
@@ -64,8 +77,12 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
     .function()
     .args(schemas.BigInt, optional(z.string()))
     .returns(z.array(BlockAttestation.schema)),
-  getPendingTxs: z.function().returns(z.array(Tx.schema)),
+  getPendingTxs: z
+    .function()
+    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
+    .returns(z.array(Tx.schema)),
+
+  getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
-  addAttestation: z.function().args(BlockAttestation.schema).returns(z.void()),
 };

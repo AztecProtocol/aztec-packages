@@ -13,6 +13,7 @@
  * We use a special case algorithm to split bn254 scalar multipliers into endomorphism scalars
  *
  **/
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -46,170 +47,157 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
             break;
         }
     }
-    if constexpr (!HasPlookup<C>) {
-        // MERGENOTE: these four lines don't have an equivalent in d-b-p
-        std::vector<element> modified_big_points = big_points;
-        std::vector<Fr> modified_big_scalars = big_scalars;
-        modified_big_points.emplace_back(element::one(ctx));
-        modified_big_scalars.emplace_back(generator_scalar);
-        return bn254_endo_batch_mul(
-            modified_big_points, modified_big_scalars, small_points, small_scalars, max_num_small_bits);
-    } else {
-        constexpr size_t NUM_BIG_POINTS = 4;
-        // TODO: handle situation where big points size is not 4 :/
 
-        auto big_table_pair =
-            create_endo_pair_quad_lookup_table({ big_points[0], big_points[1], big_points[2], big_points[3] });
-        auto& big_table = big_table_pair.first;
-        auto& endo_table = big_table_pair.second;
-        batch_lookup_table small_table(small_points);
-        std::vector<std::vector<bool_ct>> big_naf_entries;
-        std::vector<std::vector<bool_ct>> endo_naf_entries;
-        std::vector<std::vector<bool_ct>> small_naf_entries;
+    constexpr size_t NUM_BIG_POINTS = 4;
+    // TODO: handle situation where big points size is not 4 :/
 
-        const auto split_into_endomorphism_scalars = [ctx](const Fr& scalar) {
-            bb::fr k = scalar.get_value();
-            bb::fr k1(0);
-            bb::fr k2(0);
-            bb::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), k1, k2);
-            Fr scalar_k1 = Fr::from_witness(ctx, k1.to_montgomery_form());
-            Fr scalar_k2 = Fr::from_witness(ctx, k2.to_montgomery_form());
-            bb::fr beta = bb::fr::cube_root_of_unity();
-            scalar.assert_equal(scalar_k1 - scalar_k2 * beta);
-            return std::make_pair<Fr, Fr>((Fr)scalar_k1, (Fr)scalar_k2);
-        };
+    auto big_table_pair =
+        create_endo_pair_quad_lookup_table({ big_points[0], big_points[1], big_points[2], big_points[3] });
+    auto& big_table = big_table_pair.first;
+    auto& endo_table = big_table_pair.second;
+    batch_lookup_table small_table(small_points);
+    std::vector<std::vector<bool_ct>> big_naf_entries;
+    std::vector<std::vector<bool_ct>> endo_naf_entries;
+    std::vector<std::vector<bool_ct>> small_naf_entries;
 
-        for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
-            const auto [scalar_k1, scalar_k2] = split_into_endomorphism_scalars(big_scalars[i]);
-            big_naf_entries.emplace_back(compute_naf(scalar_k1, max_num_small_bits));
-            endo_naf_entries.emplace_back(compute_naf(scalar_k2, max_num_small_bits));
-        }
+    const auto split_into_endomorphism_scalars = [ctx](const Fr& scalar) {
+        bb::fr k = scalar.get_value();
+        bb::fr k1(0);
+        bb::fr k2(0);
+        bb::fr::split_into_endomorphism_scalars(k.from_montgomery_form(), k1, k2);
+        Fr scalar_k1 = Fr::from_witness(ctx, k1.to_montgomery_form());
+        Fr scalar_k2 = Fr::from_witness(ctx, k2.to_montgomery_form());
+        bb::fr beta = bb::fr::cube_root_of_unity();
+        scalar.assert_equal(scalar_k1 - scalar_k2 * beta);
+        return std::make_pair<Fr, Fr>((Fr)scalar_k1, (Fr)scalar_k2);
+    };
 
-        const auto [generator_k1, generator_k2] = split_into_endomorphism_scalars(generator_scalar);
-        const std::vector<field_t<C>> generator_wnaf = compute_wnaf<128, 8>(generator_k1);
-        const std::vector<field_t<C>> generator_endo_wnaf = compute_wnaf<128, 8>(generator_k2);
-        const auto generator_table =
-            element::eight_bit_fixed_base_table<>(element::eight_bit_fixed_base_table<>::CurveType::BN254, false);
-        const auto generator_endo_table =
-            element::eight_bit_fixed_base_table<>(element::eight_bit_fixed_base_table<>::CurveType::BN254, true);
-
-        for (size_t i = 0; i < small_points.size(); ++i) {
-            small_naf_entries.emplace_back(compute_naf(small_scalars[i], max_num_small_bits));
-        }
-
-        const size_t num_rounds = max_num_small_bits;
-
-        const auto offset_generators = compute_offset_generators(num_rounds);
-
-        auto init_point = element::chain_add(offset_generators.first, small_table.get_chain_initial_entry());
-        init_point = element::chain_add(endo_table[0], init_point);
-        init_point = element::chain_add(big_table[0], init_point);
-
-        element accumulator = element::chain_add_end(init_point);
-
-        const auto get_point_to_add = [&](size_t naf_index) {
-            std::vector<bool_ct> small_nafs;
-            std::vector<bool_ct> big_nafs;
-            std::vector<bool_ct> endo_nafs;
-            for (size_t i = 0; i < small_points.size(); ++i) {
-                small_nafs.emplace_back(small_naf_entries[i][naf_index]);
-            }
-            for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
-                big_nafs.emplace_back(big_naf_entries[i][naf_index]);
-                endo_nafs.emplace_back(endo_naf_entries[i][naf_index]);
-            }
-
-            auto to_add = small_table.get_chain_add_accumulator(small_nafs);
-            to_add = element::chain_add(big_table.get({ big_nafs[0], big_nafs[1], big_nafs[2], big_nafs[3] }), to_add);
-            to_add =
-                element::chain_add(endo_table.get({ endo_nafs[0], endo_nafs[1], endo_nafs[2], endo_nafs[3] }), to_add);
-            return to_add;
-        };
-
-        // Perform multiple rounds of the montgomery ladder algoritm per "iteration" of our main loop.
-        // This is in order to reduce the number of field reductions required when calling `multiple_montgomery_ladder`
-        constexpr size_t num_rounds_per_iteration = 4;
-
-        // we require that we perform max of one generator per iteration
-        static_assert(num_rounds_per_iteration < 8);
-
-        size_t num_iterations = num_rounds / num_rounds_per_iteration;
-        num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
-        const size_t num_rounds_per_final_iteration =
-            (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-
-        size_t generator_idx = 0;
-        for (size_t i = 0; i < num_iterations; ++i) {
-
-            const size_t inner_num_rounds =
-                (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
-            std::vector<element::chain_add_accumulator> to_add;
-
-            for (size_t j = 0; j < inner_num_rounds; ++j) {
-                to_add.emplace_back(get_point_to_add(i * num_rounds_per_iteration + j + 1));
-            }
-
-            bool add_generator_this_round = false;
-            size_t add_idx = 0;
-            for (size_t j = 0; j < inner_num_rounds; ++j) {
-                add_generator_this_round = ((i * num_rounds_per_iteration + j) % 8) == 6;
-                if (add_generator_this_round) {
-                    add_idx = j;
-                    break;
-                }
-            }
-            if (add_generator_this_round) {
-                to_add[add_idx] = element::chain_add(generator_table[generator_wnaf[generator_idx]], to_add[add_idx]);
-                to_add[add_idx] =
-                    element::chain_add(generator_endo_table[generator_endo_wnaf[generator_idx]], to_add[add_idx]);
-                generator_idx++;
-            }
-            accumulator = accumulator.multiple_montgomery_ladder(to_add);
-        }
-
-        for (size_t i = 0; i < small_points.size(); ++i) {
-            element skew = accumulator - small_points[i];
-            Fq out_x = accumulator.x.conditional_select(skew.x, small_naf_entries[i][num_rounds]);
-            Fq out_y = accumulator.y.conditional_select(skew.y, small_naf_entries[i][num_rounds]);
-            accumulator = element(out_x, out_y);
-        }
-
-        uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
-        Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
-
-        for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
-            element skew_point = big_points[i];
-            skew_point.x *= beta;
-            element skew = accumulator + skew_point;
-            Fq out_x = accumulator.x.conditional_select(skew.x, endo_naf_entries[i][num_rounds]);
-            Fq out_y = accumulator.y.conditional_select(skew.y, endo_naf_entries[i][num_rounds]);
-            accumulator = element(out_x, out_y);
-        }
-        {
-            element skew = accumulator - generator_table[128];
-            Fq out_x = accumulator.x.conditional_select(skew.x, bool_ct(generator_wnaf[generator_wnaf.size() - 1]));
-            Fq out_y = accumulator.y.conditional_select(skew.y, bool_ct(generator_wnaf[generator_wnaf.size() - 1]));
-            accumulator = element(out_x, out_y);
-        }
-        {
-            element skew = accumulator - generator_endo_table[128];
-            Fq out_x =
-                accumulator.x.conditional_select(skew.x, bool_ct(generator_endo_wnaf[generator_wnaf.size() - 1]));
-            Fq out_y =
-                accumulator.y.conditional_select(skew.y, bool_ct(generator_endo_wnaf[generator_wnaf.size() - 1]));
-            accumulator = element(out_x, out_y);
-        }
-
-        for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
-            element skew = accumulator - big_points[i];
-            Fq out_x = accumulator.x.conditional_select(skew.x, big_naf_entries[i][num_rounds]);
-            Fq out_y = accumulator.y.conditional_select(skew.y, big_naf_entries[i][num_rounds]);
-            accumulator = element(out_x, out_y);
-        }
-        accumulator = accumulator - offset_generators.second;
-
-        return accumulator;
+    for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
+        const auto [scalar_k1, scalar_k2] = split_into_endomorphism_scalars(big_scalars[i]);
+        big_naf_entries.emplace_back(compute_naf(scalar_k1, max_num_small_bits));
+        endo_naf_entries.emplace_back(compute_naf(scalar_k2, max_num_small_bits));
     }
+
+    const auto [generator_k1, generator_k2] = split_into_endomorphism_scalars(generator_scalar);
+    const std::vector<field_t<C>> generator_wnaf = compute_wnaf<128, 8>(generator_k1);
+    const std::vector<field_t<C>> generator_endo_wnaf = compute_wnaf<128, 8>(generator_k2);
+    const auto generator_table =
+        element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::BN254, false);
+    const auto generator_endo_table =
+        element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::BN254, true);
+
+    for (size_t i = 0; i < small_points.size(); ++i) {
+        small_naf_entries.emplace_back(compute_naf(small_scalars[i], max_num_small_bits));
+    }
+
+    const size_t num_rounds = max_num_small_bits;
+
+    const auto offset_generators = compute_offset_generators(num_rounds);
+
+    auto init_point = element::chain_add(offset_generators.first, small_table.get_chain_initial_entry());
+    init_point = element::chain_add(endo_table[0], init_point);
+    init_point = element::chain_add(big_table[0], init_point);
+
+    element accumulator = element::chain_add_end(init_point);
+
+    const auto get_point_to_add = [&](size_t naf_index) {
+        std::vector<bool_ct> small_nafs;
+        std::vector<bool_ct> big_nafs;
+        std::vector<bool_ct> endo_nafs;
+        for (size_t i = 0; i < small_points.size(); ++i) {
+            small_nafs.emplace_back(small_naf_entries[i][naf_index]);
+        }
+        for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
+            big_nafs.emplace_back(big_naf_entries[i][naf_index]);
+            endo_nafs.emplace_back(endo_naf_entries[i][naf_index]);
+        }
+
+        auto to_add = small_table.get_chain_add_accumulator(small_nafs);
+        to_add = element::chain_add(big_table.get({ big_nafs[0], big_nafs[1], big_nafs[2], big_nafs[3] }), to_add);
+        to_add = element::chain_add(endo_table.get({ endo_nafs[0], endo_nafs[1], endo_nafs[2], endo_nafs[3] }), to_add);
+        return to_add;
+    };
+
+    // Perform multiple rounds of the montgomery ladder algoritm per "iteration" of our main loop.
+    // This is in order to reduce the number of field reductions required when calling `multiple_montgomery_ladder`
+    constexpr size_t num_rounds_per_iteration = 4;
+
+    // we require that we perform max of one generator per iteration
+    static_assert(num_rounds_per_iteration < 8);
+
+    size_t num_iterations = num_rounds / num_rounds_per_iteration;
+    num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
+    const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+
+    size_t generator_idx = 0;
+    for (size_t i = 0; i < num_iterations; ++i) {
+
+        const size_t inner_num_rounds =
+            (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+        std::vector<element::chain_add_accumulator> to_add;
+
+        for (size_t j = 0; j < inner_num_rounds; ++j) {
+            to_add.emplace_back(get_point_to_add(i * num_rounds_per_iteration + j + 1));
+        }
+
+        bool add_generator_this_round = false;
+        size_t add_idx = 0;
+        for (size_t j = 0; j < inner_num_rounds; ++j) {
+            add_generator_this_round = ((i * num_rounds_per_iteration + j) % 8) == 6;
+            if (add_generator_this_round) {
+                add_idx = j;
+                break;
+            }
+        }
+        if (add_generator_this_round) {
+            to_add[add_idx] = element::chain_add(generator_table[generator_wnaf[generator_idx]], to_add[add_idx]);
+            to_add[add_idx] =
+                element::chain_add(generator_endo_table[generator_endo_wnaf[generator_idx]], to_add[add_idx]);
+            generator_idx++;
+        }
+        accumulator = accumulator.multiple_montgomery_ladder(to_add);
+    }
+
+    for (size_t i = 0; i < small_points.size(); ++i) {
+        element skew = accumulator - small_points[i];
+        Fq out_x = accumulator.x.conditional_select(skew.x, small_naf_entries[i][num_rounds]);
+        Fq out_y = accumulator.y.conditional_select(skew.y, small_naf_entries[i][num_rounds]);
+        accumulator = element(out_x, out_y);
+    }
+
+    uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
+    Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)), false);
+
+    for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
+        element skew_point = big_points[i];
+        skew_point.x *= beta;
+        element skew = accumulator + skew_point;
+        Fq out_x = accumulator.x.conditional_select(skew.x, endo_naf_entries[i][num_rounds]);
+        Fq out_y = accumulator.y.conditional_select(skew.y, endo_naf_entries[i][num_rounds]);
+        accumulator = element(out_x, out_y);
+    }
+    {
+        element skew = accumulator - generator_table[128];
+        Fq out_x = accumulator.x.conditional_select(skew.x, bool_ct(generator_wnaf[generator_wnaf.size() - 1]));
+        Fq out_y = accumulator.y.conditional_select(skew.y, bool_ct(generator_wnaf[generator_wnaf.size() - 1]));
+        accumulator = element(out_x, out_y);
+    }
+    {
+        element skew = accumulator - generator_endo_table[128];
+        Fq out_x = accumulator.x.conditional_select(skew.x, bool_ct(generator_endo_wnaf[generator_wnaf.size() - 1]));
+        Fq out_y = accumulator.y.conditional_select(skew.y, bool_ct(generator_endo_wnaf[generator_wnaf.size() - 1]));
+        accumulator = element(out_x, out_y);
+    }
+
+    for (size_t i = 0; i < NUM_BIG_POINTS; ++i) {
+        element skew = accumulator - big_points[i];
+        Fq out_x = accumulator.x.conditional_select(skew.x, big_naf_entries[i][num_rounds]);
+        Fq out_y = accumulator.y.conditional_select(skew.y, big_naf_entries[i][num_rounds]);
+        accumulator = element(out_x, out_y);
+    }
+    accumulator = accumulator - offset_generators.second;
+
+    return accumulator;
 }
 
 /**

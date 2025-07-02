@@ -6,45 +6,26 @@ import {
   SubmitEpochRootProofArgs,
   PublicInputArgs,
   IRollupCore,
-  EpochRewards,
-  SubEpochRewards
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  CompressedFeeHeader,
-  FeeHeaderLib,
-  FeeLib,
-  FeeStore
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 library EpochProofLib {
-  using SafeERC20 for IERC20;
-
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
   using FeeHeaderLib for CompressedFeeHeader;
-
-  struct Values {
-    address sequencer;
-    uint256 proverFee;
-    uint256 sequencerFee;
-    uint256 sequencerBlockReward;
-    uint256 manaUsed;
-  }
-
-  struct Totals {
-    uint256 feesToClaim;
-    uint256 totalBurn;
-  }
+  using SafeCast for uint256;
+  using ChainTipsLib for CompressedChainTips;
 
   // This is a temporary struct to avoid stack too deep errors
   struct BlobVarsTemp {
@@ -52,10 +33,6 @@ library EpochProofLib {
     uint256 offset;
     uint256 i;
   }
-
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
-  // such as sacrificial hearts, during rituals performed within temples.
-  address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   /**
    * @notice  Submit a proof for an epoch in the pending chain
@@ -66,16 +43,19 @@ library EpochProofLib {
    *          - The block number is past the pending chain
    *          - The last archive root of the header does not match the archive root of parent block
    *          - The archive root of the header does not match the archive root of the proposed block
+   *          - The batched blob proof is invalid
+   *          - The batched blob proof does not correspond to the rollup data
    *          - The proof is invalid
    *
    * @dev     We provide the `_archive` even if it could be read from storage itself because it allow for better error
    *          messages. Without passing it, we would just have a proof verification failure.
    *
    * @param _args - The arguments to submit the epoch root proof:
-   *          _epochSize - The size of the epoch (to be promoted to a constant)
+   *          _start - The block number at the start of the epoch
+   *          _end - The block number at the end of the epoch
    *          _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
    *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   *          _blobPublicInputs - The blob public inputs for the proof
+   *          _blobInputs - The batched blob inputs for the EVM point evaluation precompile and as public inputs for the proof
    *          _proof - The proof to verify
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
@@ -85,12 +65,14 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
-    require(verifyEpochRootProof(_args), "proof is invalid");
+    require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
+    rollupStore.tips = rollupStore.tips.updateProvenBlockNumber(
+      Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end)
+    );
 
-    handleRewardsAndFees(_args, endEpoch);
+    RewardLib.handleRewardsAndFees(_args, endEpoch);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -122,7 +104,7 @@ library EpochProofLib {
     {
       // We do it this way to provide better error messages than passing along the storage values
       {
-        bytes32 expectedPreviousArchive = rollupStore.blocks[_start - 1].archive;
+        bytes32 expectedPreviousArchive = rollupStore.archives[_start - 1];
         require(
           expectedPreviousArchive == _args.previousArchive,
           Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args.previousArchive)
@@ -130,7 +112,7 @@ library EpochProofLib {
       }
 
       {
-        bytes32 expectedEndArchive = rollupStore.blocks[_end].archive;
+        bytes32 expectedEndArchive = rollupStore.archives[_end];
         require(
           expectedEndArchive == _args.endArchive,
           Errors.Rollup__InvalidArchive(expectedEndArchive, _args.endArchive)
@@ -143,11 +125,8 @@ library EpochProofLib {
     // Structure of the root rollup public inputs we need to reassemble:
     //
     // struct RootRollupPublicInputs {
-    //   previous_archive: AppendOnlyTreeSnapshot,
-    //   end_archive: AppendOnlyTreeSnapshot,
-    //   end_timestamp: u64,
-    //   end_block_number: Field,
-    //   out_hash: Field,
+    //   previous_archive_root: Field,
+    //   end_archive_root: Field,
     //   proposedBlockHeaderHashes: [Field; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   fees: [FeeRecipient; Constants.AZTEC_MAX_EPOCH_DURATION],
     //   chain_id: Field,
@@ -155,40 +134,23 @@ library EpochProofLib {
     //   vk_tree_root: Field,
     //   protocol_contract_tree_root: Field,
     //   prover_id: Field,
-    //   blob_public_inputs: [BlockBlobPublicInputs; Constants.AZTEC_MAX_EPOCH_DURATION], // <--This will be reduced to 1 if/when we implement multi-opening for blob verification
+    //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
     // }
     {
       // previous_archive.root: the previous archive tree root
       publicInputs[0] = _args.previousArchive;
 
-      // previous_archive.next_available_leaf_index: the previous archive next available index
-      // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
-      // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
-      publicInputs[1] = bytes32(_start);
-
       // end_archive.root: the new archive tree root
-      publicInputs[2] = _args.endArchive;
-
-      // end_archive.next_available_leaf_index: the new archive next available index
-      publicInputs[3] = bytes32(_end + 1);
-
-      // end_timestamp: the timestamp of the last block in the epoch
-      publicInputs[4] = bytes32(Timestamp.unwrap(_args.endTimestamp));
-
-      // end_block_number: last block number in the epoch
-      publicInputs[5] = bytes32(_end);
-
-      // out_hash: root of this epoch's l2 to l1 message tree
-      publicInputs[6] = _args.outHash;
+      publicInputs[1] = _args.endArchive;
     }
 
     uint256 numBlocks = _end - _start + 1;
 
     for (uint256 i = 0; i < numBlocks; i++) {
-      publicInputs[7 + i] = rollupStore.blocks[_start + i].headerHash;
+      publicInputs[2 + i] = STFLib.getHeaderHash(_start + i);
     }
 
-    uint256 offset = 7 + Constants.AZTEC_MAX_EPOCH_DURATION;
+    uint256 offset = 2 + Constants.AZTEC_MAX_EPOCH_DURATION;
 
     uint256 feesLength = Constants.AZTEC_MAX_EPOCH_DURATION * 2;
     // fees[2n to 2n + 1]: a fee element, which contains of a recipient and a value
@@ -215,108 +177,34 @@ library EpochProofLib {
     publicInputs[offset] = addressToField(_args.proverId);
     offset += 1;
 
-    {
-      BlobVarsTemp memory tmp = BlobVarsTemp({blobOffset: 0, offset: offset, i: 0});
-      // blob_public_inputs
-      for (; tmp.i < numBlocks; tmp.i++) {
-        uint8 blobsInBlock = uint8(_blobPublicInputs[tmp.blobOffset++]);
-        for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
-          if (j < blobsInBlock) {
-            // z
-            publicInputs[tmp.offset++] =
-              bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]);
-            // y
-            (publicInputs[tmp.offset++], publicInputs[tmp.offset++], publicInputs[tmp.offset++]) =
-              bytes32ToBigNum(bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]));
-            // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
-            // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
-            // TODO: The below left pads, possibly inefficiently
-            // c[0]
-            publicInputs[tmp.offset++] = bytes32(
-              uint256(uint248(bytes31(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 31])))
-            );
-            // c[1]
-            publicInputs[tmp.offset++] = bytes32(
-              uint256(uint136(bytes17(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 17])))
-            );
-          } else {
-            tmp.offset += Constants.BLOB_PUBLIC_INPUTS;
-          }
-        }
-      }
-    }
+    // FinalBlobAccumulatorPublicInputs:
+    // The blob public inputs do not require the versioned hash of the batched commitment, which is stored in _blobPublicInputs[0:32]
+    // or the KZG opening 'proof' (commitment Q) stored in _blobPublicInputs[144:]. They are used in validateBatchedBlob().
+    // See BlobLib.sol -> validateBatchedBlob() and calculateBlobCommitmentsHash() for documentation on the below blob related inputs.
+
+    // blobCommitmentsHash
+    publicInputs[offset] = STFLib.getBlobCommitmentsHash(_end);
+    offset += 1;
+
+    // z
+    publicInputs[offset] = bytes32(_blobPublicInputs[32:64]);
+    offset += 1;
+
+    // y
+    (publicInputs[offset], publicInputs[offset + 1], publicInputs[offset + 2]) =
+      bytes32ToBigNum(bytes32(_blobPublicInputs[64:96]));
+    offset += 3;
+
+    // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
+    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
+    // TODO: The below left pads, possibly inefficiently
+    // c[0]
+    publicInputs[offset] = bytes32(uint256(uint248(bytes31((_blobPublicInputs[96:127])))));
+    // c[1]
+    publicInputs[offset + 1] = bytes32(uint256(uint136(bytes17((_blobPublicInputs[127:144])))));
+    offset += 2;
+
     return publicInputs;
-  }
-
-  function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) private {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    bool isRewardDistributorCanonical =
-      address(this) == rollupStore.config.rewardDistributor.canonicalRollup();
-
-    uint256 length = _args.end - _args.start + 1;
-    EpochRewards storage $er = rollupStore.epochRewards[_endEpoch];
-    SubEpochRewards storage $sr = $er.subEpoch[length];
-
-    {
-      address prover = _args.args.proverId;
-      require(
-        !$sr.hasSubmitted[prover], Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
-      );
-      $sr.hasSubmitted[prover] = true;
-    }
-    $sr.summedCount += 1;
-
-    if (length > $er.longestProvenLength) {
-      Values memory v;
-      Totals memory t;
-
-      {
-        uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsAvailable = isRewardDistributorCanonical
-          ? rollupStore.config.rewardDistributor.claimBlockRewards(address(this), added)
-          : 0;
-        uint256 sequencerShare = blockRewardsAvailable / 2;
-        v.sequencerBlockReward = sequencerShare / added;
-
-        $er.rewards += (blockRewardsAvailable - sequencerShare);
-      }
-
-      FeeStore storage feeStore = FeeLib.getStorage();
-
-      for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
-
-        v.manaUsed = feeHeader.getManaUsed();
-
-        uint256 fee = uint256(_args.fees[1 + i * 2]);
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
-
-        t.feesToClaim += fee;
-        t.totalBurn += burn;
-
-        // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee;
-
-        v.sequencerFee = fee - burn - v.proverFee;
-
-        {
-          v.sequencer = fieldToAddress(_args.fees[i * 2]);
-          rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
-        }
-      }
-
-      $er.longestProvenLength = length;
-
-      if (t.feesToClaim > 0) {
-        rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
-      }
-
-      if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
-      }
-    }
   }
 
   function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
@@ -328,23 +216,30 @@ library EpochProofLib {
 
     require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
 
-    Slot deadline = startEpoch.toSlots() + Slot.wrap(rollupStore.config.proofSubmissionWindow);
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+
     require(
-      deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(),
-      Errors.Rollup__PastDeadline(deadline, Timestamp.wrap(block.timestamp).slotFromTimestamp())
+      startEpoch.isAcceptingProofsAtEpoch(currentEpoch),
+      Errors.Rollup__PastDeadline(startEpoch.toDeadlineEpoch(), currentEpoch)
     );
 
     // By making sure that the previous block is in another epoch, we know that we were
     // at the start.
     Epoch parentEpoch = STFLib.getEpochForBlock(_start - 1);
 
-    require(startEpoch > Epoch.wrap(0) || _start == 1, "invalid first epoch proof");
+    require(startEpoch > Epoch.wrap(0) || _start == 1, Errors.Rollup__InvalidFirstEpochProof());
 
     bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
     require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
 
-    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
+    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.getProvenBlockNumber();
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
+
+    bool claimedNumBlocksInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;
+    require(
+      claimedNumBlocksInEpoch,
+      Errors.Rollup__TooManyBlocksInEpoch(Constants.AZTEC_MAX_EPOCH_DURATION, _end - _start)
+    );
 
     return endEpoch;
   }
@@ -356,22 +251,10 @@ library EpochProofLib {
   {
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    uint256 size = _args.end - _args.start + 1;
+    BlobLib.validateBatchedBlob(_args.blobInputs);
 
-    for (uint256 i = 0; i < size; i++) {
-      uint256 blobOffset = i * Constants.BLOB_PUBLIC_INPUTS_BYTES + i;
-      uint8 blobsInBlock = uint8(_args.blobPublicInputs[blobOffset++]);
-      checkBlobPublicInputsHashes(
-        _args.blobPublicInputs,
-        rollupStore.blobPublicInputsHashes[_args.start + i],
-        blobOffset,
-        blobsInBlock
-      );
-    }
-
-    bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _args.start, _args.end, _args.args, _args.fees, _args.blobPublicInputs
-    );
+    bytes32[] memory publicInputs =
+      getEpochProofPublicInputs(_args.start, _args.end, _args.args, _args.fees, _args.blobInputs);
 
     require(
       rollupStore.config.epochProofVerifier.verify(_args.proof, publicInputs),
@@ -379,30 +262,6 @@ library EpochProofLib {
     );
 
     return true;
-  }
-
-  /**
-   * Helper fn to prevent stack too deep. Checks blob public input hashes match for a block:
-   * @param _blobPublicInputs - The provided blob public inputs bytes array
-   * @param _blobPublicInputsHash - The stored blob public inputs hash
-   * @param _index - The index to start in _blobPublicInputs
-   * @param _blobsInBlock - The number of blobs in this block
-   */
-  function checkBlobPublicInputsHashes(
-    bytes calldata _blobPublicInputs,
-    bytes32 _blobPublicInputsHash,
-    uint256 _index,
-    uint8 _blobsInBlock
-  ) private pure {
-    bytes32 calcBlobPublicInputsHash = sha256(
-      abi.encodePacked(
-        _blobPublicInputs[_index:_index + Constants.BLOB_PUBLIC_INPUTS_BYTES * _blobsInBlock]
-      )
-    );
-    require(
-      calcBlobPublicInputsHash == _blobPublicInputsHash,
-      Errors.Rollup__InvalidBlobPublicInputsHash(_blobPublicInputsHash, calcBlobPublicInputsHash)
-    );
   }
 
   /**
@@ -426,9 +285,5 @@ library EpochProofLib {
 
   function addressToField(address _a) private pure returns (bytes32) {
     return bytes32(uint256(uint160(_a)));
-  }
-
-  function fieldToAddress(bytes32 _f) private pure returns (address) {
-    return address(uint160(uint256(_f)));
   }
 }

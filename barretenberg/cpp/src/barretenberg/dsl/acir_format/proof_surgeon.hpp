@@ -10,7 +10,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
@@ -35,16 +35,17 @@ class ProofSurgeon {
      * @param verification_key
      * @param toml_path
      */
+    template <typename VerificationKey>
     static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
-                                                            const auto& verification_key,
+                                                            const std::shared_ptr<VerificationKey>& verification_key,
                                                             bool ipa_accumulation)
     {
         // Convert verification key to fields
-        std::vector<FF> vkey_fields = verification_key.to_field_elements();
+        std::vector<FF> vkey_fields = verification_key->to_field_elements();
 
         // Get public inputs by cutting them out of the proof
         size_t num_public_inputs_to_extract =
-            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINTS_SIZE;
+            static_cast<uint32_t>(verification_key->num_public_inputs) - bb::PAIRING_POINTS_SIZE;
         if (ipa_accumulation) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }

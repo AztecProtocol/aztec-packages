@@ -9,10 +9,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 
-namespace bb {
-class UltraPlonkBuilder;
-} // namespace bb
-
 namespace bb::stdlib {
 
 using plookup::ColumnIdx;

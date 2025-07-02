@@ -43,17 +43,19 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmRevertReason } from './errors.js';
 import {
-  getContractFunctionArtifact,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
   initMachineState,
   initPersistableStateManager,
+} from './fixtures/initializers.js';
+import {
+  getContractFunctionArtifact,
   randomMemoryBytes,
   randomMemoryFields,
   randomMemoryUint64s,
   resolveContractAssertionMessage,
-} from './fixtures/index.js';
+} from './fixtures/utils.js';
 import {
   Add,
   CalldataCopy,
@@ -488,11 +490,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const transactionFee = Fr.random();
     const chainId = Fr.random();
     const version = Fr.random();
-    const blockNumber = Fr.random();
-    const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
-    const feePerDaGas = Fr.random();
-    const feePerL2Gas = Fr.random();
-    const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
+    const blockNumber = randomInt(20000);
+    const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
+    const gasFees = GasFees.random();
 
     beforeAll(async () => {
       address = await AztecAddress.random();
@@ -523,10 +523,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       ['transactionFee', () => transactionFee.toField(), 'get_transaction_fee'],
       ['chainId', () => chainId.toField(), 'get_chain_id'],
       ['version', () => version.toField(), 'get_version'],
-      ['blockNumber', () => blockNumber.toField(), 'get_block_number'],
-      ['timestamp', () => timestamp.toField(), 'get_timestamp'],
-      ['feePerDaGas', () => feePerDaGas.toField(), 'get_fee_per_da_gas'],
-      ['feePerL2Gas', () => feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
+      ['blockNumber', () => new Fr(blockNumber), 'get_block_number'],
+      ['timestamp', () => new Fr(timestamp), 'get_timestamp'],
+      ['feePerDaGas', () => new Fr(gasFees.feePerDaGas), 'get_fee_per_da_gas'],
+      ['feePerL2Gas', () => new Fr(gasFees.feePerL2Gas), 'get_fee_per_l2_gas'],
     ])('%s getter', async (_name: string, valueGetter: () => Fr, functionName: string) => {
       const value = valueGetter();
       const bytecode = getAvmTestContractBytecode(functionName);
@@ -670,8 +670,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, 0);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
@@ -960,7 +960,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       it(`Nested call with not enough gas (expect failure)`, async () => {
         const gas = [/*l2=*/ 5, /*da=*/ 10000].map(g => new Fr(g));
         const targetFunctionSelector = await FunctionSelector.fromSignature(
-          'nested_call_to_add_with_gas(Field,Field,Field,Field)',
+          'nested_call_to_add_with_gas(Field,Field,u32,u32)',
         );
         const calldata: Fr[] = [targetFunctionSelector.toField(), value0, value1, ...gas];
         const context = createContext(calldata);
@@ -1111,8 +1111,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     beforeAll(async () => {
       siloedNullifier0 = await siloNullifier(address, value0);
       const siloedNoteHash0 = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
-      uniqueNoteHash0 = await computeUniqueNoteHash(nonce, siloedNoteHash0);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, noteHashIndexInTx);
+      uniqueNoteHash0 = await computeUniqueNoteHash(noteNonce, siloedNoteHash0);
     });
 
     beforeEach(async () => {
