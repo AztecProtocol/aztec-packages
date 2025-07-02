@@ -211,6 +211,8 @@ function run {
     if [ -n "${GCP_SA_KEY_B64:-}" ]; then
       echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
       echo "GCP_SA_KEY decoded and saved to /tmp/gcp-key.json"
+    else
+      touch /tmp/gcp-key.json
     fi
 
     start_build() {
