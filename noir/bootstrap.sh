@@ -225,6 +225,9 @@ function bump_noir_repo_ref {
   git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
   scripts/sync.sh write-noir-repo-ref $ref
 
+  # Update the Cargo.lock file in the transpiler to match the new ref.
+  cargo check --manifest-path="../avm-transpiler/Cargo.toml"
+
   # Build nargo and run formatter on `noir-projects`
   build_native
   ../noir-projects/bootstrap.sh format
