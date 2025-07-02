@@ -1,4 +1,4 @@
-import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
+import { MAX_ENQUEUED_CALLS_PER_TX, MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
@@ -125,6 +125,9 @@ export const mockTx = async (
   data.constants.txContext.version = version;
   data.constants.vkTreeRoot = vkTreeRoot;
   data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+
+  // Set includeByTimestamp to the maximum allowed duration from the current time.
+  data.includeByTimestamp = BigInt(Date.now() + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
 
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {

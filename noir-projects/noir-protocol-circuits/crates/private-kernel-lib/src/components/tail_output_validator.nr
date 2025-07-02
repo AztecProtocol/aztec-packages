@@ -1,6 +1,10 @@
-pub mod tail_output_hints;
+mod tail_output_hints;
+mod validate_include_by_timestamp_duration;
 
-use crate::components::tail_output_composer::meter_gas_used;
+pub(crate) use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
+pub(crate) use validate_include_by_timestamp_duration::validate_include_by_timestamp_duration;
+
+use crate::components::tail_output_composer::{aggregate_include_by_timestamp, meter_gas_used};
 
 use dep::types::{
     abis::{
@@ -13,11 +17,11 @@ use dep::types::{
     messaging::l2_to_l1_message::L2ToL1Message,
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
-use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 
 pub struct TailOutputValidator {
     output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
+    include_by_timestamp: u64,
     hints: TailOutputHints,
 }
 
@@ -25,19 +29,21 @@ impl TailOutputValidator {
     pub fn new(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
+        include_by_timestamp: u64,
     ) -> Self {
         // Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
 
-        TailOutputValidator::new_with_hints(output, previous_kernel, hints)
+        TailOutputValidator::new_with_hints(output, previous_kernel, include_by_timestamp, hints)
     }
 
     pub fn new_with_hints(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
+        include_by_timestamp: u64,
         hints: TailOutputHints,
     ) -> Self {
-        TailOutputValidator { output, previous_kernel, hints }
+        TailOutputValidator { output, previous_kernel, include_by_timestamp, hints }
     }
 
     pub fn validate(self) {
@@ -70,13 +76,22 @@ impl TailOutputValidator {
             "mismatch protocol_contract_tree_root",
         );
 
-        assert_eq(
-            self.output.rollup_validation_requests,
-            self.previous_kernel.validation_requests.for_rollup,
-            "mismatch rollup_validation_requests",
-        );
-
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
+
+        // include_by_timestamp
+        let include_by_timestamp = aggregate_include_by_timestamp(
+            self.previous_kernel.include_by_timestamp,
+            self.include_by_timestamp,
+        );
+        validate_include_by_timestamp_duration(
+            include_by_timestamp,
+            self.previous_kernel.constants.historical_header.global_variables,
+        );
+        assert_eq(
+            self.output.include_by_timestamp,
+            include_by_timestamp,
+            "incorrect include_by_timestamp",
+        );
 
         // note_hashes
         let note_hashes = self.previous_kernel.end.note_hashes;

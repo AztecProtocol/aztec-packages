@@ -8,10 +8,7 @@ fn new_from_previous_kernel_with_private_call_empty_data_succeeds() {
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(
-        output.validation_requests.for_rollup.include_by_timestamp.unwrap_unchecked(),
-        DEFAULT_UPDATE_DELAY,
-    );
+    assert_eq(output.include_by_timestamp.unwrap_unchecked(), DEFAULT_UPDATE_DELAY);
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());
 }
@@ -60,7 +57,7 @@ fn new_from_previous_kernel_with_private_call_include_by_timestamp_prev_empty_su
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]
@@ -72,7 +69,7 @@ fn new_from_previous_kernel_with_private_call_include_by_timestamp_curr_empty_su
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]
@@ -85,7 +82,7 @@ fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_prev_suc
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]
@@ -98,7 +95,7 @@ fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_curr_suc
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]

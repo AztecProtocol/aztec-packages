@@ -204,6 +204,9 @@ mod tests {
                 FixtureBuilder::new().in_vk_tree(PUBLIC_TUBE_VK_INDEX).use_last_archive();
             inputs.avm_data = FixtureBuilder::new().in_vk_tree(AVM_VK_INDEX);
 
+            // Set the include by timestamp to the current block timestamp.
+            inputs.tube_data.set_include_by_timestamp(inputs.avm_data.global_variables.timestamp);
+
             inputs
         }
 

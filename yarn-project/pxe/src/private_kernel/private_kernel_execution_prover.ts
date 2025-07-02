@@ -34,6 +34,7 @@ import {
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
+import { computeTxIncludeByTimestamp } from './hints/index.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -47,6 +48,7 @@ export interface PrivateKernelExecutionProverConfig {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profileMode: 'gates' | 'execution-steps' | 'full' | 'none';
+  maxIncludeByTimestampDuration?: number;
 }
 
 /**
@@ -78,7 +80,7 @@ export class PrivateKernelExecutionProver {
   async proveWithKernels(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profileMode }: PrivateKernelExecutionProverConfig = {
+    { simulate, skipFeeEnforcement, profileMode, maxIncludeByTimestampDuration }: PrivateKernelExecutionProverConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profileMode: 'none',
@@ -272,9 +274,19 @@ export class PrivateKernelExecutionProver {
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    // TODO: Enable padding when we have a better what are the final amounts we should pad to.
+    // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, paddedSideEffectAmounts);
+
+    const includeByTimestamp = computeTxIncludeByTimestamp(
+      previousKernelData.publicInputs,
+      maxIncludeByTimestampDuration,
+    );
+
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
+      previousKernelData,
+      paddedSideEffectAmounts,
+      includeByTimestamp,
+    );
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 

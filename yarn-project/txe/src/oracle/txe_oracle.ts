@@ -89,7 +89,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
-  RollupValidationRequests,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
@@ -1573,9 +1572,9 @@ export class TXE implements TypedOracle {
 
     const txData = new PrivateKernelTailCircuitPublicInputs(
       constantData,
-      RollupValidationRequests.empty(),
       /*gasUsed=*/ new Gas(0, 0),
       /*feePayer=*/ AztecAddress.zero(),
+      /*includeByTimestamp=*/ 0n,
       inputsForPublic,
       undefined,
     );

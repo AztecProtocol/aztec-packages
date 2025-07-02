@@ -43,7 +43,7 @@ import {
   BlockHeader,
   ContentCommitment,
   GlobalVariables,
-  IncludeByTimestamp,
+  IncludeByTimestampOption,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -63,7 +63,7 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
-  IncludeByTimestamp as IncludeByTimestampNoir,
+  IncludeByTimestampOption as IncludeByTimestampOptionNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
@@ -451,17 +451,17 @@ export function mapOptionalNumberFromNoir(option: OptionalNumberNoir<u64>) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
 }
 
-export function mapIncludeByTimestampToNoir(includeByTimestamp: IncludeByTimestamp): IncludeByTimestampNoir {
+export function mapIncludeByTimestampOptionToNoir(option: IncludeByTimestampOption): IncludeByTimestampOptionNoir {
   return {
     _opt: {
-      _is_some: includeByTimestamp.isSome,
-      _value: mapBigIntToNoir(includeByTimestamp.value),
+      _is_some: option.isSome,
+      _value: mapBigIntToNoir(option.value),
     },
   };
 }
 
-export function mapIncludeByTimestampFromNoir(includeByTimestamp: IncludeByTimestampNoir): IncludeByTimestamp {
-  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapBigIntFromNoir(includeByTimestamp._opt._value));
+export function mapIncludeByTimestampOptionFromNoir(option: IncludeByTimestampOptionNoir): IncludeByTimestampOption {
+  return new IncludeByTimestampOption(option._opt._is_some, mapBigIntFromNoir(option._opt._value));
 }
 
 /**

@@ -16,20 +16,29 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 
 pub struct PrivateKernelTailCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
+    // A custom include_by_timestamp set by the user. However, if a lower include_by_timestamp was requested during the
+    // tx execution, that value will be used instead.
+    include_by_timestamp: u64,
 }
 
 impl PrivateKernelTailCircuitPrivateInputs {
     pub fn new(
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
+        include_by_timestamp: u64,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
+            include_by_timestamp,
         }
     }
 
     unconstrained fn generate_output(self) -> PrivateToRollupKernelCircuitPublicInputs {
-        TailOutputComposer::new(self.previous_kernel.public_inputs).finish()
+        TailOutputComposer::new(
+            self.previous_kernel.public_inputs,
+            self.include_by_timestamp,
+        )
+            .finish()
     }
 
     pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
@@ -46,7 +55,12 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
-            TailOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+            TailOutputValidator::new(
+                output,
+                self.previous_kernel.public_inputs,
+                self.include_by_timestamp,
+            )
+                .validate();
         }
 
         output
@@ -59,7 +73,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::Gas, include_by_timestamp::IncludeByTimestamp,
+            gas::Gas, include_by_timestamp_option::IncludeByTimestampOption,
             kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
         },
         address::{AztecAddress, EthAddress},
@@ -77,6 +91,7 @@ mod tests {
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
     struct PrivateKernelTailInputsBuilder {
         previous_kernel: FixtureBuilder,
+        include_by_timestamp: u64,
     }
 
     impl PrivateKernelTailInputsBuilder {
@@ -87,38 +102,40 @@ mod tests {
             previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
             previous_kernel.is_private_only = true;
 
-            PrivateKernelTailInputsBuilder { previous_kernel }
+            PrivateKernelTailInputsBuilder { previous_kernel, include_by_timestamp: 0 }
         }
 
-        pub fn execute(&mut self) -> PrivateToRollupKernelCircuitPublicInputs {
+        pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
             let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
+                include_by_timestamp: self.include_by_timestamp,
             };
             kernel.execute()
         }
 
-        pub fn failed(&mut self) {
+        pub fn failed(self) {
             let _ = self.execute();
         }
 
-        pub fn succeeded(&mut self) {
+        pub fn succeeded(self) {
             let _ = self.execute();
         }
     }
 
     #[test]
-    fn execution_succeeded() {
+    fn correct_private_kernel_tail_output_propagated_values() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        let _public_inputs = builder.execute();
-    }
 
-    #[test]
-    fn propagate_previous_kernel_include_by_timestamp() {
-        let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.include_by_timestamp = IncludeByTimestamp::new(13);
+        let constants = builder.previous_kernel.to_tx_constant_data();
+        builder.previous_kernel.fee_payer = AztecAddress::from_field(90);
+        builder.include_by_timestamp = 999;
+        builder.previous_kernel.include_by_timestamp = IncludeByTimestampOption::some(13);
+
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.rollup_validation_requests.include_by_timestamp.unwrap(), 13);
+        assert_eq(public_inputs.constants, constants);
+        assert_eq(public_inputs.fee_payer, AztecAddress::from_field(90));
+        assert_eq(public_inputs.include_by_timestamp, 13);
     }
 
     #[test]

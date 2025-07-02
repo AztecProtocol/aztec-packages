@@ -56,6 +56,16 @@ use dep::aztec::protocol_types::{
 };
 ```
 
+### `include_by_timestamp` is now mandatory
+
+Each transaction must now include a valid `include_by_timestamp` that satisfies the following conditions:
+
+- It must be greater than the historical block’s timestamp.
+- The duration between the `include_by_timestamp` and the historical block’s timestamp must not exceed the maximum allowed (currently 24 hours).
+- It must be greater than or equal to the timestamp of the block in which the transaction is included.
+
+If no `include_by_timestamp` is explicitly set by private functions during transaction execution, the PXE will automatically inject the maximum allowed timestamp. If a value is set, the PXE may lower it to reduce precision and obscure the exact timestamp.
+
 ## 0.88.0
 
 ## [Aztec.nr] Deprecation of the `authwit` library
@@ -72,7 +82,6 @@ and stale dependencies removed from `Nargo.toml`
 ```diff
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
-
 
 ## 0.87.0
 

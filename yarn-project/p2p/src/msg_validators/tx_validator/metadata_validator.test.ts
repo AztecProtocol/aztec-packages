@@ -2,7 +2,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import {
-  IncludeByTimestamp,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
@@ -102,21 +101,23 @@ describe('MetadataTxValidator', () => {
 
   it.each([10n, 11n])('allows txs with valid expiration timestamp', async includeByTimestamp => {
     const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, includeByTimestamp);
+    goodTx.data.includeByTimestamp = includeByTimestamp;
 
     await expectValid(goodTx);
   });
 
-  it('allows txs with unset expiration timestamp', async () => {
-    const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(false, 0n);
+  it('allows txs with equal or greater expiration timestamp', async () => {
+    const [goodTx1, goodTx2] = await makeTxs();
+    goodTx1.data.includeByTimestamp = timestamp;
+    goodTx2.data.includeByTimestamp = timestamp + 1n;
 
-    await expectValid(goodTx);
+    await expectValid(goodTx1);
+    await expectValid(goodTx2);
   });
 
   it('rejects txs with lower expiration timestamp', async () => {
     const [badTx] = await makeTxs();
-    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, timestamp - 1n);
+    badTx.data.includeByTimestamp = timestamp - 1n;
 
     await expectInvalid(badTx, TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
   });
@@ -129,7 +130,7 @@ describe('MetadataTxValidator', () => {
     setValidatorAtBlock(1);
 
     const [badTx] = await makeTxs();
-    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, timestamp - 1n);
+    badTx.data.includeByTimestamp = timestamp - 1n;
 
     await expectValid(badTx);
   });

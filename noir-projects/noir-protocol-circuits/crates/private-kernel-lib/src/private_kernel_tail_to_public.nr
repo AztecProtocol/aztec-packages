@@ -21,6 +21,9 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
+    // A custom include_by_timestamp set by the user. However, if a lower include_by_timestamp was requested during the
+    // tx execution, that value will be used instead.
+    include_by_timestamp: u64,
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -28,10 +31,12 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
+        include_by_timestamp: u64,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
             padded_side_effect_amounts,
+            include_by_timestamp,
         }
     }
 
@@ -39,6 +44,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         TailToPublicOutputComposer::new(
             self.previous_kernel.public_inputs,
             self.padded_side_effect_amounts,
+            self.include_by_timestamp,
         )
             .finish()
     }
@@ -61,6 +67,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
                 output,
                 self.previous_kernel.public_inputs,
                 self.padded_side_effect_amounts,
+                self.include_by_timestamp,
             )
                 .validate();
         }
@@ -98,6 +105,7 @@ mod tests {
     struct PrivateKernelTailToPublicInputsBuilder {
         previous_kernel: FixtureBuilder,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
+        include_by_timestamp: u64,
     }
 
     impl PrivateKernelTailToPublicInputsBuilder {
@@ -111,13 +119,18 @@ mod tests {
 
             let padded_side_effect_amounts = PaddedSideEffectAmounts::empty();
 
-            PrivateKernelTailToPublicInputsBuilder { previous_kernel, padded_side_effect_amounts }
+            PrivateKernelTailToPublicInputsBuilder {
+                previous_kernel,
+                padded_side_effect_amounts,
+                include_by_timestamp: 0,
+            }
         }
 
         pub fn execute(&mut self) -> PrivateToPublicKernelCircuitPublicInputs {
             let kernel = PrivateKernelTailToPublicCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
                 padded_side_effect_amounts: self.padded_side_effect_amounts,
+                include_by_timestamp: self.include_by_timestamp,
             };
             kernel.execute()
         }

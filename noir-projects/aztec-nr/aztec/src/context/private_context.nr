@@ -20,7 +20,7 @@ use dep::protocol_types::{
         call_context::CallContext,
         function_selector::FunctionSelector,
         gas_settings::GasSettings,
-        include_by_timestamp::IncludeByTimestamp,
+        include_by_timestamp_option::IncludeByTimestampOption,
         log_hash::LogHash,
         note_hash::NoteHash,
         nullifier::Nullifier,
@@ -60,7 +60,7 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub include_by_timestamp: IncludeByTimestamp,
+    pub include_by_timestamp: IncludeByTimestampOption,
 
     pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
@@ -96,7 +96,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            include_by_timestamp: IncludeByTimestamp::empty(),
+            include_by_timestamp: IncludeByTimestampOption::none(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),
@@ -236,7 +236,7 @@ impl PrivateContext {
     pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
         // docs:end:include-by-timestamp
         self.include_by_timestamp =
-            IncludeByTimestamp::min_with_u64(self.include_by_timestamp, include_by_timestamp);
+            IncludeByTimestampOption::min_with_u64(self.include_by_timestamp, include_by_timestamp);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -566,7 +566,7 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            include_by_timestamp: IncludeByTimestamp::empty(),
+            include_by_timestamp: IncludeByTimestampOption::none(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),

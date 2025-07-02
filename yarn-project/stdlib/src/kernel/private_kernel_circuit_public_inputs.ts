@@ -3,6 +3,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { IncludeByTimestampOption } from '../tx/include_by_timestamp_option.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { PrivateAccumulatedData } from './private_accumulated_data.js';
 import { PrivateValidationRequests } from './private_validation_requests.js';
@@ -38,6 +39,10 @@ export class PrivateKernelCircuitPublicInputs {
      */
     public feePayer: AztecAddress,
     /**
+     * The timestamp by which the transaction must be included in a block.
+     */
+    public includeByTimestamp: IncludeByTimestampOption,
+    /**
      * Wether this is a private only tx or not
      */
     public isPrivateOnly: boolean,
@@ -63,6 +68,7 @@ export class PrivateKernelCircuitPublicInputs {
       this.end,
       this.publicTeardownCallRequest,
       this.feePayer,
+      this.includeByTimestamp,
       this.isPrivateOnly,
       this.claimedFirstNullifier,
     );
@@ -82,6 +88,7 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readObject(PrivateAccumulatedData),
       reader.readObject(PublicCallRequest),
       reader.readObject(AztecAddress),
+      reader.readObject(IncludeByTimestampOption),
       reader.readBoolean(),
       reader.readObject(Fr),
     );
@@ -95,6 +102,7 @@ export class PrivateKernelCircuitPublicInputs {
       PrivateAccumulatedData.empty(),
       PublicCallRequest.empty(),
       AztecAddress.ZERO,
+      IncludeByTimestampOption.empty(),
       false,
       Fr.zero(),
     );

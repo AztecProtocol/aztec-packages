@@ -40,7 +40,6 @@ import {
   type PrivateVerificationKeyHints,
   ReadRequest,
   ReadRequestAction,
-  RollupValidationRequests,
   ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
   ScopedNullifier,
@@ -88,7 +87,6 @@ import type {
   PublicKeys as PublicKeysNoir,
   ReadRequestAction as ReadRequestActionNoir,
   ReadRequest as ReadRequestNoir,
-  RollupValidationRequests as RollupValidationRequestsNoir,
   Scoped,
   ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
   ScopedNoteHash as ScopedNoteHashNoir,
@@ -101,6 +99,7 @@ import type {
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapBigIntFromNoir,
   mapClaimedLengthArrayFromNoir,
   mapClaimedLengthArrayToNoir,
   mapCountedL2ToL1MessageToNoir,
@@ -113,8 +112,8 @@ import {
   mapGrumpkinScalarToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapIncludeByTimestampFromNoir,
-  mapIncludeByTimestampToNoir,
+  mapIncludeByTimestampOptionFromNoir,
+  mapIncludeByTimestampOptionToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -414,23 +413,8 @@ function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
   };
 }
 
-export function mapRollupValidationRequestsToNoir(
-  rollupValidationRequests: RollupValidationRequests,
-): RollupValidationRequestsNoir {
-  return {
-    include_by_timestamp: mapIncludeByTimestampToNoir(rollupValidationRequests.includeByTimestamp),
-  };
-}
-
-export function mapRollupValidationRequestsFromNoir(
-  rollupValidationRequests: RollupValidationRequestsNoir,
-): RollupValidationRequests {
-  return new RollupValidationRequests(mapIncludeByTimestampFromNoir(rollupValidationRequests.include_by_timestamp));
-}
-
 function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests): PrivateValidationRequestsNoir {
   return {
-    for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
     note_hash_read_requests: mapClaimedLengthArrayToNoir(requests.noteHashReadRequests, mapScopedReadRequestToNoir),
     nullifier_read_requests: mapClaimedLengthArrayToNoir(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
     scoped_key_validation_requests_and_generators: mapClaimedLengthArrayToNoir(
@@ -443,7 +427,6 @@ function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests)
 
 function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequestsNoir) {
   return new PrivateValidationRequests(
-    mapRollupValidationRequestsFromNoir(requests.for_rollup),
     mapClaimedLengthArrayFromNoir(requests.note_hash_read_requests, mapScopedReadRequestFromNoir),
     mapClaimedLengthArrayFromNoir(requests.nullifier_read_requests, mapScopedReadRequestFromNoir),
     mapClaimedLengthArrayFromNoir(
@@ -492,7 +475,6 @@ export function mapPrivateCircuitPublicInputsToNoir(
   privateCircuitPublicInputs: PrivateCircuitPublicInputs,
 ): PrivateCircuitPublicInputsNoir {
   return {
-    include_by_timestamp: mapIncludeByTimestampToNoir(privateCircuitPublicInputs.includeByTimestamp),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
@@ -531,6 +513,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
+    include_by_timestamp: mapIncludeByTimestampOptionToNoir(privateCircuitPublicInputs.includeByTimestamp),
   };
 }
 
@@ -632,6 +615,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapIncludeByTimestampOptionFromNoir(inputs.include_by_timestamp),
     inputs.is_private_only,
     mapFieldFromNoir(inputs.claimed_first_nullifier),
   );
@@ -647,6 +631,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapIncludeByTimestampOptionToNoir(inputs.includeByTimestamp),
     is_private_only: inputs.isPrivateOnly,
     claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
   };
@@ -671,9 +656,9 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
   const forRollup = new PartialPrivateTailPublicInputsForRollup(mapPrivateToRollupAccumulatedDataFromNoir(inputs.end));
   return new PrivateKernelTailCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
-    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapBigIntFromNoir(inputs.include_by_timestamp),
     undefined,
     forRollup,
   );
@@ -700,9 +685,9 @@ export function mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(
   );
   return new PrivateKernelTailCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
-    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapBigIntFromNoir(inputs.include_by_timestamp),
     forPublic,
   );
 }

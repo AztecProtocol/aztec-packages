@@ -22,10 +22,7 @@ fn propagate_from_private_call_empty_data_succeeds() {
     assert(output.validation_requests.nullifier_read_requests.is_empty());
     assert(output.validation_requests.scoped_key_validation_requests_and_generators.is_empty());
     assert(output.validation_requests.split_counter.is_empty());
-    assert_eq(
-        output.validation_requests.for_rollup.include_by_timestamp.unwrap_unchecked(),
-        DEFAULT_UPDATE_DELAY,
-    );
+    assert_eq(output.include_by_timestamp.unwrap_unchecked(), DEFAULT_UPDATE_DELAY);
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());
 }
@@ -51,7 +48,7 @@ fn propagate_from_private_call_include_by_timestamp_succeeds() {
     // Safety: this is a test
     let output = unsafe { builder.compose_from_tx_request(false) };
 
-    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 5);
+    assert_eq(output.include_by_timestamp.unwrap(), 5);
 }
 
 #[test]

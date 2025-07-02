@@ -14,7 +14,9 @@ pub struct PublicTubeDataValidatorBuilder {
 
 impl PublicTubeDataValidatorBuilder {
     pub fn new() -> Self {
-        let tube_data = FixtureBuilder::new().use_last_archive();
+        let mut tube_data = FixtureBuilder::new().use_last_archive();
+        tube_data.set_include_by_timestamp(tube_data.global_variables.timestamp);
+
         let block_constant_data = tube_data.to_block_constant_data();
         PublicTubeDataValidatorBuilder {
             tube_data,

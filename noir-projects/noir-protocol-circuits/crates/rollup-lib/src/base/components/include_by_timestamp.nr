@@ -1,7 +1,7 @@
-use types::abis::{global_variables::GlobalVariables, validation_requests::RollupValidationRequests};
+use types::abis::global_variables::GlobalVariables;
 
 pub fn validate_include_by_timestamp(
-    validation_requests: RollupValidationRequests,
+    include_by_timestamp: u64,
     global_variables_of_block_being_built: GlobalVariables,
 ) {
     // We don't validate the include_by_timestamp when building block 1 because the timestamp is not populated in
@@ -9,11 +9,10 @@ pub fn validate_include_by_timestamp(
     // is fine because there are no updatable contracts we could be interacting with when proving against a genesis
     // block.
     let building_block_1 = global_variables_of_block_being_built.block_number == 1;
-
-    if validation_requests.include_by_timestamp.is_some() & !building_block_1 {
+    let block_timestamp = global_variables_of_block_being_built.timestamp;
+    if !building_block_1 {
         assert(
-            global_variables_of_block_being_built.timestamp
-                <= validation_requests.include_by_timestamp.unwrap_unchecked(),
+            include_by_timestamp >= block_timestamp,
             "kernel include_by_timestamp is smaller than timestamp",
         );
     }

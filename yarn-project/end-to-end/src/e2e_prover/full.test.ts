@@ -23,6 +23,8 @@ const TIMEOUT = 1_200_000;
 process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
+  // process.env.FAKE_PROOFS = '1';
+  // process.env.AZTEC_GENERATE_TEST_DATA = '1';
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
@@ -75,7 +77,7 @@ describe('full_prover', () => {
     await t.tokenSim.check();
   });
 
-  it(
+  it.only(
     'makes both public and private transfers',
     async () => {
       logger.info(`Starting test for public and private transfer`);
@@ -319,9 +321,9 @@ describe('full_prover', () => {
           new Tx(
             new PrivateKernelTailCircuitPublicInputs(
               data.constants,
-              data.rollupValidationRequests,
               data.gasUsed.add(new Gas(i + 1, 0)),
               data.feePayer,
+              data.includeByTimestamp,
               data.forPublic,
               data.forRollup,
             ),

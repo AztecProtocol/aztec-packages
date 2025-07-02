@@ -19,7 +19,7 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
-        include_by_timestamp::IncludeByTimestamp,
+        include_by_timestamp_option::IncludeByTimestampOption,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
             PrivateToRollupKernelCircuitPublicInputs,
@@ -44,7 +44,7 @@ use crate::{
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-            RollupValidationRequests, ScopedKeyValidationRequestAndGenerator,
+            ScopedKeyValidationRequestAndGenerator,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
@@ -135,6 +135,7 @@ pub struct FixtureBuilder {
     pub is_static_call: bool,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
+    pub include_by_timestamp: IncludeByTimestampOption,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -165,7 +166,6 @@ pub struct FixtureBuilder {
     pub reverted: bool,
 
     // Validation requests.
-    pub include_by_timestamp: IncludeByTimestamp,
     pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -668,7 +668,6 @@ impl FixtureBuilder {
 
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
-            for_rollup: self.to_rollup_validation_requests(),
             note_hash_read_requests: claimed_length_array_from_bounded_vec(
                 self.note_hash_read_requests,
             ),
@@ -695,6 +694,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
         }
@@ -717,7 +717,6 @@ impl FixtureBuilder {
     ) -> PrivateToPublicKernelCircuitPublicInputs {
         PrivateToPublicKernelCircuitPublicInputs {
             constants: self.to_tx_constant_data(),
-            rollup_validation_requests: self.to_rollup_validation_requests(),
             non_revertible_accumulated_data: self.to_private_to_public_accumulated_data(
                 false, /* revertible */
             ),
@@ -727,26 +726,30 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
+            include_by_timestamp: if self.include_by_timestamp.is_none() {
+                0
+            } else {
+                self.include_by_timestamp.unwrap_unchecked()
+            },
         }
-    }
-
-    pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
-        RollupValidationRequests { include_by_timestamp: self.include_by_timestamp }
     }
 
     pub fn to_private_to_rollup_kernel_circuit_public_inputs(
         self,
     ) -> PrivateToRollupKernelCircuitPublicInputs {
-        let rollup_validation_requests = self.to_rollup_validation_requests();
         let end = self.to_private_to_rollup_accumulated_data();
         let constants = self.to_tx_constant_data();
 
         PrivateToRollupKernelCircuitPublicInputs {
-            rollup_validation_requests,
             end,
             constants,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
+            include_by_timestamp: if self.include_by_timestamp.is_none() {
+                0
+            } else {
+                self.include_by_timestamp.unwrap_unchecked()
+            },
         }
     }
 
@@ -1303,7 +1306,7 @@ impl FixtureBuilder {
     }
 
     pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        self.include_by_timestamp = IncludeByTimestamp::new(include_by_timestamp);
+        self.include_by_timestamp = IncludeByTimestampOption::some(include_by_timestamp);
     }
 
     fn get_split_side_effects<T, let N: u32>(
@@ -1508,7 +1511,7 @@ impl Empty for FixtureBuilder {
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            include_by_timestamp: IncludeByTimestamp::empty(),
+            include_by_timestamp: IncludeByTimestampOption::none(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),

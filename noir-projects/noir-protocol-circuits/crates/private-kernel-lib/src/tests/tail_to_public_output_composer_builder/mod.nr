@@ -14,6 +14,7 @@ use dep::types::{
 pub struct TailToPublicOutputComposerBuilder {
     previous_kernel: FixtureBuilder,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
+    include_by_timestamp: u64,
 }
 
 impl TailToPublicOutputComposerBuilder {
@@ -23,15 +24,22 @@ impl TailToPublicOutputComposerBuilder {
 
         let padded_side_effect_amounts = PaddedSideEffectAmounts::empty();
 
-        TailToPublicOutputComposerBuilder { previous_kernel, padded_side_effect_amounts }
+        TailToPublicOutputComposerBuilder {
+            previous_kernel,
+            padded_side_effect_amounts,
+            include_by_timestamp: 0,
+        }
     }
 
     pub fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         // Safety: This is only used in tests.
         unsafe {
-            let composer =
-                TailToPublicOutputComposer::new(previous_kernel, self.padded_side_effect_amounts);
+            let composer = TailToPublicOutputComposer::new(
+                previous_kernel,
+                self.padded_side_effect_amounts,
+                self.include_by_timestamp,
+            );
             composer.finish()
         }
     }

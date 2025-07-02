@@ -591,10 +591,10 @@ export class AztecKVTxPool implements TxPool {
       }
 
       // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
-      const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
-      if (includeByTimestamp.isSome && includeByTimestamp.value <= timestamp) {
+      const includeByTimestamp = tx.data.includeByTimestamp;
+      if (includeByTimestamp <= timestamp) {
         this.#log.verbose(
-          `Evicting tx ${txHash} from pool due to the tx being expired (includeByTimestamp: ${includeByTimestamp.value}, mined block timestamp: ${timestamp})`,
+          `Evicting tx ${txHash} from pool due to the tx being expired (includeByTimestamp: ${includeByTimestamp}, mined block timestamp: ${timestamp})`,
         );
         txsToEvict.push(TxHash.fromString(txHash));
         continue;

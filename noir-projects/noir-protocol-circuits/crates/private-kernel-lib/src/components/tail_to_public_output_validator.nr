@@ -1,7 +1,12 @@
 mod tail_to_public_output_hints;
 
 use crate::{
-    abis::PaddedSideEffectAmounts, components::tail_to_public_output_composer::meter_gas_used,
+    abis::PaddedSideEffectAmounts,
+    components::{
+        tail_output_composer::aggregate_include_by_timestamp,
+        tail_output_validator::validate_include_by_timestamp_duration,
+        tail_to_public_output_composer::meter_gas_used,
+    },
 };
 use dep::types::{
     abis::{
@@ -26,6 +31,7 @@ pub struct TailToPublicOutputValidator {
     output: PrivateToPublicKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
+    include_by_timestamp: u64,
     hints: TailToPublicOutputHints,
 }
 
@@ -34,11 +40,18 @@ impl TailToPublicOutputValidator {
         output: PrivateToPublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
+        include_by_timestamp: u64,
     ) -> Self {
         // Safety: the below hints are constrained by calling .validate(). See private_kernel_tail_to_public for use.
         let hints = unsafe { generate_tail_to_public_output_hints(previous_kernel) };
 
-        TailToPublicOutputValidator { output, previous_kernel, padded_side_effect_amounts, hints }
+        TailToPublicOutputValidator {
+            output,
+            previous_kernel,
+            padded_side_effect_amounts,
+            include_by_timestamp,
+            hints,
+        }
     }
 
     pub fn validate(self) {
@@ -51,14 +64,24 @@ impl TailToPublicOutputValidator {
     fn validate_propagated_values(self) {
         assert_eq(self.output.constants, self.previous_kernel.constants, "mismatch constants");
 
-        assert_eq(
-            self.output.rollup_validation_requests,
-            self.previous_kernel.validation_requests.for_rollup,
-            "mismatch rollup_validation_requests",
-        );
-
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
+        // include_by_timestamp
+        let include_by_timestamp = aggregate_include_by_timestamp(
+            self.previous_kernel.include_by_timestamp,
+            self.include_by_timestamp,
+        );
+        validate_include_by_timestamp_duration(
+            include_by_timestamp,
+            self.previous_kernel.constants.historical_header.global_variables,
+        );
+        assert_eq(
+            self.output.include_by_timestamp,
+            include_by_timestamp,
+            "incorrect include_by_timestamp",
+        );
+
+        // public_teardown_call_request
         assert_eq(
             self.output.public_teardown_call_request,
             self.previous_kernel.public_teardown_call_request,

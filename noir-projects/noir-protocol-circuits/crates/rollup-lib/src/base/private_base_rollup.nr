@@ -343,6 +343,8 @@ mod tests {
                 next_slot: fee_payer_balance_slot,
                 next_index: 1,
             };
+            // Set the include by timestamp to the current block timestamp.
+            tube_data.set_include_by_timestamp(constants.global_variables.timestamp);
 
             PrivateBaseRollupInputsBuilder {
                 tube_data,

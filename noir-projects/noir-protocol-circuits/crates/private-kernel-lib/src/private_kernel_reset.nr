@@ -159,7 +159,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            include_by_timestamp::IncludeByTimestamp,
+            include_by_timestamp_option::IncludeByTimestampOption,
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
             note_hash::{NoteHash, ScopedNoteHash},
             nullifier::{Nullifier, ScopedNullifier},
@@ -167,18 +167,20 @@ mod tests {
             side_effect::{Ordered, OrderedValue, scoped::Scoped},
         },
         address::AztecAddress,
-        constants::{MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS},
+        constants::{
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_U32_VALUE,
+            PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_TAIL_INDEX, SIDE_EFFECT_MASKING_ADDRESS,
+        },
         hash::{
             compute_app_secret_key, compute_siloed_nullifier, compute_unique_siloed_note_hash,
             silo_note_hash, silo_nullifier, silo_private_log,
         },
-        tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, pad_end, swap_items}},
+        tests::{
+            fixture_builder::FixtureBuilder,
+            utils::{assert_array_eq, make_fixture, pad_end, swap_items},
+        },
         traits::{Empty, FromField},
         utils::arrays::find_index_hint,
-    };
-    use dep::types::constants::{
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INNER_INDEX,
-        PRIVATE_KERNEL_TAIL_INDEX,
     };
     use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
@@ -351,7 +353,7 @@ mod tests {
             })
         }
 
-        pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
+        pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let note_hash_read_request_hints = self.note_hash_read_request_hints_builder.to_hints();
             let nullifier_read_request_hints = self.nullifier_read_request_hints_builder.to_hints();
             let hints = PrivateKernelResetHints {
@@ -371,28 +373,37 @@ mod tests {
             kernel.execute()
         }
 
-        pub fn failed(&mut self) {
+        pub fn failed(self) {
             let _ = self.execute();
         }
 
-        pub fn succeeded(&mut self) {
+        pub fn succeeded(self) {
             let _ = self.execute();
         }
     }
 
     #[test]
-    fn execution_succeeded() {
+    fn correct_private_kernel_reset_output_propagated_values() {
         let mut builder = PrivateKernelResetInputsBuilder::new();
-        let _public_inputs = builder.execute();
-    }
 
-    #[test]
-    fn propagate_previous_kernel_include_by_timestamp() {
-        let mut builder = PrivateKernelResetInputsBuilder::new();
-        builder.previous_kernel.include_by_timestamp = IncludeByTimestamp::new(13);
+        let constants = builder.previous_kernel.to_tx_constant_data();
+        builder.previous_kernel.min_revertible_side_effect_counter = 246;
+        let public_teardown_call_request = make_fixture(999);
+        builder.previous_kernel.public_teardown_call_request = public_teardown_call_request;
+        builder.previous_kernel.fee_payer = AztecAddress::from_field(62);
+        builder.previous_kernel.include_by_timestamp = IncludeByTimestampOption::some(13);
+        builder.previous_kernel.is_private_only = true;
+        builder.previous_kernel.claimed_first_nullifier = 7788;
+
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.validation_requests.for_rollup.include_by_timestamp.unwrap(), 13);
+        assert_eq(public_inputs.constants, constants);
+        assert_eq(public_inputs.min_revertible_side_effect_counter, 246);
+        assert_eq(public_inputs.public_teardown_call_request, public_teardown_call_request);
+        assert_eq(public_inputs.fee_payer, AztecAddress::from_field(62));
+        assert_eq(public_inputs.include_by_timestamp, IncludeByTimestampOption::some(13));
+        assert_eq(public_inputs.is_private_only, true);
+        assert_eq(public_inputs.claimed_first_nullifier, 7788);
     }
 
     #[test]

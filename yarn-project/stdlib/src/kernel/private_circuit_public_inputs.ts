@@ -22,7 +22,7 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { CountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
+import { IncludeByTimestampOption } from '../tx/include_by_timestamp_option.js';
 import { TxContext } from '../tx/tx_context.js';
 import {
   ClaimedLengthArray,
@@ -62,7 +62,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The highest timestamp of a block in which the transaction can still be included.
      */
-    public includeByTimestamp: IncludeByTimestamp,
+    public includeByTimestamp: IncludeByTimestampOption,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -154,7 +154,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readBoolean(),
-      reader.readObject(IncludeByTimestamp),
+      reader.readObject(IncludeByTimestampOption),
       reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
@@ -183,7 +183,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readBoolean(),
-      reader.readObject(IncludeByTimestamp),
+      reader.readObject(IncludeByTimestampOption),
       reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
@@ -215,7 +215,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       false,
-      IncludeByTimestamp.empty(),
+      IncludeByTimestampOption.empty(),
       ClaimedLengthArray.empty(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),

@@ -1,29 +1,25 @@
+pub(crate) mod create_protocol_nullifier;
+pub(crate) mod get_include_by_timestamp_for_contract_updates;
+
+pub(crate) use create_protocol_nullifier::create_protocol_nullifier;
+pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates;
+
 use dep::types::{
     abis::{
-        include_by_timestamp::IncludeByTimestamp,
+        include_by_timestamp_option::IncludeByTimestampOption,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
         },
-        nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         side_effect::{Ordered, OrderedValue},
         tx_constant_data::TxConstantData,
     },
-    address::AztecAddress,
-    constants::DEFAULT_UPDATE_DELAY,
-    contract_class_id::ContractClassId,
     debug::no_op,
-    shared_mutable::{compute_shared_mutable_time_horizon, SharedMutableValues},
-    traits::{Empty, Hash, Packable},
+    traits::Empty,
     transaction::tx_request::TxRequest,
     utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
 };
-
-pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
-    // TODO: consider using `-1` instead, for consistency with `-1` being the "null" address for msg_sender.
-    Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
-}
 
 unconstrained fn transform_array<T, let N: u32, Env>(
     array: ClaimedLengthArray<T, N>,
@@ -95,13 +91,13 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs_builder.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;
         public_inputs_builder.fee_payer = previous_kernel_public_inputs.fee_payer;
+        public_inputs_builder.include_by_timestamp =
+            previous_kernel_public_inputs.include_by_timestamp;
         public_inputs_builder.public_teardown_call_request =
             previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
 
-        public_inputs_builder.validation_requests.include_by_timestamp =
-            start.for_rollup.include_by_timestamp;
         public_inputs_builder.validation_requests.note_hash_read_requests =
             start.note_hash_read_requests;
         public_inputs_builder.validation_requests.nullifier_read_requests =
@@ -193,25 +189,16 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
     unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
         // Update the expiration timestamp if the private call requested a lower one.
-        self.public_inputs_builder.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
-            self.public_inputs_builder.validation_requests.include_by_timestamp,
+        self.public_inputs_builder.include_by_timestamp = IncludeByTimestampOption::min(
+            self.public_inputs_builder.include_by_timestamp,
             private_call.public_inputs.include_by_timestamp,
         );
 
-        // Update the expiration timestamp for the shared mutable read
-        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
-            let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
-                private_call.verification_key_hints.updated_class_id_shared_mutable_values,
-            );
-
-            self.public_inputs_builder.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
-                self.public_inputs_builder.validation_requests.include_by_timestamp,
-                IncludeByTimestamp::new(compute_shared_mutable_time_horizon(
-                    shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.timestamp,
-                )),
-            );
-        }
+        // Update the expiration timestamp if the shared mutable read requires a lower one.
+        self.public_inputs_builder.include_by_timestamp = get_include_by_timestamp_for_contract_updates(
+            private_call,
+            self.public_inputs_builder.include_by_timestamp,
+        );
     }
 
     unconstrained fn scope_and_propagate_note_hash_read_requests(

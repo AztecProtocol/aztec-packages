@@ -1,4 +1,3 @@
-import { INCLUDE_BY_TIMESTAMP_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -8,7 +7,7 @@ import type { UInt64 } from '../types/index.js';
 /**
  * Maximum block timestamp value at which the transaction can still be included.
  */
-export class IncludeByTimestamp {
+export class IncludeByTimestampOption {
   constructor(
     /**
      * Whether max inclusion timestamp was requested.
@@ -30,17 +29,11 @@ export class IncludeByTimestamp {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...IncludeByTimestamp.getFields(this));
+    return serializeToBuffer(...IncludeByTimestampOption.getFields(this));
   }
 
   toFields(): Fr[] {
-    const fields = serializeToFields(...IncludeByTimestamp.getFields(this));
-    if (fields.length !== INCLUDE_BY_TIMESTAMP_LENGTH) {
-      throw new Error(
-        `Invalid number of fields for IncludeByTimestamp. Expected ${INCLUDE_BY_TIMESTAMP_LENGTH}, got ${fields.length}`,
-      );
-    }
-    return fields;
+    return serializeToFields(...IncludeByTimestampOption.getFields(this));
   }
 
   /**
@@ -48,22 +41,22 @@ export class IncludeByTimestamp {
    * @param buffer - Buffer to read from.
    * @returns The IncludeByTimestamp.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): IncludeByTimestamp {
+  static fromBuffer(buffer: Buffer | BufferReader): IncludeByTimestampOption {
     const reader = BufferReader.asReader(buffer);
     const isSome = reader.readBoolean();
     // UInt64 is aliased to bigint in TypeScript, causing it to be serialized as a 256-bit integer.
     // Therefore, we must read it back using readUInt256() rather than readUInt64().
     const value = reader.readUInt256();
-    return new IncludeByTimestamp(isSome, value);
+    return new IncludeByTimestampOption(isSome, value);
   }
 
-  static fromFields(fields: Fr[] | FieldReader): IncludeByTimestamp {
+  static fromFields(fields: Fr[] | FieldReader): IncludeByTimestampOption {
     const reader = FieldReader.asReader(fields);
-    return new IncludeByTimestamp(reader.readBoolean(), reader.readU64());
+    return new IncludeByTimestampOption(reader.readBoolean(), reader.readU64());
   }
 
   static empty() {
-    return new IncludeByTimestamp(false, 0n);
+    return new IncludeByTimestampOption(false, 0n);
   }
 
   isEmpty(): boolean {
@@ -75,8 +68,8 @@ export class IncludeByTimestamp {
    * @param fields - The dictionary.
    * @returns A new instance.
    */
-  static from(fields: FieldsOf<IncludeByTimestamp>): IncludeByTimestamp {
-    return new IncludeByTimestamp(...IncludeByTimestamp.getFields(fields));
+  static from(fields: FieldsOf<IncludeByTimestampOption>): IncludeByTimestampOption {
+    return new IncludeByTimestampOption(...IncludeByTimestampOption.getFields(fields));
   }
 
   /**
@@ -84,7 +77,7 @@ export class IncludeByTimestamp {
    * @param fields - Object with fields.
    * @returns The array.
    */
-  static getFields(fields: FieldsOf<IncludeByTimestamp>) {
+  static getFields(fields: FieldsOf<IncludeByTimestampOption>) {
     return [fields.isSome, fields.value] as const;
   }
 }

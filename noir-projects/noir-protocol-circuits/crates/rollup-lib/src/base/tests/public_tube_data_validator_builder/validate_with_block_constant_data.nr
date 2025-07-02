@@ -25,3 +25,12 @@ fn public_tube_validate_with_block_constant_data_not_enough_fee_per_l2_gas_fails
 
     builder.validate_with_block_constant_data();
 }
+
+#[test(should_fail_with = "kernel include_by_timestamp is smaller than timestamp")]
+fn validate_with_block_constant_data_include_by_timestamp_lower_than_block_fails() {
+    let mut builder = PublicTubeDataValidatorBuilder::new();
+
+    builder.tube_data.set_include_by_timestamp(builder.tube_data.global_variables.timestamp - 1);
+
+    builder.validate_with_block_constant_data();
+}
