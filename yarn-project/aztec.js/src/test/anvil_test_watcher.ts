@@ -132,8 +132,10 @@ export class AnvilTestWatcher {
       if (currentSlot === blockLog.slotNumber) {
         // We should jump to the next slot
         try {
-          await this.cheatcodes.warp(nextSlotTimestamp);
-          this.dateProvider?.setTime(nextSlotTimestamp * 1000);
+          await this.cheatcodes.warp(nextSlotTimestamp, {
+            resetBlockInterval: true,
+            updateDateProvider: this.dateProvider,
+          });
         } catch (e) {
           this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
         }
@@ -150,8 +152,10 @@ export class AnvilTestWatcher {
       const currentTimestamp = this.dateProvider?.now() ?? Date.now();
       if (currentTimestamp > nextSlotTimestamp * 1000) {
         try {
-          await this.cheatcodes.warp(nextSlotTimestamp);
-          this.dateProvider?.setTime(nextSlotTimestamp * 1000);
+          await this.cheatcodes.warp(nextSlotTimestamp, {
+            resetBlockInterval: true,
+            updateDateProvider: this.dateProvider,
+          });
         } catch (e) {
           this.logger.error(`Failed to warp to timestamp ${nextSlotTimestamp}: ${e}`);
         }

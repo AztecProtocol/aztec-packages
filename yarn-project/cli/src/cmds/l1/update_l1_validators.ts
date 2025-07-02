@@ -181,7 +181,7 @@ export async function fastForwardEpochs({
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {
-    await cheatCodes.warp(Number(timestamp));
+    await cheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     dualLog(`Fast forwarded ${numEpochs} epochs to ${timestamp}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes("is lower than or equal to previous block's timestamp")) {

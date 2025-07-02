@@ -348,7 +348,7 @@ async function setupFromFresh(
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
   if (opts.l1StartTime) {
-    await ethCheatCodes.warp(opts.l1StartTime);
+    await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
   }
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
