@@ -101,7 +101,7 @@ pub contract SimpleToken {
         storage.total_supply.write(supply);
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn public_transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
@@ -110,7 +110,7 @@ pub contract SimpleToken {
         storage.public_balances.at(to).write(to_balance);
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
@@ -119,7 +119,7 @@ pub contract SimpleToken {
         storage.total_supply.write(new_supply);
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_from_private_to_public(
         from: AztecAddress,
@@ -168,7 +168,7 @@ pub contract SimpleToken {
         );
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(

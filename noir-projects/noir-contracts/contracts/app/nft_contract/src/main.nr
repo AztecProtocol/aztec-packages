@@ -142,7 +142,7 @@ pub contract NFT {
     // docs:end:is_minter
 
     // docs:start:transfer_in_public
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_in_public(
         from: AztecAddress,
@@ -288,7 +288,7 @@ pub contract NFT {
     // docs:end:cancel_authwit
 
     // docs:start:transfer_in_private
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_in_private(
         from: AztecAddress,
@@ -310,7 +310,7 @@ pub contract NFT {
     // docs:end:transfer_in_private
 
     // docs:start:transfer_to_public
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public(
         from: AztecAddress,

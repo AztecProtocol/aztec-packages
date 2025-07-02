@@ -1,4 +1,4 @@
-use super::auth_selector::AuthorizationSelector;
+use super::authorization_selector::AuthorizationSelector;
 
 pub trait AuthorizationInterface {
     /// Returns the unique identifier of the authorization type.

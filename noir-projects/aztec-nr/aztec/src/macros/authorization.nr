@@ -4,8 +4,10 @@ use crate::macros::utils::{
 use poseidon::poseidon2::Poseidon2Hasher;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
 
-pub comptime mut global AUTH_TYPES: UHashMap<Field, TypeDefinition, BuildHasherDefault<Poseidon2Hasher>> =
-    UHashMap::default();
+/// Hashmap that stores authorization structs indexed by their selectors,
+/// so no duplicates are inadvertedly created by developers
+comptime mut global AUTH_TYPES: UHashMap<Field, TypeDefinition, BuildHasherDefault<Poseidon2Hasher>>
+     = UHashMap::default();
 
 comptime fn register_authorization(
     authorization_selector: Field,
@@ -28,18 +30,19 @@ pub comptime fn generate_authorization_interface_and_get_selector(
 
     let authorization_selector = compute_struct_selector(
         s,
-        quote { crate::authwit::auth_selector::AuthorizationSelector::from_signature },
+        quote { crate::authwit::authorization_selector::AuthorizationSelector::from_signature },
     );
 
     let from_field = get_trait_impl_method(
-        quote { crate::authwit::auth_selector::AuthorizationSelector }.as_type(),
+        quote { crate::authwit::authorization_selector::AuthorizationSelector }.as_type(),
         quote { crate::protocol_types::traits::FromField },
         quote { from_field },
     );
 
-    let authorization_interface = quote { crate::authwit::auth_interface::AuthorizationInterface };
+    let authorization_interface =
+        quote { crate::authwit::authorization_interface::AuthorizationInterface };
     let authorization_selector_type =
-        quote { crate::authwit::auth_selector::AuthorizationSelector };
+        quote { crate::authwit::authorization_selector::AuthorizationSelector };
 
     (
         quote {
@@ -53,7 +56,7 @@ pub comptime fn generate_authorization_interface_and_get_selector(
     )
 }
 
-/// An Authorization is a struct that represents and action a user can allow others to do
+/// An Authorization is a struct that represents an action a user can allow others to do
 /// on their behalf. By definition, an Authorization must be human-readable and contain
 /// enough information to be interpreted on its own. Authorizations are then hashed in a
 /// specific way to produce an inner_hash that can later be signed and checked via the

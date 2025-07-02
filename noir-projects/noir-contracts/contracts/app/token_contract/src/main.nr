@@ -198,7 +198,7 @@ pub contract Token {
     // docs:end:mint_to_public
 
     // docs:start:transfer_in_public
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_in_public(
         from: AztecAddress,
@@ -215,7 +215,7 @@ pub contract Token {
 
     // docs:start:burn_public
     // docs:start:authorize_once_public
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     // docs:end:authorize_once_public
     #[public]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
@@ -227,7 +227,7 @@ pub contract Token {
     // docs:end:burn_public
 
     // docs:start:transfer_to_public
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public(
         from: AztecAddress,
@@ -258,7 +258,7 @@ pub contract Token {
     ///
     /// The contract can use the returned partial note to complete the transfer back to private
     /// once the final amount is known during public execution.
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public_and_prepare_private_balance_increase(
         from: AztecAddress,
@@ -386,7 +386,7 @@ pub contract Token {
 
     // docs:start:transfer_in_private
     // docs:start:authorize_once
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     // docs:end:authorize_once
     #[private]
     fn transfer_in_private(
@@ -407,7 +407,7 @@ pub contract Token {
     // docs:end:transfer_in_private
 
     // docs:start:burn_private
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
@@ -505,7 +505,7 @@ pub contract Token {
     /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
     /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
     /// to find the pending partial note when trying to complete it).
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn finalize_transfer_to_private_from_private(
         from: AztecAddress,

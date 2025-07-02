@@ -1,5 +1,5 @@
 use crate::{
-    authwit::auth_interface::AuthorizationInterface,
+    authwit::authorization_interface::AuthorizationInterface,
     context::{gas::GasOpts, PrivateContext, PublicContext},
     hash::hash_args_array,
     macros::authorization::authorization,
@@ -211,6 +211,11 @@ struct CallAuthorization {
  * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
+ * Additionally, this function emits the identifying information of the call as an offchain effect 
+ * so PXE can rely the information to the user/wallet in a readable way. To that effect, it is generic over N, 
+ * where N is the number of arguments the authorized functions takes. This is used to load the arguments 
+ * from the execution cache.
+ *
  * @param on_behalf_of The address that has allegedly authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit
@@ -226,8 +231,9 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
         args_hash,
     };
     let inner_hash = compute_inner_authwit_hash(authorization.serialize());
-    // Safety: args are loaded to be emitted as unconstrained effects. The real verification will happen once
-    // the authwit is validated (which uses the args_hash), so they can always be checked to be consistent
+    // Safety: args are loaded to be emitted as offchain (and thus, unconstrained) effects.
+    // The real verification will happen once the authwit is validated (which uses the args_hash),
+    // so they can always be checked to be consistent. Therefore, this call is safe.
     let args: [Field; N] = unsafe { load(args_hash) };
     emit_offchain_effect(
         (

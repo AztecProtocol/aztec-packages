@@ -4,9 +4,7 @@ use dep::protocol_types::{
 };
 
 pub struct EventSelector {
-    // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
-    // TODO(#2707): Consider making this a u64 as we already cast this to that when encoding the message. This would decrease
-    // the likelihood of collisions without any extra cost.
+    // poseidon2 hash of abi-encoding of an event.
     inner: u32,
 }
 

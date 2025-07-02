@@ -125,7 +125,7 @@ pub contract TokenBlacklist {
         context.push_note_hash(note_hash);
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn shield(from: AztecAddress, amount: u128, secret_hash: Field, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
@@ -145,7 +145,7 @@ pub contract TokenBlacklist {
         context.push_note_hash(note_hash);
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
@@ -160,7 +160,7 @@ pub contract TokenBlacklist {
         storage.public_balances.at(to).write(to_balance);
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
@@ -199,7 +199,7 @@ pub contract TokenBlacklist {
         ));
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
@@ -215,7 +215,7 @@ pub contract TokenBlacklist {
     }
 
     // docs:start:transfer_private
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
@@ -235,7 +235,7 @@ pub contract TokenBlacklist {
         ));
     }
 
-    #[authorize_once("from".as_ctstring(), "authwit_nonce".as_ctstring())]
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
