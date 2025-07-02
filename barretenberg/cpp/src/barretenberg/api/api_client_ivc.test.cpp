@@ -90,8 +90,37 @@ class ClientIVCAPITests : public ::testing::Test {
     std::filesystem::path test_dir;
 };
 
+std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
+
+// Helper lambda to create standalone VK for comparison
+ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
+{
+    auto [app_bytecode, app_witness_data] = create_simple_circuit_bytecode();
+    bbrpc::BBRpcRequest request;
+    auto app_vk =
+        bbrpc::execute(request,
+                       bbrpc::ClientIvcComputeVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode },
+                                                  .standalone = true })
+            .verification_key;
+    auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
+    auto bytecode = create_simple_kernel(app_vk_fields.size(), true);
+    std::filesystem::path bytecode_path = test_dir / "circuit.acir";
+    write_file(bytecode_path, compress(bytecode));
+
+    ClientIVCAPI::Flags write_vk_flags;
+    write_vk_flags.verifier_type = "ivc";
+    write_vk_flags.output_format = "bytes";
+
+    ClientIVCAPI api;
+    api.write_vk(write_vk_flags, bytecode_path, test_dir);
+
+    return from_buffer<ClientIVC::MegaVerificationKey>(read_file(test_dir / "vk"));
+};
+
 TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
 {
+    auto ivc_vk = get_ivc_vk(test_dir);
+
     // Create test input file
     std::filesystem::path input_path = test_dir / "input.msgpack";
     create_test_private_execution_steps(input_path);
@@ -99,54 +128,38 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     std::filesystem::path output_dir = test_dir / "output";
     std::filesystem::create_directories(output_dir);
 
-    // Test prove command with write_vk flag
-    ClientIVCAPI::Flags flags;
-    flags.write_vk = true;
+    // Helper lambda to create proof and VK files
+    auto create_proof_and_vk = [&]() {
+        ClientIVCAPI::Flags flags;
+        flags.write_vk = true;
 
-    // Prove
-    ClientIVCAPI api;
-    api.prove(flags, input_path, output_dir);
+        ClientIVCAPI api;
+        api.prove(flags, input_path, output_dir);
+    };
 
-    // Check that proof and vk files were created
-    EXPECT_TRUE(std::filesystem::exists(output_dir / "proof"));
-    EXPECT_TRUE(std::filesystem::exists(output_dir / "vk"));
+    // Helper lambda to verify VK equivalence
+    auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
+        auto vk1_data = read_file(vk1_path);
+        auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
+        ASSERT(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
+    };
 
+    // Helper lambda to verify proof
+    auto verify_proof = [&]() {
+        std::filesystem::path proof_path = output_dir / "proof";
+        std::filesystem::path vk_path = output_dir / "vk";
+        std::filesystem::path public_inputs_path; // Not used for ClientIVC
+
+        ClientIVCAPI::Flags flags;
+        ClientIVCAPI verify_api;
+        return verify_api.verify(flags, public_inputs_path, proof_path, vk_path);
+    };
+
+    // Execute test steps
+    create_proof_and_vk();
+    verify_vk_equivalence(output_dir / "vk", ivc_vk);
     // Test verify command
-    std::filesystem::path proof_path = output_dir / "proof";
-    std::filesystem::path vk_path = output_dir / "vk";
-    std::filesystem::path public_inputs_path; // Not used for ClientIVC
-
-    ClientIVCAPI verify_api;
-    bool verified = verify_api.verify(flags, public_inputs_path, proof_path, vk_path);
-    EXPECT_TRUE(verified);
-}
-
-TEST_F(ClientIVCAPITests, WriteVkStandalone)
-{
-    // Create a simple circuit bytecode
-    auto [bytecode, witness_data] = create_simple_circuit_bytecode();
-
-    // Compress and write bytecode to file
-    std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, bytecode);
-
-    // Test write_vk with standalone verifier type
-    ClientIVCAPI::Flags flags;
-    flags.verifier_type = "standalone";
-    flags.output_format = "bytes";
-
-    std::filesystem::path vk_path = test_dir / "standalone.vk";
-
-    ClientIVCAPI api;
-    EXPECT_NO_THROW(api.write_vk(flags, bytecode_path, vk_path));
-    EXPECT_TRUE(std::filesystem::exists(vk_path));
-
-    // Verify that the VK can be deserialized
-    auto vk_data = read_file(vk_path);
-    EXPECT_NO_THROW({
-        auto vk = from_buffer<ClientIVC::MegaVerificationKey>(vk_data);
-        (void)vk;
-    });
+    EXPECT_TRUE(verify_proof());
 }
 
 TEST_F(ClientIVCAPITests, WriteVkFields)
@@ -327,7 +340,7 @@ TEST_F(ClientIVCAPITests, ProveToStdout)
     // Capture stdout
     testing::internal::CaptureStdout();
     ClientIVCAPI api;
-    EXPECT_NO_THROW(api.prove(flags, input_path, output_dir));
+    api.prove(flags, input_path, output_dir);
     std::string output = testing::internal::GetCapturedStdout();
 
     // Should have written binary proof data to stdout
@@ -339,7 +352,7 @@ TEST_F(ClientIVCAPITests, ArbitraryValidProofAndVk)
     std::filesystem::path output_dir = test_dir / "arbitrary";
     std::filesystem::create_directories(output_dir);
 
-    EXPECT_NO_THROW(write_arbitrary_valid_client_ivc_proof_and_vk_to_file(output_dir));
+    write_arbitrary_valid_client_ivc_proof_and_vk_to_file(output_dir);
 
     // Check that proof and vk files were created
     EXPECT_TRUE(std::filesystem::exists(output_dir / "proof"));
