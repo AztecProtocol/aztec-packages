@@ -91,15 +91,15 @@ class UltraRollupFlavor : public bb::UltraFlavor {
          */
         void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
         {
-            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
+            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
                                           this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_ipa_claim_start_idx",
+            transcript.add_to_hash_buffer(domain_separator + "vk_ipa_claim_start_idx",
                                           ipa_claim_public_input_key.start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
         }
 

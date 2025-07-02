@@ -108,9 +108,11 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.key->verification_key->num_public_inputs.fix_witness();
-        verifier.key->verification_key->pub_inputs_offset.fix_witness();
+        auto stdlib_vk_and_hash =
+            std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+        verifier.key->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.key->vk_and_hash->vk->pub_inputs_offset.fix_witness();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         PairingObject pairing_points = output.points_accumulator;
