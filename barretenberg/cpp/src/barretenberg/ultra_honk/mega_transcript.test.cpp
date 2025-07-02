@@ -45,17 +45,17 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_pairing_points_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_app_return_data_commitment_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_kernel_return_data_commitment_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vkey_is_kernel", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_circuit_size", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_pairing_points_start_idx", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_app_return_data_commitment_start_idx", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_kernel_return_data_commitment_start_idx", frs_per_Fr);
+        manifest_expected.add_entry(round, "vk_is_kernel", frs_per_Fr);
         for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-            manifest_expected.add_entry(round, "vkey_commitment", frs_per_G);
+            manifest_expected.add_entry(round, "vk_commitment", frs_per_G);
         }
-        manifest_expected.add_challenge(round, "vkey_hash");
+        manifest_expected.add_challenge(round, "vk_hash");
         round++;
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {

@@ -61,9 +61,7 @@ void write_standalone_vk(const std::string& output_data_type,
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
     auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-    PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ PublicInputsVector{},
-                                                                   HonkProof{},
-                                                                   verification_key };
+    PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ .key = verification_key };
 
     write(to_write, output_data_type, "vk", output_path);
 }

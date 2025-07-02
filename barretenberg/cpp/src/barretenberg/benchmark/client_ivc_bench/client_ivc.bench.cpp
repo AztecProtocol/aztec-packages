@@ -59,11 +59,11 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
-    auto mocked_vkeys = mock_verification_keys(total_num_circuits);
+    auto mocked_vks = mock_vks(total_num_circuits);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, /* mock_vk */ true);
         ivc.prove();
     }
 }
@@ -76,12 +76,12 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
-    auto mocked_vkeys = mock_verification_keys(total_num_circuits);
+    auto mocked_vks = mock_vks(total_num_circuits);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
         perform_ivc_accumulation_rounds(
-            total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true, /* large_first_app */ false);
+            total_num_circuits, ivc, mocked_vks, /* mock_vk */ true, /* large_first_app */ false);
         ivc.prove();
     }
 }

@@ -10,6 +10,7 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -28,6 +29,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:
     explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeDeciderVK> accumulator)

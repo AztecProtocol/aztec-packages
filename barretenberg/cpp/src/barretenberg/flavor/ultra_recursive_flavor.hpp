@@ -117,6 +117,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
      */
     class VerificationKey : public StdlibVerificationKey_<BuilderType, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
+        using NativeVerificationKey = NativeFlavor::VerificationKey;
+
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -176,12 +178,12 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         static VerificationKey from_witness_indices(CircuitBuilder& builder,
                                                     const std::span<const uint32_t>& witness_indices)
         {
-            std::vector<FF> vkey_fields;
-            vkey_fields.reserve(witness_indices.size());
+            std::vector<FF> vk_fields;
+            vk_fields.reserve(witness_indices.size());
             for (const auto& idx : witness_indices) {
-                vkey_fields.emplace_back(FF::from_witness_index(&builder, idx));
+                vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
             }
-            return VerificationKey(builder, vkey_fields);
+            return VerificationKey(builder, vk_fields);
         }
     };
 
@@ -201,6 +203,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Reuse the VerifierCommitments from Ultra
     using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
+
+    using VKAndHash = VKAndHash_<FF, VerificationKey>;
 };
 
 } // namespace bb

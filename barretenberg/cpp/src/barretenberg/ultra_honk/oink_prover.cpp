@@ -88,8 +88,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
     honk_vk->add_to_transcript(domain_separator, *transcript);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-        vinfo("vkey hash in Oink prover: ", vkey_hash);
+        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
+        vinfo("vk hash in Oink prover: ", vkey_hash);
     }
     BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 

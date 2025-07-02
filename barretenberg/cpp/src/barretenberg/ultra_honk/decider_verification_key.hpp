@@ -26,7 +26,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
-    std::shared_ptr<VerificationKey> verification_key;
+    std::shared_ptr<VerificationKey> vk;
 
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
@@ -41,10 +41,10 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     DeciderVerificationKey_() = default;
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
-        : verification_key(vk)
+        : vk(vk)
     {}
 
-    MSGPACK_FIELDS(verification_key,
+    MSGPACK_FIELDS(vk,
                    relation_parameters,
                    alphas,
                    is_accumulator,

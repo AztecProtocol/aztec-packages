@@ -7,6 +7,7 @@
 #include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -27,7 +28,7 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  *
  */
 template <typename Flavor>
-std::pair<OpeningClaim<typename Flavor::Curve>, StdlibProof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
+std::pair<OpeningClaim<typename Flavor::Curve>, stdlib::Proof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
 ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 {
     using Curve = typename Flavor::Curve;
@@ -40,8 +41,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
-    StdlibProof<Builder> ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
+    StdlibProof stdlib_proof(*builder, proof.pre_ipa_proof);
+    StdlibProof ipa_proof(*builder, proof.ipa_proof);
     transcript->load_proof(stdlib_proof);
 
     VerifierCommitments commitments{ key };

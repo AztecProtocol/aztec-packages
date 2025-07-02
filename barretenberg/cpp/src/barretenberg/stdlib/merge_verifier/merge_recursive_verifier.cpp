@@ -34,7 +34,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  */
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const StdlibProof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
+    const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
 {
     // Transform proof into a stdlib object
     transcript->load_proof(proof);

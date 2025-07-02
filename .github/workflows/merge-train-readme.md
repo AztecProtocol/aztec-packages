@@ -48,3 +48,14 @@ Inspired by [rust rollups](https://forge.rust-lang.org/release/rollups.html), bu
 - Only PRs with meaningful commits (non-empty, non-merge commits) will trigger auto-merge
 - The 4-hour inactivity timer is based on the last commit timestamp
 - Merge conflicts with the `next` branch will be reported as commit comments
+
+## RECOVERING FROM MERGE TRAIN RECREATION
+
+If you have a PR open into a merge-train that merged and was recreated, it will attempt the following to get around the fact that it has squashed with technically now has completely divergent history:
+
+```
+git merge (final commit of last merge-train)
+git merge -X ours origin/next
+```
+If your PR fails to update due to a conflict, you should do the above manually, fixing the conflicts (should only happen in first merge).
+NOTE: If you want to be precise, instead of origin/next it should the commit corresponding to the merge-train merge. This minimizes the effect of conflicts. Failure to do this may cause you to overwrite changes in next - check your diff afterwards for unexpected changes.

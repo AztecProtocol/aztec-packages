@@ -76,7 +76,7 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
+    StdlibProof stdlib_proof(*builder, proof);
     transcript->load_proof(stdlib_proof);
 
     VerifierCommitments commitments{ key };
