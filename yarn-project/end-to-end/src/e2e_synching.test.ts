@@ -407,9 +407,8 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
-      dateProvider: new TestDateProvider(),
-    });
+    const dateProvider = new TestDateProvider();
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
@@ -429,6 +428,7 @@ describe('e2e_synching', () => {
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
+        dateProvider,
       },
     );
 
