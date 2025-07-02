@@ -41,15 +41,15 @@ class GoblinRecursiveVerifier {
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;
 
-    struct StdlibGoblinProof {
-        using StdlibProof = bb::stdlib::Proof<Builder>;
-        using StdlibEccvmProof = ECCVMVerifier::StdlibEccvmProof;
+    struct StdlibProof {
+        using StdlibHonkProof = bb::stdlib::Proof<Builder>;
+        using StdlibEccvmProof = ECCVMVerifier::StdlibProof;
 
-        StdlibProof merge_proof;
+        StdlibHonkProof merge_proof;
         StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
-        StdlibProof translator_proof;
+        StdlibHonkProof translator_proof;
 
-        StdlibGoblinProof(Builder& builder, const GoblinProof& goblin_proof)
+        StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
             : merge_proof(builder, goblin_proof.merge_proof)
             , eccvm_proof(builder,
                           ECCVMProof{ goblin_proof.eccvm_proof.pre_ipa_proof, goblin_proof.eccvm_proof.ipa_proof })
@@ -67,8 +67,7 @@ class GoblinRecursiveVerifier {
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const StdlibGoblinProof&,
-        const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
+        const StdlibProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
 
   private:
     Builder* builder;

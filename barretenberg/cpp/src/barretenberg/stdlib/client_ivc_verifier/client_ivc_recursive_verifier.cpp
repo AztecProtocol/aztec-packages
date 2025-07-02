@@ -11,22 +11,10 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief Creates a circuit that executes the ClientIvc verification algorithm.
  *
- * @param proof Native proof
- * @return ClientIVCRecursiveVerifier::Output
- */
-ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
-{
-    StdlibClientIVCProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof);
-}
-
-/**
- * @brief Creates a circuit that executes the ClientIvc verification algorithm.
- *
  * @param proof Stdlib proof
  * @return ClientIVCRecursiveVerifier::Output
  */
-ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const StdlibClientIVCProof& proof)
+ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const StdlibProof& proof)
 {
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());
     // Construct stdlib Mega verification key

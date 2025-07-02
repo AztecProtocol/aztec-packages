@@ -12,6 +12,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using ClientIVCVerifier = ClientIVCRecursiveVerifier;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
     using Proof = ClientIVC::Proof;
+    using StdlibProof = ClientIVCVerifier::StdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
@@ -76,7 +77,8 @@ TEST_F(ClientIVCRecursionTests, Basic)
     ClientIVCVerifier verifier{ builder, ivc_vk };
 
     // Generate the recursive verification circuit
-    CIVCRecVerifierOutput output = verifier.verify(proof);
+    StdlibProof stdlib_proof(*builder, proof);
+    CIVCRecVerifierOutput output = verifier.verify(stdlib_proof);
 
     EXPECT_EQ(builder->failed(), false) << builder->err();
 
@@ -99,7 +101,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     ClientIVCVerifier verifier{ tube_builder, ivc_vk };
 
     // Generate the recursive verification circuit
-    CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
+    StdlibProof stdlib_proof(*tube_builder, proof);
+    CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
@@ -149,7 +152,6 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 // Ensure that the Client IVC Recursive Verifier Circuit does not depend on the Client IVC input
 TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
 {
-
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
     auto get_blocks = [](size_t inner_size)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
@@ -160,7 +162,8 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         auto tube_builder = std::make_shared<Builder>();
         ClientIVCVerifier verifier{ tube_builder, ivc_vk };
 
-        auto client_ivc_rec_verifier_output = verifier.verify(proof);
+        StdlibProof stdlib_proof(*tube_builder, proof);
+        auto client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
         client_ivc_rec_verifier_output.points_accumulator.set_public();
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof

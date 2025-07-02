@@ -25,18 +25,17 @@ class ClientIVCRecursiveVerifier {
     using Transcript = GoblinRecursiveVerifier::Transcript;
 
   public:
-    using Proof = ClientIVC::Proof;
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
     using GoblinVerificationKey = Goblin::VerificationKey;
     using Output = GoblinRecursiveVerifierOutput;
 
-    struct StdlibClientIVCProof {
-        using StdlibProof = bb::stdlib::Proof<Builder>;
-        using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibGoblinProof;
-        StdlibProof mega_proof;
+    struct StdlibProof {
+        using StdlibHonkProof = bb::stdlib::Proof<Builder>;
+        using StdlibGoblinProof = GoblinRecursiveVerifier::StdlibProof;
+        StdlibHonkProof mega_proof; // proof of the hiding circuit
         StdlibGoblinProof goblin_proof;
 
-        StdlibClientIVCProof(Builder& builder, const ClientIVC::Proof& proof)
+        StdlibProof(Builder& builder, const ClientIVC::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
             , goblin_proof(builder, proof.goblin_proof)
         {}
@@ -46,8 +45,7 @@ class ClientIVCRecursiveVerifier {
         : builder(builder)
         , ivc_verification_key(ivc_verification_key){};
 
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const ClientIVC::Proof&);
-    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibClientIVCProof&);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify(const StdlibProof&);
 
   private:
     std::shared_ptr<Builder> builder;

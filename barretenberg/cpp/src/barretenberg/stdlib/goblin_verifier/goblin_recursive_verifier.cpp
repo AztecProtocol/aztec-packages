@@ -18,7 +18,7 @@ namespace bb::stdlib::recursion::honk {
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
     const GoblinProof& proof, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
 {
-    StdlibGoblinProof stdlib_proof(*builder, proof);
+    StdlibProof stdlib_proof(*builder, proof);
     return verify(stdlib_proof, t_commitments);
 }
 
@@ -30,8 +30,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
-    const StdlibGoblinProof& proof,
-    const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
+    const StdlibProof& proof, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments)
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, transcript };

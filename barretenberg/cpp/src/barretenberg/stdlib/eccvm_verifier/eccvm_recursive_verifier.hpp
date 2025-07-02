@@ -23,15 +23,16 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using StdlibProof = bb::stdlib::Proof<Builder>;
+    using StdlibPreIpaProof = bb::stdlib::Proof<Builder>;
+    using StdlibIpaProof = bb::stdlib::Proof<Builder>;
+    using IpaClaimAndProof = std::pair<OpeningClaim<Curve>, StdlibIpaProof>;
 
   public:
-    struct StdlibEccvmProof {
-        using StdlibProof = bb::stdlib::Proof<Builder>;
-        StdlibProof pre_ipa_proof;
-        StdlibProof ipa_proof;
+    struct StdlibProof {
+        StdlibPreIpaProof pre_ipa_proof;
+        StdlibIpaProof ipa_proof;
 
-        StdlibEccvmProof(Builder& builder, const ECCVMProof& eccvm_proof)
+        StdlibProof(Builder& builder, const ECCVMProof& eccvm_proof)
             : pre_ipa_proof(builder, eccvm_proof.pre_ipa_proof)
             , ipa_proof(builder, eccvm_proof.ipa_proof)
         {}
@@ -41,10 +42,8 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
                                      const std::shared_ptr<Transcript>& transcript);
 
-    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof> verify_proof(
-        const ECCVMProof& proof);
-    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof> verify_proof(
-        const StdlibEccvmProof& proof);
+    [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const ECCVMProof& proof);
+    [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const StdlibProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;

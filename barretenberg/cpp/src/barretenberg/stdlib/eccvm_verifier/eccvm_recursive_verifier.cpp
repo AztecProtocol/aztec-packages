@@ -30,10 +30,10 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  * @param proof Native ECCVM proof
  */
 template <typename Flavor>
-std::pair<OpeningClaim<typename Flavor::Curve>, stdlib::Proof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
-ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
+typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifier_<Flavor>::verify_proof(
+    const ECCVMProof& proof)
 {
-    StdlibEccvmProof stdlib_proof(*builder, proof);
+    StdlibProof stdlib_proof(*builder, proof);
     return verify_proof(stdlib_proof);
 }
 
@@ -44,8 +44,8 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
  * @param proof Stdlib ECCVM proof
  */
 template <typename Flavor>
-std::pair<OpeningClaim<typename Flavor::Curve>, stdlib::Proof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
-ECCVMRecursiveVerifier_<Flavor>::verify_proof(const StdlibEccvmProof& proof)
+typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof& proof)
 {
     using Curve = typename Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
