@@ -295,9 +295,13 @@ case "$cmd" in
     commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
     # Build both native and wasm benchmark binaries
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench --target bb" \
-      "build_preset wasm-threads --target bb_cli_bench --target bb"
+    builds=(
+      "build_preset $native_preset --target bb_cli_bench --target bb"
+    )
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      builds+=("build_preset wasm-threads --target bb_cli_bench --target bb")
+    fi
+    parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
     # Download cached flow inputs from the specified commit
     export AZTEC_CACHE_COMMIT=$commit_hash
