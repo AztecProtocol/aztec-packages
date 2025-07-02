@@ -407,5 +407,115 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
     check_relation<bitwise>(trace);
 }
 
+TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({ {
+        // Bitwise Entry
+        .bitwise_acc_ia = 0x01,
+        .bitwise_acc_ib = 0x01,
+        .bitwise_acc_ic = 0x00,
+        .bitwise_err = 1,
+        .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        .bitwise_sel = 1,
+        .bitwise_tag_a = static_cast<uint8_t>(ValueTag::FF),
+        .bitwise_tag_b = static_cast<uint8_t>(ValueTag::U8),
+        .bitwise_tag_c = static_cast<uint8_t>(ValueTag::U8),
+
+        // Execution Entry
+        .execution_mem_tag_reg_0_ = static_cast<uint8_t>(ValueTag::FF),
+        .execution_mem_tag_reg_1_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_mem_tag_reg_2_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_register_0_ = 0x01,
+        .execution_register_1_ = 0x01,
+        .execution_register_2_ = 0x00,
+        .execution_sel_bitwise = 1,
+        .execution_sel_opcode_error = 1,
+        .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
+    } });
+
+    check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace);
+}
+
+TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({ {
+        // Bitwise Entry
+        .bitwise_acc_ia = 0x01,
+        .bitwise_acc_ib = 0x01,
+        .bitwise_acc_ic = 0x00,
+        .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        .bitwise_sel = 1,
+        .bitwise_tag_a = static_cast<uint8_t>(ValueTag::U8),
+        .bitwise_tag_b = static_cast<uint8_t>(ValueTag::U8),
+        .bitwise_tag_c = static_cast<uint8_t>(ValueTag::U8),
+
+        // Execution Entry
+        .execution_mem_tag_reg_0_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_mem_tag_reg_1_ = static_cast<uint8_t>(ValueTag::U16), // Mismatch
+        .execution_mem_tag_reg_2_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_register_0_ = 0x01,
+        .execution_register_1_ = 0x01,
+        .execution_register_2_ = 0x00,
+        .execution_sel_bitwise = 1,
+        .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
+    } });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace)),
+        "Failed.*BITWISE_DISPATCH_EXEC_BITWISE. Could not find tuple in destination.");
+}
+
+TEST(BitwiseConstrainingTest, ErrorHandlingInputFF)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from_tag(ValueTag::FF, 1),
+          .b = MemoryValue::from_tag(ValueTag::FF, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+    precomputed_builder.process_bitwise(trace);
+    precomputed_builder.process_tag_parameters(trace);
+
+    check_relation<bitwise>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ErrorHandlingInputTagMismatch)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from_tag(ValueTag::U8, 1),
+          .b = MemoryValue::from_tag(ValueTag::U16, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    check_relation<bitwise>(trace);
+    check_all_interactions<BitwiseTraceBuilder>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ErrorHandlingMultiple)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from_tag(ValueTag::FF, 1),
+          .b = MemoryValue::from_tag(ValueTag::U32, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    check_relation<bitwise>(trace);
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

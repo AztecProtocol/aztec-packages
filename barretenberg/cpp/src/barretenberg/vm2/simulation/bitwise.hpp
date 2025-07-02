@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"

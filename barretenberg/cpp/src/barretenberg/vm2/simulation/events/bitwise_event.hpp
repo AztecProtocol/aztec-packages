@@ -1,10 +1,9 @@
 #pragma once
 
-#include "barretenberg/common/serialize.hpp"
+#include <cstdint>
+
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
-
-#include <cstdint>
 
 namespace bb::avm2::simulation {
 
