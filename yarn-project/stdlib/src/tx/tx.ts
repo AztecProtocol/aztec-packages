@@ -27,7 +27,8 @@ import { TxHash } from './tx_hash.js';
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
   // For memoization
-  private txHash: TxHash | undefined;
+  protected txHash: TxHash | undefined;
+
   private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
@@ -200,6 +201,7 @@ export class Tx extends Gossipable {
    */
   setTxHash(hash: TxHash) {
     this.txHash = hash;
+    return this as unknown as TxWithHash;
   }
 
   getCalldataMap(): Map<string, Fr[]> {
@@ -311,6 +313,15 @@ export class Tx extends Gossipable {
     const calldata = calldataMap.get(request.calldataHash.toString()) ?? [];
     return new PublicCallRequestWithCalldata(request, calldata);
   }
+
+  public async toTxWithHash() {
+    await this.getTxHash();
+    return this as unknown as TxWithHash;
+  }
+
+  public static toTxsWithHashes(txs: Tx[]): Promise<TxWithHash[]> {
+    return Promise.all(txs.map(tx => tx.toTxWithHash()));
+  }
 }
 
 /** Utility type for an entity that has a hash property for a txhash */
@@ -319,3 +330,5 @@ type HasHash = { /** The tx hash */ hash: TxHash };
 function hasHash(tx: Tx | HasHash): tx is HasHash {
   return (tx as HasHash).hash !== undefined;
 }
+
+export type TxWithHash = Tx & { txHash: TxHash };
