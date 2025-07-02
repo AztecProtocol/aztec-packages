@@ -114,9 +114,9 @@ template <typename FF> class StaticAnalyzer_ {
                                                                  size_t block_idx,
                                                                  UltraBlock& blk);
     std::vector<uint32_t> get_rom_table_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                            const bb::UltraCircuitBuilder::RomTranscript& rom_array);
+                                                            const bb::RomTranscript& rom_array);
     std::vector<uint32_t> get_ram_table_connected_component(bb::UltraCircuitBuilder& ultra_builder,
-                                                            const bb::UltraCircuitBuilder::RamTranscript& ram_array);
+                                                            const bb::RamTranscript& ram_array);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index)
