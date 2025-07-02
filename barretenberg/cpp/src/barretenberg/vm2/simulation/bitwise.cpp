@@ -1,14 +1,12 @@
 #include "barretenberg/vm2/simulation/bitwise.hpp"
 
-#include <cassert>
 #include <cstdint>
-#include <type_traits>
+#include <stdexcept>
 
-#include "barretenberg/common/serialize.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::simulation {
+
 MemoryValue Bitwise::and_op(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -16,7 +14,7 @@ MemoryValue Bitwise::and_op(const MemoryValue& a, const MemoryValue& b)
         if (a.get_tag() == ValueTag::FF || b.get_tag() == ValueTag::FF) {
             throw BitwiseTagError::INVALID_FF_TAG;
         }
-        // If the memory tags are of the inputs are different we throw an error.
+        // If the memory tags of the inputs are different we throw an error.
         if (a.get_tag() != b.get_tag()) {
             throw BitwiseTagError::TAG_MISMATCH;
         }
@@ -27,7 +25,7 @@ MemoryValue Bitwise::and_op(const MemoryValue& a, const MemoryValue& b)
         return c;
     } catch (const BitwiseTagError& e) {
         debug("Bitwise AND operation failed: ", to_string(e));
-        // We still emit an event if we fail, but default the result to 0.
+        // We emit an event if we fail, but default the result to 0.
         events.emit({ .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 });
         throw BitwiseException();
     }
@@ -40,7 +38,7 @@ MemoryValue Bitwise::or_op(const MemoryValue& a, const MemoryValue& b)
         if (a.get_tag() == ValueTag::FF || b.get_tag() == ValueTag::FF) {
             throw BitwiseTagError::INVALID_FF_TAG;
         }
-        // If the memory tags are of the inputs are different we throw an error.
+        // If the memory tags of the inputs are different we throw an error.
         if (a.get_tag() != b.get_tag()) {
             throw BitwiseTagError::TAG_MISMATCH;
         }
@@ -51,7 +49,7 @@ MemoryValue Bitwise::or_op(const MemoryValue& a, const MemoryValue& b)
         return c;
     } catch (const BitwiseTagError& e) {
         debug("Bitwise OR operation failed: ", to_string(e));
-        // We still emit an event if we fail, but default the result to 0.
+        // We emit an event if we fail, but default the result to 0.
         events.emit({ .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 });
         throw BitwiseException();
     }
@@ -64,7 +62,7 @@ MemoryValue Bitwise::xor_op(const MemoryValue& a, const MemoryValue& b)
         if (a.get_tag() == ValueTag::FF || b.get_tag() == ValueTag::FF) {
             throw BitwiseTagError::INVALID_FF_TAG;
         }
-        // If the memory tags are of the inputs are different we throw an error.
+        // If the memory tags of the inputs are different we throw an error.
         if (a.get_tag() != b.get_tag()) {
             throw BitwiseTagError::TAG_MISMATCH;
         }
@@ -80,7 +78,7 @@ MemoryValue Bitwise::xor_op(const MemoryValue& a, const MemoryValue& b)
         return c;
     } catch (const BitwiseTagError& e) {
         debug("Bitwise XOR operation failed: ", to_string(e));
-        // We still emit an event if we fail, but default the result to 0.
+        // We emit an event if we fail, but default the result to 0.
         events.emit({ .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 });
         throw BitwiseException();
     }

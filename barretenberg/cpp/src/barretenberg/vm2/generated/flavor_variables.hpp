@@ -83,14 +83,16 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 127;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2227;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2602;
 =======
+=======
+>>>>>>> 0f7ad7caa9 (wip tests)
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2601;
 =======
@@ -107,7 +109,13 @@ struct AvmFlavorVariables {
 >>>>>>> e5b02b2d6c (feat!(avm): err handling bitwise)
 >>>>>>> 3f0fc88edf (feat!(avm): err handling bitwise)
 >>>>>>> f513d6509c (feat!(avm): err handling bitwise)
+<<<<<<< HEAD
 >>>>>>> 9127ba4139 (feat!(avm): err handling bitwise)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2601;
+>>>>>>> 3de399ccc4 (wip tests)
+>>>>>>> 0f7ad7caa9 (wip tests)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -197,6 +205,7 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_deployment_nullifier_read_relation<FF_>,
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
+        lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_calldata_hashing_cd_hash_relation<FF_>,
         lookup_calldata_hashing_cd_hash_end_relation<FF_>,

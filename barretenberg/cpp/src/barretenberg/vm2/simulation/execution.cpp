@@ -404,12 +404,15 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
     try {
         MemoryValue c = bitwise.and_op(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        // Re-throw as opcode execution error
         throw OpcodeExecutionException("Bitwise AND Exeception");
     }
 }
@@ -422,12 +425,15 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
     try {
         MemoryValue c = bitwise.or_op(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        // Re-throw as opcode execution error
         throw OpcodeExecutionException("Bitwise OR Exception");
     }
 }
@@ -440,12 +446,15 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
     try {
         MemoryValue c = bitwise.xor_op(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (const BitwiseException& e) {
-        // Re-throw as opcode execution error
         throw OpcodeExecutionException("Bitwise XOR Exception");
     }
 }
@@ -654,6 +663,14 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::DEBUGLOG:
         call_with_operands(&Execution::debug_log, context, resolved_operands);
+    case ExecutionOpCode::AND:
+        call_with_operands(&Execution::and_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::OR:
+        call_with_operands(&Execution::or_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::XOR:
+        call_with_operands(&Execution::xor_op, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
