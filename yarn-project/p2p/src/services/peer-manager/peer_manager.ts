@@ -180,7 +180,6 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
-    console.log('here');
     this.logger.error(`PEER MANAGE ${this.config.p2pAllowOnlyValidators} Connected to peer ${peerId.toString()}`);
     if (this.config.p2pDisableStatusHandshake) {
       return;
@@ -776,6 +775,7 @@ export class PeerManager implements PeerManagerInterface {
       this.authenticatedPeers.add(peerId.toString());
       this.logger.info(`Successfully completed auth handshake with peer ${peerId}`, logData);
     } catch (err: any) {
+      console.log('BLAH', err);
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
