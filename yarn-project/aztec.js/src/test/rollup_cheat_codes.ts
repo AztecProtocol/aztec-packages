@@ -100,8 +100,6 @@ export class RollupCheatCodes {
   public async advanceToEpoch(
     epoch: bigint,
     opts: {
-      /** Whether to reset the L1 block interval so the next block is mined L1-block-time after thie call */
-      resetBlockInterval?: boolean;
       /** Optional test date provider to update with the epoch timestamp */
       updateDateProvider?: TestDateProvider;
     } = {},
@@ -109,7 +107,7 @@ export class RollupCheatCodes {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
     const timestamp = await this.rollup.read.getTimestampForSlot([epoch * slotsInEpoch]);
     try {
-      await this.ethCheatCodes.warp(Number(timestamp), opts);
+      await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
       this.logger.warn(`Warped to epoch ${epoch}`);
     } catch (err) {
       this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
@@ -124,7 +122,7 @@ export class RollupCheatCodes {
     const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
-    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), { silent: true });
+    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), { silent: true, resetBlockInterval: true });
     this.logger.warn(`Advanced to next epoch`);
   }
 
@@ -132,7 +130,7 @@ export class RollupCheatCodes {
   public async advanceToNextSlot() {
     const currentSlot = await this.getSlot();
     const timestamp = await this.rollup.read.getTimestampForSlot([currentSlot + 1n]);
-    await this.ethCheatCodes.warp(Number(timestamp));
+    await this.ethCheatCodes.warp(Number(timestamp), { silent: true, resetBlockInterval: true });
     this.logger.warn(`Advanced to slot ${currentSlot + 1n}`);
     return [timestamp, currentSlot + 1n];
   }
@@ -145,7 +143,7 @@ export class RollupCheatCodes {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
     const slotDuration = await this.rollup.read.getSlotDuration();
     const timeToWarp = BigInt(howMany) * slotDuration;
-    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true });
+    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true, resetBlockInterval: true });
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
   }
