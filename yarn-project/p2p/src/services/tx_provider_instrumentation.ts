@@ -1,6 +1,6 @@
 import { Metrics, type TelemetryClient, type UpDownCounter } from '@aztec/telemetry-client';
 
-export class TxCollectorInstrumentation {
+export class TxProviderInstrumentation {
   private txFromProposalCount: UpDownCounter;
   private txFromMempoolCount: UpDownCounter;
   private txFromP2PCount: UpDownCounter;
@@ -9,19 +9,19 @@ export class TxCollectorInstrumentation {
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
 
-    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_COLLECTOR_TXS_FROM_PROPOSALS_COUNT, {
+    this.txFromProposalCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT, {
       description: 'The number of txs taken from block proposals',
     });
 
-    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_COLLECTOR_TXS_FROM_MEMPOOL_COUNT, {
+    this.txFromMempoolCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT, {
       description: 'The number of txs taken from the local mempool',
     });
 
-    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_COLLECTOR_TXS_FROM_P2P_COUNT, {
+    this.txFromP2PCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_TXS_FROM_P2P_COUNT, {
       description: 'The number of txs taken from the p2p network',
     });
 
-    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_COLLECTOR_MISSING_TXS_COUNT, {
+    this.missingTxsCount = meter.createUpDownCounter(Metrics.TX_PROVIDER_MISSING_TXS_COUNT, {
       description: 'The number of txs not found anywhere',
     });
   }
