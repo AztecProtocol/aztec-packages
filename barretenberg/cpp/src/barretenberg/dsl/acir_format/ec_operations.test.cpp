@@ -32,15 +32,19 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
     witness_values.push_back(g2.y);
     witness_values.push_back(affine_result.x);
     witness_values.push_back(affine_result.y);
-    witness_values.push_back(fr(0));
-    witness_values.push_back(fr(0));
+
+    auto is_infinite_false = WitnessOrConstant<bb::fr>{
+        .index = 0,
+        .value = bb::fr::zero(),
+        .is_constant = true,
+    };
     ec_add_constraint = EcAdd{
         .input1_x = WitnessOrConstant<bb::fr>::from_index(1),
         .input1_y = WitnessOrConstant<bb::fr>::from_index(2),
-        .input1_infinite = WitnessOrConstant<bb::fr>::from_index(7),
+        .input1_infinite = is_infinite_false,
         .input2_x = WitnessOrConstant<bb::fr>::from_index(3),
         .input2_y = WitnessOrConstant<bb::fr>::from_index(4),
-        .input2_infinite = WitnessOrConstant<bb::fr>::from_index(7),
+        .input2_infinite = is_infinite_false,
         .result_x = 5,
         .result_y = 6,
         .result_infinite = 8,
