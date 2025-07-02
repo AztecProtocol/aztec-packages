@@ -57,7 +57,7 @@ describe('TxPool: Benchmarks', () => {
         const del = delHistogram[size];
 
         data.push({
-          name: `TxPool/${RUNS * size} txs/dbSize`,
+          name: `TxPool/${size} txs/addTxs/dbSize_after_${RUNS}_batches`,
           value: dbSizeBytes[size],
           unit: 'bytes',
         });
