@@ -309,7 +309,6 @@ template <typename Curve> class ShplonkVerifier_ {
     using Commitment = typename Curve::AffineElement;
     using VK = VerifierCommitmentKey<Curve>;
 
-  public:
     // Random challenge to batch the polynomials f_1, \dots, f_n
     Fr nu;
     Fr current_nu;
@@ -327,6 +326,7 @@ template <typename Curve> class ShplonkVerifier_ {
     // Target evaluation
     Fr evaluation = Fr(0);
 
+  public:
     template <typename Transcript>
     ShplonkVerifier_(std::vector<Commitment>& polynomial_commitments, std::shared_ptr<Transcript>& transcript)
         : nu(transcript->template get_challenge<Fr>("Shplonk:nu"))
@@ -337,9 +337,9 @@ template <typename Curve> class ShplonkVerifier_ {
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
         if constexpr (Curve::is_stdlib_type) {
             auto builder = nu.get_context();
-            current_nu = Fr(builder, 1);
-            scalars = { Fr(builder, 1) };
-            scalars.insert(scalars.end(), commitments.size() - 1, Fr(builder, 0));
+            current_nu = Fr(1);                                           // Circuit constant
+            scalars = { Fr(1) };                                          // Circuit constant
+            scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
             evaluation.convert_constant_to_fixed_witness(builder);
         } else {
             current_nu = Fr(1);
@@ -385,7 +385,7 @@ template <typename Curve> class ShplonkVerifier_ {
             info("Verifier coefficient: ", coefficient);
             info("Verifier scaling_factor: ", scaling_factor);
             // scalars[i_j] = \nu^{i-1} * a_j / (z - x)
-            scalars[index] -= scaling_factor;
+            scalars[index + 1] -= scaling_factor;
             // identity_scalar_coefficient += \nu^{i-1} * a_j * v_j / (z - x)
             identity_scalar_coefficient += scaling_factor * evaluation;
         }
@@ -406,11 +406,11 @@ template <typename Curve> class ShplonkVerifier_ {
     {
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(identity_scalar_coefficient);
-        auto result = GroupElement::zero();
-        info("Result: ", result);
+        GroupElement result;
         if constexpr (Curve::is_stdlib_type) {
             result = GroupElement::batch_mul(commitments, scalars);
         } else {
+            result = GroupElement::zero();
             for (const auto& [commitment, scalar] : zip_view(commitments, scalars)) {
                 info("Commitment: ", commitment);
                 info("Minus scalar: ", -scalar);
@@ -462,12 +462,10 @@ template <typename Curve> class ShplonkVerifier_ {
         }
         ShplonkVerifier_<Curve> verifier(polynomial_commiments, transcript);
 
-        if (Curve::is_stdlib_type) {
+        if constexpr (Curve::is_stdlib_type) {
             for (size_t idx = 0; idx < claims.size(); idx++) {
-                verifier.update({ idx + 1 },
-                                { Fr(1) },
-                                { claims[idx].opening_pair.evaluation },
-                                claims[idx].opening_pair.challenge);
+                verifier.update(
+                    { idx }, { Fr(1) }, { claims[idx].opening_pair.evaluation }, claims[idx].opening_pair.challenge);
             }
         } else {
             std::vector<Fr> inverse_vanishing_evals;
@@ -477,7 +475,7 @@ template <typename Curve> class ShplonkVerifier_ {
             }
             Fr::batch_invert(inverse_vanishing_evals);
             for (size_t idx = 0; idx < claims.size(); idx++) {
-                verifier.update({ idx + 1 },
+                verifier.update({ idx },
                                 { Fr(1) },
                                 { claims[idx].opening_pair.evaluation },
                                 claims[idx].opening_pair.challenge,
