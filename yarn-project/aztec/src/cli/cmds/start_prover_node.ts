@@ -118,7 +118,7 @@ export async function startProverNode(
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   if (proverNode.getP2P()) {
-    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
+    services.p2p = [proverNode.getP2P(), P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {

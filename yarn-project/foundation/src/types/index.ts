@@ -31,9 +31,11 @@ export function unfreeze<T>(obj: T): Writeable<T> {
  * }
  */
 export interface TypedEventEmitter<TEventMap extends { [key in keyof TEventMap]: (...args: any[]) => void }> {
+  once<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
   on<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
   off<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
   emit<K extends keyof TEventMap>(event: K, ...args: Parameters<TEventMap[K]>): boolean;
   removeListener<K extends keyof TEventMap>(event: K, listener: TEventMap[K]): this;
+  removeAllListeners<K extends keyof TEventMap>(event: K): this;
   // Can add other EventEmitter methods if needed, like once(), listenerCount(), etc.
 }

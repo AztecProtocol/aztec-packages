@@ -443,11 +443,11 @@ async function setupFromFresh(
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
-    logger.verbose('Creating and syncing a simulated prover node...');
+    logger.verbose('Creating and syncing a simulated prover node with p2p disabled...');
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
-      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')), p2pEnabled: false },
       aztecNode,
       prefilledPublicData,
     );

@@ -214,3 +214,15 @@ export function countWhile<T>(collection: T[], predicate: (x: T) => boolean): nu
   }
   return count;
 }
+
+/** Splits the given iterable into chunks of the given size. Last chunk may be of smaller than the requested size. */
+export function chunk<T>(items: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) {
+    throw new Error('Chunk size must be greater than 0');
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
