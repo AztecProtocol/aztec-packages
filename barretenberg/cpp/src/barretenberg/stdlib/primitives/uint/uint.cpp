@@ -13,35 +13,35 @@ template <typename Builder, typename Native>
 std::vector<uint32_t> uint<Builder, Native>::constrain_accumulators(Builder* context,
                                                                     const uint32_t witness_index) const
 {
-    const auto res = context->decompose_into_default_range(witness_index, width, bits_per_limb);
+    std::vector<uint32_t> res = context->decompose_into_default_range(witness_index, width, bits_per_limb);
     return res;
 }
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(const witness_t<Builder>& witness)
-    : context(witness.context)
+uint<Builder, Native>::uint(const witness_t<Builder>& other)
+    : context(other.context)
     , witness_status(WitnessStatus::OK)
 {
-    if (witness.witness_index == IS_CONSTANT) {
-        additive_constant = witness.witness;
+    if (other.is_constant()) {
+        additive_constant = other.witness;
         witness_index = IS_CONSTANT;
     } else {
-        accumulators = constrain_accumulators(context, witness.witness_index);
-        witness_index = witness.witness_index;
+        accumulators = constrain_accumulators(context, other.witness_index);
+        witness_index = other.witness_index;
     }
 }
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(const field_t<Builder>& value)
-    : context(value.context)
+uint<Builder, Native>::uint(const field_t<Builder>& other)
+    : context(other.context)
     , additive_constant(0)
     , witness_status(WitnessStatus::OK)
 {
-    if (value.witness_index == IS_CONSTANT) {
-        additive_constant = value.additive_constant;
+    if (other.is_constant()) {
+        additive_constant = other.additive_constant;
         witness_index = IS_CONSTANT;
     } else {
-        field_t<Builder> norm = value.normalize();
+        field_t<Builder> norm = other.normalize();
         accumulators = constrain_accumulators(context, norm.get_witness_index());
         witness_index = norm.get_witness_index();
     }
@@ -52,7 +52,6 @@ uint<Builder, Native>::uint(Builder* builder, const uint256_t& value)
     : context(builder)
     , additive_constant(value)
     , witness_status(WitnessStatus::OK)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {}
 
@@ -61,7 +60,6 @@ uint<Builder, Native>::uint(const uint256_t& value)
     : context(nullptr)
     , additive_constant(value)
     , witness_status(WitnessStatus::OK)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {}
 
@@ -70,7 +68,6 @@ uint<Builder, Native>::uint(const byte_array<Builder>& other)
     : context(other.get_context())
     , additive_constant(0)
     , witness_status(WitnessStatus::WEAK_NORMALIZED)
-    , accumulators()
     , witness_index(IS_CONSTANT)
 {
     field_t<Builder> accumulator(context, fr::zero());
@@ -129,7 +126,7 @@ uint<Builder, Native>::uint(const uint& other)
 {}
 
 template <typename Builder, typename Native>
-uint<Builder, Native>::uint(uint&& other)
+uint<Builder, Native>::uint(uint&& other) noexcept
     : context(other.context)
     , additive_constant(other.additive_constant)
     , witness_status(other.witness_status)
@@ -139,6 +136,9 @@ uint<Builder, Native>::uint(uint&& other)
 
 template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder, Native>::operator=(const uint& other)
 {
+    if (this == &other) {
+        return *this;
+    }
     context = other.context;
     additive_constant = other.additive_constant;
     witness_status = other.witness_status;
@@ -147,7 +147,8 @@ template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder
     return *this;
 }
 
-template <typename Builder, typename Native> uint<Builder, Native>& uint<Builder, Native>::operator=(uint&& other)
+template <typename Builder, typename Native>
+uint<Builder, Native>& uint<Builder, Native>::operator=(uint&& other) noexcept
 {
     context = other.context;
     additive_constant = other.additive_constant;
