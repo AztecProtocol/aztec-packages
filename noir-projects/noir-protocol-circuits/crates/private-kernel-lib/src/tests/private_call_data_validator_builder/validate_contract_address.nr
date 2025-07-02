@@ -38,7 +38,7 @@ impl PrivateCallDataValidatorBuilder {
     }
 }
 
-#[test(should_fail_with = "contract address cannot be zero")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_zero_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 

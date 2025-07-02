@@ -134,15 +134,15 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                           ROW_FIELD_EQ(execution_register_0_, 5),
                           ROW_FIELD_EQ(execution_register_1_, 3),
                           ROW_FIELD_EQ(execution_register_2_, 8),
-                          ROW_FIELD_EQ(execution_mem_tag_0_, /*U16=*/3),
-                          ROW_FIELD_EQ(execution_mem_tag_1_, /*U16=*/3),
-                          ROW_FIELD_EQ(execution_mem_tag_2_, /*U16=*/3),
-                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
-                          ROW_FIELD_EQ(execution_mem_op_2_, 1),
-                          ROW_FIELD_EQ(execution_rw_0_, 0),
-                          ROW_FIELD_EQ(execution_rw_1_, 0),
-                          ROW_FIELD_EQ(execution_rw_2_, 1))));
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U16)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U16)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::U16)),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_2_, 1),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_1_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_2_, 1))));
 }
 
 TEST(ExecutionTraceGenTest, Call)
@@ -208,15 +208,15 @@ TEST(ExecutionTraceGenTest, Call)
                   ROW_FIELD_EQ(execution_register_0_, allocated_gas.l2Gas),
                   ROW_FIELD_EQ(execution_register_1_, allocated_gas.daGas),
                   ROW_FIELD_EQ(execution_register_2_, 0xdeadbeef),
-                  ROW_FIELD_EQ(execution_mem_tag_0_, /*U32=*/4),
-                  ROW_FIELD_EQ(execution_mem_tag_1_, /*U32=*/4),
-                  ROW_FIELD_EQ(execution_mem_tag_2_, /*FF=*/0),
-                  ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                  ROW_FIELD_EQ(execution_mem_op_1_, 1),
-                  ROW_FIELD_EQ(execution_mem_op_2_, 1),
-                  ROW_FIELD_EQ(execution_rw_0_, 0),
-                  ROW_FIELD_EQ(execution_rw_1_, 0),
-                  ROW_FIELD_EQ(execution_rw_2_, 0),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32)),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(ValueTag::U32)),
+                  ROW_FIELD_EQ(execution_mem_tag_reg_2_, static_cast<uint8_t>(ValueTag::FF)),
+                  ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                  ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                  ROW_FIELD_EQ(execution_sel_mem_op_reg_2_, 1),
+                  ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                  ROW_FIELD_EQ(execution_rw_reg_1_, 0),
+                  ROW_FIELD_EQ(execution_rw_reg_2_, 0),
                   ROW_FIELD_EQ(execution_is_static, 0),
                   ROW_FIELD_EQ(execution_context_id, 1),
                   ROW_FIELD_EQ(execution_next_context_id, 2),
@@ -265,10 +265,10 @@ TEST(ExecutionTraceGenTest, Return)
                           ROW_FIELD_EQ(execution_sel_exit_call, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 4),
                           ROW_FIELD_EQ(execution_rop_1_, 5),
-                          ROW_FIELD_EQ(execution_register_0_, 2), /*rd_size*/
-                          ROW_FIELD_EQ(execution_mem_tag_0_, /*U32=*/4),
-                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_register_0_, /*rd_size*/ 2),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32)),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
                           ROW_FIELD_EQ(execution_is_static, 0),
                           ROW_FIELD_EQ(execution_context_id, 1),
                           ROW_FIELD_EQ(execution_next_context_id, 2))));
@@ -510,7 +510,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
     EXPECT_EQ(rows[4].execution_rollback_context, 0); // No parent, so no rollback
 }
 
-TEST(ExecutionTraceGenTest, InternalCallRet)
+TEST(ExecutionTraceGenTest, InternalCall)
 {
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
@@ -549,6 +549,42 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
                           ROW_FIELD_EQ(execution_rop_0_, 10))));
+}
+
+TEST(ExecutionTraceGenTest, InternalRetError)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    // Use the instruction builder - we can make the operands more complex
+    const auto instr = InstructionBuilder(WireOpCode::INTERNALRETURN).build();
+
+    simulation::ExecutionEvent ex_event = {
+        .error = simulation::ExecutionError::DISPATCHING,
+        .wire_instruction = instr,
+        .addressing_event = {
+            .instruction = instr,
+        },
+        .before_context_event {
+        .internal_call_id = 1,
+        .internal_call_return_id = 0,
+        .next_internal_call_id = 2,
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the internal call
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_internal_return, 1),
+                          ROW_FIELD_EQ(execution_next_internal_call_id, 2),
+                          ROW_FIELD_EQ(execution_internal_call_id, 1),
+                          ROW_FIELD_EQ(execution_internal_call_return_id, 0),
+                          ROW_FIELD_EQ(execution_sel_opcode_error, 1),
+                          ROW_FIELD_EQ(execution_internal_call_return_id_inv, 0))));
 }
 
 TEST(ExecutionTraceGenTest, Jump)
@@ -593,14 +629,14 @@ TEST(ExecutionTraceGenTest, JumpI)
 
     ExecutionEvent ex_event_jumpi = {
         .wire_instruction = instr,
-        .inputs = { TaggedValue::from_tag(ValueTag::U1, 1), }, // Conditional value
-        .addressing_event = {
-            .instruction = instr,
-            .resolution_info = { {
-                .resolved_operand = MemoryValue::from<uint32_t>(654),
-            }, {
-                .resolved_operand = MemoryValue::from<uint32_t>(9876),
-            } } },
+        .inputs = { MemoryValue::from<uint1_t>(1) }, // Conditional value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(654),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(9876),
+                                                   } } },
     };
 
     builder.process({ ex_event_jumpi }, trace);
@@ -615,6 +651,55 @@ TEST(ExecutionTraceGenTest, JumpI)
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
+                          ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1)),
+                          ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_sel_register_read_error, 0),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
+}
+
+TEST(ExecutionTraceGenTest, JumpiWrongTag)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMPI_32)
+                           .operand<uint16_t>(654)  // Condition Offset
+                           .operand<uint32_t>(9876) // Immediate operand
+                           .build();
+
+    ExecutionEvent ex_event_jumpi = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint8_t>(1) }, // Conditional value with tag != U1
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(654),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(9876),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_jumpi }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jumpi
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 654),
+                          ROW_FIELD_EQ(execution_rop_1_, 9876),
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8)),
+                          ROW_FIELD_EQ(execution_expected_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1)),
+                          ROW_FIELD_EQ(execution_sel_tag_check_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_should_read_registers, 1),
+                          ROW_FIELD_EQ(execution_batched_tags_diff_inv_reg,
+                                       1), // (2**0  * (mem_tag_reg[0] - expected_tag_reg[0]))^-1 = 1
+                          ROW_FIELD_EQ(execution_sel_register_read_error, 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
 }
 
@@ -654,12 +739,12 @@ TEST(ExecutionTraceGenTest, Mov16)
                           ROW_FIELD_EQ(execution_rop_1_, 1001),
                           ROW_FIELD_EQ(execution_register_0_, 100),
                           ROW_FIELD_EQ(execution_register_1_, 100),
-                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
-                          ROW_FIELD_EQ(execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U128)),
-                          ROW_FIELD_EQ(execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U128)),
-                          ROW_FIELD_EQ(execution_rw_0_, 0),
-                          ROW_FIELD_EQ(execution_rw_1_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_1_, 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
 }
 
@@ -699,13 +784,81 @@ TEST(ExecutionTraceGenTest, Mov8)
                           ROW_FIELD_EQ(execution_rop_1_, 11),
                           ROW_FIELD_EQ(execution_register_0_, 100),
                           ROW_FIELD_EQ(execution_register_1_, 100),
-                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
-                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
-                          ROW_FIELD_EQ(execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U64)),
-                          ROW_FIELD_EQ(execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U64)),
-                          ROW_FIELD_EQ(execution_rw_0_, 0),
-                          ROW_FIELD_EQ(execution_rw_1_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_0_, 1),
+                          ROW_FIELD_EQ(execution_sel_mem_op_reg_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_rw_reg_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_reg_1_, 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
+}
+
+TEST(ExecutionTraceGenTest, SuccessCopy)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::SUCCESSCOPY)
+                           .operand<uint8_t>(45) // Dst Offset
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = { 
+        .wire_instruction = instr,
+        .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
+        .addressing_event = { 
+            .instruction = instr,
+            .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
+        },
+        .after_context_event = { .last_child_success = true }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the success copy
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_success_copy, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 45), // Dst Offset
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U1=*/1), // Memory tag for dst
+                          ROW_FIELD_EQ(execution_last_child_success, 1),    // last_child_success = true
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SUCCESSCOPY))));
+}
+
+TEST(ExecutionTraceGenTest, RdSize)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::RETURNDATASIZE)
+                           .operand<uint16_t>(1234) // Dst Offset
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = { 
+        .wire_instruction = instr,
+        .output = { TaggedValue::from_tag(ValueTag::U32, 100) }, // RdSize output
+        .addressing_event = { 
+            .instruction = instr,
+            .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
+        },
+        .after_context_event = { .last_child_rd_size = 100 }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the rd_size
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_returndata_size, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 1234),                    // Dst Offset
+                          ROW_FIELD_EQ(execution_register_0_, 100),                // RdSize output
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U32=*/4),       // Memory tag for dst
+                          ROW_FIELD_EQ(execution_last_child_returndata_size, 100), // last_child_returndata_size = 100
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_RETURNDATASIZE))));
 }
 
 } // namespace

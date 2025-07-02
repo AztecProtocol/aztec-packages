@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
@@ -158,19 +159,22 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     }
 }
 
-void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
     using C = Column;
     using bb::avm2::MemoryTag;
 
     // Column number corresponds to MemoryTag enum value.
-    const auto integral_tags = { MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
-                                 MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
+    // TODO(MW): Q: is there a better way to iterate over all values in an enum?
+    const auto tags = { MemoryTag::FF,  MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
+                        MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
 
-    for (const auto& tag : integral_tags) {
+    for (const auto& tag : tags) {
         trace.set(static_cast<uint32_t>(tag),
-                  { { { C::precomputed_sel_integral_tag, 1 },
-                      { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+                  { { { C::precomputed_sel_tag_parameters, 1 },
+                      { C::precomputed_tag_byte_length, get_tag_bytes(tag) },
+                      { C::precomputed_tag_max_bits, get_tag_bits(tag) },
+                      { C::precomputed_tag_max_value, get_tag_max_value(tag) } } });
     }
 }
 
@@ -228,13 +232,27 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
     constexpr size_t NUM_REGISTERS = 7;
     constexpr std::array<Column, NUM_REGISTERS> MEM_OP_REG_COLUMNS = {
-        Column::precomputed_mem_op_reg_0_, Column::precomputed_mem_op_reg_1_, Column::precomputed_mem_op_reg_2_,
-        Column::precomputed_mem_op_reg_3_, Column::precomputed_mem_op_reg_4_, Column::precomputed_mem_op_reg_5_,
-        Column::precomputed_mem_op_reg_6_,
+        Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
+        Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
+        Column::precomputed_sel_mem_op_reg_4_, Column::precomputed_sel_mem_op_reg_5_,
+        Column::precomputed_sel_mem_op_reg_6_,
     };
     constexpr std::array<Column, NUM_REGISTERS> RW_COLUMNS = {
-        Column::precomputed_rw_0_, Column::precomputed_rw_1_, Column::precomputed_rw_2_, Column::precomputed_rw_3_,
-        Column::precomputed_rw_4_, Column::precomputed_rw_5_, Column::precomputed_rw_6_,
+        Column::precomputed_rw_reg_0_, Column::precomputed_rw_reg_1_, Column::precomputed_rw_reg_2_,
+        Column::precomputed_rw_reg_3_, Column::precomputed_rw_reg_4_, Column::precomputed_rw_reg_5_,
+        Column::precomputed_rw_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> DO_TAG_CHECK_COLUMNS = {
+        Column::precomputed_sel_tag_check_reg_0_, Column::precomputed_sel_tag_check_reg_1_,
+        Column::precomputed_sel_tag_check_reg_2_, Column::precomputed_sel_tag_check_reg_3_,
+        Column::precomputed_sel_tag_check_reg_4_, Column::precomputed_sel_tag_check_reg_5_,
+        Column::precomputed_sel_tag_check_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> EXPECTED_TAG_COLUMNS = {
+        Column::precomputed_expected_tag_reg_0_, Column::precomputed_expected_tag_reg_1_,
+        Column::precomputed_expected_tag_reg_2_, Column::precomputed_expected_tag_reg_3_,
+        Column::precomputed_expected_tag_reg_4_, Column::precomputed_expected_tag_reg_5_,
+        Column::precomputed_expected_tag_reg_6_,
     };
 
     constexpr size_t NUM_OPERANDS = 7;
@@ -257,10 +275,16 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                   } });
 
         // Register information.
-        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
+        const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
         for (size_t i = 0; i < NUM_REGISTERS; i++) {
             trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
             trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
+            trace.set(DO_TAG_CHECK_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      register_info.need_tag_check(i) ? 1 : 0);
+            trace.set(EXPECTED_TAG_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      static_cast<uint32_t>(register_info.expected_tag(i).value_or(static_cast<ValueTag>(0))));
         }
 
         // Whether an operand is an address
@@ -556,6 +580,7 @@ void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
                       { C::precomputed_is_isstaticcall, envvar_spec.is_isstaticcall ? 1 : 0 },
                       { C::precomputed_is_l2gasleft, envvar_spec.is_l2gasleft ? 1 : 0 },
                       { C::precomputed_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
+                      { C::precomputed_out_tag, envvar_spec.out_tag },
                   } });
     }
 }

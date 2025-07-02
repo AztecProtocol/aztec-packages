@@ -3,7 +3,7 @@ use dep::types::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
     merkle_tree::{indexed_tree, MembershipWitness},
-    traits::is_empty,
+    traits::Empty,
 };
 
 pub(crate) fn public_data_tree_insert(
@@ -13,7 +13,7 @@ pub(crate) fn public_data_tree_insert(
     low_leaf_membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     sibling_path: [Field; PUBLIC_DATA_TREE_HEIGHT],
 ) -> AppendOnlyTreeSnapshot {
-    if !is_empty(write) {
+    if !write.is_empty() {
         indexed_tree::insert::<_, _, PUBLIC_DATA_TREE_HEIGHT>(
             start_snapshot,
             PublicDataTreeLeaf { slot: write.leaf_slot, value: write.value },

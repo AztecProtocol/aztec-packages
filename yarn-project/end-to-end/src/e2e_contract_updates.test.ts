@@ -2,6 +2,7 @@ import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -16,7 +17,8 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { setup } from './fixtures/utils.js';
 
 // Set the update delay in genesis data so it's feasible to test in an e2e test
-const DEFAULT_TEST_UPDATE_DELAY = 360n; // 10 slots
+const { aztecSlotDuration } = getL1ContractsConfigEnvVars();
+const DEFAULT_TEST_UPDATE_DELAY = BigInt(aztecSlotDuration) * 10n;
 
 describe('e2e_contract_updates', () => {
   let wallet: Wallet;

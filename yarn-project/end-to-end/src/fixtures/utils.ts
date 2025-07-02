@@ -420,7 +420,7 @@ export async function setup(
     }
 
     if (opts.l1StartTime) {
-      await ethCheatCodes.warp(opts.l1StartTime);
+      await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
 
     let publisherPrivKey = undefined;
@@ -509,7 +509,7 @@ export async function setup(
     if (opts.l2StartTime) {
       // This should only be used in synching test or when you need to have a stable
       // timestamp for the first l2 block.
-      await ethCheatCodes.warp(opts.l2StartTime);
+      await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
 
     const dateProvider = new TestDateProvider();

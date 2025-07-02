@@ -174,7 +174,7 @@ describe('e2e_p2p_governance_proposer', () => {
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
       ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
     );
-    t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
+    t.logger.info(`Warping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
     await waitL1Block();
