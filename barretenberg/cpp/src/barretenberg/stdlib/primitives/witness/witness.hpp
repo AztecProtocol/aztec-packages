@@ -49,6 +49,8 @@ template <typename Builder> class witness_t {
         return out;
     }
 
+    bool is_constant() const { return witness_index == IS_CONSTANT; }
+
     bb::fr witness;
     uint32_t witness_index = IS_CONSTANT;
     Builder* context = nullptr;

@@ -30,16 +30,18 @@ template <typename Builder, typename Native> class uint {
         : uint(static_cast<uint256_t>(v))
     {}
 
-    std::vector<uint32_t> constrain_accumulators(Builder* ctx, const uint32_t witness_index) const;
+    std::vector<uint32_t> constrain_accumulators(Builder* context, const uint32_t witness_index) const;
 
     static constexpr size_t bits_per_limb = 12;
     static constexpr size_t num_accumulators() { return (width + bits_per_limb - 1) / bits_per_limb; }
 
     uint(const uint& other);
-    uint(uint&& other);
+    uint(uint&& other) noexcept;
+
+    ~uint() = default;
 
     uint& operator=(const uint& other);
-    uint& operator=(uint&& other);
+    uint& operator=(uint&& other) noexcept;
 
     explicit operator byte_array<Builder>() const;
     explicit operator field_t<Builder>() const;
