@@ -121,18 +121,20 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         std::vector<FF> key_witnesses = input.honk_verification_key->to_field_elements();
         std::vector<FF> proof_witnesses = input.proof; // proof contains the public inputs at this stage
 
-        // Construct witness indices for each component in the constraint; populate the witness array
-        auto [key_indices, proof_indices, public_inputs_indices] = ProofSurgeon::populate_recursion_witness_data(
-            witness, proof_witnesses, key_witnesses, /*num_public_inputs_to_extract=*/0);
-
+        std::vector<uint32_t> key_indices;
+        key_indices.reserve(key_witnesses.size());
+        for (uint32_t i = 0; i < key_witnesses.size(); i++) {
+            witness.push_back(key_witnesses[i]);
+            key_indices.push_back(i);
+        }
         // The proof type can be either Oink or PG
         PROOF_TYPE proof_type = input.type == QUEUE_TYPE::OINK ? OINK : PG;
 
         return RecursionConstraint{
             .key = key_indices,
-            .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
-            .public_inputs = public_inputs_indices,
-            .key_hash = 0, // not used
+            .proof = {},         // the proof witness indices are not needed in an ivc recursion constraint
+            .public_inputs = {}, // no public inputs to app circuit
+            .key_hash = 0,       // not used
             .proof_type = proof_type,
         };
     }

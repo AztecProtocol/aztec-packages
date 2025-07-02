@@ -17,7 +17,6 @@ struct GoblinAccumulationOutput {
 };
 
 struct GoblinProof {
-
     HonkProof merge_proof;
     ECCVMProof eccvm_proof;
     HonkProof translator_proof;
@@ -28,6 +27,7 @@ struct GoblinProof {
                translator_proof.size();
     };
 
+    bool operator==(const GoblinProof& other) const = default;
     MSGPACK_FIELDS(merge_proof, eccvm_proof, translator_proof);
 };
 } // namespace bb
