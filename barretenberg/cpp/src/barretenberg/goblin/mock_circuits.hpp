@@ -56,7 +56,7 @@ class GoblinMockCircuits {
     using DeciderVerificationKey = bb::DeciderVerificationKey_<Flavor>;
     using RecursiveDeciderVerificationKey =
         ::bb::stdlib::recursion::honk::RecursiveDeciderVerificationKey_<RecursiveFlavor>;
-    using RecursiveVerificationKey = RecursiveDeciderVerificationKey::VerificationKey;
+    using RecursiveVKAndHash = RecursiveDeciderVerificationKey::VKAndHash;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
 
