@@ -5,15 +5,16 @@ title: What is a Deployment?
 
 An Aztec deployment is a set of the following contracts:
 
-| Smart Contract                | Immutability |
-|--------------------------------|--------------|
-| Hypothetical Asset             | Immutable    |
-| Issuer Contract                | Immutable    |
-| Registry Contract              | Immutable    |
-| Reward Distribution Contract   | Mutable      |
-| Proposals Contract             | Mutable      |
-| Governance Contract            | Immutable    |
-| Rollup Contract                | Immutable    |
+| Smart Contract               | Immutability |
+| ---------------------------- | ------------ |
+| Hypothetical Asset           | Immutable    |
+| Issuer Contract              | Immutable    |
+| Registry Contract            | Immutable    |
+| Governance Staking Escrow    | Immutable    |
+| Reward Distribution Contract | Mutable      |
+| GovernanceProposer Contract  | Mutable      |
+| Governance Contract          | Immutable    |
+| Rollup Contract              | Immutable    |
 
 ## Hypothetical Asset Contract
 
@@ -70,6 +71,7 @@ flowchart LR
     Registry --> RollupContract1["Rollup Contract<br>Instance 1"]
     Registry --> |Returns latest instance|RollupContractN["Rollup Contract<br>Instance n"]
 ```
+
 In practice, the Registry is an array of rollup instances that can only be inserted into by the Registryʼs owner - the Governance contract.
 
 ```solidity
@@ -102,6 +104,88 @@ contract Registry is IRegistry, Ownable {
     }
 }
 ```
+
+## Governance Staking Escrow (GSE) Contract
+
+The Governance Staking Escrow (GSE) is a central contract that manages validator stakes across different rollup instances and enables governance participation. This contract fundamentally changes how governance operates by restricting voting power to only rollup stakers rather than all token holders.
+
+### Key Features
+
+The GSE implements several critical features:
+
+- **Cross-Instance Stake Management**: Stores validator information for every rollup instance in a common location, enabling stake to be moved between instances without individual exits
+- **Delegated Voting Power**: Voting power from staked assets can be delegated and defaults to the rollup instance itself
+- **Canonical Stake Movement**: "Willing" stake can be automatically moved to new canonical instances, bypassing normal exit delays
+- **Governance Integration**: Only the GSE can deposit into the Governance contract, ensuring only stakers have voting power
+
+### Validator Set Structure
+
+For each rollup instance, the GSE maintains validator information:
+
+```solidity
+struct Validator {
+    address attester;
+    address proposer;
+    address withdrawer;
+    uint256 stake;
+}
+
+mapping(Rollup => Validator[]) validatorSets;
+```
+
+### Canonical Instance Handling
+
+The GSE uses a special mechanism for handling canonical instances through a magic address:
+
+```solidity
+function getValidatorSet(address _instance) {
+    set = validatorSet[_instance]
+
+    if (isCanonical(_instance)){
+        set = set ⋃ validatorSet[MAGIC_CANONICAL_ADDRESS];
+    }
+
+    return set;
+}
+```
+
+This allows "willing" stake to be automatically included in new canonical instances without explicit migration.
+
+### Governance Proposal Relay
+
+Since only the GSE can interact with the Governance contract, it provides a relay function for emergency proposals:
+
+```solidity
+function proposeWithLock(IPayload _proposal, address _to) external {
+    uint256 amount = GOVERNANCE.getConfiguration().proposeConfig.lockAmount;
+    STAKING_ASSET.transferFrom(msg.sender, address(this), amount);
+    STAKING_ASSET.approve(address(GOVERNANCE), amount);
+    GOVERNANCE.proposeWithLock(_proposal, _to);
+}
+```
+
+### Integration with Other Contracts
+
+```mermaid
+flowchart TD
+    GSE[Governance Staking Escrow] -->|Deposits voting power| Governance
+    GSE -->|Manages validators for| RollupInstances[Rollup Instances]
+    GSE -->|Receives stake from| Validators
+    GSE -->|Delegates votes to| RollupInstances
+    Governance -->|Requires >2/3 canonical stake| GSE
+    Registry -->|Determines canonical instance| GSE
+```
+
+### Governance Requirements
+
+The GSE enforces that governance proposals from the GovernanceProposer require more than 2/3 of total stake to be held in the canonical instance before execution. This ensures sufficient security for the pending chain of new rollup instances.
+
+**Important Considerations:**
+
+- End users have no direct governance participation - only through their chosen rollup operators
+- Exit procedures become more complex due to multiple delay periods across contracts
+- Upgrading the GSE itself requires careful coordination to avoid breaking state
+- The system relies heavily on rollup operators being aligned with user interests
 
 ## Reward Distribution Contract
 
@@ -184,6 +268,7 @@ contract Proposals is IProposals {
     // ...
 }
 ```
+
 To vote to table a proposal, the current sequencer of the canonical rollup must deploy the contracts being proposed to upgrade / migrate to, to the L1. Then the current sequencer deploys the upgrade logic i.e. `_proposal`, then call `Proposals.vote(_proposal)`.
 
 The Proposals contract will then count votes specifying that same `_proposal`. For a proposal to be nominated for voting, it must garner at least N votes in a single round, where a round is defined as a M consecutive L2 slots. Round 1 is L2 slots 0 - M - 1, while Round 2 is L2 slots M - 2M - 1 and so on.
