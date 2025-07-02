@@ -60,9 +60,8 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::fi
                                                                    const std::filesystem::path& witness_path)
 {
     auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
-    return { PublicInputsVector{},
-             HonkProof{},
-             std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key) };
+    auto vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    return { PublicInputsVector{}, HonkProof{}, vk, vk->hash() };
 }
 
 template <typename Flavor>
@@ -102,7 +101,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
         HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
                   concat_pi_and_proof.end())
     };
-    return { public_inputs_and_proof.public_inputs, public_inputs_and_proof.proof, vk };
+    return { public_inputs_and_proof.public_inputs, public_inputs_and_proof.proof, vk, vk->hash() };
 }
 
 template <typename Flavor>

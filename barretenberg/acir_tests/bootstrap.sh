@@ -49,22 +49,23 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   local vk_fields=$(cat "$outdir/vk_fields.json")
+  local vk_hash_fields=$(cat "$outdir/vk_hash_fields.json")
   local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
   local proof_fields=$(cat "$outdir/proof_fields.json")
 
-  generate_toml "$program" "$vk_fields" "$proof_fields" "$public_inputs_fields"
+  generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
   local program=$1
   local vk_fields=$2
-  local proof_fields=$3
-  local num_inner_public_inputs=$4
+  local vk_hash_fields=$3
+  local proof_fields=$4
+  local num_inner_public_inputs=$5
   local output_file="../$program/Prover.toml"
-  local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
 
   jq -nr \
-      --arg key_hash "$key_hash" \
+      --arg key_hash "$vk_hash_fields" \
       --argjson vk_f "$vk_fields" \
       --argjson public_inputs_f "$public_inputs_fields" \
       --argjson proof_f "$proof_fields" \

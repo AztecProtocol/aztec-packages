@@ -9,6 +9,7 @@
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -31,6 +32,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = typename Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
+    using StdlibProof = stdlib::Proof<Builder>;
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<Transcript> transcript;

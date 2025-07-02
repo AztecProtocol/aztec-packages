@@ -21,8 +21,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(
-        key, vk->verification_key, transcript, domain_separator + '_');
+    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
