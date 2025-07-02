@@ -105,6 +105,7 @@ export async function makeTestP2PClient(
     mockEpochCache,
     'test-p2p-client',
     undefined,
+    undefined,
     {
       txPool: mockTxPool as unknown as TxPool,
       attestationPool: mockAttestationPool as unknown as AttestationPool,
