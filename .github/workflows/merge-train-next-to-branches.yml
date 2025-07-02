@@ -16,6 +16,8 @@ jobs:
           - merge-train/spartan
           - merge-train/avm
           - merge-train/docs
+          - merge-train/avm
+          - merge-train/spartan
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -28,67 +30,6 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Checkout and merge
-        id: merge
+      - name: Run merge-next script
         run: |
-          TRAIN_BRANCH="${{ matrix.train-branch }}"
-          
-          # Check if branch exists
-          if git ls-remote --exit-code --heads origin $TRAIN_BRANCH; then
-            # Checkout the merge-train branch
-            git fetch origin $TRAIN_BRANCH
-            git checkout $TRAIN_BRANCH
-            
-            # Attempt to merge next
-            if git merge origin/next --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH [skip ci]"; then
-              echo "merge_success=true" >> $GITHUB_OUTPUT
-              # Try to push, but don't fail if it doesn't work
-              if ! git push origin $TRAIN_BRANCH; then
-                echo "Push failed but continuing anyway"
-              fi
-            else
-              echo "merge_success=false" >> $GITHUB_OUTPUT
-              echo "conflict_details<<EOF" >> $GITHUB_OUTPUT
-              git diff --name-only --diff-filter=U >> $GITHUB_OUTPUT
-              echo "EOF" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "Branch $TRAIN_BRANCH does not exist yet, skipping merge"
-            echo "merge_success=skip" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Comment on conflict
-        if: steps.merge.outputs.merge_success == 'false'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
-        with:
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          script: |
-            const conflictFiles = `${{ steps.merge.outputs.conflict_details }}`;
-            const trainBranch = '${{ matrix.train-branch }}';
-            const comment = `## ⚠️ Auto-merge to ${trainBranch} failed
-            
-            Merge conflicts detected when merging \`next\` into \`${trainBranch}\`.
-            
-            **Conflicted files:**
-            \`\`\`
-            ${conflictFiles}
-            \`\`\`
-            
-            Please resolve the conflicts manually.`;
-            
-            // Find the most recent commit on next
-            const { data: commits } = await github.rest.repos.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: 'next',
-              per_page: 1
-            });
-            
-            if (commits.length > 0) {
-              await github.rest.repos.createCommitComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: commits[0].sha,
-                body: comment
-              });
-            }
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/merge-next.sh "${{ matrix.train-branch }}"
