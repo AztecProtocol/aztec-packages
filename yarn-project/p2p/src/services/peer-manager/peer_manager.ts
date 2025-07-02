@@ -180,6 +180,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
+    console.log('here');
     this.logger.error(`PEER MANAGE ${this.config.p2pAllowOnlyValidators} Connected to peer ${peerId.toString()}`);
     if (this.config.p2pDisableStatusHandshake) {
       return;
@@ -740,7 +741,7 @@ export class PeerManager implements PeerManagerInterface {
 
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.error(`AUTH!!!!!!!!!!!! Initiating auth handshake with peer ${peerId}`);
+      this.logger.error(`AUTH!!!!!!!!!!!! Initiating auth handshake with peer ${peerId}\n\n\n`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.AUTH,
@@ -807,10 +808,10 @@ export class PeerManager implements PeerManagerInterface {
   public async handleAuthFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
     if (this.shouldTrustWithIdentity(peerId)) {
       this.logger.debug(`Received auth request from trusted peer ${peerId.toString()}`);
-      return Promise.resolve(await this.createStatusMessage());
+      return await this.createStatusMessage();
     }
     this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
-    return Promise.reject();
+    throw new Error('Unauthorised');
   }
 
   private async updateAuthenticatedPeers() {

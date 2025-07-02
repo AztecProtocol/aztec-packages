@@ -218,7 +218,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       createLogger(`${logger.module}:discv5_service`),
     );
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt()) ?? [];
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
 
     // If trusted peers are provided, also provide them to the p2p service
     bootstrapNodes.push(...config.trustedPeers);

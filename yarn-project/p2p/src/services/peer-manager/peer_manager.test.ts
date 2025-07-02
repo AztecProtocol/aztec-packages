@@ -1,3 +1,6 @@
+import type { EpochCache } from '@aztec/epoch-cache';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type {
@@ -13,11 +16,14 @@ import { jest } from '@jest/globals';
 import type { Libp2p, PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { multiaddr } from '@multiformats/multiaddr';
+import { mock } from 'jest-mock-extended';
 
-import { getP2PDefaultConfig } from '../../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
-import { GoodByeReason } from '../reqresp/protocols/index.js';
+import { AuthRequest, GoodByeReason, StatusMessage } from '../reqresp/protocols/index.js';
+import { ReqResp } from '../reqresp/reqresp.js';
+import { ReqRespStatus } from '../reqresp/status.js';
 import { PeerManager } from './peer_manager.js';
 import { PeerScoring } from './peer_scoring.js';
 
@@ -31,9 +37,10 @@ describe('PeerManager', () => {
     runRandomNodesQuery: jest.fn(),
   };
 
-  const mockReqResp: any = {
-    sendRequestToPeer: jest.fn(),
-  };
+  const mockEpochCache = mock<EpochCache>();
+  mockEpochCache.getRegisteredValidators.mockResolvedValue([]);
+
+  const mockReqResp = mock<ReqResp>();
 
   let peerScoring: PeerScoring;
 
@@ -108,12 +115,12 @@ describe('PeerManager', () => {
       expect(score).toBeLessThan(0);
     });
 
-    it('should handle heartbeat', () => {
+    it('should handle heartbeat', async () => {
       // Mock some connected peers
       const connections = [{ remotePeer: 'peer1' }, { remotePeer: 'peer2' }];
       mockLibP2PNode.getConnections.mockReturnValue(connections);
 
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       // Verify that discover was called
       expect(mockPeerDiscoveryService.runRandomNodesQuery).toHaveBeenCalled();
@@ -240,7 +247,7 @@ describe('PeerManager', () => {
 
       // Advance time past timeout period and trigger heartbeat
       jest.advanceTimersByTime(5 * 60 * 1000);
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       // Peer should now be allowed to dial again
       await discoveredPeerCallback(enr);
@@ -311,7 +318,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(disconnectPeerId, PeerErrorSeverity.HighToleranceError);
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -365,7 +372,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(peerId1, PeerErrorSeverity.HighToleranceError);
 
       // Trigger heartbeat which should remove low scoring peers to satisfy max peer limit
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -418,7 +425,7 @@ describe('PeerManager', () => {
       mockLibP2PNode.getConnections.mockReturnValue([duplicateConnection1, oldestConnection, duplicateConnection2]);
 
       // Trigger heartbeat which should call pruneDuplicatePeers
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -456,7 +463,7 @@ describe('PeerManager', () => {
       mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: peerId }]);
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -482,7 +489,7 @@ describe('PeerManager', () => {
       mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: untrustedPeerId }, { remotePeer: trustedPeerId }]);
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -510,7 +517,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
 
       // Trigger heartbeat which should call pruneUnhealthyPeers
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -672,7 +679,7 @@ describe('PeerManager', () => {
       jest.spyOn(peerManager as any, 'pruneDuplicatePeers').mockImplementation(connections => connections);
 
       // Trigger heartbeat which should call prioritizePeers
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       // Wait for async operations to complete
       await sleep(100);
@@ -718,7 +725,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
       peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
 
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -799,7 +806,7 @@ describe('PeerManager', () => {
 
       peerManager.penalizePeer(trustedAndPrivatePeerId, PeerErrorSeverity.LowToleranceError);
       peerManager.penalizePeer(trustedAndPrivatePeerId, PeerErrorSeverity.LowToleranceError);
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -826,7 +833,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
       peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
 
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
 
       await sleep(100);
 
@@ -896,6 +903,114 @@ describe('PeerManager', () => {
     });
   });
 
+  describe('authentication', () => {
+    const mockStatusMessage = () => new StatusMessage('Test Version', 4, randomBytes(32).toString('hex'), 2);
+    it('should accept auth from preferred peer', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
+      enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
+
+      const protocolVersion = '1.2.3';
+      const blockHash = randomBytes(32).toString('hex');
+
+      const newPeerManager = createMockPeerManager(
+        'test',
+        mockLibP2PNode,
+        3,
+        [],
+        [],
+        [enr],
+        {},
+        protocolVersion,
+        blockHash,
+      );
+
+      await newPeerManager.initializePeers();
+
+      const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
+      await expect(newPeerManager.handleAuthFromPeer(authRequest, peerId)).resolves.not.toThrow();
+      const statusMessage = await newPeerManager.handleAuthFromPeer(authRequest, peerId);
+      expect(statusMessage.compressedComponentsVersion).toEqual(protocolVersion);
+      expect(statusMessage.latestBlockHash).toEqual(blockHash);
+    });
+
+    it('should not accept auth from non-preferred peer', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
+      enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
+
+      const protocolVersion = '1.2.3';
+      const blockHash = randomBytes(32).toString('hex');
+
+      const newPeerManager = createMockPeerManager(
+        'test',
+        mockLibP2PNode,
+        3,
+        [],
+        [],
+        [enr],
+        {},
+        protocolVersion,
+        blockHash,
+      );
+
+      const someOtherPeer = await createSecp256k1PeerId();
+
+      await newPeerManager.initializePeers();
+
+      const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
+      await expect(newPeerManager.handleAuthFromPeer(authRequest, someOtherPeer)).rejects.toThrow();
+    });
+
+    it('should fail authentication if auth handshake fails', async () => {
+      const protocolVersion = '1.2.3';
+      const blockHash = randomBytes(32).toString('hex');
+
+      const newPeerManager = createMockPeerManager(
+        'test',
+        mockLibP2PNode,
+        3,
+        [],
+        [],
+        [],
+        { p2pAllowOnlyValidators: true, p2pDisableStatusHandshake: false },
+        protocolVersion,
+        blockHash,
+      );
+
+      await newPeerManager.initializePeers();
+
+      const peerId = await createSecp256k1PeerId();
+
+      mockReqResp.sendRequestToPeer.mockImplementation(
+        (peerIdArg: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer) => {
+          console.log(`IN HERE`);
+          expect(peerIdArg.toString()).toEqual(peerId.toString());
+          expect(subProtocol).toEqual(ReqRespSubProtocol.AUTH);
+          const authRequest = AuthRequest.fromBuffer(payload);
+          expect(authRequest.status.compressedComponentsVersion).toEqual(protocolVersion);
+          expect(authRequest.status.latestBlockHash).toEqual(blockHash);
+          const returnData = {
+            status: ReqRespStatus.FAILURE,
+            data: Buffer.alloc(0),
+          };
+          return Promise.resolve(returnData);
+        },
+      );
+
+      const event = {
+        detail: peerId,
+      };
+
+      (newPeerManager as any).handleConnectedPeerEvent(event);
+
+      await sleep(100);
+
+      expect(mockReqResp.sendRequestToPeer).toHaveBeenCalled();
+      expect(newPeerManager.isAuthenticatedPeer(peerId)).toEqual(false);
+    });
+  });
+
   describe('goodbye metrics', () => {
     it('should record metrics when receiving goodbye messages', async () => {
       const peerId = await createSecp256k1PeerId();
@@ -929,7 +1044,7 @@ describe('PeerManager', () => {
       peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError); // Set score below -100
       peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
       peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
-      peerManager.heartbeat();
+      await peerManager.heartbeat();
       expect(goodbyeSentMetric).toHaveBeenCalledWith(1, { [Attributes.P2P_GOODBYE_REASON]: 'banned' });
 
       // Reset mocks
@@ -961,9 +1076,13 @@ describe('PeerManager', () => {
     trustedPeers?: SignableENR[],
     privatePeers?: SignableENR[],
     preferredPeers?: SignableENR[],
+    additionalConfig: Partial<P2PConfig> = {},
+    protocolVersion = 'Version 1.2',
+    latestBlockHash = '0x1234567890abcdef',
   ): PeerManager {
     const config = {
       ...getP2PDefaultConfig(),
+      ...additionalConfig,
       trustedPeers: trustedPeers ? trustedPeers.map(peer => peer.encodeTxt()) : [],
       privatePeers: privatePeers ? privatePeers.map(peer => peer.encodeTxt()) : [],
       preferredPeers: preferredPeers ? preferredPeers.map(peer => peer.encodeTxt()) : [],
@@ -973,7 +1092,9 @@ describe('PeerManager', () => {
     const mockWorldStateSynchronizer = {
       status: () =>
         Promise.resolve({
-          syncSummary: {} as WorldStateSyncStatus,
+          syncSummary: {
+            latestBlockHash,
+          } as WorldStateSyncStatus,
         } as WorldStateSynchronizerStatus),
     };
 
@@ -986,7 +1107,8 @@ describe('PeerManager', () => {
       peerScoring,
       mockReqResp,
       mockWorldStateSynchronizer as WorldStateSynchronizer,
-      '',
+      protocolVersion,
+      mockEpochCache,
     );
   }
 });
