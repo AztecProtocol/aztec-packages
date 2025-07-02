@@ -9,6 +9,9 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 
+# Set defaults for variable that might be unset to prevent heredoc expansion errors
+GCP_SA_KEY_B64="${GCP_SA_KEY_B64:-}"
+
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
