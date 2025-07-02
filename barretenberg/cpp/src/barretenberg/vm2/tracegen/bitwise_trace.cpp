@@ -25,7 +25,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
     uint32_t row = 1;
     for (const auto& event : events) {
         auto tag = event.a.get_tag();
-        const auto start_ctr = integral_tag_length(tag);
+        const auto start_ctr = get_tag_bytes(tag);
 
         // We start with full inputs and output and we shift
         // them byte-per-byte to the right.

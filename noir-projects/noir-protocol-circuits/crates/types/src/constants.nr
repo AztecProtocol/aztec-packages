@@ -632,6 +632,17 @@ pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
 pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
 pub global AVM_EXEC_OP_ID_RETURNDATASIZE: u32 = 2 * AVM_EXEC_OP_ID_SUCCESSCOPY;
 
+// Execution Opcode IDs for the ALU subtrace
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_ALU_ADD: u32 = 1;
+pub global AVM_EXEC_OP_ID_ALU_SUB: u32 = 2 * AVM_EXEC_OP_ID_ALU_ADD;
+pub global AVM_EXEC_OP_ID_ALU_MUL: u32 = 2 * AVM_EXEC_OP_ID_ALU_SUB;
+pub global AVM_EXEC_OP_ID_ALU_DIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_MUL;
+pub global AVM_EXEC_OP_ID_ALU_FDIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_DIV;
+pub global AVM_EXEC_OP_ID_ALU_EQ: u32 = 2 * AVM_EXEC_OP_ID_ALU_FDIV;
+pub global AVM_EXEC_OP_ID_ALU_LT: u32 = 2 * AVM_EXEC_OP_ID_ALU_EQ;
+pub global AVM_EXEC_OP_ID_ALU_LTE: u32 = 2 * AVM_EXEC_OP_ID_ALU_LT;
+
 // AvmCircuitPublicInputs - row indices
 // Global Variables
 // start alias

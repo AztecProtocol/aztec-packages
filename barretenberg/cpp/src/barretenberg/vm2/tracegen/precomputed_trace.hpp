@@ -17,7 +17,7 @@ class PrecomputedTraceBuilder final {
     void process_sel_range_16(TraceContainer& trace);
     void process_power_of_2(TraceContainer& trace);
     void process_sha256_round_constants(TraceContainer& trace);
-    void process_integral_tag_length(TraceContainer& trace);
+    void process_tag_parameters(TraceContainer& trace);
     void process_wire_instruction_spec(TraceContainer& trace);
     void process_exec_instruction_spec(TraceContainer& trace);
     void process_to_radix_safe_limbs(TraceContainer& trace);
