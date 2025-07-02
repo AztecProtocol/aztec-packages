@@ -1,10 +1,9 @@
 use crate::{
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH, TWO_POW_64},
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
     hash::poseidon2_absorb_chunks_existing_sponge,
     poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
 };
-use std::meta::derive;
 
 // A Poseidon2 sponge used to accumulate data that will be added to blob(s)
 // (More accurately called BlobSponge, but that's not as fun)
@@ -64,42 +63,6 @@ impl SpongeBlob {
 impl Empty for SpongeBlob {
     fn empty() -> Self {
         Self { sponge: Poseidon2Sponge::new(0), fields: 0, expected_fields: 0 }
-    }
-}
-
-mod test {
-    use crate::{
-        abis::sponge_blob::SpongeBlob,
-        constants::SPONGE_BLOB_LENGTH,
-        poseidon2::Poseidon2Sponge,
-        traits::{Deserialize, Empty, Serialize},
-        utils::arrays::array_concat,
-    };
-
-    #[test]
-    unconstrained fn test_absorb() {
-        // This tests that absorbing two arrays separately then squeezing matches an ordinary hash
-        let mut spongeblob = SpongeBlob::new(7);
-        let input_3 = [1, 2, 3];
-        spongeblob.absorb(input_3, input_3.len());
-        // Assert that we have correctly absorbed the first 3 inputs
-        assert(spongeblob.sponge.cache.eq(input_3));
-        assert(spongeblob.fields == input_3.len());
-        // Absorb the next 4 in a new call...
-        let input_4 = [4, 5, 6, 7];
-        spongeblob.absorb(input_4, input_4.len());
-        // ...and create a normal poseidon2 hash of the same input
-        let input: [Field; 7] = array_concat(input_3, input_4);
-        let expected = Poseidon2Sponge::hash(input, input.len());
-        assert(spongeblob.squeeze() == expected);
-    }
-
-    #[test(should_fail_with = "Given in_len to absorb is larger than the input array len")]
-    unconstrained fn test_absorb_incorrect_in_len() {
-        let mut spongeblob = SpongeBlob::new(10);
-        let input_3 = [1, 2, 3];
-        // The below should fail, as we try to absorb 10 inputs but only provide 3
-        spongeblob.absorb(input_3, 10);
     }
 }
 

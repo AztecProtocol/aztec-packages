@@ -23,7 +23,7 @@ pub trait ToPoint {
     fn to_point(self) -> Point;
 }
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct NpkM {
     pub inner: Point,
 }
@@ -41,7 +41,7 @@ impl Hash for NpkM {
     }
 }
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct IvpkM {
     pub inner: Point,
 }
@@ -52,7 +52,7 @@ impl ToPoint for IvpkM {
     }
 }
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct OvpkM {
     pub inner: Point,
 }
@@ -69,7 +69,7 @@ impl ToPoint for OvpkM {
     }
 }
 
-#[derive(Eq, Serialize)]
+#[derive(Deserialize, Eq, Serialize)]
 pub struct TpkM {
     pub inner: Point,
 }

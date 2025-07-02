@@ -372,7 +372,7 @@ where
 
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        let len = fields[O * M] as u32;
+        let len = fields[<T as Deserialize>::N * M] as u32;
 
         for i in 0..len {
             let mut nested_fields = [0; <T as Deserialize>::N];
