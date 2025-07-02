@@ -42,4 +42,10 @@ else
   install_url="$INSTALL_URI/aztec-install"
 fi
 
-bash <(curl -s $install_url)
+if curl --head --silent --fail "$install_url" > /dev/null; then
+  bash <(curl -s "$install_url")
+else
+  echo "Error: Install script not found at $install_url"
+  echo "Please check the version specified."
+  exit 1
+fi
