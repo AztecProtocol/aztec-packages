@@ -209,6 +209,16 @@ void Execution::rd_copy(ContextInterface& context,
     }
 }
 
+void Execution::rd_size(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::RETURNDATASIZE;
+    auto& memory = context.get_memory();
+    // This is safe because the last_rd_size is tag checked on ret/revert to be U32
+    MemoryValue rd_size = MemoryValue::from<uint32_t>(context.get_last_rd_size());
+    memory.set(dst_addr, rd_size);
+    set_output(opcode, rd_size);
+}
+
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
     constexpr auto opcode = ExecutionOpCode::RETURN;
@@ -285,6 +295,17 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
         // TODO: Possibly handle the error here.
         throw e;
     }
+}
+
+void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SUCCESSCOPY;
+
+    auto& memory = context.get_memory();
+    MemoryValue success = MemoryValue::from<uint1_t>(context.get_last_success());
+
+    memory.set(dst_addr, success);
+    set_output(opcode, success);
 }
 
 // This context interface is a top-level enqueued one.
@@ -487,6 +508,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::KECCAKF1600:
         call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SUCCESSCOPY:
+        call_with_operands(&Execution::success_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::RETURNDATASIZE:
+        call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

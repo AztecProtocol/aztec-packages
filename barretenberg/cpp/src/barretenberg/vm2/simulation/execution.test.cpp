@@ -199,6 +199,33 @@ TEST_F(ExecutionSimulationTest, Jump)
     execution.jump(context, 120);
 }
 
+TEST_F(ExecutionSimulationTest, SuccessCopyTrue)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_last_success).WillOnce(Return(true));
+    EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(1)));
+
+    execution.success_copy(context, 10);
+}
+
+TEST_F(ExecutionSimulationTest, SuccessCopyFalse)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_last_success).WillOnce(Return(false));
+    EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(0)));
+
+    execution.success_copy(context, 10);
+}
+
+TEST_F(ExecutionSimulationTest, RdSize)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_last_rd_size).WillOnce(Return(42));
+    EXPECT_CALL(memory, set(10, MemoryValue::from<uint32_t>(42)));
+
+    execution.rd_size(context, /*dst_addr=*/10);
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation

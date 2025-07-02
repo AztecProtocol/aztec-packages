@@ -33,7 +33,7 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
@@ -313,10 +313,9 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.range_check);
                 },
                 [&]() {
-                    PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
-                    AVM_TRACK_TIME(
-                        "tracegen/public_data_tree_check",
-                        public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
+                    PublicDataTreeTraceBuilder public_data_tree_trace_builder;
+                    AVM_TRACK_TIME("tracegen/public_data_tree_check",
+                                   public_data_tree_trace_builder.process(events.public_data_tree_check_events, trace));
                     clear_events(events.public_data_tree_check_events);
                 },
                 [&]() {
@@ -393,7 +392,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                                                   AddressDerivationTraceBuilder::interactions.get_all_jobs(),
                                                   FieldGreaterThanTraceBuilder::interactions.get_all_jobs(),
                                                   MerkleCheckTraceBuilder::interactions.get_all_jobs(),
-                                                  PublicDataTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                                                  PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
                                                   UpdateCheckTraceBuilder::interactions.get_all_jobs(),
                                                   NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
                                                   MemoryTraceBuilder::interactions.get_all_jobs(),
