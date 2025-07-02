@@ -14,7 +14,6 @@ jobs:
         train-branch:
           - merge-train/barretenberg
           - merge-train/spartan
-          - merge-train/avm
           - merge-train/docs
           - merge-train/avm
           - merge-train/spartan
