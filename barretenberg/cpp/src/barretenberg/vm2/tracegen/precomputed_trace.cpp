@@ -5,11 +5,14 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
 
@@ -156,19 +159,22 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     }
 }
 
-void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
     using C = Column;
     using bb::avm2::MemoryTag;
 
     // Column number corresponds to MemoryTag enum value.
-    const auto integral_tags = { MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
-                                 MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
+    // TODO(MW): Q: is there a better way to iterate over all values in an enum?
+    const auto tags = { MemoryTag::FF,  MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
+                        MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
 
-    for (const auto& tag : integral_tags) {
+    for (const auto& tag : tags) {
         trace.set(static_cast<uint32_t>(tag),
-                  { { { C::precomputed_sel_integral_tag, 1 },
-                      { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+                  { { { C::precomputed_sel_tag_parameters, 1 },
+                      { C::precomputed_tag_byte_length, get_tag_bytes(tag) },
+                      { C::precomputed_tag_max_bits, get_tag_bits(tag) },
+                      { C::precomputed_tag_max_value, get_tag_max_value(tag) } } });
     }
 }
 
@@ -226,13 +232,27 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 
     constexpr size_t NUM_REGISTERS = 7;
     constexpr std::array<Column, NUM_REGISTERS> MEM_OP_REG_COLUMNS = {
-        Column::precomputed_mem_op_reg_0_, Column::precomputed_mem_op_reg_1_, Column::precomputed_mem_op_reg_2_,
-        Column::precomputed_mem_op_reg_3_, Column::precomputed_mem_op_reg_4_, Column::precomputed_mem_op_reg_5_,
-        Column::precomputed_mem_op_reg_6_,
+        Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
+        Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
+        Column::precomputed_sel_mem_op_reg_4_, Column::precomputed_sel_mem_op_reg_5_,
+        Column::precomputed_sel_mem_op_reg_6_,
     };
     constexpr std::array<Column, NUM_REGISTERS> RW_COLUMNS = {
-        Column::precomputed_rw_0_, Column::precomputed_rw_1_, Column::precomputed_rw_2_, Column::precomputed_rw_3_,
-        Column::precomputed_rw_4_, Column::precomputed_rw_5_, Column::precomputed_rw_6_,
+        Column::precomputed_rw_reg_0_, Column::precomputed_rw_reg_1_, Column::precomputed_rw_reg_2_,
+        Column::precomputed_rw_reg_3_, Column::precomputed_rw_reg_4_, Column::precomputed_rw_reg_5_,
+        Column::precomputed_rw_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> DO_TAG_CHECK_COLUMNS = {
+        Column::precomputed_sel_tag_check_reg_0_, Column::precomputed_sel_tag_check_reg_1_,
+        Column::precomputed_sel_tag_check_reg_2_, Column::precomputed_sel_tag_check_reg_3_,
+        Column::precomputed_sel_tag_check_reg_4_, Column::precomputed_sel_tag_check_reg_5_,
+        Column::precomputed_sel_tag_check_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> EXPECTED_TAG_COLUMNS = {
+        Column::precomputed_expected_tag_reg_0_, Column::precomputed_expected_tag_reg_1_,
+        Column::precomputed_expected_tag_reg_2_, Column::precomputed_expected_tag_reg_3_,
+        Column::precomputed_expected_tag_reg_4_, Column::precomputed_expected_tag_reg_5_,
+        Column::precomputed_expected_tag_reg_6_,
     };
 
     constexpr size_t NUM_OPERANDS = 7;
@@ -255,10 +275,16 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                   } });
 
         // Register information.
-        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
+        const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
         for (size_t i = 0; i < NUM_REGISTERS; i++) {
             trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
             trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
+            trace.set(DO_TAG_CHECK_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      register_info.need_tag_check(i) ? 1 : 0);
+            trace.set(EXPECTED_TAG_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      static_cast<uint32_t>(register_info.expected_tag(i).value_or(static_cast<ValueTag>(0))));
         }
 
         // Whether an operand is an address
@@ -276,13 +302,17 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         uint8_t to_radix_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0;
         uint8_t ecc_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0;
         uint8_t keccak_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0;
+        uint8_t data_copy_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::DATACOPY ? 1 : 0;
+        uint8_t execution_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION ? 1 : 0;
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { { { C::precomputed_sel_dispatch_alu, alu_sel },
                       { C::precomputed_sel_dispatch_bitwise, bitwise_sel },
                       { C::precomputed_sel_dispatch_poseidon_perm, poseidon_sel },
                       { C::precomputed_sel_dispatch_to_radix, to_radix_sel },
                       { C::precomputed_sel_dispatch_ecc, ecc_sel },
+                      { C::precomputed_sel_dispatch_data_copy, data_copy_sel },
                       { C::precomputed_sel_dispatch_keccakf1600, keccak_sel },
+                      { C::precomputed_sel_dispatch_execution, execution_sel },
                       { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
     }
 }
@@ -518,6 +548,40 @@ void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& tra
                       { C::precomputed_keccak_round_constant, round_constant },
                   } });
         row++;
+    }
+}
+
+/**
+ * See `opcodes/get_env_var.pil` for an ascii version of this table.
+ */
+void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr uint32_t NUM_ROWS = 1 << 8;
+
+    // Start by flagging `invalid_envvar_enum` as 1 for all rows.
+    // "valid" rows will be reset manually to 0 below.
+    for (uint32_t i = 0; i < NUM_ROWS; i++) {
+        trace.set(C::precomputed_invalid_envvar_enum, i, 1);
+    }
+
+    for (uint8_t enum_value = 0; enum_value <= static_cast<uint8_t>(EnvironmentVariable::MAX); enum_value++) {
+        const auto& envvar_spec = GetEnvVarSpec::get_table(enum_value);
+        trace.set(static_cast<uint32_t>(enum_value),
+                  { {
+                      { C::precomputed_invalid_envvar_enum, 0 }, // Reset the invalid enum flag for valid rows
+                      { C::precomputed_sel_envvar_pi_lookup_col0, envvar_spec.envvar_pi_lookup_col0 },
+                      { C::precomputed_sel_envvar_pi_lookup_col1, envvar_spec.envvar_pi_lookup_col1 },
+                      { C::precomputed_envvar_pi_row_idx, envvar_spec.envvar_pi_row_idx },
+                      { C::precomputed_is_address, envvar_spec.is_address ? 1 : 0 },
+                      { C::precomputed_is_sender, envvar_spec.is_sender ? 1 : 0 },
+                      { C::precomputed_is_transactionfee, envvar_spec.is_transactionfee ? 1 : 0 },
+                      { C::precomputed_is_isstaticcall, envvar_spec.is_isstaticcall ? 1 : 0 },
+                      { C::precomputed_is_l2gasleft, envvar_spec.is_l2gasleft ? 1 : 0 },
+                      { C::precomputed_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
+                      { C::precomputed_out_tag, envvar_spec.out_tag },
+                  } });
     }
 }
 

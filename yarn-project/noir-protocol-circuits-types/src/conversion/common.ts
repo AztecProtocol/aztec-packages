@@ -9,13 +9,14 @@ import {
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
+  ClaimedLengthArray,
   CountedLogHash,
   LogHash,
   OptionalNumber,
@@ -42,7 +43,7 @@ import {
   BlockHeader,
   ContentCommitment,
   GlobalVariables,
-  MaxBlockNumber,
+  IncludeByTimestamp,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -52,6 +53,7 @@ import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
+  ClaimedLengthArray as ClaimedLengthArrayNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
   FixedLengthArray,
@@ -61,10 +63,10 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
+  IncludeByTimestamp as IncludeByTimestampNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
-  MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
@@ -85,6 +87,7 @@ import type {
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
   VkData as VkDataNoir,
+  u64,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -338,6 +341,25 @@ export function mapFieldArrayToNoir<N extends number>(
   return mapTupleToNoir(assertLength(array, length), mapFieldToNoir);
 }
 
+export function mapClaimedLengthArrayFromNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArrayNoir<N, S>,
+  mapper: (item: S) => T,
+): ClaimedLengthArray<T, N> {
+  const array = mapTupleFromNoir(claimedLengthArray.array, claimedLengthArray.array.length, mapper) as Tuple<T, N>;
+  const claimedLength = mapNumberFromNoir(claimedLengthArray.length);
+  return new ClaimedLengthArray(array, claimedLength);
+}
+
+export function mapClaimedLengthArrayToNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArray<T, N>,
+  mapper: (item: T) => S,
+): ClaimedLengthArrayNoir<N, S> {
+  return {
+    array: mapTupleToNoir(claimedLengthArray.array, mapper),
+    length: mapNumberToNoir(claimedLengthArray.claimedLength),
+  };
+}
+
 /**
  * Maps a AOT snapshot to noir.
  * @param snapshot - The stdlib AOT snapshot.
@@ -418,28 +440,28 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
+export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir<u64> {
   return {
     _is_some: option.isSome,
     _value: mapNumberToNoir(option.value),
   };
 }
 
-export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
+export function mapOptionalNumberFromNoir(option: OptionalNumberNoir<u64>) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
 }
 
-export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBlockNumberNoir {
+export function mapIncludeByTimestampToNoir(includeByTimestamp: IncludeByTimestamp): IncludeByTimestampNoir {
   return {
     _opt: {
-      _is_some: maxBlockNumber.isSome,
-      _value: mapNumberToNoir(maxBlockNumber.value),
+      _is_some: includeByTimestamp.isSome,
+      _value: mapBigIntToNoir(includeByTimestamp.value),
     },
   };
 }
 
-export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
-  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapNumberFromNoir(maxBlockNumber._opt._value));
+export function mapIncludeByTimestampFromNoir(includeByTimestamp: IncludeByTimestampNoir): IncludeByTimestamp {
+  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapBigIntFromNoir(includeByTimestamp._opt._value));
 }
 
 /**

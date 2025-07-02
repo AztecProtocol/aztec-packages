@@ -60,14 +60,17 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void revert_checkpoint() override;
 
     // Constrained.
-    // TODO: When actually using this, consider siloing inside (and taking a silo gadget in the constructor).
-    // Probably better like this though.
-    FF storage_read(const FF& leaf_slot) const override;
-    void storage_write(const FF& leaf_slot, const FF& value) override;
+    FF storage_read(const AztecAddress& contract_address, const FF& slot) const override;
+    void storage_write(const AztecAddress& contract_address,
+                       const FF& slot,
+                       const FF& value,
+                       bool is_protocol_write) override;
 
-    bool nullifier_exists(const FF& nullifier) const override;
-    // Throws if the nullifier already exists
-    void nullifier_write(const FF& nullifier) override;
+    bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const override;
+    bool siloed_nullifier_exists(const FF& nullifier) const override;
+    // Returns false if the nullifier already exists, performing a membership proof instead.
+    bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
+    bool siloed_nullifier_write(const FF& nullifier) override;
 
     // Returns a unique note hash stored in the tree at leaf_index.
     FF note_hash_read(index_t leaf_index) const override;
@@ -75,9 +78,14 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
 
+    void add_checkpoint_listener(CheckpointNotifiable& listener) { checkpoint_listeners.push_back(&listener); }
+
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
 
   private:
+    bool nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const;
+    bool nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier);
+
     LowLevelMerkleDBInterface& raw_merkle_db;
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
     // It's usually ok for mutexes but a gadget is big...
@@ -92,6 +100,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Set for semantics.
     using Slot = FF;
     std::unordered_set<Slot> storage_set;
+    std::vector<CheckpointNotifiable*> checkpoint_listeners;
 };
 
 } // namespace bb::avm2::simulation

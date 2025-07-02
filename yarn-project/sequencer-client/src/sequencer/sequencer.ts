@@ -58,7 +58,12 @@ export { SequencerState };
 type SequencerRollupConstants = Pick<L1RollupConstants, 'ethereumSlotDuration' | 'l1GenesisTime' | 'slotDuration'>;
 
 export type SequencerEvents = {
-  ['state-changed']: (args: { oldState: SequencerState; newState: SequencerState }) => void;
+  ['state-changed']: (args: {
+    oldState: SequencerState;
+    newState: SequencerState;
+    secondsIntoSlot: number;
+    slotNumber: bigint;
+  }) => void;
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
   ['block-build-failed']: (args: { reason: string }) => void;
@@ -140,7 +145,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Updates sequencer config.
+   * Updates sequencer config by the defined values in the config on input.
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
@@ -171,7 +176,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
     }
-
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
@@ -188,7 +192,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setTimeTable();
 
     // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
-    this.config = config;
+
+    // Update all values on this.config that are populated in the config object.
+    Object.assign(this.config, config);
   }
 
   private setTimeTable() {
@@ -200,7 +206,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.log,
     );
-    this.log.verbose(`Sequencer timetable updated`, { enforceTimeTable: this.enforceTimeTable });
   }
 
   /**
@@ -324,7 +329,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        this.log.warn(`Cannot propose block ${newBlockNumber} since the committee does not exist on L1`);
+        this.log.warn(
+          `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} since the committee does not exist on L1`,
+        );
         return;
       }
     }
@@ -503,7 +510,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const secondsIntoSlot = this.getSecondsIntoSlot(currentSlotNumber);
     this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     this.log.debug(`Transitioning from ${this.state} to ${proposedState}`);
-    this.emit('state-changed', { oldState: this.state, newState: proposedState });
+    this.emit('state-changed', {
+      oldState: this.state,
+      newState: proposedState,
+      secondsIntoSlot,
+      slotNumber: currentSlotNumber,
+    });
     this.state = proposedState;
   }
 

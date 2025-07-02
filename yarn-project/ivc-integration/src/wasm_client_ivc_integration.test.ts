@@ -112,13 +112,13 @@ describe('Client IVC Integration', () => {
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
       tx,
-      app_vk: getVkAsFields(MockAppCreatorVk),
+      app_vk: await getVkAsFields(MockAppCreatorVk),
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       app_inputs: readerAppWitnessGenResult.publicInputs,
-      app_vk: getVkAsFields(MockAppReaderVk),
-      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
+      app_vk: await getVkAsFields(MockAppReaderVk),
+      kernel_vk: await getVkAsFields(MockPrivateKernelInitVk),
     });
 
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -129,12 +129,12 @@ describe('Client IVC Integration', () => {
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       ],
-      kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
+      kernel_vk: await getVkAsFields(MockPrivateKernelInnerVk),
     });
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-      kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
+      kernel_vk: await getVkAsFields(MockPrivateKernelResetVk),
     });
 
     // Create client IVC proof

@@ -1,5 +1,6 @@
 import {
   type ConfigMappingsType,
+  SecretValue,
   booleanConfigHelper,
   floatConfigHelper,
   getConfigFromMappings,
@@ -15,11 +16,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
+import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
 
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
+export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionConfig {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -51,7 +53,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   listenAddress: string;
 
   /** An optional peer id private key. If blank, will generate a random key. */
-  peerIdPrivateKey?: string;
+  peerIdPrivateKey?: SecretValue<string>;
 
   /** An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory. */
   peerIdPrivateKeyPath?: string;
@@ -380,6 +382,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
+  ...txCollectionConfigMappings,
 };
 
 /**

@@ -1,0 +1,31 @@
+name: Merge-Train Recreate
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  recreate:
+    if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Recreate branch
+        run: |
+          GH_TOKEN=${{ secrets.GITHUB_TOKEN }} ./scripts/merge-train/recreate-branch.sh \
+            "${{ github.event.pull_request.head.ref }}" \
+            "${{ github.event.pull_request.base.ref }}"
+

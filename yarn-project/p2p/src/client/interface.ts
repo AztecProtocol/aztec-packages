@@ -69,12 +69,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<(Tx | undefined)[]>;
 
   /**
-   * Request a transaction from another peer by its tx hash.
-   * @param txHash - Hash of the tx to query.
-   */
-  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
-
-  /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
    **/
@@ -114,13 +108,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @returns True or False for each hash
    */
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
-
-  /**
-   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Returns transactions in the transaction pool by hash, requesting from the network if not found.

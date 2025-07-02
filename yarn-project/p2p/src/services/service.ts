@@ -50,18 +50,6 @@ export interface P2PService {
   propagate<T extends Gossipable>(message: T): Promise<void>;
 
   /**
-   * Request information from peers via the request response protocol.
-   *
-   * @param protocol - The request response protocol to use
-   * @param request - The request type, corresponding to the protocol
-   * @returns The response type, corresponding to the protocol
-   */
-  sendRequest<Protocol extends ReqRespSubProtocol>(
-    protocol: Protocol,
-    request: InstanceType<SubProtocolMap[Protocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
-
-  /**
    * Send a batch of requests to peers, and return the responses
    *
    * @param protocol - The request response protocol to use

@@ -95,7 +95,7 @@ function compile {
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
-  if ! cache_download vk-$hash.tar.gz 1>&2; then
+  if [ "${USE_CIRCUITS_CACHE:-0}" -eq 0 ] || ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
@@ -138,7 +138,7 @@ function build {
   set -eu
 
   echo_stderr "Checking libraries for warnings..."
-  parallel -v --line-buffer --tag $NARGO --program-dir {} check --deny-warnings ::: \
+  parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
     ./crates/blob \
     ./crates/parity-lib \
     ./crates/private-kernel-lib \

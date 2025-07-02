@@ -3,12 +3,13 @@ import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
+  FormattedViemError,
   type GasPrice,
   type GovernanceProposerContract,
   type L1ContractsConfig,
   type L1TxUtilsConfig,
   Multicall3,
-  type RollupContract,
+  RollupContract,
   type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
@@ -16,6 +17,7 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
@@ -119,6 +121,7 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
+      dateProvider: new TestDateProvider(),
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;
@@ -237,7 +240,7 @@ describe('SequencerPublisher', () => {
         },
         txHashes: [],
       },
-      [],
+      RollupContract.packAttestations([]),
       blobInput,
     ] as const;
     expect(forwardSpy).toHaveBeenCalledWith(
@@ -303,7 +306,12 @@ describe('SequencerPublisher', () => {
     expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
 
-    expect(result?.result?.errorMsg).toEqual('Test error');
+    expect(result).not.toBeInstanceOf(FormattedViemError);
+    if (result instanceof FormattedViemError) {
+      fail('Not Expected result to be a FormattedViemError');
+    } else {
+      expect((result as any).result.errorMsg).toEqual('Test error');
+    }
   });
 
   it('does not send requests if interrupted', async () => {

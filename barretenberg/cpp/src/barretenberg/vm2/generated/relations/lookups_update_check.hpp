@@ -41,54 +41,26 @@ template <typename FF_>
 using lookup_update_check_shared_mutable_slot_poseidon2_relation =
     lookup_relation_base<FF_, lookup_update_check_shared_mutable_slot_poseidon2_settings>;
 
-/////////////////// lookup_update_check_shared_mutable_leaf_slot_poseidon2 ///////////////////
-
-struct lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_SHARED_MUTABLE_LEAF_SLOT_POSEIDON2";
-    static constexpr std::string_view RELATION_NAME = "update_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::update_check_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
-    static constexpr Column COUNTS = Column::lookup_update_check_shared_mutable_leaf_slot_poseidon2_counts;
-    static constexpr Column INVERSES = Column::lookup_update_check_shared_mutable_leaf_slot_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_public_leaf_index_domain_separator,
-        ColumnAndShifts::update_check_deployer_protocol_contract_address,
-        ColumnAndShifts::update_check_shared_mutable_hash_slot,
-        ColumnAndShifts::update_check_shared_mutable_leaf_slot
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
-};
-
-using lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings =
-    lookup_settings<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings_>;
-template <typename FF_>
-using lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation =
-    lookup_relation_base<FF_, lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings>;
-
 /////////////////// lookup_update_check_update_hash_public_data_read ///////////////////
 
 struct lookup_update_check_update_hash_public_data_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_UPDATE_HASH_PUBLIC_DATA_READ";
     static constexpr std::string_view RELATION_NAME = "update_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
     static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_public_data_read_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::update_check_deployer_protocol_contract_address,
+        ColumnAndShifts::update_check_shared_mutable_hash_slot,
         ColumnAndShifts::update_check_update_hash,
-        ColumnAndShifts::update_check_shared_mutable_leaf_slot,
         ColumnAndShifts::update_check_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_address,
         ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_root
     };
 };
@@ -164,7 +136,7 @@ struct lookup_update_check_update_lo_metadata_range_settings_ {
     static constexpr Column COUNTS = Column::lookup_update_check_update_lo_metadata_range_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_lo_metadata_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_update_block_of_change, ColumnAndShifts::update_check_block_number_bit_size
+        ColumnAndShifts::update_check_timestamp_of_change, ColumnAndShifts::update_check_timestamp_of_change_bit_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
@@ -177,28 +149,29 @@ template <typename FF_>
 using lookup_update_check_update_lo_metadata_range_relation =
     lookup_relation_base<FF_, lookup_update_check_update_lo_metadata_range_settings>;
 
-/////////////////// lookup_update_check_block_of_change_cmp_range ///////////////////
+/////////////////// lookup_update_check_timestamp_of_change_cmp_range ///////////////////
 
-struct lookup_update_check_block_of_change_cmp_range_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_BLOCK_OF_CHANGE_CMP_RANGE";
+struct lookup_update_check_timestamp_of_change_cmp_range_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_TIMESTAMP_OF_CHANGE_CMP_RANGE";
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_update_check_block_of_change_cmp_range_counts;
-    static constexpr Column INVERSES = Column::lookup_update_check_block_of_change_cmp_range_inv;
+    static constexpr Column COUNTS = Column::lookup_update_check_timestamp_of_change_cmp_range_counts;
+    static constexpr Column INVERSES = Column::lookup_update_check_timestamp_of_change_cmp_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_block_of_change_subtraction, ColumnAndShifts::update_check_block_number_bit_size
+        ColumnAndShifts::update_check_timestamp_of_change_subtraction,
+        ColumnAndShifts::update_check_timestamp_of_change_bit_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };
 };
 
-using lookup_update_check_block_of_change_cmp_range_settings =
-    lookup_settings<lookup_update_check_block_of_change_cmp_range_settings_>;
+using lookup_update_check_timestamp_of_change_cmp_range_settings =
+    lookup_settings<lookup_update_check_timestamp_of_change_cmp_range_settings_>;
 template <typename FF_>
-using lookup_update_check_block_of_change_cmp_range_relation =
-    lookup_relation_base<FF_, lookup_update_check_block_of_change_cmp_range_settings>;
+using lookup_update_check_timestamp_of_change_cmp_range_relation =
+    lookup_relation_base<FF_, lookup_update_check_timestamp_of_change_cmp_range_settings>;
 
 } // namespace bb::avm2

@@ -164,15 +164,14 @@ void BytecodeTraceBuilder::process_retrieval(
 {
     using C = Column;
 
-    uint32_t row = 0;
+    uint32_t row = 1;
     for (const auto& event : events) {
         trace.set(
             row,
             { { { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
-                // TODO: handle errors.
-                // { C::bc_retrieval_error, event.error },
+                { C::bc_retrieval_error, event.error ? 1 : 0 },
                 // Contract instance.
                 { C::bc_retrieval_salt, event.contract_instance.salt },
                 { C::bc_retrieval_deployer_addr, event.contract_instance.deployer_addr },
@@ -192,13 +191,11 @@ void BytecodeTraceBuilder::process_retrieval(
                 { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
                 { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
                 // State.
-                { C::bc_retrieval_block_number, event.current_block_number },
+                { C::bc_retrieval_timestamp, event.current_timestamp },
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.
-                { C::bc_retrieval_outer_nullifier_domain_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
                 { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
-                { C::bc_retrieval_siloed_address, event.siloed_address },
                 { C::bc_retrieval_nullifier_exists, true } } });
         row++;
     }
@@ -387,7 +384,6 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_address_derivation_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_update_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()

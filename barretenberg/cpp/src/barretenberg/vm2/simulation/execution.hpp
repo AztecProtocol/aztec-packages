@@ -70,6 +70,7 @@ class Execution : public ExecutionInterface {
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
@@ -90,6 +91,7 @@ class Execution : public ExecutionInterface {
                  MemoryAddress rd_size_offset,
                  MemoryAddress rd_offset,
                  MemoryAddress dst_addr);
+    void rd_size(ContextInterface& context, MemoryAddress dst_addr);
     void internal_call(ContextInterface& context, uint32_t loc);
     void internal_return(ContextInterface& context);
 
@@ -97,6 +99,7 @@ class Execution : public ExecutionInterface {
     GasEvent finish_gas_tracker();
 
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
+    void success_copy(ContextInterface& context, MemoryAddress dst_addr);
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
@@ -115,8 +118,8 @@ class Execution : public ExecutionInterface {
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
-    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
-    void set_output(TaggedValue output) { this->output = std::move(output); }
+    void set_and_validate_inputs(ExecutionOpCode opcode, std::vector<TaggedValue> inputs);
+    void set_output(ExecutionOpCode opcode, TaggedValue output);
     const std::vector<TaggedValue>& get_inputs() const { return inputs; }
     const TaggedValue& get_output() const { return output; }
 

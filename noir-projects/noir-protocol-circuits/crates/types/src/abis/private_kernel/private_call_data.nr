@@ -21,15 +21,26 @@ pub struct PrivateCallData {
 }
 
 impl PrivateCallData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     pub fn verify(self, is_first_app: bool) {
-        self.vk.check_hash();
-
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {
             PROOF_TYPE_PG
         };
-        // Client IVC public inputs are linked in the backend via the databus
+
+        // Client IVC public inputs are linked in the backend via the databus.
+        //
+        // Seeing empty args being passed to verify_proof is quite jarring, so I think it could do with more explanation about exactly what's happening behind the scenes, so that a reader can gain confidence in what's being done "magically" by bberg.
+        // How does bb know the locations of the proof and public inputs in the databus?
+        // How does bb know how many public inputs to extract from the databus?
+        // What if we change the public inputs; how does bb adjust to that?
+        // There's a comment in the bberg acir code that the recursive verifier expects a single public input. Are the public inputs being hashed behind the scenes? Where?
+        // How does bb hash the vk?
+        // Where does `get_public_inputs_witness_indices_from_proof` (in acir_format.cpp) get the size of the public inputs from?
+        //
+        // Does bberg compute a key_hash (aka vk_hash)? If so, we'd have duplicate vk_hash constraints, because it also gets computed within this Noir code. That would be a waste. BB appears to say "not used" next to `key_hash` values, but I just want to make sure I'm not misreading their code.
         std::verify_proof_with_type(self.vk.key, [], [], self.vk.hash, proof_type);
     }
 }

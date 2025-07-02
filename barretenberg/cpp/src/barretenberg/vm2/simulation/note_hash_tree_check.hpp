@@ -32,7 +32,7 @@ class NoteHashTreeCheckInterface {
                                                            const AppendOnlyTreeSnapshot& prev_snapshot) = 0;
 };
 
-class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
+class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNotifiable {
   public:
     NoteHashTreeCheck(const FF& first_nullifier,
                       Poseidon2Interface& poseidon2,
@@ -63,6 +63,10 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
                                                    uint64_t note_hash_counter,
                                                    std::span<const FF> sibling_path,
                                                    const AppendOnlyTreeSnapshot& prev_snapshot) override;
+
+    void on_checkpoint_created() override;
+    void on_checkpoint_committed() override;
+    void on_checkpoint_reverted() override;
 
   private:
     FF make_siloed(AztecAddress contract_address, const FF& note_hash) const;

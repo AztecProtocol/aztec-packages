@@ -31,13 +31,12 @@ describe('e2e_2_pxes', () => {
       aztecNode,
       pxe: pxeA,
       initialFundedAccounts,
+      wallet: walletA,
       logger,
       teardown: teardownA,
-    } = await setup(0, { numberOfInitialFundedAccounts: 3 }));
+    } = await setup(1, { numberOfInitialFundedAccounts: 3 }));
 
-    // Deploy accountA via pxeA.
-    const accountA = await deployFundedSchnorrAccount(pxeA, initialFundedAccounts[0]);
-    walletA = await accountA.getWallet();
+    // Account A is already deployed in setup
 
     // Deploy accountB via pxeB.
     ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));

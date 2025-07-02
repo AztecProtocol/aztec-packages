@@ -113,8 +113,6 @@ fn serialization_of_empty() {
     assert(item.eq(deserialized));
 }
 
-use crate::utils::arrays::array_concat;
-
 #[test]
 unconstrained fn absorb() {
     // This tests that absorbing two arrays separately then squeezing matches an ordinary hash
@@ -128,7 +126,7 @@ unconstrained fn absorb() {
     let input_4 = [4, 5, 6, 7];
     spongeblob.absorb(input_4, input_4.len());
     // ...and create a normal poseidon2 hash of the same input
-    let input: [Field; 7] = array_concat(input_3, input_4);
+    let input: [Field; 7] = input_3.concat(input_4);
     let expected = Poseidon2Sponge::hash(input, input.len());
     assert(spongeblob.squeeze() == expected);
 }

@@ -7,7 +7,6 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
-import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   PaddedSideEffectAmounts,
@@ -51,7 +50,7 @@ export interface PrivateKernelExecutionProverConfig {
 }
 
 /**
- * The PrivateKernelSequencer class is responsible for taking a transaction request and sequencing the
+ * The PrivateKernelExecutionProver class is responsible for taking a transaction request and sequencing the
  * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
  * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
  * inform state tree updates.
@@ -92,6 +91,8 @@ export class PrivateKernelExecutionProver {
 
     const isPrivateOnlyTx = executionResult.publicFunctionCalldata.length === 0;
 
+    // Initialise an executionStack, beginning with the PrivateCallExecutionResult
+    // of the entrypoint function of the tx.
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
@@ -139,7 +140,7 @@ export class PrivateKernelExecutionProver {
 
       const currentExecution = executionStack.pop()!;
 
-      executionStack.push(...[...currentExecution.nestedExecutions].reverse());
+      executionStack.push(...[...currentExecution.nestedExecutionResults].reverse());
 
       const functionName = await this.oracle.getDebugFunctionName(
         currentExecution.publicInputs.callContext.contractAddress,
@@ -335,7 +336,7 @@ export class PrivateKernelExecutionProver {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
+    const vk = await VerificationKeyAsFields.fromKey(vkAsFields);
 
     const { currentContractClassId, publicKeys, saltedInitializationHash } =
       await this.oracle.getContractAddressPreimage(contractAddress);

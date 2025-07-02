@@ -480,7 +480,7 @@ export class ReadOnlyL1TxUtils {
   ) {
     try {
       const result = await this.client.simulateBlocks({
-        validation: true,
+        validation: false,
         blocks: [
           {
             blockOverrides,
@@ -494,7 +494,7 @@ export class ReadOnlyL1TxUtils {
         result,
       });
       if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('L1 transaction Simulation failed', {
+        this.logger?.error('L1 transaction simulation failed', {
           error: result[0].calls[0].error,
         });
         const decodedError = decodeErrorResult({
@@ -812,11 +812,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
   public override async simulate(
     request: L1TxRequest & { gas?: bigint; from?: Hex },
-    blockOverrides: BlockOverrides<bigint, number> = {},
+    _blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     abi: Abi = RollupAbi,
-    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint; ignoreBlockGasLimit?: boolean },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
+    const blockOverrides = { ..._blockOverrides };
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
@@ -828,6 +829,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
       gas: request.gas ?? LARGE_GAS_LIMIT,
     };
+
+    if (!request.gas && !gasConfig.ignoreBlockGasLimit) {
+      // LARGE_GAS_LIMIT is set as call.gas, increase block gasLimit
+      blockOverrides.gasLimit = LARGE_GAS_LIMIT * 2n;
+    }
 
     return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }

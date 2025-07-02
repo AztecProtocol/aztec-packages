@@ -2,12 +2,15 @@
 
 #include <cassert>
 #include <memory>
+#include <stack>
+#include <unordered_map>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
@@ -20,9 +23,8 @@ void NoteHashTreeCheckTraceBuilder::process(
     using C = Column;
 
     uint32_t row = 0;
-    for (const auto& event : events) {
+    process_with_discard(events, [&](const simulation::NoteHashTreeReadWriteEvent& event, bool discard) {
         bool write = event.append_data.has_value();
-        bool discard = false; // TODO: Reconstruct discard
 
         FF note_hash = event.note_hash;
         FF siloed_note_hash = event.note_hash;
@@ -85,7 +87,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                       { C::note_hash_tree_check_public_inputs_index,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
         row++;
-    }
+    });
 }
 
 const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
@@ -95,6 +97,7 @@ const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
         .add<lookup_note_hash_tree_check_nonce_computation_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_note_hash_tree_check_merkle_check_settings, InteractionType::LookupGeneric>()
-        .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings, InteractionType::LookupGeneric>();
+        .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings,
+             InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

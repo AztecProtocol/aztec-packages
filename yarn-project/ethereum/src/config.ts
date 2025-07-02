@@ -5,6 +5,7 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
 
@@ -65,6 +66,11 @@ export const DefaultL1ContractsConfig = {
 // for it seems overkill
 export const DefaultRewardConfig = {
   sequencerBps: 5000,
+  rewardDistributor: EthAddress.ZERO.toString(),
+  booster: EthAddress.ZERO.toString(),
+};
+
+export const DefaultRewardBoostConfig = {
   increment: 200000,
   maxScore: 5000000,
   a: 5000,
@@ -74,8 +80,10 @@ export const DefaultRewardConfig = {
 
 // Similar to the above, no need for environment variables for this.
 export const DefaultEntryQueueConfig = {
-  flushSizeMin: 48,
-  flushSizeQuotient: 2,
+  bootstrapValidatorSetSize: 0,
+  bootstrapFlushSize: 0,
+  normalFlushSizeMin: 48,
+  normalFlushSizeQuotient: 2,
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {

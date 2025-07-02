@@ -72,26 +72,30 @@ GoblinProof Goblin::prove()
     return goblin_proof;
 }
 
-Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder)
+Goblin::PairingPoints Goblin::recursively_verify_merge(
+    MegaBuilder& builder,
+    const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+    const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     ASSERT(!merge_verification_queue.empty());
-    PairingPoints points_accumulator;
     // Recursively verify the next merge proof in the verification queue in a FIFO manner
     const MergeProof& merge_proof = merge_verification_queue.front();
     const StdlibProof<MegaBuilder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ &builder };
-    PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    MergeRecursiveVerifier merge_verifier{ &builder, transcript };
+    PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
 
     return pairing_points;
 }
 
-bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript)
+bool Goblin::verify(const GoblinProof& proof,
+                    const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+                    const std::shared_ptr<Transcript>& transcript)
 {
     MergeVerifier merge_verifier(transcript);
-    bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+    bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, t_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);

@@ -16,6 +16,7 @@
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 
 namespace bb {
 
@@ -36,6 +37,7 @@ class Goblin {
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
+    using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     CommitmentKey<curve::BN254> commitment_key;
@@ -88,18 +90,28 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
+     * @param t_commitments The commitments to the subtable for which the merge is being verified.
+     * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return PairingPoints
      */
-    PairingPoints recursively_verify_merge(MegaBuilder& builder);
+    PairingPoints recursively_verify_merge(
+        MegaBuilder& builder,
+        const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+        const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
      *
      * @param proof
+     * @param t_commitments // The commitments to the subtable for which the merge is being verified
+     * @param transcript
+     *
      * @return true
      * @return false
      */
-    static bool verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript);
+    static bool verify(const GoblinProof& proof,
+                       const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+                       const std::shared_ptr<Transcript>& transcript);
 };
 
 } // namespace bb

@@ -9,6 +9,7 @@ use crate::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct PrivateKernelCircuitPublicInputsBuilder {
     pub constants: TxConstantData,
     pub min_revertible_side_effect_counter: u32,
@@ -20,6 +21,7 @@ pub struct PrivateKernelCircuitPublicInputsBuilder {
     pub claimed_first_nullifier: Field,
 }
 
+// TODO: remove this PrivateKernelCircuitPublicInputsBuilder, and just construct the PrivateKernelCircuitPublicInputs directly?
 impl PrivateKernelCircuitPublicInputsBuilder {
     pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
         PrivateKernelCircuitPublicInputs {

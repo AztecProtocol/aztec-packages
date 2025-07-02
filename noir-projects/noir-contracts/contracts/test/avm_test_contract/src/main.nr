@@ -18,7 +18,6 @@ pub contract AvmTest {
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
-    use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
@@ -31,6 +30,7 @@ pub contract AvmTest {
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
+    use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
@@ -404,12 +404,12 @@ pub contract AvmTest {
 
     #[public]
     fn get_fee_per_l2_gas() -> u128 {
-        context.fee_per_l2_gas()
+        context.base_fee_per_l2_gas()
     }
 
     #[public]
     fn get_fee_per_da_gas() -> u128 {
-        context.fee_per_da_gas()
+        context.base_fee_per_da_gas()
     }
 
     #[public]

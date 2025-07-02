@@ -16,7 +16,7 @@ import {
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
-  type ViemCommitteeAttestation,
+  type ViemCommitteeAttestations,
   type ViemHeader,
   type ViemStateReference,
   formatViemError,
@@ -26,7 +26,7 @@ import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
@@ -81,6 +81,7 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
+  private dateProvider: DateProvider;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected governanceProposerAddress?: EthAddress;
@@ -124,10 +125,12 @@ export class SequencerPublisher {
       slashingProposerContract: SlashingProposerContract;
       governanceProposerContract: GovernanceProposerContract;
       epochCache: EpochCache;
+      dateProvider: DateProvider;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.dateProvider = deps.dateProvider;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -257,13 +260,19 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice },
+    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
   ) {
-    const success = result?.receipt.status === 'success';
+    const isError = result instanceof FormattedViemError;
+    const success = isError ? false : result?.receipt.status === 'success';
     const logger = success ? this.log.info : this.log.error;
     for (const request of requests) {
       logger(`Bundled [${request.action}] transaction [${success ? 'succeeded' : 'failed'}]`);
-      request.onResult?.(request.request, result);
+      if (!isError) {
+        request.onResult?.(request.request, result);
+      }
+    }
+    if (isError) {
+      this.log.error('Failed to publish bundled transactions', result);
     }
   }
 
@@ -300,7 +309,7 @@ export class SequencerPublisher {
 
     const args = [
       header.toViem(),
-      [] as ViemCommitteeAttestation[],
+      RollupContract.packAttestations([]),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -359,8 +368,6 @@ export class SequencerPublisher {
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
-    // const blobs = await Blob.getBlobs(block.body.toBlobFields());
-    // const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
 
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
@@ -377,7 +384,7 @@ export class SequencerPublisher {
           feeAssetPriceModifier: 0n,
         },
       },
-      formattedAttestations,
+      RollupContract.packAttestations(formattedAttestations),
       blobInput,
     ] as const;
 
@@ -587,7 +594,7 @@ export class SequencerPublisher {
         },
         txHashes,
       },
-      attestations,
+      RollupContract.packAttestations(attestations),
       blobInput,
     ] as const;
 
@@ -613,7 +620,7 @@ export class SequencerPublisher {
           readonly feeAssetPriceModifier: 0n;
         };
       },
-      ViemCommitteeAttestation[],
+      ViemCommitteeAttestations,
       `0x${string}`,
     ],
     timestamp: bigint,
