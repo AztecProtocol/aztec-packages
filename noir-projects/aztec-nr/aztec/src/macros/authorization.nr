@@ -58,9 +58,17 @@ pub comptime fn generate_authorization_interface_and_get_selector(
 
 /// An Authorization is a struct that represents an action a user can allow others to do
 /// on their behalf. By definition, an Authorization must be human-readable and contain
-/// enough information to be interpreted on its own. Authorizations are then hashed in a
-/// specific way to produce an inner_hash that can later be signed and checked via the
-/// authwit mechanism.
+/// enough information to be interpreted on its own. Authorizations are:
+///
+/// - Emitted as offchain effects to convey the piece of data a contract needs to be signed
+///   in order to perform the action
+/// - Hashed in a specific way to produce an inner_hash that can later be signed and checked
+///   via the authwit mechanism.
+///
+/// This allows a contract developer to convey to a user in a human-readable way what they are asked to sign,
+/// while keeping the account contract interface simple (it just has to check if a hash was signed). It should
+/// always be possible to recompute the inner_hash from the Authorization alone, so the user/wallet
+/// can verify the action they are signing.
 pub comptime fn authorization(s: TypeDefinition) -> Quoted {
     let (authorization_interface_impl, authorization_selector) =
         generate_authorization_interface_and_get_selector(s);

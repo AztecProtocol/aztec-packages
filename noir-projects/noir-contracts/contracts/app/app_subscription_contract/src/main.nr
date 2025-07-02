@@ -32,6 +32,8 @@ pub contract AppSubscription {
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
         assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
+        // This function takes a generic argument that corresponds to the number of params
+        // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(&mut context, user_address);
 
         let mut note = storage.subscriptions.at(user_address).get_note().note;

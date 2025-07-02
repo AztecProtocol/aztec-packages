@@ -259,6 +259,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // Inject the authwit check if the function is marked with #[authorize_once].
     let authorize_once_check = if fn_has_authorize_once(f) {
         create_authorize_once_check(f)
     } else {
@@ -394,6 +395,17 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
     }
 }
 
+/// Injects an authwit verification check of the form:
+/// ```
+///   if (!from.eq(context.msg_sender())) {
+///         assert_current_call_valid_authwit::<N>(&mut context, from);
+///     } else {
+///         assert(authwit_nonce, "Invalid auhtwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
+///     }
+/// ```
+/// where `from` and `authwit_nonce` are the names of the parameters that are expected to be present in the function definition.
+/// This check is injected by the `#[authorize_once("from_arg_name", "nonce_arg_name")]`, which allows the user to define
+/// which parameters to use.
 pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
