@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 
 pub struct EventSelector {
-    // poseidon2 hash of abi-encoding of an event.
+    // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
     inner: u32,
 }
 

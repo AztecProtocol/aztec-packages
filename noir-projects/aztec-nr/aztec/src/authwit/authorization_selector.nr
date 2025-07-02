@@ -5,7 +5,7 @@ use dep::protocol_types::{
 
 #[derive(Eq, Serialize, Deserialize)]
 pub struct AuthorizationSelector {
-    // poseidon2 hash of abi-encoding of an authorization.
+    // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
     inner: u32,
 }
 

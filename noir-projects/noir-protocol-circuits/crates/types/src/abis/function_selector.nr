@@ -1,7 +1,7 @@
 use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
 
 pub struct FunctionSelector {
-    // poseidon2 hash of abi-encoding of a function.
+    // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
     pub inner: u32,
 }
 
