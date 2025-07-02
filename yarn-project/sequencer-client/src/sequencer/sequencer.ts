@@ -58,7 +58,12 @@ export { SequencerState };
 type SequencerRollupConstants = Pick<L1RollupConstants, 'ethereumSlotDuration' | 'l1GenesisTime' | 'slotDuration'>;
 
 export type SequencerEvents = {
-  ['state-changed']: (args: { oldState: SequencerState; newState: SequencerState }) => void;
+  ['state-changed']: (args: {
+    oldState: SequencerState;
+    newState: SequencerState;
+    secondsIntoSlot: number;
+    slotNumber: bigint;
+  }) => void;
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
   ['block-build-failed']: (args: { reason: string }) => void;
@@ -201,7 +206,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.log,
     );
-    this.log.verbose(`Sequencer timetable updated`, { enforceTimeTable: this.enforceTimeTable });
   }
 
   /**
@@ -506,7 +510,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const secondsIntoSlot = this.getSecondsIntoSlot(currentSlotNumber);
     this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     this.log.debug(`Transitioning from ${this.state} to ${proposedState}`);
-    this.emit('state-changed', { oldState: this.state, newState: proposedState });
+    this.emit('state-changed', {
+      oldState: this.state,
+      newState: proposedState,
+      secondsIntoSlot,
+      slotNumber: currentSlotNumber,
+    });
     this.state = proposedState;
   }
 

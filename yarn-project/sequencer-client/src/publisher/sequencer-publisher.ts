@@ -26,7 +26,7 @@ import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
-import { Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
@@ -81,6 +81,7 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
+  private dateProvider: DateProvider;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected governanceProposerAddress?: EthAddress;
@@ -124,10 +125,12 @@ export class SequencerPublisher {
       slashingProposerContract: SlashingProposerContract;
       governanceProposerContract: GovernanceProposerContract;
       epochCache: EpochCache;
+      dateProvider: DateProvider;
     },
   ) {
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.dateProvider = deps.dateProvider;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -365,8 +368,6 @@ export class SequencerPublisher {
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
-    // const blobs = await Blob.getBlobs(block.body.toBlobFields());
-    // const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
 
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
