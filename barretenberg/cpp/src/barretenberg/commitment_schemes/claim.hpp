@@ -152,22 +152,4 @@ template <typename Curve> struct BatchOpeningClaim {
     std::vector<typename Curve::ScalarField> scalars;
     typename Curve::ScalarField evaluation_point;
 };
-
-/**
- * @brief A list of opening claims for a single committed polynomial
- *
- * @tparam Curve
- */
-template <typename Curve> class OpeningClaims {
-    using Commitment = typename Curve::AffineElement;
-    using Fr = typename Curve::ScalarField;
-
-  public:
-    // vector of (challenge r, evaluation v = p(r))
-    std::vector<OpeningPair<Curve>> opening_pairs;
-    // commitment to univariate polynomial p(X)
-    Commitment commitment;
-
-    size_t size() const { return opening_pairs.size(); }
-};
 } // namespace bb
