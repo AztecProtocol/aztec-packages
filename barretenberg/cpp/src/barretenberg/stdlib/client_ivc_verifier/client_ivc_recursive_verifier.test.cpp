@@ -10,7 +10,6 @@ class ClientIVCRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
     using ClientIVCVerifier = ClientIVCRecursiveVerifier;
-    using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
     using Proof = ClientIVC::Proof;
     using StdlibProof = ClientIVCVerifier::StdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
@@ -130,9 +129,9 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
     auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
-    auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
+    auto stdlib_tube_vk_and_hash = std::make_shared<RollupFlavor::VKAndHash>(base_builder, tube_vk);
     stdlib::Proof<Builder> base_tube_proof(base_builder, native_tube_proof);
-    UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
+    UltraRecursiveVerifier base_verifier{ &base_builder, stdlib_tube_vk_and_hash };
     UltraRecursiveVerifierOutput<Builder> output = base_verifier.verify_proof(base_tube_proof);
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     output.points_accumulator.set_public();

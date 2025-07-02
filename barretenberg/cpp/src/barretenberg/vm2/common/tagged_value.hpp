@@ -43,6 +43,8 @@ template <typename T> ValueTag tag_for_type()
 }
 
 uint8_t get_tag_bits(ValueTag tag);
+uint8_t get_tag_bytes(ValueTag tag);
+uint256_t get_tag_max_value(ValueTag tag);
 
 class TaggedValue {
   public:

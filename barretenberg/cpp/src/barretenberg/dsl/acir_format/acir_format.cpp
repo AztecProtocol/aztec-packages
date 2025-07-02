@@ -471,9 +471,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
+    using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
+    using StdlibFF = ClientIVC::RecursiveFlavor::FF;
 
-    // If an ivc instance is not provided, we mock one with the state required to construct the recursion constraints
-    // present in the program
+    // If an ivc instance is not provided, we mock one with the state required to construct the recursion
+    // constraints present in the program. This is for when we write_vk.
     if (ivc == nullptr) {
         ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
     }
@@ -489,19 +491,22 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
         for (auto [constraint, queue_entry] :
              zip_view(constraints.ivc_recursion_constraints, ivc->verification_queue)) {
-            populate_dummy_vk_in_constraint(builder, queue_entry.honk_verification_key, constraint.key);
+            populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
+            builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
         }
     }
 
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
-    std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
-    stdlib_verification_keys.reserve(constraints.ivc_recursion_constraints.size());
+    std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
+    stdlib_vk_and_hashs.reserve(constraints.ivc_recursion_constraints.size());
     for (const auto& constraint : constraints.ivc_recursion_constraints) {
-        stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
-            StdlibVerificationKey::from_witness_indices(builder, constraint.key)));
+        stdlib_vk_and_hashs.push_back(
+            std::make_shared<StdlibVKAndHash>(std::make_shared<StdlibVerificationKey>(
+                                                  StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
+                                              StdlibFF::from_witness_index(&builder, constraint.key_hash)));
     }
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
+    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
     // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir

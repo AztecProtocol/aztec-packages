@@ -25,6 +25,13 @@ class RegisterValidationException : public std::runtime_error {
     {}
 };
 
+class OpcodeExecutionException : public std::runtime_error {
+  public:
+    OpcodeExecutionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 } // namespace
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
@@ -34,10 +41,13 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    MemoryValue c = alu.add(a, b);
-    memory.set(dst_addr, c);
-    set_output(opcode, c);
+    try {
+        MemoryValue c = alu.add(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluError& e) {
+        throw OpcodeExecutionException("Alu add operation failed");
+    }
 }
 
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
@@ -85,7 +95,7 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
         result = TaggedValue::from<uint32_t>(context.gas_left().daGas);
         break;
     default:
-        throw std::runtime_error("Invalid environment variable enum value");
+        throw OpcodeExecutionException("Invalid environment variable enum value");
     }
 
     memory.set(dst_addr, result);
@@ -167,8 +177,7 @@ void Execution::cd_copy(ContextInterface& context,
     try {
         data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
     } catch (const std::exception& e) {
-        // re throw - change to a more specific exception later
-        throw std::runtime_error("cd copy failed: " + std::string(e.what()));
+        throw OpcodeExecutionException("cd copy failed: " + std::string(e.what()));
     }
 }
 
@@ -188,9 +197,18 @@ void Execution::rd_copy(ContextInterface& context,
     try {
         data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
     } catch (const std::exception& e) {
-        // re throw - change to a more specific exception later
-        throw std::runtime_error("rd copy failed: " + std::string(e.what()));
+        throw OpcodeExecutionException("rd copy failed: " + std::string(e.what()));
     }
+}
+
+void Execution::rd_size(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::RETURNDATASIZE;
+    auto& memory = context.get_memory();
+    // This is safe because the last_rd_size is tag checked on ret/revert to be U32
+    MemoryValue rd_size = MemoryValue::from<uint32_t>(context.get_last_rd_size());
+    memory.set(dst_addr, rd_size);
+    set_output(opcode, rd_size);
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
@@ -256,8 +274,8 @@ void Execution::internal_return(ContextInterface& context)
         auto next_pc = internal_call_stack_manager.pop();
         context.set_next_pc(next_pc);
     } catch (const std::exception& e) {
-        // Re-throw - so execution can handle it.
-        throw std::runtime_error("Internal return failed: " + std::string(e.what()));
+        // Re-throw
+        throw OpcodeExecutionException("Internal return failed: " + std::string(e.what()));
     }
 }
 
@@ -266,8 +284,7 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
     try {
         keccakf1600.permutation(context.get_memory(), dst_addr, src_addr);
     } catch (const KeccakF1600Exception& e) {
-        // TODO: Possibly handle the error here.
-        throw e;
+        throw OpcodeExecutionException("Keccak permutation failed: " + std::string(e.what()));
     }
 }
 
@@ -361,6 +378,11 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
+            context.halt();
+            set_execution_result({ .success = false });
+        } catch (const OpcodeExecutionException& e) {
+            vinfo("Opcode execution exception: ", e.what());
+            ex_event.error = ExecutionError::OPCODE_EXECUTION;
             context.halt();
             set_execution_result({ .success = false });
         } catch (const std::exception& e) {
@@ -482,6 +504,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SUCCESSCOPY:
         call_with_operands(&Execution::success_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::RETURNDATASIZE:
+        call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

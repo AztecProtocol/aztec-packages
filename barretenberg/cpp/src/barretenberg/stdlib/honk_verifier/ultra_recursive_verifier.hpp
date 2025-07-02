@@ -31,7 +31,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using GroupElement = typename Flavor::GroupElement;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -42,10 +42,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using StdlibProof = stdlib::Proof<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<VerificationKey>& vkey,
+                                     const std::shared_ptr<VKAndHash>& vk_and_hash,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);

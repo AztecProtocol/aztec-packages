@@ -42,7 +42,7 @@ class ProofSurgeon {
                                                             bool ipa_accumulation)
     {
         // Convert verification key to fields
-        std::vector<FF> vkey_fields = verification_key->to_field_elements();
+        std::vector<FF> vk_fields = verification_key->to_field_elements();
 
         // Get public inputs by cutting them out of the proof
         size_t num_public_inputs_to_extract =
@@ -58,7 +58,7 @@ class ProofSurgeon {
         // Construct json-style output for each component
         std::string proof_json = to_json(proof);
         std::string pub_inputs_json = to_json(public_inputs);
-        std::string vk_json = to_json(vkey_fields);
+        std::string vk_json = to_json(vk_fields);
 
         // Format with labels for noir recursion input
         std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n"; // not used by honk
@@ -139,6 +139,7 @@ class ProofSurgeon {
 
     struct RecursionWitnessData {
         std::vector<uint32_t> key_indices;
+        uint32_t key_hash_index;
         std::vector<uint32_t> proof_indices;
         std::vector<uint32_t> public_inputs_indices;
     };
@@ -159,6 +160,7 @@ class ProofSurgeon {
     static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
                                                                 std::vector<bb::fr>& proof_witnesses,
                                                                 const std::vector<bb::fr>& key_witnesses,
+                                                                const bb::fr& key_hash_witness,
                                                                 const size_t num_public_inputs_to_extract)
     {
         // Extract all public inputs except for those corresponding to the aggregation object
@@ -180,10 +182,11 @@ class ProofSurgeon {
 
         // Append key, proof, and public inputs while storing the associated witness indices
         std::vector<uint32_t> key_indices = add_to_witness_and_track_indices(witness, key_witnesses);
+        uint32_t key_hash_index = add_to_witness_and_track_indices(witness, { key_hash_witness })[0];
         std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices(witness, proof_witnesses);
         std::vector<uint32_t> public_input_indices = add_to_witness_and_track_indices(witness, public_input_witnesses);
 
-        return { key_indices, proof_indices, public_input_indices };
+        return { key_indices, key_hash_index, proof_indices, public_input_indices };
     }
 };
 
