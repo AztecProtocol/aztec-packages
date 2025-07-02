@@ -65,7 +65,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'disabled',
   autoUpdateUrl: undefined,
-  maxTxPoolSize: 100000000, // 100MB
+  maxTxPoolSize: 100_000_000, // 100MB
 
   // slashing stuff
   slashInactivityEnabled: false,
@@ -100,7 +100,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
-  maxTxPoolSize: 100000000, // 100MB
+  maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
   publicMetricsCollectFrom: ['sequencer'],
