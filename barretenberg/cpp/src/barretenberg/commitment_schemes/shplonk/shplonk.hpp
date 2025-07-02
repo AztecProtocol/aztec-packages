@@ -170,7 +170,6 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         Fr::batch_invert(inverse_vanishing_evals);
-        info("Prover inverses: ", inverse_vanishing_evals[0]);
 
         // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ ),
         // s.t. G(r) = 0
@@ -196,8 +195,6 @@ template <typename Curve> class ShplonkProver_ {
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             claim.polynomial.at(0) = claim.polynomial[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            info("Prover idx: ", idx);
-            info("Prover scaling_factor: ", scaling_factor);
 
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             G.add_scaled(claim.polynomial, -scaling_factor);
@@ -372,18 +369,13 @@ template <typename Curve> class ShplonkVerifier_ {
         Fr inverse_vanishing_eval = precomputed_inverse_vanishing_eval.has_value()
                                         ? precomputed_inverse_vanishing_eval.value()
                                         : (z_challenge - evaluation_challenge).invert();
-        info("Verifier inverse: ", inverse_vanishing_eval);
 
         // Compute \nu^{i-1} / (z - x)
         auto scalar_factor = current_nu * inverse_vanishing_eval;
-        info("Verifier scalar_factor: ", scalar_factor);
 
         for (const auto& [index, coefficient, evaluation] : zip_view(indices, coefficients, evaluations)) {
             // \nu^{i-1} * j / (z - x)
             auto scaling_factor = scalar_factor * coefficient;
-            info("Index: ", index);
-            info("Verifier coefficient: ", coefficient);
-            info("Verifier scaling_factor: ", scaling_factor);
             // scalars[i_j] = \nu^{i-1} * a_j / (z - x)
             scalars[index + 1] -= scaling_factor;
             // identity_scalar_coefficient += \nu^{i-1} * a_j * v_j / (z - x)
@@ -412,9 +404,6 @@ template <typename Curve> class ShplonkVerifier_ {
         } else {
             result = GroupElement::zero();
             for (const auto& [commitment, scalar] : zip_view(commitments, scalars)) {
-                info("Commitment: ", commitment);
-                info("Minus scalar: ", -scalar);
-                info("Product: ", commitment * scalar);
                 result += commitment * scalar;
             }
         }
