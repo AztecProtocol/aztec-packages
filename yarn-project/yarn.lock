@@ -1087,6 +1087,7 @@ __metadata:
     "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@chainsafe/discv5": "npm:9.0.0"
     "@chainsafe/enr": "npm:3.0.0"
     "@chainsafe/libp2p-gossipsub": "npm:13.0.0"
