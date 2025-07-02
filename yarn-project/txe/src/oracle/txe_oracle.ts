@@ -125,7 +125,6 @@ import {
   TxConstantData,
   TxContext,
   TxEffect,
-  TxExecutionRequest,
   TxHash,
   collectNested,
 } from '@aztec/stdlib/tx';
