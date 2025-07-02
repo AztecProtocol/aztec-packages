@@ -714,10 +714,14 @@ export class TXE implements TypedOracle {
 
     let i = 0;
     const uniqueNoteHashesFromPrivate = await Promise.all(
-      this.noteCache.getAllNotes().map(async pendingNote => {
-        const siloedNoteHash = await siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption);
-        return computeUniqueNoteHash(await computeNoteHashNonce(nonceGenerator, i++), siloedNoteHash);
-      }),
+      this.noteCache
+        .getAllNotes()
+        .map(async pendingNote =>
+          computeUniqueNoteHash(
+            await computeNoteHashNonce(nonceGenerator, i++),
+            await siloNoteHash(pendingNote.note.contractAddress, pendingNote.noteHashForConsumption),
+          ),
+        ),
     );
     txEffect.noteHashes = [...uniqueNoteHashesFromPrivate, ...this.uniqueNoteHashesFromPublic];
 
@@ -1429,11 +1433,11 @@ export class TXE implements TypedOracle {
 
     const results = await processor.process([tx]);
 
-    const processedTxs = results[0];
+    const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0 || !processedTx.revertCode.isOK()) {
+      throw new Error('Public execution has failed', processedTx.revertReason);
     }
 
     if (isStaticCall) {
@@ -1451,11 +1455,11 @@ export class TXE implements TypedOracle {
 
     const txEffect = TxEffect.empty();
 
-    txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
+    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 

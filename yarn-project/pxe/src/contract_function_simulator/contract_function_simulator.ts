@@ -277,9 +277,10 @@ export async function generateSimulatedProvingResult(
 
   let publicTeardownCallRequest;
 
-  // See TODO on line 285
-  //let noteHashIndexInTx = 0;
   const executions = [privateExecutionResult.entrypoint];
+
+  // See TODO on line 296
+  //let noteHashIndexInTx = 0;
 
   while (executions.length !== 0) {
     const execution = executions.shift()!;
@@ -382,7 +383,7 @@ export async function generateSimulatedProvingResult(
   // as we will add it as the first non-revertible nullifier later.
   // This is because public processor will use that first non-revertible nullifier
   // as the nonce generator for the note hashes in the revertible part of the tx.
-  if (sortedNullifiers[0] === nonceGenerator) {
+  if (sortedNullifiers[0].equals(nonceGenerator)) {
     sortedNullifiers = sortedNullifiers.slice(1);
   }
 
