@@ -1,52 +1,216 @@
 ---
-sidebar_position: 2
+sidebar_position: 0
 title: Slashing
-draft: true
 ---
 
-We need to make sure that the chain is always (eventually) finalizing new blocks.
-The following conditions are required for the chain to finalize new blocks:
+Slashing is a mechanism that penalizes validators who fail to participate properly in consensus or violate protocol rules. The Aztec protocol implements automatic slashing to maintain network security and validator accountability.
 
-1. More than 2/3 of the committee is making attestations
-2. Provers are producing proofs.
+## Slashing Components
 
-## Avoiding network halt
+The slashing system consists of the following components:
 
-There are some actions that impact the chainʼs ability to finalize new blocks:
+| Component        | Type        | Purpose                                                    |
+| ---------------- | ----------- | ---------------------------------------------------------- |
+| StakingLib       | L1 Contract | Designates a slasher address that can slash validators     |
+| Slasher          | L1 Contract | Executes slashing directives from the SlashingProposer     |
+| SlashingProposer | L1 Contract | Coordinates voting on slash proposals (instance of Empire) |
+| SlashFactory     | L1 Contract | Creates slash payloads for specific offenses               |
+| SlasherClient    | Node        | Manages slash detection and voting in the node             |
+| Watchers         | Node        | Monitor for specific slashable offenses                    |
 
-### Insufficient quorum
+## How Slashing Works
 
-In the event that a significant portion of the validator set goes offline (i.e. large internet outage) and proposers are unable to get enough attestations on block proposals, the Aztec Rollup will be unable to finalize new blocks. This will require the community to engage to fix the issue and make sure new blocks are being finalized.
+The slashing process requires consensus among validators before any stake is slashed. A slash occurs when at least N out of M validators vote for a specific slashing payload within a voting round.
 
-In the event of a prolonged period where the Aztec Rollup is not finalizing new blocks, it may enter Based Fallback mode. The conditions that lead to [Based Fallback (forum link)](https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155) mode are expected to be well defined by the community of sequencers, provers, client teams and all other Aztec Rollup  stakeholders and participants.
+```mermaid
+flowchart TD
+    Watcher[Watcher detects offense] -->|Creates payload| SlashFactory
+    SlashFactory -->|Emits event| Validators[Validators]
+    Validators -->|Verify & Vote| SlashingProposer
+    SlashingProposer -->|N/M consensus reached| Slasher
+    Slasher -->|Executes slash| StakingLib
+```
 
-During Based Fallback mode, anyone can propose blocks if they supply proofs for these blocks alongside them. This is in contrast to the usual condition that only the sequencer assigned to a particular slot can propose blocks during that slot. This means that the inactive validator set is bypassed and anyone can advance the chain in the event of an inactive / non-participating validator set.
+## Slashable Offenses
 
-But terminally inactive validators must be removed from the validator set or otherwise we end up in Based Fallback too often. Slashing is a method whereby the validator set votes to “slash” the stake of inactive validators down to a point where they are kicked off the validator set. For example, if we set `MINIMUM_STAKING_BALANCE=50%` then as soon as 50% or more of a validator’s balance is slashed, they will be kicked out of the set.
+The protocol automatically slashes validators for three types of offenses:
 
-### Committee withholding data from the provers
+### 1. Liveness Failure
 
-Provers need the transaction data (i.e. `TxObjects`) plus the client-side generated proofs to produce the final rollup proof, none of which are posted onchain. Client side proofs + transaction data are gossiped on the p2p instead so that committee members can re-execute block proposals and verify that the proposed state root is correct.
+A validator failed to attest to a proven block. This ensures validators actively participate in consensus.
 
-Recall from the [RFC (forum link)](https://forum.aztec.network/t/request-for-comments-aztecs-block-production-system/6155) on block production that the committee is a subset of validators, randomly sampled from the entire validator set. Block proposers are sampled from this committee. ⅔ + 1 of this committee  must attest to L2 block proposals before they are posted to the L1 by the block proposer.
+### 2. Data Availability/Finality Failure
 
-A malicious committee may not gossip the transaction data or proofs to the rest of the validator set, nor to the provers. As a result, no prover can produce the proof and the epoch in question will reorg by design. Recall from the RFC on block production that if no proof for epoch N is submitted to L1 by the end of epoch N+1, then epoch N + any blocks built in epoch N+1 are reorged.
+An epoch was not proven and either:
 
-### Committee proposing an invalid state root
+- The data is unavailable, or
+- The data is available and the epoch was valid
 
-Committee members who receive a block proposal from a proposer, must execute the block’s transaction to compare the resulting state root with that contained in the proposal. In theory, a committee member should only attest to a block proposal’s validity  after checking for the correctness of the state root.
+Each validator in the epoch's committee is slashed.
 
-A committee member could skip re-executing block proposals, for a number of reasons including saving compute, faulty client software or maliciousness. This opens up the possibility of a malicious proposer posting an invalid state transition to L1. Or a malicious entity that bribes ⅔ + 1 of the committee can obtain the required signatures to post an invalid state transition.
-The epoch will not be proven and will be re-orged.
+### 3. Safety Violation
 
-### L1 congestion has made it impossible for provers to land proofs on time
+A validator proposed an invalid block, threatening the integrity of the chain.
 
-An honest prover who has funds at stake (i.e. posted a bond to produce the epoch proof), could be unable to post the proof on L1 due to congestion, an L1 reorg or just an inactivity of the L1 proposers (i.e. inactivity leak).
+## SlashFactory Contract
 
-## Slashing mechanism
+The SlashFactory creates standardized slash payloads that specify which validators to slash, how much, and for what offense.
 
-In all the previous cases, it is very hard to verify and automatically slash for these events onchain. This is mainly due to the fact that neither TxObjects nor client side proofs are posted onchain. Committee members also gossip attestations on the p2p and do not post them directly on chain.
+```solidity
+interface ISlashFactory {
+  event SlashPayloadCreated(
+    address payloadAddress,
+    address[] validators,
+    uint256[] amounts,
+    uint256[] offences
+  );
 
-Therefore a slashing mechanism is required as a deterrence against the malicious behaviour by validators and to make sure that the Aztec Rollup retains liveness. The validator set votes to slash dishonest validators based on evidence that is collected onchain + offchain, and discussed and analyzed offchain (i.e. on a forum).
+  function createSlashPayload(
+    address[] memory _validators,
+    uint256[] memory _amounts,
+    uint256[] memory _offences
+  ) external returns (IPayload);
+}
+```
 
-A validator must aggregate BLS signatures on slashing proposals and post them to the L1 for slash execution.
+### Offense Types
+
+Offenses are represented as integers:
+
+- `0`: Unknown
+- `1`: Proven block not attested to
+- `2`: Unproven valid epoch
+- `3`: Invalid block proposed
+
+## Node Components
+
+### SlasherClient
+
+The SlasherClient serves as the interface between the node and the slashing system. It manages watchers and determines which slash payloads to support.
+
+Key responsibilities:
+
+- Instantiate and manage Watchers
+- Listen for slash payload creation events
+- Prioritize payloads by total slash amount
+- Return the highest priority payload for voting
+
+### Payload Priority System
+
+Payloads are prioritized to ensure the most critical slashes are processed first:
+
+1. Calculate total slash amount for each payload
+2. Filter payloads to include only those verified by Watchers
+3. Sort by total slash amount (largest first)
+4. Apply TTL filtering when retrieving payloads
+5. Support manual override for coordinated responses
+
+## Watchers
+
+Watchers monitor the network for specific types of violations and create slash proposals when detected.
+
+### InactivityWatcher
+
+Monitors validator participation in consensus:
+
+```mermaid
+flowchart LR
+    BlockProven[Block Proven Event] --> InactivityWatcher
+    InactivityWatcher --> CheckAttestations[Check Attestations]
+    CheckAttestations --> SlashProposal[Create Slash Proposal]
+```
+
+Configuration parameters:
+
+- `SLASH_INACTIVITY_CREATE_TARGET`: Threshold for creating a slash proposal
+- `SLASH_INACTIVITY_SIGNAL_TARGET`: Threshold for supporting a slash proposal
+- `SLASH_INACTIVITY_CREATE_PENALTY`: Amount to slash for inactivity
+- `SLASH_INACTIVITY_MAX_PENALTY`: Maximum acceptable slash amount
+
+### InvalidBlockWatcher
+
+Detects when validators propose invalid blocks:
+
+- Monitors block execution results
+- Maintains cache of invalid blocks
+- Creates slash proposals for block proposers
+- Verifies slash proposals against cached invalid blocks
+
+### ValidEpochUnprovenWatcher
+
+Handles cases where valid epochs fail to be proven:
+
+- Listens for chain pruning events
+- Verifies no invalid blocks in the pruned epoch
+- Slashes all validators in the epoch committee
+- Ensures honest validators aren't penalized for invalid predecessors
+
+## Configuration
+
+Node operators can configure slashing behavior through various parameters:
+
+### General Settings
+
+- `SLASH_PAYLOAD_TTL`: Maximum age of payloads to vote for
+- `SLASH_OVERRIDE_PAYLOAD`: Manual override for emergency coordination
+
+### Per-Offense Settings
+
+Each offense type has its own configuration:
+
+**Inactivity**
+
+- `SLASH_INACTIVITY_ENABLED`: Enable/disable inactivity slashing
+- `SLASH_INACTIVITY_CREATE_TARGET`: Missed attestation % to create proposal
+- `SLASH_INACTIVITY_SIGNAL_TARGET`: Missed attestation % to support proposal
+- `SLASH_INACTIVITY_CREATE_PENALTY`: Slash amount for inactivity
+
+**Invalid Blocks**
+
+- `SLASH_INVALID_BLOCK_ENABLED`: Enable/disable invalid block slashing
+- `SLASH_INVALID_BLOCK_PENALTY`: Slash amount for proposing invalid blocks
+- `SLASH_INVALID_BLOCK_MAX_PENALTY`: Maximum acceptable slash amount
+
+**Epoch Pruning**
+
+- `SLASH_PRUNE_ENABLED`: Enable/disable pruning slashing
+- `SLASH_PRUNE_PENALTY`: Slash amount for validators in pruned epochs
+- `SLASH_PRUNE_MAX_PENALTY`: Maximum acceptable slash amount
+
+## Block Re-execution
+
+To accurately detect invalid blocks and avoid false positives, nodes must be able to re-execute blocks. This happens at two critical points:
+
+1. **During P2P propagation**: When blocks are proposed and gathering attestations
+2. **After L1 submission**: When blocks become part of the pending chain
+
+The BlockBuilder interface enables this functionality:
+
+```typescript
+interface BlockBuilder {
+  gatherTransactions(txHashes: TxHash[]): Promise<Tx[]>;
+  executeTransactions(
+    txs: Tx[],
+    globals: GlobalContext,
+    options: ExecutionOptions
+  ): Promise<BuiltBlockResult>;
+}
+```
+
+This ensures:
+
+- Malicious validators are identified and slashed
+- Honest validators who built on invalid blocks aren't penalized
+- The network maintains consensus on block validity
+
+## Security Considerations
+
+The slashing system balances several important security properties:
+
+- **No single point of failure**: Requires N/M validator consensus
+- **Automatic detection**: Reduces reliance on manual intervention
+- **Configurable thresholds**: Allows adaptation to network conditions
+- **Override capability**: Enables emergency response coordination
+- **False positive protection**: Re-execution prevents incorrect slashing
+
+The threshold N/M for slashing consensus matches the general governance threshold, ensuring consistent security assumptions across the protocol.

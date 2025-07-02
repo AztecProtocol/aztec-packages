@@ -172,8 +172,8 @@ flowchart TD
     GSE -->|Manages validators for| RollupInstances[Rollup Instances]
     GSE -->|Receives stake from| Validators
     GSE -->|Delegates votes to| RollupInstances
-    Governance -->|Requires >2/3 canonical stake| GSE
-    Registry -->|Determines canonical instance| GSE
+    Governance -->|Requires >2/3 stake| GSE
+    Registry -->|Determines instance| GSE
 ```
 
 ### Governance Requirements
