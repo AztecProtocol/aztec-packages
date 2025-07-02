@@ -291,7 +291,7 @@ export class FullProverTest {
     this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
-      proverCoordinationNodeUrls: [],
+      txCollectionNodeRpcUrls: [],
       dataDirectory: undefined,
       proverId: this.proverAddress.toField(),
       realProofs: this.realProofs,
@@ -303,6 +303,7 @@ export class FullProverTest {
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
+      txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
