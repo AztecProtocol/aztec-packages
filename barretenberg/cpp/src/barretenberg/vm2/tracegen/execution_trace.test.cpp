@@ -559,7 +559,7 @@ TEST(ExecutionTraceGenTest, InternalRetError)
     const auto instr = InstructionBuilder(WireOpCode::INTERNALRETURN).build();
 
     simulation::ExecutionEvent ex_event = {
-        .error = simulation::ExecutionError::DISPATCHING,
+        .error = simulation::ExecutionError::OPCODE_EXECUTION,
         .wire_instruction = instr,
         .addressing_event = {
             .instruction = instr,

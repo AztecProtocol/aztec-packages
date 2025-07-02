@@ -18,6 +18,24 @@ enum class AluError {
     TAG_ERROR,
 };
 
+inline std::string to_string(AluError e)
+{
+    switch (e) {
+    case AluError::TAG_ERROR:
+        return "TAG_ERROR";
+    }
+
+    // We should be catching all the cases above.
+    __builtin_unreachable();
+}
+
+class AluException : public std::runtime_error {
+  public:
+    explicit AluException()
+        : std::runtime_error("ALU operation failed")
+    {}
+};
+
 struct AluEvent {
     AluOperation operation;
     MemoryValue a;

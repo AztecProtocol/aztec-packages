@@ -27,6 +27,7 @@ enum class ExecutionError {
     REGISTER_READ,
     DISPATCHING,
     GAS_DYNAMIC,
+    OPCODE_EXECUTION,
 };
 
 class TagCheckError : public std::exception {
