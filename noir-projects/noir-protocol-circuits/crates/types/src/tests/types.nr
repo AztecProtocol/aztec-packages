@@ -31,8 +31,10 @@ impl Serialize for TestValue {
     }
 }
 
-impl Deserialize<2> for TestValue {
-    fn deserialize(fields: [Field; 2]) -> Self {
+impl Deserialize for TestValue {
+    let N: u32 = 2;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         Self { value: fields[0], counter: fields[1] as u32 }
     }
 }

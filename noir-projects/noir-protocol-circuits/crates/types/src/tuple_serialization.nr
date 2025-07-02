@@ -107,7 +107,7 @@ impl<T1> Serialize for (T1,)
 where
     T1: Serialize,
 {
-    let N: u32 = T1::N;
+    let N: u32 = <T1 as Serialize>::N;
 
     fn serialize(self) -> [Field; Self::N] {
         self.0.serialize()
@@ -118,7 +118,7 @@ impl<T1> Deserialize for (T1,)
 where
     T1: Deserialize,
 {
-    let N: u32 = T1::N;
+    let N: u32 = <T1 as Deserialize>::N;
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
         (T1::deserialize(fields),)
