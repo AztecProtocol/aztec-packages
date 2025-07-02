@@ -494,7 +494,7 @@ export class ReadOnlyL1TxUtils {
         result,
       });
       if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('L1 transaction Simulation failed', {
+        this.logger?.error('L1 transaction simulation failed', {
           error: result[0].calls[0].error,
         });
         const decodedError = decodeErrorResult({
