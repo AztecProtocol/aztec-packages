@@ -1,5 +1,9 @@
+#pragma once
+
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <string>
@@ -44,6 +48,10 @@ struct PrivateExecutionSteps {
     std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>> precomputed_vks;
 
     std::shared_ptr<ClientIVC> accumulate();
+
     void parse(std::vector<PrivateExecutionStepRaw>&& steps);
+
+    // helper method to extract the hashes of the tail kernels, which is required for the hiding circuit.
+    fr extract_tail_kernel_hash();
 };
 } // namespace bb
