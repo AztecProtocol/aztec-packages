@@ -378,13 +378,11 @@ export async function generateSimulatedProvingResult(
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
   let sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
-  // If the nullifier array contains the nonce generator in position 0
-  // (meaning the latter is the first nullifier in the tx), we remove it
-  // as we will add it as the first non-revertible nullifier later (and we can't have dupes!)
-  // This is because public processor will use that first non-revertible nullifier
-  // as the nonce generator for the note hashes in the revertible part of the tx.
-  if (sortedNullifiers.length > 0 && sortedNullifiers[0].equals(nonceGenerator)) {
-    sortedNullifiers = sortedNullifiers.slice(1);
+
+  // If the tx generated no nullifiers, the nonce generator (txRequest hash)
+  // is injected as the first nullifier as per protocol rules.
+  if (sortedNullifiers.length === 0) {
+    sortedNullifiers.push(nonceGenerator);
   }
 
   // Private only
@@ -407,7 +405,17 @@ export async function generateSimulatedProvingResult(
 
     inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
   } else {
-    const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
+    const nonRevertibleData = PrivateToPublicAccumulatedData.empty();
+
+    // The nullifier array contains the nonce generator in position 0
+    // Here we remove it from the revertible data and
+    // add it as the first non-revertible nullifier (we can't have dupes!)
+    // This is because public processor will use that first non-revertible nullifier
+    // as the nonce generator for the note hashes in the revertible part of the tx.
+    sortedNullifiers = sortedNullifiers.slice(1);
+    nonRevertibleData.nullifiers[0] = nonceGenerator;
+
+    const revertibleData = new PrivateToPublicAccumulatedData(
       padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
@@ -428,14 +436,9 @@ export async function generateSimulatedProvingResult(
       ),
     );
 
-    const nonRevertibleData = PrivateToPublicAccumulatedData.empty();
-    nonRevertibleData.nullifiers[0] = nonceGenerator;
-
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
-      // nonrevertible
       nonRevertibleData,
-      // revertible
-      accumulatedDataForPublic,
+      revertibleData,
       publicTeardownCallRequest ?? PublicCallRequest.empty(),
     );
   }
