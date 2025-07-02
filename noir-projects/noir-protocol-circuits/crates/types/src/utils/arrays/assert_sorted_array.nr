@@ -1,4 +1,4 @@
-use crate::traits::{Empty, is_empty};
+use crate::traits::Empty;
 
 pub fn assert_sorted_array<T, let N: u32, Env>(
     original_array: [T; N],
@@ -7,14 +7,14 @@ pub fn assert_sorted_array<T, let N: u32, Env>(
     ordering: fn[Env](T, T) -> bool,
 )
 where
-    T: Eq + Empty,
+    T: Empty,
 {
     let mut seen_empty = false;
     for i in 0..N {
         let original_value = original_array[i];
-        if is_empty(original_value) {
+        if original_value.is_empty() {
             seen_empty = true;
-            assert(is_empty(sorted_array[i]), "Empty values must not be mixed with sorted values");
+            assert(sorted_array[i].is_empty(), "Empty values must not be mixed with sorted values");
         } else {
             assert(!seen_empty, "Empty values must be padded to the right");
 

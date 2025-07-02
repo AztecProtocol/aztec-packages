@@ -1,0 +1,97 @@
+include "../memory.pil";
+
+// This is a virtual gadget, which is part of the execution trace.
+namespace execution;
+
+// I/O is the following columns from execution.pil:
+// pol commit register[7];
+// pol commit sel_mem_op_reg[7];
+// pol commit rw_reg[7];
+// pol commit mem_tag_reg[7];
+// pol commit sel_tag_check_reg[7];
+// pol commit expected_tag_reg[7];
+//
+// pol commit sel_should_read_registers;    // Register read temporality group.
+// pol commit sel_should_write_registers;   // Register write temporality group.
+
+//////////////// EXPLANATION ////////////////
+// This trace is a bit special in that it contains 2 temporality groups.
+// 1. Register read temporality group (before opcode execution).
+// 2. Register write temporality group (after opcode execution).
+// However, there are other temporality groups in the middle, and execution constrains the flow.
+//
+// The register read group includes a tag check, and can therefore error.
+// The register write group cannot fail.
+
+// We only skip if we don't have to read nor write.
+#[skippable_if]
+sel_should_read_registers + sel_should_write_registers = 0;
+
+// Whether we should effectivelly operate on the register. We operate if
+// (a) sel_mem_op_reg[i] is a read and we got to the read temporality group, or
+// (b) sel_mem_op_reg[i] is a write and we got to the write temporality group.
+pol commit sel_op_reg_effective[7];
+#[SEL_OP_REG_EFFECTIVE_0]
+sel_op_reg_effective[0] = sel_mem_op_reg[0] * (sel_should_read_registers * (1 - rw_reg[0]) + sel_should_write_registers * rw_reg[0]);
+#[SEL_OP_REG_EFFECTIVE_1]
+sel_op_reg_effective[1] = sel_mem_op_reg[1] * (sel_should_read_registers * (1 - rw_reg[1]) + sel_should_write_registers * rw_reg[1]);
+#[SEL_OP_REG_EFFECTIVE_2]
+sel_op_reg_effective[2] = sel_mem_op_reg[2] * (sel_should_read_registers * (1 - rw_reg[2]) + sel_should_write_registers * rw_reg[2]);
+#[SEL_OP_REG_EFFECTIVE_3]
+sel_op_reg_effective[3] = sel_mem_op_reg[3] * (sel_should_read_registers * (1 - rw_reg[3]) + sel_should_write_registers * rw_reg[3]);
+#[SEL_OP_REG_EFFECTIVE_4]
+sel_op_reg_effective[4] = sel_mem_op_reg[4] * (sel_should_read_registers * (1 - rw_reg[4]) + sel_should_write_registers * rw_reg[4]);
+#[SEL_OP_REG_EFFECTIVE_5]
+sel_op_reg_effective[5] = sel_mem_op_reg[5] * (sel_should_read_registers * (1 - rw_reg[5]) + sel_should_write_registers * rw_reg[5]);
+#[SEL_OP_REG_EFFECTIVE_6]
+sel_op_reg_effective[6] = sel_mem_op_reg[6] * (sel_should_read_registers * (1 - rw_reg[6]) + sel_should_write_registers * rw_reg[6]);
+
+// FIXME: this should eventually be a permutation.
+// Observe that the following lookups span both temporality groups.
+// That's why we have to properly activate them with the above selectors, which take into account
+// whether we have reached a given phase.
+#[MEM_OP_0]
+sel_op_reg_effective[0] { rop[0], register[0], mem_tag_reg[0], rw_reg[0], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+#[MEM_OP_1]
+sel_op_reg_effective[1] { rop[1], register[1], mem_tag_reg[1], rw_reg[1], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+#[MEM_OP_2]
+sel_op_reg_effective[2] { rop[2], register[2], mem_tag_reg[2], rw_reg[2], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+#[MEM_OP_3]
+sel_op_reg_effective[3] { rop[3], register[3], mem_tag_reg[3], rw_reg[3], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+#[MEM_OP_4]
+sel_op_reg_effective[4] { rop[4], register[4], mem_tag_reg[4], rw_reg[4], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+#[MEM_OP_5]
+sel_op_reg_effective[5] { rop[5], register[5], mem_tag_reg[5], rw_reg[5], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+#[MEM_OP_6]
+sel_op_reg_effective[6] { rop[6], register[6], mem_tag_reg[6], rw_reg[6], precomputed.clk, context_id }
+in memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.clk, memory.space_id };
+
+// This error is true iff some final check failed. That is if some tag is not the expected one.
+// Observe that we don't need to know exactly which one failed.
+// We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
+pol commit sel_register_read_error;
+// Each tag takes at most 3 bits, we can encode all of them in a field.
+// See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?both#Batching-comparison-of-n-bit-numbers.
+// This diff will be 0 iff all tags are the expected one.
+// NOTE: these constraints assume that your precomputed table makes sense.
+// I.e., you will not have sel_tag_check_reg=1 for a write or a register with sel_mem_op_reg=0.
+pol BATCHED_TAGS_DIFF_REG = sel_tag_check_reg[0] * 2**0  * (mem_tag_reg[0] - expected_tag_reg[0])
+                          + sel_tag_check_reg[1] * 2**3  * (mem_tag_reg[1] - expected_tag_reg[1])
+                          + sel_tag_check_reg[2] * 2**6  * (mem_tag_reg[2] - expected_tag_reg[2])
+                          + sel_tag_check_reg[3] * 2**9  * (mem_tag_reg[3] - expected_tag_reg[3])
+                          + sel_tag_check_reg[4] * 2**12 * (mem_tag_reg[4] - expected_tag_reg[4])
+                          + sel_tag_check_reg[5] * 2**15 * (mem_tag_reg[5] - expected_tag_reg[5])
+                          + sel_tag_check_reg[6] * 2**18 * (mem_tag_reg[6] - expected_tag_reg[6]);
+pol commit batched_tags_diff_inv_reg;
+pol BATCHED_TAGS_DIFF_X_REG = sel_should_read_registers * BATCHED_TAGS_DIFF_REG;  // Forces 0 if we don't read the register.
+pol BATCHED_TAGS_DIFF_Y_REG = batched_tags_diff_inv_reg;
+pol BATCHED_TAGS_DIFF_E_REG = 1 - sel_register_read_error;
+pol BATCHED_TAGS_DIFF_EQ_REG = BATCHED_TAGS_DIFF_X_REG * (BATCHED_TAGS_DIFF_E_REG * (1 - BATCHED_TAGS_DIFF_Y_REG) + BATCHED_TAGS_DIFF_Y_REG) - 1 + BATCHED_TAGS_DIFF_E_REG;
+#[REGISTER_READ_TAG_CHECK]
+BATCHED_TAGS_DIFF_EQ_REG = 0;

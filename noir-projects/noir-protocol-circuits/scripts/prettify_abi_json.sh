@@ -4,8 +4,8 @@
 
 # File: prettify_abi.sh
 # Usage:
-#   ./scripts/prettify_abi.sh target/input.json                   -> writes to target/prettified_input.json
-#   ./scripts/prettify_abi.sh target/input.json output.json       -> writes to output.json
+#   ./scripts/prettify_abi_json.sh target/input.json                   -> writes to target/prettified_input.json
+#   ./scripts/prettify_abi_json.sh target/input.json output.json       -> writes to output.json
 
 set -e
 

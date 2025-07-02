@@ -12,6 +12,7 @@ use dep::types::{
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
     [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
+#[derive(Eq)]
 pub struct MergeRollupInputs {
     pub previous_rollup_data: [PreviousRollupData; 2],
 }

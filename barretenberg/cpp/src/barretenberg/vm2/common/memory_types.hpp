@@ -14,6 +14,4 @@ constexpr auto MemoryAddressTag = MemoryTag::U32;
 // should we change the alias MemoryAddress to another type (e.g., uint64_t)
 // then these two constants need to be adjusted.
 
-uint8_t integral_tag_length(MemoryTag tag);
-
 } // namespace bb::avm2

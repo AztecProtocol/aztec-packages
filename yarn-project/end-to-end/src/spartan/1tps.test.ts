@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 // TODO(#11825) finalise (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
 import {
   type PXE,

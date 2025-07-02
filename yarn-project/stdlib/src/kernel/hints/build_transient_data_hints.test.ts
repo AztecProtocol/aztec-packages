@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { AztecAddress } from '../../aztec-address/index.js';
+import { ClaimedLengthArray } from '../claimed_length_array.js';
 import { NoteHash, type ScopedNoteHash } from '../note_hash.js';
 import { Nullifier, type ScopedNullifier } from '../nullifier.js';
 import { buildTransientDataHints } from './build_transient_data_hints.js';
@@ -20,8 +21,8 @@ describe('buildTransientDataHints', () => {
 
   const buildHints = () =>
     buildTransientDataHints(
-      noteHashes,
-      nullifiers,
+      new ClaimedLengthArray(noteHashes, noteHashes.length),
+      new ClaimedLengthArray(nullifiers, nullifiers.length),
       futureNoteHashReads,
       futureNullifierReads,
       noteHashNullifierCounterMap,

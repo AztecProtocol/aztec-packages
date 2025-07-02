@@ -156,13 +156,10 @@ void TxExecution::simulate(const Tx& tx)
 
         FF fee_payer = tx.feePayer;
 
-        FF fee_payer_balance_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ 1, fee_payer });
-        FF fee_payer_balance_leaf_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
-            { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FEE_JUICE_ADDRESS, fee_payer_balance_slot });
-        (void)fee_payer_balance_leaf_slot; // Silence unused variable warning
+        FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
 
-        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // FF fee_payer_balance = merkle_db.storage_read(fee_payer_balance_leaf_slot);
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
         FF fee_payer_balance = FF::neg_one();
 
         if (field_gt.ff_gt(fee, fee_payer_balance)) {
@@ -170,8 +167,8 @@ void TxExecution::simulate(const Tx& tx)
             throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
         }
 
-        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // merkle_db.storage_write(fee_payer_balance_leaf_slot, fee_payer_balance - fee);
+        // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
 
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
                                   .prev_tree_state = prev_tree_state,
@@ -181,6 +178,7 @@ void TxExecution::simulate(const Tx& tx)
                                       .effective_fee_per_l2_gas = fee_per_l2_gas,
                                       .fee_payer = fee_payer,
                                       .fee_payer_balance = fee_payer_balance,
+                                      .fee_juice_balance_slot = fee_juice_balance_slot,
                                       .fee = fee,
                                   } });
     } catch (const std::exception& e) {

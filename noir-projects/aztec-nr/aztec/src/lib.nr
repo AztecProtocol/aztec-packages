@@ -8,7 +8,6 @@ mod note;
 mod oracle;
 mod state_vars;
 mod capsules;
-mod prelude;
 mod messages;
 pub use dep::protocol_types;
 mod utils;

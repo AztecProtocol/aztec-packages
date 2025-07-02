@@ -24,7 +24,7 @@ use types::{
     partial_state_reference::PartialStateReference,
     proposed_block_header::ProposedBlockHeader,
     state_reference::StateReference,
-    traits::{Empty, Hash, is_empty},
+    traits::{Empty, Hash},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -93,7 +93,7 @@ impl BlockRootRollupOutputComposer {
         let new_archive = self.update_archive(constants.last_archive, new_block_hash);
         let proposed_block_header_hash = self.create_proposed_block_header(new_block_header).hash();
 
-        let end_blob_accumulator = if is_empty(self.data.start_blob_accumulator) {
+        let end_blob_accumulator = if self.data.start_blob_accumulator.is_empty() {
             BlobAccumulatorPublicInputs::init(
                 empty_effect_blob_accumulation_input,
                 self.data.final_blob_challenges.gamma,

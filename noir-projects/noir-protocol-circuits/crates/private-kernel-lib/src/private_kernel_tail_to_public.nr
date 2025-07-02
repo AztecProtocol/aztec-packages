@@ -44,14 +44,16 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
+        // Validate inputs.
+        let mut previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+
+        previous_kernel_validator.validate_for_private_tail_to_public();
+
         // Generate output.
         // Safety: The output is validated below by TailToPublicOutputValidator.
         let output = unsafe { self.generate_output() };
-
-        // Validate inputs.
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        previous_kernel_validator.validate_for_private_tail_to_public();
 
         // Validate output.
         if dep::types::validate::should_validate_output() {

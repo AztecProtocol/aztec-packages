@@ -403,7 +403,7 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
 
     precomputed_builder.process_misc(trace, 256 * 256 * 3);
     precomputed_builder.process_bitwise(trace);
-    precomputed_builder.process_integral_tag_length(trace);
+    precomputed_builder.process_tag_parameters(trace);
 
     check_all_interactions<BitwiseTraceBuilder>(trace);
     check_relation<bitwise>(trace);

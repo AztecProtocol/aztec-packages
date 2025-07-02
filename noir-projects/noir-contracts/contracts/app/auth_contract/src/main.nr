@@ -83,7 +83,7 @@ pub contract Auth {
     #[private]
     fn do_private_authorized_thing() {
         // Reading a value from authorized in private automatically adds an extra validity condition: the base rollup
-        // circuit will reject this tx if timestamp of the block being built is past the timestamp horizon of
+        // circuit will reject this tx if timestamp of the block being built is past the time horizon of
         // the SharedMutable, which is as far as the circuit can guarantee the value will not change from some
         // historical value (due to CHANGE_AUTHORIZED_DELAY).
         // docs:start:shared_mutable_get_current_private

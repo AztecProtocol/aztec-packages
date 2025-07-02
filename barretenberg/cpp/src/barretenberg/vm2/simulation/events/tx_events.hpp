@@ -40,6 +40,7 @@ struct CollectGasFeeEvent {
     uint128_t effective_fee_per_l2_gas;
     AztecAddress fee_payer;
     FF fee_payer_balance;
+    FF fee_juice_balance_slot;
     FF fee;
 };
 

@@ -5,7 +5,7 @@ pub trait LeafPreimage {
     fn as_leaf(self) -> Field;
 }
 
-pub trait IndexedTreeLeafPreimage<Value>: Eq + Empty + LeafPreimage {
+pub trait IndexedTreeLeafPreimage<Value>: Empty + LeafPreimage {
     fn get_next_key(self) -> Field;
 
     fn points_to_infinity(self) -> bool;
@@ -17,7 +17,7 @@ pub trait IndexedTreeLeafPreimage<Value>: Eq + Empty + LeafPreimage {
     fn build_insertion_leaf(value: Value, low_leaf: Self) -> Self;
 }
 
-pub trait IndexedTreeLeafValue: Eq + Empty {
+pub trait IndexedTreeLeafValue: Empty {
     fn get_key(self) -> Field;
 }
 

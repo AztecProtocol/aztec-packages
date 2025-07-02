@@ -6,7 +6,7 @@ use crate::{
     address::AztecAddress,
     constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_concat, reader::Reader},
+    utils::reader::Reader,
 };
 
 pub struct KeyValidationRequestAndGenerator {
@@ -31,7 +31,7 @@ impl Empty for KeyValidationRequestAndGenerator {
 
 impl Serialize<KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for KeyValidationRequestAndGenerator {
     fn serialize(self) -> [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] {
-        array_concat(self.request.serialize(), [self.sk_app_generator])
+        self.request.serialize().concat([self.sk_app_generator])
     }
 }
 

@@ -82,6 +82,7 @@ library Errors {
   error Rollup__RewardsNotClaimable();
   error Rollup__InvalidFirstEpochProof();
   error Rollup__InvalidCoinbase();
+  error Rollup__StaleTempBlockLog(uint256 blockNumber, uint256 pendingBlockNumber, uint256 size);
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -147,6 +148,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+  error FeeLib__AlreadyPreheated();
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);

@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract ImportTest {
-    use dep::aztec::prelude::AztecAddress;
+    use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::test::Test::{self, DeepStruct, DummyNote};
 

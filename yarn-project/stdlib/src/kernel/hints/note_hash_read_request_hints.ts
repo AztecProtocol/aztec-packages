@@ -4,13 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { BufferReader } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
-import {
-  PendingReadHint,
-  ReadRequestResetHints,
-  ReadRequestState,
-  ReadRequestStatus,
-  SettledReadHint,
-} from './read_request_hints.js';
+import { PendingReadHint, ReadRequestAction, ReadRequestResetHints, SettledReadHint } from './read_request_hints.js';
 
 type NoteHashLeafValue = Fr;
 
@@ -47,7 +41,7 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
     public readonly maxSettled: SETTLED,
   ) {
     this.hints = new ReadRequestResetHints(
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestStatus.nada),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ReadRequestAction.skip),
       makeTuple(maxPending, () => PendingReadHint.nada(MAX_NOTE_HASH_READ_REQUESTS_PER_TX)),
       makeTuple(maxSettled, () =>
         SettledReadHint.nada(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, Fr.zero),
@@ -63,10 +57,7 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
     if (this.numPendingReadHints === this.maxPending) {
       throw new Error('Cannot add more pending read request.');
     }
-    this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
-      ReadRequestState.PENDING,
-      this.numPendingReadHints,
-    );
+    this.hints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsPending(this.numPendingReadHints);
     this.hints.pendingReadHints[this.numPendingReadHints] = new PendingReadHint(readRequestIndex, noteHashIndex);
     this.numPendingReadHints++;
   }
@@ -79,10 +70,7 @@ export class NoteHashReadRequestHintsBuilder<PENDING extends number, SETTLED ext
     if (this.numSettledReadHints === this.maxSettled) {
       throw new Error('Cannot add more settled read request.');
     }
-    this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
-      ReadRequestState.SETTLED,
-      this.numSettledReadHints,
-    );
+    this.hints.readRequestActions[readRequestIndex] = ReadRequestAction.readAsSettled(this.numSettledReadHints);
     this.hints.settledReadHints[this.numSettledReadHints] = new SettledReadHint(
       readRequestIndex,
       membershipWitness,

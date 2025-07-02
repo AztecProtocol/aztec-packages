@@ -7,7 +7,7 @@ mod test;
 // called the `timestamp_of_change`. The value can only be made to change by scheduling a change event at some future
 // timestamp after some minimum delay measured in seconds has elapsed. This means that at any given timestamp we know
 // both the current value and the smallest timestamp at which the value might change - this is called the
-// 'timestamp horizon'.
+// 'time horizon'.
 pub struct ScheduledValueChange<T> {
     pub(crate) pre: T,
     pub(crate) post: T,
@@ -24,7 +24,7 @@ impl<T> ScheduledValueChange<T> {
     /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current transaction will be
     /// included) and in private (where `timestamp` is the historical timestamp that is used to construct the proof).
     /// Reading in private is only safe if the transaction's `include_by_timestamp` property is set to a value lower or
-    /// equal to the timestamp horizon (see `get_timestamp_horizon()`).
+    /// equal to the time horizon (see `get_time_horizon()`).
     pub fn get_current_at(self, timestamp: u64) -> T {
         // The post value becomes the current one at the timestamp of change. This means different things in each realm:
         // - in public, any transaction that is included at the timestamp of change will use the post value
@@ -60,23 +60,23 @@ impl<T> ScheduledValueChange<T> {
     /// `ScheduledDelayChange.get_effective_minimum_delay_at`), which equals the minimum time in seconds that needs to
     /// elapse from the next block's timestamp until the value changes, regardless of further delay changes.
     /// The value returned by `get_current_at` in private when called with a historical timestamp is only safe to use
-    /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the timestamp horizon
+    /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon
     /// computed using the same historical timestamp.
-    pub fn get_timestamp_horizon(self, historical_timestamp: u64, minimum_delay: u64) -> u64 {
-        // The timestamp horizon is the very last timestamp in which the current value is known. Any timestamp past the
-        // horizon (i.e. with a timestamp larger than the timestamp horizon) may have a different current value.
+    pub fn get_time_horizon(self, historical_timestamp: u64, minimum_delay: u64) -> u64 {
+        // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the
+        // horizon (i.e. with a timestamp larger than the time horizon) may have a different current value.
         // Reading the current value in private typically requires constraining the maximum valid timestamp to be equal
-        // to the timestamp horizon.
+        // to the time horizon.
         if historical_timestamp >= self.timestamp_of_change {
             // Once the timestamp of change has passed (block with timestamp >= timestamp_of_change was mined),
             // the current value (post) will not change unless a new value change is scheduled. This did not happen at
             // the historical timestamp (or else it would not be greater or equal to the timestamp of change), and
             // therefore could only happen after the historical timestamp. The earliest would be the immediate next
             // timestamp, and so the smallest possible next timestamp of change equals `historical_timestamp + 1 +
-            // minimum_delay`. Our timestamp horizon is simply the previous timestamp to that one.
+            // minimum_delay`. Our time horizon is simply the previous timestamp to that one.
             //
             //   timestamp of    historical
-            //      change       timestamp          timestamp horizon
+            //      change       timestamp          time horizon
             //   =======|=============N===================H===========>
             //                         ^                   ^
             //                         ---------------------
@@ -84,13 +84,13 @@ impl<T> ScheduledValueChange<T> {
             historical_timestamp + minimum_delay
         } else {
             // If the timestamp of change has not yet been reached however, then there are two possible scenarios.
-            //   a) It could be so far into the future that the timestamp horizon is actually determined by the minimum
+            //   a) It could be so far into the future that the time horizon is actually determined by the minimum
             //      delay, because a new change could be scheduled and take place _before_ the currently scheduled one.
             //      This is similar to the scenario where the timestamp of change is in the past: the time horizon is
             //      the timestamp prior to the earliest one in which a new timestamp of change might land.
             //
             //         historical
-            //         timestamp                      timestamp horizon    timestamp of change
+            //         timestamp                      time horizon    timestamp of change
             //        =====N=================================H=================|=========>
             //              ^                                 ^
             //              |                                 |
@@ -102,7 +102,7 @@ impl<T> ScheduledValueChange<T> {
             //      the timestamp right before the timestamp of change (since by definition the value changes at the
             //      timestamp of change).
             //
-            //           historical                         timestamp horizon
+            //           historical                         time horizon
             //           timestamp   timestamp of change    if not scheduled
             //        =======N=============|===================H=================>
             //                ^           ^                     ^
@@ -152,7 +152,7 @@ where
 
 impl<T> Empty for ScheduledValueChange<T>
 where
-    T: Empty,
+    T: Empty + Eq,
 {
     fn empty() -> Self {
         Self { pre: T::empty(), post: T::empty(), timestamp_of_change: 0 }

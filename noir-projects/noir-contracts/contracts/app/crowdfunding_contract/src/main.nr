@@ -16,7 +16,8 @@ pub contract Crowdfunding {
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateSet, PublicImmutable},
+        protocol_types::address::AztecAddress,
+        state_vars::{PrivateSet, PublicImmutable},
         utils::comparison::Comparator,
     };
     use dep::uint_note::uint_note::UintNote;

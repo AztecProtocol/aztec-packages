@@ -6,6 +6,7 @@ use crate::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct MembershipWitness<let N: u32> {
     pub leaf_index: Field,
     pub sibling_path: [Field; N],
@@ -69,7 +70,7 @@ where
     LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
 {
     if exists {
-        assert(key == leaf_preimage.get_key(), "Key does not match the key of the leaf preimage");
+        assert_eq(key, leaf_preimage.get_key(), "Key does not match the key of the leaf preimage");
     } else {
         assert_check_valid_low_leaf(key, leaf_preimage);
     }

@@ -427,7 +427,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
  */
 template <typename FF>
 inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_component(
-    bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RomTranscript& rom_array)
+    bb::UltraCircuitBuilder& ultra_builder, const bb::RomTranscript& rom_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
     ASSERT(block_index == 5);
@@ -488,7 +488,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_compon
  */
 template <typename FF>
 inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_component(
-    bb::UltraCircuitBuilder& ultra_builder, const UltraCircuitBuilder::RamTranscript& ram_array)
+    bb::UltraCircuitBuilder& ultra_builder, const bb::RamTranscript& ram_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
     ASSERT(block_index == 5);
@@ -619,7 +619,7 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
         }
     }
 
-    const auto& rom_arrays = ultra_circuit_constructor.rom_arrays;
+    const auto& rom_arrays = ultra_circuit_constructor.rom_ram_logic.rom_arrays;
     if (!rom_arrays.empty()) {
         for (const auto& rom_array : rom_arrays) {
             std::vector<uint32_t> variable_indices =
@@ -630,7 +630,7 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
         }
     }
 
-    const auto& ram_arrays = ultra_circuit_constructor.ram_arrays;
+    const auto& ram_arrays = ultra_circuit_constructor.rom_ram_logic.ram_arrays;
     if (!ram_arrays.empty()) {
         for (const auto& ram_array : ram_arrays) {
             std::vector<uint32_t> variable_indices =

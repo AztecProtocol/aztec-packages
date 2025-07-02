@@ -324,6 +324,36 @@ template <typename FF_>
 using lookup_tx_read_fee_payer_public_inputs_relation =
     lookup_relation_base<FF_, lookup_tx_read_fee_payer_public_inputs_settings>;
 
+/////////////////// lookup_tx_balance_slot_poseidon2 ///////////////////
+
+struct lookup_tx_balance_slot_poseidon2_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_BALANCE_SLOT_POSEIDON2";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column COUNTS = Column::lookup_tx_balance_slot_poseidon2_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_balance_slot_poseidon2_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_is_collect_fee,
+        ColumnAndShifts::tx_fee_juice_balances_slot,
+        ColumnAndShifts::tx_fee_payer,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::tx_fee_juice_balance_slot
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+};
+
+using lookup_tx_balance_slot_poseidon2_settings = lookup_settings<lookup_tx_balance_slot_poseidon2_settings_>;
+template <typename FF_>
+using lookup_tx_balance_slot_poseidon2_relation = lookup_relation_base<FF_, lookup_tx_balance_slot_poseidon2_settings>;
+
 /////////////////// lookup_tx_balance_validation ///////////////////
 
 struct lookup_tx_balance_validation_settings_ {

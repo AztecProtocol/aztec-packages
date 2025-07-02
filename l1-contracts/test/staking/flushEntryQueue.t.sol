@@ -12,7 +12,11 @@ import {Epoch, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
-import {StakingQueueConfig, StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueLib} from "@aztec/core/libraries/StakingQueue.sol";
+import {
+  StakingQueueConfig,
+  StakingQueueConfigLib
+} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 
 contract FlushEntryQueueTest is StakingBase {
@@ -39,10 +43,10 @@ contract FlushEntryQueueTest is StakingBase {
     uint256 _normalFlushSizeQuotient
   ) internal {
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
-      bootstrapValidatorSetSize: _bootstrapValidatorSetSize,
-      bootstrapFlushSize: _bootstrapFlushSize,
-      normalFlushSizeMin: _normalFlushSizeMin,
-      normalFlushSizeQuotient: _normalFlushSizeQuotient
+      bootstrapValidatorSetSize: bound(_bootstrapValidatorSetSize, 0, type(uint64).max),
+      bootstrapFlushSize: bound(_bootstrapFlushSize, 0, type(uint64).max),
+      normalFlushSizeMin: bound(_normalFlushSizeMin, 0, type(uint64).max),
+      normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 0, type(uint64).max)
     });
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());

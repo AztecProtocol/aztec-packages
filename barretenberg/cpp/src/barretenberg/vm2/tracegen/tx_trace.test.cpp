@@ -150,7 +150,8 @@ TEST(TxTraceGenTest, CollectFeeEvent)
                       ROW_FIELD_EQ(tx_fee_payer_balance, fee_payer_balance),
                       ROW_FIELD_EQ(tx_end_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX),
                       ROW_FIELD_EQ(tx_next_da_gas_used, prev_da_gas_used),
-                      ROW_FIELD_EQ(tx_next_l2_gas_used, prev_l2_gas_used)));
+                      ROW_FIELD_EQ(tx_next_l2_gas_used, prev_l2_gas_used),
+                      ROW_FIELD_EQ(tx_uint32_max, 0xffffffff)));
 };
 
 } // namespace

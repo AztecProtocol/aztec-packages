@@ -1,3 +1,4 @@
+export * from './claimed_length_array.js';
 export * from './private_to_rollup_accumulated_data.js';
 export * from './private_to_rollup_kernel_circuit_public_inputs.js';
 export * from './private_accumulated_data.js';

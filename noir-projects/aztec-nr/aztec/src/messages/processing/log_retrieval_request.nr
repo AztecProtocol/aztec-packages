@@ -1,9 +1,9 @@
 use protocol_types::{address::AztecAddress, traits::Serialize};
 
-#[derive(Serialize)]
 /// A request for the `bulk_retrieve_logs` oracle to fetch either:
 ///  - a public log emitted by `contract_address` with `unsiloed_tag`
 ///  - a private log with tag equal to `silo_private_log(unsiloed_tag, contract_address)`.
+#[derive(Serialize)]
 pub(crate) struct LogRetrievalRequest {
     pub contract_address: AztecAddress,
     pub unsiloed_tag: Field,

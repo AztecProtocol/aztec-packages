@@ -29,7 +29,7 @@ impl TailToPublicOutputComposer {
     }
 
     pub unconstrained fn finish(self) -> PrivateToPublicKernelCircuitPublicInputs {
-        let source = self.output_composer.public_inputs;
+        let source = self.output_composer.public_inputs_builder;
 
         let (non_revertible_accumulated_data, revertible_accumulated_data) = split_to_public(
             source.end,

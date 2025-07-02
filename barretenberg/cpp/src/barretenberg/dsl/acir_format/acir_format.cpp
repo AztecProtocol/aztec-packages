@@ -36,14 +36,14 @@ template class DSLBigInts<MegaCircuitBuilder>;
 template <typename Builder>
 void handle_IPA_accumulation(Builder& builder,
                              const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
-                             const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
+                             const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs,
                              bool is_root_rollup);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     PairingPoints points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
-    std::vector<StdlibProof<Builder>> nested_ipa_proofs;
+    std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
     bool is_root_rollup = false;
 };
 
@@ -339,7 +339,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 template <typename Builder>
 void handle_IPA_accumulation(Builder& builder,
                              const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
-                             const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
+                             const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs,
                              bool is_root_rollup)
 {
     BB_ASSERT_EQ(
@@ -366,7 +366,7 @@ void handle_IPA_accumulation(Builder& builder,
                 &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
             // do full IPA verification
             auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
-            accumulated_ipa_transcript->load_proof(convert_native_proof_to_stdlib(&builder, ipa_proof));
+            accumulated_ipa_transcript->load_proof(stdlib::Proof<Builder>(builder, ipa_proof));
             IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
                 verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
         } else {
@@ -378,7 +378,7 @@ void handle_IPA_accumulation(Builder& builder,
         final_ipa_claim = nested_ipa_claims[0];
         // This conversion looks suspicious but there's no need to make this an output of the circuit since
         // its a proof that will be checked anyway.
-        final_ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
+        final_ipa_proof = nested_ipa_proofs[0].get_value();
     } else if (nested_ipa_claims.size() == 0) {
         // If we don't have any claims, we may need to inject a fake one if we're proving with
         // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
@@ -471,9 +471,11 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
+    using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
+    using StdlibFF = ClientIVC::RecursiveFlavor::FF;
 
-    // If an ivc instance is not provided, we mock one with the state required to construct the recursion constraints
-    // present in the program
+    // If an ivc instance is not provided, we mock one with the state required to construct the recursion
+    // constraints present in the program. This is for when we write_vk.
     if (ivc == nullptr) {
         ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
     }
@@ -489,19 +491,22 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
         for (auto [constraint, queue_entry] :
              zip_view(constraints.ivc_recursion_constraints, ivc->verification_queue)) {
-            populate_dummy_vk_in_constraint(builder, queue_entry.honk_verification_key, constraint.key);
+            populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
+            builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
         }
     }
 
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
-    std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
-    stdlib_verification_keys.reserve(constraints.ivc_recursion_constraints.size());
+    std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
+    stdlib_vk_and_hashs.reserve(constraints.ivc_recursion_constraints.size());
     for (const auto& constraint : constraints.ivc_recursion_constraints) {
-        stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
-            StdlibVerificationKey::from_witness_indices(builder, constraint.key)));
+        stdlib_vk_and_hashs.push_back(
+            std::make_shared<StdlibVKAndHash>(std::make_shared<StdlibVerificationKey>(
+                                                  StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
+                                              StdlibFF::from_witness_index(&builder, constraint.key_hash)));
     }
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
+    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
     // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir

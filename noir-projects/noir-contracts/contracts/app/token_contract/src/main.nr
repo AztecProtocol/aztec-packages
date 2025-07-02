@@ -19,7 +19,7 @@ pub contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        context::{PrivateCallInterface, PrivateContext},
+        context::{PrivateCallInterface, PrivateContext, PublicContext},
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
@@ -27,11 +27,11 @@ pub contract Token {
             storage::storage,
         },
         messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-    use aztec::protocol_types::traits::ToField;
+    use aztec::protocol_types::{address::AztecAddress, traits::ToField};
 
     // docs:start:import_authwit
     use aztec::authwit::auth::{

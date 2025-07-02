@@ -12,6 +12,7 @@ pub contract SchnorrAccount {
             auth::{compute_authwit_message_hash, compute_authwit_nullifier},
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
+        context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
@@ -19,7 +20,8 @@ pub contract SchnorrAccount {
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
         },
-        prelude::{AztecAddress, PrivateContext, PrivateImmutable},
+        protocol_types::address::AztecAddress,
+        state_vars::PrivateImmutable,
     };
 
     use crate::public_key_note::PublicKeyNote;

@@ -10,7 +10,7 @@ use dep::protocol_types::{
 
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::storage::Storage,
+    state_vars::storage::HasStorageSlot,
     utils::with_hash::WithHash,
 };
 
@@ -23,7 +23,7 @@ pub struct SharedMutable<T, let INITIAL_DELAY: u64, Context> {
 
 // This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `M` storage
 // slots to this state variable.
-impl<T, let INITIAL_DELAY: u64, Context, let M: u32> Storage<M> for SharedMutable<T, INITIAL_DELAY, Context>
+impl<T, let INITIAL_DELAY: u64, Context, let M: u32> HasStorageSlot<M> for SharedMutable<T, INITIAL_DELAY, Context>
 where
     WithHash<SharedMutableValues<T, INITIAL_DELAY>, _>: Packable<M>,
 {
@@ -206,12 +206,12 @@ where
         // only considered the current delay.
         let effective_minimum_delay =
             delay_change.get_effective_minimum_delay_at(historical_timestamp);
-        let timestamp_horizon =
-            value_change.get_timestamp_horizon(historical_timestamp, effective_minimum_delay);
+        let time_horizon =
+            value_change.get_time_horizon(historical_timestamp, effective_minimum_delay);
 
-        // We prevent this transaction from being included in any timestamp after the timestamp horizon, ensuring that the
+        // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
-        self.context.set_include_by_timestamp(timestamp_horizon);
+        self.context.set_include_by_timestamp(time_horizon);
 
         value_change.get_current_at(historical_timestamp)
     }

@@ -10,7 +10,7 @@ use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
     hash::poseidon2_hash_subarray,
-    traits::is_empty,
+    traits::Empty,
     utils::arrays::array_splice,
 };
 
@@ -75,7 +75,7 @@ pub fn evaluate_blobs_and_batch(
         let is_empty_blob = sponge_blob.fields <= i * FIELDS_PER_BLOB;
         if (!y_i.is_zero()) & (!is_empty_blob) {
             // Only accumulate if the blob is non empty
-            if (is_empty(end_accumulator)) & (i == 0) {
+            if (end_accumulator.is_empty()) & (i == 0) {
                 // Init only if accumulator is empty:
                 //  - This will be checked in root, where the left input's start acc will be constrained to be zero
                 //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc

@@ -47,7 +47,7 @@ using simulation::NullifierTreeLeafPreimage;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
-using simulation::root_from_path;
+using simulation::unconstrained_root_from_path;
 
 using tracegen::NullifierTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
@@ -113,7 +113,7 @@ TEST_P(NullifierReadPositiveTests, Positive)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(param.nullifier,
                                                /*contract_address*/ std::nullopt,
@@ -227,7 +227,7 @@ TEST(NullifierTreeCheckConstrainingTest, PositiveWriteMembership)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.write(nullifier,
                                          std::nullopt,
@@ -248,7 +248,7 @@ TEST(NullifierTreeCheckConstrainingTest, Siloing)
 {
     AztecAddress contract_address = 1;
     FF nullifier = 42;
-    FF siloed_nullifier = simulation::silo_nullifier(contract_address, nullifier);
+    FF siloed_nullifier = simulation::unconstrained_silo_nullifier(contract_address, nullifier);
     auto low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), 0, 0);
     NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -276,7 +276,7 @@ TEST(NullifierTreeCheckConstrainingTest, Siloing)
     for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.write(nullifier,
                                          contract_address,

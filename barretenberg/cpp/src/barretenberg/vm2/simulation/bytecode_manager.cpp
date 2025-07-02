@@ -124,8 +124,8 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     // Communicate error to the caller.
     if (instr_fetching_event.error.has_value()) {
-        throw std::runtime_error("Instruction fetching error: " +
-                                 std::to_string(static_cast<int>(instr_fetching_event.error.value())));
+        throw InstructionFetchingError("Instruction fetching error: " +
+                                       std::to_string(static_cast<int>(instr_fetching_event.error.value())));
     }
 
     return instr_fetching_event.instruction;

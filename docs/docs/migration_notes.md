@@ -7,10 +7,11 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-<<<<<<< 06-11-refactor_max_block_number_--_include_by_timestamp
 ## TBD
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
+
+### `max_block_number` -> `include_by_timestamp`
 
 The transaction expiration mechanism has been updated to use seconds rather than number of blocks.
 As part of this change, the transaction property `max_block_number` has been renamed to `include_by_timestamp`.
@@ -21,7 +22,40 @@ If your contract uses `SharedMutable`, you'll need to:
 1. Update the `INITIAL_DELAY` numeric generic to use seconds instead of blocks
 2. Modify any related logic to account for timestamp-based timing
 3. Note that timestamps use `u64` values while block numbers use `u32`
-=======
+
+### Removed `prelude`, so your `dep::aztec::prelude::...` imports will need to be amended.
+
+Instead of importing common types from `dep::aztec::prelude...`, you'll now need to import them from their lower-level locations.
+The Noir Language Server vscode extension is now capable of autocompleting imports: just type some of the import and press 'tab' when it pops up with the correct item, and the import will be inserted at the top of the file.
+
+As a quick reference, here are the paths to the types that were previously in the `prelude`.
+So, for example, if you were previously using `dep::aztec::prelude::AztecAddress`, you'll need to replace it with `dep::aztec::protocol_types::address::AztecAddress`.
+Apologies for any pain this brings. The reasoning is that these types were somewhat arbitrary, and it was unclear which types were worthy enough to be included here.
+
+```rust
+use dep::aztec::{
+    context::{PrivateCallInterface, PrivateContext, PublicContext, UtilityContext, ReturnsHash},
+    note::{
+        note_getter_options::NoteGetterOptions,
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
+    },
+    state_vars::{
+        map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
+        private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
+        shared_mutable::SharedMutable,
+    },
+};
+
+use dep::aztec::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::{AztecAddress, EthAddress},
+    point::Point,
+    traits::{Deserialize, Serialize},
+};
+```
+
 ## 0.88.0
 
 ## [Aztec.nr] Deprecation of the `authwit` library
@@ -38,7 +72,7 @@ and stale dependencies removed from `Nargo.toml`
 ```diff
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
->>>>>>> next
+
 
 ## 0.87.0
 
@@ -2449,7 +2483,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+\[Edit: removed because the prelude no-longer exists\]
 
 ### `internal` is now a macro
 

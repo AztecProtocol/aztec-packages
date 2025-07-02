@@ -15,7 +15,10 @@ FF CalldataHasher::compute_calldata_hash(std::span<const FF> calldata)
     }
     // todo(ilyas): this probably simulates faster at the cost of re-work in tracegen
     std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
-    calldata_with_sep.insert(calldata_with_sep.end(), calldata.begin(), calldata.end());
+    for (const auto& value : calldata) {
+        // Note: Using `insert` breaks GCC.
+        calldata_with_sep.push_back(value);
+    }
     FF output_hash = hasher.hash(calldata_with_sep);
 
     events.emit({

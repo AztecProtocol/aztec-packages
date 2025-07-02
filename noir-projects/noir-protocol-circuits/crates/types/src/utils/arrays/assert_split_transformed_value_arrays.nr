@@ -1,4 +1,4 @@
-use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}, utils::arrays::find_index_hint};
+use crate::{abis::side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
 
 pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     sorted_array: [T; N],
@@ -9,8 +9,8 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     num_non_revertibles: u32, // Hint. Should check in this function.
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     if num_non_revertibles != 0 {
         // If num_non_revertibles == 0, then the below can still underflow and cause 'Failed constraint' error,
@@ -50,7 +50,7 @@ where
         } else {
             transformed_value_array_lt[i]
         };
-        assert(is_empty(padded), "array should be padded with empty items");
+        assert(padded.is_empty(), "array should be padded with empty items");
     }
 }
 
@@ -62,12 +62,18 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     split_counter: u32,
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     // Safety: The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
     let num_non_revertibles =
         unsafe { find_index_hint(sorted_array, |n: T| n.counter() >= split_counter) };
+    // Just setting it to N for now, because I don't want to refactor assert_split_transformed_value_arrays_with_hint.
+    let num_non_revertibles = if num_non_revertibles.is_none() {
+        N
+    } else {
+        num_non_revertibles.unwrap_unchecked()
+    };
 
     assert_split_transformed_value_arrays_with_hint(
         sorted_array,

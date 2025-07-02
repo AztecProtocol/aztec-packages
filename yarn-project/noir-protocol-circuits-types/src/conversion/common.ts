@@ -9,13 +9,14 @@ import {
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
+  ClaimedLengthArray,
   CountedLogHash,
   LogHash,
   OptionalNumber,
@@ -52,6 +53,7 @@ import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
+  ClaimedLengthArray as ClaimedLengthArrayNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
   FixedLengthArray,
@@ -337,6 +339,25 @@ export function mapFieldArrayToNoir<N extends number>(
   length: N = array.length as N,
 ): FixedLengthArray<string, N> {
   return mapTupleToNoir(assertLength(array, length), mapFieldToNoir);
+}
+
+export function mapClaimedLengthArrayFromNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArrayNoir<N, S>,
+  mapper: (item: S) => T,
+): ClaimedLengthArray<T, N> {
+  const array = mapTupleFromNoir(claimedLengthArray.array, claimedLengthArray.array.length, mapper) as Tuple<T, N>;
+  const claimedLength = mapNumberFromNoir(claimedLengthArray.length);
+  return new ClaimedLengthArray(array, claimedLength);
+}
+
+export function mapClaimedLengthArrayToNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArray<T, N>,
+  mapper: (item: T) => S,
+): ClaimedLengthArrayNoir<N, S> {
+  return {
+    array: mapTupleToNoir(claimedLengthArray.array, mapper),
+    length: mapNumberToNoir(claimedLengthArray.claimedLength),
+  };
 }
 
 /**

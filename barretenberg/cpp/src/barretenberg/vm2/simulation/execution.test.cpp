@@ -180,7 +180,7 @@ TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
 {
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    EXPECT_CALL(memory, set(1, MemoryValue::from<uint1_t>(1)));
     execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
 }
 
@@ -197,6 +197,33 @@ TEST_F(ExecutionSimulationTest, Jump)
 {
     EXPECT_CALL(context, set_next_pc(120));
     execution.jump(context, 120);
+}
+
+TEST_F(ExecutionSimulationTest, SuccessCopyTrue)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_last_success).WillOnce(Return(true));
+    EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(1)));
+
+    execution.success_copy(context, 10);
+}
+
+TEST_F(ExecutionSimulationTest, SuccessCopyFalse)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_last_success).WillOnce(Return(false));
+    EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(0)));
+
+    execution.success_copy(context, 10);
+}
+
+TEST_F(ExecutionSimulationTest, RdSize)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_last_rd_size).WillOnce(Return(42));
+    EXPECT_CALL(memory, set(10, MemoryValue::from<uint32_t>(42)));
+
+    execution.rd_size(context, /*dst_addr=*/10);
 }
 
 } // namespace

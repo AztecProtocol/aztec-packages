@@ -4,12 +4,7 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  CompressedFeeHeader,
-  FeeHeaderLib,
-  FeeLib,
-  FeeStore
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
@@ -171,10 +166,8 @@ library RewardLib {
         $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
       }
 
-      FeeStore storage feeStore = FeeLib.getStorage();
-
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
+        CompressedFeeHeader feeHeader = STFLib.getFeeHeader(_args.start + i);
 
         v.manaUsed = feeHeader.getManaUsed();
 

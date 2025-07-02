@@ -1,9 +1,9 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
+import type { ClaimedLengthArray } from '../claimed_length_array.js';
 import type { ScopedNoteHash } from '../note_hash.js';
 import type { ScopedNullifier } from '../nullifier.js';
-import { countAccumulatedItems } from '../utils/order_and_comparison.js';
 import { isValidNoteHashReadRequest } from './build_note_hash_read_request_hints.js';
 import { isValidNullifierReadRequest } from './build_nullifier_read_request_hints.js';
 import type { ScopedReadRequest } from './read_request.js';
@@ -11,25 +11,22 @@ import { ScopedValueCache } from './scoped_value_cache.js';
 import { TransientDataIndexHint } from './transient_data_index_hint.js';
 
 export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIERS_LEN extends number>(
-  noteHashes: Tuple<ScopedNoteHash, NOTE_HASHES_LEN>,
-  nullifiers: Tuple<ScopedNullifier, NULLIFIERS_LEN>,
+  noteHashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
+  nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
   futureNoteHashReads: ScopedReadRequest[],
   futureNullifierReads: ScopedReadRequest[],
   noteHashNullifierCounterMap: Map<number, number>,
   validationRequestsSplitCounter: number,
-  noteHashesLength: NOTE_HASHES_LEN = noteHashes.length as NOTE_HASHES_LEN,
-  nullifiersLength: NULLIFIERS_LEN = nullifiers.length as NULLIFIERS_LEN,
 ): { numTransientData: number; hints: Tuple<TransientDataIndexHint, NULLIFIERS_LEN> } {
   const futureNoteHashReadsMap = new ScopedValueCache(futureNoteHashReads);
   const futureNullifierReadsMap = new ScopedValueCache(futureNullifierReads);
 
   const nullifierIndexMap: Map<number, number> = new Map();
-  nullifiers.forEach((n, i) => nullifierIndexMap.set(n.counter, i));
+  nullifiers.getActiveItems().forEach((n, i) => nullifierIndexMap.set(n.counter, i));
 
   const hints = [];
-  const numNoteHashes = countAccumulatedItems(noteHashes);
-  for (let noteHashIndex = 0; noteHashIndex < numNoteHashes; noteHashIndex++) {
-    const noteHash = noteHashes[noteHashIndex];
+  for (let noteHashIndex = 0; noteHashIndex < noteHashes.claimedLength; noteHashIndex++) {
+    const noteHash = noteHashes.array[noteHashIndex];
     const noteHashNullifierCounter = noteHashNullifierCounterMap.get(noteHash.counter);
     // The note hash might not be linked to a nullifier or it might be read in the future
     if (
@@ -45,7 +42,7 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
       continue;
     }
 
-    const nullifier = nullifiers[nullifierIndex];
+    const nullifier = nullifiers.array[nullifierIndex];
     // Cannot nullify a non-revertible note hash with a revertible nullifier.
     if (noteHash.counter < validationRequestsSplitCounter && nullifier.counter >= validationRequestsSplitCounter) {
       continue;
@@ -74,8 +71,9 @@ export function buildTransientDataHints<NOTE_HASHES_LEN extends number, NULLIFIE
     hints.push(new TransientDataIndexHint(nullifierIndex, noteHashIndex));
   }
 
+  const noActionHint = new TransientDataIndexHint(nullifiers.array.length, noteHashes.array.length);
   return {
     numTransientData: hints.length,
-    hints: padArrayEnd(hints, new TransientDataIndexHint(nullifiersLength, noteHashesLength), nullifiersLength),
+    hints: padArrayEnd(hints, noActionHint, nullifiers.array.length as NULLIFIERS_LEN),
   };
 }

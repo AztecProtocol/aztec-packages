@@ -2,7 +2,7 @@ use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernel
 use dep::types::tests::utils::swap_items;
 
 #[test]
-fn validate_propagated_from_private_call_empty_data_succeeds() {
+fn validate_propagated_from_private_call__empty_data_succeeds() {
     let builder = PrivateKernelCircuitOutputValidatorBuilder::new();
     builder.validate_as_inner_call();
 }
@@ -12,7 +12,7 @@ fn validate_propagated_from_private_call_empty_data_succeeds() {
  * With private call data only.
  */
 #[test]
-fn validate_propagated_from_private_call_note_hash_read_requests_succeeds() {
+fn validate_propagated_from_private_call__note_hash_read_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
@@ -22,7 +22,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_succeeds() {
 }
 
 #[test(should_fail_with = "source item does not append to dest")]
-fn validate_propagated_from_private_call_note_hash_read_requests_output_mismatch_value_fails() {
+fn validate_propagated_from_private_call__note_hash_read_requests_output_mismatch_value_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
@@ -36,7 +36,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_mismatch
 }
 
 #[test(should_fail_with = "propagated contract address does not match")]
-fn validate_propagated_from_private_call_note_hash_read_requests_mismatch_contract_address_fails() {
+fn validate_propagated_from_private_call__note_hash_read_requests_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
@@ -50,7 +50,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_mismatch_contra
 }
 
 #[test(should_fail_with = "source item does not append to dest")]
-fn validate_propagated_from_private_call_note_hash_read_requests_output_one_less_fails() {
+fn validate_propagated_from_private_call__note_hash_read_requests_output_one_less_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
@@ -60,8 +60,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_one_less
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_hash_read_requests_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__note_hash_read_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
@@ -71,8 +71,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_output_one_more
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_hash_read_requests_output_extra_non_empty_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__note_hash_read_requests_output_extra_non_empty_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hash_read_requests(2);
@@ -99,7 +99,7 @@ fn append_note_hash_read_requests_to_previous_kernel(
 }
 
 #[test]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_succeeds() {
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
@@ -110,7 +110,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_s
 }
 
 #[test(should_fail_with = "source item does not append to dest")]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_mismatch_value_fails() {
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_mismatch_value_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
@@ -125,7 +125,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
 }
 
 #[test(should_fail_with = "propagated contract address does not match")]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_mismatch_contract_address_fails() {
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_mismatch_contract_address_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
@@ -140,7 +140,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_m
 }
 
 #[test(should_fail_with = "source item does not append to dest")]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_one_less_fails() {
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_output_one_less_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
@@ -151,8 +151,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
@@ -163,8 +163,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_extra_non_empty_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_output_extra_non_empty_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     append_note_hash_read_requests_to_previous_kernel(&mut builder, 3);
@@ -178,8 +178,8 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "number of total items exceeds limit")]
-fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_output_exceeds_max_fails() {
+#[test(should_fail_with = "Index out of bounds")]
+fn validate_propagated_from_private_call__note_hash_read_requests_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     // Make the previous array to be full, therefore no more items can be added.
@@ -197,7 +197,7 @@ fn validate_propagated_from_private_call_note_hash_read_requests_with_previous_o
  * nullifier_read_requests
  */
 #[test]
-fn validate_propagated_from_private_call_nullifier_read_requests_succeeds() {
+fn validate_propagated_from_private_call__nullifier_read_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_nullifier_read_requests(2);
@@ -206,8 +206,8 @@ fn validate_propagated_from_private_call_nullifier_read_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_nullifier_read_requests_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__nullifier_read_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_nullifier_read_requests(2);
@@ -221,7 +221,7 @@ fn validate_propagated_from_private_call_nullifier_read_requests_output_one_more
  * key_validation_requests
  */
 #[test]
-fn validate_propagated_from_private_call_key_validation_requests_succeeds() {
+fn validate_propagated_from_private_call__key_validation_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_key_validation_requests(2);
@@ -230,8 +230,8 @@ fn validate_propagated_from_private_call_key_validation_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_key_validation_requests_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__key_validation_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_key_validation_requests(2);
@@ -245,7 +245,7 @@ fn validate_propagated_from_private_call_key_validation_requests_output_one_more
  * note_hashes
  */
 #[test]
-fn validate_propagated_from_private_call_note_hashes_succeeds() {
+fn validate_propagated_from_private_call__note_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hashes(2);
@@ -254,8 +254,8 @@ fn validate_propagated_from_private_call_note_hashes_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_note_hashes_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__note_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_note_hashes(2);
@@ -269,7 +269,7 @@ fn validate_propagated_from_private_call_note_hashes_output_one_more_fails() {
  * nullifiers
  */
 #[test]
-fn validate_propagated_from_private_call_nullifiers_succeeds() {
+fn validate_propagated_from_private_call__nullifiers_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
     builder.with_protocol_nullifier();
 
@@ -281,7 +281,7 @@ fn validate_propagated_from_private_call_nullifiers_succeeds() {
 }
 
 #[test]
-fn validate_propagated_from_private_call_nullifiers_without_protocol_nullifier_succeeds() {
+fn validate_propagated_from_private_call__nullifiers_without_protocol_nullifier_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_nullifiers(2);
@@ -290,8 +290,8 @@ fn validate_propagated_from_private_call_nullifiers_without_protocol_nullifier_s
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_nullifiers_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__nullifiers_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_nullifiers(2);
@@ -305,7 +305,7 @@ fn validate_propagated_from_private_call_nullifiers_output_one_more_fails() {
  * l2_to_l1_msgs
  */
 #[test]
-fn validate_propagated_from_private_call_l2_to_l1_msgs_succeeds() {
+fn validate_propagated_from_private_call__l2_to_l1_msgs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_l2_to_l1_msgs(2);
@@ -314,8 +314,8 @@ fn validate_propagated_from_private_call_l2_to_l1_msgs_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_l2_to_l1_msgs_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__l2_to_l1_msgs_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_l2_to_l1_msgs(1);
@@ -329,7 +329,7 @@ fn validate_propagated_from_private_call_l2_to_l1_msgs_output_one_more_fails() {
  * private_logs
  */
 #[test]
-fn validate_propagated_from_private_call_private_logs_succeeds() {
+fn validate_propagated_from_private_call__private_logs_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_logs(2);
@@ -338,8 +338,8 @@ fn validate_propagated_from_private_call_private_logs_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_private_logs_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__private_logs_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_logs(2);
@@ -349,8 +349,8 @@ fn validate_propagated_from_private_call_private_logs_output_one_more_fails() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "number of total items exceeds limit")]
-fn validate_propagated_from_private_call_private_logs_with_previous_output_exceeds_max_fails() {
+#[test(should_fail_with = "Index out of bounds")]
+fn validate_propagated_from_private_call__private_logs_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     // Make the previous array to be full, therefore no more items can be added.
@@ -367,7 +367,7 @@ fn validate_propagated_from_private_call_private_logs_with_previous_output_excee
  * contract_class_log_hashes
  */
 #[test]
-fn validate_propagated_from_private_call_contract_class_log_hashes_succeeds() {
+fn validate_propagated_from_private_call__contract_class_log_hashes_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.add_contract_class_log_hash(2, 1);
@@ -376,8 +376,8 @@ fn validate_propagated_from_private_call_contract_class_log_hashes_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_contract_class_log_hashes_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__contract_class_log_hashes_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     // Propagate 1 more item to the output.
@@ -390,7 +390,7 @@ fn validate_propagated_from_private_call_contract_class_log_hashes_output_one_mo
  * private_call_requests
  */
 #[test]
-fn validate_propagated_from_private_call_private_call_requests_succeeds() {
+fn validate_propagated_from_private_call__private_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
@@ -400,7 +400,7 @@ fn validate_propagated_from_private_call_private_call_requests_succeeds() {
 }
 
 #[test(should_fail_with = "source item does not reversed append to dest")]
-fn validate_propagated_from_private_call_private_call_requests_not_reversed_fails() {
+fn validate_propagated_from_private_call__private_call_requests_not_reversed_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_private_call_requests(2);
@@ -412,7 +412,7 @@ fn validate_propagated_from_private_call_private_call_requests_not_reversed_fail
 }
 
 #[test]
-fn validate_propagated_from_private_call_private_call_requests_with_previous_output_succeeds() {
+fn validate_propagated_from_private_call__private_call_requests_with_previous_output_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.output.append_private_call_requests(5);
@@ -430,8 +430,8 @@ fn validate_propagated_from_private_call_private_call_requests_with_previous_out
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "number of total items exceeds limit")]
-fn validate_propagated_from_private_call_private_call_requests_with_previous_output_exceeds_max_fails() {
+#[test(should_fail_with = "max > MAX")]
+fn validate_propagated_from_private_call__private_call_requests_with_previous_output_exceeds_max_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     // Make the previous array to be full, therefore no more items can be added.
@@ -449,7 +449,7 @@ fn validate_propagated_from_private_call_private_call_requests_with_previous_out
  * public_call_requests
  */
 #[test]
-fn validate_propagated_from_private_call_public_call_requests_succeeds() {
+fn validate_propagated_from_private_call__public_call_requests_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_public_call_requests(2);
@@ -458,8 +458,8 @@ fn validate_propagated_from_private_call_public_call_requests_succeeds() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
-fn validate_propagated_from_private_call_public_call_requests_output_one_more_fails() {
+#[test(should_fail_with = "Length mismatch")]
+fn validate_propagated_from_private_call__public_call_requests_output_one_more_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
     builder.private_call.append_public_call_requests(2);

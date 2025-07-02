@@ -4,7 +4,6 @@ use aztec::macros::aztec;
 pub contract ContractInstanceDeployer {
     use aztec::{
         macros::{events::event, functions::{private, public, view}, storage::storage},
-        prelude::{Map, SharedMutable},
         protocol_types::{
             address::{AztecAddress, PartialAddress},
             constants::{
@@ -15,8 +14,8 @@ pub contract ContractInstanceDeployer {
             contract_class_id::ContractClassId,
             public_keys::PublicKeys,
             traits::{Serialize, ToField},
-            utils::arrays::array_concat,
         },
+        state_vars::{Map, SharedMutable},
     };
     use contract_class_registerer::ContractClassRegisterer;
 
@@ -139,7 +138,7 @@ pub contract ContractInstanceDeployer {
         let payload = event.serialize_non_standard();
         aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
-        let padded_log = array_concat(payload, [0; 3]);
+        let padded_log = payload.concat([0; 3]);
         // Only the payload needs to be emitted. Since the siloed tag of this event log is publicly known, it's
         // acceptable to pad the log with 0s and reveal the actual payload length.
         let length = payload.len();

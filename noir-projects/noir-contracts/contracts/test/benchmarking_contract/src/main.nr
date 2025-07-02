@@ -7,7 +7,11 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Benchmarking {
-    use dep::aztec::prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable};
+    use dep::aztec::{
+        note::note_getter_options::NoteGetterOptions,
+        protocol_types::address::AztecAddress,
+        state_vars::{Map, PrivateSet, PublicMutable},
+    };
     use dep::value_note::{utils::increment, value_note::ValueNote};
 
     use dep::aztec::macros::{functions::{private, public}, storage::storage};

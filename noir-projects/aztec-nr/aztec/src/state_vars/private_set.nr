@@ -10,7 +10,7 @@ use crate::note::{
     utils::compute_note_hash_for_read_request,
 };
 use crate::note::retrieved_note::RetrievedNote;
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 use dep::protocol_types::{
     abis::read_request::ReadRequest, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::Packable,
@@ -28,7 +28,7 @@ pub struct PrivateSet<Note, Context> {
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateSet (and all other private state variables) needs just one
 // slot to be reserved, regardless of what it stores.
-impl<T, Context> Storage<1> for PrivateSet<T, Context> {
+impl<T, Context> HasStorageSlot<1> for PrivateSet<T, Context> {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }

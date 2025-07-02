@@ -117,3 +117,5 @@ export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
 export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';
 
 export const TOPIC_NAME = 'aztec.gossip.topic_name';
+
+export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';

@@ -1,8 +1,7 @@
 use crate::{Auth, test::utils};
 
 use aztec::{
-    prelude::AztecAddress,
-    protocol_types::traits::FromField,
+    protocol_types::{address::AztecAddress, traits::FromField},
     test::txe_constants::{AZTEC_SLOT_DURATION, GENESIS_TIMESTAMP},
 };
 

@@ -34,6 +34,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     ...secretValueConfigHelper<`0x${string}`[]>(val =>
       val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
+    fallback: ['VALIDATOR_PRIVATE_KEY'],
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',

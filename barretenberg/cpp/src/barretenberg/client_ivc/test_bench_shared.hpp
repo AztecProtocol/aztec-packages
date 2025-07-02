@@ -56,7 +56,7 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
     }
 }
 
-std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_verification_keys(const size_t num_circuits)
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(const size_t num_circuits)
 {
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;

@@ -88,13 +88,13 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
     quote {
         impl aztec::note::note_interface::NoteHash for $name {
             fn compute_note_hash(self, storage_slot: Field) -> Field {
-                let inputs = aztec::protocol_types::utils::arrays::array_concat(aztec::protocol_types::traits::Packable::pack(self), [storage_slot]);
+                let inputs = aztec::protocol_types::traits::Packable::pack(self).concat( [storage_slot]);
                 aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
             }
 
             fn compute_nullifier(
                 self,
-                context: &mut aztec::prelude::PrivateContext,
+                context: &mut aztec::context::PrivateContext,
                 note_hash_for_nullify: Field,
             ) -> Field {
                 let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;

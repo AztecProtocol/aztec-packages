@@ -407,9 +407,8 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
-      dateProvider: new TestDateProvider(),
-    });
+    const dateProvider = new TestDateProvider();
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
@@ -429,6 +428,7 @@ describe('e2e_synching', () => {
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
+        dateProvider,
       },
     );
 
@@ -554,7 +554,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
@@ -638,7 +638,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
@@ -698,7 +698,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           await rollup.write.prune();
 

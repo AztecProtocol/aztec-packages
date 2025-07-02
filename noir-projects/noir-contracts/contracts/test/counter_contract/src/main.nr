@@ -7,11 +7,12 @@ pub contract Counter {
     // docs:end:setup
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
-    use aztec::prelude::{AztecAddress, Map};
     use aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
+        address::AztecAddress,
         traits::{FromField, ToField},
     };
+    use aztec::state_vars::Map;
     use easy_private_state::EasyPrivateUint;
     use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports

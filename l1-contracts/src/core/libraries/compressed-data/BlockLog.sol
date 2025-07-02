@@ -2,6 +2,11 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {
+  CompressedFeeHeader,
+  FeeHeader,
+  FeeHeaderLib
+} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 
@@ -17,38 +22,52 @@ struct BlockLog {
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
   Slot slotNumber;
+  FeeHeader feeHeader;
 }
 
-struct CompressedBlockLog {
-  bytes32 archive;
+struct TempBlockLog {
+  bytes32 headerHash;
+  bytes32 blobCommitmentsHash;
+  Slot slotNumber;
+  FeeHeader feeHeader;
+}
+
+struct CompressedTempBlockLog {
   bytes32 headerHash;
   bytes32 blobCommitmentsHash;
   CompressedSlot slotNumber;
+  CompressedFeeHeader feeHeader;
 }
 
-library BlockLogLib {
+library CompressedTempBlockLogLib {
   using CompressedTimeMath for Slot;
   using CompressedTimeMath for CompressedSlot;
+  using FeeHeaderLib for FeeHeader;
+  using FeeHeaderLib for CompressedFeeHeader;
 
-  function compress(BlockLog memory _blockLog) internal pure returns (CompressedBlockLog memory) {
-    return CompressedBlockLog({
-      archive: _blockLog.archive,
+  function compress(TempBlockLog memory _blockLog)
+    internal
+    pure
+    returns (CompressedTempBlockLog memory)
+  {
+    return CompressedTempBlockLog({
       headerHash: _blockLog.headerHash,
       blobCommitmentsHash: _blockLog.blobCommitmentsHash,
-      slotNumber: _blockLog.slotNumber.compress()
+      slotNumber: _blockLog.slotNumber.compress(),
+      feeHeader: _blockLog.feeHeader.compress()
     });
   }
 
-  function decompress(CompressedBlockLog memory _compressedBlockLog)
+  function decompress(CompressedTempBlockLog memory _compressedBlockLog)
     internal
     pure
-    returns (BlockLog memory)
+    returns (TempBlockLog memory)
   {
-    return BlockLog({
-      archive: _compressedBlockLog.archive,
+    return TempBlockLog({
       headerHash: _compressedBlockLog.headerHash,
       blobCommitmentsHash: _compressedBlockLog.blobCommitmentsHash,
-      slotNumber: _compressedBlockLog.slotNumber.decompress()
+      slotNumber: _compressedBlockLog.slotNumber.decompress(),
+      feeHeader: _compressedBlockLog.feeHeader.decompress()
     });
   }
 }

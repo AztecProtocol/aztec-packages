@@ -9,8 +9,8 @@ contract OffchainEffect {
         messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
-        prelude::{AztecAddress, Map, PrivateSet},
-        protocol_types::traits::Serialize,
+        protocol_types::{address::AztecAddress, traits::Serialize},
+        state_vars::{Map, PrivateSet},
     };
     use uint_note::uint_note::UintNote;
 

@@ -16,8 +16,9 @@ pub contract SimulatedAccount {
             auth::IS_VALID_SELECTOR,
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
+        context::PrivateContext,
         macros::{functions::{private, view}, storage::storage},
-        prelude::{PrivateContext, PrivateImmutable},
+        state_vars::PrivateImmutable,
     };
 
     use crate::public_key_note::PublicKeyNote;

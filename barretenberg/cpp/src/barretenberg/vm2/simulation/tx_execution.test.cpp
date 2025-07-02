@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
 #include <gmock/gmock.h>
@@ -25,7 +26,9 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     NiceMock<MockExecution> execution;
     NiceMock<MockFieldGreaterThan> field_gt;
-    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
+    NiceMock<MockPoseidon2> poseidon2;
+    TxExecution tx_execution =
+        TxExecution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
 };
 
 TEST_F(TxExecutionTest, simulateTx)

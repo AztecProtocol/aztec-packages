@@ -36,7 +36,7 @@ using simulation::NoteHashTreeCheck;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
-using simulation::root_from_path;
+using simulation::unconstrained_root_from_path;
 
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::NoteHashTreeCheckTraceBuilder;
@@ -74,7 +74,7 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveRead)
     for (size_t i = 0; i < NOTE_HASH_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
-    FF root = root_from_path(note_hash, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(note_hash, leaf_index, sibling_path);
 
     note_hash_tree_check_simulator.assert_read(
         note_hash, leaf_index, sibling_path, AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 });
@@ -119,7 +119,8 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
         sibling_path.emplace_back(i);
     }
 
-    AppendOnlyTreeSnapshot prev_snapshot{ .root = root_from_path(0, 128, sibling_path), .nextAvailableLeafIndex = 128 };
+    AppendOnlyTreeSnapshot prev_snapshot{ .root = unconstrained_root_from_path(0, 128, sibling_path),
+                                          .nextAvailableLeafIndex = 128 };
 
     note_hash_tree_check_simulator.append_note_hash(raw_note_hash, AztecAddress(7), 10, sibling_path, prev_snapshot);
 

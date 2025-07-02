@@ -108,6 +108,7 @@
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
+    "@aztec/world-state": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",

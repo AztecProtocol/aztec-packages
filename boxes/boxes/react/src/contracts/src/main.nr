@@ -5,7 +5,8 @@ contract BoxReact {
     use dep::aztec::{
         messages::logs::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, utility}, storage::storage},
-        prelude::{AztecAddress, Map, PrivateMutable},
+        protocol_types::address::AztecAddress,
+        state_vars::{Map, PrivateMutable},
     };
     use dep::value_note::value_note::ValueNote;
 

@@ -1,3 +1,5 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import { strict as assert } from 'assert';
 
 import { TaggedMemory } from '../avm_memory_types.js';
@@ -124,12 +126,19 @@ const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNa
 
 function readBigInt254BE(this: Buffer, offset: number): bigint {
   const totalBytes = 32;
-  let ret: bigint = 0n;
+  let value: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {
-    ret <<= 8n;
-    ret |= BigInt(this.readUint8(i + offset));
+    value <<= 8n;
+    value |= BigInt(this.readUint8(i + offset));
   }
-  return ret;
+
+  // In circuit, we only support values up to Fr.MODULUS and any deserialized value
+  // would naturally undergo a modulus reduction.
+  if (value >= Fr.MODULUS) {
+    value = value % Fr.MODULUS;
+  }
+
+  return value;
 }
 
 function writeBigInt254BE(this: Buffer, value: bigint): void {

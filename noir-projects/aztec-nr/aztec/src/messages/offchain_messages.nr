@@ -3,7 +3,6 @@ use protocol_types::{
     address::AztecAddress,
     hash::poseidon2_hash_bytes,
     traits::{Serialize, ToField},
-    utils::arrays::array_concat,
 };
 
 // The following identifier was copied over to `yarn-project/stdlib/src/tx/offchain_effect.ts`. If you modify it don't
@@ -41,8 +40,6 @@ pub fn emit_offchain_message<T, let N: u32>(message: T, recipient: AztecAddress)
 where
     T: Serialize<N>,
 {
-    emit_offchain_effect(array_concat(
-        [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()],
-        message.serialize(),
-    ));
+    emit_offchain_effect([OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()].concat(message
+        .serialize()));
 }

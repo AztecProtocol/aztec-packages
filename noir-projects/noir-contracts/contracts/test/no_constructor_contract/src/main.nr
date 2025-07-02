@@ -7,7 +7,7 @@ pub contract NoConstructor {
     use aztec::{
         macros::{functions::{private, public, utility}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
-        prelude::PrivateMutable,
+        state_vars::PrivateMutable,
     };
 
     use value_note::value_note::ValueNote;

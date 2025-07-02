@@ -78,7 +78,7 @@ describe('e2e_gov_proposal', () => {
       const nextRoundBeginsAtSlot = (slot / roundDuration) * roundDuration + roundDuration;
       const nextRoundBeginsAtTimestamp = await rollup.getTimestampForSlot(nextRoundBeginsAtSlot);
       logger.info(`Warping to round ${round + 1n} at slot ${nextRoundBeginsAtSlot}`);
-      await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp));
+      await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp), { resetBlockInterval: true });
 
       // Now we submit a bunch of transactions to the PXE.
       // We know that this will last at least as long as the round duration,

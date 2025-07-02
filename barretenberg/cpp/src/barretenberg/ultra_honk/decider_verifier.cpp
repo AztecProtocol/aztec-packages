@@ -44,9 +44,9 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
+    VerifierCommitments commitments{ accumulator->vk, accumulator->witness_commitments };
 
-    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
+    const size_t log_circuit_size = static_cast<size_t>(accumulator->vk->log_circuit_size);
 
     std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
 

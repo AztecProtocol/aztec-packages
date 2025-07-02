@@ -18,13 +18,13 @@ struct lookup_bitwise_integral_tag_length_settings_ {
     static constexpr std::string_view RELATION_NAME = "bitwise";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::bitwise_start;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_integral_tag;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_tag_parameters;
     static constexpr Column COUNTS = Column::lookup_bitwise_integral_tag_length_counts;
     static constexpr Column INVERSES = Column::lookup_bitwise_integral_tag_length_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::bitwise_tag,
                                                                                     ColumnAndShifts::bitwise_ctr };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_integral_tag_length
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_byte_length
     };
 };
 

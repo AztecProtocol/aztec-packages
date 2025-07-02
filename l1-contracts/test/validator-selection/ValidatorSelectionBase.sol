@@ -24,7 +24,7 @@ import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";

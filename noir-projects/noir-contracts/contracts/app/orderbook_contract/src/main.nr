@@ -40,8 +40,8 @@ pub contract Orderbook {
             storage::storage,
         },
         oracle::notes::check_nullifier_exists,
-        prelude::{AztecAddress, Map, PublicImmutable},
-        protocol_types::traits::{FromField, ToField},
+        protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
+        state_vars::{Map, PublicImmutable},
     };
 
     use token::Token;
