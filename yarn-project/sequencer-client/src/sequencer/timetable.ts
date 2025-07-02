@@ -65,6 +65,19 @@ export class SequencerTimetable {
       );
     }
     this.initializeDeadline = initializeDeadline;
+    this.log.verbose(`Sequencer timetable initialized (${this.enforce ? 'enforced' : 'not enforced'})`, {
+      ethereumSlotDuration: this.ethereumSlotDuration,
+      aztecSlotDuration: this.aztecSlotDuration,
+      maxL1TxInclusionTimeIntoSlot: this.maxL1TxInclusionTimeIntoSlot,
+      l1PublishingTime: this.l1PublishingTime,
+      minExecutionTime: this.minExecutionTime,
+      blockPrepareTime: this.blockPrepareTime,
+      attestationPropagationTime: this.attestationPropagationTime,
+      blockValidationTime: this.blockValidationTime,
+      initializeDeadline: this.initializeDeadline,
+      enforce: this.enforce,
+      allWorkToDo,
+    });
   }
 
   private get afterBlockBuildingTimeNeededWithoutReexec() {

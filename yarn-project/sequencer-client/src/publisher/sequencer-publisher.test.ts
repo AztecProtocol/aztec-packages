@@ -17,6 +17,7 @@ import {
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
@@ -120,6 +121,7 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
+      dateProvider: new TestDateProvider(),
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;

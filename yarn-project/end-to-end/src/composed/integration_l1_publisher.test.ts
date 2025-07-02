@@ -193,9 +193,8 @@ describe('L1Publisher integration', () => {
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
-    const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, {
-      dateProvider: new TestDateProvider(),
-    });
+    const dateProvider = new TestDateProvider();
+    const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
@@ -214,6 +213,7 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
+        dateProvider,
       },
     );
 
