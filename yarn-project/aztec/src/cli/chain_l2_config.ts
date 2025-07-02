@@ -132,15 +132,17 @@ export async function getBootnodes(networkName: NetworkNames) {
   return json['bootnodes'];
 }
 
-export async function getL2ChainConfig(networkName: NetworkNames): Promise<L2ChainConfig | undefined> {
+export async function getL2ChainConfig(
+  networkName: NetworkNames,
+): Promise<{ config: L2ChainConfig; networkName: string } | undefined> {
   if (networkName === 'testnet-ignition') {
     const config = { ...testnetIgnitionL2ChainConfig };
     config.p2pBootstrapNodes = await getBootnodes(networkName);
-    return config;
-  } else if (networkName === 'alpha-testnet') {
+    return { config, networkName };
+  } else if (networkName === 'alpha-testnet' || networkName === 'testnet') {
     const config = { ...alphaTestnetL2ChainConfig };
-    config.p2pBootstrapNodes = await getBootnodes(networkName);
-    return config;
+    config.p2pBootstrapNodes = await getBootnodes('alpha-testnet');
+    return { config, networkName: 'alpha-testnet' };
   }
   return undefined;
 }
@@ -163,10 +165,11 @@ function enrichEthAddressVar(envVar: EnvVar, value: string) {
 }
 
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
-  const config = await getL2ChainConfig(networkName);
-  if (!config) {
+  const result = await getL2ChainConfig(networkName);
+  if (!result) {
     throw new Error(`Unknown network name: ${networkName}`);
   }
+  const { config, networkName: name } = result;
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
@@ -178,7 +181,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
-  enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
+  enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', name, 'data'));
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
