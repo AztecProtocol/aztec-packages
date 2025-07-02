@@ -54,21 +54,21 @@ PR_LIST=$(gh pr list --state open --base "$MT" \
 for PR_DATA in $PR_LIST; do
   PR_NUM="${PR_DATA%%:*}"
   BR="${PR_DATA#*:}"
-
+  
   echo "Processing PR #$PR_NUM (branch: $BR)"
-
+  
   # Skip if we can't fetch the branch
   if ! git fetch origin "$BR" 2>/dev/null; then
     echo "✗ Could not fetch branch $BR for PR #$PR_NUM, skipping"
     continue
   fi
-
+  
   # Try to checkout
   if ! git checkout "$BR" 2>/dev/null; then
     echo "✗ Could not checkout branch $BR for PR #$PR_NUM, skipping"
     continue
   fi
-
+  
   # Try to merge with the old SHA
   if git merge -q "$SHA" && git merge -q -X ours "origin/$BASE"; then
     if git push origin "$BR" 2>/dev/null; then
