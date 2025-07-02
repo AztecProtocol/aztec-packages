@@ -68,15 +68,15 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     std::vector<FF> vk_field_elements = vk.to_field_elements();
     StdlibTranscript transcript;
     for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_hash_buffer("vkey_element", field_element);
+        transcript.add_to_hash_buffer("vk_element", field_element);
     }
-    FF vkey_hash_1 = transcript.template get_challenge<FF>("vkey_hash");
+    FF vkey_hash_1 = transcript.template get_challenge<FF>("vk_hash");
     // Second method of hashing: using hash().
     FF vkey_hash_2 = vk.hash(outer_builder);
     EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());
     // Third method of hashing: using add_to_transcript.
     StdlibTranscript transcript_2;
     vk.add_to_transcript("", transcript_2);
-    FF vkey_hash_3 = transcript_2.template get_challenge<FF>("vkey_hash");
+    FF vkey_hash_3 = transcript_2.template get_challenge<FF>("vk_hash");
     EXPECT_EQ(vkey_hash_2.get_value(), vkey_hash_3.get_value());
 }

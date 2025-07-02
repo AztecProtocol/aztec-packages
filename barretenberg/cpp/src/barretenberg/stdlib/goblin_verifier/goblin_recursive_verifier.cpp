@@ -20,7 +20,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ builder, transcript };
-    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
+    stdlib::Proof<Builder> stdlib_merge_proof(*builder, proof.merge_proof);
     PairingPoints<Builder> merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof, t_commitments);
 
     // Run the ECCVM recursive verifier
