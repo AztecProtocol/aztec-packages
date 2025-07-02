@@ -41,6 +41,9 @@
     },
     {
       "path": "../archiver"
+    },
+    {
+      "path": "../world-state"
     }
   ],
   "include": ["src"]
