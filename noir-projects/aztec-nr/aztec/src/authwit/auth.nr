@@ -14,7 +14,6 @@ use dep::protocol_types::{
     },
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
-    utils::arrays::array_concat,
 };
 
 /**
@@ -230,16 +229,18 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
     // Safety: args are loaded to be emitted as unconstrained effects. The real verification will happen once
     // the authwit is validated (which uses the args_hash), so they can always be checked to be consistent
     let args: [Field; N] = unsafe { load(args_hash) };
-    emit_offchain_effect(array_concat(
-        [
-            authorization.get_authorization_selector().to_field(),
-            inner_hash,
-            authorization.msg_sender.to_field(),
-            authorization.selector.to_field(),
-            authorization.args_hash,
-        ],
-        args,
-    ));
+    emit_offchain_effect(
+        (
+            [
+                authorization.get_authorization_selector().to_field(),
+                inner_hash,
+                authorization.msg_sender.to_field(),
+                authorization.selector.to_field(),
+                authorization.args_hash,
+            ]
+                .concat(args)
+        ),
+    );
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit
