@@ -1,4 +1,4 @@
-name: Auto Merge to Train Branches
+name: Merge Train Auto-Pull
 
 on:
   push:
@@ -13,6 +13,8 @@ jobs:
       matrix:
         train-branch:
           - merge-train/barretenberg
+          - merge-train/spartan
+          - merge-train/avm
           - merge-train/docs
     steps:
       - name: Checkout

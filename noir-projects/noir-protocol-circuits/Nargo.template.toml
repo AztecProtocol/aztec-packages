@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/ts-types",
     "crates/types",
     "crates/blob",
     "crates/parity-base",

@@ -91,6 +91,7 @@ class Execution : public ExecutionInterface {
                  MemoryAddress rd_size_offset,
                  MemoryAddress rd_offset,
                  MemoryAddress dst_addr);
+    void rd_size(ContextInterface& context, MemoryAddress dst_addr);
     void internal_call(ContextInterface& context, uint32_t loc);
     void internal_return(ContextInterface& context);
 
@@ -98,6 +99,7 @@ class Execution : public ExecutionInterface {
     GasEvent finish_gas_tracker();
 
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
+    void success_copy(ContextInterface& context, MemoryAddress dst_addr);
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }

@@ -203,6 +203,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_revert;
     case ExecutionOpCode::SUCCESSCOPY:
         return C::execution_sel_success_copy;
+    case ExecutionOpCode::RETURNDATASIZE:
+        return C::execution_sel_returndata_size;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -347,8 +349,8 @@ void ExecutionTraceBuilder::process(
                       { C::execution_contract_address, ex_event.after_context_event.contract_addr },
                       { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
                       { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
-                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_size_addr },
-                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
+                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
                       { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
                       { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
                       { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
@@ -544,6 +546,12 @@ void ExecutionTraceBuilder::process(
                 // rop[1] is the envvar enum
                 TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
                 process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
+            } else if (exec_opcode == ExecutionOpCode::INTERNALRETURN) {
+                trace.set(C::execution_internal_call_return_id_inv,
+                          row,
+                          ex_event.before_context_event.internal_call_return_id != 0
+                              ? FF(ex_event.before_context_event.internal_call_return_id).invert()
+                              : 0);
             }
         }
 
@@ -699,10 +707,8 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               } });
 
     // Execution Trace opcodes - separating for clarity
-    try {
+    if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
         trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
-    } catch (const std::runtime_error&) {
-        // Execution opcode doesn't have a corresponding selector, do nothing
     }
 }
 
@@ -981,6 +987,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
                   { C::execution_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
                   { C::execution_value_from_pi,
                     envvar_spec.envvar_pi_lookup_col0 || envvar_spec.envvar_pi_lookup_col1 ? output.as_ff() : 0 },
+                  { C::execution_mem_tag_reg_0_, envvar_spec.out_tag },
               } });
 }
 

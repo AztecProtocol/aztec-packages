@@ -4,6 +4,7 @@
 #include <concepts>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -33,10 +34,14 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    MemoryValue c = alu.add(a, b);
-    memory.set(dst_addr, c);
-    set_output(opcode, c);
+    try {
+        MemoryValue c = alu.add(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluError& e) {
+        // TODO(MW): Possibly handle the error here.
+        throw e;
+    }
 }
 
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
@@ -68,20 +73,20 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
     case EnvironmentVariable::TIMESTAMP:
         result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
         break;
-    case EnvironmentVariable::FEEPERL2GAS:
+    case EnvironmentVariable::BASEFEEPERL2GAS:
         result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
         break;
-    case EnvironmentVariable::FEEPERDAGAS:
+    case EnvironmentVariable::BASEFEEPERDAGAS:
         result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
         break;
     case EnvironmentVariable::ISSTATICCALL:
-        result = TaggedValue::from<FF>(context.get_is_static() ? 1 : 0);
+        result = TaggedValue::from<uint1_t>(context.get_is_static() ? 1 : 0);
         break;
     case EnvironmentVariable::L2GASLEFT:
-        result = TaggedValue::from<FF>(context.gas_left().l2Gas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().l2Gas);
         break;
     case EnvironmentVariable::DAGASLEFT:
-        result = TaggedValue::from<FF>(context.gas_left().daGas);
+        result = TaggedValue::from<uint32_t>(context.gas_left().daGas);
         break;
     default:
         throw std::runtime_error("Invalid environment variable enum value");
@@ -192,6 +197,16 @@ void Execution::rd_copy(ContextInterface& context,
     }
 }
 
+void Execution::rd_size(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::RETURNDATASIZE;
+    auto& memory = context.get_memory();
+    // This is safe because the last_rd_size is tag checked on ret/revert to be U32
+    MemoryValue rd_size = MemoryValue::from<uint32_t>(context.get_last_rd_size());
+    memory.set(dst_addr, rd_size);
+    set_output(opcode, rd_size);
+}
+
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
     constexpr auto opcode = ExecutionOpCode::RETURN;
@@ -255,8 +270,8 @@ void Execution::internal_return(ContextInterface& context)
         auto next_pc = internal_call_stack_manager.pop();
         context.set_next_pc(next_pc);
     } catch (const std::exception& e) {
-        // Re-throw - this needs error handling.
-        throw e;
+        // Re-throw - so execution can handle it.
+        throw std::runtime_error("Internal return failed: " + std::string(e.what()));
     }
 }
 
@@ -268,6 +283,17 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
         // TODO: Possibly handle the error here.
         throw e;
     }
+}
+
+void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SUCCESSCOPY;
+
+    auto& memory = context.get_memory();
+    MemoryValue success = MemoryValue::from<uint1_t>(context.get_last_success());
+
+    memory.set(dst_addr, success);
+    set_output(opcode, success);
 }
 
 // This context interface is a top-level enqueued one.
@@ -467,6 +493,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::KECCAKF1600:
         call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SUCCESSCOPY:
+        call_with_operands(&Execution::success_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::RETURNDATASIZE:
+        call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.
