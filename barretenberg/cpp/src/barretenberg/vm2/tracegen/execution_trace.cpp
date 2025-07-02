@@ -712,34 +712,21 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
 {
-    // Base gas.
-    bool oog_base = gas_event.oog_base_l2 || gas_event.oog_base_da;
     trace.set(row,
               { {
+                  { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
+                  { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
+                  // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
-                  { C::execution_out_of_gas_base_l2, gas_event.oog_base_l2 ? 1 : 0 },
-                  { C::execution_out_of_gas_base_da, gas_event.oog_base_da ? 1 : 0 },
                   { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
                   { C::execution_limit_used_da_cmp_diff, gas_event.limit_used_da_comparison_witness },
                   { C::execution_constant_64, 64 },
-                  { C::execution_out_of_gas_base, oog_base ? 1 : 0 },
+                  // Dynamic gas.
+                  { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
+                  { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
 
-    // Dynamic gas.
-    bool oog_dynamic = gas_event.oog_dynamic_l2 || gas_event.oog_dynamic_da;
-    if (!oog_base) {
-        trace.set(row,
-                  { {
-                      { C::execution_should_run_dyn_gas_check, 1 },
-                      { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
-                      { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
-                      { C::execution_out_of_gas_dynamic_l2, gas_event.oog_dynamic_l2 ? 1 : 0 },
-                      { C::execution_out_of_gas_dynamic_da, gas_event.oog_dynamic_da ? 1 : 0 },
-                      { C::execution_out_of_gas_dynamic, oog_dynamic ? 1 : 0 },
-                  } });
-    }
-
-    bool oog = oog_base || oog_dynamic;
+    bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(C::execution_sel_out_of_gas, row, oog ? 1 : 0);
 }
 

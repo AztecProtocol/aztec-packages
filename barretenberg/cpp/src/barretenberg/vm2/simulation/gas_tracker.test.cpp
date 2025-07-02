@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 
 using ::testing::Return;
 
@@ -54,10 +55,8 @@ TEST_F(GasTrackerTest, BaseGasConsumption)
                   .dynamic_gas_factor = Gas{ 0, 0 },
                   .limit_used_l2_comparison_witness = 1000 - l2_gas_used,
                   .limit_used_da_comparison_witness = 500,
-                  .oog_base_l2 = false,
-                  .oog_base_da = false,
-                  .oog_dynamic_l2 = false,
-                  .oog_dynamic_da = false,
+                  .oog_l2 = false,
+                  .oog_da = false,
               }));
 }
 
@@ -85,10 +84,8 @@ TEST_F(GasTrackerTest, AddressingGasConsumption)
                   .dynamic_gas_factor = Gas{ 0, 0 },
                   .limit_used_l2_comparison_witness = 1000 - l2_gas_used,
                   .limit_used_da_comparison_witness = 500,
-                  .oog_base_l2 = false,
-                  .oog_base_da = false,
-                  .oog_dynamic_l2 = false,
-                  .oog_dynamic_da = false,
+                  .oog_l2 = false,
+                  .oog_da = false,
               }));
 }
 
@@ -106,7 +103,7 @@ TEST_F(GasTrackerTest, OutOfGasBase)
     EXPECT_CALL(range_check, assert_range((999 + opcode_l2_gas) - 1000 - 1, 64));
     EXPECT_CALL(range_check, assert_range(500 - 450, 64));
 
-    EXPECT_THROW(tracker.consume_gas(), OutOfGasException);
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(), "(base)");
 
     EXPECT_EQ(gas_event,
               (GasEvent{
@@ -114,10 +111,8 @@ TEST_F(GasTrackerTest, OutOfGasBase)
                   .dynamic_gas_factor = Gas{ 0, 0 },
                   .limit_used_l2_comparison_witness = (999 + opcode_l2_gas) - 1000 - 1,
                   .limit_used_da_comparison_witness = 500 - 450,
-                  .oog_base_l2 = true,
-                  .oog_base_da = false,
-                  .oog_dynamic_l2 = false,
-                  .oog_dynamic_da = false,
+                  .oog_l2 = true,
+                  .oog_da = false,
               }));
 }
 
@@ -143,10 +138,8 @@ TEST_F(GasTrackerTest, DynamicGasConsumption)
                   .dynamic_gas_factor = Gas{ 10, 0 },
                   .limit_used_l2_comparison_witness = 1000 - (l2_base_gas + l2_dyn_computation),
                   .limit_used_da_comparison_witness = 500,
-                  .oog_base_l2 = false,
-                  .oog_base_da = false,
-                  .oog_dynamic_l2 = false,
-                  .oog_dynamic_da = false,
+                  .oog_l2 = false,
+                  .oog_da = false,
               }));
 }
 
@@ -158,7 +151,7 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
     uint32_t l2_gas_limit = 1000;
     uint32_t l2_gas_used_start = l2_gas_limit - AVM_CALLDATACOPY_BASE_L2_GAS - 50;
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ l2_gas_used_start, 0 }));
-    EXPECT_CALL(context, get_gas_limit);
+    EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ l2_gas_limit, 500 }));
 
     uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
     uint32_t l2_dyn_computation = AVM_CALLDATACOPY_DYN_L2_GAS * 100;
@@ -167,7 +160,7 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
     EXPECT_CALL(range_check, assert_range(500, 64));
 
     // This should throw because total gas exceeds limit.
-    EXPECT_THROW(tracker.consume_gas(Gas{ 100, 0 }), OutOfGasException);
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ 100, 0 }), "(dynamic)");
 
     EXPECT_EQ(gas_event,
               (GasEvent{
@@ -176,58 +169,112 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhase)
                   .limit_used_l2_comparison_witness =
                       (l2_base_gas + l2_dyn_computation + l2_gas_used_start) - l2_gas_limit - 1,
                   .limit_used_da_comparison_witness = 500,
-                  .oog_base_l2 = false,
-                  .oog_base_da = false,
-                  .oog_dynamic_l2 = true,
-                  .oog_dynamic_da = false,
+                  .oog_l2 = true,
+                  .oog_da = false,
               }));
 }
 
 TEST_F(GasTrackerTest, OutOfGasBothPhases)
 {
+    // The objective of this test is to check that the event is properly formed for the case
+    // where we would run out of gas due to base gas, but we would also run out of gas due to
+    // dynamic gas, independently, if we carried on.
     instruction.opcode = WireOpCode::CALLDATACOPY;
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, range_check);
 
-    // TODO(fcarreiro): I want to check that the event is ok even if we stop at base.
-    assert(false);
+    uint32_t l2_gas_limit = 1000;
+    uint32_t l2_gas_used_start = l2_gas_limit - 1; // will be surpased by base gas.
+    EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ l2_gas_used_start, 0 }));
+    EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ l2_gas_limit, 500 }));
+
+    uint32_t l2_base_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint32_t l2_dyn_computation = AVM_CALLDATACOPY_DYN_L2_GAS * 100;
+    EXPECT_CALL(range_check,
+                assert_range((l2_base_gas + l2_dyn_computation + l2_gas_used_start) - l2_gas_limit - 1, 64));
+    EXPECT_CALL(range_check, assert_range(500, 64));
+
+    // This should throw because total gas exceeds limit.
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ 100, 0 }), "(base)");
+
+    EXPECT_EQ(gas_event,
+              (GasEvent{
+                  .addressing_gas = 0,
+                  .dynamic_gas_factor = Gas{ 100, 0 },
+                  .limit_used_l2_comparison_witness =
+                      (l2_base_gas + l2_dyn_computation + l2_gas_used_start) - l2_gas_limit - 1,
+                  .limit_used_da_comparison_witness = 500,
+                  .oog_l2 = true,
+                  .oog_da = false,
+              }));
 }
 
 TEST_F(GasTrackerTest, OutOfGasBasePhaseWithOverflow)
 {
-    instruction.opcode = WireOpCode::CALLDATACOPY;
+    instruction.opcode = WireOpCode::SET_8;
 
-    uint32_t uint32_max = std::numeric_limits<uint32_t>::max();
-    uint32_t gas_limit = uint32_max;
-    uint32_t prev_gas_used = uint32_max;
+    constexpr uint32_t uint32_max = std::numeric_limits<uint32_t>::max();
+    constexpr uint32_t gas_limit = uint32_max;
+    constexpr uint32_t prev_gas_used = uint32_max;
 
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, range_check);
 
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ prev_gas_used, 0 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ gas_limit, gas_limit }));
 
-    EXPECT_THROW(tracker.consume_gas(), OutOfGasException);
+    uint32_t l2_opcode_gas = AVM_SET_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    EXPECT_CALL(range_check, assert_range(prev_gas_used + l2_opcode_gas - gas_limit - 1, 64)); // L2 OOG.
+    EXPECT_CALL(range_check, assert_range(gas_limit, 64));                                     // DA not OOG.
+
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(), "(base)");
+
+    EXPECT_EQ(gas_event,
+              (GasEvent{
+                  .addressing_gas = 0,
+                  .dynamic_gas_factor = Gas{ 0, 0 },
+                  .limit_used_l2_comparison_witness = prev_gas_used + l2_opcode_gas - gas_limit - 1,
+                  .limit_used_da_comparison_witness = gas_limit,
+                  .oog_l2 = true,
+                  .oog_da = false,
+              }));
 }
 
 TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
 {
     instruction.opcode = WireOpCode::CALLDATACOPY;
 
-    uint32_t uint32_max = std::numeric_limits<uint32_t>::max();
+    constexpr uint32_t uint32_max = std::numeric_limits<uint32_t>::max();
     uint32_t gas_limit = uint32_max;
-    uint32_t prev_gas_used = uint32_max - AVM_CALLDATACOPY_BASE_L2_GAS - compute_addressing_gas(instruction.indirect);
+    uint32_t prev_gas_used = uint32_max - AVM_CALLDATACOPY_BASE_L2_GAS - /*some buffer*/ 50;
     uint32_t gas_factor = uint32_max;
 
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, range_check);
 
     EXPECT_CALL(context, get_gas_used).WillOnce(Return(Gas{ prev_gas_used, 0 }));
     EXPECT_CALL(context, get_gas_limit).WillOnce(Return(Gas{ gas_limit, gas_limit }));
-    EXPECT_CALL(context, set_gas_used);
 
-    EXPECT_THROW(tracker.consume_gas(Gas{ gas_factor, 0 }), OutOfGasException);
+    uint32_t l2_base_opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect);
+    uint64_t l2_dyn_computation = static_cast<uint64_t>(AVM_CALLDATACOPY_DYN_L2_GAS) * gas_factor;
+    EXPECT_CALL(range_check,
+                assert_range(prev_gas_used + l2_base_opcode_gas + l2_dyn_computation - gas_limit - 1, 64)); // L2 OOG.
+    EXPECT_CALL(range_check, assert_range(gas_limit, 64)); // DA not OOG.
+
+    EXPECT_THROW_WITH_MESSAGE(tracker.consume_gas(Gas{ gas_factor, 0 }), "(dynamic)");
+
+    EXPECT_EQ(
+        gas_event,
+        (GasEvent{
+            .addressing_gas = 0,
+            .dynamic_gas_factor = Gas{ gas_factor, 0 },
+            .limit_used_l2_comparison_witness = prev_gas_used + l2_base_opcode_gas + l2_dyn_computation - gas_limit - 1,
+            .limit_used_da_comparison_witness = gas_limit,
+            .oog_l2 = true,
+            .oog_da = false,
+        }));
 }
 
 TEST_F(GasTrackerTest, GasLimitForCall)
 {
+    instruction.opcode = WireOpCode::CALL;
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, range_check);
     Gas gas_left = Gas{ 500, 200 };
     Gas allocated_gas = Gas{ 100, 150 };
@@ -241,6 +288,7 @@ TEST_F(GasTrackerTest, GasLimitForCall)
 
 TEST_F(GasTrackerTest, GasLimitForCallClamping)
 {
+    instruction.opcode = WireOpCode::CALL;
     GasTracker tracker(gas_event, instruction, instruction_info_db, context, range_check);
     Gas gas_left = Gas{ 500, 200 };
     Gas allocated_gas = Gas{ 1000, 100 };

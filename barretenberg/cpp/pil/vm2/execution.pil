@@ -406,9 +406,5 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 
 // sel_error is 1 iff any kind of error happens at the execution level.
 pol commit sel_error;
-sel_error * (1 - sel_error) = 0;
-
-// TODO: complete.
-// This implies mutual exclusivity of the failure selectors.
-// sel_error = sel_gas_failure + sel_instruction_fetching_failure;
-
+// Observe that the errors are mutually exclusive.
+sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;

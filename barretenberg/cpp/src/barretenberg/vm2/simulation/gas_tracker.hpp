@@ -25,13 +25,11 @@ class GasTracker final : public GasTrackerInterface {
                const InstructionInfoDBInterface& instruction_info_db,
                ContextInterface& context,
                RangeCheckInterface& range_check);
-    ~GasTracker() override;
 
     void consume_gas(const Gas& dynamic_gas_factor = { 0, 0 }) override;
     Gas compute_gas_limit_for_call(const Gas& allocated_gas) override;
 
   private:
-    bool consumed = false;
     ContextInterface& context;
     const ExecInstructionSpec& spec;
     RangeCheckInterface& range_check;
