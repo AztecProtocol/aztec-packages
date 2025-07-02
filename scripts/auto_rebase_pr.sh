@@ -7,84 +7,88 @@ PR_HEAD_REF=$2
 PR_BASE_REF=$3
 PR_HEAD_SHA=$4
 
-# Setup
-BASE_REF="origin/$PR_BASE_REF"
-git fetch origin "$PR_BASE_REF" "$PR_HEAD_REF"
+# Simple rebase script - just rebase non-merge commits
+echo "[AUTO-REBASE] Starting rebase of $PR_HEAD_REF onto $PR_BASE_REF"
 
-echo "[AUTO-REBASE] Starting rebase of $PR_HEAD_REF onto $BASE_REF"
-echo "[AUTO-REBASE] PR #$PR_NUMBER: $PR_HEAD_REF -> $PR_BASE_REF"
+# Fetch latest
+git fetch origin "$PR_BASE_REF" "$PR_HEAD_REF"
 
 # Checkout PR branch
 git checkout "$PR_HEAD_REF"
 
-# Save backup for recovery
+# Save backup
 BACKUP_BRANCH="backup-$PR_HEAD_REF-$(date +%s)"
 git branch "$BACKUP_BRANCH"
 
-# Try standard rebase
-if git rebase "$BASE_REF" 2>&1 | tee /tmp/rebase.log | grep -q "Successfully rebased"; then
-    echo "[AUTO-REBASE] Clean rebase succeeded!"
+# Enable rerere for conflict memory
+git config rerere.enabled true
+
+# Try simple rebase first
+if git rebase "origin/$PR_BASE_REF"; then
+    echo "[AUTO-REBASE] Success!"
 else
-    echo "[AUTO-REBASE] Rebase has conflicts, attempting automatic resolution..."
+    echo "[AUTO-REBASE] Conflicts detected, attempting auto-resolution..."
     
-    # Resolution loop
-    MAX_ITERATIONS=50
-    ITERATION=0
-    
-    while [ $ITERATION -lt $MAX_ITERATIONS ]; do
-        ITERATION=$((ITERATION + 1))
-        
-        # Check if still rebasing
-        if ! git status --porcelain | grep -q "^UU\|^AA\|^DD"; then
-            if git rebase --continue 2>/dev/null; then
-                echo "[AUTO-REBASE] Rebase step completed"
-            elif git diff --staged --quiet; then
-                echo "[AUTO-REBASE] Skipping empty commit"
-                git rebase --skip
-            else
-                break
-            fi
-        else
-            # Resolve conflicts
-            # Strategy: Accept upstream (base) changes for cleaner history
-            git status --porcelain | grep "^UU\|^AA\|^DD" | awk '{print $2}' | while read -r file; do
-                echo "[AUTO-REBASE] Resolving conflict in $file"
-                if [ -f "$file" ]; then
-                    # For existing files, take base version
-                    git checkout --theirs "$file" && git add "$file"
-                else
-                    # For deleted files, accept deletion
-                    git rm "$file" 2>/dev/null || git add "$file"
-                fi
-            done
-        fi
-        
-        # Check if rebase is complete
+    # Simple conflict resolution loop
+    while true; do
+        # Check if still in rebase
         if ! git status | grep -q "rebase in progress"; then
-            echo "[AUTO-REBASE] Rebase completed successfully!"
             break
         fi
+        
+        # Get conflicted files
+        CONFLICTS=$(git diff --name-only --diff-filter=U)
+        
+        if [ -z "$CONFLICTS" ]; then
+            # No conflicts, continue
+            git rebase --continue || break
+        else
+            # Try to auto-resolve each conflict
+            for file in $CONFLICTS; do
+                echo "[AUTO-REBASE] Resolving $file..."
+                
+                # Simple strategy: if file deleted upstream, accept deletion
+                if ! git ls-tree "origin/$PR_BASE_REF":"$file" >/dev/null 2>&1; then
+                    git rm "$file" 2>/dev/null || true
+                # Otherwise try three-way merge
+                elif [ -f "$file" ] && git merge-file "$file" \
+                    <(git show :1:"$file" 2>/dev/null || echo "") \
+                    <(git show :3:"$file" 2>/dev/null || echo "") \
+                    2>/dev/null; then
+                    git add "$file"
+                # If that fails, take ours (PR version) to preserve intent
+                else
+                    git checkout --ours "$file" 2>/dev/null || true
+                    git add "$file"
+                fi
+            done
+            
+            # Try to continue
+            if ! git rebase --continue 2>/dev/null; then
+                # Might be empty commit, skip it
+                if git diff --staged --quiet; then
+                    git rebase --skip
+                else
+                    echo "[AUTO-REBASE] Failed to continue after resolution"
+                    git rebase --abort
+                    git reset --hard "$BACKUP_BRANCH"
+                    git branch -D "$BACKUP_BRANCH"
+                    exit 1
+                fi
+            fi
+        fi
     done
-    
-    if [ $ITERATION -eq $MAX_ITERATIONS ]; then
-        echo "[AUTO-REBASE] ERROR: Maximum iterations reached, aborting rebase"
-        git rebase --abort
-        git checkout "$PR_HEAD_REF"
-        git reset --hard "$BACKUP_BRANCH"
-        git branch -D "$BACKUP_BRANCH"
-        exit 1
-    fi
 fi
 
-# Cleanup backup branch
+# Cleanup backup
 git branch -D "$BACKUP_BRANCH"
 
-# Log the result
-echo "[AUTO-REBASE] Rebase complete. New commits:"
-git log --oneline "$BASE_REF".."$PR_HEAD_REF"
+# Push if in CI
+if [ -n "$GH_TOKEN" ] || [ -n "$GITHUB_TOKEN" ]; then
+    git push origin "$PR_HEAD_REF" --force-with-lease
+else
+    echo "[AUTO-REBASE] Would push to origin/$PR_HEAD_REF"
+    git log --oneline "origin/$PR_BASE_REF".."$PR_HEAD_REF"
+fi
 
-# Push the rebased branch
-echo "[AUTO-REBASE] Pushing rebased branch..."
-git push origin "$PR_HEAD_REF" --force-with-lease
-
-echo "[AUTO-REBASE] Success! Branch $PR_HEAD_REF has been rebased onto $PR_BASE_REF"
+echo "[AUTO-REBASE] Complete!"
