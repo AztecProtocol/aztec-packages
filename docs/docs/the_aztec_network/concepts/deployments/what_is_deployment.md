@@ -104,7 +104,7 @@ contract Registry is IRegistry, Ownable {
 }
 ```
 
-## Reward Distribution Contract
+## RewardDistributor Contract
 
 This contract distributes ERC20 rewards only to the instance the Registry contract says is canonical. This is separated from the Registry and the Issuer so that the distribution logic can be changed without replacing the Registry.
 
@@ -151,7 +151,7 @@ The Aztec Governance will choose how often to call `mint()` on the Issuer smart 
 
 Both `RATE` and `BLOCK_REWARD` will be set upon deployment of the Aztec Rollup by the Aztec Governance. Both values are immutable and cannot be changed without re-deploying a new smart contract and a successful vote by Aztec Governance to switch to the new smart contracts.
 
-## Proposals contract
+## GovernanceProposer Contract
 
 This is the only smart contract that is able to submit proposals to the Governance contract.
 
