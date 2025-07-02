@@ -468,7 +468,6 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
-        bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
 
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
@@ -482,7 +481,8 @@ void ExecutionTraceBuilder::process(
         bool sel_enter_call = (is_call || is_static_call) && !is_err;
         bool sel_exit_call = is_return || is_revert || is_err;
 
-        bool should_execute_opcode = should_process_gas && !oog;
+        bool should_execute_opcode = should_check_gas && !oog;
+        bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             trace.set(row,
                       { {

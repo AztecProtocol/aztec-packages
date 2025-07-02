@@ -39,9 +39,26 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
+// TODO(fcarreiro): This is a hack to get the gas tracker for testing.
+class TestingExecution : public Execution {
+  public:
+    using Execution::Execution;
+
+    void set_gas_tracker(GasTrackerInterface& gas_tracker) { this->testing_gas_tracker = &gas_tracker; }
+
+    GasTrackerInterface& get_gas_tracker() override { return *testing_gas_tracker; }
+
+  private:
+    GasTrackerInterface* testing_gas_tracker;
+};
+
 class ExecutionSimulationTest : public ::testing::Test {
   protected:
-    ExecutionSimulationTest() { ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory)); }
+    ExecutionSimulationTest()
+    {
+        ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory));
+        execution.set_gas_tracker(gas_tracker);
+    }
 
     StrictMock<MockAlu> alu;
     StrictMock<MockMemory> memory;
@@ -55,15 +72,16 @@ class ExecutionSimulationTest : public ::testing::Test {
     InstructionInfoDB instruction_info_db; // Using the real thing.
     StrictMock<MockContextProvider> context_provider;
     StrictMock<MockExecutionIdManager> execution_id_manager;
-    Execution execution = Execution(alu,
-                                    data_copy,
-                                    execution_components,
-                                    context_provider,
-                                    instruction_info_db,
-                                    execution_id_manager,
-                                    execution_event_emitter,
-                                    context_stack_event_emitter,
-                                    keccakf1600);
+    StrictMock<MockGasTracker> gas_tracker;
+    TestingExecution execution = TestingExecution(alu,
+                                                  data_copy,
+                                                  execution_components,
+                                                  context_provider,
+                                                  instruction_info_db,
+                                                  execution_id_manager,
+                                                  execution_event_emitter,
+                                                  context_stack_event_emitter,
+                                                  keccakf1600);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -75,6 +93,8 @@ TEST_F(ExecutionSimulationTest, Add)
     EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, add(a, b)).WillOnce(Return(MemoryValue::from<uint32_t>(9)));
     EXPECT_CALL(memory, set(6, MemoryValue::from<uint32_t>(9)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
     execution.add(context, 4, 5, 6);
 }
 
@@ -88,10 +108,8 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
     MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
 
-    auto gas_tracker = std::make_unique<StrictMock<MockGasTracker>>();
-    EXPECT_CALL(*gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
-
-    EXPECT_CALL(execution_components, make_gas_tracker).WillOnce(Return(std::move(gas_tracker)));
+    EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
@@ -122,7 +140,7 @@ TEST_F(ExecutionSimulationTest, Call)
                    /*l2_gas_offset=*/1,
                    /*da_gas_offset=*/2,
                    /*addr=*/3,
-                   /*cd_size=*/4,
+                   /*cd_size_offset=*/4,
                    /*cd_offset=*/5);
 }
 
@@ -142,6 +160,7 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     EXPECT_CALL(internal_call_stack_manager, push(return_pc));
     // Set next pc to the parameter pc_loc
     EXPECT_CALL(context, set_next_pc(pc_loc));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.internal_call(context, pc_loc);
 
@@ -152,6 +171,7 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     EXPECT_CALL(internal_call_stack_manager, pop()).WillOnce(Return(return_pc));
     // Set the next pc to the return pc
     EXPECT_CALL(context, set_next_pc(return_pc));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.internal_return(context);
 }
@@ -162,6 +182,8 @@ TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(addr));
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(addr)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
     execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ADDRESS));
 }
 
@@ -172,6 +194,8 @@ TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
     EXPECT_CALL(context, get_globals).WillOnce(ReturnRef(globals));
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
     execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::CHAINID));
 }
 
@@ -180,12 +204,16 @@ TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(memory, set(1, MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
     execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
 }
 
 TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
 {
     EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
     EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
 }
 
@@ -195,6 +223,8 @@ TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
 TEST_F(ExecutionSimulationTest, Jump)
 {
     EXPECT_CALL(context, set_next_pc(120));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
     execution.jump(context, 120);
 }
 
@@ -203,6 +233,7 @@ TEST_F(ExecutionSimulationTest, SuccessCopyTrue)
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_last_success).WillOnce(Return(true));
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(1)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.success_copy(context, 10);
 }
@@ -212,6 +243,7 @@ TEST_F(ExecutionSimulationTest, SuccessCopyFalse)
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_last_success).WillOnce(Return(false));
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint1_t>(0)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.success_copy(context, 10);
 }
@@ -221,6 +253,7 @@ TEST_F(ExecutionSimulationTest, RdSize)
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_last_rd_size).WillOnce(Return(42));
     EXPECT_CALL(memory, set(10, MemoryValue::from<uint32_t>(42)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.rd_size(context, /*dst_addr=*/10);
 }

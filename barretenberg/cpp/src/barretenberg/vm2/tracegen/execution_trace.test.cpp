@@ -787,10 +787,10 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
                            .operand<uint8_t>(45) // Dst Offset
                            .build();
     // clang-format off
-    ExecutionEvent ex_event = { 
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
-        .addressing_event = { 
+        .addressing_event = {
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
         },
@@ -821,10 +821,10 @@ TEST(ExecutionTraceGenTest, RdSize)
                            .operand<uint16_t>(1234) // Dst Offset
                            .build();
     // clang-format off
-    ExecutionEvent ex_event = { 
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .output = { TaggedValue::from_tag(ValueTag::U32, 100) }, // RdSize output
-        .addressing_event = { 
+        .addressing_event = {
             .instruction = instr,
             .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
         },

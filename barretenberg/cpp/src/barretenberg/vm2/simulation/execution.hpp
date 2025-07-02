@@ -97,6 +97,10 @@ class Execution : public ExecutionInterface {
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
     void success_copy(ContextInterface& context, MemoryAddress dst_addr);
 
+  protected:
+    // Only here for testing. TODO(fcarreiro): try to improve.
+    virtual GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
+
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
     ExecutionResult get_execution_result() const { return exec_result; }
