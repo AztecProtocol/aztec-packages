@@ -69,8 +69,7 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_sha256_round_constants(trace));
             AVM_TRACK_TIME("tracegen/precomputed/keccak_round_constants",
                            precomputed_builder.process_keccak_round_constants(trace));
-            AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
-                           precomputed_builder.process_integral_tag_length(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/tag_parameters", precomputed_builder.process_tag_parameters(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
                            precomputed_builder.process_wire_instruction_spec(trace));
             AVM_TRACK_TIME("tracegen/precomputed/exec_instruction_spec",
@@ -380,6 +379,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
     {
         auto jobs_interactions = concatenate_jobs(TxTraceBuilder::interactions.get_all_jobs(),
                                                   ExecutionTraceBuilder::interactions.get_all_jobs(),
+                                                  AluTraceBuilder::interactions.get_all_jobs(),
                                                   Poseidon2TraceBuilder::interactions.get_all_jobs(),
                                                   RangeCheckTraceBuilder::interactions.get_all_jobs(),
                                                   BitwiseTraceBuilder::interactions.get_all_jobs(),

@@ -11,14 +11,20 @@ namespace bb::avm2::tracegen {
 
 const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Map each ExecutionOpcode to a SubtraceInfo
-    { ExecutionOpCode::ADD, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 0 } },
-    { ExecutionOpCode::SUB, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 1 } },
-    { ExecutionOpCode::MUL, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 2 } },
-    { ExecutionOpCode::DIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 3 } },
-    { ExecutionOpCode::FDIV, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 4 } },
-    { ExecutionOpCode::EQ, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 5 } },
-    { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 6 } },
-    { ExecutionOpCode::LTE, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = 7 } },
+    { ExecutionOpCode::ADD,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD } },
+    { ExecutionOpCode::SUB,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_SUB } },
+    { ExecutionOpCode::MUL,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_MUL } },
+    { ExecutionOpCode::DIV,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_DIV } },
+    { ExecutionOpCode::FDIV,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_FDIV } },
+    { ExecutionOpCode::EQ, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_EQ } },
+    { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT } },
+    { ExecutionOpCode::LTE,
+      { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LTE } },
     // Bitwise
     { ExecutionOpCode::AND, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 0 } },
     { ExecutionOpCode::OR, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 1 } },
@@ -57,6 +63,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_REVERT } },
     { ExecutionOpCode::SUCCESSCOPY,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SUCCESSCOPY } },
+    { ExecutionOpCode::RETURNDATASIZE,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_RETURNDATASIZE } },
     // KeccakF1600
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
 };

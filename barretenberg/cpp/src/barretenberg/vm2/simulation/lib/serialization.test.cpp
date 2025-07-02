@@ -87,6 +87,29 @@ TEST(SerializationTest, SetFFRoundTrip)
     EXPECT_EQ(instr, decoded);
 }
 
+// Testing serialization with ff variant which is larger than the modulus.
+// Round trip would not work as multiple equivalent values over 256 bits map
+// to the same FF value.
+TEST(SerializationTest, DeserializeLargeFF)
+{
+    const uint256_t value_256 = FF::modulus + 145;
+
+    // We first serialize a "dummy" instruction and then substitute the immediate value encoded as the last 32 bytes.
+    const Instruction instr = { .opcode = WireOpCode::SET_FF,
+                                .indirect = 0,
+                                .operands = { Operand::from<uint16_t>(1002),
+                                              Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::U8)),
+                                              Operand::from<FF>(FF::modulus - 1) } };
+    auto serialized_instruction = instr.serialize();
+
+    const auto buf = to_buffer(value_256);
+    serialized_instruction.insert(serialized_instruction.end() - 32, buf.begin(), buf.end());
+
+    const auto decoded = deserialize_instruction(serialized_instruction, 0);
+    ASSERT_EQ(3, decoded.operands.size());
+    EXPECT_EQ(decoded.operands[2].as<FF>(), 145);
+}
+
 // Testing deserialization pc out of range error
 TEST(SerializationTest, PCOutOfRange)
 {
