@@ -60,11 +60,34 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
 };
 
 /**
- * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
+ *
+ * @tparam Flavor
+ * @param proof Native proof
+ * @param evaluation_input_x Translation polynomial evaluation challenge
+ * @param batching_challenge_v Challenge for batching translation polynomial evaluations
+ * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
  */
 template <typename Flavor>
 TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof, evaluation_input_x, batching_challenge_v);
+}
+
+/**
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
+ *
+ * @tparam Flavor
+ * @param proof Stdlib proof
+ * @param evaluation_input_x Translation polynomial evaluation challenge
+ * @param batching_challenge_v Challenge for batching translation polynomial evaluations
+ * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
+ */
+template <typename Flavor>
+TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
     using PCS = typename Flavor::PCS;
@@ -76,8 +99,7 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
-    StdlibProof stdlib_proof(*builder, proof);
-    transcript->load_proof(stdlib_proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
