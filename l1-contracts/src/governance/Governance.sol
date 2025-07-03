@@ -6,7 +6,6 @@ import {
   IGovernance,
   Proposal,
   ProposalState,
-  ProposeConfiguration,
   Configuration,
   Ballot,
   Withdrawal
@@ -72,23 +71,16 @@ contract Governance is IGovernance {
     _;
   }
 
-  constructor(IERC20 _asset, address _governanceProposer, address _depositor) {
+  constructor(
+    IERC20 _asset,
+    address _governanceProposer,
+    address _depositor,
+    Configuration memory _configuration
+  ) {
     ASSET = _asset;
     governanceProposer = _governanceProposer;
 
-    configuration = Configuration({
-      proposeConfig: ProposeConfiguration({
-        lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
-        lockAmount: 1e24
-      }),
-      votingDelay: Timestamp.wrap(60),
-      votingDuration: Timestamp.wrap(60 * 60),
-      executionDelay: Timestamp.wrap(86400),
-      gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
-      quorum: 0.1e18,
-      voteDifferential: 0.04e18,
-      minimumVotes: 400e18
-    });
+    configuration = _configuration;
     configuration.assertValid();
 
     // Unnecessary to set, but better clarity.

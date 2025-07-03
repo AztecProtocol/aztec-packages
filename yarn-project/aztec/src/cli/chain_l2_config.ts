@@ -1,12 +1,10 @@
 import { EthAddress } from '@aztec/aztec.js';
-import type { EnvVar } from '@aztec/foundation/config';
+import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 
 import path from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
-
-export type NetworkNames = 'testnet-ignition' | 'alpha-testnet';
 
 export type L2ChainConfig = {
   l1ChainId: number;
@@ -165,6 +163,10 @@ function enrichEthAddressVar(envVar: EnvVar, value: string) {
 }
 
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
+  if (networkName === 'local') {
+    return;
+  }
+
   const result = await getL2ChainConfig(networkName);
   if (!result) {
     throw new Error(`Unknown network name: ${networkName}`);
