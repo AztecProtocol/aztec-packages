@@ -110,13 +110,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
     auto next_accumulator = std::make_shared<DeciderVK>();
-    next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
+    next_accumulator->vk = std::make_shared<VerificationKey>(*accumulator->vk);
     next_accumulator->is_accumulator = true;
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
-    next_accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
-    next_accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
+    next_accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
+    next_accumulator->vk->circuit_size = 1 << accumulator_log_circuit_size;
 
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =
@@ -128,7 +128,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 
     // // Fold the commitments
     for (auto [combination, to_combine] :
-         zip_view(next_accumulator->verification_key->get_all(), keys_to_fold.get_precomputed_commitments())) {
+         zip_view(next_accumulator->vk->get_all(), keys_to_fold.get_precomputed_commitments())) {
         combination = batch_mul_native(to_combine, lagranges);
     }
     for (auto [combination, to_combine] :

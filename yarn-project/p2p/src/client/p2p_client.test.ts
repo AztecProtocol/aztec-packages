@@ -4,6 +4,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -16,6 +17,7 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
+import type { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { P2PClient } from './p2p_client.js';
 
 describe('P2P Client', () => {
@@ -26,6 +28,8 @@ describe('P2P Client', () => {
   let p2pService: MockProxy<P2PService>;
   let kvStore: AztecAsyncKVStore;
   let client: P2PClient;
+  let txCollection: MockProxy<TxCollection>;
+  let l1Constants: L1RollupConstants;
 
   beforeEach(async () => {
     txPool = mock<TxPool>();
@@ -39,19 +43,22 @@ describe('P2P Client', () => {
     p2pService = mock<P2PService>();
     p2pService.sendBatchRequest.mockResolvedValue([]);
 
+    l1Constants = EmptyL1RollupConstants;
+    txCollection = mock<TxCollection>();
+    txCollection.getConstants.mockReturnValue(l1Constants);
+
     attestationPool = new InMemoryAttestationPool();
 
     blockSource = new MockL2BlockSource();
     await blockSource.createBlocks(100);
 
-    mempools = {
-      txPool,
-      attestationPool,
-    };
-
+    mempools = { txPool, attestationPool };
     kvStore = await openTmpStore('test');
-    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    client = createClient();
   });
+
+  const createClient = () =>
+    new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, txCollection);
 
   const advanceToProvenBlock = async (blockNumber: number) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -127,7 +134,7 @@ describe('P2P Client', () => {
     const synchedBlock = await client.getSyncedLatestBlockNum();
     await client.stop();
 
-    const client2 = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    const client2 = createClient();
     await expect(client2.getSyncedLatestBlockNum()).resolves.toEqual(synchedBlock);
   });
 
@@ -290,7 +297,7 @@ describe('P2P Client', () => {
 
   describe('Chain prunes', () => {
     it('deletes transactions mined in pruned blocks', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+      client = createClient();
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -352,7 +359,7 @@ describe('P2P Client', () => {
     });
 
     it('deletes txs created from a pruned block', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+      client = createClient();
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -376,7 +383,7 @@ describe('P2P Client', () => {
     // NOTE: skipping as we currently delete all mined txs within the epoch when pruning
     // TODO: bring back once fixed: #13770
     it.skip('moves mined and valid txs back to the pending set', async () => {
-      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+      client = createClient();
       blockSource.setProvenBlockNumber(0);
       await client.start();
 
@@ -457,6 +464,36 @@ describe('P2P Client', () => {
 
       expect(await client.getSyncedProvenBlockNum()).toEqual(10);
       expect(await client.getSyncedFinalizedBlockNum()).toEqual(5);
+    });
+
+    it('stops tx collection for pruned blocks', async () => {
+      await client.start();
+      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      await client.sync();
+
+      blockSource.removeBlocks(1);
+      await client.sync();
+      expect(txCollection.stopCollectingForBlocksAfter).toHaveBeenCalledWith(101);
+    });
+
+    it('stops tx collection for proven blocks', async () => {
+      await client.start();
+      blockSource.addBlocks([await L2Block.random(101), await L2Block.random(102)]);
+      await client.sync();
+
+      await advanceToProvenBlock(101);
+      expect(txCollection.stopCollectingForBlocksUpTo).toHaveBeenCalledWith(101);
+    });
+
+    it('triggers tx collection for missing txs from mined blocks', async () => {
+      await client.start();
+      const block = await L2Block.random(101, 3);
+
+      txPool.hasTxs.mockResolvedValue([true, false, true]);
+      blockSource.addBlocks([block]);
+      await client.sync();
+
+      expect(txCollection.startCollecting).toHaveBeenCalledWith(block, [block.body.txEffects[1].txHash]);
     });
   });
 });
