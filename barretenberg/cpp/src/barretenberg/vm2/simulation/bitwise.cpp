@@ -26,8 +26,8 @@ MemoryValue Bitwise::and_op(const MemoryValue& a, const MemoryValue& b)
     } catch (const BitwiseTagError& e) {
         debug("Bitwise AND operation failed: ", to_string(e));
         // We emit an event if we fail, but default the result to 0.
-        events.emit({ .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 });
-        throw BitwiseException();
+        events.emit({ .operation = BitwiseOperation::AND, .a = a, .b = b, .res = 0 });
+        throw BitwiseException(to_string(e));
     }
 }
 
@@ -51,7 +51,7 @@ MemoryValue Bitwise::or_op(const MemoryValue& a, const MemoryValue& b)
         debug("Bitwise OR operation failed: ", to_string(e));
         // We emit an event if we fail, but default the result to 0.
         events.emit({ .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 });
-        throw BitwiseException();
+        throw BitwiseException(to_string(e));
     }
 }
 
@@ -79,8 +79,8 @@ MemoryValue Bitwise::xor_op(const MemoryValue& a, const MemoryValue& b)
     } catch (const BitwiseTagError& e) {
         debug("Bitwise XOR operation failed: ", to_string(e));
         // We emit an event if we fail, but default the result to 0.
-        events.emit({ .operation = BitwiseOperation::OR, .a = a, .b = b, .res = 0 });
-        throw BitwiseException();
+        events.emit({ .operation = BitwiseOperation::XOR, .a = a, .b = b, .res = 0 });
+        throw BitwiseException(to_string(e));
     }
 }
 

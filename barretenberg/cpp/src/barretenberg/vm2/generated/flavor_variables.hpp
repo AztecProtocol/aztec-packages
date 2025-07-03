@@ -84,51 +84,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 127;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2227;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2228;
->>>>>>> 7cef8e7b99 (feat: add dynamic gas constraints)
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2239;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2602;
-=======
-=======
->>>>>>> 0f7ad7caa9 (wip tests)
-=======
->>>>>>> 7cef8e7b99 (feat: add dynamic gas constraints)
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2601;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2591;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2595;
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2216;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2589;
->>>>>>> e5b02b2d6c (feat!(avm): err handling bitwise)
->>>>>>> 3f0fc88edf (feat!(avm): err handling bitwise)
->>>>>>> f513d6509c (feat!(avm): err handling bitwise)
-<<<<<<< HEAD
->>>>>>> 9127ba4139 (feat!(avm): err handling bitwise)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2601;
->>>>>>> 3de399ccc4 (wip tests)
-<<<<<<< HEAD
->>>>>>> 0f7ad7caa9 (wip tests)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2603;
->>>>>>> e8cf4d26ba (feat: add dynamic gas constraints)
->>>>>>> 7cef8e7b99 (feat: add dynamic gas constraints)
+    static constexpr size_t NUM_ALL_ENTITIES = 2614;
 
     // Need to be templated for recursive verifier
     template <typename FF_>

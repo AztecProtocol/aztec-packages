@@ -17,6 +17,8 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::ExecutionTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -260,7 +262,7 @@ TEST(GasConstrainingTest, NoCheckNoOOG)
 
 TEST(GasConstrainingTest, DynGasFactorBitwise)
 {
-    tracegen::PrecomputedTraceBuilder precomputed_builder;
+    PrecomputedTraceBuilder precomputed_builder;
     TestTraceContainer trace({
         {
             { C::execution_sel, 1 },
@@ -272,7 +274,7 @@ TEST(GasConstrainingTest, DynGasFactorBitwise)
 
     precomputed_builder.process_tag_parameters(trace);
     precomputed_builder.process_misc(trace, 7); // Need at least clk values from 0-6 for the lookup
-    check_interaction<tracegen::ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace);
 
     trace.set(C::execution_dynamic_l2_gas_factor, 0, 100); // Set to some random value that can't be looked up
     EXPECT_THROW_WITH_MESSAGE(

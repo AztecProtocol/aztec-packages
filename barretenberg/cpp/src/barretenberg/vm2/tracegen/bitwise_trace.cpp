@@ -33,10 +33,13 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         uint128_t output_c = event.res;
 
         // Error Handling, check tag a is FF or tag a != tag b
-        bool is_tag_ff = event.a.get_tag() == ValueTag::FF;
+        bool is_tag_ff = event.a.get_tag() == MemoryTag::FF;
         bool is_tag_mismatch = event.a.get_tag() != event.b.get_tag();
-        // For tag_a != FF
-        FF tag_a_inv = is_tag_ff ? FF(0) : FF(static_cast<uint8_t>(event.a.get_tag())).invert();
+        // For tag_a != FF, we subtrace MemoryTag::FF for clarity even thought MemoryTag::FF is 0.
+        FF tag_a_inv =
+            is_tag_ff
+                ? FF(0)
+                : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert();
         // For tag_a != tag_b
         FF tag_ab_diff_inv =
             is_tag_mismatch
