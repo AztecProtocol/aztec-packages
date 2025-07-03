@@ -8,6 +8,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
@@ -40,7 +41,9 @@ contract GovernanceBase is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance = new Governance(token, address(governanceProposer), address(this));
+    governance = new Governance(
+      token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration()
+    );
 
     vm.prank(address(governance));
     governance.openFloodgates();

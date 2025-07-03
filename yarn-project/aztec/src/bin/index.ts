@@ -8,12 +8,13 @@ import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infra
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectPXECommands } from '@aztec/cli/pxe';
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
 import { NETWORK_FLAG } from '../cli/aztec_start_options.js';
-import { type NetworkNames, enrichEnvironmentWithChainConfig } from '../cli/chain_l2_config.js';
+import { enrichEnvironmentWithChainConfig } from '../cli/chain_l2_config.js';
 import { injectAztecCommands } from '../cli/index.js';
 import { getCliVersion } from '../cli/release_version.js';
 
@@ -38,11 +39,7 @@ async function main() {
     networkValue = args[networkIndex].split('=')[1] || args[networkIndex + 1];
   }
 
-  networkValue = networkValue || process.env.NETWORK;
-
-  if (networkValue !== undefined) {
-    await enrichEnvironmentWithChainConfig(networkValue as NetworkNames);
-  }
+  await enrichEnvironmentWithChainConfig(getActiveNetworkName(networkValue));
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');
