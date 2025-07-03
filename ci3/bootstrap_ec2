@@ -215,7 +215,7 @@ function run {
       echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
       echo "GCP_SA_KEY decoded and saved to /tmp/gcp-key.json"
       export GCP_SA_KEY_ID=$(jq -r '.private_key_id' /tmp/gcp-key.json)
-      echo "GCP_SA_KEY_ID: ${GCP_SA_KEY_ID}"
+      echo "GCP_SA_KEY_ID: \${GCP_SA_KEY_ID}"
     else
       touch /tmp/gcp-key.json
     fi
