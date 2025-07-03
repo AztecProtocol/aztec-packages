@@ -1,9 +1,10 @@
 import { Fq, Fr } from '../fields/fields.js';
 import type { EnvVar } from './env_var.js';
+import { type NetworkNames, getActiveNetworkName } from './network_name.js';
 import { SecretValue } from './secret_value.js';
 
-export type { EnvVar };
-export { SecretValue };
+export { SecretValue, getActiveNetworkName };
+export type { EnvVar, NetworkNames };
 
 export interface ConfigMapping {
   env?: EnvVar;
