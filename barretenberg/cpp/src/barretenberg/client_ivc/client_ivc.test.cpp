@@ -84,29 +84,6 @@ TEST_F(ClientIVCTests, Basic)
 };
 
 /**
- * @brief A simple-as-possible test demonstrating IVC for two mock circuits
- * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verification occurs.
- *
- */
-TEST_F(ClientIVCTests, WriteVK)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
  * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
  * @details When accumulating only four circuits, we execute all the functionality of a full ClientIVC run.
  *
@@ -267,7 +244,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
+    auto precomputed_vks = circuit_producer.precompute_vks(NUM_CIRCUITS, TraceSettings{});
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -291,8 +268,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    auto precomputed_vks =
-        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
+    auto precomputed_vks = circuit_producer.precompute_vks(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -462,8 +438,8 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     size_t total_num_circuits{ 12 };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
-    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
     EXPECT_TRUE(verified);
@@ -480,8 +456,8 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
         ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
         size_t total_num_circuits{ 12 };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-        auto mocked_vkeys = mock_verification_keys(total_num_circuits);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
+        auto mocked_vks = mock_vks(total_num_circuits);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, /* mock_vk */ true);
         auto proof = ivc.prove();
         verify_ivc(proof, ivc);
     };
@@ -495,8 +471,8 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
-    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
     EXPECT_TRUE(verified);
@@ -509,8 +485,8 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
-    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
     EXPECT_ANY_THROW(ivc.prove());
 }
 

@@ -21,7 +21,8 @@ namespace {
 // TODO(MW): Rename to something useful! Helper fn to get operation specific values.
 std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event)
 {
-    // MW Note: Currently we only split FF cases for LT and is_ff is unchecked in add => no need to fill in the trace
+    // MW Note: Currently we only split FF cases for LT and is_ff is unchecked in add => no need to fill in the
+    // trace
     auto is_ff = event.a.get_tag() == ValueTag::FF;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
@@ -42,6 +43,33 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_tag_ff_diff_inv,
               is_ff ? 0 : FF(static_cast<uint8_t>(event.a.get_tag()) - static_cast<uint8_t>(MemoryTag::FF)).invert() },
         };
+    default:
+        throw std::runtime_error("Unknown ALU operation");
+        break;
+    }
+}
+
+// TODO(MW): could probably combine this and get_operation_selector?
+uint8_t get_operation_id(simulation::AluOperation operation)
+{
+    switch (operation) {
+    case simulation::AluOperation::ADD:
+        return static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id);
+    default:
+        throw std::runtime_error("Unknown ALU operation");
+        break;
+    }
+}
+
+// TODO(MW) - will reuse this for other ops (hopefully can use the same column to deal w/ e.g. underflowed sub and
+// overflowed add)
+bool get_carry_flag(const simulation::AluEvent& event)
+{
+    switch (event.operation) {
+    case simulation::AluOperation::ADD:
+        // I think the only situation in which a + b != c as fields is when c overflows the bit size
+        // if this is unclear, I can use > or actually check bit sizes
+        return event.a.as_ff() + event.b.as_ff() != event.c.as_ff();
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;

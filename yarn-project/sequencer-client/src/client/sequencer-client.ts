@@ -117,6 +117,7 @@ export class SequencerClient {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
+        dateProvider: deps.dateProvider,
       });
     const globalsBuilder = new GlobalVariableBuilder(config);
 
@@ -131,14 +132,14 @@ export class SequencerClient {
       sequencerManaLimit = rollupManaLimit;
     }
 
-    // When running in anvil, assume we can post a tx up until the very last second of an L1 slot.
+    // When running in anvil, assume we can post a tx up until one second before the end of an L1 slot.
     // Otherwise, assume we must have broadcasted the tx before the slot started (we use a default
     // maxL1TxInclusionTimeIntoSlot of zero) to get the tx into that L1 slot.
     // In theory, the L1 slot has an initial 4s phase where the block is propagated, so we could
     // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
     const maxL1TxInclusionTimeIntoSlot =
-      (config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId)) ? ethereumSlotDuration : 0;
+      (config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId)) ? ethereumSlotDuration - 1 : 0;
 
     const l1Constants = {
       l1GenesisTime,

@@ -57,7 +57,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import {
   type PXEService,
   type PXEServiceConfig,
@@ -420,7 +420,7 @@ export async function setup(
     }
 
     if (opts.l1StartTime) {
-      await ethCheatCodes.warp(opts.l1StartTime);
+      await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
 
     let publisherPrivKey = undefined;
@@ -509,7 +509,7 @@ export async function setup(
     if (opts.l2StartTime) {
       // This should only be used in synching test or when you need to have a stable
       // timestamp for the first l2 block.
-      await ethCheatCodes.warp(opts.l2StartTime);
+      await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
 
     const dateProvider = new TestDateProvider();
@@ -609,7 +609,7 @@ export async function setup(
     ) {
       // We need to advance to epoch 2 such that the committee is set up.
       logger.info(`Advancing to epoch 2`);
-      await cheatCodes.rollup.advanceToEpoch(2n, { resetBlockInterval: true, updateDateProvider: dateProvider });
+      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
@@ -873,13 +873,14 @@ export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'>,
-  aztecNode: AztecNode,
+  aztecNode: AztecNode | undefined,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
+  proverNodeDeps: ProverNodeDeps = {},
 ) {
   return withLogNameSuffix('prover-node', async () => {
     // Disable stopping the aztec node as the prover coordination test will kill it otherwise
     // This is only required when stopping the prover node for testing
-    const aztecNodeTxProvider = {
+    const aztecNodeTxProvider = aztecNode && {
       getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
       getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
       stop: () => Promise.resolve(),
@@ -894,7 +895,7 @@ export function createAndSyncProverNode(
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {
       ...aztecNodeConfig,
-      proverCoordinationNodeUrls: [],
+      txCollectionNodeRpcUrls: [],
       realProofs: false,
       proverAgentCount: 2,
       publisherPrivateKey: new SecretValue(proverNodePrivateKey),
@@ -904,6 +905,7 @@ export function createAndSyncProverNode(
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 10,
+      txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       ...proverNodeConfig,
     };
@@ -912,7 +914,7 @@ export function createAndSyncProverNode(
 
     const proverNode = await createProverNode(
       proverConfig,
-      { aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
+      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
       { prefilledPublicData },
     );
     getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });

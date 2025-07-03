@@ -9,6 +9,9 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 
+# Set defaults for variable that might be unset to prevent heredoc expansion errors
+GCP_SA_KEY_B64="${GCP_SA_KEY_B64:-}"
+
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
@@ -208,9 +211,11 @@ function run {
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
     # Save GCP_SA_KEY to a file if set (using base64 for safety)
-    if [ -n "$GCP_SA_KEY_B64" ]; then
+    if [ -n "${GCP_SA_KEY_B64:-}" ]; then
       echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
       echo "GCP_SA_KEY decoded and saved to /tmp/gcp-key.json"
+    else
+      touch /tmp/gcp-key.json
     fi
 
     start_build() {

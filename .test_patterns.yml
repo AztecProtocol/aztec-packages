@@ -130,6 +130,10 @@ tests:
     error_regex: "Expected: >= 2"
     owners:
       - *palla
+  - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "ContractFunctionExecutionError.*execution failed"
+    owners:
+      - *palla
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
@@ -178,11 +182,6 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
-  # http://ci.aztec-labs.com/fbd46dc29335ec8c
-  - regex: "src/e2e_contract_updates.test.ts"
-    error_regex: "TimeoutError: Timeout awaiting isMined"
-    owners:
-      - *jan
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"

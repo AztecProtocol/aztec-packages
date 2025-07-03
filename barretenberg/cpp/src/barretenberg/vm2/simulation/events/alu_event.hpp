@@ -19,6 +19,30 @@ enum class AluError {
     TAG_ERROR,
 };
 
+// TODO(MW): Expand when adding new ops (e.g. when using max_bits for mul, we would cover bits related errors)
+enum class AluError {
+    // TODO(MW): Split into cases i.e. ab tags not equal, c tag not as expected, ..., ?
+    TAG_ERROR,
+};
+
+inline std::string to_string(AluError e)
+{
+    switch (e) {
+    case AluError::TAG_ERROR:
+        return "TAG_ERROR";
+    }
+
+    // We should be catching all the cases above.
+    __builtin_unreachable();
+}
+
+class AluException : public std::runtime_error {
+  public:
+    explicit AluException()
+        : std::runtime_error("ALU operation failed")
+    {}
+};
+
 struct AluEvent {
     AluOperation operation;
     MemoryValue a;
