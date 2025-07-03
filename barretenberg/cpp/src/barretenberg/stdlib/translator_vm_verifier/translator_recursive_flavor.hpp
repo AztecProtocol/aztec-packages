@@ -135,5 +135,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

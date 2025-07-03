@@ -513,7 +513,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 456;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 69;
+pub global IPA_PROOF_LENGTH: u32 = 70;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -630,6 +630,18 @@ pub global AVM_EXEC_OP_ID_INTERNALRETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALCALL;
 pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
 pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
 pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
+pub global AVM_EXEC_OP_ID_RETURNDATASIZE: u32 = 2 * AVM_EXEC_OP_ID_SUCCESSCOPY;
+
+// Execution Opcode IDs for the ALU subtrace
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_ALU_ADD: u32 = 1;
+pub global AVM_EXEC_OP_ID_ALU_SUB: u32 = 2 * AVM_EXEC_OP_ID_ALU_ADD;
+pub global AVM_EXEC_OP_ID_ALU_MUL: u32 = 2 * AVM_EXEC_OP_ID_ALU_SUB;
+pub global AVM_EXEC_OP_ID_ALU_DIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_MUL;
+pub global AVM_EXEC_OP_ID_ALU_FDIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_DIV;
+pub global AVM_EXEC_OP_ID_ALU_EQ: u32 = 2 * AVM_EXEC_OP_ID_ALU_FDIV;
+pub global AVM_EXEC_OP_ID_ALU_LT: u32 = 2 * AVM_EXEC_OP_ID_ALU_EQ;
+pub global AVM_EXEC_OP_ID_ALU_LTE: u32 = 2 * AVM_EXEC_OP_ID_ALU_LT;
 
 // AvmCircuitPublicInputs - row indices
 // Global Variables

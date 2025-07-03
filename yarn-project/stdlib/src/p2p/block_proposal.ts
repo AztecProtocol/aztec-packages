@@ -5,6 +5,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import type { BlockInfo } from '../block/l2_block.js';
 import { Tx } from '../tx/tx.js';
 import type { UInt32 } from '../types/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
@@ -64,6 +65,15 @@ export class BlockProposal extends Gossipable {
 
   get slotNumber(): Fr {
     return this.payload.header.slotNumber;
+  }
+
+  toBlockInfo(): BlockInfo {
+    return {
+      blockNumber: this.blockNumber,
+      slotNumber: this.slotNumber.toNumber(),
+      archive: this.archive.toString(),
+      txCount: this.payload.txHashes.length,
+    };
   }
 
   static async createProposalFromSigner(

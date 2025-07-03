@@ -137,6 +137,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // Reuse the transcript from ECCVM
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
+
 }; // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 } // namespace bb

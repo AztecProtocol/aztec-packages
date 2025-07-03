@@ -116,6 +116,43 @@ uint8_t get_tag_bits(ValueTag tag)
     return 0;
 }
 
+uint8_t get_tag_bytes(ValueTag tag)
+{
+    switch (tag) {
+    case ValueTag::U1:
+        return 1;
+    case ValueTag::U8:
+    case ValueTag::U16:
+    case ValueTag::U32:
+    case ValueTag::U64:
+    case ValueTag::U128:
+        return get_tag_bits(tag) / 8;
+    case ValueTag::FF:
+        return 32;
+    }
+
+    assert(false && "Invalid tag");
+    return 0;
+}
+
+uint256_t get_tag_max_value(ValueTag tag)
+{
+    switch (tag) {
+    case ValueTag::U1:
+    case ValueTag::U8:
+    case ValueTag::U16:
+    case ValueTag::U32:
+    case ValueTag::U64:
+    case ValueTag::U128:
+        return (uint256_t(1) << get_tag_bits(tag)) - 1;
+    case ValueTag::FF:
+        return FF::modulus - 1;
+    }
+
+    assert(false && "Invalid tag");
+    return 0;
+}
+
 // Constructor
 TaggedValue::TaggedValue(TaggedValue::value_type value_)
     : value(value_)
