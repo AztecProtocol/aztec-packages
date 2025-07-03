@@ -190,6 +190,32 @@ aztec start --node --network alpha-testnet
 - `--tel.otel-export-timeout-ms <value>`: The timeout for exporting metrics (default: 30000).
 - `--tel.otel-exclude-metrics <value>`: A list of metric prefixes to exclude from export.
 
+##### Example Usage
+
+Here is an example of how to start a node with telemetry enabled.
+To enable OpenTelemetry metrics export from an Aztec node, ensure the OTEL Collector is running and reachable from the Aztec Docker container.
+In this example, the OTEL Collector is running as a `systemd` service on the host machine and bound to `172.17.0.1:4318` (the default Docker bridge IP). This allows the containerized Aztec process to connect back to the host.
+> ⚠️ **Note**: If your OTEL Collector is running elsewhere (e.g., in Docker or on another host), make sure to update the IP and port accordingly.
+
+```bash
+aztec-up alpha-testnet
+
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://172.17.0.1:4318/v1/metrics
+export OTEL_EXPORTER_TIMEOUT_MS=60000
+export OTEL_EXPORTER_COLLECT_INTERVAL_MS=120000
+
+aztec start --node --network alpha-testnet
+    --l1-rpc-urls ...
+    --l1-consensus-host-urls ...
+    --l1-consensus-host-api-keys ...
+    --l1-consensus-host-api-key-headers X...
+    --p2p.p2pIp $IP
+    --tel.metricsCollectorUrl $OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+    --tel.otelCollectIntervalMs $OTEL_EXPORTER_COLLECT_INTERVAL_MS
+    --tel.otelExportTimeoutMs $OTEL_EXPORTER_TIMEOUT_MS
+```
+
+
 #### PXE Options
 
 - `--pxe`: Starts Aztec PXE with options.
