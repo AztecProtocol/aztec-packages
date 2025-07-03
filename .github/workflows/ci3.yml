@@ -103,6 +103,10 @@ jobs:
           echo "GCP_KEY length: ${#GCP_SA_KEY}"
           echo "${{ env.GCP_SA_KEY }}" | base64 -w 0 > gcp_sa_key.b64
           echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
+          export GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)
+          export DECODED_GCP_SA_KEY_JSON=$(echo $GCP_SA_KEY_B64 | base64 -d > /tmp/gcp-key.json)
+          export GCP_SA_KEY_ID=$(jq -r '.private_key_id' /tmp/gcp-key.json)
+          echo "GCP_SA_KEY_ID: ${GCP_SA_KEY_ID}"
 
       #############
       # Run
