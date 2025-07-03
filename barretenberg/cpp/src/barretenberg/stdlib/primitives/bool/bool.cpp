@@ -76,7 +76,6 @@ bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     , witness_inverted(other.witness_inverted)
     , witness_index(other.witness_index)
     , tag(other.tag)
-
 {}
 
 /**
@@ -267,7 +266,6 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
 
     result.witness_bool = (witness_bool ^ witness_inverted) ^ (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
-    result.witness_inverted = false;
 
     if (!is_constant() && !other.is_constant()) {
         result.witness_index = context->add_variable(value);
@@ -402,10 +400,12 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
+        ASSERT(!lhs.witness_inverted);
         // if rhs is inverted, flip the value of the lhs constant
         const bool lhs_value = rhs.witness_inverted ? !lhs.witness_bool : lhs.witness_bool;
         ctx->assert_equal_constant(rhs.witness_index, lhs_value, msg);
     } else if (rhs.is_constant()) {
+        ASSERT(!rhs.witness_inverted);
         // if lhs is inverted, flip the value of the rhs constant
         const bool rhs_value = lhs.witness_inverted ? !rhs.witness_bool : rhs.witness_bool;
         ctx->assert_equal_constant(lhs.witness_index, rhs_value, msg);
