@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
@@ -63,6 +64,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
     auto prover_transcript = NativeTranscript::prover_init_empty();
@@ -77,7 +79,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
 
     // Convert proof to stdlib
     Builder builder;
-    auto stdlib_proof = convert_native_proof_to_stdlib(&builder, prover_transcript->export_proof());
+    StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
 
     // Convert opening claims to witnesses
     auto native_verifier_claims = ClaimData::verifier_opening_claims(setup);
@@ -101,13 +103,12 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
     using ClaimData = UnivariateClaimData<typename Curve::NativeCurve>;
     using ShplonkProver = ShplonkProver_<typename Curve::NativeCurve>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
-
     using Fr = typename Curve::ScalarField;
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
-
     using OpeningClaim = OpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
     auto prover_transcript = NativeTranscript::prover_init_empty();
@@ -132,7 +133,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Shplonk verifier functionality - expensive way
         // Convert proof to stdlib
         Builder builder;
-        auto stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
+        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
@@ -168,7 +169,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Shplonk verifier functionality - efficient way
         // Convert proof to stdlib
         Builder builder;
-        auto stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
+        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
