@@ -21,7 +21,7 @@ template <typename FF_> class gasImpl {
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::execution_sel_should_check_gas)).is_zero();
+        return (in.get(C::execution_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

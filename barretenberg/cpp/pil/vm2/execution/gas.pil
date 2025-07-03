@@ -15,7 +15,9 @@ include "../range_check.pil";
 namespace execution;
 
     #[skippable_if]
-    sel_should_check_gas = 0;  // From execution.pil.
+    sel = 0;  // From execution.pil.
+    // NOTE: we can't use sel_should_check_gas here because we have propagation constraints
+    // that should always be applied.
 
     // ==== BASE GAS ====
 
