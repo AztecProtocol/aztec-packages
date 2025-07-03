@@ -18,6 +18,18 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
+/**
+ * This test builds a network using preferred nodes (supernodes)
+ * It creates a default node as part of the test setup
+ * Then creates 2 more regular nodes, 3 validators and 2 preferred nodes
+ * The preferred nodes only accept connections from the validators
+ * One validator does not start it's discovery service so will not discover other peers and won't be discovered
+ * meaning it only connects to the preferred nodes
+ * The other validators connect to everyone
+ * We check that the submitted transactions are mined and that the block
+ * contains attestations from all validators
+ */
+
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 2;
 const NUM_VALIDATORS = 3;
@@ -239,6 +251,7 @@ describe('e2e_p2p_preferred_network', () => {
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
 
+    // Send the required number of transactions to each node
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
       const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
