@@ -363,7 +363,6 @@ template <typename Flavor> class SumcheckProverRound {
                                                    const RelationSeparator& challenge,
                                                    const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
-
         Utils::scale_univariates(univariate_accumulators, challenge);
 
         auto result = ExtendedUnivariate(0);
@@ -603,7 +602,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                             const RelationSeparator alpha)
+                                             const RelationSeparator& alphas)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
@@ -611,9 +610,8 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
 
-        FF output{ 0 };
-        Utils::scale_and_batch_elements(relation_evaluations, alpha, output);
-        return output;
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
+        ;
     }
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in

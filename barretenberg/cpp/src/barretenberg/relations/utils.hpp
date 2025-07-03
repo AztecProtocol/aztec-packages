@@ -209,8 +209,9 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenges, FF& result)
+    static FF scale_and_batch_elements(auto& tuple, const RelationSeparator& challenges)
     {
+        FF result{ 0 };
         size_t idx = 0;
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
@@ -218,6 +219,7 @@ template <typename Flavor> class RelationUtils {
             }
         };
         apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
+        return result;
     }
 
     /**

@@ -118,6 +118,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
 
     // Get the subrelation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas{ 1 };
+    info("first elem is constant ", alphas[0].is_constant());
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
         auto label = domain_separator + "alpha_" + std::to_string(idx);
         alphas[idx + 1] = transcript->template get_challenge<FF>(label);
