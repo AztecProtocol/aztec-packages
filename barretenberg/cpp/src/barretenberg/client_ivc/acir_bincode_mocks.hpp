@@ -67,13 +67,13 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
 
 /**
  * @brief Create a simple kernel circuit for IVC testing
- * @param vk_size Size of the verification key
- * @param is_tail Whether this is a tail kernel (uses PG proof type) or not (uses OINK)
+ *
  * @return Serialized kernel bytecode
  */
 inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_kernel)
 {
     Acir::Circuit circuit;
+    // Create witnesses equal to size of a mega VK in fields.
     std::vector<Acir::FunctionInput> vk_inputs;
     for (uint32_t i = 0; i < vk_size; i++) {
         Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ i } }, BIT_COUNT };

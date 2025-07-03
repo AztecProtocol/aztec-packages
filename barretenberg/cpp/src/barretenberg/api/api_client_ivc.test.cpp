@@ -95,7 +95,9 @@ class ClientIVCAPITests : public ::testing::Test {
     std::filesystem::path test_dir;
 };
 
+namespace bb {
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
+}
 
 // Used to get a mock IVC vk.
 ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
@@ -112,7 +114,7 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     // Use this to get the size of the vk.
     auto bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/false);
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, compress(bytecode));
+    write_file(bytecode_path, bb::compress(bytecode));
 
     ClientIVCAPI::Flags write_vk_flags;
     write_vk_flags.verifier_type = "ivc";
@@ -179,7 +181,7 @@ TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
 
     // Compress and write bytecode to file
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, compress(bytecode));
+    write_file(bytecode_path, bb::compress(bytecode));
 
     // Test write_vk with fields output format
     ClientIVCAPI::Flags flags;
@@ -205,7 +207,7 @@ TEST_F(ClientIVCAPITests, GatesCommandSmokeTest)
 
     // Write compressed bytecode to file
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
-    write_file(bytecode_path, compress(bytecode));
+    write_file(bytecode_path, bb::compress(bytecode));
 
     ClientIVCAPI::Flags flags;
     flags.include_gates_per_opcode = true;
