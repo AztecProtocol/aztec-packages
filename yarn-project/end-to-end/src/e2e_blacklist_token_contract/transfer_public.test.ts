@@ -93,7 +93,9 @@ describe('e2e_blacklist_token_contract transfer public', () => {
         asset.methods
           .transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
           .simulate(),
-      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
+      ).rejects.toThrow(
+        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
+      );
     });
 
     it('transfer on behalf of other without "approval"', async () => {
@@ -168,7 +170,10 @@ describe('e2e_blacklist_token_contract transfer public', () => {
 
     it('transfer from a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n).simulate(),
+        asset
+          .withWallet(blacklisted)
+          .methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n)
+          .simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 

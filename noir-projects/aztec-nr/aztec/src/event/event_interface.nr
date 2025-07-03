@@ -109,7 +109,9 @@ where
     );
     context.push_nullifier(event_commitment);
 
-    emit_offchain_message(message_ciphertext, recipient);
+    // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+    // which we don't use for anything besides its side effects, therefore this is safe to call.
+    unsafe { emit_offchain_message(message_ciphertext, recipient) };
 }
 
 pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)

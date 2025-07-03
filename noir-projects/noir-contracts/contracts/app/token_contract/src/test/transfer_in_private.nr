@@ -24,7 +24,7 @@ unconstrained fn transfer_private_on_behalf_of_other() {
 }
 
 // docs:start:fail_with_message
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_private_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, _) =

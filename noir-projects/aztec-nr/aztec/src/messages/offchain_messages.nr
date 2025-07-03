@@ -36,7 +36,7 @@ pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
 ///
 /// * `message` - The message to emit.
 /// * `recipient` - The address of the recipient.
-pub fn emit_offchain_message<T, let N: u32>(message: T, recipient: AztecAddress)
+pub unconstrained fn emit_offchain_message<T, let N: u32>(message: T, recipient: AztecAddress)
 where
     T: Serialize<N>,
 {
