@@ -101,8 +101,7 @@ void AvmProver::execute_relation_check_rounds()
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    RelationSeparator alphas{ alpha };
-    info("avm prover alphas size ", alphas.size());
+    RelationSeparator alphas{ 1 };
 
     for (size_t i = 1; i < alphas.size(); ++i) {
         alphas[i] = alphas[i - 1] * alpha;

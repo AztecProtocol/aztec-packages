@@ -166,7 +166,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                               const RelationSeparator& alpha)
+                                               const RelationSeparator& alphas)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -274,7 +274,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
 
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_separators);
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
     }
 
     /**
@@ -363,8 +363,8 @@ template <typename Flavor> class SumcheckProverRound {
                                                    const RelationSeparator& challenge,
                                                    const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
-        auto running_challenge = FF(1);
-        Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
+
+        Utils::scale_univariates(univariate_accumulators, challenge);
 
         auto result = ExtendedUnivariate(0);
         extend_and_batch_univariates(univariate_accumulators, result, gate_separators);
@@ -611,9 +611,8 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
 
-        FF running_challenge{ 1 };
         FF output{ 0 };
-        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
+        Utils::scale_and_batch_elements(relation_evaluations, alpha, output);
         return output;
     }
     /**

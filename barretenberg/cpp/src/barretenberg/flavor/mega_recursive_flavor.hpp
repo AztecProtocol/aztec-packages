@@ -90,7 +90,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
     // combiner) to much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());

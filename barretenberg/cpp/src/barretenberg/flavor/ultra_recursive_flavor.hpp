@@ -101,8 +101,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());

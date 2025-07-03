@@ -115,7 +115,7 @@ void ECCVMProver::execute_relation_check_rounds()
 
     Sumcheck sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    RelationSeparator alphas{ alpha };
+    RelationSeparator alphas{ 1 };
 
     for (size_t i = 1; i < alphas.size(); ++i) {
         alphas[i] = alphas[i - 1] * alpha;

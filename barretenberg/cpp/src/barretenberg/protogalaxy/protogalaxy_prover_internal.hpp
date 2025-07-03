@@ -39,7 +39,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
     using UnivariateRelationSeparator =
-        std::array<Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
+        std::array<Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS>;
 
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
     // obtained by composing a relation with Lagrange polynomial-linear combination of NUM-many decider pks, with
@@ -143,7 +143,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
     Polynomial<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                           const RelationSeparator& alphas_,
+                                           const RelationSeparator& alphas,
                                            const RelationParameters<FF>& relation_parameters)
 
     {
@@ -152,13 +152,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
-
-        const std::array<FF, NUM_SUBRELATIONS> alphas = [&alphas_]() {
-            std::array<FF, NUM_SUBRELATIONS> tmp;
-            tmp[0] = 1;
-            std::copy(alphas_.begin(), alphas_.end(), tmp.begin() + 1);
-            return tmp;
-        }();
 
         // Determine the number of threads over which to distribute the work
         const size_t num_threads = compute_num_threads(polynomial_size);
@@ -460,7 +453,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     {
         auto result =
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
-        size_t idx = 0;
+        size_t idx = 1;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             if constexpr (outer_idx == 0 && inner_idx == 0) {
                 return;

@@ -68,19 +68,13 @@ template <typename Flavor> class RelationUtils {
      * @brief Scale Univariates, each representing a subrelation, by different challenges
      *
      * @param tuple Tuple of tuples of Univariates
-     * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
+     * @param subrelation_separators Array of NUM_SUBRELATIONS challenges with the first entry equal to 1.
      * scaled)
-     * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const RelationSeparator& challenges, FF& current_scalar)
+    static void scale_univariates(auto& tuple, const RelationSeparator& subrelation_separators)
     {
         size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) {
-            element *= tmp[idx];
-            idx++;
-        };
+        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) { element *= subrelation_separators[idx++]; };
         apply_to_tuple_of_tuples(tuple, scale_by_challenges);
     }
 
@@ -215,18 +209,13 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple,
-                                         const RelationSeparator& challenges,
-                                         FF current_scalar,
-                                         FF& result)
+    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenges, FF& result)
     {
         size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
+
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
-                result += entry * tmp[idx];
-                idx++;
+                result += entry * challenges[idx++];
             }
         };
         apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);

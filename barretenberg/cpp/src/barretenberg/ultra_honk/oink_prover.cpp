@@ -238,12 +238,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
 template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
 {
     PROFILE_THIS_NAME("OinkProver::generate_alphas_round");
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    // Get the relation separation challenges for sumcheck/combiner computation
+    RelationSeparator alphas{ 1 };
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        auto label = domain_separator + "alpha_" + std::to_string(idx);
+        alphas[idx + 1] = transcript->template get_challenge<FF>(label);
     }
-    alphas = transcript->template get_challenges<FF>(args);
     return alphas;
 }
 

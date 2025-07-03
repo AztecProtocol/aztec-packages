@@ -29,8 +29,8 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     RelationSeparator challenge = {};
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
-    FF running_challenge = 1;
-    RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge, running_challenge);
+
+    RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
     GateSeparatorPolynomial<FF> gate_separators({ 1 });
@@ -76,12 +76,11 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     auto tuple_of_arrays = std::make_tuple(evaluations_1, evaluations_2);
 
     // Use scale_and_batch_elements to scale by challenge powers
-    FF running_challenge = 1;
     RelationSeparator challenge = {};
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
     FF result = 0;
-    Utils::scale_and_batch_elements(tuple_of_arrays, challenge, running_challenge, result);
+    Utils::scale_and_batch_elements(tuple_of_arrays, challenge, result);
 
     // Repeat the batching process manually
     auto result_expected = evaluations_1[0] * 1 + evaluations_2[0] * challenge[0] + evaluations_2[1] * challenge[1];

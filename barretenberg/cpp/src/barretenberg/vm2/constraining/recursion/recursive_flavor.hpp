@@ -40,7 +40,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS>;
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;

@@ -152,7 +152,7 @@ class TranslatorFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();

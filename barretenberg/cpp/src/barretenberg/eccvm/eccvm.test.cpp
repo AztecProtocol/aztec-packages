@@ -145,7 +145,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     // Prepare the inputs for the sumcheck prover:
     // Compute and add beta to relation parameters
     const FF alpha = FF::random_element();
-    RelationSeparator alphas{ alpha };
+    RelationSeparator alphas{ 1 };
 
     for (size_t i = 1; i < alphas.size(); ++i) {
         alphas[i] = alphas[i - 1] * alpha;
