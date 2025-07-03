@@ -8,23 +8,15 @@ import { TimeoutError } from '../error/index.js';
  * @typeparam T - The return type of the asynchronous function to be executed.
  */
 export class TimeoutTask<T> {
-  private interruptPromise!: Promise<any>;
-  private interrupt = () => {};
-  private interrupted = false;
   private totalTime = 0;
+  private timeoutPromise: Promise<never> | undefined;
 
   constructor(
     private fn: (signal: AbortSignal) => Promise<T>,
     private timeout: number,
-    errorFn: () => any,
-  ) {
-    this.interruptPromise = new Promise<T>((_, reject) => {
-      this.interrupt = () => {
-        this.interrupted = true;
-        reject(errorFn());
-      };
-    });
-  }
+    private errorFn: () => Error,
+    private onAbort?: () => void,
+  ) {}
 
   /**
    * Executes the given function with a specified timeout.
@@ -35,22 +27,22 @@ export class TimeoutTask<T> {
    * @throws An error with a message indicating the function was interrupted due to exceeding the specified timeout.
    */
   public async exec() {
-    const interruptTimeout = setTimeout(this.interrupt, this.timeout);
-    const controller = new AbortController();
-    try {
-      const start = Date.now();
-      const result = await Promise.race<T>([this.fn(controller.signal), this.interruptPromise]);
-      this.totalTime = Date.now() - start;
-      return result;
-    } catch (err) {
-      if (this.interrupted) {
-        controller.abort();
-      }
+    const signal = AbortSignal.timeout(this.timeout);
+    this.timeoutPromise = new Promise<never>((_, reject) => {
+      signal!.addEventListener(
+        'abort',
+        () => {
+          this.onAbort?.();
+          reject(this.errorFn());
+        },
+        { once: true },
+      );
+    });
 
-      throw err;
-    } finally {
-      clearTimeout(interruptTimeout);
-    }
+    const start = Date.now();
+    const result = await Promise.race<T>([this.fn(signal), this.timeoutPromise]);
+    this.totalTime = Date.now() - start;
+    return result;
   }
 
   /**
@@ -61,7 +53,7 @@ export class TimeoutTask<T> {
    * @returns The interrupt promise associated with the task.
    */
   public getInterruptPromise() {
-    return this.interruptPromise;
+    return this.timeoutPromise;
   }
 
   /**
@@ -75,15 +67,26 @@ export class TimeoutTask<T> {
   }
 }
 
+/**
+ * Executes a function with a timeout.
+ * @param fn - The function to execute, accepts AbortSignal and returns a Promise.
+ * @param timeout - The maximum time in milliseconds to allow the function to run.
+ * @param errorOrFnName - Optional function name or a function that returns an Error to throw if the timeout is reached.
+ * @param onAbort - Optional callback to execute when the task is aborted.
+ *
+ * @returns A Promise that resolves with the result of the function fn if it completes within the timeout
+ *
+ * */
 export async function executeTimeout<T>(
   fn: (signal: AbortSignal) => Promise<T>,
   timeout: number,
-  errorOrFnName?: string | (() => any),
+  errorOrFnName?: string | (() => Error),
+  onAbort?: () => void,
 ) {
   const errorFn =
     typeof errorOrFnName === 'function'
       ? errorOrFnName
       : () => new TimeoutError(`Timeout running ${errorOrFnName ?? 'function'} after ${timeout}ms.`);
-  const task = new TimeoutTask(fn, timeout, errorFn);
+  const task = new TimeoutTask(fn, timeout, errorFn, onAbort);
   return await task.exec();
 }
