@@ -62,8 +62,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         memory.set(dst_addr, c);
         set_output(opcode, c);
     } catch (AluError& e) {
-        // TODO(MW): Possibly handle the error here.
-        throw e;
+        throw OpcodeExecutionException("Alu lt operation failed");
     }
 }
 

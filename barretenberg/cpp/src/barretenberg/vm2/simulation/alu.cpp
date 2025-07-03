@@ -28,7 +28,7 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
 
 MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
 {
-    MemoryValue c;
+    MemoryValue c = MemoryValue::from<uint1_t>(0); // Initialize c as false
     try {
         if (a.get_tag() != b.get_tag()) {
             throw AluError::TAG_ERROR;
@@ -52,10 +52,10 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
         // TODO(THURS): check 0, 0 works here, otherwise add selector like sel_non_ff_lt
         range_check.assert_range(lt_result_to_range_check, get_tag_bits(a.get_tag()));
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
-    } catch (AluError e) {
-        c = MemoryValue::from_tag(ValueTag::U1, 0);
+    } catch (const AluError& e) {
+        debug("ALU operation failed: ", to_string(e));
         events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c, .error = e });
-        throw e;
+        throw AluException();
     }
     return c;
 }

@@ -19,12 +19,6 @@ enum class AluError {
     TAG_ERROR,
 };
 
-// TODO(MW): Expand when adding new ops (e.g. when using max_bits for mul, we would cover bits related errors)
-enum class AluError {
-    // TODO(MW): Split into cases i.e. ab tags not equal, c tag not as expected, ..., ?
-    TAG_ERROR,
-};
-
 inline std::string to_string(AluError e)
 {
     switch (e) {
