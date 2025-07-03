@@ -146,7 +146,6 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     // Compute and add beta to relation parameters
     const FF alpha = FF::random_element();
     RelationSeparator alphas{ 1 };
-
     for (size_t i = 1; i < alphas.size(); ++i) {
         alphas[i] = alphas[i - 1] * alpha;
     }

@@ -37,7 +37,6 @@ class AvmFlavor {
     using CommitmentHandle = AvmFlavorSettings::CommitmentHandle;
     using CommitmentKey = AvmFlavorSettings::CommitmentKey;
     using VerifierCommitmentKey = AvmFlavorSettings::VerifierCommitmentKey;
-    // using RelationSeparator = AvmFlavorSettings::RelationSeparator;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;

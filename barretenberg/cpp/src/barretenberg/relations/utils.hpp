@@ -212,7 +212,6 @@ template <typename Flavor> class RelationUtils {
     static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenges, FF& result)
     {
         size_t idx = 0;
-
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
                 result += entry * challenges[idx++];

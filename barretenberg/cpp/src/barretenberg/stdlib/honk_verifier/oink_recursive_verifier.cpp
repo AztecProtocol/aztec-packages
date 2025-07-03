@@ -115,7 +115,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
-    // Get the relation separation challenges for sumcheck/combiner computation
+    // Get the subrelation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas{ 1 };
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
         auto label = domain_separator + "alpha_" + std::to_string(idx);

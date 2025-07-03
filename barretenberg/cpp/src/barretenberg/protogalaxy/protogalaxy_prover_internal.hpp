@@ -449,10 +449,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     static ExtendedUnivariateWithRandomization batch_over_relations(
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators,
-        const UnivariateRelationSeparator& alpha)
+        const UnivariateRelationSeparator& alphas)
     {
         auto result =
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
+        // As `alphas[0] == 1`; we start from `alphas[1]`
         size_t idx = 1;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             if constexpr (outer_idx == 0 && inner_idx == 0) {
@@ -460,7 +461,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             }
 
             auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
-            extended *= alpha[idx];
+            extended *= alphas[idx];
             result += extended;
             idx++;
         };

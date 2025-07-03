@@ -29,7 +29,6 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     RelationSeparator challenge = {};
     challenge[0] = 5;
     challenge[1] = challenge[0].sqr();
-
     RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate

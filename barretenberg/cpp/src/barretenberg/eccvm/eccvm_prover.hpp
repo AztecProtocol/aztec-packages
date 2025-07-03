@@ -35,7 +35,7 @@ class ECCVMProver {
     using CircuitBuilder = Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
-    using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
+    using OpeningClaim = ProverOpeningClaim<Flavor::Curve>;
     using RelationSeparator = Flavor::RelationSeparator;
 
     explicit ECCVMProver(CircuitBuilder& builder,
