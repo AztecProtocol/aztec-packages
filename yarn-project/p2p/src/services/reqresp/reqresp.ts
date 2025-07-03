@@ -32,7 +32,6 @@ import {
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   responseFromBuffer,
-  subProtocolMap,
 } from './interface.js';
 import { ReqRespMetrics } from './metrics.js';
 import {
