@@ -133,7 +133,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Shplonk verifier functionality - expensive way
         // Convert proof to stdlib
         Builder builder;
-        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
+        StdlibProof stdlib_proof(builder, proof);
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
@@ -169,7 +169,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Shplonk verifier functionality - efficient way
         // Convert proof to stdlib
         Builder builder;
-        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
+        StdlibProof stdlib_proof(builder, proof);
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
