@@ -46,6 +46,7 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
+      enforceTimeTable: true,
     });
 
     ({ context, logger } = test);
