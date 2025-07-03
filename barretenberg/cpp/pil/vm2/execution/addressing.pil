@@ -9,7 +9,7 @@ include "../constants_gen.pil";
 // We guarantee that the resolved operands are either immediates or valid addresses.
 
 // Inputs (from execution.pil):
-//  - sel_should_resolve_address
+//  - SEL_SHOULD_RESOLVE_ADDRESS
 //  - sel_op_is_address[7] (via exec spec)
 //  - indirect (via instruction fetching)
 //  - op[7] (via instruction fetching)
@@ -30,7 +30,7 @@ include "../constants_gen.pil";
 namespace execution;
 
 #[skippable_if]
-sel_should_resolve_address = 0;
+SEL_SHOULD_RESOLVE_ADDRESS = 0;
 
 /**************************************************************************************************
  *  Setup
@@ -59,7 +59,7 @@ sel_op_is_indirect_wire[7] * (1 - sel_op_is_indirect_wire[7]) = 0;
 
 // indirect comes from instruction fetching via execution.pil.
 #[INDIRECT_RECONSTRUCTION]
-sel_should_resolve_address * indirect =
+SEL_SHOULD_RESOLVE_ADDRESS * indirect =
     ( 2**0  * sel_op_is_indirect_wire[0] + 2**1  * sel_op_is_relative_wire[0]
     + 2**2  * sel_op_is_indirect_wire[1] + 2**3  * sel_op_is_relative_wire[1]
     + 2**4  * sel_op_is_indirect_wire[2] + 2**5  * sel_op_is_relative_wire[2]
@@ -200,7 +200,7 @@ op_after_relative[6] = op[6] + sel_op_is_relative_effective[6] * RELATIVE_RESOLU
 
 // Helper columns for overflow range check.
 pol commit two_to_32;
-sel_should_resolve_address * (two_to_32 - 2**32) = 0;
+SEL_SHOULD_RESOLVE_ADDRESS * (two_to_32 - 2**32) = 0;
 pol commit overflow_range_check_result[7];
 #[RELATIVE_OVERFLOW_RESULT_0]
 overflow_range_check_result[0] = sel_op_is_relative_effective[0] * ((1 - sel_relative_overflow[0]) * (2 * two_to_32 - 2 * op_after_relative[0] - 1) + op_after_relative[0] - two_to_32);
@@ -351,4 +351,4 @@ pol ADDRESSING_COLLECTION_EQ = ADDRESSING_COLLECTION_X * (ADDRESSING_COLLECTION_
 ADDRESSING_COLLECTION_EQ = 0;
 
 // If addressing should not be resolved, then sel_addressing_error should be 0.
-(1 - sel_should_resolve_address) * sel_addressing_error = 0;
+(1 - SEL_SHOULD_RESOLVE_ADDRESS) * sel_addressing_error = 0;

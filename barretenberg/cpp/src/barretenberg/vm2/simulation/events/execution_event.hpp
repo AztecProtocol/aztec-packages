@@ -22,12 +22,10 @@ enum class ExecutionError {
     NONE,
     BYTECODE_NOT_FOUND,
     INSTRUCTION_FETCHING,
-    GAS_BASE,
     ADDRESSING,
     REGISTER_READ,
-    DISPATCHING,
-    GAS_DYNAMIC,
-    OPCODE_EXECUTION,
+    GAS,
+    OPCODE_EXECUTION
 };
 
 class TagCheckError : public std::exception {

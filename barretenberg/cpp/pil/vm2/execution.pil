@@ -145,8 +145,7 @@ sel_instruction_fetching_success {
 /**************************************************************************************************
  *  Temporality group 2
  *  - Mapping from wire instruction to execution instruction
- *  - Gas (will be moved)
- *  - Address resolution
+ *  - Addressing
  **************************************************************************************************/
 
 // TODO(fcarreiro): Ideally we would use this one as selector for readability, but it's not supported yet.
@@ -231,19 +230,10 @@ precomputed.sel_exec_spec {
     precomputed.expected_tag_reg[6]
 };
 
-// FIXME(fcarreiro): move this to after registers read.
-//////// BASE GAS ////////
+//////// ADDRESSING ////////
 
-// Ideally this could be an alias, but I'm adding a column for readability.
-pol commit sel_should_check_gas;
-sel_should_check_gas = sel_instruction_fetching_success;
-
-// NOTE: Gas is constrained in gas.pil.
-// The "output we want is" out_of_gas_base from gas.pil.
-
-pol commit sel_should_resolve_address;
-// This assumes mutual exclusivity of the failure selectors.
-sel_should_resolve_address = sel_should_check_gas * (1 - out_of_gas_base - sel_instruction_fetching_failure);
+// This is an "input" to addressing.pil.
+pol SEL_SHOULD_RESOLVE_ADDRESS = /*should do instruction fetching*/sel_bytecode_retrieval_success * sel_instruction_fetching_success;
 
 // resolved operands
 pol commit rop[7];
@@ -256,7 +246,7 @@ pol commit rop[7];
  **************************************************************************************************/
 
 pol commit sel_should_read_registers;
-sel_should_read_registers = sel_should_resolve_address * (1 - sel_addressing_error);
+sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS * (1 - sel_addressing_error);
 
 // Registers
 pol commit register[7];
@@ -278,14 +268,18 @@ pol commit expected_tag_reg[7];
  *  Temporality group 4: Gas (will be moved here).
  **************************************************************************************************/
 
-// TODO(fcarreiro): Unify gas and move here.
+pol commit sel_should_check_gas;
+sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
+
+// NOTE: Gas is constrained in gas.pil.
+// The "output we want is" sel_out_of_gas from gas.pil.
 
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
  **************************************************************************************************/
 
-pol commit should_execute_opcode;
-should_execute_opcode = sel_should_read_registers * (1 - sel_register_read_error);
+pol commit sel_should_execute_opcode;
+sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 
 pol commit sel_opcode_error;
 sel_opcode_error * (1 - sel_opcode_error) = 0;
@@ -353,6 +347,10 @@ sel_returndata_size * (1 - sel_returndata_size) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
+
+// Whether the opcode logic failed.
+pol commit sel_opcode_failure;
+sel_opcode_failure * (1 - sel_opcode_failure) = 0;
 pol commit sel_keccakf1600;
 
 /**************************************************************************************************
@@ -397,7 +395,7 @@ sel_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag
  **************************************************************************************************/
 
 pol commit sel_should_write_registers;
-sel_should_write_registers = should_execute_opcode * (1 - sel_opcode_error);
+sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 
 // NOTE: Constraints on the registers are in execution_registers.pil.
 // There is no output because this group cannot fail.
@@ -408,9 +406,5 @@ sel_should_write_registers = should_execute_opcode * (1 - sel_opcode_error);
 
 // sel_error is 1 iff any kind of error happens at the execution level.
 pol commit sel_error;
-sel_error * (1 - sel_error) = 0;
-
-// TODO: complete.
-// This implies mutual exclusivity of the failure selectors.
-// sel_error = sel_gas_failure + sel_instruction_fetching_failure;
-
+// Observe that the errors are mutually exclusive.
+sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
