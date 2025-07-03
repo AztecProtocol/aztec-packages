@@ -24,7 +24,7 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
@@ -49,7 +49,9 @@ describe('e2e_p2p_network', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_network',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfPreferredNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
@@ -66,7 +68,7 @@ describe('e2e_p2p_network', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -154,7 +156,7 @@ describe('e2e_p2p_network', () => {
     // Changes have now taken effect
     const attesters = await rollup.read.getAttesters();
     expect(attesters.length).toBe(validators.length);
-    expect(attesters.length).toBe(NUM_NODES);
+    expect(attesters.length).toBe(NUM_VALIDATORS);
 
     // Send and await a tx to make sure we mine a block for the warp to correctly progress.
     await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
@@ -179,7 +181,7 @@ describe('e2e_p2p_network', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
