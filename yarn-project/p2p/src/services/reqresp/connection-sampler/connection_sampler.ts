@@ -1,4 +1,4 @@
-import { AbortError, TimeoutError } from '@aztec/foundation/error';
+import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
@@ -21,13 +21,13 @@ export class RandomSampler {
  */
 export class ConnectionSampler {
   private cleanupInterval: NodeJS.Timeout;
-  private dialAttempts: AbortController[] = [];
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Set<Stream> = new Set();
 
   // Serial queue to ensure that we only dial one peer at a time
   private dialQueue: SerialQueue = new SerialQueue();
+  private abortOnStop: AbortController = new AbortController();
 
   constructor(
     private readonly libp2p: Libp2p,
@@ -48,12 +48,9 @@ export class ConnectionSampler {
    */
   async stop() {
     this.logger.info('Stopping connection sampler');
+    this.abortOnStop.abort(new AbortError('Connection sampler stopped'));
     clearInterval(this.cleanupInterval);
 
-    for (const attempt of this.dialAttempts) {
-      attempt.abort(new AbortError('Connection sampler stopped'));
-    }
-    this.dialAttempts = [];
     await this.dialQueue.end();
 
     // Close all active streams
@@ -193,43 +190,27 @@ export class ConnectionSampler {
     // end up with the same id, hence a serial queue
     this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
 
-    const abortController = new AbortController();
-    this.dialAttempts.push(abortController);
-    let timeoutHandle: NodeJS.Timeout | undefined;
-    if (timeout) {
-      timeoutHandle = setTimeout(() => abortController.abort(new TimeoutError('Dial protocol timeout')), timeout);
-    }
+    const stream = await this.dialQueue.put(() =>
+      this.libp2p.dialProtocol(peerId, protocol, {
+        signal: AbortSignal.any(
+          timeout ? [this.abortOnStop.signal, AbortSignal.timeout(timeout!)] : [this.abortOnStop.signal],
+        ),
+        negotiateFully: !this.opts.p2pOptimisticNegotiation,
+      }),
+    );
+    stream.metadata.peerId = peerId;
+    this.streams.add(stream);
 
-    try {
-      const stream = await this.dialQueue.put(() =>
-        this.libp2p.dialProtocol(peerId, protocol, {
-          signal: abortController.signal,
-          negotiateFully: !this.opts.p2pOptimisticNegotiation,
-        }),
-      );
-      stream.metadata.peerId = peerId;
-      this.streams.add(stream);
+    const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
+    this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
 
-      const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
-      this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
-
-      this.logger.trace('Dialed protocol', {
-        streamId: stream.id,
-        protocol,
-        peerId: peerId.toString(),
-        activeConnectionsCount: updatedActiveConnectionsCount,
-      });
-      return stream;
-    } finally {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
-
-      const idx = this.dialAttempts.indexOf(abortController);
-      if (idx > -1) {
-        this.dialAttempts.splice(idx, 1);
-      }
-    }
+    this.logger.trace('Dialed protocol', {
+      streamId: stream.id,
+      protocol,
+      peerId: peerId.toString(),
+      activeConnectionsCount: updatedActiveConnectionsCount,
+    });
+    return stream;
   }
 
   /**
@@ -263,6 +244,8 @@ export class ConnectionSampler {
       await stream.close();
     } catch (error) {
       this.logger.error(`Failed to close connection to peer ${peerId ?? 'unknown'} with stream id ${stream.id}`, error);
+      // graceful close failed, abort the stream
+      stream.abort(new AbortError('Failed to close stream gracefully'));
     } finally {
       this.streams.delete(stream);
     }
