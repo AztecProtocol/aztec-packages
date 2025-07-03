@@ -40,6 +40,7 @@ cf * (1 - cf) = 0;
 sel_is_ff * (1 - sel_is_ff) = 0;
 
 // TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
+// Note that the op_ids below represent a binary decomposition (see constants_gen.pil):
 #[OP_ID_CHECK]
 sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD + sel_op_lt * constants.AVM_EXEC_OP_ID_ALU_LT - op_id = 0;
 
@@ -66,13 +67,12 @@ CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_i
 
 // TAG CHECKING
 
-// Will become e.g. sel_op_add * ia_tag + sel_op_lt * MEM_TAG_U1 + ....
-// TODO(MW): Mutual exclusivity of selectors? sel_op_add, sel_op_mul, ...
+// Will become e.g. sel_op_add * ia_tag + (comparison ops) * MEM_TAG_U1 + ....
 pol EXPECTED_C_TAG = sel_op_add * ia_tag + sel_op_lt * constants.MEM_TAG_U1;
 
 // No error handling here since the type of c is handled by the VM:
 #[C_TAG_CHECK]
-EXPECTED_C_TAG - ic_tag = 0;
+EXPECTED_C_TAG = ic_tag;
 
 pol commit sel_tag_err;
 pol commit ab_tags_diff_inv;
