@@ -65,23 +65,23 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t round = 0;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
         if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-            manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_Fr);
-            manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_Fr);
-            manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_Fr);
-            manifest_expected.add_entry(round, "vkey_pairing_points_start_idx", frs_per_Fr);
+            manifest_expected.add_entry(round, "vk_circuit_size", frs_per_Fr);
+            manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_Fr);
+            manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_Fr);
+            manifest_expected.add_entry(round, "vk_pairing_points_start_idx", frs_per_Fr);
             if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-                manifest_expected.add_entry(round, "vkey_ipa_claim_start_idx", frs_per_Fr);
+                manifest_expected.add_entry(round, "vk_ipa_claim_start_idx", frs_per_Fr);
             }
             for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-                manifest_expected.add_entry(round, "vkey_commitment", frs_per_G);
+                manifest_expected.add_entry(round, "vk_commitment", frs_per_G);
             }
-            manifest_expected.add_challenge(round, "vkey_hash");
+            manifest_expected.add_challenge(round, "vk_hash");
             round++;
         } else {
             size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
-            manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_uint32);
-            manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_uint32);
-            manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_uint32);
+            manifest_expected.add_entry(round, "vk_circuit_size", frs_per_uint32);
+            manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_uint32);
+            manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_uint32);
         }
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);

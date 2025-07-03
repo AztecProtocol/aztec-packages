@@ -9,6 +9,7 @@ include "../public_inputs.pil";
  *
  * This opcode uses:
  * - register[0] as the output register.
+ * - mem_tag_reg[0] as the output register's memory tag
  * - rop[1] as the enum value.
  * - sel_opcode_error to indicate if the enum value is invalid.
  *  (which matches the instruction spec (PIL & Cpp))
@@ -27,13 +28,13 @@ include "../public_inputs.pil";
  * - VERSION
  * - BLOCKNUMBER
  * - TIMESTAMP
- * - FEEPERL2GAS
- * - FEEPERDAGAS
+ * - BASEFEEPERL2GAS
+ * - BASEFEEPERDAGAS
  *
  * Note that the lookup to public inputs pulls 2 values (col0 and col1)
- * because { feePerDaGas, feePerL2Gas } is in 1 row spanning 2 columns.
+ * because { baseFeePerDaGas, baseFeePerL2Gas } is in 1 row spanning 2 columns.
  * This means that while nearly all globalVariables will come from public inputs col0,
- * feePerL2Gas will come from col1. But for now, they share one lookup.
+ * baseFeePerL2Gas will come from col1. But for now, they share one lookup.
  *
  * If memberEnum is out of range, or if some other error occurs in an earlier temporality group
  * (e.g. address resolution or out-of-gas errors), all of this virtual gadget's selectors should
@@ -43,24 +44,24 @@ include "../public_inputs.pil";
  * and a selector indicating whether the enum value is valid or out-of-range, are all looked up
  * from a precomputed table (precomputed.pil). The lookup populates the corresponding (identically named)
  * columns in this gadget:
- * +-------+----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+
- * |  Row  | Env Variable   | invalid_envvar_   | sel_envvar_pi_col0  | sel_envvar_pi_col1 | envvar_pi_row_idx | is_address | is_sender | is_transactionfee| is_feeperl2gas| is_isstaticcall | is_l2gasleft | is_dagasleft   |
- * | (clk) |                | enum              | lookup              | lookup             |                   |            |           |                  |               |                 |              |                |
- * +-------+----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+
- * |   0   | address        |         0         |          0          |          0         |         0         |     1      |     0     |        0         |       0       |         0       |      0       |      0         |
- * |   1   | sender         |         0         |          0          |          0         |         0         |     0      |     1     |        0         |       0       |         0       |      0       |      0         |
- * |   2   | transactionFee |         0         |          0          |          0         |         0         |     0      |     0     |        1         |       0       |         0       |      0       |      0         |
- * |   3   | chainId        |         0         |          1          |          0         | CHAIN_ID_ROW_IDX  |     0      |     0     |        0         |       0       |         0       |      0       |      0         |
- * |   4   | version        |         0         |          1          |          0         | VERSION_ROW_IDX   |     0      |     0     |        0         |       0       |         0       |      0       |      0         |
- * |   5   | blockNumber    |         0         |          1          |          0         | BLOCK_NUM_ROW_IDX |     0      |     0     |        0         |       0       |         0       |      0       |      0         |
- * |   6   | timestamp      |         0         |          1          |          0         | TIMESTAMP_ROW_IDX |     0      |     0     |        0         |       0       |         0       |      0       |      0         |
- * |   7   | feePerL2Gas    |         0         |          0          |          1         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       1       |         0       |      0       |      0         |
- * |   8   | feePerDaGas    |         0         |          1          |          0         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       0       |         0       |      0       |      0         |
- * |   9   | isStaticCall   |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         1       |      0       |      0         |
- * |  10   | l2GasLeft      |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      1       |      0         |
- * |  11   | daGasLeft      |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      0       |      1         |
- * |  12+  | (invalid)      |         1         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      0       |      0         |
- * +-------+----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+
+ * +-------+-----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+-----------+
+ * |  Row  | Env Variable    | invalid_envvar_   | sel_envvar_pi_col0  | sel_envvar_pi_col1 | envvar_pi_row_idx | is_address | is_sender | is_transactionfee| is_feeperl2gas| is_isstaticcall | is_l2gasleft | is_dagasleft   | out_tag   |
+ * | (clk) |                 | enum              | lookup              | lookup             |                   |            |           |                  |               |                 |              |                |           |
+ * +-------+-----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+-----------+
+ * |   0   | address         |         0         |          0          |          0         |         0         |     1      |     0     |        0         |       0       |         0       |      0       |      0         |    FF     |
+ * |   1   | sender          |         0         |          0          |          0         |         0         |     0      |     1     |        0         |       0       |         0       |      0       |      0         |    FF     |
+ * |   2   | transactionFee  |         0         |          0          |          0         |         0         |     0      |     0     |        1         |       0       |         0       |      0       |      0         |    FF     |
+ * |   3   | chainId         |         0         |          1          |          0         | CHAIN_ID_ROW_IDX  |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    FF     |
+ * |   4   | version         |         0         |          1          |          0         | VERSION_ROW_IDX   |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    FF     |
+ * |   5   | blockNumber     |         0         |          1          |          0         | BLOCK_NUM_ROW_IDX |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    U32    |
+ * |   6   | timestamp       |         0         |          1          |          0         | TIMESTAMP_ROW_IDX |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    U64    |
+ * |   7   | baseFeePerL2Gas |         0         |          0          |          1         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       1       |         0       |      0       |      0         |    U128   |
+ * |   8   | baseFeePerDaGas |         0         |          1          |          0         | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    u128   |
+ * |   9   | isStaticCall    |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         1       |      0       |      0         |    U1     |
+ * |  10   | l2GasLeft       |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      1       |      0         |    U32    |
+ * |  11   | daGasLeft       |         0         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      0       |      1         |    U32    |
+ * |  12+  | (invalid)       |         1         |          0          |          0         |         0         |     0      |     0     |        0         |       0       |         0       |      0       |      0         |    0      |
+ * +-------+-----------------+-------------------+---------------------+--------------------+-------------------+------------+-----------+------------------+---------------+-----------------+--------------+----------------+-----------+
  */
 
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
@@ -72,10 +73,8 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // Selector for when we should get environment variable (gated by earlier errors)
     pol commit sel_should_get_env_var;
     // Should only do env var retrieval if the GetEnvVar opcode has reached dispatch (there are no earlier errors).
-    // TODO(dbanks12): use `sel_dispatch_opcode` in execution instead of this pol.
-    pol DISPATCH_OPCODE = execution.sel_should_resolve_address * (1 - execution.sel_addressing_error);
     #[SHOULD_GET_ENV_VAR]
-    sel_should_get_env_var = sel_get_env_var * DISPATCH_OPCODE;
+    sel_should_get_env_var = sel_get_env_var * sel_should_execute_opcode;
 
     ////////////////////////////////////////////////////////////////////////////
     // from precomputed.pil's GETENVVAR opcode precomputed columns
@@ -98,14 +97,16 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         sel_envvar_pi_lookup_col0, sel_envvar_pi_lookup_col1, envvar_pi_row_idx,
         is_address, is_sender, is_transactionfee,
         is_isstaticcall,
-        is_l2gasleft, is_dagasleft
+        is_l2gasleft, is_dagasleft,
+        mem_tag_reg[0] // out/dest tag
     } in precomputed.sel_range_8 {
         precomputed.clk,
         precomputed.invalid_envvar_enum,
         precomputed.sel_envvar_pi_lookup_col0, precomputed.sel_envvar_pi_lookup_col1, precomputed.envvar_pi_row_idx,
         precomputed.is_address, precomputed.is_sender, precomputed.is_transactionfee,
         precomputed.is_isstaticcall,
-        precomputed.is_l2gasleft, precomputed.is_dagasleft
+        precomputed.is_l2gasleft, precomputed.is_dagasleft,
+        precomputed.out_tag
     };
     // end columns from precomputed.pil's GETENVVAR opcode precomputed columns
     ////////////////////////////////////////////////////////////////////////////
@@ -118,7 +119,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     } in public_inputs.sel {
         precomputed.clk, public_inputs.cols[0]
     };
-    // Read from PI col1 instead for feePerL2Gas
+    // Read from PI col1 instead for baseFeePerL2Gas
     #[READ_FROM_PUBLIC_INPUTS_COL1]
     sel_envvar_pi_lookup_col1 {
         envvar_pi_row_idx, value_from_pi

@@ -41,16 +41,14 @@ TEST(GetEnvVarConstrainingTest, DoNotGetEnvVarOnEarlierError)
         // No earlier errors, should get env var
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           { C::execution_sel_should_get_env_var, 1 },
           { C::execution_sel_opcode_error, 0 },
           { C::execution_rop_1_, 0 } }, // ADDRESS enum
         // Earlier error, should not get env var
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 1 },
+          { C::execution_sel_should_execute_opcode, 0 },
           { C::execution_sel_should_get_env_var, 0 },
           { C::execution_sel_opcode_error, 0 },
           { C::execution_rop_1_, 1 } }, // SENDER enum
@@ -316,8 +314,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           { C::execution_sel_get_env_var, 1 },
           { C::execution_contract_address, contract_address },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::ADDRESS) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -334,14 +331,14 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, contract_address },
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // sender
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_msg_sender, sender },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::SENDER) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -358,14 +355,14 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, sender },
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // transaction fee
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_transaction_fee, transaction_fee },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -382,13 +379,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, transaction_fee },
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // chain id
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::CHAINID) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -405,13 +402,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.chainId },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.chainId } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.chainId },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // version
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::VERSION) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -428,13 +425,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.version },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.version } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.version },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
         // block number
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -451,13 +448,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.blockNumber },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.blockNumber } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.blockNumber },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32) } },
         // timestamp
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -474,13 +471,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.timestamp },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.timestamp } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.timestamp },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U64) } },
         // feePerL2Gas
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS) },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -497,13 +494,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerL2Gas } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
         // feePerDaGas
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERDAGAS) },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -520,14 +517,14 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.gasFees.feePerDaGas },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerDaGas } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerDaGas },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
         // isStaticCall
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_is_static, is_static_call },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -544,15 +541,15 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, is_static_call },
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U1) } },
         // l2GasLeft
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_l2_gas_limit, l2_gas_limit },
           { C::execution_l2_gas_used, l2_gas_used },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -569,15 +566,15 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, l2_gas_limit - l2_gas_used },
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32) } },
         // daGasLeft
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_da_gas_limit, da_gas_limit },
           { C::execution_da_gas_used, da_gas_used },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -594,13 +591,13 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, da_gas_limit - da_gas_used },
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U32) } },
         // invalid enum
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_rop_1_, 42 },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // Do it! No prior error, although enum will later prove to be invalid.
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
@@ -617,7 +614,8 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // output
           { C::execution_register_0_, 0 }, // no output on error
           // nothing from pis
-          { C::execution_value_from_pi, 0 } },
+          { C::execution_value_from_pi, 0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
     });
 
     tracegen::PublicInputsTraceBuilder public_inputs_builder;
@@ -650,8 +648,7 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTests)
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
           { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::CHAINID) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_sel_should_execute_opcode, 1 },
           // from precomputed table
           { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
@@ -668,7 +665,8 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTests)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.chainId },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.chainId } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.chainId },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::FF) } },
     });
 
     PublicInputsTraceBuilder public_inputs_builder;
@@ -708,9 +706,8 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
           { C::execution_sel_get_env_var, 1 },
-          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS) },
-          { C::execution_sel_should_resolve_address, 1 },
-          { C::execution_sel_addressing_error, 0 },
+          { C::execution_rop_1_, static_cast<uint8_t>(EnvironmentVariable::BASEFEEPERL2GAS) },
+          { C::execution_sel_should_execute_opcode, 1 },
           // from precomputed table
           { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
@@ -727,7 +724,8 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
           // output, looked up from PIs
           { C::execution_register_0_, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
           // value from pi should match
-          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerL2Gas } },
+          { C::execution_value_from_pi, test_public_inputs.globalVariables.gasFees.feePerL2Gas },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U128) } },
     });
 
     PublicInputsTraceBuilder public_inputs_builder;

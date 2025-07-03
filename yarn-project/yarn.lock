@@ -252,6 +252,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
@@ -1087,6 +1088,7 @@ __metadata:
     "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/world-state": "workspace:^"
     "@chainsafe/discv5": "npm:9.0.0"
     "@chainsafe/enr": "npm:3.0.0"
     "@chainsafe/libp2p-gossipsub": "npm:13.0.0"
@@ -1107,13 +1109,11 @@ __metadata:
     "@multiformats/multiaddr": "npm:12.1.14"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
-    abortable-iterator: "npm:^5.1.0"
     get-port: "npm:^7.1.0"
     interface-datastore: "npm:^8.2.11"
     interface-store: "npm:^5.1.8"
     it-drain: "npm:^3.0.5"
     it-length: "npm:^3.0.6"
-    it-pipe: "npm:^3.0.1"
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     libp2p: "npm:1.5.0"
@@ -7820,16 +7820,6 @@ __metadata:
     get-iterator: "npm:^2.0.0"
     it-stream-types: "npm:^2.0.1"
   checksum: 10/05b9e2601ae4e03ea2038f55013b8dfa074f3c7fa898cbc996107f99098b4c8338c8efececa36a953ef75cd8e4af7859b152d98c14b4472a6c79307fe94d369e
-  languageName: node
-  linkType: hard
-
-"abortable-iterator@npm:^5.1.0":
-  version: 5.1.0
-  resolution: "abortable-iterator@npm:5.1.0"
-  dependencies:
-    get-iterator: "npm:^2.0.0"
-    it-stream-types: "npm:^2.0.1"
-  checksum: 10/5d7d255f5314ac485ae7c8bd64e4cb035f2198038990bfd10b6d1a3e7aa8b4b5409baf67819f7190cb045db5438518249776f49c6d328c85528ede1b1e8f4581
   languageName: node
   linkType: hard
 

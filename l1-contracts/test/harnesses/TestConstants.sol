@@ -14,6 +14,8 @@ import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -34,6 +36,22 @@ library TestConstants {
   bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
   bytes32 internal constant GENESIS_VK_TREE_ROOT = bytes32(0);
   bytes32 internal constant GENESIS_PROTOCOL_CONTRACT_TREE_ROOT = bytes32(0);
+
+  function getGovernanceConfiguration() internal pure returns (Configuration memory) {
+    return Configuration({
+      proposeConfig: ProposeConfiguration({
+        lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
+        lockAmount: 1e24
+      }),
+      votingDelay: Timestamp.wrap(60),
+      votingDuration: Timestamp.wrap(60 * 60),
+      executionDelay: Timestamp.wrap(60),
+      gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
+      quorum: 0.1e18,
+      voteDifferential: 0.04e18,
+      minimumVotes: 400e18
+    });
+  }
 
   function getGenesisState() internal pure returns (GenesisState memory) {
     return GenesisState({
