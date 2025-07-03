@@ -84,15 +84,22 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 127;
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 2227;
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2228;
+>>>>>>> 7cef8e7b99 (feat: add dynamic gas constraints)
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2602;
 =======
 =======
 >>>>>>> 0f7ad7caa9 (wip tests)
+=======
+>>>>>>> 7cef8e7b99 (feat: add dynamic gas constraints)
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2601;
 =======
@@ -115,7 +122,13 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2601;
 >>>>>>> 3de399ccc4 (wip tests)
+<<<<<<< HEAD
 >>>>>>> 0f7ad7caa9 (wip tests)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2603;
+>>>>>>> e8cf4d26ba (feat: add dynamic gas constraints)
+>>>>>>> 7cef8e7b99 (feat: add dynamic gas constraints)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -222,6 +235,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
+        lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
