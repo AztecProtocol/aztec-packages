@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { retryUntil, sleep } from '@aztec/aztec.js';
+import { retryUntil } from '@aztec/aztec.js';
 import type { P2PClient } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -49,14 +49,13 @@ describe('e2e_p2p_preferred_network', () => {
     node: AztecNodeService,
     numRequiredPeers: number,
     timeout: number,
-    identifier: string,
+    _identifier: string,
   ) => {
     return await retryUntil(
       async () => {
         const p2pClient = (node as any).p2pClient as P2PClient;
         const peers = await p2pClient.getPeers();
-        console.log(`${identifier} has ${peers.length} peers, waiting for ${numRequiredPeers}\n\n\n\n\n`);
-        return peers.length >= numRequiredPeers;
+        return peers.length === numRequiredPeers;
       },
       'Wait for peers',
       timeout,
@@ -179,7 +178,7 @@ describe('e2e_p2p_preferred_network', () => {
       validatorConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
+      NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -188,21 +187,52 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, t.ctx.aztecNode];
+    indexOffset += NUM_VALIDATORS - 1;
+
+    // This last validator disables discovery to avoid connecting to anyone but preferred nodes
+    // We do this to test that it receives ALL data via the preferred nodes
+    const lastValidatorConfig: AztecNodeConfig = {
+      ...t.ctx.aztecNodeConfig,
+      p2pDiscoveryDisabled: true,
+      disableValidator: false,
+      preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
+    };
+
+    const pickyValidators = await createNodes(
+      lastValidatorConfig,
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      1,
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+      DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
+      indexOffset,
+    );
+
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...pickyValidators, t.ctx.aztecNode];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
       .concat(validators.map((_, i) => `Validator ${i + 1}`))
+      .concat(pickyValidators.map((_, i) => `Picky Validator ${i + 1}`))
       .concat(['Default Node']);
+
+    const validatorsUsingDiscovery = validators.length;
+    const totalNumValidators = validators.length + pickyValidators.length;
     const expectedPeerCounts = nodes
-      .map(() => nodes.length - 1 + validators.length + 1) // +1 for the Aztec Node
-      .concat(preferredNodes.map(() => validators.length)) // Only connect to validators
-      .concat(validators.map(() => nodes.length + preferredNodes.length + validators.length - 1 + 1)) // +1 for the Aztec Node
-      .concat([nodes.length + validators.length]);
+      .map(() => nodes.length - 1 + validatorsUsingDiscovery + 1) // +1 for the Aztec Node
+      .concat(preferredNodes.map(() => totalNumValidators)) // Only connect to validators
+      .concat(validators.map(() => nodes.length + preferredNodes.length + validatorsUsingDiscovery - 1 + 1)) // +1 for the Aztec Node
+      .concat(pickyValidators.map(() => preferredNodes.length))
+      .concat([nodes.length + validatorsUsingDiscovery]);
     for (let i = 0; i < allNodes.length; i++) {
       const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 600, identifiers[i]);
       expect(peerResult).toBeTruthy();
     }
+
+    validators.push(...pickyValidators);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
@@ -237,6 +267,8 @@ describe('e2e_p2p_preferred_network', () => {
       .map(a => new BlockAttestation(blockNumber, payload, a.signature));
     const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
+
+    expect(signers.length).toEqual(validators.length);
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
     const validatorAddresses = validators.flatMap(node =>

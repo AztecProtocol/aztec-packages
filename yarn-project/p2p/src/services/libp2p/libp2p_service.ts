@@ -237,17 +237,19 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
 
     const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
-    const directPeers = await Promise.all(
-      preferredPeersEnrs.map(async enr => {
-        const peerId = await enr.peerId();
-        return {
-          id: peerId,
-          addrs: [enr.getLocationMultiaddr('tcp')],
-        } as AddrInfo;
-      }),
-    );
+    const directPeers = (
+      await Promise.all(
+        preferredPeersEnrs.map(async enr => {
+          const peerId = await enr.peerId();
+          return {
+            id: peerId,
+            addrs: [enr.getLocationMultiaddr('tcp')].filter(addr => addr !== undefined),
+          } as AddrInfo;
+        }),
+      )
+    ).filter(peer => peer.addrs.length > 0);
 
-    logger.error(`Direct peers: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
+    logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
 
     const node = await createLibp2p({
       start: false,

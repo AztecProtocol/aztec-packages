@@ -782,7 +782,10 @@ export class PeerManager implements PeerManagerInterface {
       const peerIdString = peerId.toString();
       this.authenticatedPeers.add(peerIdString);
       this.peerToValidator.set(peerIdString, sender);
-      this.logger.debug(`Successfully completed auth handshake with peer ${peerId}`, logData);
+      this.logger.info(
+        `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
+        logData,
+      );
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
