@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/aztec.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 
@@ -8,10 +9,6 @@ import publicIncludeMetrics from '../../public_include_metric_prefixes.json' wit
 
 export type L2ChainConfig = {
   l1ChainId: number;
-  ethereumSlotDuration: number;
-  aztecSlotDuration: number;
-  aztecEpochDuration: number;
-  aztecProofSubmissionEpochs: number;
   testAccounts: boolean;
   sponsoredFPC: boolean;
   p2pEnabled: boolean;
@@ -30,26 +27,51 @@ export type L2ChainConfig = {
   publicMetricsCollectorUrl?: string;
   publicMetricsCollectFrom?: string[];
 
+  // Deployment stuff
+
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: number;
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: number;
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: number;
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: number;
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: number;
+  /** The deposit amount for a validator */
+  depositAmount: bigint;
+  /** The minimum stake for a validator. */
+  minimumStake: bigint;
+  /** The slashing quorum */
+  slashingQuorum: number;
+  /** The slashing round size */
+  slashingRoundSize: number;
+  /** Governance proposing quorum */
+  governanceProposerQuorum: number;
+  /** Governance proposing round size */
+  governanceProposerRoundSize: number;
+  /** The mana target for the rollup */
+  manaTarget: bigint;
+  /** The proving cost per mana */
+  provingCostPerMana: bigint;
+
   // slashing stuff
   slashPayloadTtlSeconds: number;
   slashPruneEnabled: boolean;
-  slashPrunePenalty: number;
-  slashPruneMaxPenalty: number;
+  slashPrunePenalty: bigint;
+  slashPruneMaxPenalty: bigint;
   slashInactivityEnabled: boolean;
   slashInactivityCreateTargetPercentage: number;
   slashInactivitySignalTargetPercentage: number;
-  slashInactivityCreatePenalty: number;
+  slashInactivityCreatePenalty: bigint;
   slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: number;
-  slashInvalidBlockMaxPenalty: number;
+  slashInvalidBlockPenalty: bigint;
+  slashInvalidBlockMaxPenalty: bigint;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
-  ethereumSlotDuration: 12,
-  aztecSlotDuration: 36,
-  aztecEpochDuration: 32,
-  aztecProofSubmissionEpochs: 1,
   testAccounts: true,
   sponsoredFPC: false,
   p2pEnabled: true,
@@ -65,26 +87,50 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   autoUpdateUrl: undefined,
   maxTxPoolSize: 100_000_000, // 100MB
 
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  depositAmount: DefaultL1ContractsConfig.depositAmount,
+  /** The minimum stake for a validator. */
+  minimumStake: DefaultL1ContractsConfig.minimumStake,
+  /** The slashing quorum */
+  slashingQuorum: DefaultL1ContractsConfig.slashingQuorum,
+  /** The slashing round size */
+  slashingRoundSize: DefaultL1ContractsConfig.slashingRoundSize,
+  /** Governance proposing quorum */
+  governanceProposerQuorum: DefaultL1ContractsConfig.governanceProposerQuorum,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: 0n,
+  /** The proving cost per mana */
+  provingCostPerMana: 0n,
+
   // slashing stuff
   slashInactivityEnabled: false,
   slashInactivityCreateTargetPercentage: 0,
   slashInactivitySignalTargetPercentage: 0,
-  slashInactivityCreatePenalty: 0,
+  slashInactivityCreatePenalty: 0n,
   slashInvalidBlockEnabled: false,
   slashPayloadTtlSeconds: 0,
   slashPruneEnabled: false,
-  slashPrunePenalty: 0,
-  slashPruneMaxPenalty: 0,
-  slashInvalidBlockPenalty: 0,
-  slashInvalidBlockMaxPenalty: 0,
+  slashPrunePenalty: 0n,
+  slashPruneMaxPenalty: 0n,
+  slashInvalidBlockPenalty: 0n,
+  slashInvalidBlockMaxPenalty: 0n,
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
-  ethereumSlotDuration: 12,
-  aztecSlotDuration: 36,
-  aztecEpochDuration: 32,
-  aztecProofSubmissionEpochs: 1,
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
@@ -103,18 +149,46 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
   publicMetricsCollectFrom: ['sequencer'],
 
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  depositAmount: DefaultL1ContractsConfig.depositAmount,
+  /** The minimum stake for a validator. */
+  minimumStake: DefaultL1ContractsConfig.minimumStake,
+  /** The slashing quorum */
+  slashingQuorum: 101,
+  /** The slashing round size */
+  slashingRoundSize: 200,
+  /** Governance proposing quorum */
+  governanceProposerQuorum: 151,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: 300,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+
   // slashing stuff
   slashPayloadTtlSeconds: 36 * 32 * 24, // 24 epochs
   slashPruneEnabled: true,
-  slashPrunePenalty: 17,
-  slashPruneMaxPenalty: 17,
+  slashPrunePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
+  slashPruneMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInactivityEnabled: true,
-  slashInactivityCreateTargetPercentage: 100,
-  slashInactivitySignalTargetPercentage: 100,
-  slashInactivityCreatePenalty: 17,
+  slashInactivityCreateTargetPercentage: 1,
+  slashInactivitySignalTargetPercentage: 1,
+  slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInvalidBlockEnabled: true,
-  slashInvalidBlockPenalty: 100,
-  slashInvalidBlockMaxPenalty: 100,
+  slashInvalidBlockPenalty: DefaultL1ContractsConfig.depositAmount,
+  slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.depositAmount,
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -172,10 +246,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
     throw new Error(`Unknown network name: ${networkName}`);
   }
   const { config, networkName: name } = result;
-  enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
-  enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
-  enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
-  enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
   enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
@@ -212,6 +282,21 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
   enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
   enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
+
+  // Deployment stuff
+  enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
+  enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
+  enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
+  enrichVar('AZTEC_TARGET_COMMITTEE_SIZE', config.aztecTargetCommitteeSize.toString());
+  enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
+  enrichVar('AZTEC_DEPOSIT_AMOUNT', config.depositAmount.toString());
+  enrichVar('AZTEC_MINIMUM_STAKE', config.minimumStake.toString());
+  enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum.toString());
+  enrichVar('AZTEC_SLASHING_ROUND_SIZE', config.slashingRoundSize.toString());
+  enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum.toString());
+  enrichVar('AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE', config.governanceProposerRoundSize.toString());
+  enrichVar('AZTEC_MANA_TARGET', config.manaTarget.toString());
+  enrichVar('AZTEC_PROVING_COST_PER_MANA', config.provingCostPerMana.toString());
 
   // Slashing
   enrichVar('SLASH_PAYLOAD_TTL_SECONDS', config.slashPayloadTtlSeconds.toString());

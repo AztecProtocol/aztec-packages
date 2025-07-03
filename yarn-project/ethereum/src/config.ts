@@ -79,7 +79,7 @@ const LocalGovernanceConfiguration = {
 const TestnetGovernanceConfiguration = {
   proposeConfig: {
     lockDelay: 60n * 60n * 24n,
-    lockAmount: 1n * 10n ** 24n,
+    lockAmount: DefaultL1ContractsConfig.depositAmount * 100n,
   },
   votingDelay: 60n,
   votingDuration: 60n * 60n,
@@ -87,14 +87,14 @@ const TestnetGovernanceConfiguration = {
   gracePeriod: 60n * 60n * 24n * 7n,
   quorum: 3n * 10n ** 17n,
   voteDifferential: 4n * 10n ** 16n,
-  minimumVotes: 400n * 10n ** 18n,
+  minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
 };
 
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'local') {
-    return LocalGovernanceConfiguration;
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGovernanceConfiguration;
   }
-  return TestnetGovernanceConfiguration;
+  return LocalGovernanceConfiguration;
 };
 
 // Making a default config here as we are only using it thought the deployment
@@ -113,10 +113,10 @@ const TestnetRewardConfig = {
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
-  if (networkName === 'local') {
-    return LocalRewardConfig;
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetRewardConfig;
   }
-  return TestnetRewardConfig;
+  return LocalRewardConfig;
 };
 
 const LocalRewardBoostConfig = {
@@ -136,10 +136,10 @@ const TestnetRewardBoostConfig = {
 };
 
 export const getRewardBoostConfig = (networkName: NetworkNames) => {
-  if (networkName === 'local') {
-    return LocalRewardBoostConfig;
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetRewardBoostConfig;
   }
-  return TestnetRewardBoostConfig;
+  return LocalRewardBoostConfig;
 };
 
 // Similar to the above, no need for environment variables for this.
@@ -151,17 +151,17 @@ const LocalEntryQueueConfig = {
 };
 
 const TestnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 2000,
-  bootstrapFlushSize: 100,
+  bootstrapValidatorSetSize: 750,
+  bootstrapFlushSize: 75,
   normalFlushSizeMin: 1,
   normalFlushSizeQuotient: 2475,
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
-  if (networkName === 'local') {
-    return LocalEntryQueueConfig;
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetEntryQueueConfig;
   }
-  return TestnetEntryQueueConfig;
+  return LocalEntryQueueConfig;
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
