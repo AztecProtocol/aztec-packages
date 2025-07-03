@@ -454,7 +454,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Do not punish if we are stopping the service
-    if (e instanceof AbortError) {
+    if (e instanceof AbortError || e?.code == 'ABORT_ERR') {
       this.logger.debug(`Request aborted: ${e.message}`, logTags);
       return undefined;
     }
@@ -489,6 +489,11 @@ export class ReqResp implements ReqRespInterface {
 
     if (e?.code === 'ERR_UNEXPECTED_EOF') {
       this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL') {
+      this.logger.debug(`Sub protocol not supported by peer: ${peerId.toString()}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
