@@ -148,7 +148,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
     // inputs
-  
+
     // bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
     //     decider_vk->witness_commitments.return_data,
     //     decider_vk->witness_commitments.calldata,
@@ -158,7 +158,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     // get the consistency check data from the public inputs
     // check whether we are in a kernel circuit
-    if (decider_vk->verification_key->databus_propagation_data.is_kernel) {
+    if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
         kernel_return_data_commitment_exists = true;
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
         auto return_data = decider_vk->witness_commitments.return_data;
@@ -172,7 +172,6 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         app_return_data_commitment_exists = true;
         kernel_output.app_return_data = decider_vk->witness_commitments.return_data;
     }
-
 
     return pairing_points;
 }
