@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-import { EthCheatCodes } from '../eth_cheat_codes.js';
+import { EthCheatCodes } from './eth_cheat_codes.js';
 
 /**
  * A class that provides utility functions for interacting with ethereum (L1) dumping/loading state to/from a file.

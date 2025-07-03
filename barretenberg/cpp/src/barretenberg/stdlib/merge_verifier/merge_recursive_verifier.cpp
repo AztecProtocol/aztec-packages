@@ -28,23 +28,23 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  *
  * @tparam CircuitBuilder
  * @param proof
+ * @param t_commitments The commitments to t_j read from the transcript by the PG recursive verifier with which the
+ * Merge recursive verifier shares a transcript
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const StdlibProof<CircuitBuilder>& proof)
+    const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
 {
     // Transform proof into a stdlib object
     transcript->load_proof(proof);
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 
-    // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
-    std::array<Commitment, NUM_WIRES> t_commitments;
+    // Receive table column polynomial commitments [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         std::string suffix = std::to_string(idx);
-        t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
         T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
     }
@@ -89,7 +89,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
         scalars.emplace_back(alpha_pow);
         commitments.emplace_back(claim.commitment);
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        alpha_pow *= alpha;
+        if (idx < opening_claims.size() - 1) {
+            alpha_pow *= alpha;
+        }
     }
 
     auto batched_commitment = Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);

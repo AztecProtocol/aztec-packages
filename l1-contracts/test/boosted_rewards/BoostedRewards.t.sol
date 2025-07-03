@@ -5,14 +5,20 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "../base/Base.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-import {
-  RewardLib, ActivityScoreLib, ActivityScore
-} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {TimeLib, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {
+  RewardBooster,
+  RewardBoostConfig,
+  ActivityScore,
+  CompressedActivityScore
+} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {BoostedHelper} from "./BoostRewardHelper.sol";
 
 struct TestDataActivityConfig {
   uint256 h;
@@ -39,34 +45,6 @@ struct TestDataShares {
   uint256[] shares;
 }
 
-contract BoostedHelper {
-  using ActivityScoreLib for ActivityScore;
-  using SafeCast for uint256;
-
-  constructor(RollupConfigInput memory _config) {
-    TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
-    RewardLib.initialize(_config.rewardConfig);
-  }
-
-  function markActive(address _prover) public {
-    RewardLib.getStorage().activityScores[_prover].markActive(RewardLib.getStorage().config);
-  }
-
-  function setActivityScore(address _prover, uint256 _value) public {
-    RewardLib.getStorage().activityScores[_prover].value = _value.toUint32();
-    RewardLib.getStorage().activityScores[_prover].time =
-      TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-  }
-
-  function getActivityScore(address _prover) public view returns (ActivityScore memory) {
-    return RewardLib.getActivityScore(_prover);
-  }
-
-  function toShares(address _prover) public view returns (uint256) {
-    return RewardLib.toShares(_prover);
-  }
-}
-
 contract BoostedRewardsTest is TestBase {
   using SafeCast for uint256;
 
@@ -75,6 +53,7 @@ contract BoostedRewardsTest is TestBase {
 
   BoostedHelper public helper;
   TimeCheater public timeCheater;
+  IValidatorSelection public rollup;
 
   constructor() {
     string memory root = vm.projectRoot();
@@ -93,20 +72,22 @@ contract BoostedRewardsTest is TestBase {
   }
 
   function setUp() public {
-    RollupConfigInput memory config = TestConstants.getRollupConfigInput();
-    config.rewardConfig.a = sharesData.config.a.toUint32();
-    config.rewardConfig.maxScore = sharesData.config.h.toUint32();
-    config.rewardConfig.k = sharesData.config.k.toUint32();
-    config.rewardConfig.minimum = sharesData.config.m.toUint32();
-    config.rewardConfig.increment = sharesData.config.pi.toUint32();
+    RewardBoostConfig memory config = TestConstants.getRewardBoostConfig();
+    config.a = sharesData.config.a.toUint32();
+    config.maxScore = sharesData.config.h.toUint32();
+    config.k = sharesData.config.k.toUint32();
+    config.minimum = sharesData.config.m.toUint32();
+    config.increment = sharesData.config.pi.toUint32();
 
-    helper = new BoostedHelper(config);
     timeCheater = new TimeCheater(
-      address(helper),
+      address(0),
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
-      TestConstants.AZTEC_EPOCH_DURATION
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
+    rollup = IValidatorSelection(address(timeCheater));
+    helper = new BoostedHelper(rollup, config);
   }
 
   function test_activityDuplicateNoop() public {
@@ -114,11 +95,13 @@ contract BoostedRewardsTest is TestBase {
 
     Epoch epoch = timeCheater.getCurrentEpoch();
 
-    helper.markActive(prover);
+    vm.prank(address(rollup));
+    helper.updateAndGetShares(prover);
     uint256 score = helper.getActivityScore(prover).value;
 
     while (epoch == timeCheater.getCurrentEpoch()) {
-      helper.markActive(prover);
+      vm.prank(address(rollup));
+      helper.updateAndGetShares(prover);
       assertEq(helper.getActivityScore(prover).value, score);
       timeCheater.cheat__progressSlot();
     }
@@ -132,7 +115,8 @@ contract BoostedRewardsTest is TestBase {
       uint256 activityScore = activityScoreData.activity_scores[i];
 
       if (isProven) {
-        helper.markActive(prover);
+        vm.prank(address(rollup));
+        helper.updateAndGetShares(prover);
       }
 
       assertEq(helper.getActivityScore(prover).value, activityScore);
@@ -149,12 +133,12 @@ contract BoostedRewardsTest is TestBase {
       uint256 shares = sharesData.shares[i];
 
       helper.setActivityScore(prover, activityScore);
-      assertEq(helper.toShares(prover), shares);
+      assertEq(helper.getSharesFor(prover), shares);
 
       emit log_named_uint("index", i);
       emit log_named_uint("activityScore", activityScore);
       emit log_named_uint("shares", shares);
-      emit log_named_uint("toShares", helper.toShares(prover));
+      emit log_named_uint("toShares", helper.getSharesFor(prover));
     }
   }
 }

@@ -12,7 +12,6 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
@@ -31,15 +30,14 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/FeeLib.sol";
-
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -48,8 +46,6 @@ import {Ownable} from "@oz/access/Ownable.sol";
  */
 contract RollupTest is RollupBase {
   using stdStorage for StdStorage;
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
   using TimeLib for Timestamp;
   using TimeLib for Slot;
@@ -65,7 +61,10 @@ contract RollupTest is RollupBase {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -83,7 +82,7 @@ contract RollupTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setTargetCommitteeSize(0);
     builder.deploy();
 
     testERC20 = builder.getConfig().testERC20;
@@ -108,13 +107,15 @@ contract RollupTest is RollupBase {
     _proposeBlock("mixed_block_1", 1);
     _proposeBlock("mixed_block_2", 2);
 
-    warpToL2Slot(rollup.getProofSubmissionWindow());
+    Epoch deadline = TimeLib.toDeadlineEpoch(Epoch.wrap(0));
+
+    warpToL2Slot(Slot.unwrap(deadline.toSlots()) - 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
 
     _proveBlocks("mixed_block_", 1, 1, address(this));
 
-    warpToL2Slot(rollup.getProofSubmissionWindow() + 1);
+    warpToL2Slot(Slot.unwrap(deadline.toSlots()));
     rollup.prune();
 
     assertEq(rollup.getPendingBlockNumber(), 1);
@@ -126,22 +127,22 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_block_1")
   {
     // we can increase the mana target
-    _initialManaTarget = bound(_initialManaTarget, 0, 1e36);
-    _newManaTarget = bound(_newManaTarget, _initialManaTarget, 1e36);
+    uint256 initialManaTarget = bound(_initialManaTarget, 0, type(uint64).max);
+    uint256 newManaTarget = bound(_newManaTarget, initialManaTarget, type(uint64).max);
 
     RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(_initialManaTarget).deploy();
+      new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
     address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
 
-    assertEq(rollup.getManaTarget(), _initialManaTarget);
+    assertEq(rollup.getManaTarget(), initialManaTarget);
 
     vm.expectEmit(true, true, true, true);
-    emit IRollupCore.ManaTargetUpdated(_newManaTarget);
+    emit IRollupCore.ManaTargetUpdated(newManaTarget);
     vm.prank(governance);
-    rollup.updateManaTarget(_newManaTarget);
-    assertEq(rollup.getManaTarget(), _newManaTarget);
+    rollup.updateManaTarget(newManaTarget);
+    assertEq(rollup.getManaTarget(), newManaTarget);
   }
 
   function testSetManaTargetDecreasing(uint256 _initialManaTarget, uint256 _newManaTarget)
@@ -149,26 +150,26 @@ contract RollupTest is RollupBase {
     setUpFor("mixed_block_1")
   {
     // we cannot decrease the mana target
-    _initialManaTarget = bound(_initialManaTarget, 1, 1e36);
-    _newManaTarget = bound(_newManaTarget, 0, _initialManaTarget - 1);
+    uint256 initialManaTarget = bound(_initialManaTarget, 1, type(uint64).max);
+    uint256 newManaTarget = bound(_newManaTarget, 0, initialManaTarget - 1);
 
     RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(_initialManaTarget).deploy();
+      new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
     address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
 
-    assertEq(rollup.getManaTarget(), _initialManaTarget);
+    assertEq(rollup.getManaTarget(), initialManaTarget);
 
     // Cannot decrease the mana target
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Rollup__InvalidManaTarget.selector, _initialManaTarget, _newManaTarget
+        Errors.Rollup__InvalidManaTarget.selector, initialManaTarget, newManaTarget
       )
     );
     vm.prank(governance);
-    rollup.updateManaTarget(_newManaTarget);
-    assertEq(rollup.getManaTarget(), _initialManaTarget);
+    rollup.updateManaTarget(newManaTarget);
+    assertEq(rollup.getManaTarget(), initialManaTarget);
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
@@ -207,7 +208,7 @@ contract RollupTest is RollupBase {
     //        as if it was the first block, even after we had originally inserted the mixed block.
     //        An example where this could happen would be if no-one could prove the mixed block.
     // @note  We prune the pending chain as part of the propose call.
-    _proposeBlock("empty_block_1", prunableAt.unwrap());
+    _proposeBlock("empty_block_1", Slot.unwrap(prunableAt));
 
     assertEq(inbox.getInProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
@@ -250,32 +251,27 @@ contract RollupTest is RollupBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash)
     );
-    rollup.propose(args, attestations, data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
 
-  function testTooManyBlobs() public setUpFor("mixed_block_1") {
-    DecoderBase.Data memory data = load("mixed_block_1").block;
-    bytes32[] memory realBlobHashes = this.getBlobHashes(data.blobCommitments);
-    bytes32[] memory blobHashes = new bytes32[](realBlobHashes.length + 1);
-    for (uint256 i = 0; i < realBlobHashes.length; i++) {
-      blobHashes[i] = realBlobHashes[i];
+  function testExtraBlobs() public setUpFor("mixed_block_1") {
+    bytes32[] memory extraBlobHashes = new bytes32[](6);
+    for (uint256 i = 0; i < extraBlobHashes.length; i++) {
+      extraBlobHashes[i] = bytes32(
+        uint256(sha256(abi.encode("extraBlob", i)))
+          & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      ) | 0x0100000000000000000000000000000000000000000000000000000000000000;
     }
-    // Add an extra blob which shouldn't exist
-    blobHashes[realBlobHashes.length] = bytes32(uint256(1));
-    vm.blobhashes(blobHashes);
-    ProposeArgs memory args = ProposeArgs({
-      header: data.header,
-      archive: data.archive,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: new bytes32[](0)
-    });
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__InvalidBlobHash.selector, blobHashes[realBlobHashes.length], 0
-      )
-    );
-    rollup.propose(args, attestations, data.blobCommitments);
+
+    _proposeBlockWithExtraBlobs("mixed_block_1", 1, 1e6, extraBlobHashes);
+
+    assertTrue(Rollup(address(rollup)).checkBlob());
+    bytes32[] memory blobs = vm.getBlobhashes();
+    assertEq(blobs.length, 1 + extraBlobHashes.length);
+    assertEq(blobs[0], this.getBlobHashes(load("mixed_block_1").block.blobCommitments)[0]);
+    for (uint256 i = 0; i < extraBlobHashes.length; i++) {
+      assertEq(blobs[i + 1], extraBlobHashes[i]);
+    }
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
@@ -292,9 +288,8 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeBlock("mixed_block_1", 1);
     // we prove epoch 0
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     // jump to epoch 1
     warpToL2Slot(EPOCH_DURATION);
@@ -311,7 +306,8 @@ contract RollupTest is RollupBase {
     _proposeBlock("mixed_block_1", 1);
 
     // the same block is proposed, with the diff in slot number.
-    _proposeBlock("mixed_block_1", rollup.getProofSubmissionWindow() + 1);
+    Epoch deadline = TimeLib.toDeadlineEpoch(Epoch.wrap(0));
+    _proposeBlock("mixed_block_1", Slot.unwrap(deadline.toSlots()));
 
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
@@ -339,7 +335,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -369,7 +365,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -481,12 +477,13 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, attestations, data.blobCommitments);
+      rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
     BlockLog memory blockLog = rollup.getBlock(0);
-    warpToL2Slot(rollup.getProofSubmissionWindow() - 1);
+    Epoch deadline = TimeLib.toDeadlineEpoch(Epoch.wrap(0));
+    warpToL2Slot(Slot.unwrap(deadline.toSlots()) - 1);
 
     address prover = address(0x1234);
 
@@ -738,7 +735,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, new bytes(144));
+    rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
   }
 
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
@@ -763,7 +760,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, new bytes(144));
+    rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -816,9 +813,8 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("mixed_block_1").block;
 
     // Set the pending block number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a different case
-    stdstore.target(address(rollup)).sig("getPendingBlockNumber()").checked_write(
-      Constants.AZTEC_MAX_EPOCH_DURATION + 2
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingBlockNumber()")
+      .checked_write(Constants.AZTEC_MAX_EPOCH_DURATION + 2);
 
     BlockLog memory blockLog = rollup.getBlock(0);
     vm.expectRevert(

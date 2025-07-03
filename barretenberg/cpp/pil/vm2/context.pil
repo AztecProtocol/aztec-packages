@@ -10,13 +10,7 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
-    // Useful to define some opcodes within this pil file
-    // Constrained to be boolean by execution instruction spec table
-    pol commit sel_revert;
-    pol commit sel_return;
-    pol commit sel_call;
-    pol commit sel_static_call;
-    // Guaranteed to be boolean becuase sel_call & sel_static_call are mutually exclusive
+    // Guaranteed to be boolean because sel_call & sel_static_call are mutually exclusive
     pol commit sel_enter_call;
     // Handle error separately since it takes priority and may occur during an sel_x_call
     sel_enter_call = (sel_call + sel_static_call) * (1 - sel_error);
@@ -35,13 +29,14 @@ namespace execution;
     pol commit next_pc;
     pol commit msg_sender;
     pol commit contract_address;
+    pol commit transaction_fee;
     // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
     pol commit is_static;
 
-    pol commit parent_calldata_offset_addr;
-    pol commit parent_calldata_size_addr;
+    pol commit parent_calldata_addr;
+    pol commit parent_calldata_size;
 
-    pol commit last_child_returndata_offset_addr;
+    pol commit last_child_returndata_addr;
     pol commit last_child_returndata_size;
     pol commit last_child_success; // Careful with this for now...
 
@@ -111,126 +106,136 @@ namespace execution;
     #[INCR_NEXT_CONTEXT_ID]
     NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
 
-    // nested_exit_call = 1 <==> context_id' = parent_id
-    // sel_enter_call   = 1 <==> context_id' = next_context_id
-    // otherwise        = 0 <==> context_id' = context_id
+    // nested_exit_call = 1 ==> context_id' = parent_id
+    // sel_enter_call   = 1 ==> context_id' = next_context_id
+    // otherwise        = 0 ==> context_id' = context_id
     #[CONTEXT_ID_CALL_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (context_id' - next_context_id) = 0;
     NOT_LAST_EXEC * nested_exit_call   * (context_id' - parent_id) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_id' = context_id
-    // otherwise        = 0 <==> parent_id' = parent_id
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_id' = context_id
+    // otherwise        = 0 ==> parent_id' = parent_id
     #[PARENT_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (parent_id' - context_id) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> pc' = 0
-    // otherwise        = 0 <==> pc' = next_pc
-    #[PC_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (pc' - next_pc) = 0;
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> pc' = 0
+    // internal_call    = 1 ==> pc' = resolved operand 0
+    // internal_return  = 1 ==> pc' = internal_call_return_pc (from internal_call.pil)
+    // otherwise        = 0 ==> pc' = next_pc
+    #[PC_NEXT_ROW_DEFAULT]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
+    #[PC_NEXT_ROW_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> msg_sender' = contract_address
-    // otherwise        = 0 <==> msg_sender' = msg_sender
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> msg_sender' = contract_address
+    // otherwise        = 0 ==> msg_sender' = msg_sender
     #[MSG_SENDER_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (msg_sender' - contract_address) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> contract_address' = register[2] (intermediate register 3 from execution trace)
-    // otherwise        = 0 <==> contract_address' = contract_address
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> contract_address' = register[2] (intermediate register 3 from execution trace)
+    // otherwise        = 0 ==> contract_address' = contract_address
     #[CONTRACT_ADDR_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (contract_address' - register[2]) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 && static_call = 1 <==> is_static' = 1
-    // sel_enter_call   = 1 && static_call = 0 <==> is_static' = 0
-    // otherwise        = 0 <==> is_static' = is_static
+    // transaction fee gets set at the start of an enqueued call and remains the same throughout
+    // TODO(dbanks12): tracegen and test this
+    #[TRANSACTION_FEE_NEXT_ROW]
+    (1 - enqueued_call_end) * (transaction_fee' - transaction_fee) = 0;
+    // NOTE: don't need to say NOT_LAST_EXEC because last execution row must be an enqueued call end
+    // NOTE: on enqueued_call_start, transaction_fee is set via the DISPATCH lookup from tx trace to execution.
+
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 && static_call = 1 ==> is_static' = 1
+    // sel_enter_call   = 1 && static_call = 0 ==> is_static' = 0
+    // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_static_call) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_calldata_offset_addr' = rop[3] (resolved operand 4 from execution trace)
-    // otherwise        = 0 <==> parent_calldata_offset_addr' = parent_calldata_offset_addr
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
+    // otherwise        = 0 ==> parent_calldata_addr' = parent_calldata_addr
     #[CD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_offset_addr' - parent_calldata_offset_addr) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_offset_addr' - rop[3]) = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[3]) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_calldata_size_addr' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise        = 0 <==> parent_calldata_size_addr' = parent_calldata_size_addr
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_calldata_size' = rop[4] (resolved operand 5 from execution trace)
+    // otherwise        = 0 ==> parent_calldata_siz' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size_addr' - parent_calldata_size_addr) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size_addr' - rop[4]) = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - rop[4]) = 0;
 
     pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
-    // NESTED_RET_REV_ONLY = 1 <==> rop[1] (resolved operand 2 from execution trace)
-    // sel_error           = 1 <==> last_child_returndata_size' = 0;
-    // sel_enter_call      = 1 <==> last_child_returndata_offset_addr' = 0;
-    // otherwise           = 0 <==> last_child_returndata_offset_addr' = last_child_returndata_offset_addr
+    // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
+    // sel_error           = 1 ==> last_child_returndata_size' = 0;
+    // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
+    // otherwise           = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
     #[RD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_offset_addr' - last_child_returndata_offset_addr) = 0;
-    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_offset_addr' - rop[1]) = 0;
-    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_offset_addr' = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
 
-    // NESTED_RET_REV_ONLY = 1 <==> register[0] (intermediate register 1 from execution trace)
-    // sel_error               = 1 <==> last_child_returndata_size' = 0;
-    // sel_enter_call          = 1 <==> last_child_returndata_size' = 0;
-    // otherwise               = 0 <==> last_child_returndata_size' = last_child_returndata_size
+    // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
+    // sel_error               = 1 ==> last_child_returndata_size' = 0;
+    // sel_enter_call          = 1 ==> last_child_returndata_size' = 0;
+    // otherwise               = 0 ==> last_child_returndata_size' = last_child_returndata_size
     #[RD_SIZE_OFFSET_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
 
-    // nested_exit_call = 1 <==> l2_gas_limit' = parent_l2_gas_limit
-    // sel_enter_call   = 1 <==> constraints come from call logic
-    // otherwise        = 0 <==> l2_gas_limit' = l2_gas_limit
+    // nested_exit_call = 1 ==> l2_gas_limit' = parent_l2_gas_limit
+    // sel_enter_call   = 1 ==> constraints come from call logic
+    // otherwise        = 0 ==> l2_gas_limit' = l2_gas_limit
     #[L2_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_limit' - l2_gas_limit) = 0;
     #[L2_GAS_LIMIT_RESTORE_ON_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (l2_gas_limit' - parent_l2_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> da_gas_limit' = parent_da_gas_limit
-    // sel_enter_call   = 1 <==> constraints come from call logic
-    // otherwise        = 0 <==> da_gas_limit' = da_gas_limit
+    // nested_exit_call = 1 ==> da_gas_limit' = parent_da_gas_limit
+    // sel_enter_call   = 1 ==> constraints come from call logic
+    // otherwise        = 0 ==> da_gas_limit' = da_gas_limit
     #[DA_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_limit' - da_gas_limit) = 0;
     #[DA_GAS_LIMIT_RESTORE_ON_EXIT]
     NOT_LAST_EXEC * nested_exit_call * (da_gas_limit' - parent_da_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_l2_gas_limit' = l2_gas_limit
-    // otherwise        = 0 <==> parent_l2_gas_limit' = parent_l2_gas_limit
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_l2_gas_limit' = l2_gas_limit
+    // otherwise        = 0 ==> parent_l2_gas_limit' = parent_l2_gas_limit
     #[PARENT_L2_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_limit' - parent_l2_gas_limit) = 0;
     #[PARENT_L2_GAS_LIMIT_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_l2_gas_limit' - l2_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_da_gas_limit' = da_gas_limit
-    // otherwise        = 0 <==> parent_da_gas_limit' = parent_da_gas_limit
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_da_gas_limit' = da_gas_limit
+    // otherwise        = 0 ==> parent_da_gas_limit' = parent_da_gas_limit
     #[PARENT_DA_GAS_LIMIT_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_limit' - parent_da_gas_limit) = 0;
     #[PARENT_DA_GAS_LIMIT_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_da_gas_limit' - da_gas_limit) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_l2_gas_used' = l2_gas_used
-    // otherwise        = 0 <==> parent_l2_gas_used' = parent_l2_gas_used
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_l2_gas_used' = l2_gas_used
+    // otherwise        = 0 ==> parent_l2_gas_used' = parent_l2_gas_used
     #[PARENT_L2_GAS_USED_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_l2_gas_used' - parent_l2_gas_used) = 0;
     #[PARENT_L2_GAS_USED_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_l2_gas_used' - l2_gas_used) = 0;
 
-    // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_da_gas_used' = da_gas_used
-    // otherwise        = 0 <==> parent_da_gas_used' = parent_da_gas_used
+    // nested_exit_call = 1 ==> constraints come from lookup
+    // sel_enter_call   = 1 ==> parent_da_gas_used' = da_gas_used
+    // otherwise        = 0 ==> parent_da_gas_used' = parent_da_gas_used
     #[PARENT_DA_GAS_USED_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_da_gas_used' - parent_da_gas_used) = 0;
     #[PARENT_DA_GAS_USED_STORE_ON_ENTER]
@@ -245,8 +250,8 @@ namespace execution;
         msg_sender,
         contract_address,
         is_static,
-        parent_calldata_offset_addr,
-        parent_calldata_size_addr,
+        parent_calldata_addr,
+        parent_calldata_size,
         parent_l2_gas_limit,
         parent_da_gas_limit,
         parent_l2_gas_used,
@@ -260,8 +265,8 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
-        context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr,
+        context_stack.parent_calldata_addr,
+        context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
@@ -283,8 +288,8 @@ namespace execution;
         msg_sender',
         contract_address',
         is_static',
-        parent_calldata_offset_addr',
-        parent_calldata_size_addr',
+        parent_calldata_addr',
+        parent_calldata_size',
         parent_l2_gas_limit',
         parent_da_gas_limit',
         parent_l2_gas_used',
@@ -300,8 +305,8 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
-        context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr,
+        context_stack.parent_calldata_addr,
+        context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
@@ -314,28 +319,30 @@ namespace execution;
     nested_return = nested_exit_call * sel_return;
     #[CTX_STACK_RETURN]
     nested_return {
+        context_id,
         context_id', // constrained to be parent_id
         parent_id',
         pc',
         msg_sender',
         contract_address',
         is_static',
-        parent_calldata_offset_addr',
-        parent_calldata_size_addr',
+        parent_calldata_addr',
+        parent_calldata_size',
         parent_l2_gas_limit',
         parent_da_gas_limit',
         parent_l2_gas_used',
         parent_da_gas_used'
     } in
     context_stack.sel {
+        context_stack.entered_context_id,
         context_stack.context_id,
         context_stack.parent_id,
         context_stack.next_pc,
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
-        context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr,
+        context_stack.parent_calldata_addr,
+        context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,

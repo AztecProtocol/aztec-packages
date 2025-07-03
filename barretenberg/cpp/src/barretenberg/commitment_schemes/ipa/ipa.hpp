@@ -27,8 +27,12 @@
 
 namespace bb {
 // clang-format off
-
-constexpr size_t IPA_PROOF_LENGTH = 1 + 4 * CONST_ECCVM_LOG_N + 2 + 2;
+// Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private, rollup-base-public,
+// rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating IPA_PROOF_LENGTH in other places.
+static constexpr size_t IPA_PROOF_LENGTH =  /* poly_length */ 2 +
+                                            /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N  +
+                                            /* comm G_0 */    2 +
+                                            /* eval a_0 */    2;
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
@@ -89,7 +93,7 @@ can reduce initial commitment to the result \f$\langle \vec{a},\vec{b}\rangle U\
 * The old version of documentation is available at <a href="https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view">Old IPA
 documentation </a>
 */
-template <typename Curve_> class IPA {
+template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA {
  public:
    using Curve = Curve_;
    using Fr = typename Curve::ScalarField;
@@ -98,6 +102,9 @@ template <typename Curve_> class IPA {
    using CK = CommitmentKey<Curve>;
    using VK = VerifierCommitmentKey<Curve>;
    using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
+
+   // Compute the length of the vector of coefficients of a polynomial being opened.
+   static constexpr size_t poly_length = 1UL<<log_poly_length;
 
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
@@ -111,7 +118,7 @@ template <typename Curve_> class IPA {
     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
     *
     * @tparam Transcript Transcript type. Useful for testing
-    * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+    * @param ck The commitment key containing srs
     * @param opening_pair (challenge, evaluation)
     * @param polynomial The witness polynomial whose opening proof needs to be computed
     * @param transcript Prover transcript
@@ -144,18 +151,19 @@ template <typename Curve_> class IPA {
     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
     */
     template <typename Transcript>
-    static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
+    static void compute_opening_proof_internal(const CK& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
-        size_t poly_length = polynomial.size();
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1408): Make IPA fuzzer compatible with `add_to_hash_buffer`.
         // Step 1.
+        // Note that we don't need to hash `poly_length` as it is a compile-time constant.
+        // It can go away as a result of the resolution of the above issues.
         // Send polynomial degree + 1 = d to the verifier
-        transcript->send_to_verifier("IPA:poly_degree_plus_1", static_cast<uint32_t>(poly_length));
+        transcript->send_to_verifier("IPA:poly_length", Fr(poly_length));
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -178,20 +186,18 @@ template <typename Curve_> class IPA {
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         // Ensure the polynomial copy is fully-formed
         auto a_vec = polynomial.full();
-        std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
+        std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
-        if (poly_length * 2 > srs_elements.size()) {
+        if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
 
-        // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-        // G_vec_local should use only the original SRS thus we extract only the even indices.
+        // Copy the SRS into a local data structure as we need to mutate this vector for every round
         parallel_for_heuristic(
             poly_length,
             [&](size_t i) {
-                G_vec_local[i] = srs_elements[i * 2];
+                G_vec_local[i] = srs_elements[i];
             }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
@@ -209,11 +215,6 @@ template <typename Curve_> class IPA {
             }, thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 
         // Iterate for log(poly_degree) rounds to compute the round commitments.
-        auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constant from IPA.
-        if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
-        }
 
         // Allocate space for L_i and R_i elements
         GroupElement L_i;
@@ -238,19 +239,19 @@ template <typename Curve_> class IPA {
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state.get());
+
+            L_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(0), /*size*/ round_size}},{&G_vec_local[round_size], round_size});
+
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state.get());
+            R_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(round_size), /*size*/ round_size}},{&G_vec_local[0], /*size*/ round_size});
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
             // Send commitments to the verifier
-            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
+            std::string index = std::to_string(log_poly_length - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
@@ -286,14 +287,6 @@ template <typename Curve_> class IPA {
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
 
-        // For dummy rounds, send commitments of zero()
-        for (size_t i = log_poly_length; i < CONST_ECCVM_LOG_N; i++) {
-            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
-            transcript->send_to_verifier("IPA:L_" + index, Commitment::one());
-            transcript->send_to_verifier("IPA:R_" + index, Commitment::one());
-            transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-        }
-
         // Step 7
         // Send G_0 to the verifier
         transcript->send_to_verifier("IPA:G_0", G_vec_local[0]);
@@ -307,7 +300,7 @@ template <typename Curve_> class IPA {
      * @brief Natively verify the correctness of a Proof
      *
      * @tparam Transcript Allows to specify a transcript class. Useful for testing
-     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
@@ -328,18 +321,18 @@ template <typename Curve_> class IPA {
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    static bool reduce_verify_internal_native(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify_internal_native(const VK& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length = static_cast<uint32_t>(transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1")); // note this is base field because this is a uint32_t, which should map
+        auto poly_length_received_from_prover = transcript->template receive_from_prover<Fr>(
+            "IPA:poly_length"); // note this is base field because this is a uint32_t, which should map
                                         // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
                                         // Grumpkin
-
+        ASSERT(poly_length_received_from_prover == poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
@@ -350,24 +343,20 @@ template <typename Curve_> class IPA {
 
         Commitment aux_generator = Commitment::one() * generator_challenge;
 
-        auto log_poly_length = static_cast<size_t>(numeric::get_msb(poly_length));
-        if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large " + std::to_string(log_poly_length));
-        }
         // Step 3.
         // Compute C' = C + f(\beta) ⋅ U
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
         auto pippenger_size = 2 * log_poly_length;
-        std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
-        std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
         // Step 4.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
+        for (size_t i = 0; i < log_poly_length; i++) {
+            std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -387,8 +376,7 @@ template <typename Curve_> class IPA {
 
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state.get());
+        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>({0, {&msm_scalars[0], /*size*/ pippenger_size}},{&msm_elements[0], /*size*/ pippenger_size});
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -403,28 +391,16 @@ template <typename Curve_> class IPA {
 
         // Step 7.
         // Construct vector s
-        Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(log_poly_length, std::span(round_challenges_inv).subspan(0, log_poly_length)));
+        Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(std::span(round_challenges_inv).subspan(0, log_poly_length)));
 
-        std::span<const Commitment> srs_elements = vk->get_monomial_points();
-        if (poly_length * 2 > srs_elements.size()) {
+        std::span<const Commitment> srs_elements = vk.get_monomial_points();
+        if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
-        // Copy the G_vector to local memory.
-        std::vector<Commitment> G_vec_local(poly_length);
-
-        // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-        // G_vec_local should use only the original SRS thus we extract only the even indices.
-        parallel_for_heuristic(
-            poly_length,
-            [&](size_t i) {
-                G_vec_local[i] = srs_elements[i * 2];
-            }, thread_heuristics::FF_COPY_COST * 2);
 
         // Step 8.
         // Compute G₀
-        Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state.get());
+        Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
 
@@ -451,8 +427,6 @@ template <typename Curve_> class IPA {
      * @param opening_claim
      * @param transcript
      * @return VerifierAccumulator
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
-     * function with parallelisation
      */
     static VerifierAccumulator reduce_verify_internal_recursive(const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
@@ -460,37 +434,26 @@ template <typename Curve_> class IPA {
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
-                                       // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                                       // Grumpkin
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
-        const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
+    	const Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_length");
+        poly_length_received_from_prover.assert_equal(poly_length);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         typename Curve::Builder* builder = generator_challenge.get_context();
 
-        const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
-        }
-        auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
-        std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
-        std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
+        auto pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
 
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
+        for (size_t i = 0; i < log_poly_length; i++) {
 
-            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
+            std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -498,8 +461,8 @@ template <typename Curve_> class IPA {
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
-            msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] =  round_challenges[i];
         }
 
         //  Step 4.
@@ -509,14 +472,13 @@ template <typename Curve_> class IPA {
 
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - log_poly_length);
+        for (size_t i = 0; i < log_poly_length; i++) {
 
-            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
+            Fr monomial = round_challenges_inv[log_poly_length - 1 - i] * challenge;
             b_zero *= Fr(1) + monomial;
-            if (i != CONST_ECCVM_LOG_N - 1) // this if statement is fine because the number of iterations is constant
+            if (i != log_poly_length - 1) // this if statement is fine because the number of iterations is constant
             {
-                challenge = Fr::conditional_assign(dummy_round, challenge, challenge * challenge);
+                challenge = challenge.sqr();
             }
         }
 
@@ -540,16 +502,14 @@ template <typename Curve_> class IPA {
         auto neg_commitment = -opening_claim.commitment;
         ipa_relation.assert_equal(neg_commitment);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): Add proper constraints for taking the log of a field_t.
-        Fr stdlib_log_poly_length(static_cast<uint256_t>(log_poly_length));
-        return {stdlib_log_poly_length, round_challenges_inv, G_zero};
+
+        return { round_challenges_inv, G_zero};
     }
 
-  public:
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
-     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+     * @param ck The commitment key containing srs
      * @param opening_pair (challenge, evaluation)
      * @param polynomial The witness polynomial whose opening proof needs to be computed
      * @param transcript Prover transcript
@@ -557,7 +517,7 @@ template <typename Curve_> class IPA {
      * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
      * compute_opening_proof_internal \endlink.
      */
-    static void compute_opening_proof(const std::shared_ptr<CK>& ck,
+    static void compute_opening_proof(const CK& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<NativeTranscript>& transcript)
     {
@@ -567,7 +527,7 @@ template <typename Curve_> class IPA {
     /**
      * @brief Natively verify the correctness of an IPA Proof
      *
-     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
@@ -575,7 +535,7 @@ template <typename Curve_> class IPA {
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    static bool reduce_verify(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify(const VK& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -586,7 +546,7 @@ template <typename Curve_> class IPA {
     /**
      * @brief Recursively verify the correctness of a proof
      *
-     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
@@ -613,47 +573,33 @@ template <typename Curve_> class IPA {
      * @param opening_claim
      * @param transcript
      * @return VerifierAccumulator
-     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
-     * function with parallelisation
      */
-    static bool full_verify_recursive(const std::shared_ptr<VK>& vk,
+    static bool full_verify_recursive(const VK& vk,
                                                     const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length_var = transcript->template receive_from_prover<typename Curve::BaseField>(
-            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
-                                       // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                                       // Grumpkin
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1144): need checks here on poly_length.
-        const auto poly_length = static_cast<uint32_t>(poly_length_var.get_value());
-        debug("poly_length = ", poly_length);
+        const Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_length");
+        poly_length_received_from_prover.assert_equal(poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         typename Curve::Builder* builder = generator_challenge.get_context();
 
-        const auto log_poly_length = numeric::get_msb(static_cast<uint32_t>(poly_length));
-        if (log_poly_length > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(log_poly_length));
-        }
-        auto pippenger_size = 2 * CONST_ECCVM_LOG_N;
-        std::vector<Fr> round_challenges(CONST_ECCVM_LOG_N);
-        std::vector<Fr> round_challenges_inv(CONST_ECCVM_LOG_N);
+        static constexpr size_t pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
         std::vector<Fr> msm_scalars(pippenger_size);
 
 
         // Step 3.
         // Receive all L_i and R_i and prepare for MSM
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-            stdlib::bool_t<typename Curve::Builder> dummy_round  = stdlib::witness_t(builder, i >= log_poly_length);
+        for (size_t i = 0; i < log_poly_length; i++) {
 
-            std::string index = std::to_string(CONST_ECCVM_LOG_N - i - 1);
+            std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
             round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
@@ -661,8 +607,8 @@ template <typename Curve_> class IPA {
 
             msm_elements[2 * i] = element_L;
             msm_elements[2 * i + 1] = element_R;
-            msm_scalars[2 * i] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[i]);
-            msm_scalars[2 * i + 1] = Fr::conditional_assign(dummy_round, Fr(0), round_challenges[i]);
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
         //  Step 4.
@@ -672,14 +618,13 @@ template <typename Curve_> class IPA {
 
         Fr b_zero = Fr(1);
         Fr challenge = opening_claim.opening_pair.challenge;
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - log_poly_length);
+        for (size_t i = 0; i < log_poly_length; i++) {
 
-            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), round_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * challenge);
+            Fr monomial = round_challenges_inv[log_poly_length - 1 - i] * challenge;
             b_zero *= Fr(1) + monomial;
-            if (i != CONST_ECCVM_LOG_N - 1) // this if statement is fine because the number of iterations is constant
+            if (i != log_poly_length - 1) // this if statement is fine because the number of iterations is constant
             {
-                challenge = Fr::conditional_assign(dummy_round, challenge, challenge * challenge);
+                challenge = challenge.sqr();
             }
         }
 
@@ -694,7 +639,7 @@ template <typename Curve_> class IPA {
         Fr* previous_round_s = &s_vec_temporaries[0];
         Fr* current_round_s = &s_vec[0];
         // if number of rounds is even we need to swap these so that s_vec always contains the result
-        if ((log_poly_length & 1) == 0)
+        if constexpr ((log_poly_length & 1) == 0)
         {
             std::swap(previous_round_s, current_round_s);
         }
@@ -715,8 +660,9 @@ template <typename Curve_> class IPA {
         // Compute G₀
         // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
         // batch_mul directly on it.
-        const std::vector<Commitment> srs_elements = vk->get_monomial_points();
+        const std::vector<Commitment> srs_elements = vk.get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
+        transcript_G_zero.assert_equal(G_zero);
         BB_ASSERT_EQ(G_zero.get_value(), transcript_G_zero.get_value(), "G_zero doesn't match received G_zero.");
 
         // Step 6.
@@ -775,7 +721,7 @@ template <typename Curve_> class IPA {
      * @return bool
      */
     static bool reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
-                                                                 const std::shared_ptr<VK>& vk,
+                                                                 const VK& vk,
                                                                  auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
@@ -808,23 +754,17 @@ template <typename Curve_> class IPA {
      * @param r
      * @return Fr
      */
-    static Fr evaluate_challenge_poly(Fr log_poly_length, const std::vector<Fr>& u_challenges_inv, Fr r) {
-        using Builder = typename Curve::Builder;
+    static Fr evaluate_challenge_poly(const std::vector<Fr>& u_challenges_inv, Fr r) {
 
-        Builder* builder = r.get_context();
         Fr challenge_poly_eval = 1;
         Fr r_pow = r;
-        if (uint32_t(log_poly_length.get_value()) > CONST_ECCVM_LOG_N) {
-            throw_or_abort("IPA log_poly_length is too large: " + std::to_string(uint32_t(log_poly_length.get_value())));
-        }
-        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-            stdlib::bool_t<typename Curve::Builder> dummy_round = stdlib::witness_t(builder, i < CONST_ECCVM_LOG_N - uint32_t(log_poly_length.get_value()));
 
-            Fr monomial = Fr::conditional_assign(dummy_round, Fr(0), u_challenges_inv[CONST_ECCVM_LOG_N - 1 - i] * r_pow);
+        for (size_t i = 0; i < log_poly_length; i++) {
+
+            Fr monomial = u_challenges_inv[log_poly_length - 1 - i] * r_pow;
 
             challenge_poly_eval *= (Fr(1) + monomial);
-            r_pow = Fr::conditional_assign(dummy_round, r_pow, r_pow * r_pow);
+            r_pow = r_pow.sqr();
         }
         return challenge_poly_eval;
     }
@@ -838,8 +778,8 @@ template <typename Curve_> class IPA {
      * @param alpha
      * @return Fr
      */
-    static Fr evaluate_and_accumulate_challenge_polys(Fr log_poly_length_1, std::vector<Fr> u_challenges_inv_1, Fr log_poly_length_2, std::vector<Fr> u_challenges_inv_2, Fr r, Fr alpha) {
-        auto result = evaluate_challenge_poly(log_poly_length_1, u_challenges_inv_1, r) + alpha * evaluate_challenge_poly(log_poly_length_2, u_challenges_inv_2, r);
+    static Fr evaluate_and_accumulate_challenge_polys(std::vector<Fr> u_challenges_inv_1, std::vector<Fr> u_challenges_inv_2, Fr r, Fr alpha) {
+        auto result = evaluate_challenge_poly(u_challenges_inv_1, r) + alpha * evaluate_challenge_poly(u_challenges_inv_2, r);
         return result;
     }
 
@@ -849,8 +789,7 @@ template <typename Curve_> class IPA {
      * @param u_challenges_inv
      * @return Polynomial<bb::fq>
      */
-    static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const size_t log_poly_length, const std::span<const bb::fq>& u_challenges_inv) {
-        const size_t poly_length = (1 << log_poly_length);
+    static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const std::span<const bb::fq>& u_challenges_inv) {
 
         // Construct vector s in linear time.
         std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
@@ -888,11 +827,11 @@ template <typename Curve_> class IPA {
      * @param alpha
      * @return Polynomial<bb::fq>
      */
-    static Polynomial<bb::fq> create_challenge_poly(const size_t log_poly_length_1, const std::vector<bb::fq>& u_challenges_inv_1, const size_t log_poly_length_2, const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
-        // Always extend each to 1<<CONST_ECCVM_LOG_N length
-        Polynomial<bb::fq> challenge_poly(1<<CONST_ECCVM_LOG_N);
-        Polynomial challenge_poly_1 = construct_poly_from_u_challenges_inv(log_poly_length_1, u_challenges_inv_1);
-        Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(log_poly_length_2, u_challenges_inv_2);
+    static Polynomial<bb::fq> create_challenge_poly(const std::vector<bb::fq>& u_challenges_inv_1,  const std::vector<bb::fq>& u_challenges_inv_2, bb::fq alpha) {
+        // Always extend each to 1<<log_poly_length length
+        Polynomial<bb::fq> challenge_poly(1<<log_poly_length);
+        Polynomial challenge_poly_1 = construct_poly_from_u_challenges_inv(u_challenges_inv_1);
+        Polynomial challenge_poly_2 = construct_poly_from_u_challenges_inv(u_challenges_inv_2);
         challenge_poly += challenge_poly_1;
         challenge_poly.add_scaled(challenge_poly_2, alpha);
         return challenge_poly;
@@ -910,7 +849,7 @@ template <typename Curve_> class IPA {
      * @param claim_2
      * @return std::pair<OpeningClaim<Curve>, HonkProof>
      */
-    static std::pair<OpeningClaim<Curve>, HonkProof> accumulate(const std::shared_ptr<CommitmentKey<curve::Grumpkin>>& ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
+    static std::pair<OpeningClaim<Curve>, HonkProof> accumulate(const CommitmentKey<curve::Grumpkin>& ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
     requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
@@ -933,7 +872,7 @@ template <typename Curve_> class IPA {
         output_claim.commitment = pair_1.comm + pair_2.comm * alpha;
         output_claim.opening_pair.challenge = r;
         // Evaluate the challenge_poly polys at r and linearly combine them with alpha challenge
-        output_claim.opening_pair.evaluation = evaluate_and_accumulate_challenge_polys(pair_1.log_poly_length, pair_1.u_challenges_inv, pair_2.log_poly_length, pair_2.u_challenges_inv, r, alpha);
+        output_claim.opening_pair.evaluation = evaluate_and_accumulate_challenge_polys(pair_1.u_challenges_inv, pair_2.u_challenges_inv, r, alpha);
 
         // Step 4: Compute the new polynomial
         std::vector<bb::fq> native_u_challenges_inv_1;
@@ -949,15 +888,15 @@ template <typename Curve_> class IPA {
         auto prover_transcript = std::make_shared<NativeTranscript>();
         const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
                                                      bb::fq(output_claim.opening_pair.evaluation.get_value()) };
-        Polynomial<fq> challenge_poly = create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()));
+        Polynomial<fq> challenge_poly = create_challenge_poly(native_u_challenges_inv_1, native_u_challenges_inv_2, fq(alpha.get_value()));
 
         BB_ASSERT_EQ(challenge_poly.evaluate(opening_pair.challenge), opening_pair.evaluation, "Opening claim does not hold for challenge polynomial.");
 
-        IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
+        IPA<NativeCurve, log_poly_length>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
         BB_ASSERT_EQ(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())), fq(output_claim.opening_pair.evaluation.get_value()), "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
-        return {output_claim, prover_transcript->proof_data};
+        return {output_claim, prover_transcript->export_proof()};
     }
 
     static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)
@@ -966,15 +905,15 @@ template <typename Curve_> class IPA {
         using Builder = typename Curve::Builder;
         using Curve = stdlib::grumpkin<Builder>;
         auto ipa_transcript = std::make_shared<NativeTranscript>();
-        auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
-        size_t n = 4;
+        CommitmentKey<NativeCurve> ipa_commitment_key(poly_length);
+        size_t n = poly_length;
         auto poly = Polynomial<fq>(n);
         for (size_t i = 0; i < n; i++) {
             poly.at(i) = fq::random_element();
         }
         fq x = fq::random_element();
         fq eval = poly.evaluate(x);
-        auto commitment = ipa_commitment_key->commit(poly);
+        auto commitment = ipa_commitment_key.commit(poly);
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
         IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
 

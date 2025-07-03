@@ -16,7 +16,7 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     writeTestData(path, Buffer.from(json), /*raw=*/ true);
 
     const expectedJson = readTestData(path);
-    const expectedAvmInputs = await jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
+    const expectedAvmInputs = jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
     expect(expectedAvmInputs).toStrictEqual(inputs);
   });
 
@@ -36,7 +36,7 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     const buffer = result.avmProvingRequest.inputs.serializeWithMessagePack();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
-    const path = 'barretenberg/cpp/src/barretenberg/vm2/common/minimal_tx.testdata.bin';
+    const path = 'barretenberg/cpp/src/barretenberg/vm2/testing/minimal_tx.testdata.bin';
     writeTestData(path, buffer, /*raw=*/ true);
 
     const expected = readTestData(path);

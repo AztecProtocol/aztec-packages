@@ -80,8 +80,9 @@ export class EpochProvingState {
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
+    proverId: Fr,
   ): BlockProvingState {
-    const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
+    const index = globalVariables.blockNumber - this.firstBlockNumber;
     const block = new BlockProvingState(
       index,
       globalVariables,
@@ -93,6 +94,7 @@ export class EpochProvingState {
       lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
+      proverId,
       this,
     );
     this.blocks[index] = block;
@@ -197,12 +199,12 @@ export class EpochProvingState {
     });
   }
 
-  public getPaddingBlockRootInputs(proverId: Fr) {
+  public getPaddingBlockRootInputs() {
     if (!this.blocks[0]?.isComplete()) {
       throw new Error('Epoch needs one completed block in order to be padded.');
     }
 
-    return this.blocks[0].getPaddingBlockRootInputs(proverId);
+    return this.blocks[0].getPaddingBlockRootInputs();
   }
 
   // Returns a specific transaction proving state

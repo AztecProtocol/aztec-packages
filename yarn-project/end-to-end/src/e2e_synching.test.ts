@@ -45,7 +45,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
+import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -55,6 +55,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -73,13 +74,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import {
-  type EndToEndContext,
-  createForwarderContract,
-  getPrivateKeyFromIndex,
-  setup,
-  setupPXEService,
-} from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -412,15 +407,13 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
-      dateProvider: new TestDateProvider(),
-    });
+    const dateProvider = new TestDateProvider();
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
@@ -432,10 +425,10 @@ describe('e2e_synching', () => {
         blobSinkClient,
         l1TxUtils,
         rollupContract,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
+        dateProvider,
       },
     );
 
@@ -561,7 +554,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
@@ -645,7 +638,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
@@ -705,7 +698,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           await rollup.write.prune();
 

@@ -1,5 +1,6 @@
 #include "ultra_circuit_checker.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>
 
 namespace bb {
@@ -14,11 +15,36 @@ template <> auto UltraCircuitChecker::init_empty_values<MegaCircuitBuilder_<bb::
     return MegaFlavor::AllValues{};
 }
 
+template <>
+UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_circuit<
+    UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in)
+{
+    // Create a copy of the input circuit
+    UltraCircuitBuilder_<UltraExecutionTraceBlocks> builder{ builder_in };
+
+    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+
+    return builder;
+}
+
+template <>
+MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuilder_<bb::fr>>(
+    const MegaCircuitBuilder_<bb::fr>& builder_in)
+{
+    // Create a copy of the input circuit
+    MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+
+    // Deepcopy the opqueue to avoid modifying the original one
+    builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+
+    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+
+    return builder;
+}
+
 template <typename Builder> bool UltraCircuitChecker::check(const Builder& builder_in)
 {
-    // Create a copy of the input circuit and finalize it
-    Builder builder{ builder_in };
-    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    Builder builder = UltraCircuitChecker::prepare_circuit(builder_in);
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;
@@ -253,10 +279,11 @@ void UltraCircuitChecker::populate_values(
     values.w_o = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
     // we are indexing into the correct block before updating the w_4 value.
-    if (block.has_ram_rom && memory_data.read_record_gates.contains(idx)) {
+    const bool is_ram_rom_block = (&block == &builder.blocks.aux);
+    if (is_ram_rom_block && memory_data.read_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(
             values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
-    } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx)) {
+    } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx)) {
         values.w_4 =
             compute_memory_record_term(
                 values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
@@ -270,14 +297,14 @@ void UltraCircuitChecker::populate_values(
         values.w_l_shift = builder.get_variable(block.w_l()[idx + 1]);
         values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
         values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
-        if (block.has_ram_rom && memory_data.read_record_gates.contains(idx + 1)) {
+        if (is_ram_rom_block && memory_data.read_record_gates.contains(idx + 1)) {
             values.w_4_shift = compute_memory_record_term(values.w_l_shift,
                                                           values.w_r_shift,
                                                           values.w_o_shift,
                                                           memory_data.eta,
                                                           memory_data.eta_two,
                                                           memory_data.eta_three);
-        } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx + 1)) {
+        } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx + 1)) {
             values.w_4_shift = compute_memory_record_term(values.w_l_shift,
                                                           values.w_r_shift,
                                                           values.w_o_shift,
@@ -405,8 +432,8 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_delta_range_
  */
 template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation(Builder& builder)
 {
-    for (size_t i = 0; i < builder.rom_arrays.size(); i++) {
-        auto rom_array = builder.rom_arrays[i];
+    for (size_t i = 0; i < builder.rom_ram_logic.rom_arrays.size(); i++) {
+        auto rom_array = builder.rom_ram_logic.rom_arrays[i];
 
         // check set and read ROM records
         for (auto& rr : rom_array.records) {
@@ -428,8 +455,8 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation
         }
     }
 
-    for (size_t i = 0; i < builder.ram_arrays.size(); i++) {
-        auto ram_array = builder.ram_arrays[i];
+    for (size_t i = 0; i < builder.rom_ram_logic.ram_arrays.size(); i++) {
+        auto ram_array = builder.rom_ram_logic.ram_arrays[i];
 
         std::vector<uint32_t> tmp_state(ram_array.state.size());
 
@@ -442,13 +469,13 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_aux_relation
             uint32_t table_witness = tmp_state[index];
 
             switch (access_type) {
-            case Builder::RamRecord::AccessType::READ:
+            case bb::RamRecord::AccessType::READ:
                 if (builder.get_variable(value_witness) != builder.get_variable(table_witness)) {
                     info("Failed RAM read in table = ", i, " at idx = ", index);
                     return false;
                 }
                 break;
-            case Builder::RamRecord::AccessType::WRITE:
+            case bb::RamRecord::AccessType::WRITE:
                 tmp_state[index] = value_witness;
                 break;
             default:

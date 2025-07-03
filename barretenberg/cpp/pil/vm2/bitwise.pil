@@ -26,7 +26,7 @@ start * (1 - start) = 0;
 // To support dynamically sized memory operands we use a counter against a lookup
 // This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
 // corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).
-// Consistency can be achieved with a lookup table between the tag and precomputed.integral_tag_length
+// Consistency can be achieved with a lookup table between the tag and precomputed.tag_byte_length
 pol commit ctr;
 
 // last is a boolean which serves to mark the end of the computation (end of latch)
@@ -91,10 +91,12 @@ last * (acc_ic - ic_byte) = 0;
 #[BITW_ACC_REL_C]
 (acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
 
+// Operations over FF are not supported, it is assumed this exclusion is handled
+// outside of this subtrace. The below lookup will pass with FF, so we are not protected here:
 #[INTEGRAL_TAG_LENGTH]
 start { tag, ctr }
 in
-precomputed.sel_integral_tag { precomputed.clk, precomputed.integral_tag_length };
+precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
 
 #[BYTE_OPERATIONS]
 sel { op_id, ia_byte, ib_byte, ic_byte }

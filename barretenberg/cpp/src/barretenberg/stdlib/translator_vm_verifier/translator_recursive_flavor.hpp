@@ -105,7 +105,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public StdlibVerificationKey_<BuilderType, FF, TranslatorFlavor::PrecomputedEntities<Commitment>> {
+        : public StdlibVerificationKey_<BuilderType, TranslatorFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -134,5 +134,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

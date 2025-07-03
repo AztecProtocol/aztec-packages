@@ -138,7 +138,7 @@ export class ProvingOrchestrator implements EpochProver {
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
-    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber,
   }))
   public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[], previousBlockHeader: BlockHeader) {
     if (!this.provingState) {
@@ -149,13 +149,11 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Epoch not accepting further blocks`);
     }
 
-    logger.info(
-      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()}`,
-    );
+    logger.info(`Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber.toNumber()}`);
 
     // Fork world state at the end of the immediately previous block
-    const db = await this.dbProvider.fork(globalVariables.blockNumber.toNumber() - 1);
-    this.dbs.set(globalVariables.blockNumber.toNumber(), db);
+    const db = await this.dbProvider.fork(globalVariables.blockNumber - 1);
+    this.dbs.set(globalVariables.blockNumber, db);
 
     // we start the block by enqueueing all of the base parity circuits
     const {
@@ -180,6 +178,7 @@ export class ProvingOrchestrator implements EpochProver {
       lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
+      this.proverId,
     );
 
     // Enqueue base parity circuits for the block
@@ -202,7 +201,7 @@ export class ProvingOrchestrator implements EpochProver {
       logger.warn(`Provided no txs to orchestrator addTxs.`);
       return;
     }
-    const blockNumber = txs[0].globalVariables.blockNumber.toNumber();
+    const blockNumber = txs[0].globalVariables.blockNumber;
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -683,7 +682,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.blockRootRollupStarted = true;
 
-    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs(this.proverId);
+    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs();
 
     logger.debug(
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
@@ -745,7 +744,7 @@ export class ProvingOrchestrator implements EpochProver {
         const epochProvingState = this.provingState!;
         const leafLocation = epochProvingState.setBlockRootRollupProof(provingState.index, result);
         if (epochProvingState.totalNumBlocks === 1) {
-          await this.enqueueEpochPadding(epochProvingState);
+          this.enqueueEpochPadding(epochProvingState);
         } else {
           this.checkAndEnqueueNextBlockMergeRollup(epochProvingState, leafLocation);
         }
@@ -839,25 +838,25 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  private async enqueueEpochPadding(provingState: EpochProvingState) {
+  private enqueueEpochPadding(provingState: EpochProvingState) {
     if (!provingState.verifyState()) {
       logger.debug('Not running epoch padding. State no longer valid.');
       return;
     }
 
-    logger.debug('Padding epoch proof with an empty block root proof.');
+    logger.debug('Padding epoch proof with a padding block root proof.');
 
-    const inputs = await provingState.getPaddingBlockRootInputs(this.proverId);
+    const inputs = provingState.getPaddingBlockRootInputs();
 
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
+        'ProvingOrchestrator.prover.getPaddingBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'padding-block-root-rollup' satisfies CircuitName,
         },
-        signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
+        signal => this.prover.getPaddingBlockRootRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
         logger.debug('Completed proof for padding block root.');

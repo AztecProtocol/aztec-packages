@@ -11,8 +11,9 @@ import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
   SignatureLib,
   Signature,
-  CommitteeAttestation
-} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+  CommitteeAttestation,
+  CommitteeAttestations
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -56,7 +57,7 @@ import {
   ManaBaseFeeComponentsModel
 } from "./FeeModelTestPoints.t.sol";
 
-import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
@@ -69,8 +70,6 @@ uint256 constant MANA_TARGET = 100000000;
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
 
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
@@ -109,7 +108,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
+      .setMintFeeAmount(1e30).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -146,7 +145,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
-    TestPoint memory point = points[slotNumber.unwrap() - 1];
+    TestPoint memory point = points[Slot.unwrap(slotNumber) - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
@@ -194,7 +193,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       _loadL1Metadata(i);
 
       if (rollup.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
+        TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
         Block memory b = getBlock();
         skipBlobCheck(address(rollup));
         rollup.propose(
@@ -207,7 +206,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.attestations,
+          SignatureLib.packAttestations(b.attestations),
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -236,9 +235,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
@@ -279,7 +277,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
       // will be accepted as a proposal so very useful for testing a long range of blocks.
       if (rollup.getCurrentSlot() == nextSlot) {
-        TestPoint memory point = points[nextSlot.unwrap() - 1];
+        TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
 
         L1FeeData memory fees = rollup.getL1FeesAt(Timestamp.wrap(block.timestamp));
         uint256 feeAssetPrice = FeeAssetPerEthE9.unwrap(rollup.getFeeAssetPerEth());
@@ -288,7 +286,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), false);
         ManaBaseFeeComponents memory componentsFeeAsset =
           rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
-        FeeHeader memory parentFeeHeader = rollup.getFeeHeader(nextSlot.unwrap() - 1);
+        FeeHeader memory parentFeeHeader = rollup.getFeeHeader(Slot.unwrap(nextSlot) - 1);
 
         Block memory b = getBlock();
 
@@ -303,11 +301,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             }),
             txHashes: b.txHashes
           }),
-          b.attestations,
+          SignatureLib.packAttestations(b.attestations),
           b.blobInputs
         );
 
-        FeeHeader memory feeHeader = rollup.getFeeHeader(nextSlot.unwrap());
+        FeeHeader memory feeHeader = rollup.getFeeHeader(Slot.unwrap(nextSlot));
 
         assertEq(baseFeePrediction, componentsFeeAsset.summedBaseFee(), "mana base fee mismatch");
 

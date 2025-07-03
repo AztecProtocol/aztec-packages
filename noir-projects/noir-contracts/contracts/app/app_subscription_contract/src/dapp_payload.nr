@@ -1,14 +1,14 @@
 use dep::aztec::{
-    prelude::{AztecAddress, PrivateContext},
+    authwit::entrypoint::function_call::FunctionCall,
+    context::PrivateContext,
     protocol_types::{
+        address::AztecAddress,
         constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,
         traits::{Hash, Serialize},
     },
 };
 use std::meta::derive;
-
-use dep::authwit::entrypoint::function_call::FunctionCall;
 
 global DAPP_MAX_CALLS: u32 = 1;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32

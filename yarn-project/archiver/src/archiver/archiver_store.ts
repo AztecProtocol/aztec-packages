@@ -14,6 +14,7 @@ import type {
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
@@ -110,7 +111,7 @@ export interface ArchiverDataStore {
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
@@ -220,11 +221,11 @@ export interface ArchiverDataStore {
   /**
    * Add new contract instance updates
    * @param data - List of contract updates to be added.
-   * @param blockNumber - Number of the L2 block the updates were scheduled in.
+   * @param timestamp - Timestamp at which the updates were scheduled.
    * @returns True if the operation is successful.
    */
-  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
-  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean>;
+  addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean>;
+  deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean>;
   /**
    * Adds private functions to a contract class.
    */
@@ -235,11 +236,12 @@ export interface ArchiverDataStore {
   ): Promise<boolean>;
 
   /**
-   * Returns a contract instance given its address and the given block number, or undefined if not exists.
+   * Returns a contract instance given its address and the given timestamp, or undefined if not exists.
    * @param address - Address of the contract.
-   * @param blockNumber - Block number to get the contract instance at. Contract updates might change the instance at a given block.
+   * @param timestamp - Timestamp to get the contract instance at. Contract updates might change the instance.
+   * @returns The contract instance or undefined if not found.
    */
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined>;
 
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
@@ -260,7 +262,7 @@ export interface ArchiverDataStore {
   close(): Promise<void>;
 
   /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void>;
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void>;
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
   iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;

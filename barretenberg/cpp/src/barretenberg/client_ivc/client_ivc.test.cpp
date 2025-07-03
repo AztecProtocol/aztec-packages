@@ -3,6 +3,7 @@
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
@@ -29,7 +30,7 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
@@ -66,29 +67,6 @@ class ClientIVCTests : public ::testing::Test {
  *
  */
 TEST_F(ClientIVCTests, Basic)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
- * @brief A simple-as-possible test demonstrating IVC for two mock circuits
- * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verification occurs.
- *
- */
-TEST_F(ClientIVCTests, WriteVK)
 {
     ClientIVC ivc;
 
@@ -266,7 +244,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, TraceSettings{});
+    auto precomputed_vks = circuit_producer.precompute_vks(NUM_CIRCUITS, TraceSettings{});
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -290,8 +268,7 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    auto precomputed_vks =
-        circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
+    auto precomputed_vks = circuit_producer.precompute_vks(NUM_CIRCUITS, ivc.trace_settings, log2_num_gates);
 
     // Construct and accumulate set of circuits using the precomputed vkeys
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -379,7 +356,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };
@@ -429,7 +406,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };
@@ -461,8 +438,8 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     size_t total_num_circuits{ 12 };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
-    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
     EXPECT_TRUE(verified);
@@ -479,8 +456,8 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
         ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
         size_t total_num_circuits{ 12 };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-        auto mocked_vkeys = mock_verification_keys(total_num_circuits);
-        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
+        auto mocked_vks = mock_vks(total_num_circuits);
+        perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vks, /* mock_vk */ true);
         auto proof = ivc.prove();
         verify_ivc(proof, ivc);
     };
@@ -494,8 +471,8 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
-    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
     auto proof = ivc.prove();
     bool verified = verify_ivc(proof, ivc);
     EXPECT_TRUE(verified);
@@ -508,8 +485,8 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
-    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vks);
     EXPECT_ANY_THROW(ivc.prove());
 }
 

@@ -1,7 +1,7 @@
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -21,10 +21,11 @@ import { SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import type { P2PReqRespConfig } from './config.js';
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
-import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
+import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
@@ -55,9 +56,7 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  *
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
-export class ReqResp {
-  protected readonly logger: Logger;
-
+export class ReqResp implements ReqRespInterface {
   private overallRequestTimeoutMs: number;
   private individualRequestTimeoutMs: number;
 
@@ -76,18 +75,22 @@ export class ReqResp {
     config: P2PReqRespConfig,
     private libp2p: Libp2p,
     private peerScoring: PeerScoring,
+    private logger = createLogger('p2p:reqresp'),
     rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
-    this.logger = createLogger('p2p:reqresp');
-
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
     this.rateLimiter = new RequestResponseRateLimiter(peerScoring, rateLimits);
 
     // Connection sampler is used to sample our connected peers
-    this.connectionSampler = new ConnectionSampler(libp2p);
+    this.connectionSampler = new ConnectionSampler(
+      libp2p,
+      new RandomSampler(),
+      createLogger(`${logger.module}:connection-sampler`),
+      config,
+    );
 
     this.snappyTransform = new SnappyTransform();
     this.metrics = new ReqRespMetrics(telemetryClient);
@@ -141,103 +144,6 @@ export class ReqResp {
   }
 
   /**
-   * Send a request to peers, returns the first response
-   *
-   * @param subProtocol - The protocol being requested
-   * @param request - The request to send
-   * @returns - The response from the peer, otherwise undefined
-   *
-   * @description
-   * This method attempts to send a request to all active peers using the specified sub-protocol.
-   * It opens a stream with each peer, sends the request, and awaits a response.
-   * If a valid response is received, it returns the response; otherwise, it continues to the next peer.
-   * If no response is received from any peer, it returns undefined.
-   *
-   * The method performs the following steps:
-   * - Sample a peer to send the request to.
-   * - Opens a stream with the peer using the specified sub-protocol.
-   *
-   * When a response is received, it is validated using the given sub protocols response validator.
-   * To see the interface for the response validator - see `interface.ts`
-   *
-   * Failing a response validation requests in a severe peer penalty, and will
-   * prompt the node to continue to search to the next peer.
-   * For example, a transaction request validator will check that the payload returned does in fact
-   * match the txHash that was requested. A peer that fails this check an only be an extremely naughty peer.
-   *
-   * This entire operation is wrapped in an overall timeout, that is independent of the
-   * peer it is requesting data from.
-   *
-   */
-  async sendRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    const responseValidator = this.subProtocolValidators[subProtocol];
-    const requestBuffer = request.toBuffer();
-
-    const requestFunction = async (signal: AbortSignal) => {
-      // Attempt to ask all of our peers, but sampled in a random order
-      // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
-      const numberOfPeers = this.libp2p.getPeers().length;
-
-      if (numberOfPeers === 0) {
-        this.logger.debug('No active peers to send requests to');
-        return undefined;
-      }
-
-      const attemptedPeers: Map<string, boolean> = new Map();
-      for (let i = 0; i < numberOfPeers; i++) {
-        if (signal.aborted) {
-          throw new AbortError('Request has been aborted');
-        }
-        // Sample a peer to make a request to
-        const peer = this.connectionSampler.getPeer(attemptedPeers);
-        this.logger.trace(`Attempting to send request to peer: ${peer?.toString()}`);
-        if (!peer) {
-          this.logger.debug('No peers available to send requests to');
-          return undefined;
-        }
-
-        attemptedPeers.set(peer.toString(), true);
-
-        this.logger.trace(`Sending request to peer: ${peer.toString()}`);
-        const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
-
-        if (response.status !== ReqRespStatus.SUCCESS) {
-          this.logger.debug(
-            `Request to peer ${peer.toString()} failed with status ${prettyPrintReqRespStatus(response.status)}`,
-          );
-          continue;
-        }
-
-        // If we get a response, return it, otherwise we iterate onto the next peer
-        // We do not consider it a success if we have an empty buffer
-        if (response && response.data.length > 0) {
-          const object = subProtocolMap[subProtocol].response.fromBuffer(response.data);
-          // The response validator handles peer punishment within
-          const isValid = await responseValidator(request, object, peer);
-          if (!isValid) {
-            throw new InvalidResponseError();
-          }
-          return object;
-        }
-      }
-    };
-
-    try {
-      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>(
-        requestFunction,
-        this.overallRequestTimeoutMs,
-        () => new CollectiveReqRespTimeoutError(),
-      );
-    } catch (e: any) {
-      this.logger.debug(`${e.message} | subProtocol: ${subProtocol}`);
-      return undefined;
-    }
-  }
-
-  /**
    * Request multiple messages over the same sub protocol, balancing the requests across peers.
    *
    * @devnote
@@ -288,6 +194,7 @@ export class ReqResp {
         requests.length,
         maxPeers,
         compactArray([pinnedPeer]), // Exclude pinned peer from sampling, we will forcefully send all requests to it
+        createLogger(`${this.logger.module}:batch-connection-sampler`),
       );
 
       if (batchSampler.activePeerCount === 0 && !pinnedPeer) {
@@ -455,7 +362,11 @@ export class ReqResp {
     try {
       this.metrics.recordRequestSent(subProtocol);
 
+      this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
+      this.logger.trace(
+        `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
+      );
 
       // Open the stream with a timeout
       const result = await executeTimeout<ReqRespResponse>(
@@ -471,15 +382,16 @@ export class ReqResp {
       this.handleResponseError(e, peerId, subProtocol);
 
       // If there is an exception, we return an unknown response
-      return {
-        status: ReqRespStatus.FAILURE,
-        data: Buffer.from([]),
-      };
+      this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
+      return { status: ReqRespStatus.FAILURE, data: Buffer.from([]) };
     } finally {
       // Only close the stream if we created it
       if (stream) {
         try {
-          await this.connectionSampler.close(stream.id);
+          this.logger.trace(
+            `Closing stream ${stream.id} for request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
+          );
+          await this.connectionSampler.close(stream);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
@@ -689,9 +601,16 @@ export class ReqResp {
         errorStatus = e.status;
       }
 
-      if (stream.status === 'open') {
+      const canWriteToStream =
+        stream.status === 'open' && (stream.writeStatus === 'writing' || stream.writeStatus === 'ready');
+      if (!canWriteToStream) {
+        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+        return;
+      }
+
+      // Return and yield the response chunk
+      try {
         const sendErrorChunk = this.sendErrorChunk(errorStatus);
-        // Return and yield the response chunk
         await pipe(
           stream,
           async function* (_source: any) {
@@ -699,15 +618,11 @@ export class ReqResp {
           },
           stream,
         );
-      } else {
-        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+      } catch (e: any) {
+        this.logger.warn('Error while sending error response', { protocol, err: e, errorStatus });
       }
     } finally {
-      //NOTE: All other status codes indicate closed stream.
-      //Either graceful close (closed/closing) or forced close (aborted/reset)
-      if (stream.status === 'open') {
-        await stream.close();
-      }
+      await stream.close();
     }
   }
 

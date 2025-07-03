@@ -59,8 +59,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainMessages: { message: Fr[]; recipient: AztecAddress }[] = [];
-  private nestedExecutions: PrivateCallExecutionResult[] = [];
+  private offchainEffects: { data: Fr[] }[] = [];
+  private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   constructor(
     private readonly argsHash: Fr,
@@ -141,17 +141,17 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   }
 
   /**
-   * Return the offchain messages emitted during this execution.
+   * Return the offchain effects emitted during this execution.
    */
-  public getOffchainMessages() {
-    return this.offchainMessages;
+  public getOffchainEffects() {
+    return this.offchainEffects;
   }
 
   /**
    * Return the nested execution results during this execution.
    */
-  public getNestedExecutions() {
-    return this.nestedExecutions;
+  public getNestedExecutionResults() {
+    return this.nestedExecutionResults;
   }
 
   /**
@@ -347,11 +347,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
   #checkValidStaticCall(childExecutionResult: PrivateCallExecutionResult) {
     if (
-      childExecutionResult.publicInputs.noteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.nullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.l2ToL1Msgs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.privateLogs.some(item => !item.isEmpty()) ||
-      childExecutionResult.publicInputs.contractClassLogsHashes.some(item => !item.isEmpty())
+      childExecutionResult.publicInputs.noteHashes.claimedLength > 0 ||
+      childExecutionResult.publicInputs.nullifiers.claimedLength > 0 ||
+      childExecutionResult.publicInputs.l2ToL1Msgs.claimedLength > 0 ||
+      childExecutionResult.publicInputs.privateLogs.claimedLength > 0 ||
+      childExecutionResult.publicInputs.contractClassLogsHashes.claimedLength > 0
     ) {
       throw new Error(`Static call cannot update the state, emit L2->L1 messages or generate logs`);
     }
@@ -380,11 +380,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(
-      targetContractAddress,
-      this.executionDataProvider,
-      this.historicalHeader.globalVariables.blockNumber.toNumber(),
-    );
+    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.historicalHeader);
 
     const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
       targetContractAddress,
@@ -426,7 +422,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       this.#checkValidStaticCall(childExecutionResult);
     }
 
-    this.nestedExecutions.push(childExecutionResult);
+    this.nestedExecutionResults.push(childExecutionResult);
 
     const publicInputs = childExecutionResult.publicInputs;
 
@@ -525,8 +521,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override emitOffchainMessage(message: Fr[], recipient: AztecAddress): Promise<void> {
-    this.offchainMessages.push({ message, recipient });
+  public override emitOffchainEffect(data: Fr[]): Promise<void> {
+    this.offchainEffects.push({ data });
     return Promise.resolve();
   }
 }

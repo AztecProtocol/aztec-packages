@@ -6,20 +6,22 @@
 
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 
 namespace bb {
 
 /**
  * @brief Oink Verifier function that runs all the rounds of the verifier
- * @details Returns the witness commitments and relation_parameters
+ * @details Returns the witness commitments and relation_parameters. If used as a standalone function, the proof
+ * returned by the OinkProver must be loaded into the transcript of the OinkVerifier before calling
+ * OinkVerifier::verify()
  * @tparam Flavor
  * @return OinkOutput<Flavor>
  */
@@ -44,25 +46,15 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to single out these flavors because the
-    // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a followup PR.
+    verification_key->vk->add_to_transcript(domain_separator, *transcript);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Update solidity contract to generate vkey hash
+    // from transcript.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        std::vector<FF> vkey_fields = verification_key->verification_key->to_field_elements();
-        for (const FF& vkey_field : vkey_fields) {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
-        }
-        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
-        vinfo("vkey hash in Oink verifier: ", vkey_hash);
-    } else {
-        const uint64_t circuit_size = verification_key->verification_key->circuit_size;
-        const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;
-        const uint64_t pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
-
-        transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-        transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
-        transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
+        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
+        vinfo("vk hash in Oink verifier: ", vkey_hash);
     }
-    for (size_t i = 0; i < verification_key->verification_key->num_public_inputs; ++i) {
+
+    for (size_t i = 0; i < verification_key->vk->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
@@ -150,8 +142,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_pro
         compute_public_input_delta<Flavor>(public_inputs,
                                            relation_parameters.beta,
                                            relation_parameters.gamma,
-                                           verification_key->verification_key->circuit_size,
-                                           static_cast<size_t>(verification_key->verification_key->pub_inputs_offset));
+                                           verification_key->vk->circuit_size,
+                                           static_cast<size_t>(verification_key->vk->pub_inputs_offset));
 
     relation_parameters.public_input_delta = public_input_delta;
 

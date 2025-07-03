@@ -1,3 +1,4 @@
+use dep::protocol_types::meta::derive_serialize;
 use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
@@ -67,27 +68,55 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.expect(f"Body is not an expression: {body_quote}")
 }
 
-pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
+/// Adds a value to a field array. Structs and values inside arrays are required to implement the Serialize trait.
+///
+/// The function takes the name of the array, the index in the array where the value should be added, the name of the
+/// variable to be added, and the type of the variable. It returns a quoted expression that can be used in a function body.
+///
+/// The returned quoted expression will increment the `index_name` variable by the number of fields added to the array,
+/// which is typically 1 for simple types, but can be more for complex types like structs or arrays.
+pub(crate) comptime fn add_to_field_array(
+    array_name: Quoted,
+    index_name: Quoted,
+    name: Quoted,
+    typ: Type,
+) -> Quoted {
+    let serialized_name = f"{name}_serialized".quoted_contents();
+
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
-        quote { $slice_name = $slice_name.push_back($name as Field); }
+        quote { 
+            $array_name[$index_name] = $name as Field;
+            $index_name += 1;
+        }
     } else if typ.as_data_type().is_some() {
         // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
-        quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
+        quote { 
+            let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name);
+            for i in 0..$serialized_name.len() {
+                $array_name[$index_name] = $serialized_name[i];
+                $index_name += 1;
+            }
+        }
     } else if typ.as_array().is_some() {
-        let (element_type, _) = typ.as_array().unwrap();
-        let serialized_name = f"{name}_serialized".quoted_contents();
         // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
         quote {
-            let $serialized_name = $name.map(|x: $element_type | aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
-                $slice_name = $slice_name.append($serialized_name[i].as_slice());
+                let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name[i]);
+                for i in 0..$serialized_name.len() {
+                    $array_name[$index_name] = $serialized_name[i];
+                    $index_name += 1;
+                }
             }
         }
     } else if typ.as_str().is_some() {
         quote {
-            $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
+            let $serialized_name = $name.as_bytes();
+            for i in 0..$serialized_name.len() {
+                $array_name[$index_name] = $serialized_name[i] as Field;
+                $index_name += 1;
+            }
         }
     } else {
         panic(
@@ -166,7 +195,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     }
 }
 
-pub(crate) trait AsStrQuote {
+pub trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
@@ -212,8 +241,11 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
-    // The event selector is computed from the type signature of the struct in the event, similar to how one might type
+pub(crate) comptime fn compute_struct_selector(
+    s: TypeDefinition,
+    from_signature_fn: Quoted,
+) -> Field {
+    // The struct selector is computed from the type signature, similar to how one might type
     // the constructor function. For example, given:
     //
     // struct Foo {
@@ -222,7 +254,7 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     // }
     //
     // The signature will be "Foo(Field,AztecAddress)".
-    let event_name = s.name();
+    let struct_name = s.name();
     let args_signatures = s
         .fields_as_written()
         .map(|(_, typ, _)| {
@@ -231,11 +263,11 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
             signature_of_type(typ)
         })
         .join(quote {,});
-    let signature_quote = quote { $event_name($args_signatures) };
+    let signature_quote = quote { $struct_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field(protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote))
+        protocol_types::traits::ToField::to_field($from_signature_fn($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -247,8 +279,9 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
     // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
     let storage_size = std::meta::typ::fresh_type_variable();
     assert(
-        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
-        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+        typ.implements(quote { crate::state_vars::HasStorageSlot<$storage_size> }
+            .as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the HasStorageSlot trait",
     );
 
     storage_size.as_constant().unwrap()
@@ -287,4 +320,99 @@ pub(crate) comptime fn get_trait_impl_method(
         .methods()
         .filter(|m| m.name() == target_method)[0]
         .as_typed_expr()
+}
+
+pub comptime fn size_in_fields(typ: Type) -> u32 {
+    array_size_in_fields(typ)
+        .or_else(|| bool_size_in_fields(typ))
+        .or_else(|| constant_size_in_fields(typ))
+        .or_else(|| field_size_in_fields(typ))
+        .or_else(|| int_size_in_fields(typ))
+        .or_else(|| str_size_in_fields(typ))
+        .or_else(|| struct_size_in_fields(typ))
+        .or_else(|| tuple_size_in_fields(typ))
+        .expect(f"Can't determine size in fields of {typ}")
+}
+
+comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_array().and_then(|typ: (Type, Type)| {
+        let (typ, element_size) = typ;
+        element_size.as_constant().map(|x: u32| x * size_in_fields(typ))
+    })
+}
+
+comptime fn bool_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.is_bool() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn field_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.is_field() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn int_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.as_integer().is_some() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn constant_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_constant()
+}
+
+comptime fn str_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_str().map(|typ| size_in_fields(typ))
+}
+
+comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_data_type().map(|typ: (TypeDefinition, [Type])| {
+        let struct_type = typ.0;
+        let generics = typ.1;
+        let mut size = 0;
+        for field in struct_type.fields(generics) {
+            size += size_in_fields(field.1);
+        }
+        size
+    })
+}
+
+comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_tuple().map(|types: [Type]| {
+        let mut size = 0;
+        for typ in types {
+            size += size_in_fields(typ);
+        }
+        size
+    })
+}
+
+/// Generates a quote that implements `Serialize` for a given struct `s`.
+/// If the struct already implements `Serialize`, we return an empty quote.
+pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
+    // We try to get the serialized length of the struct. If it does not implement `Serialize`, we get Option::none()
+    let serialized_len_typ = std::meta::typ::fresh_type_variable();
+    // We don't care about the result of the implements check. We just want to get the serialized length.
+    let _ = s.as_type().implements(
+        quote { crate::protocol_types::traits::Serialize<$serialized_len_typ> }.as_trait_constraint(),
+    );
+    let maybe_serialized_length = serialized_len_typ.as_constant();
+
+    if maybe_serialized_length.is_some() {
+        // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return
+        // an empty quote for the implementation.
+        quote {}
+    } else {
+        // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize`
+        // so we derive it.
+        derive_serialize(s)
+    }
 }

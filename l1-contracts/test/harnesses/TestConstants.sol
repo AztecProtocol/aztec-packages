@@ -11,16 +11,23 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
   uint256 internal constant AZTEC_SLOT_DURATION = 36;
   uint256 internal constant AZTEC_EPOCH_DURATION = 32;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
-  uint256 internal constant AZTEC_PROOF_SUBMISSION_WINDOW = AZTEC_EPOCH_DURATION * 2 - 1;
+  uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE = 0;
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
 
   // Genesis state
@@ -36,24 +43,46 @@ library TestConstants {
     });
   }
 
+  function getRewardBoostConfig() internal pure returns (RewardBoostConfig memory) {
+    return RewardBoostConfig({
+      increment: 200000,
+      maxScore: 5000000,
+      a: 5000,
+      k: 1000000,
+      minimum: 100000
+    });
+  }
+
+  function getRewardConfig() internal pure returns (RewardConfig memory) {
+    return RewardConfig({
+      rewardDistributor: IRewardDistributor(address(0)),
+      sequencerBps: Bps.wrap(5000),
+      booster: IBoosterCore(address(0)) // Will cause a deployment
+    });
+  }
+
+  function getStakingQueueConfig() internal pure returns (StakingQueueConfig memory) {
+    return StakingQueueConfig({
+      bootstrapValidatorSetSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE,
+      bootstrapFlushSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE,
+      normalFlushSizeMin: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN,
+      normalFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT
+    });
+  }
+
   function getRollupConfigInput() internal pure returns (RollupConfigInput memory) {
     return RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
+      aztecProofSubmissionEpochs: AZTEC_PROOF_SUBMISSION_EPOCHS,
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
-      aztecProofSubmissionWindow: AZTEC_PROOF_SUBMISSION_WINDOW,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       manaTarget: AZTEC_MANA_TARGET,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
-      rewardConfig: RewardConfig({
-        sequencerBps: Bps.wrap(5000),
-        increment: 200000,
-        maxScore: 5000000,
-        a: 5000,
-        k: 1000000,
-        minimum: 100000
-      })
+      rewardConfig: getRewardConfig(),
+      rewardBoostConfig: getRewardBoostConfig(),
+      stakingQueueConfig: getStakingQueueConfig()
     });
   }
 }

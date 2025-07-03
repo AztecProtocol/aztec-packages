@@ -2,6 +2,7 @@ import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY, getPublicClient } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
@@ -50,14 +51,14 @@ export async function startProverNode(
     process.exit(1);
   }
 
-  if (!proverConfig.publisherPrivateKey || proverConfig.publisherPrivateKey === NULL_KEY) {
+  if (proverConfig.publisherPrivateKey.getValue() === NULL_KEY) {
     if (!options.l1Mnemonic) {
       userLog(`--l1-mnemonic is required to start a Prover Node without --node.publisherPrivateKey`);
       process.exit(1);
     }
     const hdAccount = mnemonicToAccount(options.l1Mnemonic);
     const privKey = hdAccount.getHdKey().privateKey;
-    proverConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    proverConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
 
   if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
@@ -71,6 +72,7 @@ export async function startProverNode(
     proverConfig.l1ChainId,
     proverConfig.rollupVersion,
   );
+  process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
 
@@ -116,7 +118,7 @@ export async function startProverNode(
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   if (proverNode.getP2P()) {
-    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
+    services.p2p = [proverNode.getP2P(), P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {

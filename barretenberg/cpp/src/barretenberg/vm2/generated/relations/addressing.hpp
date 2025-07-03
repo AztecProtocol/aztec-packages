@@ -14,14 +14,18 @@ template <typename FF_> class addressingImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 72> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 3
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
-        return (in.get(C::execution_sel_should_resolve_address)).is_zero();
+
+        const auto execution_SEL_SHOULD_RESOLVE_ADDRESS =
+            in.get(C::execution_sel_bytecode_retrieval_success) * in.get(C::execution_sel_instruction_fetching_success);
+
+        return (execution_SEL_SHOULD_RESOLVE_ADDRESS).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -100,6 +104,8 @@ template <typename FF_> class addressingImpl {
                   execution_ADDRESSING_COLLECTION_Y) -
              FF(1)) +
             execution_ADDRESSING_COLLECTION_E;
+        const auto execution_SEL_SHOULD_RESOLVE_ADDRESS =
+            in.get(C::execution_sel_bytecode_retrieval_success) * in.get(C::execution_sel_instruction_fetching_success);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -215,7 +221,7 @@ template <typename FF_> class addressingImpl {
         }
         { // INDIRECT_RECONSTRUCTION
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_should_resolve_address) * in.get(C::execution_indirect) -
+            auto tmp = (execution_SEL_SHOULD_RESOLVE_ADDRESS * in.get(C::execution_indirect) -
                         (FF(1) * in.get(C::execution_sel_op_is_indirect_wire_0_) +
                          FF(2) * in.get(C::execution_sel_op_is_relative_wire_0_) +
                          FF(4) * in.get(C::execution_sel_op_is_indirect_wire_1_) +
@@ -458,8 +464,7 @@ template <typename FF_> class addressingImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_should_resolve_address) * (in.get(C::execution_two_to_32) - FF(4294967296UL));
+            auto tmp = execution_SEL_SHOULD_RESOLVE_ADDRESS * (in.get(C::execution_two_to_32) - FF(4294967296UL));
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
         }
@@ -680,8 +685,7 @@ template <typename FF_> class addressingImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
-            auto tmp =
-                (FF(1) - in.get(C::execution_sel_should_resolve_address)) * in.get(C::execution_sel_addressing_error);
+            auto tmp = (FF(1) - execution_SEL_SHOULD_RESOLVE_ADDRESS) * in.get(C::execution_sel_addressing_error);
             tmp *= scaling_factor;
             std::get<71>(evals) += typename Accumulator::View(tmp);
         }

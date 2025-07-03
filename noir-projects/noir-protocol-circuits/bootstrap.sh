@@ -51,7 +51,7 @@ function compile {
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
   hash=$(hash_str "$NOIR_HASH-$program_hash")
 
-  if [ "${USE_CIRCUITS_CACHE:-0}" -eq 0 ] || ! cache_download circuit-$hash.tar.gz 1>&2; then
+  if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
@@ -114,8 +114,8 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk -k - -o $verifier_path
-      echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
+      echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
     elif echo "$name" | grep -qE "${private_tail_regex}"; then
@@ -138,7 +138,7 @@ function build {
   set -eu
 
   echo_stderr "Checking libraries for warnings..."
-  parallel -v --line-buffer --tag $NARGO --program-dir {} check --deny-warnings ::: \
+  parallel -v --line-buffer --tag $NARGO --program-dir {} check ::: \
     ./crates/blob \
     ./crates/parity-lib \
     ./crates/private-kernel-lib \

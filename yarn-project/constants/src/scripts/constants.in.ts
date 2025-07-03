@@ -34,7 +34,8 @@ const CPP_CONSTANTS = [
   'UPDATES_SHARED_MUTABLE_VALUES_LEN',
   'PUBLIC_DATA_TREE_HEIGHT',
   'NULLIFIER_TREE_HEIGHT',
-  'BLOCK_NUMBER_BIT_SIZE',
+  'NOTE_HASH_TREE_HEIGHT',
+  'TIMESTAMP_OF_CHANGE_BIT_SIZE',
   'UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE',
   'MAX_ENQUEUED_CALLS_PER_TX',
   'MAX_NOTE_HASHES_PER_TX',
@@ -103,6 +104,7 @@ const CPP_GENERATORS: string[] = [
   'OUTER_NULLIFIER',
   'PUBLIC_LEAF_INDEX',
   'PUBLIC_CALLDATA',
+  'PUBLIC_BYTECODE',
 ];
 
 const PIL_CONSTANTS = [
@@ -113,16 +115,26 @@ const PIL_CONSTANTS = [
   'MEM_TAG_U64',
   'MEM_TAG_U128',
   'MEM_TAG_FF',
+  'AVM_BITWISE_AND_OP_ID',
+  'AVM_BITWISE_OR_OP_ID',
+  'AVM_BITWISE_XOR_OP_ID',
+  'AVM_KECCAKF1600_NUM_ROUNDS',
+  'AVM_KECCAKF1600_STATE_SIZE',
+  'AVM_HIGHEST_MEM_ADDRESS',
+  'AVM_MEMORY_NUM_BITS',
   'MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS',
   'GRUMPKIN_ONE_X',
   'GRUMPKIN_ONE_Y',
   'AVM_PC_SIZE_IN_BITS',
   'PUBLIC_DATA_TREE_HEIGHT',
   'NULLIFIER_TREE_HEIGHT',
+  'NOTE_HASH_TREE_HEIGHT',
   'UPDATED_CLASS_IDS_SLOT',
   'UPDATES_SHARED_MUTABLE_VALUES_LEN',
   'DEPLOYER_CONTRACT_ADDRESS',
-  'BLOCK_NUMBER_BIT_SIZE',
+  'FEE_JUICE_ADDRESS',
+  'FEE_JUICE_BALANCES_SLOT',
+  'TIMESTAMP_OF_CHANGE_BIT_SIZE',
   'UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE',
   'AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_ROW_IDX',
   'AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX',
@@ -171,6 +183,27 @@ const PIL_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH',
   'AVM_NUM_PUBLIC_INPUT_COLUMNS',
   'AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH',
+  'AVM_EXEC_OP_ID_GETENVVAR',
+  'AVM_EXEC_OP_ID_SET',
+  'AVM_EXEC_OP_ID_MOV',
+  'AVM_EXEC_OP_ID_JUMP',
+  'AVM_EXEC_OP_ID_JUMPI',
+  'AVM_EXEC_OP_ID_CALL',
+  'AVM_EXEC_OP_ID_STATICCALL',
+  'AVM_EXEC_OP_ID_INTERNALCALL',
+  'AVM_EXEC_OP_ID_INTERNALRETURN',
+  'AVM_EXEC_OP_ID_RETURN',
+  'AVM_EXEC_OP_ID_REVERT',
+  'AVM_EXEC_OP_ID_SUCCESSCOPY',
+  'AVM_EXEC_OP_ID_ALU_ADD',
+  'AVM_EXEC_OP_ID_ALU_SUB',
+  'AVM_EXEC_OP_ID_ALU_MUL',
+  'AVM_EXEC_OP_ID_ALU_DIV',
+  'AVM_EXEC_OP_ID_ALU_FDIV',
+  'AVM_EXEC_OP_ID_ALU_EQ',
+  'AVM_EXEC_OP_ID_ALU_LT',
+  'AVM_EXEC_OP_ID_ALU_LTE',
+  'AVM_EXEC_OP_ID_RETURNDATASIZE',
 ];
 
 const PIL_GENERATORS: string[] = [
@@ -184,6 +217,7 @@ const PIL_GENERATORS: string[] = [
   'OUTER_NULLIFIER',
   'PUBLIC_LEAF_INDEX',
   'PUBLIC_CALLDATA',
+  'PUBLIC_BYTECODE',
 ];
 
 const SOLIDITY_CONSTANTS = [
@@ -244,10 +278,13 @@ function processConstantsCpp(
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
-      // stringify large numbers
-      code.push(
-        `#define ${key} ${BigInt(value) > 2n ** 31n - 1n ? `"0x${BigInt(value).toString(16).padStart(64, '0')}"` : value}`,
-      );
+      if (BigInt(value) <= 2n ** 31n - 1n) {
+        code.push(`#define ${key} ${value}`);
+      } else if (BigInt(value) <= 2n ** 64n - 1n) {
+        code.push(`#define ${key} 0x${BigInt(value).toString(16)}`); // hex literals
+      } else {
+        code.push(`#define ${key} "0x${BigInt(value).toString(16).padStart(64, '0')}"`); // stringify large numbers
+      }
     }
   });
   Object.entries(generatorIndices).forEach(([key, value]) => {

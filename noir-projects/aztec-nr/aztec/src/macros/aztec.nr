@@ -1,5 +1,6 @@
 use crate::{
     macros::{
+        authwits::AUTHWIT_TYPES,
         dispatch::generate_public_dispatch,
         functions::{stub_registry, utils::check_each_fn_macroified},
         notes::{generate_note_export, NOTES},
@@ -24,6 +25,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     let sync_private_state = generate_sync_private_state();
+    let process_message = generate_process_message();
+    generate_authwit_exports();
 
     quote {
         $note_exports
@@ -31,6 +34,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
         $sync_private_state
+        $process_message
     }
 }
 
@@ -253,6 +257,11 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
     }
 }
 
+comptime fn generate_authwit_exports() {
+    let authwits = AUTHWIT_TYPES.values();
+    authwits.for_each(|(s): TypeDefinition| { s.add_attribute("abi(authwits)"); });
+}
+
 comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
     // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
@@ -276,6 +285,30 @@ comptime fn generate_sync_private_state() -> Quoted {
     quote {
         #[$utility]
         unconstrained fn sync_private_state() {
+        }
+    }
+}
+
+comptime fn generate_process_message() -> Quoted {
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
+
+    // TODO(#15012): Here we use PRIVATE_LOG_CIPHERTEXT_LEN for message ciphertext length. Fix message vs log naming.
+    quote {
+        #[$utility]
+        unconstrained fn process_message(
+            message_ciphertext: BoundedVec<Field, aztec::protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN>,
+            message_context: aztec::messages::processing::message_context::MessageContext,
+        ) {
+            aztec::messages::discovery::process_message::do_process_message(
+                context.this_address(),
+                _compute_note_hash_and_nullifier,
+                message_ciphertext,
+                message_context,
+            );
         }
     }
 }

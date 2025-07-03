@@ -4,6 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import { GlobalVariables } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { mock } from 'jest-mock-extended';
 
@@ -16,7 +17,7 @@ import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { AvmSimulator } from '../avm_simulator.js';
-import { DEFAULT_BLOCK_NUMBER } from './utils.js';
+import { DEFAULT_TIMESTAMP } from './utils.js';
 
 /**
  * Create a new AVM context with default values.
@@ -44,7 +45,7 @@ export function initPersistableStateManager(overrides?: {
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
   firstNullifier?: Fr;
-  blockNumber?: number;
+  timestamp?: UInt64;
 }): PublicPersistableStateManager {
   const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
   return new PublicPersistableStateManager(
@@ -52,7 +53,7 @@ export function initPersistableStateManager(overrides?: {
     overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
     overrides?.firstNullifier || new Fr(27),
-    overrides?.blockNumber || DEFAULT_BLOCK_NUMBER,
+    overrides?.timestamp || DEFAULT_TIMESTAMP,
     overrides?.doMerkleOperations || false,
     overrides?.publicStorage,
     overrides?.nullifiers,
@@ -82,7 +83,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
   return new GlobalVariables(
     overrides?.chainId ?? Fr.zero(),
     overrides?.version ?? Fr.zero(),
-    overrides?.blockNumber ?? Fr.zero(),
+    overrides?.blockNumber ?? 0,
     overrides?.slotNumber ?? Fr.zero(),
     overrides?.timestamp ?? 0n,
     overrides?.coinbase ?? EthAddress.ZERO,

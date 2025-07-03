@@ -1,0 +1,163 @@
+include "merkle_check.pil";
+include "../constants_gen.pil";
+include "../poseidon2_hash.pil";
+include "../public_inputs.pil";
+
+/**
+ * This gadget reads or writes notes in the note hash tree. The note hash tree is an append only tree where the
+ * leaves are unique note hashes. The computation of unique note hashes is done by:
+ * - Siloing the original note hash with the emitter contract address
+ * - Computing a nonce as the hash of the first nullifier and the index of the note hash
+ * - Computing the unique note hash as the hash of the nonce and the siloed note hash
+ * This gadget allows to conditionally write note hashes that can be raw, already siloed or already uniqued.
+ * Note that if you ask the gadget to silo the note hash, you also need to ask it to make it unique.
+ * For reading, we enforce that the note hash is already unique.
+ *
+ * Read usage (lookup):
+ * sel { precomputed.zero, unique_note_hash, leaf_index, note_hash_tree_root }
+ * in note_hash_tree_check.sel { note_hash_tree_check.write, note_hash_tree_check.note_hash,
+ *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root };
+ *
+ * Write usage (permutation):
+ * sel { note_hash, note_hash_next_available_leaf_index, prev_note_hash_tree_root,
+ *     should_silo, address, should_unique, note_hash_index, discard, next_note_hash_tree_root  }
+ * is note_hash_tree_check.write { note_hash_tree_check.note_hash,
+ *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root, note_hash_tree_check.should_silo,
+ *     note_hash_tree_check.address, note_hash_tree_check.should_unique, note_hash_tree_check.note_hash_index,
+ *     note_hash_tree_check.discard, note_hash_tree_check.next_root };
+ *
+**/
+namespace note_hash_tree_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs to the gadget
+    pol commit write;
+    write * (1 - write) = 0;
+    pol READ = 1 - write;
+
+    pol commit note_hash;
+    pol commit leaf_index;
+    pol commit prev_root;
+
+    // Write specific inputs
+    pol commit should_silo;
+    should_silo * (1 - should_silo) = 0;
+
+    pol commit address;
+
+    pol commit should_unique;
+    should_unique * (1 - should_unique) = 0;
+
+    pol commit note_hash_index;
+
+    // Caller should constrain this to be boolean
+    pol commit discard;
+
+    pol commit next_root;
+
+    // If writing, sel must be on
+    write * (1 - sel) = 0;
+
+
+    // ====== SILOING ======
+    // If reading we should pass an already siloed note hash
+    #[DISABLE_SILOING_ON_READ]
+    READ * should_silo = 0;
+
+    // Asking the gadget to silo without asking it to unique is an error
+    should_silo * (1 - should_unique) = 0;
+
+    pol commit siloed_note_hash;
+    #[PASSTHROUGH_SILOING]
+    sel * (1 - should_silo) * (note_hash - siloed_note_hash) = 0;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit siloing_separator;
+    sel * (constants.GENERATOR_INDEX__SILOED_NOTE_HASH - siloing_separator) = 0;
+
+    #[SILO_POSEIDON2]
+    should_silo { sel, siloing_separator, address, note_hash, siloed_note_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+
+    // ====== UNIQUE ======
+    // If reading we should pass an already unique note hash
+    #[DISABLE_UNIQUENESS_ON_READ]
+    READ * should_unique = 0;
+
+    pol commit unique_note_hash;
+    #[PASSTHROUGH_UNIQUENESS]
+    sel * (1 - should_unique) * (siloed_note_hash - unique_note_hash) = 0;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit first_nullifier_pi_index;
+    sel * (constants.AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX - first_nullifier_pi_index) = 0;
+
+    pol commit first_nullifier;
+
+    #[READ_FIRST_NULLIFIER]
+    should_unique {
+        first_nullifier_pi_index,
+        first_nullifier
+    } in
+    public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0]
+    };
+
+    pol commit nonce;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit nonce_separator;
+    sel * (constants.GENERATOR_INDEX__NOTE_HASH_NONCE - nonce_separator) = 0;
+
+    #[NONCE_COMPUTATION_POSEIDON2]
+    should_unique { sel, nonce_separator, first_nullifier, note_hash_index, nonce }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit unique_note_hash_separator;
+    sel * (constants.GENERATOR_INDEX__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
+
+    #[UNIQUE_NOTE_HASH_POSEIDON2]
+    should_unique { sel, unique_note_hash_separator, nonce, siloed_note_hash, unique_note_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    // ====== TREE CHECK ======
+    pol commit prev_leaf_value;
+    prev_leaf_value = (1 - write) * unique_note_hash;
+
+    pol commit next_leaf_value;
+    // If reading, next_leaf_value is unconstrained
+    write * (unique_note_hash - next_leaf_value) = 0;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit note_hash_tree_height;
+    sel * (constants.NOTE_HASH_TREE_HEIGHT - note_hash_tree_height) = 0;
+
+    #[MERKLE_CHECK]
+    sel { write, prev_leaf_value, next_leaf_value,
+        leaf_index, note_hash_tree_height, prev_root, next_root } in
+    merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+
+
+    // ====== WRITE TO PUBLIC INPUTS ======
+    pol commit should_write_to_public_inputs;
+    write * (1 - discard) = should_write_to_public_inputs;
+    pol commit public_inputs_index;
+    should_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_index - public_inputs_index) = 0;
+
+    #[WRITE_NOTE_HASH_TO_PUBLIC_INPUTS]
+    should_write_to_public_inputs {
+        public_inputs_index,
+        unique_note_hash
+    } in
+    public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0]
+    };

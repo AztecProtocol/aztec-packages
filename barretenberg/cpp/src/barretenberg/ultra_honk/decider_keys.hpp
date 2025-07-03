@@ -10,9 +10,9 @@
 
 namespace bb {
 
-template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
+template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
   public:
-    static_assert(NUM_ > 1, "Must have at least two deicder proving keys.");
+    static_assert(NUM_ > 1, "Must have at least two decider proving keys.");
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
@@ -104,7 +104,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
     }
 };
 
-template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
+template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     static_assert(NUM_ > 1, "Must have at least two decider verification keys.");
     using Flavor = Flavor_;
     using FF = typename Flavor_::FF;
@@ -139,8 +139,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     {
         size_t max_log_circuit_size{ 0 };
         for (auto key : _data) {
-            max_log_circuit_size =
-                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
+            max_log_circuit_size = std::max(max_log_circuit_size, static_cast<size_t>(key->vk->log_circuit_size));
         }
         return max_log_circuit_size;
     }
@@ -159,11 +158,11 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
      */
     std::vector<std::vector<Commitment>> get_precomputed_commitments() const
     {
-        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        const size_t num_commitments_to_fold = _data[0]->vk->get_all().size();
         std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
         for (size_t idx = 0; auto& commitment_at_idx : result) {
             for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
-                elt = key->verification_key->get_all()[idx];
+                elt = key->vk->get_all()[idx];
             }
             idx++;
         }

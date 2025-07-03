@@ -23,6 +23,7 @@ if [[ "${1:-}" == "--update-inputs" ]]; then
 
     ../bootstrap.sh # bootstrap bb
     ../../noir-projects/noir-protocol-circuits/bootstrap.sh # bootstrap noir-protocol-circuits
+    ../../l1-contracts/bootstrap.sh # bootstrap l1-contracts
     ../../yarn-project/bootstrap.sh # bootstrap yarn-project
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
 

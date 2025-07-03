@@ -60,11 +60,34 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
 };
 
 /**
- * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
+ *
+ * @tparam Flavor
+ * @param proof Native proof
+ * @param evaluation_input_x Translation polynomial evaluation challenge
+ * @param batching_challenge_v Challenge for batching translation polynomial evaluations
+ * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
  */
 template <typename Flavor>
 TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof, evaluation_input_x, batching_challenge_v);
+}
+
+/**
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
+ *
+ * @tparam Flavor
+ * @param proof Stdlib proof
+ * @param evaluation_input_x Translation polynomial evaluation challenge
+ * @param batching_challenge_v Challenge for batching translation polynomial evaluations
+ * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
+ */
+template <typename Flavor>
+TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
     using PCS = typename Flavor::PCS;
@@ -76,13 +99,15 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
-    transcript->load_proof(stdlib_proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
+    // The point is prime basis limb of accumulated result can be easily recovered from binary basis limbs, so
+    // there's no meaning to use it at the circuit next and we can put it in used_witnesses
+    accumulated_result.get_context()->update_used_witnesses(accumulated_result.prime_basis_limb.witness_index);
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
@@ -200,6 +225,5 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
     }
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
-template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb

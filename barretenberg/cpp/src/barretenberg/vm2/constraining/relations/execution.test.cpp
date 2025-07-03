@@ -9,7 +9,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_context.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -49,7 +49,7 @@ TEST(ExecutionConstrainingTest, Continuity)
     });
     // clang-format on
 
-    check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1, execution::SR_TRACE_CONTINUITY_2);
+    check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY);
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
@@ -63,7 +63,7 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenFirstRow)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_2), "TRACE_CONTINUITY_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
@@ -77,21 +77,7 @@ TEST(ExecutionConstrainingTest, ContinuityBrokenInMiddle)
     });
     // clang-format on
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1), "TRACE_CONTINUITY_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_2), "TRACE_CONTINUITY_2");
-}
-
-TEST(ExecutionConstrainingTest, ContinuityBrokenAtTheEnd)
-{
-    // clang-format off
-    TestTraceContainer trace({
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 0 }}, // Not marked as last, should fail.
-    });
-    // clang-format on
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY_1), "TRACE_CONTINUITY_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 TEST(ExecutionConstrainingTest, ContinuityMultipleLast)
@@ -99,12 +85,16 @@ TEST(ExecutionConstrainingTest, ContinuityMultipleLast)
     // clang-format off
     TestTraceContainer trace({
         {{ C::execution_sel, 1 }},
-        {{ C::execution_sel, 0 }, {C::execution_last, 1}},
+        {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }},
         {{ C::execution_sel, 1 }, {C::execution_last, 1}},
     });
     // clang-format on
 
+    // Last is correct.
+    check_relation<execution>(trace, execution::SR_LAST_IS_LAST);
+    // If we add another last, it should fail.
+    trace.set(C::execution_last, /*row=*/1, /*value=*/1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_LAST_IS_LAST), "LAST_IS_LAST.*row 1");
 }
 

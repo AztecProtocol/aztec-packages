@@ -39,7 +39,7 @@ void check_bn254_consistency(const fs::path& crs_download_path, size_t num_point
     auto f_prover = file_crs.get_crs(num_points);
     auto m_prover = mem_crs.get_crs(num_points);
     EXPECT_EQ(m_prover->get_monomial_size(), f_prover->get_monomial_size());
-    for (size_t i = 0; i < num_points * 2; ++i) {
+    for (size_t i = 0; i < num_points; ++i) {
         EXPECT_EQ(std::make_pair(i, m_prover->get_monomial_points()[i]),
                   std::make_pair(i, f_prover->get_monomial_points()[i]));
     }
@@ -72,7 +72,7 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
     auto f_prover = file_crs.get_crs(num_points);
     auto m_prover = mem_crs.get_crs(num_points);
     EXPECT_EQ(m_prover->get_monomial_size(), f_prover->get_monomial_size());
-    for (size_t i = 0; i < num_points * 2; ++i) {
+    for (size_t i = 0; i < num_points; ++i) {
         EXPECT_EQ(std::make_pair(i, m_prover->get_monomial_points()[i]),
                   std::make_pair(i, f_prover->get_monomial_points()[i]));
     }
@@ -82,7 +82,7 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
 TEST(CrsFactory, bn254)
 {
     check_bn254_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
-    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs";
+    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
     // Tiny download check to test the 'net CRS' path
@@ -93,7 +93,7 @@ TEST(CrsFactory, bn254)
 TEST(CrsFactory, grumpkin)
 {
     check_grumpkin_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
-    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs";
+    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_grumpkin";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
     // Tiny download check to test the 'net CRS' path

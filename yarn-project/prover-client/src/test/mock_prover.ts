@@ -28,6 +28,7 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   RootRollupInputs,
@@ -190,6 +191,22 @@ export class MockProver implements ServerCircuitProver {
 
   getEmptyBlockRootRollupProof(
     _input: EmptyBlockRootRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
+  getPaddingBlockRootRollupProof(
+    _input: PaddingBlockRootRollupInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
   ): Promise<

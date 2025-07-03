@@ -184,3 +184,25 @@ export const subProtocolMap: SubProtocolMap = {
     response: L2Block,
   },
 };
+
+export interface ReqRespInterface {
+  start(
+    subProtocolHandlers: ReqRespSubProtocolHandlers,
+    subProtocolValidators: ReqRespSubProtocolValidators,
+  ): Promise<void>;
+  stop(): Promise<void>;
+  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
+    subProtocol: SubProtocol,
+    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    pinnedPeer: PeerId | undefined,
+    timeoutMs?: number,
+    maxPeers?: number,
+    maxRetryAttempts?: number,
+  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>;
+  sendRequestToPeer(
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+    payload: Buffer,
+    dialTimeout?: number,
+  ): Promise<ReqRespResponse>;
+}

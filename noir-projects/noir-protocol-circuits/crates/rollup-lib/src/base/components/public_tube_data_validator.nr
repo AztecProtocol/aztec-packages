@@ -1,6 +1,6 @@
 use crate::base::components::{
     constants::validate_tx_constant_data, gas::clamp_gas_settings_for_avm,
-    validation_requests::validate_max_block_number,
+    validation_requests::validate_include_by_timestamp,
 };
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
@@ -39,11 +39,11 @@ impl PublicTubeDataValidator {
         PublicTubeDataValidator { data }
     }
 
-    pub fn validate_proof(self) {
+    pub fn validate_proof_and_vk(self) {
         if !dep::std::runtime::is_unconstrained() {
             self.data.verify();
-            // TODO(#7410)
-            // self.tube_data.vk_data.validate_in_vk_tree(self.tube_data.public_inputs.constants.vk_tree_root, ALLOWED_PREVIOUS_CIRCUITS);
+            // TODO(#7410): Add public tube vk hash to the tree and uncomment the following check.
+            // self.tube_data.vk_data.validate_vk_in_vk_tree();
         }
     }
 
@@ -58,9 +58,9 @@ impl PublicTubeDataValidator {
             archive_root_membership_witness,
         );
 
-        validate_max_block_number(
+        validate_include_by_timestamp(
             self.data.public_inputs.rollup_validation_requests,
-            constants.global_variables.block_number,
+            constants.global_variables,
         );
     }
 

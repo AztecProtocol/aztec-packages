@@ -27,7 +27,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
    * @returns The global variables for the given block number.
    */
   public buildGlobalVariables(
-    blockNumber: Fr,
+    blockNumber: number,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: bigint,

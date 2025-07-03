@@ -19,6 +19,7 @@ template <typename FF_> class update_checkImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::update_check_sel)).is_zero();
     }
 
@@ -32,16 +33,16 @@ template <typename FF_> class update_checkImpl {
 
         const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
         const auto constants_UPDATED_CLASS_IDS_SLOT = FF(1);
-        const auto constants_BLOCK_NUMBER_BIT_SIZE = FF(32);
+        const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
         const auto constants_UPDATES_SHARED_MUTABLE_VALUES_LEN = FF(3);
         const auto constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE = FF(144);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
         const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
         const auto update_check_TWO_POW_32 = FF(4294967296UL);
-        const auto update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE =
-            ((in.get(C::update_check_update_block_of_change) - FF(1)) - in.get(C::update_check_block_number));
-        const auto update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =
-            (in.get(C::update_check_block_number) - in.get(C::update_check_update_block_of_change));
+        const auto update_check_TIMESTAMP_LT_TIMESTAMP_OF_CHANGE =
+            ((in.get(C::update_check_timestamp_of_change) - FF(1)) - in.get(C::update_check_timestamp));
+        const auto update_check_TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =
+            (in.get(C::update_check_timestamp) - in.get(C::update_check_timestamp_of_change));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -104,7 +105,7 @@ template <typename FF_> class update_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = in.get(C::update_check_hash_not_zero) *
-                       ((constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants_BLOCK_NUMBER_BIT_SIZE) -
+                       ((constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants_TIMESTAMP_OF_CHANGE_BIT_SIZE) -
                         in.get(C::update_check_update_hi_metadata_bit_size));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
@@ -112,31 +113,32 @@ template <typename FF_> class update_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = in.get(C::update_check_hash_not_zero) *
-                       (constants_BLOCK_NUMBER_BIT_SIZE - in.get(C::update_check_block_number_bit_size));
+                       (constants_TIMESTAMP_OF_CHANGE_BIT_SIZE - in.get(C::update_check_timestamp_of_change_bit_size));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         { // UPDATE_METADATA_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = ((in.get(C::update_check_update_hi_metadata) * update_check_TWO_POW_32 +
-                         in.get(C::update_check_update_block_of_change)) -
+                         in.get(C::update_check_timestamp_of_change)) -
                         in.get(C::update_check_update_preimage_metadata));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = in.get(C::update_check_block_number_is_lt_block_of_change) *
-                       (FF(1) - in.get(C::update_check_block_number_is_lt_block_of_change));
+            auto tmp = in.get(C::update_check_timestamp_is_lt_timestamp_of_change) *
+                       (FF(1) - in.get(C::update_check_timestamp_is_lt_timestamp_of_change));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (((update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE - update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) *
-                             in.get(C::update_check_block_number_is_lt_block_of_change) +
-                         update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) -
-                        in.get(C::update_check_block_of_change_subtraction));
+            auto tmp =
+                (((update_check_TIMESTAMP_LT_TIMESTAMP_OF_CHANGE - update_check_TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) *
+                      in.get(C::update_check_timestamp_is_lt_timestamp_of_change) +
+                  update_check_TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) -
+                 in.get(C::update_check_timestamp_of_change_subtraction));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
@@ -181,7 +183,7 @@ template <typename FF_> class update_checkImpl {
         { // FUTURE_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::update_check_hash_not_zero) * in.get(C::update_check_block_number_is_lt_block_of_change) *
+                in.get(C::update_check_hash_not_zero) * in.get(C::update_check_timestamp_is_lt_timestamp_of_change) *
                 ((in.get(C::update_check_original_class_id) * in.get(C::update_check_update_pre_class_id_is_zero) +
                   in.get(C::update_check_update_preimage_pre_class_id)) -
                  in.get(C::update_check_current_class_id));
@@ -192,7 +194,7 @@ template <typename FF_> class update_checkImpl {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::update_check_hash_not_zero) *
-                (FF(1) - in.get(C::update_check_block_number_is_lt_block_of_change)) *
+                (FF(1) - in.get(C::update_check_timestamp_is_lt_timestamp_of_change)) *
                 ((in.get(C::update_check_original_class_id) * in.get(C::update_check_update_post_class_id_is_zero) +
                   in.get(C::update_check_update_preimage_post_class_id)) -
                  in.get(C::update_check_current_class_id));

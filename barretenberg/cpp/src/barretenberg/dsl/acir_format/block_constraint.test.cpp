@@ -2,7 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -27,10 +27,11 @@ class MegaHonk : public ::testing::Test {
     // Construct and verify an MegaHonk proof for the provided circuit
     static bool prove_and_verify(Builder& circuit)
     {
-        Prover prover{ circuit };
+        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(circuit);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover{ proving_key, verification_key };
         auto proof = prover.construct_proof();
 
-        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
 
         return verifier.verify_proof(proof);

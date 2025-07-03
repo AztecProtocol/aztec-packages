@@ -3,7 +3,6 @@ use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as deri
 use types::{
     address::AztecAddress,
     contract_class_id::ContractClassId,
-    hash::verification_key_hash,
     shared_mutable::scheduled_value_change::ScheduledValueChange,
     tests::fixtures,
     traits::{FromField, ToField},
@@ -23,7 +22,7 @@ impl PrivateCallDataValidatorBuilder {
     pub fn compute_updated_contract(
         &mut self,
         new_class_id: ContractClassId,
-        block_of_change: u32,
+        timestamp_of_change: u64,
     ) {
         let original_class_id = ContractClassId::from_field(27);
         self.private_call.contract_address = AztecAddress::compute_from_class_id(
@@ -33,13 +32,13 @@ impl PrivateCallDataValidatorBuilder {
         );
 
         self.private_call.updated_class_id_value_change =
-            ScheduledValueChange::new(original_class_id, new_class_id, block_of_change);
+            ScheduledValueChange::new(original_class_id, new_class_id, timestamp_of_change);
 
         self.private_call.compute_update_tree_and_hints();
     }
 }
 
-#[test(should_fail_with = "contract address cannot be zero")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_zero_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
@@ -157,10 +156,8 @@ fn validate_contract_address_protocol_address_wrong_low_leaf_next_key() {
 fn validate_contract_address_wrong_vk_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    // Change the VK so the address doesn't match anymore
-    builder.private_call.client_ivc_vk.key[0] = 27;
-    builder.private_call.client_ivc_vk.hash =
-        verification_key_hash(builder.private_call.client_ivc_vk.key);
+    // Change the vk hash so the address doesn't match anymore
+    builder.private_call.client_ivc_vk.hash += 1;
 
     builder.validate();
 }
@@ -180,7 +177,7 @@ fn validate_contract_address_with_updated_contract_succeeds() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        builder.private_call.historical_header.global_variables.block_number as u32,
+        builder.private_call.historical_header.global_variables.timestamp,
     );
 
     builder.validate();
@@ -192,7 +189,7 @@ fn validate_contract_address_not_yet_updated_contract_fails() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        (builder.private_call.historical_header.global_variables.block_number + 1) as u32,
+        builder.private_call.historical_header.global_variables.timestamp + 1,
     );
 
     builder.validate();
@@ -207,7 +204,7 @@ fn validate_contract_address_updated_to_different_class_fails() {
     );
     builder.compute_updated_contract(
         new_class_id,
-        builder.private_call.historical_header.global_variables.block_number as u32,
+        builder.private_call.historical_header.global_variables.timestamp,
     );
 
     builder.validate();
