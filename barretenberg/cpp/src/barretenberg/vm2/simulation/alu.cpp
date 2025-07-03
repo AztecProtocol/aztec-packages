@@ -49,7 +49,6 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
             lt_result_to_range_check =
                 res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
         }
-        // TODO(THURS): check 0, 0 works here, otherwise add selector like sel_non_ff_lt
         range_check.assert_range(lt_result_to_range_check, get_tag_bits(a.get_tag()));
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     } catch (const AluError& e) {

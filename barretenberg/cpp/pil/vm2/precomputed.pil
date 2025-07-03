@@ -36,7 +36,7 @@ pol constant sha256_compression_round_constant;
 // A mapping between a MemoryTag value and their respective parameters:
 // {FF:0, U1: 1, U8: 1, U16: 2, ... , U128: 16}
 //      | tag | byte_length | max_bits |  max_value  |
-// FF   |  0  |      32     |    254   |   p - 1     |     // TODO(MW): Change 254 to 0
+// FF   |  0  |      32     |    0     |   p - 1     |
 // u1   |  1  |      1      |    1     |   2^1 - 1   |
 // u8   |  2  |      1      |    8     |   2^8 - 1   |
 // u16  |  3  |      2      |    16    |   2^16 - 1  |
