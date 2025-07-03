@@ -1,6 +1,6 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  DEPLOYER_CONTRACT_ADDRESS,
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
@@ -35,7 +35,7 @@ const salt = new Fr(1);
 
 const contractAddressMapping: { [name: string]: number } = {
   AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
-  ContractInstanceDeployer: DEPLOYER_CONTRACT_ADDRESS,
+  ContractInstanceDeployer: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   ContractClassRegisterer: REGISTERER_CONTRACT_ADDRESS,
   MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
@@ -134,7 +134,7 @@ async function generateRoot(names: string[], leaves: Fr[]) {
 async function generateLogTags() {
   return `
   export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
-    DEPLOYER_CONTRACT_ADDRESS,
+    CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
     DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
   ])}');
   `;
