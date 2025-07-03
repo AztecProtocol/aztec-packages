@@ -1,8 +1,6 @@
-import { RollupCheatCodes } from '@aztec/aztec.js/testing';
 import {
   DefaultL1ContractsConfig,
   type DeployL1ContractsArgs,
-  EthCheatCodes,
   type ExtendedViemWalletClient,
   type L1ReaderConfig,
   L1TxUtils,
@@ -11,7 +9,7 @@ import {
   createExtendedL1Client,
   deployL1Contracts,
 } from '@aztec/ethereum';
-import { startAnvil } from '@aztec/ethereum/test';
+import { RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -98,7 +96,7 @@ describe('SlasherClient', () => {
 
     const deployed = await deployL1Contracts([rpcUrl], testHarnessPrivateKey, foundry, logger, config);
 
-    const cheatCodes = new RollupCheatCodes(new EthCheatCodes([rpcUrl]), {
+    const cheatCodes = RollupCheatCodes.create([rpcUrl], {
       rollupAddress: deployed.l1ContractAddresses.rollupAddress,
     });
 
