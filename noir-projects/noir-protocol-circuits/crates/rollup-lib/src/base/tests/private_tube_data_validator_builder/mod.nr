@@ -13,7 +13,6 @@ pub struct PrivateTubeDataValidatorBuilder {
 impl PrivateTubeDataValidatorBuilder {
     pub fn new() -> Self {
         let mut tube_data = FixtureBuilder::new().use_last_archive();
-        tube_data.set_include_by_timestamp(tube_data.global_variables.timestamp);
 
         let block_constant_data = tube_data.to_block_constant_data();
         PrivateTubeDataValidatorBuilder { tube_data, block_constant_data }

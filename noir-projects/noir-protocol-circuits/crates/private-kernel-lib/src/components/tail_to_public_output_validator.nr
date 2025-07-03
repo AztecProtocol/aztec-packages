@@ -3,7 +3,6 @@ mod tail_to_public_output_hints;
 use crate::{
     abis::PaddedSideEffectAmounts,
     components::{
-        tail_output_composer::aggregate_include_by_timestamp,
         tail_output_validator::validate_include_by_timestamp_duration,
         tail_to_public_output_composer::meter_gas_used,
     },
@@ -31,7 +30,7 @@ pub struct TailToPublicOutputValidator {
     output: PrivateToPublicKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
-    include_by_timestamp: u64,
+    include_by_timestamp_set_by_wallet: u64,
     hints: TailToPublicOutputHints,
 }
 
@@ -40,7 +39,7 @@ impl TailToPublicOutputValidator {
         output: PrivateToPublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp: u64,
+        include_by_timestamp_set_by_wallet: u64,
     ) -> Self {
         // Safety: the below hints are constrained by calling .validate(). See private_kernel_tail_to_public for use.
         let hints = unsafe { generate_tail_to_public_output_hints(previous_kernel) };
@@ -49,7 +48,7 @@ impl TailToPublicOutputValidator {
             output,
             previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp,
+            include_by_timestamp_set_by_wallet,
             hints,
         }
     }
@@ -67,9 +66,9 @@ impl TailToPublicOutputValidator {
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
         // include_by_timestamp
-        let include_by_timestamp = aggregate_include_by_timestamp(
+        let include_by_timestamp = std::cmp::min(
             self.previous_kernel.include_by_timestamp,
-            self.include_by_timestamp,
+            self.include_by_timestamp_set_by_wallet,
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,

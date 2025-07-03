@@ -1,7 +1,5 @@
-mod aggregate_include_by_timestamp;
 mod meter_gas_used;
 
-pub(crate) use aggregate_include_by_timestamp::aggregate_include_by_timestamp;
 pub(crate) use meter_gas_used::meter_gas_used;
 
 use crate::components::private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer;
@@ -23,20 +21,20 @@ use dep::types::{
 
 pub struct TailOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
-    include_by_timestamp: u64,
+    include_by_timestamp_set_by_wallet: u64,
 }
 
 impl TailOutputComposer {
     pub unconstrained fn new(
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp: u64,
+        include_by_timestamp_set_by_wallet: u64,
     ) -> Self {
         let mut output_composer =
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
         // Q: Why are we sorting in the tail, if sorting has already happened in the Reset?
         output_composer.sort_ordered_values();
 
-        TailOutputComposer { output_composer, include_by_timestamp }
+        TailOutputComposer { output_composer, include_by_timestamp_set_by_wallet }
     }
 
     pub unconstrained fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
@@ -46,8 +44,10 @@ impl TailOutputComposer {
 
         let gas_used = meter_gas_used(end);
 
-        let include_by_timestamp =
-            aggregate_include_by_timestamp(source.include_by_timestamp, self.include_by_timestamp);
+        let include_by_timestamp = std::cmp::min(
+            source.include_by_timestamp,
+            self.include_by_timestamp_set_by_wallet,
+        );
 
         PrivateToRollupKernelCircuitPublicInputs {
             constants: source.constants,

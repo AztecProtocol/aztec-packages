@@ -6,12 +6,12 @@ use types::abis::private_kernel_data::PrivateKernelDataWithoutPublicInputs;
 fn main(
     previous_kernel: PrivateKernelDataWithoutPublicInputs,
     previous_kernel_public_inputs: call_data(0) PrivateKernelCircuitPublicInputs,
-    include_by_timestamp: u64,
+    include_by_timestamp_set_by_wallet: u64,
 ) -> pub PrivateToRollupKernelCircuitPublicInputs {
     let private_inputs = PrivateKernelTailCircuitPrivateInputs::new(
         previous_kernel,
         previous_kernel_public_inputs,
-        include_by_timestamp,
+        include_by_timestamp_set_by_wallet,
     );
     private_inputs.execute()
 }

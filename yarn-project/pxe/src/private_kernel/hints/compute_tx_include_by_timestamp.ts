@@ -26,21 +26,20 @@ export function computeTxIncludeByTimestamp(
 
   const blockTimestamp = previousKernel.constants.historicalHeader.globalVariables.timestamp;
   const maxTimestamp = blockTimestamp + BigInt(maxDuration);
-  const includeByTimestampOption = previousKernel.includeByTimestamp;
-  const includeByTimestamp = includeByTimestampOption.value;
+  const includeByTimestamp = previousKernel.includeByTimestamp;
 
-  // If no includeByTimestamp is set during the tx execution, or it's greater than or equal to the max allowed duration,
+  // If the includeByTimestamp set during the tx execution is greater than or equal to the max allowed duration,
   // use the maximum allowed timestamp.
-  if (!includeByTimestampOption.isSome || includeByTimestamp >= maxTimestamp) {
+  // Note: It shouldn't be larger than the max allowed duration, but we check for it anyway.
+  if (includeByTimestamp >= maxTimestamp) {
     return maxTimestamp;
   }
 
-  // An includeByTimestamp was set during execution, and it's within the allowed range.
   // Round it down to the nearest hour/min/second to reduce precision and avoid revealing the exact value.
   // This makes it harder for others to infer what function calls may have been used to produce a specific timestamp.
   const roundedTimestamp = ROUNDED_DURATIONS.reduce((timestamp, duration) => {
     if (timestamp <= blockTimestamp) {
-      // The timestamp is less than the block timestamp, round it down again using a smaller duration.
+      // The timestamp must be greater than the block timestamp. Round it down again using a smaller duration.
       return roundTimestamp(blockTimestamp, includeByTimestamp, duration);
     }
     return timestamp;

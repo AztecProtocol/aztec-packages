@@ -6,7 +6,6 @@ pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_tim
 
 use dep::types::{
     abis::{
-        include_by_timestamp_option::IncludeByTimestampOption,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
         },
@@ -15,6 +14,7 @@ use dep::types::{
         side_effect::{Ordered, OrderedValue},
         tx_constant_data::TxConstantData,
     },
+    constants::MAX_U64_VALUE,
     debug::no_op,
     traits::Empty,
     transaction::tx_request::TxRequest,
@@ -72,6 +72,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         } else {
             public_inputs_builder.claimed_first_nullifier = first_nullifier_hint;
         }
+
+        // Must set it to max u64, so that the minimum value can be picked from the private call correctly.
+        public_inputs_builder.include_by_timestamp = MAX_U64_VALUE;
+
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -188,16 +192,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
-        // Update the expiration timestamp if the private call requested a lower one.
-        self.public_inputs_builder.include_by_timestamp = IncludeByTimestampOption::min(
+        self.public_inputs_builder.include_by_timestamp = std::cmp::min(
             self.public_inputs_builder.include_by_timestamp,
-            private_call.public_inputs.include_by_timestamp,
-        );
-
-        // Update the expiration timestamp if the shared mutable read requires a lower one.
-        self.public_inputs_builder.include_by_timestamp = get_include_by_timestamp_for_contract_updates(
-            private_call,
-            self.public_inputs_builder.include_by_timestamp,
+            std::cmp::min(
+                private_call.public_inputs.include_by_timestamp,
+                get_include_by_timestamp_for_contract_updates(private_call),
+            ),
         );
     }
 

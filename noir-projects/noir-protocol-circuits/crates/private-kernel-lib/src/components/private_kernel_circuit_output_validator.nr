@@ -4,7 +4,6 @@ use crate::components::private_kernel_circuit_public_inputs_composer::{
 };
 use dep::types::{
     abis::{
-        include_by_timestamp_option::IncludeByTimestampOption,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
     },
@@ -115,21 +114,22 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect initial min_revertible_side_effect_counter",
         );
 
-        let include_by_timestamp = get_include_by_timestamp_for_contract_updates(
-            private_call,
+        let include_by_timestamp = std::cmp::min(
             private_call.public_inputs.include_by_timestamp,
+            get_include_by_timestamp_for_contract_updates(private_call),
         );
-
         assert_eq(
             self.output.include_by_timestamp,
             include_by_timestamp,
             "incorrect initial include_by_timestamp",
         );
+
         assert_eq(
             self.output.public_teardown_call_request,
             private_call.public_inputs.public_teardown_call_request,
             "incorrect initial public_teardown_call_request",
         );
+
         let initial_fee_payer = if private_call.public_inputs.is_fee_payer {
             private_call.public_inputs.call_context.contract_address
         } else {
@@ -163,14 +163,13 @@ impl PrivateKernelCircuitOutputValidator {
         );
 
         // include_by_timestamp
-        let include_by_timestamp = IncludeByTimestampOption::min(
+        let include_by_timestamp = std::cmp::min(
             previous_kernel.include_by_timestamp,
-            private_call.public_inputs.include_by_timestamp,
+            std::cmp::min(
+                private_call.public_inputs.include_by_timestamp,
+                get_include_by_timestamp_for_contract_updates(private_call),
+            ),
         );
-
-        let include_by_timestamp =
-            get_include_by_timestamp_for_contract_updates(private_call, include_by_timestamp);
-
         assert_eq(
             self.output.include_by_timestamp,
             include_by_timestamp,

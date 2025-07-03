@@ -18,7 +18,7 @@ use dep::types::{
 pub struct TailOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder,
-    include_by_timestamp: u64,
+    include_by_timestamp_set_by_wallet: u64,
 }
 
 impl TailOutputValidatorBuilder {
@@ -40,7 +40,9 @@ impl TailOutputValidatorBuilder {
         output.set_protocol_nullifier();
         previous_kernel.set_protocol_nullifier();
 
-        TailOutputValidatorBuilder { output, previous_kernel, include_by_timestamp: 0 }
+        let include_by_timestamp_set_by_wallet = previous_kernel.include_by_timestamp;
+
+        TailOutputValidatorBuilder { output, previous_kernel, include_by_timestamp_set_by_wallet }
     }
 
     pub fn get_hints(self) -> TailOutputHints {
@@ -64,7 +66,12 @@ impl TailOutputValidatorBuilder {
 
     pub fn validate_with_output(self, output: PrivateToRollupKernelCircuitPublicInputs) {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailOutputValidator::new(output, previous_kernel, self.include_by_timestamp).validate();
+        TailOutputValidator::new(
+            output,
+            previous_kernel,
+            self.include_by_timestamp_set_by_wallet,
+        )
+            .validate();
     }
 
     pub fn validate_with_hints(self, hints: TailOutputHints) {
@@ -73,7 +80,7 @@ impl TailOutputValidatorBuilder {
         TailOutputValidator::new_with_hints(
             output,
             previous_kernel,
-            self.include_by_timestamp,
+            self.include_by_timestamp_set_by_wallet,
             hints,
         )
             .validate();

@@ -159,7 +159,6 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            include_by_timestamp_option::IncludeByTimestampOption,
             kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
             note_hash::{NoteHash, ScopedNoteHash},
             nullifier::{Nullifier, ScopedNullifier},
@@ -391,7 +390,7 @@ mod tests {
         let public_teardown_call_request = make_fixture(999);
         builder.previous_kernel.public_teardown_call_request = public_teardown_call_request;
         builder.previous_kernel.fee_payer = AztecAddress::from_field(62);
-        builder.previous_kernel.include_by_timestamp = IncludeByTimestampOption::some(13);
+        builder.previous_kernel.include_by_timestamp = 13;
         builder.previous_kernel.is_private_only = true;
         builder.previous_kernel.claimed_first_nullifier = 7788;
 
@@ -401,7 +400,7 @@ mod tests {
         assert_eq(public_inputs.min_revertible_side_effect_counter, 246);
         assert_eq(public_inputs.public_teardown_call_request, public_teardown_call_request);
         assert_eq(public_inputs.fee_payer, AztecAddress::from_field(62));
-        assert_eq(public_inputs.include_by_timestamp, IncludeByTimestampOption::some(13));
+        assert_eq(public_inputs.include_by_timestamp, 13);
         assert_eq(public_inputs.is_private_only, true);
         assert_eq(public_inputs.claimed_first_nullifier, 7788);
     }

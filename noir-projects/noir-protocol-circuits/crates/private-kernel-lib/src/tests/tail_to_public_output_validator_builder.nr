@@ -8,7 +8,7 @@ pub(crate) struct TailToPublicOutputValidatorBuilder {
     pub(crate) output: FixtureBuilder,
     pub(crate) previous_kernel: FixtureBuilder,
     pub(crate) padded_side_effect_amounts: PaddedSideEffectAmounts,
-    pub(crate) include_by_timestamp: u64,
+    pub(crate) include_by_timestamp_set_by_wallet: u64,
 }
 
 impl TailToPublicOutputValidatorBuilder {
@@ -22,7 +22,7 @@ impl TailToPublicOutputValidatorBuilder {
             output,
             previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp: 0,
+            include_by_timestamp_set_by_wallet: previous_kernel.include_by_timestamp,
         }
     }
 
@@ -35,7 +35,7 @@ impl TailToPublicOutputValidatorBuilder {
             output,
             previous_kernel,
             self.padded_side_effect_amounts,
-            self.include_by_timestamp,
+            self.include_by_timestamp_set_by_wallet,
         )
             .validate();
     }

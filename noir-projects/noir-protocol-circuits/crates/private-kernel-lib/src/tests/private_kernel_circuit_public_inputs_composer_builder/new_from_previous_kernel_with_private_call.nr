@@ -1,14 +1,15 @@
 use crate::tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder;
-use dep::types::{constants::DEFAULT_UPDATE_DELAY, tests::utils::assert_array_eq, traits::Empty};
+use dep::types::{constants::MAX_U64_VALUE, tests::utils::assert_array_eq, traits::Empty};
 
 #[test]
 fn new_from_previous_kernel_with_private_call_empty_data_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+    let prev_include_by_timestamp = builder.previous_kernel.include_by_timestamp;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.include_by_timestamp.unwrap_unchecked(), DEFAULT_UPDATE_DELAY);
+    assert_eq(output.include_by_timestamp, prev_include_by_timestamp);
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());
 }
@@ -49,53 +50,57 @@ fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_include_by_timestamp_prev_empty_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_prev_larger_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+    let prev_include_by_timestamp = builder.previous_kernel.include_by_timestamp;
 
-    builder.private_call.set_include_by_timestamp(3);
+    // Set a smaller include_by_timestamp for the private call.
+    let private_call_include_by_timestamp = prev_include_by_timestamp - 1;
+    builder.private_call.include_by_timestamp = private_call_include_by_timestamp;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, private_call_include_by_timestamp);
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_include_by_timestamp_curr_empty_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_curr_default_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+    let prev_include_by_timestamp = builder.previous_kernel.include_by_timestamp;
 
-    builder.previous_kernel.set_include_by_timestamp(3);
+    builder.private_call.include_by_timestamp = MAX_U64_VALUE;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, prev_include_by_timestamp);
 }
 
 #[test]
 fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_prev_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_include_by_timestamp(3);
-    builder.private_call.set_include_by_timestamp(4);
+    builder.previous_kernel.include_by_timestamp = 3;
+    builder.private_call.include_by_timestamp = 4;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, 3);
 }
 
 #[test]
 fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_curr_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_include_by_timestamp(4);
-    builder.private_call.set_include_by_timestamp(3);
+    builder.previous_kernel.include_by_timestamp = 4;
+    builder.private_call.include_by_timestamp = 3;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.include_by_timestamp.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, 3);
 }
 
 #[test]

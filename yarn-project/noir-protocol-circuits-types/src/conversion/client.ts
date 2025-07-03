@@ -112,8 +112,6 @@ import {
   mapGrumpkinScalarToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapIncludeByTimestampOptionFromNoir,
-  mapIncludeByTimestampOptionToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -138,6 +136,8 @@ import {
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
+  mapU64FromNoir,
+  mapU64ToNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
   mapWrappedFieldToNoir,
@@ -513,7 +513,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
-    include_by_timestamp: mapIncludeByTimestampOptionToNoir(privateCircuitPublicInputs.includeByTimestamp),
+    include_by_timestamp: mapU64ToNoir(privateCircuitPublicInputs.includeByTimestamp),
   };
 }
 
@@ -615,7 +615,7 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapPrivateAccumulatedDataFromNoir(inputs.end),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
-    mapIncludeByTimestampOptionFromNoir(inputs.include_by_timestamp),
+    mapU64FromNoir(inputs.include_by_timestamp),
     inputs.is_private_only,
     mapFieldFromNoir(inputs.claimed_first_nullifier),
   );
@@ -631,7 +631,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapIncludeByTimestampOptionToNoir(inputs.includeByTimestamp),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
     is_private_only: inputs.isPrivateOnly,
     claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
   };

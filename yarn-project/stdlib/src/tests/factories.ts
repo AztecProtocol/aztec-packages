@@ -164,7 +164,6 @@ import { CallContext } from '../tx/call_context.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
-import { IncludeByTimestampOption } from '../tx/include_by_timestamp_option.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
@@ -571,7 +570,7 @@ function makeClaimedLengthArray<T extends Serializable, N extends number>(
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    includeByTimestamp: new IncludeByTimestampOption(true, BigInt(seed + 0x31415)),
+    includeByTimestamp: BigInt(seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),

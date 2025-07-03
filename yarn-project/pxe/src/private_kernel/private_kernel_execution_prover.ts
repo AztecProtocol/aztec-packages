@@ -34,7 +34,6 @@ import {
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
-import { computeTxIncludeByTimestamp } from './hints/index.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 const NULL_SIMULATE_OUTPUT: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs> = {
@@ -48,7 +47,6 @@ export interface PrivateKernelExecutionProverConfig {
   simulate: boolean;
   skipFeeEnforcement: boolean;
   profileMode: 'gates' | 'execution-steps' | 'full' | 'none';
-  maxIncludeByTimestampDuration?: number;
 }
 
 /**
@@ -80,7 +78,7 @@ export class PrivateKernelExecutionProver {
   async proveWithKernels(
     txRequest: TxRequest,
     executionResult: PrivateExecutionResult,
-    { simulate, skipFeeEnforcement, profileMode, maxIncludeByTimestampDuration }: PrivateKernelExecutionProverConfig = {
+    { simulate, skipFeeEnforcement, profileMode }: PrivateKernelExecutionProverConfig = {
       simulate: false,
       skipFeeEnforcement: false,
       profileMode: 'none',
@@ -277,15 +275,20 @@ export class PrivateKernelExecutionProver {
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
-    const includeByTimestamp = computeTxIncludeByTimestamp(
-      previousKernelData.publicInputs,
-      maxIncludeByTimestampDuration,
-    );
+    // Use the aggregated includeByTimestamp set throughout the tx execution.
+    // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
+    const includeByTimestampSetByWallet = previousKernelData.publicInputs.includeByTimestamp;
+    const blockTimestamp = previousKernelData.publicInputs.constants.historicalHeader.globalVariables.timestamp;
+    if (includeByTimestampSetByWallet <= blockTimestamp) {
+      throw new Error(
+        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampSetByWallet}.`,
+      );
+    }
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       paddedSideEffectAmounts,
-      includeByTimestamp,
+      includeByTimestampSetByWallet,
     );
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);

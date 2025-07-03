@@ -1,10 +1,10 @@
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { IncludeByTimestampOption } from '../tx/include_by_timestamp_option.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
+import type { UInt64 } from '../types/shared.js';
 import { PrivateAccumulatedData } from './private_accumulated_data.js';
 import { PrivateValidationRequests } from './private_validation_requests.js';
 import { PublicCallRequest } from './public_call_request.js';
@@ -41,7 +41,7 @@ export class PrivateKernelCircuitPublicInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestamp: IncludeByTimestampOption,
+    public includeByTimestamp: UInt64,
     /**
      * Wether this is a private only tx or not
      */
@@ -68,7 +68,7 @@ export class PrivateKernelCircuitPublicInputs {
       this.end,
       this.publicTeardownCallRequest,
       this.feePayer,
-      this.includeByTimestamp,
+      bigintToUInt64BE(this.includeByTimestamp),
       this.isPrivateOnly,
       this.claimedFirstNullifier,
     );
@@ -88,7 +88,7 @@ export class PrivateKernelCircuitPublicInputs {
       reader.readObject(PrivateAccumulatedData),
       reader.readObject(PublicCallRequest),
       reader.readObject(AztecAddress),
-      reader.readObject(IncludeByTimestampOption),
+      reader.readUInt64(),
       reader.readBoolean(),
       reader.readObject(Fr),
     );
@@ -102,7 +102,7 @@ export class PrivateKernelCircuitPublicInputs {
       PrivateAccumulatedData.empty(),
       PublicCallRequest.empty(),
       AztecAddress.ZERO,
-      IncludeByTimestampOption.empty(),
+      0n,
       false,
       Fr.zero(),
     );

@@ -64,7 +64,9 @@ Each transaction must now include a valid `include_by_timestamp` that satisfies 
 - The duration between the `include_by_timestamp` and the historical block’s timestamp must not exceed the maximum allowed (currently 24 hours).
 - It must be greater than or equal to the timestamp of the block in which the transaction is included.
 
-If no `include_by_timestamp` is explicitly set by private functions during transaction execution, the PXE will automatically inject the maximum allowed timestamp. If a value is set, the PXE may lower it to reduce precision and obscure the exact timestamp.
+The protocol circuits compute the `include_by_timestamp` for contract updates during each private function iteration. If a contract does not explicitly specify a value, the default will be the maximum allowed duration. This ensures that `include_by_timestamp` is never left unset.
+
+No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
 
 ## 0.88.0
 

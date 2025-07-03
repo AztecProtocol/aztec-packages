@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         accumulated_data::PrivateAccumulatedDataBuilder,
-        include_by_timestamp_option::IncludeByTimestampOption,
         kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
         validation_requests::PrivateValidationRequestsBuilder,
@@ -18,7 +17,7 @@ pub struct PrivateKernelCircuitPublicInputsBuilder {
     pub end: PrivateAccumulatedDataBuilder,
     pub public_teardown_call_request: PublicCallRequest,
     pub fee_payer: AztecAddress,
-    pub include_by_timestamp: IncludeByTimestampOption,
+    pub include_by_timestamp: u64,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
 }
@@ -49,7 +48,7 @@ impl Empty for PrivateKernelCircuitPublicInputsBuilder {
             end: PrivateAccumulatedDataBuilder::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
-            include_by_timestamp: IncludeByTimestampOption::none(),
+            include_by_timestamp: 0,
             is_private_only: false,
             claimed_first_nullifier: 0,
         }

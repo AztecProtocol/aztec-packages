@@ -13,7 +13,7 @@ pub fn validate_include_by_timestamp(
     if !building_block_1 {
         assert(
             include_by_timestamp >= block_timestamp,
-            "kernel include_by_timestamp is smaller than timestamp",
+            "tx include_by_timestamp is smaller than block timestamp",
         );
     }
 }

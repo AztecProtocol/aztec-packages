@@ -24,7 +24,7 @@ import {
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
   mapTxRequestToNoir,
 } from '../conversion/client.js';
-import { mapBigIntToNoir, mapFieldToNoir } from '../conversion/common.js';
+import { mapFieldToNoir, mapU64ToNoir } from '../conversion/common.js';
 import type {
   PrivateKernelInitInputType,
   PrivateKernelInitReturnType,
@@ -138,7 +138,9 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
     ),
-    include_by_timestamp: mapBigIntToNoir(privateKernelTailCircuitPrivateInputs.includeByTimestamp),
+    include_by_timestamp_set_by_wallet: mapU64ToNoir(
+      privateKernelTailCircuitPrivateInputs.includeByTimestampSetByWallet,
+    ),
   };
   pushTestData('private-kernel-tail', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailAbi, mapped);
@@ -162,7 +164,9 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
     ),
-    include_by_timestamp: mapBigIntToNoir(privateKernelTailToPublicCircuitPrivateInputs.includeByTimestamp),
+    include_by_timestamp_set_by_wallet: mapU64ToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.includeByTimestampSetByWallet,
+    ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailToPublicAbi, mapped);

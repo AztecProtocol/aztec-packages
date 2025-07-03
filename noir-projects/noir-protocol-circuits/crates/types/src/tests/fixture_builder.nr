@@ -19,7 +19,6 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
-        include_by_timestamp_option::IncludeByTimestampOption,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
             PrivateToRollupKernelCircuitPublicInputs,
@@ -52,8 +51,9 @@ use crate::{
     constants::{
         ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
         DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
@@ -135,7 +135,7 @@ pub struct FixtureBuilder {
     pub is_static_call: bool,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
-    pub include_by_timestamp: IncludeByTimestampOption,
+    pub include_by_timestamp: u64,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -236,6 +236,10 @@ impl FixtureBuilder {
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
         builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+
+        let max_allowed_include_by_timestamp = builder.historical_header.global_variables.timestamp
+            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+        builder.include_by_timestamp = max_allowed_include_by_timestamp;
 
         builder.tx_context = TxContext {
             chain_id: fixtures::CHAIN_ID,
@@ -726,11 +730,7 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            include_by_timestamp: if self.include_by_timestamp.is_none() {
-                0
-            } else {
-                self.include_by_timestamp.unwrap_unchecked()
-            },
+            include_by_timestamp: self.include_by_timestamp,
         }
     }
 
@@ -745,11 +745,7 @@ impl FixtureBuilder {
             constants,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
-            include_by_timestamp: if self.include_by_timestamp.is_none() {
-                0
-            } else {
-                self.include_by_timestamp.unwrap_unchecked()
-            },
+            include_by_timestamp: self.include_by_timestamp,
         }
     }
 
@@ -1305,10 +1301,6 @@ impl FixtureBuilder {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        self.include_by_timestamp = IncludeByTimestampOption::some(include_by_timestamp);
-    }
-
     fn get_split_side_effects<T, let N: u32>(
         self,
         array: BoundedVec<Counted<T>, N>,
@@ -1511,7 +1503,7 @@ impl Empty for FixtureBuilder {
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            include_by_timestamp: IncludeByTimestampOption::none(),
+            include_by_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),

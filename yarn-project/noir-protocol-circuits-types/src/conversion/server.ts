@@ -123,7 +123,6 @@ import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapBigIntFromNoir,
-  mapBigIntToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldArrayToNoir,
@@ -156,6 +155,7 @@ import {
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
+  mapU64ToNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
@@ -578,7 +578,7 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapBigIntToNoir(inputs.includeByTimestamp),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -590,7 +590,7 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
     end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
-    include_by_timestamp: mapBigIntToNoir(inputs.includeByTimestamp),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 

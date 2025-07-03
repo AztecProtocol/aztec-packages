@@ -1,7 +1,6 @@
 export * from './block_header.js';
 export * from './call_context.js';
 export * from './global_variables.js';
-export * from './include_by_timestamp_option.js';
 export * from './content_commitment.js';
 export * from './state_reference.js';
 export * from './partial_state_reference.js';

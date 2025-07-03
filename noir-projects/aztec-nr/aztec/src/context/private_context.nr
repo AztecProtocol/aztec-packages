@@ -20,7 +20,6 @@ use dep::protocol_types::{
         call_context::CallContext,
         function_selector::FunctionSelector,
         gas_settings::GasSettings,
-        include_by_timestamp_option::IncludeByTimestampOption,
         log_hash::LogHash,
         note_hash::NoteHash,
         nullifier::Nullifier,
@@ -39,7 +38,7 @@ use dep::protocol_types::{
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_U64_VALUE,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -60,7 +59,7 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub include_by_timestamp: IncludeByTimestampOption,
+    pub include_by_timestamp: u64,
 
     pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
@@ -96,7 +95,11 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            include_by_timestamp: IncludeByTimestampOption::none(),
+            // Set the default to the max u64.
+            // Any value set by a private function should be smaller and can override it.
+            // It's fine if this value is propagated. The kernel circuit always computes the include_by_timestamp for
+            // the contract updates, which will be within the maximum allowed value and will override this.
+            include_by_timestamp: MAX_U64_VALUE,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),
@@ -235,8 +238,7 @@ impl PrivateContext {
     // docs:start:include-by-timestamp
     pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
         // docs:end:include-by-timestamp
-        self.include_by_timestamp =
-            IncludeByTimestampOption::min_with_u64(self.include_by_timestamp, include_by_timestamp);
+        self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -566,7 +568,7 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            include_by_timestamp: IncludeByTimestampOption::none(),
+            include_by_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),

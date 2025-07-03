@@ -1,6 +1,5 @@
 import { MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
 import { PrivateKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { IncludeByTimestampOption } from '@aztec/stdlib/tx';
 
 import { computeTxIncludeByTimestamp } from './compute_tx_include_by_timestamp.js';
 
@@ -13,7 +12,7 @@ describe('computeTxIncludeByTimestamp', () => {
   const secondsIn30Mins = 60n * 30n;
 
   const setIncludeByTimestamp = (timestamp: bigint) => {
-    previousKernel.includeByTimestamp = new IncludeByTimestampOption(true, timestamp);
+    previousKernel.includeByTimestamp = timestamp;
   };
 
   beforeEach(() => {
@@ -79,6 +78,7 @@ describe('computeTxIncludeByTimestamp', () => {
   });
 
   it('allows custom max duration', () => {
+    setIncludeByTimestamp(blockTimestamp + maxDuration);
     const customMaxDuration = maxDuration / 2n;
     const includeByTimestamp = computeTxIncludeByTimestamp(previousKernel, Number(customMaxDuration));
     expect(includeByTimestamp).toBe(blockTimestamp + customMaxDuration);

@@ -1,9 +1,7 @@
 use crate::{
     abis::{
-        accumulated_data::PrivateAccumulatedData,
-        include_by_timestamp_option::IncludeByTimestampOption,
-        public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
-        validation_requests::PrivateValidationRequests,
+        accumulated_data::PrivateAccumulatedData, public_call_request::PublicCallRequest,
+        tx_constant_data::TxConstantData, validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
     traits::Empty,
@@ -16,7 +14,7 @@ pub struct PrivateKernelCircuitPublicInputs {
     pub end: PrivateAccumulatedData,
     pub public_teardown_call_request: PublicCallRequest,
     pub fee_payer: AztecAddress,
-    pub include_by_timestamp: IncludeByTimestampOption,
+    pub include_by_timestamp: u64,
     pub is_private_only: bool, // What does this mean? Oh, only private functions?
     pub claimed_first_nullifier: Field,
 }
@@ -43,7 +41,7 @@ impl Empty for PrivateKernelCircuitPublicInputs {
             end: PrivateAccumulatedData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
-            include_by_timestamp: IncludeByTimestampOption::none(),
+            include_by_timestamp: 0,
             is_private_only: false,
             claimed_first_nullifier: 0,
         }

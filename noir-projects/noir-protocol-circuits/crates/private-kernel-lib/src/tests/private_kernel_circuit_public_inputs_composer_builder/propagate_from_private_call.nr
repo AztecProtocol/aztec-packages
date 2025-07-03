@@ -2,7 +2,7 @@ use crate::{
     components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
     tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
-use dep::types::{constants::DEFAULT_UPDATE_DELAY, tests::utils::assert_array_eq, traits::Empty};
+use dep::types::{tests::utils::assert_array_eq, traits::Empty};
 
 #[test]
 fn propagate_from_private_call_empty_data_succeeds() {
@@ -11,18 +11,18 @@ fn propagate_from_private_call_empty_data_succeeds() {
 
     let tx_request = builder.tx_request;
     let protocol_nullifier = create_protocol_nullifier(tx_request);
+    let include_by_timestamp = builder.private_call.include_by_timestamp;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_tx_request(false) };
 
     assert_eq(output.end.nullifiers.array[0], protocol_nullifier);
-
     assert_eq(output.min_revertible_side_effect_counter, 0);
     assert(output.validation_requests.note_hash_read_requests.is_empty());
     assert(output.validation_requests.nullifier_read_requests.is_empty());
     assert(output.validation_requests.scoped_key_validation_requests_and_generators.is_empty());
     assert(output.validation_requests.split_counter.is_empty());
-    assert_eq(output.include_by_timestamp.unwrap_unchecked(), DEFAULT_UPDATE_DELAY);
+    assert_eq(output.include_by_timestamp, include_by_timestamp);
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());
 }
@@ -43,12 +43,13 @@ fn propagate_from_private_call_min_revertible_side_effect_counter_succeeds() {
 fn propagate_from_private_call_include_by_timestamp_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.set_include_by_timestamp(5);
+    builder.previous_kernel.include_by_timestamp = 7;
+    builder.private_call.include_by_timestamp = 5;
 
     // Safety: this is a test
     let output = unsafe { builder.compose_from_tx_request(false) };
 
-    assert_eq(output.include_by_timestamp.unwrap(), 5);
+    assert_eq(output.include_by_timestamp, 5);
 }
 
 #[test]

@@ -1,5 +1,9 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::{address::AztecAddress, traits::FromField};
+use dep::types::{
+    address::AztecAddress,
+    constants::{DEFAULT_UPDATE_DELAY, MAX_U64_VALUE},
+    traits::FromField,
+};
 
 #[test]
 fn validate_initial_values_empty_data_succeeds() {
@@ -100,8 +104,8 @@ fn validate_initial_values_min_revertible_side_effect_counter_random_output_fail
 fn validate_initial_values_include_by_timestamp_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_include_by_timestamp(3);
-    builder.output.set_include_by_timestamp(3);
+    builder.private_call.include_by_timestamp = 3;
+    builder.output.include_by_timestamp = 3;
 
     builder.validate_as_first_call();
 }
@@ -110,8 +114,8 @@ fn validate_initial_values_include_by_timestamp_succeeds() {
 fn validate_initial_values_include_by_timestamp_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_include_by_timestamp(4);
-    builder.output.set_include_by_timestamp(3);
+    builder.private_call.include_by_timestamp = 3;
+    builder.output.include_by_timestamp = 4;
 
     builder.validate_as_first_call();
 }
@@ -120,16 +124,21 @@ fn validate_initial_values_include_by_timestamp_mismatch_fails() {
 fn validate_initial_values_include_by_timestamp_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_include_by_timestamp(4);
+    builder.private_call.include_by_timestamp = 4;
+    builder.output.include_by_timestamp = 0;
 
     builder.validate_as_first_call();
 }
 
-#[test(should_fail_with = "incorrect initial include_by_timestamp")]
-fn validate_initial_values_include_by_timestamp_random_output_fails() {
+#[test]
+fn validate_initial_values_include_by_timestamp_override_default_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_include_by_timestamp(3);
+    builder.private_call.include_by_timestamp = MAX_U64_VALUE;
+
+    let include_by_timestamp_for_contract_updates =
+        builder.private_call.historical_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY;
+    builder.output.include_by_timestamp = include_by_timestamp_for_contract_updates;
 
     builder.validate_as_first_call();
 }

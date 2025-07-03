@@ -2,7 +2,7 @@ use crate::{
     components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
     tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
-use dep::types::{abis::side_effect::OrderedValue, traits::Empty};
+use dep::types::{abis::side_effect::OrderedValue, constants::MAX_U64_VALUE, traits::Empty};
 
 #[test]
 fn new_from_tx_request_succeeds() {
@@ -32,10 +32,13 @@ fn new_from_tx_request_succeeds() {
     // Check the nullifier claim is set to the protocol nullifier
     assert_eq(output.claimed_first_nullifier, protocol_nullifier.value());
 
+    // Check include_by_timestamp is set to max u64,
+    // so that it can be overwritten by the private call's include_by_timestamp later.
+    assert_eq(output.include_by_timestamp, MAX_U64_VALUE);
+
     // Check values default to empty.
     assert_eq(output.min_revertible_side_effect_counter, 0);
     assert(output.validation_requests.is_empty());
-    assert(output.include_by_timestamp.is_none());
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());
 }
@@ -51,7 +54,6 @@ fn new_from_tx_request_without_protocol_nullifier_succeeds() {
     builder.private_call.historical_header.total_fees = 979797;
     builder.private_call.historical_header.content_commitment.out_hash = 122122;
     let historical_header = builder.private_call.historical_header;
-
     // Safety: this is a test.
     let output = unsafe { builder.new_from_tx_request(false).public_inputs_builder.finish() };
 
@@ -66,10 +68,13 @@ fn new_from_tx_request_without_protocol_nullifier_succeeds() {
     // Check the nullifier claim is set to the hint
     assert_eq(output.claimed_first_nullifier, builder.first_nullifier_hint);
 
+    // Check include_by_timestamp is set to max u64,
+    // so that it can be overwritten by the private call's include_by_timestamp later.
+    assert_eq(output.include_by_timestamp, MAX_U64_VALUE);
+
     // Check values default to empty.
     assert_eq(output.min_revertible_side_effect_counter, 0);
     assert(output.validation_requests.is_empty());
-    assert(output.include_by_timestamp.is_none());
     assert(output.public_teardown_call_request.is_empty());
     assert(output.fee_payer.is_empty());
 }

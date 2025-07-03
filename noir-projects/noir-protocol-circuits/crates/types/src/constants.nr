@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
@@ -252,7 +253,6 @@ pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global INCLUDE_BY_TIMESTAMP_OPTION_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
@@ -344,7 +344,7 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 1 /* returns_hash */
     + 1 /* min_revertible_side_effect_counter */
     + 1 /* is_fee_payer */
-    + INCLUDE_BY_TIMESTAMP_OPTION_LENGTH
+    + 1 /* include_by_timestamp */
     // The `(... + 1)` is because these arrays include a `length` field.
     + (READ_REQUEST_LENGTH * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
     + (READ_REQUEST_LENGTH * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
@@ -1027,8 +1027,11 @@ pub global AVM_MAX_OPERANDS: u8 = 8;
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
 pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;
 
-// 24 hours
-pub global DEFAULT_UPDATE_DELAY: u64 = 86400;
+// The default update delay used when a contract does not explicitly specify one.
+// Note: This value should match MAX_INCLUDE_BY_TIMESTAMP_DURATION, because if no custom update delay is set during tx
+// execution, the `include_by_timestamp` for the contract updates will be computed using this value. And it should not
+// differ from the maximum allowed duration.
+pub global DEFAULT_UPDATE_DELAY: u64 = MAX_INCLUDE_BY_TIMESTAMP_DURATION;
 // 10 minutes
 pub global MINIMUM_UPDATE_DELAY: u64 = 600;
 

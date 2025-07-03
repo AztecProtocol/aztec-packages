@@ -4,7 +4,7 @@ mod validate_include_by_timestamp_duration;
 pub(crate) use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
 pub(crate) use validate_include_by_timestamp_duration::validate_include_by_timestamp_duration;
 
-use crate::components::tail_output_composer::{aggregate_include_by_timestamp, meter_gas_used};
+use crate::components::tail_output_composer::meter_gas_used;
 
 use dep::types::{
     abis::{
@@ -21,7 +21,7 @@ use dep::types::{
 pub struct TailOutputValidator {
     output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    include_by_timestamp: u64,
+    include_by_timestamp_set_by_wallet: u64,
     hints: TailOutputHints,
 }
 
@@ -29,21 +29,26 @@ impl TailOutputValidator {
     pub fn new(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp: u64,
+        include_by_timestamp_set_by_wallet: u64,
     ) -> Self {
         // Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
 
-        TailOutputValidator::new_with_hints(output, previous_kernel, include_by_timestamp, hints)
+        TailOutputValidator::new_with_hints(
+            output,
+            previous_kernel,
+            include_by_timestamp_set_by_wallet,
+            hints,
+        )
     }
 
     pub fn new_with_hints(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp: u64,
+        include_by_timestamp_set_by_wallet: u64,
         hints: TailOutputHints,
     ) -> Self {
-        TailOutputValidator { output, previous_kernel, include_by_timestamp, hints }
+        TailOutputValidator { output, previous_kernel, include_by_timestamp_set_by_wallet, hints }
     }
 
     pub fn validate(self) {
@@ -79,9 +84,9 @@ impl TailOutputValidator {
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
         // include_by_timestamp
-        let include_by_timestamp = aggregate_include_by_timestamp(
+        let include_by_timestamp = std::cmp::min(
             self.previous_kernel.include_by_timestamp,
-            self.include_by_timestamp,
+            self.include_by_timestamp_set_by_wallet,
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,
