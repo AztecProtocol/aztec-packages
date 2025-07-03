@@ -26,7 +26,7 @@ sel = 0;
 // carry flag
 pol commit cf;
 
-// maximum bits the number can hold (i.e.  for a u8):
+// maximum bits the number can hold (i.e. 8 for a u8):
 pol commit max_bits;
 // maximum value the number can hold (i.e. 255 for a u8), we 'mod' by max_value + 1
 pol commit max_value;
@@ -106,7 +106,6 @@ sel_ff_lt - sel_is_ff * sel_op_lt = 0;
 sel_ff_lt { ib, ia, ic }
 in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
-// from https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Comparison-between-range-constrained-numbers
 pol A_GTE_B = ia - ib;
 pol A_LT_B = ib - ia - 1;
 pol commit lt_abs_diff;
