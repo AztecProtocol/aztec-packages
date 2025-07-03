@@ -175,7 +175,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         test_binary_op(
             "<=>",
             [](const bool_ct& a, const bool_ct& b) { return a.implies_both_ways(b); },
-            [](bool a, bool b) { return !a ^ b; });
+            [](bool a, bool b) { return !(a ^ b); });
     }
 
     void test_must_imply()

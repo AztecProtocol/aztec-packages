@@ -466,7 +466,7 @@ template <typename Builder> void bool_t<Builder>::must_imply(const bool_t& other
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(const bool_t<Builder>& other) const
 {
-    return (!(*this) ^ other); // P <=> Q is equiv. to !(P ^ Q) (not(P xor Q)).
+    return !((*this) ^ other); // P <=> Q is equiv. to !(P ^ Q) (not(P xor Q)).
 }
 
 /**
