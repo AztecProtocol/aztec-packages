@@ -1,16 +1,26 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
+import {
+  AuthRequest,
+  AuthResponse,
+  type P2P,
+  type PeerId,
+  StatusMessage,
+  type TxProvider,
+  createSecp256k1PeerId,
+} from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import { Offense, type SlasherConfig, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
+import { ReadRequest } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
@@ -41,6 +51,7 @@ describe('ValidatorClient', () => {
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
+    p2pClient.handleAuthFromPeer.mockResolvedValue(StatusMessage.random());
     blockBuilder = mock<IFullNodeBlockBuilder>();
     blockBuilder.getConfig.mockReturnValue({
       l1GenesisTime: 1n,
@@ -410,6 +421,73 @@ describe('ValidatorClient', () => {
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
+    });
+  });
+
+  describe('handling auth requests', () => {
+    const callHandler = (validator: ValidatorClient, peerId: PeerId, msg: Buffer): Promise<Buffer> => {
+      return (validator as any).handleAuthRequest(peerId, msg);
+    };
+
+    it('should return empty buffer if auth request is not from a peer we trust with our identity', async () => {
+      p2pClient.handleAuthFromPeer.mockRejectedValueOnce('Unauthorised');
+      const peerId = await createSecp256k1PeerId();
+      const msg = AuthRequest.random().toBuffer();
+      const res = await callHandler(validatorClient, peerId, msg);
+      expect(res).toEqual(Buffer.alloc(0));
+    });
+
+    it('should return empty buffer if validator is not registered', async () => {
+      // Our address is not one of those registered
+      epochCache.getRegisteredValidators.mockResolvedValueOnce(
+        times(10, () => new Secp256k1Signer(Buffer32.fromString(generatePrivateKey())).address),
+      );
+      const peerId = await createSecp256k1PeerId();
+      const msg = AuthRequest.random().toBuffer();
+      const res = await callHandler(validatorClient, peerId, msg);
+      expect(res).toEqual(Buffer.alloc(0));
+    });
+
+    it('should return serialised auth response if we are responding to auth request', async () => {
+      // Set up our auth peer handler
+      const ourStatus = StatusMessage.random();
+      p2pClient.handleAuthFromPeer.mockResolvedValueOnce(ourStatus);
+      // Make sure our addresses are registered
+      epochCache.getRegisteredValidators.mockResolvedValueOnce(validatorClient.getValidatorAddresses());
+      const peerId = await createSecp256k1PeerId();
+      const request = AuthRequest.random();
+      const res = await callHandler(validatorClient, peerId, request.toBuffer());
+
+      const authResponse = AuthResponse.fromBuffer(res);
+      expect(authResponse.status.equals(ourStatus)).toBeTruthy();
+
+      // We should have used the first address to sign
+      const payloadToSign = request.getPayloadToSign();
+      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys.getValue()[0]));
+      const signature = firstSigner.sign(payloadToSign);
+      expect(authResponse.signature.equals(signature)).toBeTruthy();
+    });
+
+    it('should sign with the first registered address', async () => {
+      // Set up our auth peer handler
+      const ourStatus = StatusMessage.random();
+      p2pClient.handleAuthFromPeer.mockResolvedValueOnce(ourStatus);
+      // Make sure our addresses are registered
+      const registeredAddress = validatorClient.getValidatorAddresses()[1];
+      const validatorPrivateKey = config.validatorPrivateKeys.getValue()[1];
+      epochCache.getRegisteredValidators.mockResolvedValueOnce([registeredAddress]);
+      const peerId = await createSecp256k1PeerId();
+      const request = AuthRequest.random();
+      const res = await callHandler(validatorClient, peerId, request.toBuffer());
+
+      const authResponse = AuthResponse.fromBuffer(res);
+      expect(authResponse.status.equals(ourStatus)).toBeTruthy();
+
+      // We should have used the second address to sign as this is the only one registered
+      const payloadToSign = request.getPayloadToSign();
+      const firstSigner = new Secp256k1Signer(Buffer32.fromString(validatorPrivateKey));
+      const signature = firstSigner.sign(payloadToSign);
+      expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
   });
 
