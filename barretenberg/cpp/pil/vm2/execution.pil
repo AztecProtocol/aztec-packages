@@ -26,6 +26,7 @@ include "execution/gas.pil";
 include "trees/merkle_check.pil";
 include "trees/nullifier_check.pil";
 include "trees/public_data_check.pil";
+include "trees/written_public_data_slots_tree_check.pil";
 
 include "bytecode/address_derivation.pil";
 include "bytecode/bc_decomposition.pil";

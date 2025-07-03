@@ -1,0 +1,132 @@
+include "merkle_check.pil";
+
+include "../ff_gt.pil";
+include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
+include "../precomputed.pil";
+
+namespace written_public_data_slots_tree_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs to the gadget
+    pol commit write;
+    write * (1 - write) = 0;
+    pol READ = 1 - write;
+
+    pol commit slot;
+    pol commit root;
+    pol commit exists;
+    exists * (1 - exists) = 0;
+    pol commit address;
+
+    // Write specific inputs
+    pol commit write_root;
+    pol commit tree_size_before_write;
+    pol commit tree_size_after_write;
+
+    // Hints
+    pol commit low_leaf_slot;
+    pol commit low_leaf_next_index;
+    pol commit low_leaf_next_slot;
+
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_slot;
+
+    pol commit low_leaf_index;
+
+    // ========= SILOING =========
+    pol commit leaf_slot;
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit siloing_separator;
+    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - siloing_separator) = 0;
+
+    #[SILO_POSEIDON2]
+    sel { sel, siloing_separator, address, slot, leaf_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    // ========= HANDLE REDUNDANT WRITES  =========
+    pol commit should_insert;
+    should_insert = write * (1 - exists);
+    // On a failing write, the root must not change
+    write * exists * (root - write_root) = 0;
+
+    tree_size_after_write = tree_size_before_write + should_insert;
+
+    // ========= COMPUTE LOW LEAF UPDATE =========
+    should_insert * (tree_size_before_write - updated_low_leaf_next_index) = 0;
+    should_insert * (leaf_slot - updated_low_leaf_next_slot) = 0;
+
+    // ========= LOW LEAF MERKLE CHECK =========
+    pol commit low_leaf_hash;
+    // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
+    pol commit intermediate_root;
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit tree_height;
+    sel * (tree_height - 6) = 0;
+
+    #[LOW_LEAF_POSEIDON2]
+    sel { sel, low_leaf_slot, low_leaf_next_slot, low_leaf_next_index, low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit updated_low_leaf_hash;
+
+    #[UPDATED_LOW_LEAF_POSEIDON2]
+    should_insert { sel, low_leaf_slot, updated_low_leaf_next_slot, updated_low_leaf_next_index, updated_low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[LOW_LEAF_MERKLE_CHECK]
+    sel { should_insert, low_leaf_hash, updated_low_leaf_hash,
+        low_leaf_index, tree_height, root, intermediate_root }
+    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+
+    // ========= LOW LEAF VALIDATION =========
+    pol commit slot_low_leaf_slot_diff_inv;
+    pol SLOT_LOW_LEAF_SLOT_DIFF = leaf_slot - low_leaf_slot;
+
+    // SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> exists == 1
+    #[EXISTS_CHECK]
+    sel * (SLOT_LOW_LEAF_SLOT_DIFF * (exists * (1 - slot_low_leaf_slot_diff_inv) + slot_low_leaf_slot_diff_inv) - 1 + exists) = 0;
+
+    // If the leaf doesn't exist, we need to validate that the slot is greater than the low leaf slot
+
+    // We commit leaf not exists as well as exists since it'll be used as a selector for the following lookup
+    pol commit leaf_not_exists;
+    sel * (1 - exists - leaf_not_exists) = 0;
+
+    #[LOW_LEAF_SLOT_VALIDATION]
+    leaf_not_exists { leaf_slot, low_leaf_slot, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // If next slot is not zero (which would be infinity), it has to be greater than the slot.
+    // We commit next_slot_is_nonzero instead of next_slot_is_zero since it'll be used as a selector for a lookup
+    pol commit next_slot_is_nonzero;
+    next_slot_is_nonzero * (1 - next_slot_is_nonzero) = 0;
+    pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
+
+    pol commit next_slot_inv;
+    #[NEXT_SLOT_IS_ZERO_CHECK]
+    leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) + next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0;
+
+    #[LOW_LEAF_NEXT_SLOT_VALIDATION]
+    next_slot_is_nonzero { low_leaf_next_slot, leaf_slot, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // ========= NEW LEAF INSERTION =========
+    pol commit new_leaf_hash;
+
+    #[NEW_LEAF_POSEIDON2]
+    should_insert { sel, leaf_slot, low_leaf_next_slot, low_leaf_next_index, new_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[NEW_LEAF_MERKLE_CHECK]
+    should_insert { sel, precomputed.zero, new_leaf_hash,
+        tree_size_before_write, tree_height, intermediate_root, write_root }
+    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+

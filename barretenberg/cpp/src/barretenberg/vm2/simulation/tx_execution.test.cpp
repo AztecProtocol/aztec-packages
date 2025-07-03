@@ -62,7 +62,8 @@ TEST_F(TxExecutionTest, simulateTx)
         .noteHashTree = { .tree = dummy_snapshot, .counter = 0 },
         .nullifierTree = { .tree = dummy_snapshot, .counter = 0 },
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
-        .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
+        .publicDataTree = dummy_snapshot,
+        .writtenPublicDataSlotsTree = dummy_snapshot,
     };
     ON_CALL(merkle_db, get_tree_state()).WillByDefault(Return(tree_state));
 

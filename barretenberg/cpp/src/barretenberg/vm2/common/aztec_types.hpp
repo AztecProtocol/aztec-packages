@@ -294,11 +294,35 @@ struct TreeState {
     bool operator==(const TreeState& other) const = default;
 };
 
+struct InternalTreeSnapshots {
+    AppendOnlyTreeSnapshot l1ToL2MessageTree;
+    AppendOnlyTreeSnapshot noteHashTree;
+    AppendOnlyTreeSnapshot nullifierTree;
+    AppendOnlyTreeSnapshot publicDataTree;
+    AppendOnlyTreeSnapshot writtenPublicDataSlotsTree;
+
+    InternalTreeSnapshots() = default;
+
+    InternalTreeSnapshots(const TreeSnapshots& tree_snapshots,
+                          AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot)
+        : l1ToL2MessageTree(tree_snapshots.l1ToL2MessageTree)
+        , noteHashTree(tree_snapshots.noteHashTree)
+        , nullifierTree(tree_snapshots.nullifierTree)
+        , publicDataTree(tree_snapshots.publicDataTree)
+        , writtenPublicDataSlotsTree(written_public_data_slots_tree_snapshot)
+    {}
+
+    bool operator==(const InternalTreeSnapshots& other) const = default;
+};
+
 struct TreeStates {
     TreeState noteHashTree;
     TreeState nullifierTree;
     TreeState l1ToL2MessageTree;
-    TreeState publicDataTree;
+    // The public data tree counter is the size of the written public data slots tree minus one.
+    // Minus one due to the tree prefill.
+    AppendOnlyTreeSnapshot publicDataTree;
+    AppendOnlyTreeSnapshot writtenPublicDataSlotsTree;
 
     bool operator==(const TreeStates& other) const = default;
 };
