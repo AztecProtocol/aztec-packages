@@ -9,6 +9,9 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 
+# Set defaults for variable that might be unset to prevent heredoc expansion errors
+GCP_SA_KEY_B64="${GCP_SA_KEY_B64:-}"
+
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
@@ -72,13 +75,13 @@ existing_instance=$(aws ec2 describe-instances \
 if [ -n "$existing_instance" ]; then
   for i in $existing_instance; do
     echo "Terminating existing instance: $i"
-    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i >/dev/null 2>&1
   done
 fi
 
 # Request new instance.
 ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
-IFS=':' read -r -a parts <<< "$ip_sir"
+IFS=':' read -r -a parts <<<"$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
@@ -92,7 +95,7 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
   echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
   export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
   export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
-  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]] ; then
+  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]]; then
     echo "Error: multiple AWS credentials found in ~/.aws/build_instance_credentials. Make sure you have only one profile defined."
     exit 1
   fi
@@ -112,7 +115,8 @@ else
   run_cmd="run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
-container_script=$(cat <<EOF
+container_script=$(
+  cat <<EOF
   set -euo pipefail
   # When restarting the container, just hang around.
   # Note we use the "ci-started" file to determine if we're running on a CI machine in some cases (e.g. npm cache).
@@ -193,7 +197,7 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
-  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip << EOF
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip <<EOF
     # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
@@ -205,6 +209,14 @@ function run {
     echo Done in \$SECONDS seconds.
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+
+    # Save GCP_SA_KEY to a file if set (using base64 for safety)
+    if [ -n "${GCP_SA_KEY_B64:-}" ]; then
+      echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
+      echo "GCP_SA_KEY decoded and saved to /tmp/gcp-key.json"
+    else
+      touch /tmp/gcp-key.json
+    fi
 
     start_build() {
       echo Starting devbox...
@@ -244,6 +256,7 @@ function run {
         -e NPM_TOKEN=${NPM_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
+        -v /tmp/gcp-key.json:/tmp/gcp-key.json:ro \
         --pids-limit=32768 \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }

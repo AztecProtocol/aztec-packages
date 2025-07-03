@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
@@ -62,6 +63,7 @@ class ClientIVC {
         bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
+    using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
     using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
@@ -71,6 +73,7 @@ class ClientIVC {
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
+    using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -127,15 +130,15 @@ class ClientIVC {
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::shared_ptr<MegaVerificationKey> honk_verification_key;
+        std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
-        StdlibProof<ClientCircuit> proof; // oink or PG
-        std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
+        StdlibProof proof; // oink or PG
+        std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
@@ -178,8 +181,8 @@ class ClientIVC {
 
     ClientIVC(TraceSettings trace_settings = {});
 
-    void instantiate_stdlib_verification_queue(
-        ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
+    void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
+                                               const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints
     perform_recursive_verification_and_databus_consistency_checks(

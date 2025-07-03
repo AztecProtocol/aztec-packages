@@ -23,6 +23,7 @@ using simulation::ExecutionEvent;
 using ::bb::avm2::testing::InstructionBuilder;
 using enum ::bb::avm2::WireOpCode;
 
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
 
@@ -309,10 +310,8 @@ TEST(ExecutionTraceGenTest, Gas)
     ex_event.before_context_event.gas_used = prev_gas_used;
     ex_event.gas_event.addressing_gas = addressing_gas;
     ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
-    ex_event.gas_event.oog_base_l2 = false;
-    ex_event.gas_event.oog_base_da = false;
-    ex_event.gas_event.oog_dynamic_l2 = true;
-    ex_event.gas_event.oog_dynamic_da = false;
+    ex_event.gas_event.oog_l2 = true;
+    ex_event.gas_event.oog_da = false;
     ex_event.gas_event.limit_used_l2_comparison_witness = 0;
     ex_event.gas_event.limit_used_da_comparison_witness =
         gas_limit.daGas - prev_gas_used.daGas - base_da_gas - dynamic_da_gas * 1;
@@ -328,19 +327,15 @@ TEST(ExecutionTraceGenTest, Gas)
                           ROW_FIELD_EQ(execution_opcode_gas, opcode_gas),
                           ROW_FIELD_EQ(execution_addressing_gas, addressing_gas),
                           ROW_FIELD_EQ(execution_base_da_gas, base_da_gas),
-                          ROW_FIELD_EQ(execution_out_of_gas_base_l2, false),
-                          ROW_FIELD_EQ(execution_out_of_gas_base_da, false),
-                          ROW_FIELD_EQ(execution_out_of_gas_base, false),
+                          ROW_FIELD_EQ(execution_out_of_gas_l2, true),
+                          ROW_FIELD_EQ(execution_out_of_gas_da, false),
+                          ROW_FIELD_EQ(execution_sel_out_of_gas, true),
                           ROW_FIELD_EQ(execution_prev_l2_gas_used, 100000),
                           ROW_FIELD_EQ(execution_prev_da_gas_used, 70000),
-                          ROW_FIELD_EQ(execution_should_run_dyn_gas_check, true),
                           ROW_FIELD_EQ(execution_dynamic_l2_gas_factor, 2),
                           ROW_FIELD_EQ(execution_dynamic_da_gas_factor, 1),
                           ROW_FIELD_EQ(execution_dynamic_l2_gas, dynamic_l2_gas),
                           ROW_FIELD_EQ(execution_dynamic_da_gas, dynamic_da_gas),
-                          ROW_FIELD_EQ(execution_out_of_gas_dynamic_l2, true),
-                          ROW_FIELD_EQ(execution_out_of_gas_dynamic_da, false),
-                          ROW_FIELD_EQ(execution_out_of_gas_dynamic, true),
                           ROW_FIELD_EQ(execution_limit_used_l2_cmp_diff, 0),
                           ROW_FIELD_EQ(execution_limit_used_da_cmp_diff,
                                        ex_event.gas_event.limit_used_da_comparison_witness))));
@@ -376,39 +371,36 @@ TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
 
     const auto rows = trace.as_rows();
 
-    ASSERT_EQ(rows.size(), 7);
-
-    // Row 1: Parent ADD before call - no discard
-    EXPECT_EQ(rows[1].execution_discard, 0);
-    EXPECT_EQ(rows[1].execution_dying_context_id, 0);
-    EXPECT_EQ(rows[1].execution_is_dying_context, 0);
-
-    // Row 2: Parent CALL - no discard yet (discard is set for the NEXT event)
-    EXPECT_EQ(rows[2].execution_discard, 0);
-    EXPECT_EQ(rows[2].execution_dying_context_id, 0);
-    EXPECT_EQ(rows[2].execution_is_dying_context, 0);
-
-    // Row 3: Child ADD - should have discard=1, dying_context_id=2
-    EXPECT_EQ(rows[3].execution_discard, 1);
-    EXPECT_EQ(rows[3].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[3].execution_is_dying_context, 1);
-
-    // Row 4: Child fail - should still have discard=1, dying_context_id=2
-    EXPECT_EQ(rows[4].execution_discard, 1);
-    EXPECT_EQ(rows[4].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[4].execution_is_dying_context, 1);
-    EXPECT_EQ(rows[4].execution_sel_error, 1);        // failure
-    EXPECT_EQ(rows[4].execution_rollback_context, 1); // Has parent, so rollback
-
-    // Row 5: Parent continues - discard should be reset to 0
-    EXPECT_EQ(rows[5].execution_discard, 0);
-    EXPECT_EQ(rows[5].execution_dying_context_id, 0);
-    EXPECT_EQ(rows[5].execution_is_dying_context, 0);
-
-    // Row 6: Parent returns - no discard
-    EXPECT_EQ(rows[6].execution_discard, 0);
-    EXPECT_EQ(rows[6].execution_dying_context_id, 0);
-    EXPECT_EQ(rows[6].execution_is_dying_context, 0);
+    EXPECT_THAT(rows,
+                ElementsAre(
+                    // Row 0: Initialization row
+                    _,
+                    // Row 1: Parent ADD before call - no discard
+                    AllOf(ROW_FIELD_EQ(execution_discard, 0),
+                          ROW_FIELD_EQ(execution_dying_context_id, 0),
+                          ROW_FIELD_EQ(execution_is_dying_context, 0)),
+                    // Row 2: Parent CALL - no discard yet (discard is set for the NEXT event)
+                    AllOf(ROW_FIELD_EQ(execution_discard, 0),
+                          ROW_FIELD_EQ(execution_dying_context_id, 0),
+                          ROW_FIELD_EQ(execution_is_dying_context, 0)),
+                    // Row 3: Child ADD - should have discard=1, dying_context_id=2
+                    AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                          ROW_FIELD_EQ(execution_dying_context_id, 2),
+                          ROW_FIELD_EQ(execution_is_dying_context, 1)),
+                    // Row 4: Child fail - should still have discard=1, dying_context_id=2
+                    AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                          ROW_FIELD_EQ(execution_dying_context_id, 2),
+                          ROW_FIELD_EQ(execution_is_dying_context, 1),
+                          ROW_FIELD_EQ(execution_sel_error, 1),         // failure
+                          ROW_FIELD_EQ(execution_rollback_context, 1)), // Has parent, so rollback
+                    // Row 5: Parent continues - discard should be reset to 0
+                    AllOf(ROW_FIELD_EQ(execution_discard, 0),
+                          ROW_FIELD_EQ(execution_dying_context_id, 0),
+                          ROW_FIELD_EQ(execution_is_dying_context, 0)),
+                    // Row 6: Parent returns - no discard
+                    AllOf(ROW_FIELD_EQ(execution_discard, 0),
+                          ROW_FIELD_EQ(execution_dying_context_id, 0),
+                          ROW_FIELD_EQ(execution_is_dying_context, 0))));
 }
 
 TEST(ExecutionTraceGenTest, DiscardAppLogicDueToTeardownError)
@@ -435,29 +427,26 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToTeardownError)
 
     const auto rows = trace.as_rows();
 
-    ASSERT_EQ(rows.size(), 5);
-
-    // Row 1: App logic ADD - should have discard=1 because teardown will error
-    EXPECT_EQ(rows[1].execution_discard, 1);
-    EXPECT_EQ(rows[1].execution_dying_context_id, 2); // Teardown context id
-    EXPECT_EQ(rows[1].execution_is_dying_context, 0); // Not the dying context itself
-
-    // Row 2: App logic RETURN - should have discard=1 because teardown will error
-    EXPECT_EQ(rows[2].execution_discard, 1);
-    EXPECT_EQ(rows[2].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[2].execution_is_dying_context, 0);
-
-    // Row 3: Teardown ADD - should have discard=1
-    EXPECT_EQ(rows[3].execution_discard, 1);
-    EXPECT_EQ(rows[3].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[3].execution_is_dying_context, 1); // This IS the dying context
-
-    // Row 4: Teardown failure - should have discard=1
-    EXPECT_EQ(rows[4].execution_discard, 1);
-    EXPECT_EQ(rows[4].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[4].execution_is_dying_context, 1);
-    EXPECT_EQ(rows[4].execution_sel_error, 1);
-    EXPECT_EQ(rows[4].execution_rollback_context, 0); // No parent, so no rollback
+    EXPECT_THAT(rows,
+                ElementsAre(_,
+                            // Row 1: App logic ADD - should have discard=1 because teardown will error
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),  // Teardown context id
+                                  ROW_FIELD_EQ(execution_is_dying_context, 0)), // Not the dying context itself
+                            // Row 2: App logic RETURN - should have discard=1 because teardown will error
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),
+                                  ROW_FIELD_EQ(execution_is_dying_context, 0)),
+                            // Row 3: Teardown ADD - should have discard=1
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),
+                                  ROW_FIELD_EQ(execution_is_dying_context, 1)), // This IS the dying context
+                            // Row 4: Teardown failure - should have discard=1
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),
+                                  ROW_FIELD_EQ(execution_is_dying_context, 1),
+                                  ROW_FIELD_EQ(execution_sel_error, 1),
+                                  ROW_FIELD_EQ(execution_rollback_context, 0)))); // No parent, so no rollback
 }
 
 TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
@@ -485,29 +474,26 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
 
     const auto rows = trace.as_rows();
 
-    ASSERT_EQ(rows.size(), 5);
-
-    // Row 1: First call's ADD - should have discard=1 because second call will error
-    EXPECT_EQ(rows[1].execution_discard, 1);
-    EXPECT_EQ(rows[1].execution_dying_context_id, 2); // Second call's context id
-    EXPECT_EQ(rows[1].execution_is_dying_context, 0); // Not the dying context itself
-
-    // Row 2: First call's RETURN - should have discard=1 because second call will error
-    EXPECT_EQ(rows[2].execution_discard, 1);
-    EXPECT_EQ(rows[2].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[2].execution_is_dying_context, 0);
-
-    // Row 3: Second call's ADD - should have discard=1
-    EXPECT_EQ(rows[3].execution_discard, 1);
-    EXPECT_EQ(rows[3].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[3].execution_is_dying_context, 1); // This IS the dying context
-
-    // Row 4: Second call's ERROR - should have discard=1
-    EXPECT_EQ(rows[4].execution_discard, 1);
-    EXPECT_EQ(rows[4].execution_dying_context_id, 2);
-    EXPECT_EQ(rows[4].execution_is_dying_context, 1);
-    EXPECT_EQ(rows[4].execution_sel_error, 1);
-    EXPECT_EQ(rows[4].execution_rollback_context, 0); // No parent, so no rollback
+    EXPECT_THAT(rows,
+                ElementsAre(_,
+                            // Row 1: First call's ADD - should have discard=1 because second call will error
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),  // Second call's context id
+                                  ROW_FIELD_EQ(execution_is_dying_context, 0)), // Not the dying context itself
+                            // Row 2: First call's RETURN - should have discard=1 because second call will error
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),
+                                  ROW_FIELD_EQ(execution_is_dying_context, 0)),
+                            // Row 3: Second call's ADD - should have discard=1
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),
+                                  ROW_FIELD_EQ(execution_is_dying_context, 1)), // This IS the dying context
+                            // Row 4: Second call's ERROR - should have discard=1
+                            AllOf(ROW_FIELD_EQ(execution_discard, 1),
+                                  ROW_FIELD_EQ(execution_dying_context_id, 2),
+                                  ROW_FIELD_EQ(execution_is_dying_context, 1),
+                                  ROW_FIELD_EQ(execution_sel_error, 1),
+                                  ROW_FIELD_EQ(execution_rollback_context, 0)))); // No parent, so no rollback
 }
 
 TEST(ExecutionTraceGenTest, InternalCall)
@@ -559,7 +545,7 @@ TEST(ExecutionTraceGenTest, InternalRetError)
     const auto instr = InstructionBuilder(WireOpCode::INTERNALRETURN).build();
 
     simulation::ExecutionEvent ex_event = {
-        .error = simulation::ExecutionError::DISPATCHING,
+        .error = simulation::ExecutionError::OPCODE_EXECUTION,
         .wire_instruction = instr,
         .addressing_event = {
             .instruction = instr,
@@ -791,6 +777,74 @@ TEST(ExecutionTraceGenTest, Mov8)
                           ROW_FIELD_EQ(execution_rw_reg_0_, 0),
                           ROW_FIELD_EQ(execution_rw_reg_1_, 1),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
+}
+
+TEST(ExecutionTraceGenTest, SuccessCopy)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::SUCCESSCOPY)
+                           .operand<uint8_t>(45) // Dst Offset
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .output = { TaggedValue::from_tag(ValueTag::U1, 1) }, // Success copy outputs true
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = { { .resolved_operand = MemoryValue::from<uint8_t>(45) } }
+        },
+        .after_context_event = { .last_child_success = true }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the success copy
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_success_copy, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 45), // Dst Offset
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U1=*/1), // Memory tag for dst
+                          ROW_FIELD_EQ(execution_last_child_success, 1),    // last_child_success = true
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SUCCESSCOPY))));
+}
+
+TEST(ExecutionTraceGenTest, RdSize)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    const auto instr = InstructionBuilder(WireOpCode::RETURNDATASIZE)
+                           .operand<uint16_t>(1234) // Dst Offset
+                           .build();
+    // clang-format off
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .output = { TaggedValue::from_tag(ValueTag::U32, 100) }, // RdSize output
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = { { .resolved_operand = MemoryValue::from<uint16_t>(1234) } }
+        },
+        .after_context_event = { .last_child_rd_size = 100 }
+    };
+    // clang-format on
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the rd_size
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_returndata_size, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 1234),                    // Dst Offset
+                          ROW_FIELD_EQ(execution_register_0_, 100),                // RdSize output
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U32=*/4),       // Memory tag for dst
+                          ROW_FIELD_EQ(execution_last_child_returndata_size, 100), // last_child_returndata_size = 100
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_RETURNDATASIZE))));
 }
 
 } // namespace

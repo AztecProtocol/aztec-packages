@@ -3,7 +3,7 @@ include "../memory.pil";
 // This is a virtual gadget, which is part of the execution trace.
 namespace execution;
 
-// I/O is the following columns from execution.pil:
+// Input columns from execution.pil:
 // pol commit register[7];
 // pol commit sel_mem_op_reg[7];
 // pol commit rw_reg[7];
@@ -13,6 +13,9 @@ namespace execution;
 //
 // pol commit sel_should_read_registers;    // Register read temporality group.
 // pol commit sel_should_write_registers;   // Register write temporality group.
+//
+// Output:
+// pol commit sel_register_read_error;
 
 //////////////// EXPLANATION ////////////////
 // This trace is a bit special in that it contains 2 temporality groups.
