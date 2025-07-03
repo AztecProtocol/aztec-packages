@@ -16,6 +16,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
+    using StdlibProof = ClientIVCRecursiveVerifier::StdlibProof;
 
     std::string proof_path = output_path + "/proof";
 
@@ -37,7 +38,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 
-    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
+    StdlibProof stdlib_proof(*builder, proof);
+    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
