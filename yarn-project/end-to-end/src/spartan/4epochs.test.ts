@@ -1,5 +1,5 @@
 import { type PXE, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
-import { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
