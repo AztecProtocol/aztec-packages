@@ -101,7 +101,7 @@ jobs:
           export GCP_KEY_END=${GCP_SA_KEY: -50}
           echo "GCP_KEY trimmed: ${GCP_KEY_START}...${GCP_KEY_END}"
           echo "GCP_KEY length: ${#GCP_SA_KEY}"
-          echo "${{ env.GCP_SA_KEY }}" | base64 -w 0 > gcp_sa_key.b64
+          echo "$GCP_SA_KEY" | base64 -w 0 > gcp_sa_key.b64
           echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
           GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)
           echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
