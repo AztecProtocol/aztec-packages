@@ -1,7 +1,6 @@
 import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -51,6 +50,9 @@ describe('sequencer', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let slasherClient: MockProxy<SlasherClient>;
+
+  let dateProvider: TestDateProvider;
 
   let initialBlockHeader: BlockHeader;
   let lastBlockNumber: number;
@@ -64,7 +66,8 @@ describe('sequencer', () => {
 
   let sequencer: TestSubject;
 
-  const { aztecSlotDuration: slotDuration, ethereumSlotDuration } = DefaultL1ContractsConfig;
+  const slotDuration = 8;
+  const ethereumSlotDuration = 4;
 
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
@@ -245,7 +248,10 @@ describe('sequencer', () => {
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve(getAttestations()));
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
 
-    const slasherClient = mock<SlasherClient>();
+    slasherClient = mock<SlasherClient>();
+
+    dateProvider = new TestDateProvider();
+
     const config = { enforceTimeTable: true, maxTxsPerBlock: 4 };
     sequencer = new TestSubject(
       publisher,
@@ -259,7 +265,7 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       blockBuilder,
       l1Constants,
-      new TestDateProvider(),
+      dateProvider,
     );
     sequencer.updateConfig(config);
   });
@@ -276,15 +282,14 @@ describe('sequencer', () => {
   });
 
   it('does not build a block if it does not have enough time left in the slot', async () => {
-    // Trick the sequencer into thinking that we are just too far into slot 1
-    sequencer.setL1GenesisTime(
-      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initializeDeadline + 1),
-    );
-
     const tx = await makeTx();
     mockPendingTxs([tx]);
     block = await makeBlock([tx]);
 
+    // deadline for initializing proposal is 1s, so we go 2s past it
+    expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+    const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
+    dateProvider.setTime((l1TsForL2Slot1 + 2) * 1000);
     await expect(sequencer.doRealWork()).rejects.toThrow(
       expect.objectContaining({
         name: 'SequencerTooSlowError',
@@ -293,6 +298,30 @@ describe('sequencer', () => {
     );
 
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
+    expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a block if it does not have enough time left in the slot after collecting attestations', async () => {
+    expect(sequencer.getTimeTable().l1PublishingTime).toEqual(ethereumSlotDuration);
+    const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
+
+    const tx = await makeTx();
+    mockPendingTxs([tx]);
+    block = await makeBlock([tx]);
+
+    validatorClient.collectAttestations.mockImplementation(() => {
+      // after collecting attestations, "warp" to 1s before the last L1 slot of the L2 slot is mined,
+      // meaning that we have lost our chance to get mined given our l1PublishingTime is a full L1 slot
+      dateProvider.setTime((l1TsForL2Slot1 + ethereumSlotDuration - 1) * 1000);
+      return Promise.resolve(getAttestations());
+    });
+
+    // we begin immediately after the last L1 block for the previous slot has been mined
+    dateProvider.setTime((l1TsForL2Slot1 - ethereumSlotDuration + 0.1) * 1000);
+    await sequencer.doRealWork();
+
+    expect(blockBuilder.buildBlock).toHaveBeenCalled();
+    expect(validatorClient.collectAttestations).toHaveBeenCalled();
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
   });
 
@@ -570,7 +599,7 @@ class TestSubject extends Sequencer {
   }
 
   public override doRealWork() {
-    this.setState(SequencerState.IDLE, 0n, true /** force */);
+    this.setState(SequencerState.IDLE, undefined, { force: true });
     return super.doRealWork();
   }
 
