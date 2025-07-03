@@ -109,10 +109,9 @@ in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 // from https://hackmd.io/moq6viBpRJeLpWrHAogCZw#Comparison-between-range-constrained-numbers
 pol A_GTE_B = ia - ib;
 pol A_LT_B = ib - ia - 1;
-// TODO(MW): rename? We either range check A_GTE_B or A_LT_B, depending on c:
-pol commit lt_result_to_range_check;
-// Note: When we have fields, force lt_result_to_range_check = 0, so the range check doesn't fail but we are still constrained by the FF lookup above.
+pol commit lt_abs_diff;
+// Note: When we have fields, force lt_abs_diff = 0, so the range check doesn't fail but we are still constrained by the FF lookup above.
 #[ALU_LT_RESULT]
-sel_op_lt * ( IS_NOT_FF * ( (A_LT_B - A_GTE_B) * ic + A_GTE_B ) - lt_result_to_range_check ) = 0;
+sel_op_lt * ( IS_NOT_FF * ( (A_LT_B - A_GTE_B) * ic + A_GTE_B ) - lt_abs_diff ) = 0;
 #[LT_RANGE]
-sel_op_lt { lt_result_to_range_check, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_op_lt { lt_abs_diff, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };

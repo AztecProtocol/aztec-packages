@@ -33,8 +33,7 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
         if (a.get_tag() != b.get_tag()) {
             throw AluError::TAG_ERROR;
         }
-        // TODO(MW): rename
-        uint128_t lt_result_to_range_check = 0;
+        uint128_t lt_abs_diff = 0;
         FF a_ff = a.as_ff();
         FF b_ff = b.as_ff();
         // NOTE: We cannot do a_ff < b_ff since fields do not have explicit ordering:
@@ -46,10 +45,9 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
             field_gt.ff_gt(b, a);
         } else {
             // We have excluded the field case => safe to downcast here for the max 128 bit range check:
-            lt_result_to_range_check =
-                res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
+            lt_abs_diff = res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
         }
-        range_check.assert_range(lt_result_to_range_check, get_tag_bits(a.get_tag()));
+        range_check.assert_range(lt_abs_diff, get_tag_bits(a.get_tag()));
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     } catch (const AluError& e) {
         debug("ALU operation failed: ", to_string(e));

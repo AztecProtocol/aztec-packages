@@ -93,9 +93,8 @@ struct lookup_alu_lt_range_settings_ {
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_alu_lt_range_counts;
     static constexpr Column INVERSES = Column::lookup_alu_lt_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::alu_lt_result_to_range_check, ColumnAndShifts::alu_max_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_lt_abs_diff,
+                                                                                    ColumnAndShifts::alu_max_bits };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
     };

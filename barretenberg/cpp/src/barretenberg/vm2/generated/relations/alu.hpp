@@ -124,7 +124,7 @@ template <typename FF_> class aluImpl {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel_op_lt) *
                        (alu_IS_NOT_FF * ((alu_A_LT_B - alu_A_GTE_B) * in.get(C::alu_ic) + alu_A_GTE_B) -
-                        in.get(C::alu_lt_result_to_range_check));
+                        in.get(C::alu_lt_abs_diff));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }

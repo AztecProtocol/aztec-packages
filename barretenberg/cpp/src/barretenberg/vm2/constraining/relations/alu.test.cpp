@@ -160,13 +160,12 @@ auto process_lt_trace(MemoryTag input_tag)
     FieldGreaterThanTraceBuilder field_gt_builder;
     auto [a, b, _c, tag, max_bits, max_value] = TEST_VALUES.at(input_tag);
     auto is_ff = input_tag == MemoryTag::FF;
-    auto c = is_ff ? static_cast<uint8_t>(a < b)
-                   : static_cast<uint8_t>(static_cast<uint256_t>(a) < static_cast<uint256_t>(b));
+    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) < static_cast<uint256_t>(b));
 
-    // When we have input fields, we use field_gt for lt and do not use lt_result_to_range_check
-    // In the circuit, we force lt_result_to_range_check to be 0 so the range_check does not fail
+    // When we have input fields, we use field_gt for lt and do not use lt_abs_diff
+    // In the circuit, we force lt_abs_diff to be 0 so the range_check does not fail
     auto result = c == 1 ? b - a - 1 : a - b;
-    auto lt_result_to_range_check = is_ff ? 0 : result;
+    auto lt_abs_diff = is_ff ? 0 : result;
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = a,
@@ -175,7 +174,7 @@ auto process_lt_trace(MemoryTag input_tag)
             .alu_ib_tag = tag,
             .alu_ic = c,
             .alu_ic_tag = static_cast<uint8_t>(MemoryTag::U1),
-            .alu_lt_result_to_range_check = lt_result_to_range_check,
+            .alu_lt_abs_diff = lt_abs_diff,
             .alu_max_bits = max_bits,
             .alu_max_value = max_value,
             .alu_op_id = AVM_EXEC_OP_ID_ALU_LT,
@@ -194,14 +193,11 @@ auto process_lt_trace(MemoryTag input_tag)
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT,        // = alu_op_id
         },
     });
-    // TODO(MW): Just process both for each tag?
     if (input_tag == MemoryTag::FF) {
         field_gt_builder.process({ { .a = b, .b = a, .result = a < b } }, trace);
     }
-    // TODO(MW): Does the below work with .num_bits > 128?
     range_check_builder.process(
-        { { .value = static_cast<uint128_t>(lt_result_to_range_check), .num_bits = static_cast<uint8_t>(max_bits) } },
-        trace);
+        { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(max_bits) } }, trace);
     // Build just enough clk rows for the lookup
     precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
     precomputed_builder.process_tag_parameters(trace);
@@ -224,7 +220,7 @@ TEST(AluConstrainingTest, BasicAdd)
             .alu_ib_tag = tag,
             .alu_ic = 3,
             .alu_ic_tag = tag,
-            .alu_op_id = 1,
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
         },
@@ -326,11 +322,9 @@ TEST(AluConstrainingTest, AddCarryU128WithLookups)
 
 TEST(AluConstrainingTest, NegativeAddWrongOpId)
 {
-    // Note: test a bit misleading as we currently only have one operation
-    // TODO(MW): Update this with new ops
     auto trace = TestTraceContainer::from_rows({
         {
-            .alu_op_id = 2, // See SUBTRACE_INFO_MAP for list of op_ids (ADD -> 1)
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD + 1,
             .alu_sel_op_add = 1,
         },
     });
@@ -349,7 +343,7 @@ TEST(AluConstrainingTest, NegativeBasicAdd)
             .alu_ib_tag = tag,
             .alu_ic = 3,
             .alu_ic_tag = tag,
-            .alu_op_id = 1,
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
         },
@@ -475,7 +469,7 @@ TEST(AluConstrainingTest, LTU128WithLookups)
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, NegativeLT)
+TEST(AluConstrainingTest, NegativeLTU8)
 {
     RangeCheckTraceBuilder range_check_builder;
     auto trace = process_lt_trace(MemoryTag::U8);
@@ -486,9 +480,9 @@ TEST(AluConstrainingTest, NegativeLT)
     // Which value to range check differs based on c (here, c = 1 => check b - a - 1, c = 0 => check a - b), so that is
     // the first relation failure...
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
-    auto new_result_to_range_check = -trace.get(Column::alu_lt_result_to_range_check, 0);
+    auto new_result_to_range_check = -trace.get(Column::alu_lt_abs_diff, 0);
     new_result_to_range_check = c ? new_result_to_range_check + 1 : new_result_to_range_check - 1;
-    trace.set(Column::alu_lt_result_to_range_check, 0, new_result_to_range_check);
+    trace.set(Column::alu_lt_abs_diff, 0, new_result_to_range_check);
     // ...now, we are range checking the correct value...
     check_relation<alu>(trace);
     // ..but the check itself correctly fails (note: new_result_to_range_check doesn't fit in a u128, I'm just adding an
@@ -500,7 +494,32 @@ TEST(AluConstrainingTest, NegativeLT)
                               "LOOKUP_ALU_LT_RANGE");
 }
 
-TEST(AluConstrainingTest, NegativeBasicLTFF)
+TEST(AluConstrainingTest, NegativeLTU64)
+{
+    RangeCheckTraceBuilder range_check_builder;
+    auto trace = process_lt_trace(MemoryTag::U64);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+    auto a = trace.get(Column::alu_ia, 0);
+    auto wrong_b = c ? a - 1 : a + 1;
+    trace.set(Column::alu_ib, 0, wrong_b);
+    // The absolute diff is now wrong:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
+    // Correct the diff based on incorrect c:
+    auto new_abs_diff = c ? wrong_b - a - 1 : a - wrong_b;
+    trace.set(Column::alu_lt_abs_diff, 0, new_abs_diff);
+    // Now, we are range checking the correct value...
+    check_relation<alu>(trace);
+    // ..but the check itself correctly fails (note: new_result_to_range_check doesn't fit in a u128, I'm just adding an
+    // event which will definitely fail):
+    range_check_builder.process(
+        { { .value = static_cast<uint128_t>(new_abs_diff), .num_bits = get_tag_bits(MemoryTag::U64) } }, trace);
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_lt_range_settings>(trace)),
+                              "LOOKUP_ALU_LT_RANGE");
+}
+
+TEST(AluConstrainingTest, NegativeLTFF)
 {
     auto trace = process_lt_trace(MemoryTag::FF);
     check_relation<alu>(trace);

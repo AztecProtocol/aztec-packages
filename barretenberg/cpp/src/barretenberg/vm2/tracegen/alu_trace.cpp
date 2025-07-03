@@ -4,10 +4,8 @@
 #include <cstdint>
 #include <ranges>
 #include <stdexcept>
-#include <utility>
 
 #include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
