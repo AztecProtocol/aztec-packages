@@ -566,10 +566,25 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private async handleAuthRequest(peer: PeerId, msg: Buffer): Promise<Buffer> {
     const authRequest = AuthRequest.fromBuffer(msg);
-    const statusMessage = await this.p2pClient.handleAuthFromPeer(authRequest, peer);
+    const statusMessage = await this.p2pClient.handleAuthFromPeer(authRequest, peer).catch(_ => undefined);
+    if (statusMessage === undefined) {
+      return Buffer.alloc(0);
+    }
 
-    const authResponse = new AuthResponse(statusMessage, authRequest.challenge);
-    return Promise.resolve(authResponse.toBuffer());
+    // Find a validator address that is in the set
+    const allRegisteredValidators = await this.epochCache.getRegisteredValidators();
+    const addressToUse = this.getValidatorAddresses().find(
+      address => allRegisteredValidators.find(v => v.equals(address)) !== undefined,
+    );
+    if (addressToUse === undefined) {
+      // We don't have a registered address
+      return Buffer.alloc(0);
+    }
+
+    const payloadToSign = authRequest.getPayloadToSign();
+    const signature = await this.keyStore.signWithAddress(addressToUse, payloadToSign);
+    const authResponse = new AuthResponse(statusMessage, signature);
+    return authResponse.toBuffer();
   }
 }
 

@@ -1,4 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { recoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -740,7 +741,7 @@ export class PeerManager implements PeerManagerInterface {
 
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.error(`AUTH!!!!!!!!!!!! Initiating auth handshake with peer ${peerId}\n\n\n`);
+      this.logger.debug(`Initiating auth handshake with peer ${peerId}\n\n\n`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.AUTH,
@@ -748,34 +749,41 @@ export class PeerManager implements PeerManagerInterface {
       );
       const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
       if (status !== ReqRespStatus.SUCCESS) {
-        //TODO: maybe hard ban these peers in the future.
-        //We could allow this to happen up to N times, and then hard ban?
-        //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond auth handshake`, logData);
+        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond auth handshake`, logData);
         await this.disconnectPeer(peerId);
         return;
       }
 
       const peerAuthResponse = AuthResponse.fromBuffer(data);
-      if (!peerAuthResponse.signature.equals(authRequest.challenge)) {
-        this.logger.warn(`Disconnecting peer ${peerId} due to failed auth handshake, signature mismatch.`, {
-          peerId,
-          expected: authRequest.challenge.toString(),
-          received: peerAuthResponse.signature.toString(),
-        });
-        await this.disconnectPeer(peerId);
-        return;
-      }
+
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
         this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
         await this.disconnectPeer(peerId);
         return;
       }
-      this.authenticatedPeers.add(peerId.toString());
-      this.logger.info(`Successfully completed auth handshake with peer ${peerId}`, logData);
+
+      const hashToRecover = authRequest.getPayloadToSign();
+      const sender = recoverAddress(hashToRecover, peerAuthResponse.signature);
+      const registeredValidators = await this.epochCache.getRegisteredValidators();
+      const found = registeredValidators.find(v => v.toString() === sender.toString()) !== undefined;
+      if (!found) {
+        this.logger.debug(
+          `Disconnecting peer ${peerId} due to failed auth handshake, peer is not a registered validator.`,
+          {
+            peerId,
+            address: sender.toString(),
+          },
+        );
+        await this.disconnectPeer(peerId);
+        return;
+      }
+
+      const peerIdString = peerId.toString();
+      this.authenticatedPeers.add(peerIdString);
+      this.peerToValidator.set(peerIdString, sender);
+      this.logger.debug(`Successfully completed auth handshake with peer ${peerId}`, logData);
     } catch (err: any) {
-      console.log('BLAH', err);
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
