@@ -31,6 +31,8 @@ template <typename FF_> class bitwiseImpl {
     {
         using C = ColumnAndShifts;
 
+        const auto constants_MEM_TAG_FF = FF(0);
+        const auto bitwise_TAG_A_DIFF = (in.get(C::bitwise_tag_a) - constants_MEM_TAG_FF);
         const auto bitwise_TAG_AB_DIFF = (in.get(C::bitwise_tag_a) - in.get(C::bitwise_tag_b));
 
         {
@@ -84,12 +86,12 @@ template <typename FF_> class bitwiseImpl {
         }
         { // INPUT_TAG_CANNOT_BE_FF
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bitwise_start) *
-                       ((in.get(C::bitwise_tag_a) *
-                             (in.get(C::bitwise_sel_tag_ff_err) * (FF(1) - in.get(C::bitwise_tag_a_inv)) +
-                              in.get(C::bitwise_tag_a_inv)) -
-                         FF(1)) +
-                        in.get(C::bitwise_sel_tag_ff_err));
+            auto tmp =
+                in.get(C::bitwise_start) *
+                ((bitwise_TAG_A_DIFF * (in.get(C::bitwise_sel_tag_ff_err) * (FF(1) - in.get(C::bitwise_tag_a_inv)) +
+                                        in.get(C::bitwise_tag_a_inv)) -
+                  FF(1)) +
+                 in.get(C::bitwise_sel_tag_ff_err));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }

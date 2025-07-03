@@ -99,7 +99,6 @@ class Execution : public ExecutionInterface {
     void internal_return(ContextInterface& context);
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
     void success_copy(ContextInterface& context, MemoryAddress dst_addr);
-    void bitwise_and(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);

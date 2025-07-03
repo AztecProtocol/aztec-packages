@@ -176,8 +176,6 @@ TEST(BitwiseTraceGenTest, ErrorInputFF)
     };
     builder.process(events, trace);
 
-    EXPECT_EQ(trace.as_rows().size(), 2);
-
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(ROW_FIELD_EQ(bitwise_op_id, 0),
                                   ROW_FIELD_EQ(bitwise_acc_ia, 0),
@@ -224,8 +222,6 @@ TEST(BitwiseTraceGenTest, ErrorTagMismatch)
           .res = 0 },
     };
     builder.process(events, trace);
-
-    EXPECT_EQ(trace.as_rows().size(), 2);
 
     EXPECT_THAT(
         trace.as_rows(),
@@ -276,8 +272,6 @@ TEST(BitwiseTraceGenTest, ErrorFFAndTagMismatch)
           .res = 0 },
     };
     builder.process(events, trace);
-
-    EXPECT_EQ(trace.as_rows().size(), 2);
 
     EXPECT_THAT(
         trace.as_rows(),

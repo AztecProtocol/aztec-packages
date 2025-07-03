@@ -25,8 +25,8 @@ inline std::string to_string(BitwiseTagError e)
 
 class BitwiseException : public std::runtime_error {
   public:
-    BitwiseException()
-        : std::runtime_error("Bitwise Exception")
+    BitwiseException(const std::string& msg)
+        : std::runtime_error("Bitwise Exception: " + msg)
     {}
 };
 
