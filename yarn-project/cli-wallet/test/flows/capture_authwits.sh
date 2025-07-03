@@ -3,7 +3,7 @@ source $(git rev-parse --show-toplevel)/ci3/source
 source shared/setup.sh
 
 # This test exercises the kernelless simulation feature in the CLI wallet, running an add_liquidity call for the AMM contract
-# WITHOUT providing it with the usually required authwits. There are no assertions on this test because the usual simulation
+# WITHOUT providing the usually required authwits. There are no assertions on this test because the usual simulation
 # behaviour would be for it to fail. Here we use a simulated account contract which doesn't perform authwit checks
 # and thus it finishes successfully. Finally, it prints the expected authorizations in a human-readable format.
 

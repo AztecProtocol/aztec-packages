@@ -185,6 +185,10 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
             let const_len = array_len.as_constant().unwrap();
             f"{const_len}".quoted_contents()
         } else {
+            // If array length is not a constant, chances are it's a numeric generic
+            // This will make the signature of a type like Struct<N> be the same regardless
+            // of the value of N, but at least this fn will not crash. It is up to the caller
+            // to decide whether this is acceptable.
             f"{array_len}".quoted_contents()
         };
 
