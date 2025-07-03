@@ -14,7 +14,7 @@ import { awaitCommitteeExists, awaitCommitteeKicked } from './shared.js';
 jest.setTimeout(1000000);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'));
@@ -47,7 +47,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_data_withholding_slash',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: 0,
+      numberOfPreferredNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
@@ -69,7 +71,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -105,7 +107,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -140,7 +142,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Now stop the nodes,
     await t.stopNodes(nodes);
     // And remove the data directories (which forms the crux of the "attack")
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
 
@@ -152,7 +154,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
