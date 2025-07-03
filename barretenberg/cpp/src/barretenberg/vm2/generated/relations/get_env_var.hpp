@@ -33,7 +33,7 @@ template <typename FF_> class get_env_varImpl {
         { // SHOULD_GET_ENV_VAR
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_should_get_env_var) -
-                        in.get(C::execution_sel_get_env_var) * in.get(C::execution_should_execute_opcode));
+                        in.get(C::execution_sel_get_env_var) * in.get(C::execution_sel_should_execute_opcode));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
