@@ -112,6 +112,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // Inject the authwit check if the function is marked with #[authorize_once].
     let authorize_once_check = if fn_has_authorize_once(f) {
         create_authorize_once_check(f)
     } else {
