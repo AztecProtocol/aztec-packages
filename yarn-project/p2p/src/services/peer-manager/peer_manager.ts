@@ -181,7 +181,6 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
-    this.logger.error(`PEER MANAGE ${this.config.p2pAllowOnlyValidators} Connected to peer ${peerId.toString()}`);
     if (this.config.p2pDisableStatusHandshake) {
       return;
     }
