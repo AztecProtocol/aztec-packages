@@ -313,7 +313,7 @@ template <typename Flavor> class SumcheckProverRound {
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        const RelationSeparator& alpha,
+        const RelationSeparator& alphas,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
@@ -332,7 +332,7 @@ template <typename Flavor> class SumcheckProverRound {
                                             relation_parameters,
                                             gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
         }
-        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_separators);
+        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
         bb::Univariate<FF, 2> row_disabling_factor =
             bb::Univariate<FF, 2>({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
         SumcheckRoundUnivariate row_disabling_factor_extended =

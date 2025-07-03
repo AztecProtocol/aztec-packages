@@ -27,8 +27,9 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 
     // Use scale_univariate_accumulators to scale by challenge powers
     RelationSeparator challenge = {};
-    challenge[0] = 5;
-    challenge[1] = challenge[0].sqr();
+    challenge[0] = 1;
+    challenge[1] = 5;
+    challenge[3] = 25;
     RelationUtils<Flavor>::scale_univariates(tuple_of_tuples, challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
@@ -37,9 +38,9 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, result, gate_separators);
 
     // Repeat the batching process manually
-    auto result_expected = univariate_1.template extend_to<MAX_LENGTH>() * 1 +
-                           univariate_2.template extend_to<MAX_LENGTH>() * challenge[0] +
-                           univariate_3.template extend_to<MAX_LENGTH>() * challenge[1];
+    auto result_expected = univariate_1.template extend_to<MAX_LENGTH>() * challenge[0] +
+                           univariate_2.template extend_to<MAX_LENGTH>() * challenge[1] +
+                           univariate_3.template extend_to<MAX_LENGTH>() * challenge[2];
 
     // Compare final batched univariates
     EXPECT_EQ(result, result_expected);
@@ -76,13 +77,14 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
 
     // Use scale_and_batch_elements to scale by challenge powers
     RelationSeparator challenge = {};
-    challenge[0] = 5;
-    challenge[1] = challenge[0].sqr();
-    FF result = 0;
-    Utils::scale_and_batch_elements(tuple_of_arrays, challenge, result);
+    challenge[0] = 1;
+    challenge[1] = 5;
+    challenge[2] = 25;
+    FF result = Utils::scale_and_batch_elements(tuple_of_arrays, challenge);
 
     // Repeat the batching process manually
-    auto result_expected = evaluations_1[0] * 1 + evaluations_2[0] * challenge[0] + evaluations_2[1] * challenge[1];
+    auto result_expected =
+        evaluations_1[0] * challenge[0] + evaluations_2[0] * challenge[1] + evaluations_2[1] * challenge[2];
 
     // Compare batched result
     EXPECT_EQ(result, result_expected);

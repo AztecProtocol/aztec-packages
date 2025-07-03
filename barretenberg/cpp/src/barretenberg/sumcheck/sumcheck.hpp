@@ -653,7 +653,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
      * @param transcript
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
-                                  RelationSeparator alpha,
+                                  const RelationSeparator& alpha,
                                   std::vector<FF>& gate_challenges,
                                   const std::array<FF, virtual_log_n>& padding_indicator_array)
         requires(!IsGrumpkinFlavor<Flavor>)
