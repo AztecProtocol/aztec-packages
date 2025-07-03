@@ -221,7 +221,10 @@ struct ExecutionTraceUsageTracker {
      * @brief Given a set of ranges indicating "active" regions of an ambient space, define a given number of new ranges
      * on the ambient space which evenly divide the content
      * @details In practive this is used to determine even distribution of execution trace rows across threads according
-     * to ranges describing the active rows of an IVC accumulator
+     * to ranges describing the active rows of an IVC accumulator. Even if two ranges contain the same number of rows,
+     * their workloads can differ depending on row complexity. To balance this, we distribute rows from each range as
+     * evenly as possible across the available threads. If the total number of rows is not perfectly divisible by the
+     * thread count, some threads will be assigned one additional row to ensure complete coverage.
      *
      * @param union_ranges A set of sorted, disjoint ranges
      * @param num_threads
