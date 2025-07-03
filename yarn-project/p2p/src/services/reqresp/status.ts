@@ -5,18 +5,21 @@ export enum ReqRespStatus {
   SUCCESS = 0,
   RATE_LIMIT_EXCEEDED = 1,
   BADLY_FORMED_REQUEST = 2,
+  INTERNAL_ERROR = 3,
   FAILURE = 126,
   UNKNOWN = 127,
 }
+
+export type UnsuccessfulReqRespStatus = Exclude<ReqRespStatus, ReqRespStatus.SUCCESS>;
 
 export class ReqRespStatusError extends Error {
   /**
    * The status code
    */
-  status: ReqRespStatus;
+  readonly status: UnsuccessfulReqRespStatus;
 
-  constructor(status: ReqRespStatus) {
-    super(`ReqResp Error: ${prettyPrintReqRespStatus(status)}`);
+  constructor(status: UnsuccessfulReqRespStatus, cause?: { cause?: Error }) {
+    super(`ReqResp Error: ${prettyPrintReqRespStatus(status)}`, cause);
     this.status = status;
   }
 }
@@ -56,6 +59,8 @@ export function prettyPrintReqRespStatus(status: ReqRespStatus) {
       return 'BADLY_FORMED_REQUEST';
     case ReqRespStatus.FAILURE:
       return 'FAILURE';
+    case ReqRespStatus.INTERNAL_ERROR:
+      return 'INTERNAL_ERROR';
     case ReqRespStatus.UNKNOWN:
       return 'UNKNOWN';
   }

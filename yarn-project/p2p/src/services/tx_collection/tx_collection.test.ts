@@ -62,7 +62,9 @@ describe('TxCollection', () => {
   const setReqRespTxs = (txs: TxWithHash[]) => {
     reqResp.sendBatchRequest.mockImplementation(async (_subProtocol, hashes) => {
       await sleep(1);
-      return hashes.map(h => txs.find(tx => tx.txHash.equals(h))).filter(tx => tx !== undefined) as any[];
+      return (hashes as any as TxHash[])
+        .map(h => txs.find(tx => tx.txHash.equals(h)))
+        .filter(tx => tx !== undefined) as any[];
     });
   };
 
