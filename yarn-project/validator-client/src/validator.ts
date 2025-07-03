@@ -238,7 +238,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     this.log.info(`Received proposal for slot ${slotNumber}`, {
       ...proposalInfo,
-      txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
+      txHashes: proposal.txHashes.map(txHash => txHash.toString()),
     });
 
     // Collect txs from the proposal. Note that we do this before checking if we have an address in the
@@ -378,7 +378,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    * @param proposal - The proposal to re-execute
    */
   async reExecuteTransactions(proposal: BlockProposal, txs: Tx[], l1ToL2Messages: Fr[]): Promise<void> {
-    const { header, txHashes } = proposal.payload;
+    const { header } = proposal.payload;
+    const { txHashes } = proposal;
 
     // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {

@@ -730,7 +730,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Mark the txs in this proposal as non-evictable
-    await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
+    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
     const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice

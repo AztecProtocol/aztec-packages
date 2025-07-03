@@ -312,8 +312,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     {
       uint128 manaBaseFee =
         SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
@@ -326,8 +324,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       header: header,
       archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      oracleInput: OracleInput(0)
     });
 
     skipBlobCheck(address(rollup));
@@ -343,8 +340,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
-        headerHash: ProposedHeaderLib.hash(header),
-        txHashes: args.txHashes
+        headerHash: ProposedHeaderLib.hash(header)
       });
 
       CommitteeAttestation[] memory attestations = new CommitteeAttestation[](ree.attestationsCount);
