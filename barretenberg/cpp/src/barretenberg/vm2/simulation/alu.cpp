@@ -28,28 +28,35 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
 
 MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
 {
-    std::optional<AluError> error;
     MemoryValue c;
     try {
         if (a.get_tag() != b.get_tag()) {
             throw AluError::TAG_ERROR;
         }
-        bool res = a.as_ff() < b.as_ff();
+        // TODO(MW): rename
+        uint128_t lt_result_to_range_check = 0;
+        FF a_ff = a.as_ff();
+        FF b_ff = b.as_ff();
+        // NOTE: We cannot do a_ff < b_ff since fields do not have explicit ordering:
+        bool res = static_cast<uint256_t>(a_ff) < static_cast<uint256_t>(b_ff);
         c = MemoryValue::from<uint1_t>(res);
-
-        if (a.get_tag() != ValueTag::FF) {
-            // emit the range check event required (see relation ALU_LT_RESULT):
-            range_check.assert_range(res ? (b - a).as<uint128_t>() - 1 : (a - b).as<uint128_t>(),
-                                     get_tag_bits(a.get_tag()));
-        } else {
-            // emit the ff check event required (see lookup FF_LT) - note that we check b > a:
+        // We must split FF and non FF cases:
+        if (a.get_tag() == ValueTag::FF) {
+            // Emit the ff check event required (see lookup FF_LT) - note that we check b > a:
             field_gt.ff_gt(b, a);
+        } else {
+            // We have excluded the field case => safe to downcast here for the max 128 bit range check:
+            lt_result_to_range_check =
+                res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
         }
+        // TODO(THURS): check 0, 0 works here, otherwise add selector like sel_non_ff_lt
+        range_check.assert_range(lt_result_to_range_check, get_tag_bits(a.get_tag()));
+        events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     } catch (AluError e) {
-        error = e;
+        c = MemoryValue::from_tag(ValueTag::U1, 0);
+        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c, .error = e });
+        throw e;
     }
-
-    events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c, .error = error });
     return c;
 }
 

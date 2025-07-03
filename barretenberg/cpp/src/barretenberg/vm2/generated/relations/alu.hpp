@@ -32,6 +32,8 @@ template <typename FF_> class aluImpl {
 
         const auto constants_MEM_TAG_FF = FF(0);
         const auto constants_MEM_TAG_U1 = FF(1);
+        const auto constants_AVM_EXEC_OP_ID_ALU_ADD = FF(1);
+        const auto constants_AVM_EXEC_OP_ID_ALU_LT = FF(64);
         const auto alu_IS_NOT_FF = (FF(1) - in.get(C::alu_sel_is_ff));
         const auto alu_CHECK_TAG_FF = in.get(C::alu_sel_op_lt);
         const auto alu_TAG_FF_DIFF = (in.get(C::alu_ia_tag) - constants_MEM_TAG_FF);
@@ -61,7 +63,9 @@ template <typename FF_> class aluImpl {
         }
         { // OP_ID_CHECK
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::alu_sel_op_add) * FF(1) + in.get(C::alu_sel_op_lt) * FF(64)) - in.get(C::alu_op_id));
+            auto tmp = ((in.get(C::alu_sel_op_add) * constants_AVM_EXEC_OP_ID_ALU_ADD +
+                         in.get(C::alu_sel_op_lt) * constants_AVM_EXEC_OP_ID_ALU_LT) -
+                        in.get(C::alu_op_id));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }

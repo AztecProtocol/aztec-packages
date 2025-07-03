@@ -41,7 +41,7 @@ sel_is_ff * (1 - sel_is_ff) = 0;
 
 // TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
 #[OP_ID_CHECK]
-sel_op_add * 2**0 + sel_op_lt * 2**6 - op_id = 0;
+sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD + sel_op_lt * constants.AVM_EXEC_OP_ID_ALU_LT - op_id = 0;
 
 #[REGISTER_TAG_VALUE]
 execution.sel_alu {

@@ -109,6 +109,7 @@ uint8_t get_tag_bits(ValueTag tag)
     case ValueTag::U128:
         return 128;
     case ValueTag::FF:
+        // TODO(MW): Change 254 to 0
         return 254;
     }
 

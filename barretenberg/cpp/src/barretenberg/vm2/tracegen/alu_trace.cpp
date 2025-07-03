@@ -21,6 +21,8 @@ namespace {
 // TODO(MW): Rename to something useful! Helper fn to get operation specific values.
 std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event)
 {
+    // MW Note: Currently we only split FF cases for LT and is_ff is unchecked in add => no need to fill in the trace
+    auto is_ff = event.a.get_tag() == ValueTag::FF;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
@@ -30,10 +32,16 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  // if this in unclear, I can use > or actually check bit sizes:
                  { Column::alu_cf, event.a.as_ff() + event.b.as_ff() != event.c.as_ff() } };
     case simulation::AluOperation::LT:
-        return { { Column::alu_sel_op_lt, 1 },
-                 { Column::alu_op_id,
-                   static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
-                 { Column::alu_cf, 0 } };
+        return {
+            { Column::alu_sel_op_lt, 1 },
+            { Column::alu_op_id,
+              static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
+            { Column::alu_cf, 0 },
+            { Column::alu_sel_is_ff, is_ff },
+            { Column::alu_sel_ff_lt, is_ff },
+            { Column::alu_tag_ff_diff_inv,
+              is_ff ? 0 : FF(static_cast<uint8_t>(event.a.get_tag()) - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+        };
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;
@@ -57,7 +65,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         bool tag_check_failed = event.error.has_value() && event.error == AluError::TAG_ERROR;
         FF alu_ab_tags_diff_inv = 0;
         if (tag_check_failed) {
-            // We shouldn't have emitted an event with a tag error when one doesn't exist, currently (ADD) the
+            // We shouldn't have emitted an event with a tag error when one doesn't exist, currently (ADD, LT) the
             // definition of a tag error is when there is a disallowed diff between tags:
             assert((a_tag - b_tag) != 0 && "ALU Event emitted with tag error, but none exists");
             alu_ab_tags_diff_inv = static_cast<FF>(a_tag - b_tag).invert();
@@ -75,8 +83,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_ia_tag, a_tag },
                       { C::alu_ib_tag, b_tag },
                       { C::alu_ic_tag, c_tag },
-                      // TODO(MW): Not required for add, reinstate when needed:
-                      // { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
+                      { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
                       { C::alu_max_value, get_tag_max_value(event.a.get_tag()) },
                       { C::alu_sel_tag_err, tag_check_failed ? 1 : 0 },
                       { C::alu_ab_tags_diff_inv, alu_ab_tags_diff_inv },
