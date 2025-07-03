@@ -252,18 +252,12 @@ const makeAndSignConsensusPayload = (
   options?: MakeConsensusPayloadOptions,
 ) => {
   const header = options?.header ?? makeHeader(1);
-  const {
-    signer = Secp256k1Signer.random(),
-    archive = Fr.random(),
-    stateReference = header.state,
-    txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
-  } = options ?? {};
+  const { signer = Secp256k1Signer.random(), archive = Fr.random(), stateReference = header.state } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
     header: header.toPropose(),
     archive,
     stateReference,
-    txHashes,
   });
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
@@ -277,7 +271,8 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
     SignatureDomainSeparator.blockProposal,
     options,
   );
-  return new BlockProposal(blockNumber, payload, signature, options?.txs ?? []);
+  const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+  return new BlockProposal(blockNumber, payload, signature, txHashes, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)

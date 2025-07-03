@@ -181,7 +181,6 @@ describe('p2p client integration', () => {
       Secp256k1Signer.random(),
       Number(dummyPayload.header!.getSlot()),
       dummyPayload.archive,
-      dummyPayload.txHashes,
     );
     await (client1 as any).p2pService.broadcastAttestation(attestation);
 
@@ -487,7 +486,6 @@ describe('p2p client integration', () => {
           Secp256k1Signer.random(),
           Number(dummyPayload.header!.getSlot()),
           dummyPayload.archive,
-          dummyPayload.txHashes,
         );
         await (client1.client as any).p2pService.broadcastAttestation(attestation);
 
