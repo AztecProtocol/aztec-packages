@@ -243,6 +243,7 @@ describe('e2e_p2p_preferred_network', () => {
       const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 600, identifiers[i]);
       expect(peerResult).toBeTruthy();
     }
+    t.logger.info('All node/validator peer connections established');
 
     validators.push(...pickyValidators);
 
