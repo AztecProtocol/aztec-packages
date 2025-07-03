@@ -57,6 +57,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     }
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const StdlibProof& proof);
 
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
