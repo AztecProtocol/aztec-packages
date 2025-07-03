@@ -10,7 +10,7 @@ import {
   getContractInstanceFromDeployParams,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract, ViemClient } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 import type { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';

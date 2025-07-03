@@ -1,5 +1,5 @@
 import { createLogger, sleep } from '@aztec/aztec.js';
-import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';

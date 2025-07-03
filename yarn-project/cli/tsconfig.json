@@ -19,6 +19,9 @@
       "path": "../entrypoints"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {
@@ -35,9 +38,6 @@
     },
     {
       "path": "../accounts"
-    },
-    {
-      "path": "../ethereum"
     },
     {
       "path": "../protocol-contracts"

@@ -1,7 +1,7 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
-import type { CheatCodes } from '@aztec/aztec.js/testing';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';

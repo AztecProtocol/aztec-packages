@@ -1,9 +1,7 @@
-import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 import { AztecCheatCodes } from './aztec_cheat_codes.js';
-import { RollupCheatCodes } from './rollup_cheat_codes.js';
 
 /**
  * A class that provides utility functions for interacting with the chain.
@@ -26,10 +24,5 @@ export class CheatCodes {
       await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     return new CheatCodes(ethCheatCodes, aztecCheatCodes, rollupCheatCodes);
-  }
-
-  static createRollup(rpcUrls: string[], addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
-    const ethCheatCodes = new EthCheatCodes(rpcUrls);
-    return new RollupCheatCodes(ethCheatCodes, addresses);
   }
 }

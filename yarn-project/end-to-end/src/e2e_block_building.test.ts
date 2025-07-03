@@ -14,7 +14,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';

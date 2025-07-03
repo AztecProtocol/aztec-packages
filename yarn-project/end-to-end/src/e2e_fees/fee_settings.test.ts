@@ -5,7 +5,7 @@ import {
   FeeJuicePaymentMethod,
   retryUntil,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { Fr } from '@aztec/foundation/fields';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';

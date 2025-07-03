@@ -8,7 +8,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,

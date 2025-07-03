@@ -8,7 +8,7 @@ import {
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';

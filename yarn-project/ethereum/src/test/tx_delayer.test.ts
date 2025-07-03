@@ -8,8 +8,8 @@ import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { EthCheatCodes } from '../eth_cheat_codes.js';
 import type { ExtendedViemWalletClient } from '../types.js';
+import { EthCheatCodes } from './eth_cheat_codes.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
 

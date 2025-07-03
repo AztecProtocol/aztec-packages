@@ -1,5 +1,4 @@
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
-import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -8,6 +7,8 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
 import { foundry } from 'viem/chains';
+
+import { EthCheatCodes } from './eth_cheat_codes.js';
 
 /** Cheat codes for the L1 rollup contract. */
 export class RollupCheatCodes {
@@ -29,6 +30,11 @@ export class RollupCheatCodes {
       address: addresses.rollupAddress.toString(),
       client: this.client,
     });
+  }
+
+  static create(rpcUrls: string[], addresses: Pick<L1ContractAddresses, 'rollupAddress'>): RollupCheatCodes {
+    const ethCheatCodes = new EthCheatCodes(rpcUrls);
+    return new RollupCheatCodes(ethCheatCodes, addresses);
   }
 
   /** Returns the current slot */

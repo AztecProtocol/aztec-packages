@@ -8,11 +8,11 @@ import { type Hex, encodeFunctionData, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createExtendedL1Client } from './client.js';
-import { deployL1Contract } from './deploy_l1_contracts.js';
+import { createExtendedL1Client } from '../client.js';
+import { deployL1Contract } from '../deploy_l1_contracts.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
-import { startAnvil } from './test/start_anvil.js';
-import type { ExtendedViemWalletClient } from './types.js';
+import { startAnvil } from './start_anvil.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const ANVIL_RPC_URL = process.env.ANVIL_RPC_URL;
