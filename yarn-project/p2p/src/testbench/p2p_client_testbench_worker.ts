@@ -87,6 +87,7 @@ function mockEpochCache(): EpochCacheInterface {
     getEpochAndSlotInNextL1Slot: () => ({ epoch: 0n, slot: 0n, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
     filterInCommittee: () => Promise.resolve([]),
+    getRegisteredValidators: () => Promise.resolve([]),
   };
 }
 

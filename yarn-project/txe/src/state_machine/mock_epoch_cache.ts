@@ -60,4 +60,8 @@ export class MockEpochCache implements EpochCacheInterface {
   filterInCommittee(_slot: SlotTag, _validators: EthAddress[]): Promise<EthAddress[]> {
     return Promise.resolve([]);
   }
+
+ getRegisteredValidators(): Promise<EthAddress[]> {
+    return Promise.resolve([]);
+  }
 }
