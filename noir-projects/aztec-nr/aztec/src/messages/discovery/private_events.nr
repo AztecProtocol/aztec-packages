@@ -1,12 +1,11 @@
 use crate::{
     event::event_selector::EventSelector,
     messages::{encoding::MAX_MESSAGE_CONTENT_LEN, processing::enqueue_event_for_validation},
-    prelude::AztecAddress,
     utils::array,
 };
 use protocol_types::{
-    constants::GENERATOR_INDEX__EVENT_COMMITMENT, hash::poseidon2_hash_with_separator_bounded_vec,
-    traits::FromField,
+    address::AztecAddress, constants::GENERATOR_INDEX__EVENT_COMMITMENT,
+    hash::poseidon2_hash_with_separator_bounded_vec, traits::FromField,
 };
 
 /// The number of fields in a private event message content that are not the event's serialized representation

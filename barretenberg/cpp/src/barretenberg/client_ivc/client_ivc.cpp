@@ -39,7 +39,7 @@ ClientIVC::ClientIVC(TraceSettings trace_settings)
  * @param circuit
  */
 void ClientIVC::instantiate_stdlib_verification_queue(
-    ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys)
+    ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
 {
     bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided) {
@@ -51,16 +51,21 @@ void ClientIVC::instantiate_stdlib_verification_queue(
 
     size_t key_idx = 0;
     while (!verification_queue.empty()) {
-        auto& [proof, vkey, type] = verification_queue.front();
+        auto& [proof, vk, type] = verification_queue.front();
 
         // Construct stdlib proof directly from the internal native queue data
-        auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
+        StdlibProof stdlib_proof(circuit, proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
-        auto stdlib_vkey =
-            vkeys_provided ? input_keys[key_idx++] : std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+        // Why?? ^
+        std::shared_ptr<RecursiveVKAndHash> stdlib_vk_and_hash;
+        if (vkeys_provided) {
+            stdlib_vk_and_hash = input_keys[key_idx++];
+        } else {
+            stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(circuit, vk);
+        }
 
-        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
+        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vk_and_hash, type });
 
         verification_queue.pop_front(); // the native data is not needed beyond this point
     }
@@ -92,10 +97,10 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
         // Perform folding recursive verification to update the verifier accumulator
-        FoldingRecursiveVerifier verifier{ &circuit,
-                                           stdlib_verifier_accum,
-                                           { verifier_inputs.honk_verification_key },
-                                           accumulation_recursive_transcript };
+
+        FoldingRecursiveVerifier verifier{
+            &circuit, stdlib_verifier_accum, { verifier_inputs.honk_vk_and_hash }, accumulation_recursive_transcript
+        };
         auto verifier_accum = verifier.verify_folding_proof(verifier_inputs.proof);
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -108,7 +113,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     case QUEUE_TYPE::OINK: {
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
         auto verifier_accum =
-            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_verification_key);
+            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier oink{ &circuit, verifier_accum, accumulation_recursive_transcript };
@@ -137,12 +142,13 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
-        decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
+        decider_vk->public_inputs, decider_vk->vk_and_hash->vk->pairing_inputs_public_input_key);
 
     pairing_points.aggregate(nested_pairing_points);
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
     // inputs
+  
     // bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
     //     decider_vk->witness_commitments.return_data,
     //     decider_vk->witness_commitments.calldata,
@@ -166,7 +172,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         app_return_data_commitment_exists = true;
         kernel_output.app_return_data = decider_vk->witness_commitments.return_data;
     }
-    //
+
+
     return pairing_points;
 }
 
@@ -269,6 +276,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
         honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
     }
+    // mock_vk is used in benchmarks to avoid any VK construction.
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
         vinfo("set honk vk metadata");
@@ -372,14 +380,15 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
 
-    auto stdlib_decider_vk =
-        std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_verification_key);
+    auto stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(
+        std::make_shared<RecursiveVerificationKey>(&builder, verification_queue[0].honk_vk),
+        ClientIVC::RecursiveFlavor::FF::from_witness(&builder, verification_queue[0].honk_vk->hash()));
 
-    auto stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, fold_proof);
+    StdlibProof stdlib_proof(builder, fold_proof);
 
     // Perform recursive folding verification of the last folding proof
     FoldingRecursiveVerifier folding_verifier{
-        &builder, stdlib_verifier_accumulator, { stdlib_decider_vk }, pg_merge_transcript
+        &builder, stdlib_verifier_accumulator, { stdlib_vk_and_hash }, pg_merge_transcript
     };
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
@@ -391,7 +400,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
         recursive_verifier_accumulator->public_inputs,
-        recursive_verifier_accumulator->verification_key->pairing_inputs_public_input_key);
+        recursive_verifier_accumulator->vk_and_hash->vk->pairing_inputs_public_input_key);
     points_accumulator.aggregate(nested_pairing_points);
 
     // Perform recursive decider verification

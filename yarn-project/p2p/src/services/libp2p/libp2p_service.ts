@@ -464,23 +464,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Send Request via the ReqResp service
-   * The subprotocol defined will determine the request and response types
-   *
-   * See the subProtocolMap for the mapping of subprotocols to request/response types in `interface.ts`
-   *
-   * @param protocol The request response protocol to use
-   * @param request The request type to send
-   * @returns
-   */
-  sendRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    return this.reqresp.sendRequest(protocol, request);
-  }
-
-  /**
    * Send a batch of requests to peers, and return the responses
    * @param protocol - The request response protocol to use
    * @param requests - The requests to send to the peers

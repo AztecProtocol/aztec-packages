@@ -44,7 +44,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
 
 template <class DeciderVerificationKeys>
 std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiveVerifier_<
-    DeciderVerificationKeys>::verify_folding_proof(const StdlibProof<Builder>& proof)
+    DeciderVerificationKeys>::verify_folding_proof(const stdlib::Proof<Builder>& proof)
 {
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
@@ -186,8 +186,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     auto [accumulator_circuit_size, accumulator_log_circuit_size] = keys_to_fold.get_max_circuit_size_and_log_size();
-    accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
-    accumulator->verification_key->circuit_size = accumulator_circuit_size;
+    accumulator->vk_and_hash->vk->log_circuit_size = accumulator_log_circuit_size;
+    accumulator->vk_and_hash->vk->circuit_size = accumulator_circuit_size;
 
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
@@ -199,7 +199,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         combination = linear_combination(to_combine, lagranges);
     }
 
-    auto accumulator_vkey = accumulator->verification_key->get_all();
+    auto accumulator_vkey = accumulator->vk_and_hash->vk->get_all();
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         accumulator_vkey[i] = output_commitments[i];
     }

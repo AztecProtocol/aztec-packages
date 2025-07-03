@@ -44,10 +44,11 @@ use dep::protocol_types::{
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Empty, Hash, ToField},
-    utils::arrays::array_concat,
+    utils::arrays::ClaimedLengthArray,
 };
 
 // When finished, one can call .finish() to convert back to the abi
+#[derive(Eq)]
 pub struct PrivateContext {
     // docs:start:private-context
     pub inputs: PrivateContextInputs,
@@ -188,21 +189,27 @@ impl PrivateContext {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             include_by_timestamp: self.include_by_timestamp,
-            note_hash_read_requests: self.note_hash_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
-            key_validation_requests_and_generators: self
-                .key_validation_requests_and_generators
-                .storage(),
-            note_hashes: self.note_hashes.storage(),
-            nullifiers: self.nullifiers.storage(),
-            private_call_requests: self.private_call_requests.storage(),
-            public_call_requests: self.public_call_requests.storage(),
+            note_hash_read_requests: ClaimedLengthArray::from_bounded_vec(
+                self.note_hash_read_requests,
+            ),
+            nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(
+                self.nullifier_read_requests,
+            ),
+            key_validation_requests_and_generators: ClaimedLengthArray::from_bounded_vec(
+                self.key_validation_requests_and_generators,
+            ),
+            note_hashes: ClaimedLengthArray::from_bounded_vec(self.note_hashes),
+            nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
+            private_call_requests: ClaimedLengthArray::from_bounded_vec(self.private_call_requests),
+            public_call_requests: ClaimedLengthArray::from_bounded_vec(self.public_call_requests),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            l2_to_l1_msgs: ClaimedLengthArray::from_bounded_vec(self.l2_to_l1_msgs),
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
-            private_logs: self.private_logs.storage(),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
+            private_logs: ClaimedLengthArray::from_bounded_vec(self.private_logs),
+            contract_class_logs_hashes: ClaimedLengthArray::from_bounded_vec(
+                self.contract_class_logs_hashes,
+            ),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
         }
@@ -443,7 +450,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
@@ -455,7 +462,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
@@ -512,7 +519,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)

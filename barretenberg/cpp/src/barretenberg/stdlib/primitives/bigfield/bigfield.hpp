@@ -42,7 +42,7 @@ template <typename Builder, typename T> class bigfield {
      *
      */
     struct Limb {
-        Limb() {}
+        Limb() = default;
         Limb(const field_t<Builder>& input, const uint256_t& max = DEFAULT_MAXIMUM_LIMB)
             : element(input)
         {
@@ -59,9 +59,10 @@ template <typename Builder, typename T> class bigfield {
             return os;
         }
         Limb(const Limb& other) = default;
-        Limb(Limb&& other) = default;
+        Limb(Limb&& other) noexcept = default;
         Limb& operator=(const Limb& other) = default;
-        Limb& operator=(Limb&& other) = default;
+        Limb& operator=(Limb&& other) noexcept = default;
+        ~Limb() = default;
 
         field_t<Builder> element;
         uint256_t maximum_value;
@@ -263,7 +264,10 @@ template <typename Builder, typename T> class bigfield {
     bigfield(const bigfield& other);
 
     // Move constructor
-    bigfield(bigfield&& other);
+    bigfield(bigfield&& other) noexcept;
+
+    // Destructor
+    ~bigfield() = default;
 
     /**
      * @brief Creates a bigfield element from a uint512_t.
@@ -294,15 +298,18 @@ template <typename Builder, typename T> class bigfield {
     }
 
     bigfield& operator=(const bigfield& other);
-    bigfield& operator=(bigfield&& other);
-    // code assumes modulus is at most 256 bits so good to define it via a uint256_t
+    bigfield& operator=(bigfield&& other) noexcept;
+
+    // Code assumes modulus is at most 256 bits so good to define it via a uint256_t
     static constexpr uint256_t modulus = (uint256_t(T::modulus_0, T::modulus_1, T::modulus_2, T::modulus_3));
-    static constexpr uint512_t modulus_u512 = uint512_t(modulus);
+    static constexpr uint512_t modulus_u512 = static_cast<uint512_t>(modulus);
     static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     static constexpr uint64_t NUM_LAST_LIMB_BITS = modulus_u512.get_msb() + 1 - (NUM_LIMB_BITS * 3);
+
     // The quotient reduction checks currently only support >=250 bit moduli and moduli >256 have never been tested
     // (Check zkSecurity audit report issue #12 for explanation)
     static_assert(modulus_u512.get_msb() + 1 >= 250 && modulus_u512.get_msb() + 1 <= 256);
+
     inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         (uint1024_t(1) << (NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS)) - uint1024_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_LIMB = (uint256_t(1) << NUM_LIMB_BITS) - uint256_t(1);
@@ -327,13 +334,13 @@ template <typename Builder, typename T> class bigfield {
     static constexpr bb::fr shift_right_2 = bb::fr(1) / shift_2;
     static constexpr bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
     static constexpr uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
-    static constexpr uint256_t neg_modulus_limbs_u256[NUM_LIMBS]{
+    static constexpr std::array<uint256_t, NUM_LIMBS> neg_modulus_limbs_u256{
         negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo,
         negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo,
         negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo,
         negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo,
     };
-    static constexpr bb::fr neg_modulus_limbs[NUM_LIMBS]{
+    static constexpr std::array<bb::fr, NUM_LIMBS> neg_modulus_limbs{
         bb::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
         bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
         bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
@@ -391,7 +398,7 @@ template <typename Builder, typename T> class bigfield {
      * @param other_maximum_value The maximum value of other
      * @return bigfield<Builder, T> Result
      */
-    bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
+    bigfield add_to_lower_limb(const field_t<Builder>& other, const uint256_t& other_maximum_value) const;
 
     /**
      * @brief Adds two bigfield elements. Inputs are reduced to the modulus if necessary. Requires 4 gates if both
@@ -569,6 +576,16 @@ template <typename Builder, typename T> class bigfield {
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;
+
+    /**
+     * @brief Create an element which is equal to either this or other based on the predicate
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param other The other bigfield element
+     * @param predicate Predicate controlling the result (0 for this, 1 for the other)
+     * @return Resulting element
+     */
     bigfield conditional_select(const bigfield& other, const bool_t<Builder>& predicate) const;
     static bigfield conditional_assign(const bool_t<Builder>& predicate, const bigfield& lhs, const bigfield& rhs)
     {
@@ -578,7 +595,7 @@ template <typename Builder, typename T> class bigfield {
     bool_t<Builder> operator==(const bigfield& other) const;
 
     void assert_is_in_field() const;
-    void assert_less_than(const uint256_t upper_limit) const;
+    void assert_less_than(const uint256_t& upper_limit) const;
     void assert_equal(const bigfield& other) const;
     void assert_is_not_equal(const bigfield& other) const;
 
@@ -876,13 +893,28 @@ template <typename Builder, typename T> class bigfield {
     // The rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
     // starting with this max limb size
     //
-    // In multiplication of bigfield elements a * b, we encounter sum of limbs multiplications of form: 2^L . ai . bj.
-    // Suppose we are adding 2^k such terms. Let Q be the max bitsize of a limb. We want to ensure that the sum
+    // In multiplication of bigfield elements a * b, we encounter sum of limbs multiplications of form:
+    // c0 := a0 * b0
+    // c1 := a1 * b0 + a0 * b1
+    // c2 := a2 * b0 + a1 * b1 + a0 * b2
+    // c3 := a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3
+    // output:
+    // lo := c0 + c1 * 2^L,
+    // hi := c2 + c3 * 2^L.
+    // Since hi term contains upto 4 limb-products, we must ensure that the hi term does not overflow the native field
+    // modulus. Suppose we are adding 2^k such terms. Let Q be the max bitsize of a limb. We want to ensure that the sum
     // doesn't overflow the native field modulus. Hence:
-    // 2^k . 2^L . 2^Q . 2^Q < n  ==> Q < (log(n) - k - L) / 2
+    // max(∑ hi) = max(∑ c2 + c3 * 2^L)
+    //           = max(∑ c2) + max(∑ c3 * 2^L)
+    //           = 2^k * (3 * 2^2Q) + 2^k * 2^L * (4 * 2^2Q)
+    //           < 2^k * (2^L + 1) * (4 * 2^2Q)
+    //           < n
+    // ==> 2^k * 2^L * 2^(2Q + 2) < n
+    // ==> 2Q + 2 < (log(n) - k - L)
+    // ==> Q < ((log(n) - k - L) - 2) / 2
     //
     static constexpr uint64_t MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW =
-        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
+        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS - 2) / 2;
 
     // If the logarithm of the maximum value of a limb is more than this, we need to reduce.
     // We allow an element to be added to itself 10 times, so we allow the limb to grow by 10 bits.
@@ -974,11 +1006,11 @@ template <typename Builder, typename T> class bigfield {
      *
      * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
      */
-    static void unsafe_evaluate_multiply_add(const bigfield& left,
-                                             const bigfield& right_mul,
+    static void unsafe_evaluate_multiply_add(const bigfield& input_left,
+                                             const bigfield& input_to_mul,
                                              const std::vector<bigfield>& to_add,
-                                             const bigfield& quotient,
-                                             const std::vector<bigfield>& remainders);
+                                             const bigfield& input_quotient,
+                                             const std::vector<bigfield>& input_remainders);
 
     /**
      * @brief Evaluate a relation involving multiple multiplications and additions.
@@ -1053,6 +1085,35 @@ template <typename Builder, typename T> class bigfield {
      *the maximum value of the whole element is also less than a prohibited maximum value.
      */
     void sanity_check() const;
+
+    /**
+     * @brief Get the maximum values of the binary basis limbs.
+     *
+     * @return std::array<field_t<Builder>, NUM_LIMBS> An array containing the maximum values of the binary basis limbs.
+     */
+    std::array<uint256_t, NUM_LIMBS> get_binary_basis_limb_maximums()
+    {
+        std::array<uint256_t, NUM_LIMBS> limb_maximums;
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            limb_maximums[i] = binary_basis_limbs[i].maximum_value;
+        }
+        return limb_maximums;
+    }
+
+    /**
+     * @brief Compute the partial multiplication of two uint256_t arrays using schoolbook multiplication.
+     *
+     * @param a_limbs
+     * @param b_limbs
+     * @return std::pair<uint512_t, uint512_t>
+     *
+     * @details Regular schoolbook multiplication of two arrays each with L = 4 limbs will produce a result of size
+     * 2 * L - 1 = 7. In this context, we can ignore the last three limbs as those terms have multiplicands: (2^4L,
+     * 2^5L, 2^6L) and since we are working modulo 2^t = 2^4L, those terms will always be zero. This is why we call this
+     * helper function "partial schoolbook multiplication".
+     */
+    static std::pair<uint512_t, uint512_t> compute_partial_schoolbook_multiplication(
+        const std::array<uint256_t, NUM_LIMBS>& a_limbs, const std::array<uint256_t, NUM_LIMBS>& b_limbs);
 
 }; // namespace stdlib
 

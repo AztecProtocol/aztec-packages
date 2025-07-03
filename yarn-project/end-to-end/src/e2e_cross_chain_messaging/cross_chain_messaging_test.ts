@@ -10,7 +10,7 @@ import {
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
   type ExtendedViemWalletClient,

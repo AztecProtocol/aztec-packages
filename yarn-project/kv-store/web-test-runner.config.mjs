@@ -21,8 +21,4 @@ export default {
   reporters: [defaultReporter()],
   concurrency: 1,
   concurrentBrowsers: 1,
-  browserLogs: true,
-  // log everything to debug CI flakes
-  filterBrowserLogs: () => true,
-  logger: console,
 };

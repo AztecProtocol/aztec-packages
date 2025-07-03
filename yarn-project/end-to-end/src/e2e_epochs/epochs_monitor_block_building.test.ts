@@ -6,7 +6,7 @@ import { times, timesAsync } from '@aztec/foundation/collection';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import type { SequencerEvents } from '@aztec/sequencer-client';
+import { type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -89,9 +89,18 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
     const events: TrackedSequencerEvent[] = [];
     sequencers.forEach((sequencer, i) => {
+      const sequencerIndex = i + 2;
+      sequencer.getSequencer().on('state-changed', (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+        const noisyStates = [SequencerState.IDLE, SequencerState.PROPOSER_CHECK, SequencerState.SYNCHRONIZING];
+        if (!noisyStates.includes(args.newState)) {
+          logger.verbose(
+            `Sequencer ${sequencerIndex} transitioned from state ${args.oldState} to state ${args.newState} (${validators[i].attester})`,
+            args,
+          );
+        }
+      });
       failEvents.forEach(eventName => {
         sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
-          const sequencerIndex = i + 2;
           events.push({
             ...args,
             type: eventName,

@@ -6,6 +6,7 @@
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
@@ -25,6 +26,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     using VK = VerifierCommitmentKey<NativeCurve>;
     using Polynomial = bb::Polynomial<Fr>;
     using Commitment = typename NativeCurve::AffineElement;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
+
 
     using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
     template <size_t log_poly_length>
@@ -64,7 +67,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
 
         // Construct stdlib verifier transcript
         auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>();
-        recursive_verifier_transcript->load_proof(bb::convert_native_proof_to_stdlib(&builder, proof));
+        recursive_verifier_transcript->load_proof(StdlibProof(builder, proof));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
     template <size_t log_poly_length> Builder build_ipa_recursive_verifier_circuit()
@@ -240,7 +243,7 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
     // Fully recursively verify this proof to check it.
     VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&root_rollup, 1UL << log_poly_length, this->vk());
     auto stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
-    stdlib_verifier_transcript->load_proof(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
+    stdlib_verifier_transcript->load_proof(StdlibProof(root_rollup, ipa_proof));
     OpeningClaim<Curve> ipa_claim;
     ipa_claim.opening_pair.challenge =
         Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.challenge.get_value());

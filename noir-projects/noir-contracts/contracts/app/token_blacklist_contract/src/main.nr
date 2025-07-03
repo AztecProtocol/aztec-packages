@@ -30,9 +30,12 @@ pub contract TokenBlacklist {
             discovery::private_notes::attempt_note_discovery,
             logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
-        note::note_interface::{NoteHash, NoteProperties, NoteType},
-        prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
+        note::{
+            note_getter_options::NoteGetterOptions,
+            note_interface::{NoteHash, NoteProperties, NoteType},
+        },
         protocol_types::traits::ToField,
+        state_vars::{Map, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
 
@@ -43,7 +46,7 @@ pub contract TokenBlacklist {
         transparent_note::TransparentNote,
     };
     use aztec::protocol_types::{
-        constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
+        address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
 
     // Changing an address' roles has a certain delay before it goes into effect. Here set to 2 slots.
