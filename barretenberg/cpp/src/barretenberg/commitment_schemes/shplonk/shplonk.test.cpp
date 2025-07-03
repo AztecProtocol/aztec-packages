@@ -125,7 +125,7 @@ TEST_F(ShplonkBN254, ExtractStateAndVerify)
     auto verifier = ShplonkVerifier::reduce_verification_no_finalize(verifier_opening_claims, verifier_transcript);
 
     // Export state
-    const auto batched_verifier_claim = verifier.export_state(this->vk().get_g1_identity());
+    const auto batched_verifier_claim = verifier.export_batch_opening_claim(this->vk().get_g1_identity());
 
     // KZG verifier
     auto final_proof_points =

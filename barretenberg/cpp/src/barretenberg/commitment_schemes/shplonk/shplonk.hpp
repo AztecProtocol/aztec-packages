@@ -422,7 +422,7 @@ template <typename Curve> class ShplonkVerifier_ {
      * @param g1_identity
      * @return BatchOpeningClaim<Curve>
      */
-    BatchOpeningClaim<Curve> export_state(const Commitment& g1_identity)
+    BatchOpeningClaim<Curve> export_batch_opening_claim(const Commitment& g1_identity)
     {
         auto exported_commitments = commitments;
         exported_commitments.emplace_back(g1_identity);
