@@ -1,5 +1,8 @@
 use crate::{
-    authwit::authorization_interface::AuthorizationInterface,
+    authwit::{
+        authorization_interface::AuthorizationInterface,
+        authorization_selector::AuthorizationSelector,
+    },
     context::{gas::GasOpts, PrivateContext, PublicContext},
     hash::hash_args_array,
     macros::authorization::authorization,
@@ -205,6 +208,30 @@ struct CallAuthorization {
     args_hash: Field,
 }
 
+#[derive(Serialize)]
+struct CallAuthorizationRequest<let N: u32> {
+    selector: AuthorizationSelector,
+    inner_hash: Field,
+    msg_sender: AztecAddress,
+    fn_selector: FunctionSelector,
+    args_hash: Field,
+}
+
+unconstrained fn emit_authorization_as_offchain_effect<let N: u32>(
+    authorization: CallAuthorization,
+    inner_hash: Field,
+) {
+    let args: [Field; N] = load(authorization.args_hash);
+    let authorization_request = CallAuthorizationRequest {
+        selector: authorization.get_authorization_selector(),
+        inner_hash: inner_hash,
+        msg_sender: authorization.msg_sender,
+        fn_selector: authorization.selector,
+        args_hash: authorization.args_hash,
+    };
+    emit_offchain_effect(authorization_request.serialize().concat(args))
+}
+
 /**
  * Assert that `on_behalf_of` has authorized the current call with a valid authentication witness
  *
@@ -214,7 +241,8 @@ struct CallAuthorization {
  * Additionally, this function emits the identifying information of the call as an offchain effect 
  * so PXE can rely the information to the user/wallet in a readable way. To that effect, it is generic over N, 
  * where N is the number of arguments the authorized functions takes. This is used to load the arguments 
- * from the execution cache.
+ * from the execution cache. This function is intended to be called via a macro, which will use the turbofish
+ * operator to specify the number of arguments.
  *
  * @param on_behalf_of The address that has allegedly authorized the current call
  */
@@ -231,22 +259,10 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
         args_hash,
     };
     let inner_hash = compute_inner_authwit_hash(authorization.serialize());
-    // Safety: args are loaded to be emitted as offchain (and thus, unconstrained) effects.
-    // The real verification will happen once the authwit is validated (which uses the args_hash),
-    // so they can always be checked to be consistent. Therefore, this call is safe.
-    let args: [Field; N] = unsafe { load(args_hash) };
-    emit_offchain_effect(
-        (
-            [
-                authorization.get_authorization_selector().to_field(),
-                inner_hash,
-                authorization.msg_sender.to_field(),
-                authorization.selector.to_field(),
-                authorization.args_hash,
-            ]
-                .concat(args)
-        ),
-    );
+    // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+    // which we don't use for anything besides its side effects, therefore this is safe to call.
+    unsafe { emit_authorization_as_offchain_effect::<N>(authorization, inner_hash) };
+
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit

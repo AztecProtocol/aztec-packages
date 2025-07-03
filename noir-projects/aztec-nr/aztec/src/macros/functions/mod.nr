@@ -43,13 +43,20 @@ pub comptime fn view(_f: FunctionDefinition) {
     // Marker attribute
 }
 
-#[varargs]
-pub comptime fn authorize_once(f: FunctionDefinition, args: [CtString]) {
-    assert(
-        args.len() <= 2,
-        "authorize_once can only take up to two arguments: the name of the argument to compare against msg_sender and the name of the argument used as nonce",
-    );
-    AUTHORIZE_ONCE_REGISTRY.insert(f, args);
+/// Private and public functions can require an authorization check to be performed before execution. This
+/// is typically the case when the function allows performing an action on behalf of someone who is not
+/// the caller.
+/// This macro injects the necessary code to perform the check via the authwit mechanism and additionally
+/// emit the authorization request as an offchain effect, so a user/wallet can verify what are they
+/// being asked to sign.
+/// This check also emits a nullifier with the provided nonce argument, so authorizations are valid
+/// once and only once, preventing replay attacks.
+pub comptime fn authorize_once(
+    f: FunctionDefinition,
+    from_arg_name: CtString,
+    nonce_arg_name: CtString,
+) {
+    AUTHORIZE_ONCE_REGISTRY.insert(f, (from_arg_name, nonce_arg_name));
 }
 
 /// Private functions are executed client-side and preserve privacy.

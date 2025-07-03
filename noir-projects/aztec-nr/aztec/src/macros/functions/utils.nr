@@ -408,53 +408,60 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
 /// This check is injected by the `#[authorize_once("from_arg_name", "nonce_arg_name")]`, which allows the user to define
 /// which parameters to use.
 pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quoted {
-    let name = f.name();
-    let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
-    if maybe_authorize_once_args.is_none() {
+    if !is_fn_private(f) & !is_fn_public(f) {
         panic(
-            f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
+            f"Functions marked with #[authorize_once] must either be #[private] or #[public]",
         );
     }
-    let mut from_arg_name = if maybe_authorize_once_args.unwrap().len() > 0 {
-        maybe_authorize_once_args.unwrap().pop_front().0
+    let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
+    let authorize_once_args = if maybe_authorize_once_args.is_some() {
+        maybe_authorize_once_args.unwrap()
     } else {
-        "from".as_ctstring()
+        panic(
+            f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
+        )
     };
-    let nonce_arg_name = if maybe_authorize_once_args.unwrap().len() > 1 {
-        maybe_authorize_once_args.unwrap().pop_back().1
-    } else {
-        "authwit_nonce".as_ctstring()
-    };
-    let from_arg_candidates = f.parameters().filter(|(name, typ)| {
-        (name == f"{from_arg_name}".quoted_contents())
-            & (typ == quote { dep::protocol_types::address::aztec_address::AztecAddress }.as_type())
-    });
-    let from_arg = if from_arg_candidates.len() == 1 {
+
+    let (from_arg_name, nonce_arg_name) = authorize_once_args;
+    let name: Quoted = f.name();
+
+    let from_arg_candidates =
+        f.parameters().filter(|(name, _)| name == f"{from_arg_name}".quoted_contents());
+    let (from_arg_name_quoted, from_arg_type) = if from_arg_candidates.len() == 1 {
         from_arg_candidates[0]
     } else {
         panic(
-            f"Function {name} does not have a {from_arg_name}: AztecAddress parameter. Please provide it or specify which one to use in #[authorize_once(\"...\")]",
+            f"Function {name} does not have a {from_arg_name} parameter. Please specify which one to use in #[authorize_once(\"...\", \"authwit_nonce\")]",
         )
     };
-    let nonce_arg_candidates = f.parameters().filter(|(name, typ)| {
-        (name == f"{nonce_arg_name}".quoted_contents()) & (typ == quote { Field }.as_type())
-    });
-    let nonce_arg = if nonce_arg_candidates.len() == 1 {
+    if from_arg_type
+        != quote { dep::protocol_types::address::aztec_address::AztecAddress }.as_type() {
+        panic(
+            f"Argument {from_arg_name_quoted} in function {name} must be of type AztecAddress, but is of type {from_arg_type}",
+        )
+    }
+
+    let nonce_arg_candidates =
+        f.parameters().filter(|(name, _)| name == f"{nonce_arg_name}".quoted_contents());
+    let (nonce_arg_name_quoted, nonce_arg_type) = if nonce_arg_candidates.len() == 1 {
         nonce_arg_candidates[0]
     } else {
         panic(
-            f"Function {name} does not have a {nonce_arg_name}: Field parameter. Please provide it or specify which one to use in #[authorize_once(\"from\", \"...\")]",
+            f"Function {name} does not have a {nonce_arg_name}. Please specify which one to use in #[authorize_once(\"from\", \"...\")]",
         )
     };
-    // At this point, the original args of the fn have already been altered by the macro
-    // to include the PublicContextInputs, so we need to adjust the args_len accordingly.
-    let args_len = f.parameters().len() - 1;
-    let (from_arg_name_quoted, _) = from_arg;
-    let (nonce_arg_name_quoted, _) = nonce_arg;
+    if nonce_arg_type != quote { Field }.as_type() {
+        panic(
+            f"Argument {nonce_arg_name_quoted} in function {name} must be of type Field, but is of type {nonce_arg_type}",
+        );
+    }
 
     let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
 
     let fn_call = if is_fn_private(f) {
+        // At this point, the original args of the fn have already been altered by the macro
+        // to include PrivateContextInputs, so we need to adjust the args_len accordingly.
+        let args_len = f.parameters().len() - 1;
         quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
     } else {
         quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit_public }
