@@ -1,0 +1,64 @@
+# Transaction Discarding Chaos Scenario
+# This scenario simulates network conditions that cause transactions to be dropped
+# by applying aggressive packet loss to validator and p2p communications
+
+global:
+  namespace: "smoke"
+
+networkShaping:
+  enabled: true
+  # Apply chaos specifically to transaction-handling components
+  appliedTo:
+    - validator
+    - full-node
+    - pxe
+  conditions:
+    # Aggressive packet loss to simulate transaction dropping
+    packetLoss:
+      enabled: true
+      # 15% packet loss - high enough to cause transaction drops
+      loss: "15"
+      # High correlation = losses happen in bursts (simulates network congestion)
+      correlation: "85"
+
+    # Add some latency to make packet loss more realistic
+    latency:
+      enabled: true
+      delay:
+        # Network congestion latency
+        latency: 200ms
+        jitter: 100ms
+        correlation: "80"
+
+    # Bandwidth constraints to further stress transaction propagation
+    bandwidth:
+      enabled: true
+      # Limited bandwidth to create bottlenecks
+      rate: 10mbps
+      limit: 5000000 # 5 MB
+      buffer: 2000
+
+# Additional chaos specifically for transaction processing
+transactionChaos:
+  enabled: true
+  # Target validator nodes specifically for transaction pool chaos
+  validatorStress:
+    enabled: true
+    # Simulate validator nodes being overwhelmed
+    duration: 30m
+
+  # Simulate mempool congestion
+  mempoolStress:
+    enabled: true
+    # High transaction volume stress
+    duration: 15m
+
+# Boot node disruption to test transaction routing resilience
+bootNodeFailure:
+  enabled: true
+  duration: 10m
+
+# Validator rotation to test transaction handling during consensus changes
+validatorKill:
+  enabled: true
+  percent: 25
