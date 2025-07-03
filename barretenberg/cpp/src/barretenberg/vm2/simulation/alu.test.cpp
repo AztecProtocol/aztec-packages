@@ -34,7 +34,7 @@ TEST(AvmSimulationAluTest, Add)
     EXPECT_EQ(c, MemoryValue::from<uint32_t>(3));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c, {} }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::ADD, .a = a, .b = b, .c = c }));
 }
 
 TEST(AvmSimulationAluTest, AddOverflow)
@@ -52,7 +52,7 @@ TEST(AvmSimulationAluTest, AddOverflow)
     EXPECT_EQ(c, MemoryValue::from<uint32_t>(1));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c, {} }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::ADD, .a = a, .b = b, .c = c }));
 }
 
 TEST(AvmSimulationAluTest, NegativeAddTag)
@@ -68,9 +68,12 @@ TEST(AvmSimulationAluTest, NegativeAddTag)
     EXPECT_THROW(alu.add(a, b), AluException);
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(
-        events,
-        ElementsAre(AluEvent{ AluOperation::ADD, a, b, MemoryValue::from_tag(a.get_tag(), 0), AluError::TAG_ERROR }));
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::ADD,
+                                      .a = a,
+                                      .b = b,
+                                      .c = MemoryValue::from_tag(a.get_tag(), 0),
+                                      .error = AluError::TAG_ERROR }));
 }
 
 TEST(AvmSimulationAluTest, LT)
@@ -90,7 +93,7 @@ TEST(AvmSimulationAluTest, LT)
     EXPECT_EQ(c, MemoryValue::from<uint1_t>(1));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::LT, a, b, c, {} }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::LT, .a = a, .b = b, .c = c }));
 }
 
 TEST(AvmSimulationAluTest, LTFF)
@@ -111,7 +114,7 @@ TEST(AvmSimulationAluTest, LTFF)
     EXPECT_EQ(c, MemoryValue::from<uint1_t>(0));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::LT, a, b, c, {} }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::LT, .a = a, .b = b, .c = c }));
 }
 
 } // namespace

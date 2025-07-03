@@ -51,7 +51,7 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     } catch (const AluError& e) {
         debug("ALU operation failed: ", to_string(e));
-        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c, .error = e });
+        events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c, .error = e });
         throw AluException();
     }
     return c;
