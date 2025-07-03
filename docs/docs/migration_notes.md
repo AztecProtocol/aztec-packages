@@ -9,6 +9,11 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.js]
+
+Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
+While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
 ### `max_block_number` -> `include_by_timestamp`
@@ -72,7 +77,6 @@ and stale dependencies removed from `Nargo.toml`
 ```diff
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
-
 
 ## 0.87.0
 

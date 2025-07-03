@@ -7,7 +7,7 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 
 import { type Hex, createPublicClient, fallback, http } from 'viem';
 
-import type { ViemPublicClient } from './types.js';
+import type { ViemPublicClient } from '../types.js';
 
 /**
  * A class that provides utility functions for interacting with ethereum (L1).
