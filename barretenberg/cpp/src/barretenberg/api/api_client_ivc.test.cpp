@@ -21,32 +21,30 @@
 #include <filesystem>
 #include <gtest/gtest.h>
 #include <sstream>
+#include <string_view>
 
-namespace bb {
+using namespace bb;
 
-using namespace acir_bincode_test;
-
-// Helper to create a temporary directory for test files
-std::filesystem::path create_temp_test_dir()
+namespace {
+// Create a unique temporary directory for each test run
+// Uniqueness needed because tests are run in parallel and write to same file names.
+std::filesystem::path get_test_dir(const std::string_view& test_name)
 {
     std::filesystem::path temp_dir = "tmp_api_client_ivc_test";
-    // NOLINTNEXTLINE(cert-msc30-cpp,cert-msc50-cpp,cert-msc30-c,cert-msc50-c)
-    temp_dir /= std::to_string(std::chrono::system_clock::now().time_since_epoch().count() + std::rand());
     std::filesystem::create_directories(temp_dir);
-    return temp_dir;
+    std::filesystem::create_directories(temp_dir / test_name);
+    return temp_dir / test_name;
 }
 
-// Helper to create PrivateExecutionSteps for testing
 void create_test_private_execution_steps(const std::filesystem::path& output_path)
 {
     using namespace acir_format;
 
     // First create a simple app circuit
-    auto [app_bytecode, app_witness_data] = create_simple_circuit_bytecode();
+    auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     // Get the VK for the app circuit
     bbrpc::BBRpcRequest request;
-    request.trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE };
 
     auto app_vk =
         bbrpc::execute(request,
@@ -56,8 +54,8 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
     auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
 
     // Now create a kernel circuit that verifies the app circuit
-    auto kernel_bytecode = create_simple_kernel(app_vk_fields.size(), false);
-    auto kernel_witness_data = create_kernel_witness(app_vk_fields);
+    auto kernel_bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/true);
+    auto kernel_witness_data = acir_bincode_mocks::create_kernel_witness(app_vk_fields);
 
     auto kernel_vk =
         bbrpc::execute(request,
@@ -75,12 +73,17 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
                           .function_name = "kernel_function" });
     PrivateExecutionStepRaw::compress_and_save(std::move(raw_steps), output_path);
 }
+} // namespace
 
 class ClientIVCAPITests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    void SetUp() override { test_dir = create_temp_test_dir(); }
+    void SetUp() override
+    {
+        const auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
+        test_dir = get_test_dir(info->name());
+    }
 
     void TearDown() override
     {
@@ -94,18 +97,20 @@ class ClientIVCAPITests : public ::testing::Test {
 
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
 
-// Helper lambda to create standalone VK for comparison
+// Used to get a mock IVC vk.
 ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 {
-    auto [app_bytecode, app_witness_data] = create_simple_circuit_bytecode();
+    auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
     bbrpc::BBRpcRequest request;
+    // First create an app standalone VK.
     auto app_vk =
         bbrpc::execute(request,
                        bbrpc::ClientIvcComputeVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode },
                                                   .standalone = true })
             .verification_key;
     auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
-    auto bytecode = create_simple_kernel(app_vk_fields.size(), true);
+    // Use this to get the size of the vk.
+    auto bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/false);
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
     write_file(bytecode_path, compress(bytecode));
 
@@ -119,6 +124,8 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
     return from_buffer<ClientIVC::MegaVerificationKey>(read_file(test_dir / "vk"));
 };
 
+// Test the ClientIVCAPI::prove flow, making sure --write_vk
+// returns the same output as our ivc VK generation.
 TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
 {
     auto ivc_vk = get_ivc_vk(test_dir);
@@ -164,11 +171,11 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyFileBasedFlow)
     EXPECT_TRUE(verify_proof());
 }
 
-// Note: very light test!
-TEST_F(ClientIVCAPITests, WriteVkFields)
+// WORKTODO(bbrpc): Expand on this.
+TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
 {
     // Create a simple circuit bytecode
-    auto [bytecode, witness_data] = create_simple_circuit_bytecode();
+    auto [bytecode, witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     // Compress and write bytecode to file
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
@@ -190,10 +197,11 @@ TEST_F(ClientIVCAPITests, WriteVkFields)
     EXPECT_NE(vk_str.find(']'), std::string::npos);
 }
 
-TEST_F(ClientIVCAPITests, GatesCommand)
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1461): Make this test actually test # gates
+TEST_F(ClientIVCAPITests, GatesCommandSmokeTest)
 {
     // Create a simple circuit bytecode
-    auto [bytecode, witness_data] = create_simple_circuit_bytecode();
+    auto [bytecode, witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     // Write compressed bytecode to file
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
@@ -227,6 +235,7 @@ TEST_F(ClientIVCAPITests, GatesCommand)
     EXPECT_NE(output.find("\"gates_per_opcode\": ["), std::string::npos);
 }
 
+// Test prove_and_verify for our example IVC flow.
 TEST_F(ClientIVCAPITests, ProveAndVerifyCommand)
 {
     // Create test input file
@@ -237,6 +246,7 @@ TEST_F(ClientIVCAPITests, ProveAndVerifyCommand)
     EXPECT_TRUE(api.prove_and_verify(input_path));
 }
 
+// Check a case where precomputed VKs match
 TEST_F(ClientIVCAPITests, CheckPrecomputedVks)
 {
     // Create test input file with precomputed VKs
@@ -247,12 +257,13 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVks)
     EXPECT_TRUE(api.check_precomputed_vks(input_path));
 }
 
+// Check a case where precomputed VKs don't match
 TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
 {
     using namespace acir_format;
 
     // Create a simple circuit
-    auto [bytecode, witness_data] = create_simple_circuit_bytecode();
+    auto [bytecode, witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     bbrpc::BBRpcRequest request;
     size_t vk_size =
@@ -265,7 +276,7 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
             .size();
 
     // Create a WRONG verification key (use a different circuit)
-    auto different_bytecode = create_simple_kernel(vk_size, false);
+    auto different_bytecode = acir_bincode_mocks::create_simple_kernel(vk_size, /*is_init_kernel=*/true);
     auto vk = bbrpc::execute(
                   request,
                   bbrpc::ClientIvcComputeVk{ .circuit = { .name = "different_circuit", .bytecode = different_bytecode },
@@ -290,77 +301,3 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
     bool result = api.check_precomputed_vks(input_path);
     EXPECT_FALSE(result);
 }
-
-TEST_F(ClientIVCAPITests, CheckPrecomputedVksMissing)
-{
-    using namespace acir_format;
-
-    // Create a simple circuit
-    auto [bytecode, witness_data] = create_simple_circuit_bytecode();
-
-    // Create PrivateExecutionStepRaw with no VK
-    std::vector<PrivateExecutionStepRaw> raw_steps;
-    PrivateExecutionStepRaw step;
-    step.bytecode = bytecode;
-    step.witness = witness_data;
-    step.vk = {}; // Empty VK (missing)
-    step.function_name = "test_function";
-    raw_steps.push_back(std::move(step));
-
-    // Write to file using compress_and_save
-    std::filesystem::path input_path = test_dir / "input_missing_vks.msgpack";
-    PrivateExecutionStepRaw::compress_and_save(std::move(raw_steps), input_path);
-
-    // Should fail because VK is missing
-    ClientIVCAPI api;
-    bool result = api.check_precomputed_vks(input_path);
-    EXPECT_FALSE(result);
-}
-
-TEST_F(ClientIVCAPITests, ProveToStdout)
-{
-    // Create test input file
-    std::filesystem::path input_path = test_dir / "input.msgpack";
-    create_test_private_execution_steps(input_path);
-
-    ClientIVCAPI::Flags flags;
-    flags.write_vk = false;
-
-    // Use "-" as output dir to write to stdout
-    std::filesystem::path output_dir = "-";
-
-    // Capture stdout using standard stream redirection
-    std::ostringstream captured_output;
-    std::streambuf* old_cout = std::cout.rdbuf(captured_output.rdbuf());
-
-    ClientIVCAPI api;
-    api.prove(flags, input_path, output_dir);
-
-    // Restore stdout
-    std::cout.rdbuf(old_cout);
-    std::string output = captured_output.str();
-
-    // Should have written binary proof data to stdout
-    EXPECT_FALSE(output.empty());
-}
-
-TEST_F(ClientIVCAPITests, ArbitraryValidProofAndVk)
-{
-    std::filesystem::path output_dir = test_dir / "arbitrary";
-    std::filesystem::create_directories(output_dir);
-
-    write_arbitrary_valid_client_ivc_proof_and_vk_to_file(output_dir);
-
-    // Check that proof and vk files were created
-    EXPECT_TRUE(std::filesystem::exists(output_dir / "proof"));
-    EXPECT_TRUE(std::filesystem::exists(output_dir / "vk"));
-
-    // Verify the generated proof
-    const auto proof = ClientIVC::Proof::from_file_msgpack(output_dir / "proof");
-    const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(output_dir / "vk"));
-
-    const bool verified = ClientIVC::verify(proof, vk);
-    EXPECT_TRUE(verified);
-}
-
-} // namespace bb

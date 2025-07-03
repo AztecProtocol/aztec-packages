@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace bb::acir_bincode_test {
+namespace bb::acir_bincode_mocks {
 
 const size_t BIT_COUNT = 254;
 
@@ -66,64 +66,37 @@ inline std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circu
 }
 
 /**
- * @brief Create an invalid witness data set (5 * 7 != 13)
- * @param bytecode The bytecode to create invalid witness for
- * @return Invalid witness data bytes
- */
-inline std::vector<uint8_t> create_invalid_witness_data()
-{
-    Witnesses::WitnessStack witness_stack;
-    Witnesses::StackItem stack_item;
-    stack_item.index = 0;
-    stack_item.witness.value = {
-        { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000005" }, // w0 = 5
-        { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000007" }, // w1 = 7
-        { Witnesses::Witness{ 2 },
-          "000000000000000000000000000000000000000000000000000000000000000d" } // w2 = 13 (wrong! 5*7=35)
-    };
-    witness_stack.stack.push_back(stack_item);
-    return witness_stack.bincodeSerialize();
-}
-
-/**
  * @brief Create a simple kernel circuit for IVC testing
  * @param vk_size Size of the verification key
  * @param is_tail Whether this is a tail kernel (uses PG proof type) or not (uses OINK)
  * @return Serialized kernel bytecode
  */
-inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_tail)
+inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_kernel)
 {
     Acir::Circuit circuit;
-
-    // Need witness indices for VK elements, proof, and public inputs
-    uint32_t witness_idx = 0;
-
     std::vector<Acir::FunctionInput> vk_inputs;
     for (uint32_t i = 0; i < vk_size; i++) {
-        auto pub_input = Acir::Witness{ witness_idx };
-        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ pub_input } }, BIT_COUNT };
+        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ i } }, BIT_COUNT };
         vk_inputs.push_back(input);
-        witness_idx++;
     }
 
     // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
-    // We only have something like the init kernel, so verify OINK. pass no proof or public inputs like there.
+    // We mock the init or tail kernels using OINK or PG respectively.
     Acir::BlackBoxFuncCall::RecursiveAggregation recursion{
         .verification_key = vk_inputs,
         .proof = {},
         .public_inputs = {},
-        // unused
+        // NOTE: If this starts failing after key hash becomes required need to pass as witness! (possibly after the VK,
+        // adding +1 to witness index below)
         .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Witness{ Acir::Witness{ 0 } } }, BIT_COUNT },
-        .proof_type = is_tail ? acir_format::PROOF_TYPE::PG : acir_format::PROOF_TYPE::OINK
+        .proof_type = is_init_kernel ? acir_format::PROOF_TYPE::OINK : acir_format::PROOF_TYPE::PG
     };
 
-    // Create the BlackBoxFuncCall opcode
     Acir::BlackBoxFuncCall black_box_call;
     black_box_call.value = recursion;
 
-    // Add to circuit opcodes
     circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
-    circuit.current_witness_index = witness_idx;
+    circuit.current_witness_index = static_cast<uint32_t>(vk_inputs.size());
     circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
 
     // Create the program with the circuit
@@ -150,4 +123,4 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
     return kernel_witness.bincodeSerialize();
 }
 
-} // namespace bb::acir_bincode_test
+} // namespace bb::acir_bincode_mocks

@@ -15,7 +15,7 @@ namespace bb::bbrpc {
 
 /**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or ClientIVC-honk verification key derivation..
+ * @brief A circuit to be used in either ultrahonk or chonk (ClientIVC+honk) verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
