@@ -5,6 +5,6 @@ pub mod utils;
 pub mod notes;
 pub mod storage;
 pub mod events;
-pub mod authwits;
+pub mod authorization;
 
 pub use aztec::aztec;

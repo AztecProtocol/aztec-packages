@@ -79,7 +79,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
       await expect(
         asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 1).simulate(),
-      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
+      ).rejects.toThrow(
+        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
+      );
     });
 
     it('on behalf of other (more than balance)', async () => {
@@ -126,7 +128,10 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
     it('unshield from blacklisted account', async () => {
       await expect(
-        asset.methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).simulate(),
+        asset
+          .withWallet(blacklisted)
+          .methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0)
+          .simulate(),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 

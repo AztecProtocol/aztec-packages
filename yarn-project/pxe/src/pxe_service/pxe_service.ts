@@ -909,7 +909,7 @@ export class PXEService implements PXE {
         }
 
         let validationTime: number | undefined;
-        if (!skipTxValidation && !skipKernels) {
+        if (!skipTxValidation) {
           const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();

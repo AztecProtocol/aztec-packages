@@ -2,8 +2,10 @@ pub(crate) mod abi_export;
 pub(crate) mod call_interface_stubs;
 pub(crate) mod initialization_utils;
 pub(crate) mod stub_registry;
+pub(crate) mod auth_registry;
 pub(crate) mod utils;
 
+use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 use utils::{transform_private, transform_public, transform_utility};
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
@@ -39,6 +41,22 @@ pub comptime fn internal(_f: FunctionDefinition) {
 /// View functions can only be called in a static execution context.
 pub comptime fn view(_f: FunctionDefinition) {
     // Marker attribute
+}
+
+/// Private and public functions can require an authorization check to be performed before execution. This
+/// is typically the case when the function allows performing an action on behalf of someone who is not
+/// the caller.
+/// This macro injects the necessary code to perform the check via the authwit mechanism and additionally
+/// emit the authorization request as an offchain effect, so a user/wallet can verify what are they
+/// being asked to sign.
+/// This check also emits a nullifier with the provided nonce argument, so authorizations are valid
+/// once and only once, preventing replay attacks.
+pub comptime fn authorize_once(
+    f: FunctionDefinition,
+    from_arg_name: CtString,
+    nonce_arg_name: CtString,
+) {
+    AUTHORIZE_ONCE_REGISTRY.insert(f, (from_arg_name, nonce_arg_name));
 }
 
 /// Private functions are executed client-side and preserve privacy.

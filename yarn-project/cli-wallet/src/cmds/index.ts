@@ -1,3 +1,4 @@
+import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat';
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
@@ -372,7 +373,8 @@ export function injectCommands(
 
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-    const wallet = await account.getWallet();
+    const originalWallet = await account.getWallet();
+    const wallet = await CopyCatAccountWallet.create(client, originalWallet);
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
     const authWitnesses = cleanupAuthWitnesses(authWitness);
     await simulate(
