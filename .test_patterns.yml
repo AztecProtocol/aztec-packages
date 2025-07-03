@@ -153,6 +153,10 @@ tests:
     error_regex: "✕ successfully proves multiple epochs"
     owners:
       - *lasse
+  - regex: "src/e2e_epochs/epochs_monitor_block_building"
+    error_regex: "✕ builds blocks without any errors"
+    owners:
+      - *jan
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:

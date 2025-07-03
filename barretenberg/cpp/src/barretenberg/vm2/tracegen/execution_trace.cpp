@@ -423,10 +423,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 2
-         *  - Mapping from wire instruction to execution instruction
-         *  - Gas (will be moved to group 4)
-         *  - Address resolution
+         *  Temporality group 2: Mapping from wire to execution and addressing.
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
@@ -435,15 +432,8 @@ void ExecutionTraceBuilder::process(
             process_execution_spec(ex_event, trace, row);
         }
 
-        bool should_check_gas = !instruction_fetching_failed;
-        bool oog_base = ex_event.error == ExecutionError::GAS_BASE;
-        trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
-        if (should_check_gas) {
-            process_gas_base(ex_event.gas_event, trace, row);
-        }
-
-        bool should_resolve_address = should_check_gas && !oog_base;
-        trace.set(C::execution_sel_should_resolve_address, row, should_resolve_address ? 1 : 0);
+        bool should_resolve_address = should_read_exec_spec;
+        // pol SEL_SHOULD_RESOLVE_ADDRESS = sel_bytecode_retrieval_success * sel_instruction_fetching_success;
         if (should_resolve_address) {
             process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
@@ -453,6 +443,7 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 3: Registers read.
          **************************************************************************************************/
 
+        // Note that if addressing did not fail, register reading will not fail.
         std::array<TaggedValue, NUM_REGISTERS> registers;
         std::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
         bool should_process_registers = should_resolve_address && !addressing_failed;
@@ -462,23 +453,21 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 4: Gas (will be moved here).
+         *  Temporality group 4: Gas (both base and dynamic).
          **************************************************************************************************/
 
-        bool should_process_dynamic_gas = should_process_registers && !register_processing_failed;
-        bool oog_dynamic = ex_event.error == ExecutionError::GAS_DYNAMIC;
-        trace.set(C::execution_should_run_dyn_gas_check, row, should_process_dynamic_gas ? 1 : 0);
-        if (should_process_dynamic_gas) {
-            process_dynamic_gas(ex_event.gas_event, trace, row);
+        bool should_check_gas = should_process_registers && !register_processing_failed;
+        bool oog = ex_event.error == ExecutionError::GAS;
+        trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
+        if (should_check_gas) {
+            process_gas(ex_event.gas_event, trace, row);
         }
 
         /**************************************************************************************************
          *  Temporality group 5: Opcode execution.
          **************************************************************************************************/
-        bool should_execute_opcode = should_process_dynamic_gas && !oog_dynamic;
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
-        bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
 
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
@@ -492,10 +481,12 @@ void ExecutionTraceBuilder::process(
         bool sel_enter_call = (is_call || is_static_call) && !is_err;
         bool sel_exit_call = is_return || is_revert || is_err;
 
+        bool should_execute_opcode = should_check_gas && !oog;
+        bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             trace.set(row,
                       { {
-                          { C::execution_should_execute_opcode, 1 },
+                          { C::execution_sel_should_execute_opcode, 1 },
                           { C::execution_sel_opcode_error, opcode_execution_failed ? 1 : 0 },
                       } });
 
@@ -719,32 +710,24 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
     }
 }
 
-void ExecutionTraceBuilder::process_dynamic_gas(const simulation::GasEvent& gas_event,
-                                                TraceContainer& trace,
-                                                uint32_t row)
+void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
 {
     trace.set(row,
               { {
-                  { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
-                  { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
-                  { C::execution_out_of_gas_dynamic_l2, gas_event.oog_dynamic_l2 },
-                  { C::execution_out_of_gas_dynamic_da, gas_event.oog_dynamic_da },
-                  { C::execution_out_of_gas_dynamic, (gas_event.oog_dynamic_l2 || gas_event.oog_dynamic_da) ? 1 : 0 },
-              } });
-}
-
-void ExecutionTraceBuilder::process_gas_base(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
-{
-    trace.set(row,
-              { {
+                  { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
+                  { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
+                  // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
-                  { C::execution_out_of_gas_base_l2, gas_event.oog_base_l2 },
-                  { C::execution_out_of_gas_base_da, gas_event.oog_base_da },
                   { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
                   { C::execution_limit_used_da_cmp_diff, gas_event.limit_used_da_comparison_witness },
                   { C::execution_constant_64, 64 },
-                  { C::execution_out_of_gas_base, (gas_event.oog_base_l2 || gas_event.oog_base_da) ? 1 : 0 },
+                  // Dynamic gas.
+                  { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
+                  { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
+
+    bool oog = gas_event.oog_l2 || gas_event.oog_da;
+    trace.set(C::execution_sel_out_of_gas, row, oog ? 1 : 0);
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
