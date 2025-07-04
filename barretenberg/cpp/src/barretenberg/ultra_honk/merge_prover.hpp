@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -26,6 +27,7 @@ class MergeProver {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using PCS = KZG<Curve>;
+    using ShplonkProver = ShplonkProver_<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using OpeningPair = bb::OpeningPair<Curve>;
     using Transcript = NativeTranscript;

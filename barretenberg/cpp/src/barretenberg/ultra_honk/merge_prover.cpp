@@ -48,65 +48,94 @@ MergeProver::MergeProof MergeProver::construct_proof()
     std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
-    // Compute g_j(X) = t_j(1/X)
-    std::array<Polynomial, NUM_WIRES> g;
-
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
 
+    // Compute g_j(X) = X^{l-1} t_j(1/X)
+    std::array<Polynomial, NUM_WIRES> inverted_t_current;
+    for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+        Polynomial tmp(current_subtable_size, current_subtable_size);
+        for (size_t idx = 0; idx < current_subtable_size; ++idx) {
+            tmp.at(idx) = t_current[wire_idx].at(current_subtable_size - 1 - idx);
+        }
+        inverted_t_current[wire_idx] = tmp;
+        // for (auto& coeff : t_current[wire_idx].coeffs()) {
+        //     info("t: ", coeff);
+        // }
+        // for (auto& coeff : inverted_t_current[wire_idx].coeffs()) {
+        //     info("inverted: ", coeff);
+        // }
+    }
+
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
 
-    // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
+    // Compute/get commitments [t], [T_prev], [T], [inverted_t_current] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
         Commitment T_prev_commitment = pcs_commitment_key.commit(T_prev[idx]);
         Commitment T_commitment = pcs_commitment_key.commit(T_current[idx]);
+        Commitment inverted_t_commitment = pcs_commitment_key.commit(inverted_t_current[idx]);
 
         std::string suffix = std::to_string(idx);
         transcript->send_to_verifier("T_PREV_" + suffix, T_prev_commitment);
         transcript->send_to_verifier("T_CURRENT_" + suffix, T_commitment);
+        transcript->send_to_verifier("INVERTED_t_CURRENT" + suffix, inverted_t_commitment);
     }
 
-    // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
-    // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
+    // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
+    auto minus_pow_kappa = -kappa.pow(current_subtable_size);
+    auto kappa_inv = kappa.invert();
 
-    // Add univariate opening claims for each polynomial.
+    // Compute p_j(X) = t_j(X) - kappa^l T_{j,prev}(X) - T(X)
+    std::array<Polynomial, NUM_WIRES> partially_computed_difference;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        Polynomial tmp(current_table_size);
+        tmp += t_current[idx];
+        tmp.add_scaled(T_prev[idx], minus_pow_kappa);
+        tmp -= T_current[idx];
+        partially_computed_difference[idx] = tmp;
+    }
+
+    // Add univariate opening claims for each polynomial p_j, g_j, t_j
     std::vector<OpeningClaim> opening_claims;
-    // Compute evaluation t(\kappa)
+    // Compute evaluation t(\kappa) and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation = t_current[idx].evaluate(kappa);
         transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ std::move(t_current[idx]), { kappa, evaluation } });
     }
-    // Compute evaluation T_prev(\kappa)
+    // Compute evaluation T_prev(\kappa) and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation = T_prev[idx].evaluate(kappa);
         transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ T_prev[idx], { kappa, evaluation } });
     }
-    // Compute evaluation T(\kappa)
+    // Compute evaluation T(\kappa) and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation = T_current[idx].evaluate(kappa);
         transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ std::move(T_current[idx]), { kappa, evaluation } });
+    }
+    // Set opening claims p(\kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        opening_claims.emplace_back(OpeningClaim{ std::move(partially_computed_difference[idx]), { kappa, FF(0) } });
+    }
+    // Compute evaluation g(\kappa), add to transcript, and set opening claim
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF evaluation = inverted_t_current[idx].evaluate(kappa);
+        transcript->send_to_verifier("inverted_t_eval_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ std::move(inverted_t_current[idx]), { kappa, evaluation } });
+    }
+    // Compute evaluation t(1/\kappa), add to transcript, and set opening claim
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF evaluation = t_current[idx].evaluate(kappa_inv);
+        transcript->send_to_verifier("t_eval_inv_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ std::move(t_current[idx]), { kappa_inv, evaluation } });
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    // Shplonk prover
+    auto opening_claim = ShplonkProver::prove(pcs_commitment_key, opening_claims, transcript);
 
-    // Construct batched polynomial to be opened via KZG
-    Polynomial batched_polynomial(current_table_size);
-    FF batched_eval(0);
-    FF alpha_pow(1);
-    for (auto& claim : opening_claims) {
-        batched_polynomial.add_scaled(claim.polynomial, alpha_pow);
-        batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        alpha_pow *= alpha;
-    }
-
-    // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
-    OpeningClaim batched_claim = { std::move(batched_polynomial), { kappa, batched_eval } };
-    PCS::compute_opening_proof(pcs_commitment_key, batched_claim, transcript);
+    // KZG prover
+    PCS::compute_opening_proof(pcs_commitment_key, opening_claim, transcript);
 
     return transcript->export_proof();
 }
