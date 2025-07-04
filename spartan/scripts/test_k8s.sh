@@ -40,6 +40,7 @@ project_id=${PROJECT_ID:-}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
 sepolia_run=${SEPOLIA_RUN:-false}
+validator_txpool_limit=${VALIDATOR_TXPOOL_LIMIT:-10000000}
 
 resources_file="${RESOURCES_FILE:-default.yaml}"
 OVERRIDES="${OVERRIDES:-}"
@@ -122,6 +123,14 @@ copy_stern_to_log
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
   deploy_result=$(RESOURCES_FILE="$resources_file" OVERRIDES="$OVERRIDES" ./deploy_k8s.sh $target $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
+fi
+
+# override tx-pool size for a single validator
+if [ -n "${VALIDATOR_TXPOOL_LIMIT:-}" ]; then
+  # Default to the first validator (index 0) but allow caller to specify a different index via VALIDATOR_IDX
+  validator_idx="${VALIDATOR_IDX:-0}"
+  validator_sts="${helm_instance}-aztec-network-validator-${validator_idx}"
+  ./patch_txpool.sh "$namespace" "$validator_sts" "$VALIDATOR_TXPOOL_LIMIT"
 fi
 
 if [ "$install_metrics" = "true" ]; then

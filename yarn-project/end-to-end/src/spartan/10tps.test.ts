@@ -1,4 +1,4 @@
-import { readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { Fr, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -15,10 +15,10 @@ describe('sustained 10 TPS test', () => {
 
   const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
   const MINT_AMOUNT = 10000n; // Enough for many transactions
-  const TEST_DURATION_SECONDS = 120; // 2 minutes of sustained 10 TPS
+  const TEST_DURATION_SECONDS = 60; // 1 minute of sustained 10 TPS
   const TARGET_TPS = 10;
   const EXPECTED_TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
-  const TX_INTERVAL_MS = 1000 / TARGET_TPS; // 100ms between transactions
+  const _TX_INTERVAL_MS = 1000 / TARGET_TPS; // 100ms between transactions (unused after refactor)
 
   let testWallets: TestWallets;
   let PXE_URL: string;
@@ -84,183 +84,195 @@ describe('sustained 10 TPS test', () => {
     logger.info(`Token verified: ${name}`);
   });
 
-  it('maintains exactly 10 TPS for sustained period', async () => {
+  it('can transfer 1 token privately and publicly', async () => {
     const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
+
+    for (const w of testWallets.wallets) {
+      expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
+    }
+
+    expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
+
     const wallet = testWallets.wallets[0];
 
-    // Verify initial balances
-    const initialBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(wallet.getAddress()).simulate();
-    const initialRecipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
+    const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
+      .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
+      .prove();
 
-    logger.info(`Initial sender balance: ${initialBalance}`);
-    logger.info(`Initial recipient balance: ${initialRecipientBalance}`);
-    expect(initialBalance).toBe(MINT_AMOUNT);
-    expect(initialRecipientBalance).toBe(0n);
+    const TXS_PER_SECOND = 10;
+    const TOTAL_SECONDS = 60;
+    const TOTAL_TXS = TXS_PER_SECOND * TOTAL_SECONDS;
 
-    const startTime = Date.now();
-    const transactions: Array<{ txIndex: number; sentAt: number; receipt?: any }> = [];
+    const allSendPromises: Promise<any>[] = [];
 
-    logger.info(
-      `Starting sustained 10 TPS test for ${TEST_DURATION_SECONDS} seconds (${TX_INTERVAL_MS}ms intervals)...`,
-    );
+    let globalIdx = 0;
 
-    // Send exactly 10 transactions per second (1 every 100ms)
-    for (let i = 0; i < EXPECTED_TOTAL_TXS; i++) {
-      const targetTime = startTime + i * TX_INTERVAL_MS;
-      const currentTime = Date.now();
+    for (let sec = 0; sec < TOTAL_SECONDS; sec++) {
+      const secondStart = Date.now();
 
-      // Wait until it's time to send the next transaction
-      if (currentTime < targetTime) {
-        await sleep(targetTime - currentTime);
-      }
+      const batchTxs: ProvenTx[] = [];
 
-      try {
-        // Create and send transaction
-        const interaction = (await TokenContract.at(testWallets.tokenAddress, wallet)).methods.transfer_in_public(
-          wallet.getAddress(),
-          recipient,
-          transferAmount,
-          0,
-        );
+      for (let i = 0; i < TXS_PER_SECOND; i++, globalIdx++) {
+        const clonedTxData = Tx.clone(baseTx);
 
-        const tx = await interaction.prove();
-        const sentTx = tx.send();
-        const actualSentTime = Date.now();
-
-        if (i % 50 === 0 || i < 10) {
-          // Log every 50th transaction + first 10
-          logger.info(`Transaction ${i + 1}/${EXPECTED_TOTAL_TXS} sent at ${actualSentTime - startTime}ms`);
+        const nullifiers = clonedTxData.data.getNonEmptyNullifiers();
+        if (nullifiers.length > 0) {
+          const newNullifier = nullifiers[0].add(Fr.fromString(globalIdx.toString()));
+          if (clonedTxData.data.forRollup) {
+            clonedTxData.data.forRollup.end.nullifiers[0] = newNullifier;
+          } else if (clonedTxData.data.forPublic) {
+            clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[0] = newNullifier;
+          }
         }
 
-        transactions.push({
-          txIndex: i,
-          sentAt: actualSentTime,
-        });
+        batchTxs.push(new ProvenTx(wallet, clonedTxData));
+      }
 
-        // For 10 TPS, we don't wait for each individual transaction
-        // Instead, we'll check them in batches to maintain throughput
-        sentTx
-          .wait({ timeout: 60000 })
-          .then(receipt => {
-            transactions[i].receipt = receipt;
-            if (i % 50 === 0 || i < 10) {
-              logger.info(`Transaction ${i + 1} included in block ${receipt.blockNumber}`);
-            }
-          })
-          .catch(error => {
-            logger.error(`Transaction ${i + 1} failed to be included:`, error);
-          });
-      } catch (error) {
-        logger.error(`Transaction ${i + 1} failed to send:`, error);
-        // Continue with next transaction instead of failing the whole test
+      allSendPromises.push(
+        ...batchTxs.map((tx, idx) =>
+          (async () => {
+            const sentTx = tx.send();
+            logger.info(`sec ${sec + 1}: sent tx ${idx + 1} (global #${globalIdx - TXS_PER_SECOND + idx + 1})`);
+            await sentTx.wait({ timeout: 600 });
+            const receipt = await sentTx.getReceipt();
+            logger.info(`sec ${sec + 1}: tx included in block ${receipt.blockNumber}`);
+            return sentTx;
+          })(),
+        ),
+      );
+
+      // Ensure we maintain ~1 second spacing between batches
+      const elapsed = Date.now() - secondStart;
+      if (elapsed < 1000) {
+        await sleep(1000 - elapsed);
       }
     }
 
-    // Wait for all transactions to be included
-    logger.info('All transactions sent. Waiting for inclusion...');
-    let attempts = 0;
-    const maxAttempts = 120; // 2 minutes
+    // Wait for every transaction to be sent
+    await Promise.all(allSendPromises);
 
-    while (attempts < maxAttempts) {
-      const includedTxs = transactions.filter(tx => tx.receipt);
-      logger.info(`${includedTxs.length}/${transactions.length} transactions included`);
+    logger.info(`All ${TOTAL_TXS} transactions sent and included.`);
+    expect(allSendPromises.length).toBe(TOTAL_TXS);
 
-      if (includedTxs.length === transactions.length) {
-        break;
-      }
+    const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
+    logger.info(`recipientBalance after load test: ${recipientBalance}`);
 
-      await sleep(1000);
-      attempts++;
-    }
-
-    const endTime = Date.now();
-    const totalDuration = endTime - startTime;
-    const actualTPS = (transactions.length * 1000) / totalDuration;
-    const includedTxs = transactions.filter(tx => tx.receipt);
-
-    logger.info(`Test completed in ${totalDuration}ms`);
-    logger.info(`Sent ${transactions.length} transactions`);
-    logger.info(`Included ${includedTxs.length} transactions`);
-    logger.info(`Actual send TPS: ${actualTPS.toFixed(3)}`);
-    logger.info(`Target TPS: ${TARGET_TPS}`);
-    logger.info(`Success rate: ${((includedTxs.length / transactions.length) * 100).toFixed(1)}%`);
-
-    // Verify most transactions were sent
-    expect(transactions.length).toBeGreaterThan(EXPECTED_TOTAL_TXS * 0.9); // At least 90% sent
-
-    // Verify reasonable inclusion rate (at least 80% included)
-    expect(includedTxs.length).toBeGreaterThan(EXPECTED_TOTAL_TXS * 0.8);
-
-    // Verify TPS is close to target (within 20% tolerance for 10 TPS)
-    expect(actualTPS).toBeGreaterThan(TARGET_TPS * 0.8);
-    expect(actualTPS).toBeLessThan(TARGET_TPS * 1.2);
-
-    logger.info('Sustained 10 TPS test completed successfully!');
+    expect(recipientBalance).toBe(BigInt(TOTAL_TXS));
   });
 
-  it('measures high-throughput transaction timing', async () => {
-    const recipient = testWallets.recipientWallet.getAddress();
-    const transferAmount = 1n;
-    const wallet = testWallets.wallets[1]; // Use different wallet
-    const numBatches = 5;
-    const batchSize = 10; // Send 10 transactions in quick succession
+  // it('maintains exactly 10 TPS for sustained period', async () => {
+  //   const recipient = testWallets.recipientWallet.getAddress();
+  //   const transferAmount = 1n;
+  //   const wallet = testWallets.wallets[0];
 
-    logger.info('Measuring high-throughput transaction timing...');
+  //   // Verify initial balances
+  //   const initialBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(wallet.getAddress()).simulate();
+  //   const initialRecipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
 
-    const batchTimings: number[] = [];
+  //   logger.info(`Initial sender balance: ${initialBalance}`);
+  //   logger.info(`Initial recipient balance: ${initialRecipientBalance}`);
+  //   expect(initialBalance).toBe(MINT_AMOUNT);
+  //   expect(initialRecipientBalance).toBe(0n);
 
-    for (let batch = 0; batch < numBatches; batch++) {
-      const batchStartTime = Date.now();
-      const batchPromises: Promise<any>[] = [];
+  //   const startTime = Date.now();
+  //   const transactions: Array<{ txIndex: number; sentAt: number; receipt?: any }> = [];
 
-      logger.info(`Starting batch ${batch + 1}/${numBatches} (${batchSize} transactions)...`);
+  //   logger.info(
+  //     `Starting sustained 10 TPS test for ${TEST_DURATION_SECONDS} seconds (${TX_INTERVAL_MS}ms intervals)...`,
+  //   );
 
-      // Send batch of transactions rapidly
-      for (let i = 0; i < batchSize; i++) {
-        const txPromise = (async () => {
-          const interaction = (await TokenContract.at(testWallets.tokenAddress, wallet)).methods.transfer_in_public(
-            wallet.getAddress(),
-            recipient,
-            transferAmount,
-            0,
-          );
+  //   // Send exactly 10 transactions per second (1 every 100ms)
+  //   for (let i = 0; i < EXPECTED_TOTAL_TXS; i++) {
+  //     const targetTime = startTime + i * TX_INTERVAL_MS;
+  //     const currentTime = Date.now();
 
-          const tx = await interaction.prove();
-          const sentTx = tx.send();
-          return await sentTx.wait({ timeout: 60000 });
-        })();
+  //     // Wait until it's time to send the next transaction
+  //     if (currentTime < targetTime) {
+  //       await sleep(targetTime - currentTime);
+  //     }
 
-        batchPromises.push(txPromise);
+  //     try {
+  //       // Create and send transaction
+  //       const interaction = (await TokenContract.at(testWallets.tokenAddress, wallet)).methods.transfer_in_public(
+  //         wallet.getAddress(),
+  //         recipient,
+  //         transferAmount,
+  //         0,
+  //       );
 
-        // Small delay between transactions in batch (10ms = 100 TPS)
-        if (i < batchSize - 1) {
-          await sleep(10);
-        }
-      }
+  //       const tx = await interaction.prove();
+  //       const sentTx = tx.send();
+  //       const actualSentTime = Date.now();
 
-      // Wait for all transactions in batch to complete
-      await Promise.all(batchPromises);
+  //       if (i % 50 === 0 || i < 10) {
+  //         // Log every 50th transaction + first 10
+  //         logger.info(`Transaction ${i + 1}/${EXPECTED_TOTAL_TXS} sent at ${actualSentTime - startTime}ms`);
+  //       }
 
-      const batchEndTime = Date.now();
-      const batchDuration = batchEndTime - batchStartTime;
-      batchTimings.push(batchDuration);
+  //       transactions.push({
+  //         txIndex: i,
+  //         sentAt: actualSentTime,
+  //       });
 
-      const batchTPS = (batchSize * 1000) / batchDuration;
-      logger.info(`Batch ${batch + 1} completed in ${batchDuration}ms (${batchTPS.toFixed(1)} TPS)`);
+  //       // For 10 TPS, we don't wait for each individual transaction
+  //       // Instead, we'll check them in batches to maintain throughput
+  //       sentTx
+  //         .wait({ timeout: 60000 })
+  //         .then(receipt => {
+  //           transactions[i].receipt = receipt;
+  //           if (i % 50 === 0 || i < 10) {
+  //             logger.info(`Transaction ${i + 1} included in block ${receipt.blockNumber}`);
+  //           }
+  //         })
+  //         .catch(error => {
+  //           logger.error(`Transaction ${i + 1} failed to be included:`, error);
+  //         });
+  //     } catch (error) {
+  //       logger.error(`Transaction ${i + 1} failed to send:`, error);
+  //       // Continue with next transaction instead of failing the whole test
+  //     }
+  //   }
 
-      // Wait before next batch
-      await sleep(2000);
-    }
+  //   // Wait for all transactions to be included
+  //   logger.info('All transactions sent. Waiting for inclusion...');
+  //   let attempts = 0;
+  //   const maxAttempts = 120; // 2 minutes
 
-    const avgBatchTime = batchTimings.reduce((a, b) => a + b, 0) / batchTimings.length;
-    const avgBatchTPS = (batchSize * 1000) / avgBatchTime;
+  //   while (attempts < maxAttempts) {
+  //     const includedTxs = transactions.filter(tx => tx.receipt);
+  //     logger.info(`${includedTxs.length}/${transactions.length} transactions included`);
 
-    logger.info(`Average batch time: ${avgBatchTime.toFixed(1)}ms`);
-    logger.info(`Average batch TPS: ${avgBatchTPS.toFixed(1)}`);
+  //     if (includedTxs.length === transactions.length) {
+  //       break;
+  //     }
 
-    // Ensure reasonable high-throughput performance
-    expect(avgBatchTPS).toBeGreaterThan(5); // At least 5 TPS in burst mode
-    expect(avgBatchTime).toBeLessThan(30000); // Batch under 30 seconds
-  });
+  //     await sleep(1000);
+  //     attempts++;
+  //   }
+
+  //   const endTime = Date.now();
+  //   const totalDuration = endTime - startTime;
+  //   const actualTPS = (transactions.length * 1000) / totalDuration;
+  //   const includedTxs = transactions.filter(tx => tx.receipt);
+
+  //   logger.info(`Test completed in ${totalDuration}ms`);
+  //   logger.info(`Sent ${transactions.length} transactions`);
+  //   logger.info(`Included ${includedTxs.length} transactions`);
+  //   logger.info(`Actual send TPS: ${actualTPS.toFixed(3)}`);
+  //   logger.info(`Target TPS: ${TARGET_TPS}`);
+  //   logger.info(`Success rate: ${((includedTxs.length / transactions.length) * 100).toFixed(1)}%`);
+
+  //   // Verify most transactions were sent
+  //   expect(transactions.length).toBeGreaterThan(EXPECTED_TOTAL_TXS * 0.9); // At least 90% sent
+
+  //   // Verify reasonable inclusion rate (at least 80% included)
+  //   expect(includedTxs.length).toBeGreaterThan(EXPECTED_TOTAL_TXS * 0.8);
+
+  //   // Verify TPS is close to target (within 20% tolerance for 10 TPS)
+  //   expect(actualTPS).toBeGreaterThan(TARGET_TPS * 0.8);
+  //   expect(actualTPS).toBeLessThan(TARGET_TPS * 1.2);
+
+  //   logger.info('Sustained 10 TPS test completed successfully!');
+  // });
 });

@@ -217,6 +217,41 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
     ;;
+    "test-kind-10tps-discard-tx-single-validator")
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
+    ;;
+    "test-kind-10tps-discard-tx-all-validator")
+    OVERRIDES="network.mempoolLimitBytes=5000000, blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml ten-tps${NAME_POSTFIX:-}
+    ;;
+  "test-kind-10tps-sweep-global")
+    : "${SWEEP_SIZES:=1000000 2000000 4000000}"
+    for SIZE in $SWEEP_SIZES; do
+      echo "=== Running 10 TPS test with network.mempoolLimitBytes=$SIZE ===" >&2
+      OVERRIDES="network.mempoolLimitBytes=$SIZE,blobSink.enabled=true,bot.enabled=false" \
+      FRESH_INSTALL=true INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml "mempool-${SIZE}${NAME_POSTFIX:-}"
+    done
+    ;;
+  "test-kind-10tps-sweep-validator")
+    : "${SWEEP_SIZES:=1000000 2000000 4000000}"
+
+    # First deploy / upgrade the chart normally (fresh install)
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+    ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml "validator-sweep${NAME_POSTFIX:-}"
+
+    # Now iterate; reuse the cluster (no-deploy) and patch the validator
+    for SIZE in $SWEEP_SIZES; do
+      echo "=== Re-running test with validator mempool=$SIZE bytes ===" >&2
+      VALIDATOR_IDX=${VALIDATOR_IDX:-0} VALIDATOR_TXPOOL_LIMIT=$SIZE \
+      FRESH_INSTALL=no-deploy INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/10tps.test.ts ci-1tps.yaml "validator-sweep${NAME_POSTFIX:-}"
+    done
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
