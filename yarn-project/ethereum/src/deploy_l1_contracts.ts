@@ -650,8 +650,6 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
-    entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
-    entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
     rewardBoostConfig: getRewardBoostConfig(networkName),
