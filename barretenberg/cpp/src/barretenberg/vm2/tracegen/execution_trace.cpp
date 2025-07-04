@@ -710,10 +710,12 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
 {
+    bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
               { {
                   { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
+                  { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
                   { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
@@ -723,9 +725,6 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, T
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
-
-    bool oog = gas_event.oog_l2 || gas_event.oog_da;
-    trace.set(C::execution_sel_out_of_gas, row, oog ? 1 : 0);
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
