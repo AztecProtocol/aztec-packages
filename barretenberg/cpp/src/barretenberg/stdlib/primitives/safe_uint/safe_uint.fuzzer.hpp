@@ -22,9 +22,9 @@ using fr = bb::fr;
 FastRandom VarianceRNG(0);
 
 // Enable this definition, when you want to find out the instructions that caused a failure
-// #define SHOW_INFORMATION 1
+// #define FUZZING_SHOW_INFORMATION 1
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
 #define PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, vector, operation_name, preposition)                      \
     {                                                                                                                  \
         std::cout << operation_name << " " << (vector[first_index].suint.is_constant() ? "constant(" : "witness(")     \
@@ -722,7 +722,7 @@ template <typename Builder> class SafeUintFuzzBase {
         {
             (void)builder;
             stack.push_back(suint_t(instruction.arguments.element.value));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed constant value " << instruction.arguments.element.value << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
@@ -754,7 +754,7 @@ template <typename Builder> class SafeUintFuzzBase {
 
             stack.push_back(suint_t(witness_t(builder, instruction.arguments.element.value),
                                     instruction.arguments.element.bit_range));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed witness value " << instruction.arguments.element.value << " < 2^" << (size_t)bit_range
                       << " to position " << stack.size() - 1 << std::endl;
 #endif
@@ -774,7 +774,7 @@ template <typename Builder> class SafeUintFuzzBase {
                                                       Instruction& instruction)
         {
             stack.push_back(suint_t::create_constant_witness(builder, instruction.arguments.element.value));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed constant witness value " << instruction.arguments.element.value << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
