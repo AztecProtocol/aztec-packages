@@ -466,8 +466,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
         // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
         // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         // .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

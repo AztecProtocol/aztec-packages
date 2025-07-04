@@ -67,7 +67,7 @@ namespace written_public_data_slots_tree_check;
     pol commit intermediate_root;
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit tree_height;
-    sel * (tree_height - 6) = 0;
+    sel * (constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT - tree_height) = 0;
 
     #[LOW_LEAF_POSEIDON2]
     sel { sel, low_leaf_slot, low_leaf_next_slot, low_leaf_next_index, low_leaf_hash }

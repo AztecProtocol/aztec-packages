@@ -30,6 +30,7 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
     {
         using C = ColumnAndShifts;
 
+        const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
         const auto written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF =
             (in.get(C::written_public_data_slots_tree_check_leaf_slot) -
@@ -110,7 +111,8 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = in.get(C::written_public_data_slots_tree_check_sel) *
-                       (in.get(C::written_public_data_slots_tree_check_tree_height) - FF(6));
+                       (constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT -
+                        in.get(C::written_public_data_slots_tree_check_tree_height));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }

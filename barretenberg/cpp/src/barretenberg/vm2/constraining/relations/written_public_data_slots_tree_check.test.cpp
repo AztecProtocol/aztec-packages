@@ -132,8 +132,8 @@ TEST_P(WrittenPublicDataSlotsReadPositiveTests, Positive)
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path;
-    sibling_path.reserve(6);
-    for (size_t i = 0; i < 6; ++i) {
+    sibling_path.reserve(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT);
+    for (size_t i = 0; i < AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
     FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
@@ -192,7 +192,8 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
     AztecAddress contract_address = 27;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     FF low_slot = 40;
-    TestMemoryTree<Poseidon2HashPolicy> written_public_data_slots_tree(6, 6);
+    TestMemoryTree<Poseidon2HashPolicy> written_public_data_slots_tree(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
+                                                                       AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT);
 
     WrittenPublicDataSlotsTreeLeafPreimage low_leaf =
         WrittenPublicDataSlotsTreeLeafPreimage(WrittenPublicDataSlotLeafValue(low_slot), 10, leaf_slot + 1);
@@ -266,8 +267,8 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
     FF low_leaf_hash = poseidon2.hash(low_leaf.get_hash_inputs());
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path;
-    sibling_path.reserve(6);
-    for (size_t i = 0; i < 6; ++i) {
+    sibling_path.reserve(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT);
+    for (size_t i = 0; i < AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
     FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);

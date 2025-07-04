@@ -22,6 +22,8 @@ template <typename LeafType, typename HashingPolicy> class IndexedMemoryTree {
     SequentialInsertionResult<LeafType> insert_indexed_leaves(std::span<const LeafType> leaves);
 
   private:
+    void append_leaf(const IndexedLeaf<LeafType>& leaf);
+
     MemoryTree<HashingPolicy> tree;
     size_t depth;
     size_t max_leaves;
@@ -53,7 +55,7 @@ IndexedMemoryTree<LeafType, HashingPolicy>::IndexedMemoryTree(size_t depth, size
 
         IndexedLeaf<LeafType> initial_leaf(default_leaves[i], next_index, next_key);
 
-        leaves.push_back(initial_leaf);
+        append_leaf(initial_leaf);
 
         FF leaf_hash = HashingPolicy::hash(initial_leaf.get_hash_inputs());
         tree.update_element(i, leaf_hash);
@@ -131,7 +133,7 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
             FF new_leaf_hash = HashingPolicy::hash(new_indexed_leaf.get_hash_inputs());
             tree.update_element(insertion_index, new_leaf_hash);
 
-            leaves.push_back(new_indexed_leaf);
+            append_leaf(new_indexed_leaf);
 
             result.insertion_witness_data.push_back(LeafUpdateWitnessData<LeafType>(
                 new_indexed_leaf, insertion_index, tree.get_sibling_path(insertion_index)));
@@ -151,6 +153,16 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
     }
 
     return result;
+}
+
+template <typename LeafType, typename HashingPolicy>
+void IndexedMemoryTree<LeafType, HashingPolicy>::append_leaf(const IndexedLeaf<LeafType>& leaf)
+{
+    if (leaves.size() == max_leaves) {
+        throw std::runtime_error("IndexedMemoryTree is full");
+    }
+
+    leaves.push_back(leaf);
 }
 
 } // namespace bb::avm2::simulation

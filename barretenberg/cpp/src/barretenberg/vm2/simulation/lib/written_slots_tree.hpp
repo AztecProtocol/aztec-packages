@@ -45,4 +45,10 @@ using WrittenPublicDataSlotsTree = IndexedMemoryTree<WrittenPublicDataSlotLeafVa
 
 using WrittenPublicDataSlotsTreeLeafPreimage = IndexedLeaf<WrittenPublicDataSlotLeafValue>;
 
+inline WrittenPublicDataSlotsTree build_public_data_slots_tree()
+{
+    return WrittenPublicDataSlotsTree(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
+                                      AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE);
+}
+
 } // namespace bb::avm2::simulation

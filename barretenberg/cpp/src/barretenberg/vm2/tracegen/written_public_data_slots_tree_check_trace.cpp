@@ -71,7 +71,7 @@ void WrittenPublicDataSlotsTreeCheckTraceBuilder::process(
                 { C::written_public_data_slots_tree_check_low_leaf_hash, event.low_leaf_hash },
                 { C::written_public_data_slots_tree_check_intermediate_root, intermediate_root },
                 { C::written_public_data_slots_tree_check_updated_low_leaf_hash, updated_low_leaf_hash },
-                { C::written_public_data_slots_tree_check_tree_height, 6 },
+                { C::written_public_data_slots_tree_check_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
                 { C::written_public_data_slots_tree_check_leaf_not_exists, !exists },
                 { C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
                 { C::written_public_data_slots_tree_check_next_slot_is_nonzero, next_slot_is_nonzero },

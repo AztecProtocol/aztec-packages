@@ -54,7 +54,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
         , note_hash_tree_check(note_hash_tree_check)
         , written_public_data_slots_tree_check(written_public_data_slots_tree_check)
     {
-        written_public_data_slots_tree_stack.push(WrittenPublicDataSlotsTree(6, 1));
+        written_public_data_slots_tree_stack.push(build_public_data_slots_tree());
     }
 
     // Unconstrained.
