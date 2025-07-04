@@ -12,7 +12,11 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
+#ifdef BB_SLOW_LOW_MEMORY
+#include "barretenberg/polynomials/file_backed_shifted_virtual_zeroes_array.hpp"
+#else
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
+#endif
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
@@ -55,6 +59,12 @@ template <typename Fr> struct PolynomialSpan {
     }
     operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
+
+#ifdef BB_SLOW_LOW_MEMORY
+template <typename T> using SharedShiftedVirtualZeroesArray = FileBackedSharedShiftedVirtualZeroesArray<T>;
+#else
+template <typename T> using SharedShiftedVirtualZeroesArray = MemoryBackedSharedShiftedVirtualZeroesArray<T>;
+#endif
 
 /**
  * @brief Structured polynomial class that represents the coefficients 'a' of a_0 + a_1 x ... a_n x^n of
@@ -438,12 +448,15 @@ template <typename Fr> class Polynomial {
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
+
+#ifdef BB_SLOW_LOW_MEMORY
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
 }
+#endif
 
 /**
  * @brief Internal implementation to support both native and stdlib circuit field types.
