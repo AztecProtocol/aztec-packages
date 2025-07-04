@@ -35,7 +35,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
 {
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->proving_key.circuit_size;
-    auto sumcheck = Sumcheck(polynomial_size, transcript);
+    Sumcheck sumcheck(polynomial_size, transcript, proving_key->alphas);
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");
@@ -46,15 +46,12 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                              proving_key->relation_parameters,
-                                             proving_key->alphas,
                                              proving_key->gate_challenges,
                                              zk_sumcheck_data);
         } else {
 
-            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
-                                             proving_key->relation_parameters,
-                                             proving_key->alphas,
-                                             proving_key->gate_challenges);
+            sumcheck_output = sumcheck.prove(
+                proving_key->proving_key.polynomials, proving_key->relation_parameters, proving_key->gate_challenges);
         }
     }
 }

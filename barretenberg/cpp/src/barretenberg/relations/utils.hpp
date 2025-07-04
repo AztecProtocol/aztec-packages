@@ -68,38 +68,14 @@ template <typename Flavor> class RelationUtils {
      * @brief Scale Univariates, each representing a subrelation, by different challenges
      *
      * @param tuple Tuple of tuples of Univariates
-     * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
+     * @param subrelation_separators Array of NUM_SUBRELATIONS challenges with the first entry equal to 1.
      * scaled)
-     * @param current_scalar power of the challenge
      */
-    static void scale_univariates(auto& tuple, const RelationSeparator& challenges, FF& current_scalar)
-        requires bb::IsFoldingFlavor<Flavor>
+    static void scale_univariates(auto& tuple, const RelationSeparator& subrelation_separators)
     {
         size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) {
-            element *= tmp[idx];
-            idx++;
-        };
+        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) { element *= subrelation_separators[idx++]; };
         apply_to_tuple_of_tuples(tuple, scale_by_challenges);
-    }
-
-    /**
-     * @brief Scale Univariates by consecutive powers of the provided challenge
-     *
-     * @param tuple Tuple of tuples of Univariates
-     * @param challenge
-     * @param current_scalar power of the challenge
-     */
-    static void scale_univariates(auto& tuple, const RelationSeparator& challenge, FF& current_scalar)
-        requires(!bb::IsFoldingFlavor<Flavor>)
-    {
-        auto scale_by_consecutive_powers_of_challenge = [&](auto&... elements) {
-            ((elements *= current_scalar, current_scalar *= challenge), ...);
-        };
-
-        std::apply([&](auto&&... args) { (std::apply(scale_by_consecutive_powers_of_challenge, args), ...); }, tuple);
     }
 
     /**
@@ -233,45 +209,17 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static void scale_and_batch_elements(auto& tuple,
-                                         const RelationSeparator& challenges,
-                                         FF current_scalar,
-                                         FF& result)
-        requires bb::IsFoldingFlavor<Flavor>
+    static FF scale_and_batch_elements(auto& tuple, const RelationSeparator& challenges)
     {
+        FF result{ 0 };
         size_t idx = 0;
-        std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
-        std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
         auto scale_by_challenges_and_accumulate = [&](auto& element) {
             for (auto& entry : element) {
-                result += entry * tmp[idx];
-                idx++;
+                result += entry * challenges[idx++];
             }
         };
         apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
-    }
-
-    /**
-     * @brief Scale elements by consecutive powers of a given challenge then sum the result
-     * @param result Batched result
-     */
-    static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
-        requires(!bb::IsFoldingFlavor<Flavor>)
-    {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1443) write one method to remove IsFoldingFlavor
-        // and !IsFoldingFlavor
-        constexpr const size_t last_index = std::tuple_size_v<std::decay_t<decltype(tuple)>> - 1;
-        const auto& last_array = std::get<last_index>(tuple);
-        const auto* last_element_ptr = last_array.empty() ? nullptr : &last_array.back();
-        auto scale_by_challenge_and_accumulate = [&](auto& element) {
-            for (auto& entry : element) {
-                result += entry * current_scalar;
-                if (last_element_ptr == nullptr || &entry != last_element_ptr) {
-                    current_scalar *= challenge;
-                }
-            }
-        };
-        apply_to_tuple_of_arrays(scale_by_challenge_and_accumulate, tuple);
+        return result;
     }
 
     /**

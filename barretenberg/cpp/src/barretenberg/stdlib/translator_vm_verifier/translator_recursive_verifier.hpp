@@ -27,7 +27,6 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = typename Flavor::Transcript;

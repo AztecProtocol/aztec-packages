@@ -163,25 +163,23 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     }
 
     decider_pk->alphas = prover_alphas;
-    auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
+    SumcheckProver<Flavor> sumcheck_prover(circuit_size, prover_transcript, prover_alphas);
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     decider_pk->gate_challenges = prover_gate_challenges;
-    auto prover_output = sumcheck_prover.prove(decider_pk->proving_key.polynomials,
-                                               decider_pk->relation_parameters,
-                                               decider_pk->alphas,
-                                               decider_pk->gate_challenges);
+    auto prover_output = sumcheck_prover.prove(
+        decider_pk->proving_key.polynomials, decider_pk->relation_parameters, decider_pk->gate_challenges);
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript);
     RelationSeparator verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alphas);
 
     std::vector<FF> verifier_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -192,8 +190,8 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
-    auto verifier_output = sumcheck_verifier.verify(
-        decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges, padding_indicator_array);
+    auto verifier_output =
+        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_gate_challenges, padding_indicator_array);
 
     auto verified = verifier_output.verified;
 

@@ -133,8 +133,12 @@ void TranslatorProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
 
-    Sumcheck sumcheck(key->proving_key->circuit_size, transcript);
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    Sumcheck sumcheck(key->proving_key->circuit_size, transcript, alpha);
+
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -149,7 +153,7 @@ void TranslatorProver::execute_relation_check_rounds()
     zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
     sumcheck_output =
-        sumcheck.prove(key->proving_key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+        sumcheck.prove(key->proving_key->polynomials, relation_parameters, gate_challenges, zk_sumcheck_data);
 }
 
 /**

@@ -85,8 +85,11 @@ typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifie
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    Sumcheck sumcheck(transcript, alpha);
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -97,7 +100,7 @@ typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifie
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");

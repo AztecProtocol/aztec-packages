@@ -55,18 +55,19 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto transcript = Flavor::Transcript::prover_init_empty();
 
-        auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
         RelationSeparator alpha;
         for (size_t idx = 0; idx < alpha.size(); idx++) {
             alpha[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
+
+        SumcheckProver<Flavor> sumcheck(multivariate_n, transcript, alpha);
 
         std::vector<FF> gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             gate_challenges[idx] =
                 transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
-        auto output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
+        auto output = sumcheck.prove(full_polynomials, {}, gate_challenges);
 
         FF u_0 = output.challenge[0];
         FF u_1 = output.challenge[1];
@@ -129,12 +130,11 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto transcript = Flavor::Transcript::prover_init_empty();
 
-        auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
-
         RelationSeparator alpha;
         for (size_t idx = 0; idx < alpha.size(); idx++) {
             alpha[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
+        auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript, alpha);
 
         std::vector<FF> gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -145,9 +145,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         if constexpr (Flavor::HasZK) {
             ZKData zk_sumcheck_data = ZKData(multivariate_d, transcript);
-            output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges, zk_sumcheck_data);
+            output = sumcheck.prove(full_polynomials, {}, gate_challenges, zk_sumcheck_data);
         } else {
-            output = sumcheck.prove(full_polynomials, {}, alpha, gate_challenges);
+            output = sumcheck.prove(full_polynomials, {}, gate_challenges);
         }
         FF u_0 = output.challenge[0];
         FF u_1 = output.challenge[1];
@@ -242,12 +242,13 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        auto sumcheck_prover = SumcheckProver<Flavor, multivariate_d>(multivariate_n, prover_transcript);
-
         RelationSeparator prover_alpha;
         for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
             prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
+
+        SumcheckProver<Flavor, multivariate_d> sumcheck_prover(multivariate_n, prover_transcript, prover_alpha);
+
         std::vector<FF> prover_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             prover_gate_challenges[idx] =
@@ -256,20 +257,21 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
             ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-            output = sumcheck_prover.prove(
-                full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
+            output =
+                sumcheck_prover.prove(full_polynomials, relation_parameters, prover_gate_challenges, zk_sumcheck_data);
         } else {
-            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_gate_challenges);
         }
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor, multivariate_d>(verifier_transcript);
         RelationSeparator verifier_alpha;
         for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
+        auto sumcheck_verifier = SumcheckVerifier<Flavor, multivariate_d>(verifier_transcript, verifier_alpha);
+
         std::vector<FF> verifier_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             verifier_gate_challenges[idx] =
@@ -277,8 +279,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         }
         std::array<FF, multivariate_d> padding_indicator_array;
         std::ranges::fill(padding_indicator_array, FF{ 1 });
-        auto verifier_output = sumcheck_verifier.verify(
-            relation_parameters, verifier_alpha, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output =
+            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
 
         auto verified = verifier_output.verified;
 
@@ -334,12 +336,12 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        auto sumcheck_prover = SumcheckProver<Flavor, multivariate_d>(multivariate_n, prover_transcript);
-
         RelationSeparator prover_alpha;
         for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
             prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
+        SumcheckProver<Flavor, multivariate_d> sumcheck_prover(multivariate_n, prover_transcript, prover_alpha);
+
         std::vector<FF> prover_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             prover_gate_challenges[idx] =
@@ -349,20 +351,21 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
             ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-            output = sumcheck_prover.prove(
-                full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges, zk_sumcheck_data);
+            output =
+                sumcheck_prover.prove(full_polynomials, relation_parameters, prover_gate_challenges, zk_sumcheck_data);
         } else {
-            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_alpha, prover_gate_challenges);
+            output = sumcheck_prover.prove(full_polynomials, relation_parameters, prover_gate_challenges);
         }
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor, multivariate_d>(verifier_transcript);
         RelationSeparator verifier_alpha;
         for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
+        SumcheckVerifier<Flavor, multivariate_d> sumcheck_verifier(verifier_transcript, verifier_alpha);
+
         std::vector<FF> verifier_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             verifier_gate_challenges[idx] =
@@ -371,8 +374,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         std::array<FF, multivariate_d> padding_indicator_array;
         std::ranges::fill(padding_indicator_array, FF{ 1 });
-        auto verifier_output = sumcheck_verifier.verify(
-            relation_parameters, verifier_alpha, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output =
+            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
 
         auto verified = verifier_output.verified;
 

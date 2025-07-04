@@ -34,7 +34,6 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VKAndHash = typename Flavor::VKAndHash;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingObject = PairingPoints<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;

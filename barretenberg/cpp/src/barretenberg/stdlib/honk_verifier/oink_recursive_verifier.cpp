@@ -116,13 +116,20 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
-    }
-    alphas = transcript->template get_challenges<FF>(args);
+    // Get the subrelation separation challenges for sumcheck/combiner computation
+    RelationSeparator alphas{ 1 };
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    }
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> generated_challenges =
+        transcript->template get_challenges<FF>(challenge_labels);
+
+    for (size_t idx = 1; idx < Flavor::NUM_SUBRELATIONS; idx++) {
+        alphas[idx] = generated_challenges[idx - 1];
+    }
     decider_vk->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };
     decider_vk->witness_commitments = std::move(commitments);
