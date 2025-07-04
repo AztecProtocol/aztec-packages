@@ -40,7 +40,7 @@ TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
  * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_to_transcript.
+ * hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
@@ -74,9 +74,8 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     // Second method of hashing: using hash().
     FF vkey_hash_2 = vk.hash(outer_builder);
     EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());
-    // Third method of hashing: using add_to_transcript.
+    // Third method of hashing: using add_hash_to_transcript.
     StdlibTranscript transcript_2;
-    vk.add_to_transcript("", transcript_2);
-    FF vkey_hash_3 = transcript_2.template get_challenge<FF>("vk_hash");
+    FF vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);
     EXPECT_EQ(vkey_hash_2.get_value(), vkey_hash_3.get_value());
 }

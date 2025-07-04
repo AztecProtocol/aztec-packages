@@ -415,24 +415,29 @@ class UltraFlavor {
         }
 
         /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. Rather than converting an object into a vector of
+         * fields and submitting that, we want to set the object's Origin Tags and also hash it independently.
          *
          * @param domain_separator
          * @param transcript
+         * @returns The hash of the verification key
          */
         template <typename Transcript>
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
         {
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                          this->pairing_inputs_public_input_key.start_idx);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      this->pairing_inputs_public_input_key.start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate

@@ -244,30 +244,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<FF> to_field_elements() const
-    {
-        using namespace bb::stdlib::field_conversion;
-
-        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
-            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-        };
-
-        std::vector<FF> elements;
-
-        serialize_to_field_buffer(this->circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-        pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        serialize_to_field_buffer(pairing_points_start_idx, elements);
-
-        for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
-        }
-
-        return elements;
-    }
+    virtual std::vector<FF> to_field_elements() const = 0;
 
     /**
      * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
@@ -284,25 +261,26 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
         return scalar.lo;
     }
+
     /**
-     * @brief Adds the verification key witnesses directly to the transcript.
-     * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
-     * submitting that, we want to submit the values directly to the transcript.
+     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @details Needed to make sure the Origin Tag system works. Rather than converting an object into a vector of
+     * fields and submitting that, we want to set the object's Origin Tags and also hash it independently.
      *
      * @param domain_separator
      * @param transcript
+     * @returns The hash of the verification key
      */
-    virtual void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
-        transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-        transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-        FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-        pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx", pairing_points_start_idx);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
         for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
+
+        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
     }
 };
 
