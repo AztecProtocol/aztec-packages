@@ -67,7 +67,6 @@ describe('e2e_p2p_add_rollup', () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_add_rollup',
       numberOfNodes: 0,
-      numberOfPreferredNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`

@@ -38,7 +38,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_valid_epoch_pruned',
       numberOfNodes: 0,
-      numberOfPreferredNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
