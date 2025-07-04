@@ -20,14 +20,13 @@ describe('Addressing', () => {
   });
 
   it('should convert from wire format correctly', () => {
-    const addressingMode = Addressing.fromWire(0b0000001101000001);
+    const addressingMode = Addressing.fromWire(0b00001101000001);
     const expected = Addressing.fromModes([
       AddressingMode.INDIRECT,
       AddressingMode.DIRECT,
       AddressingMode.DIRECT,
       AddressingMode.INDIRECT,
       AddressingMode.INDIRECT_RELATIVE,
-      AddressingMode.DIRECT,
       AddressingMode.DIRECT,
       AddressingMode.DIRECT,
     ]);

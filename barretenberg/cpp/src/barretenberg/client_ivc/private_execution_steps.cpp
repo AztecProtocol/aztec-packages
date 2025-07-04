@@ -5,6 +5,27 @@
 
 namespace bb {
 
+std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
+{
+    auto compressor =
+        std::unique_ptr<libdeflate_compressor, void (*)(libdeflate_compressor*)>{ libdeflate_alloc_compressor(6),
+                                                                                  libdeflate_free_compressor };
+
+    // Worst case size for gzip compression
+    size_t max_compressed_size = libdeflate_gzip_compress_bound(compressor.get(), input.size());
+    std::vector<uint8_t> compressed(max_compressed_size);
+
+    size_t actual_compressed_size =
+        libdeflate_gzip_compress(compressor.get(), input.data(), input.size(), compressed.data(), compressed.size());
+
+    if (actual_compressed_size == 0) {
+        THROW std::runtime_error("Failed to compress data");
+    }
+
+    compressed.resize(actual_compressed_size);
+    return compressed;
+}
+
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
     std::vector<uint8_t> content;
@@ -53,11 +74,25 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
+std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
+{
+    PROFILE_THIS();
+    return unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+}
+
+// TODO(#7371) we should not have so many levels of serialization here.
+void PrivateExecutionStepRaw::self_decompress()
+{
+    bytecode = decompress(bytecode.data(), bytecode.size());
+    witness = decompress(witness.data(), witness.size());
+}
+
+// TODO(#7371) we should not have so many levels of serialization here.
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompress(
     const std::filesystem::path& input_path)
 {
     PROFILE_THIS();
-    auto raw_steps = unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+    auto raw_steps = load(input_path);
     for (PrivateExecutionStepRaw& step : raw_steps) {
         step.bytecode = decompress(step.bytecode.data(), step.bytecode.size());
         step.witness = decompress(step.witness.data(), step.witness.size());
@@ -130,5 +165,30 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
     }
 
     return ivc;
+}
+
+void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,
+                                                const std::filesystem::path& output_path)
+{
+    // First, compress the bytecode and witness fields of each step
+    for (PrivateExecutionStepRaw& step : steps) {
+        step.bytecode = compress(step.bytecode);
+        step.witness = compress(step.witness);
+        step.vk = step.vk;
+        step.function_name = step.function_name;
+    }
+
+    // Serialize to msgpack
+    std::stringstream ss;
+    msgpack::pack(ss, steps);
+    std::string packed_data = ss.str();
+
+    // Write to file
+    std::ofstream file(output_path, std::ios::binary);
+    if (!file) {
+        THROW std::runtime_error("Failed to open file for writing: " + output_path.string());
+    }
+    file.write(packed_data.data(), static_cast<std::streamsize>(packed_data.size()));
+    file.close();
 }
 } // namespace bb

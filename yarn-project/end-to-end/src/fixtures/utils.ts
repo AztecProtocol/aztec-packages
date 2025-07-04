@@ -568,6 +568,20 @@ export async function setup(
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
+    // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
+    // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
+    // For account deployments, we set minTxsPerBlock=1 and deploy accounts sequentially for guaranteed success.
+    // If no accounts need deployment, we await an empty block to confirm network progression. After either path
+    // completes, we restore the original minTxsPerBlock setting. The deployment and waiting for empty block is
+    // handled by the if-else branches on line 632.
+    // For more details on why the tx would be dropped see `validate_include_by_timestamp` function in
+    // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    const originalMinTxsPerBlock = config.minTxsPerBlock;
+    if (originalMinTxsPerBlock === undefined) {
+      throw new Error('minTxsPerBlock is undefined in e2e test setup');
+    }
+    config.minTxsPerBlock = numberOfAccounts === 0 ? 0 : 1;
+
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
@@ -579,7 +593,11 @@ export async function setup(
 
     if (sequencerClient) {
       const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(
+        publisher.l1TxUtils,
+        dateProvider,
+        config.ethereumSlotDuration,
+      );
     }
 
     let proverNode: ProverNode | undefined = undefined;
@@ -614,33 +632,22 @@ export async function setup(
       await cheatCodes.rollup.debugRollup();
     }
 
-    const sequencer = sequencerClient!.getSequencer();
-    const minTxsPerBlock = config.minTxsPerBlock;
-
-    if (minTxsPerBlock === undefined) {
-      throw new Error('minTxsPerBlock is undefined in e2e test setup');
-    }
-
-    // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
-    // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
-    // For account deployments, we set minTxsPerBlock=1 and deploy accounts sequentially for guaranteed success.
-    // If no accounts need deployment, we await an empty block to confirm network progression. After either path
-    // completes, we restore the original minTxsPerBlock setting.
-    // For more details on why the tx would be dropped see `validate_include_by_timestamp` function in
-    // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    // Below we continue with what we described in the long comment on line 571.
     let accountManagers: AccountManager[] = [];
     if (numberOfAccounts === 0) {
-      // We wait until block 1 is mined to ensure that the network has progressed past genesis.
-      sequencer.updateConfig({ minTxsPerBlock: 0 });
+      logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
       while ((await pxe.getBlockNumber()) === 0) {
         await sleep(2000);
       }
     } else {
-      sequencer.updateConfig({ minTxsPerBlock: 1 });
+      logger.info(
+        `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
+      );
       accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
     }
 
-    sequencer.updateConfig({ minTxsPerBlock });
+    // Now we restore the original minTxsPerBlock setting.
+    sequencerClient!.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
 
     const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
