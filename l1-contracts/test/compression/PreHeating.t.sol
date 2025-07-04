@@ -303,8 +303,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
@@ -332,8 +330,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       header: header,
       archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
-      txHashes: txHashes
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
 
     CommitteeAttestation[] memory attestations;
@@ -349,8 +346,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
         archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash,
-        txHashes: proposeArgs.txHashes
+        headerHash: headerHash
       });
 
       bytes32 digest = ProposeLib.digest(proposePayload);
