@@ -15,7 +15,7 @@ import {
   waitForProven,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
   type DeployL1ContractsArgs,
@@ -443,11 +443,11 @@ async function setupFromFresh(
 
   let proverNode: ProverNode | undefined = undefined;
   if (opts.startProverNode) {
-    logger.verbose('Creating and syncing a simulated prover node...');
+    logger.verbose('Creating and syncing a simulated prover node with p2p disabled...');
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
-      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
+      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')), p2pEnabled: false },
       aztecNode,
       prefilledPublicData,
     );

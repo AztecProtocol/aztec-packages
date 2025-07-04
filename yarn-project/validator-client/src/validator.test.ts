@@ -5,7 +5,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import type { P2P, PeerId } from '@aztec/p2p';
+import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import { Offense, type SlasherConfig, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
@@ -15,7 +15,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { ContentCommitment, Tx, TxHash } from '@aztec/stdlib/tx';
+import { ContentCommitment, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError, InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -36,6 +36,7 @@ describe('ValidatorClient', () => {
   let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
   let validatorAccounts: PrivateKeyAccount[];
   let dateProvider: TestDateProvider;
+  let txProvider: MockProxy<TxProvider>;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
@@ -50,6 +51,7 @@ describe('ValidatorClient', () => {
     epochCache = mock<EpochCache>();
     blockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    txProvider = mock<TxProvider>();
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     dateProvider = new TestDateProvider();
 
@@ -73,6 +75,7 @@ describe('ValidatorClient', () => {
       p2pClient,
       blockSource,
       l1ToL2MessageSource,
+      txProvider,
       dateProvider,
     );
   });
@@ -88,6 +91,7 @@ describe('ValidatorClient', () => {
           p2pClient,
           blockSource,
           l1ToL2MessageSource,
+          txProvider,
           dateProvider,
         ),
       ).toThrow(InvalidValidatorPrivateKeyError);
@@ -181,7 +185,7 @@ describe('ValidatorClient', () => {
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
-    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => Promise.resolve(txHash) }) as Tx;
+    const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => Promise.resolve(txHash), txHash }) as TxWithHash;
 
     const enableReexecution = () => {
       (validatorClient as any).config.validatorReexecute = true;
@@ -202,6 +206,13 @@ describe('ValidatorClient', () => {
       p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => true)));
       p2pClient.getTxsByHash.mockImplementation((txHashes: TxHash[]) => Promise.resolve(txHashes.map(makeTxFromHash)));
 
+      txProvider.getTxsForBlockProposal.mockImplementation((proposal: BlockProposal) =>
+        Promise.resolve({
+          txs: proposal.txHashes.map(makeTxFromHash),
+          missingTxs: [],
+        }),
+      );
+
       epochCache.isInCommittee.mockResolvedValue(true);
       epochCache.getProposerAttesterAddressInCurrentOrNextSlot.mockResolvedValue({
         currentProposer: proposal.getSender(),
@@ -218,7 +229,7 @@ describe('ValidatorClient', () => {
 
       blockBuildResult = {
         publicProcessorDuration: 0,
-        numTxs: proposal.payload.txHashes.length,
+        numTxs: proposal.txHashes.length,
         blockBuildingTimer: new Timer(),
         failedTxs: [],
         publicGas: Gas.empty(),
@@ -226,7 +237,7 @@ describe('ValidatorClient', () => {
         usedTxs: [],
         block: {
           header: makeHeader(),
-          body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
+          body: { txEffects: times(proposal.txHashes.length, () => ({})) },
           archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
         } as L2Block,
       };
@@ -307,30 +318,35 @@ describe('ValidatorClient', () => {
       expect(emitSpy).not.toHaveBeenCalled();
     });
 
-    it('should request txs if missing for attesting', async () => {
-      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, i => i === 0)));
-
+    it('should request txs for attesting pinning the sender', async () => {
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeDefined();
-      expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
+
+      expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
+        proposal,
+        expect.objectContaining({ pinnedPeer: sender }),
+      );
     });
 
     it('should request txs even if not attestor in this slot', async () => {
-      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
       epochCache.filterInCommittee.mockResolvedValue([]);
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();
-      expect(p2pClient.getTxsByHash).toHaveBeenCalledWith(proposal.payload.txHashes, sender);
+
+      expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
+        proposal,
+        expect.objectContaining({ pinnedPeer: sender }),
+      );
     });
 
     it('should throw an error if the transactions are not available', async () => {
-      // Mock the p2pClient.getTxStatus to return undefined for all transactions
-      p2pClient.getTxStatus.mockResolvedValue(undefined);
-      p2pClient.getTxsByHash.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => undefined)));
-      p2pClient.hasTxsInPool.mockImplementation(txHashes => Promise.resolve(times(txHashes.length, () => false)));
-      // Mock the p2pClient.requestTxs to return undefined for all transactions
-      p2pClient.requestTxsByHash.mockImplementation(() => Promise.resolve([undefined]));
+      txProvider.getTxsForBlockProposal.mockImplementation(proposal =>
+        Promise.resolve({
+          txs: [],
+          missingTxs: proposal.txHashes,
+        }),
+      );
 
       const attestation = await validatorClient.attestToProposal(proposal, sender);
       expect(attestation).toBeUndefined();

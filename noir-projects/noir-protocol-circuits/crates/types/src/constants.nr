@@ -513,7 +513,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 456;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 69;
+pub global IPA_PROOF_LENGTH: u32 = 70;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -929,10 +929,20 @@ pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
 // Gas for writing message to L1 portal
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
 
+// AVM - misc constants
+pub global AVM_PC_SIZE_IN_BITS: u32 = 32;
+pub global AVM_MAX_OPERANDS: u32 = 7;
+pub global AVM_MAX_REGISTERS: u32 = 7;
+
 /**
  * GAS COSTS FOR AVM OPCODES
  * They are used in TS and C++
  */
+
+// Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Base L2 GAS
 // Note: magic numbers here are derived from each op's AVM circuit trace area
@@ -972,8 +982,14 @@ pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_L1_TO_L2_MSG_RE
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_L2_TO_L1_MSG;
-pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+// See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
+pub global AVM_CALL_BUFFER: u32 = AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS
+    + AVM_MAX_OPERANDS * AVM_ADDRESSING_INDIRECT_L2_GAS
+    + AVM_MAX_OPERANDS * AVM_ADDRESSING_RELATIVE_L2_GAS
+    // Operand resolution. One mem access per operand.
+    + AVM_MAX_REGISTERS * 3;
+pub global AVM_CALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 6;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 6;
 pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 6;
@@ -982,11 +998,6 @@ pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 96;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 150;
 pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
-
-// Addressing gas
-pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
@@ -1028,8 +1039,6 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
-// AVM - misc constants
-pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
 pub global AVM_MAX_OPERANDS: u8 = 8;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;

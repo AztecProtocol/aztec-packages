@@ -221,7 +221,10 @@ struct ExecutionTraceUsageTracker {
      * @brief Given a set of ranges indicating "active" regions of an ambient space, define a given number of new ranges
      * on the ambient space which evenly divide the content
      * @details In practive this is used to determine even distribution of execution trace rows across threads according
-     * to ranges describing the active rows of an IVC accumulator
+     * to ranges describing the active rows of an IVC accumulator. Even if two ranges contain the same number of rows,
+     * their workloads can differ depending on row complexity. To balance this, we distribute rows from each range as
+     * evenly as possible across the available threads. If the total number of rows is not perfectly divisible by the
+     * thread count, some threads will be assigned one additional row to ensure complete coverage.
      *
      * @param union_ranges A set of sorted, disjoint ranges
      * @param num_threads
@@ -230,51 +233,22 @@ struct ExecutionTraceUsageTracker {
     static std::vector<std::vector<Range>> construct_ranges_for_equal_content_distribution(
         const std::vector<Range>& union_ranges, const size_t num_threads)
     {
-        // Compute the minimum content per thread (final thread will get the leftovers = total_content % num_threads)
-        size_t total_content = 0;
-        for (const Range& range : union_ranges) {
-            total_content += range.second - range.first;
-        }
-        size_t content_per_thread = total_content / num_threads;
-        if (content_per_thread == 0) { // There are more threads than work
-            // Put all work at the back
-            std::vector<std::vector<Range>> thread_ranges(num_threads);
-            thread_ranges.back() = union_ranges;
-            return thread_ranges;
-        }
-
-        std::vector<std::vector<Range>> thread_ranges = { {} };
-        size_t thread_space_remaining = content_per_thread; // content space remaining in current thread
+        std::vector<std::vector<Range>> thread_ranges(num_threads);
 
         for (const Range& range : union_ranges) {
-
             size_t start_idx = range.first;
-            size_t content_to_distribute = range.second - start_idx;
-            while (content_to_distribute >= thread_space_remaining) {
-                // There's enough content to fill the remaining space in the current thread
-                size_t end_idx = start_idx + thread_space_remaining;
-                thread_ranges.back().push_back(Range{ start_idx, end_idx });
-                start_idx = end_idx;
-                content_to_distribute -= thread_space_remaining;
-                thread_space_remaining = content_per_thread;
-                // Create a list for the next thread.
-                thread_ranges.push_back({});
-            }
-
-            if (content_to_distribute > 0) {
-                // Partially fill the next thread with all remaining content.
-                thread_ranges.back().push_back(Range{ start_idx, range.second });
-                thread_space_remaining -= content_to_distribute;
+            size_t total_content = range.second - start_idx;
+            size_t content_per_thread = total_content / num_threads;
+            size_t leftovers = total_content % num_threads;
+            for (size_t i = 0; i < num_threads; i++) {
+                size_t end_idx =
+                    start_idx + content_per_thread + (i < leftovers ? 1 : 0); // Distribute leftovers evenly
+                if (start_idx < end_idx) {
+                    thread_ranges[i].push_back(Range{ start_idx, end_idx });
+                    start_idx = end_idx;
+                }
             }
         }
-
-        // Merge the last two sets of ranges because the last one is a left over.
-        std::vector<Range> back = std::move(thread_ranges.back());
-        thread_ranges.pop_back();
-        for (const Range& range : back) {
-            thread_ranges.back().push_back(range);
-        }
-        thread_ranges.back() = construct_union_of_ranges(thread_ranges.back());
 
         return thread_ranges;
     }

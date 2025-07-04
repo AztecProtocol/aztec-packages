@@ -1,0 +1,50 @@
+name: Auto Rebase PR
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  auto-rebase:
+    if: contains(github.event.pull_request.labels.*.name, 'auto-rebase-pr')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "AztecBot"
+          git config --global user.email "tech@aztecprotocol.com"
+
+      - name: Authenticate with GitHub CLI
+        run: |
+          echo "${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}" | gh auth login --with-token
+
+      - name: Run auto rebase script
+        id: rebase
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          pr_head_ref=${{ github.event.pull_request.head.ref }}
+          pr_base_ref=${{ github.event.pull_request.base.ref }}
+          ./scripts/auto_rebase_pr.sh "$pr_head_ref" "$pr_base_ref"
+
+      - name: Post failure comment
+        if: failure() || steps.rebase.outcome == 'failure'
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "## Auto-rebase failed ❌. [Github run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+      - name: Remove label
+        if: always()
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} \
+            --remove-label "auto-rebase-pr"

@@ -1,4 +1,15 @@
-import { compactArray, maxBy, mean, median, removeArrayPaddingEnd, stdDev, times, unique, variance } from './array.js';
+import {
+  chunk,
+  compactArray,
+  maxBy,
+  mean,
+  median,
+  removeArrayPaddingEnd,
+  stdDev,
+  times,
+  unique,
+  variance,
+} from './array.js';
 
 describe('times', () => {
   it('should return an array with the result from all executions', () => {
@@ -133,5 +144,53 @@ describe('stdDev', () => {
 
   it('handles single element', () => {
     expect(stdDev([1])).toBeUndefined();
+  });
+});
+
+describe('chunk', () => {
+  it('splits an array into chunks of the given size', () => {
+    const input = [1, 2, 3, 4, 5, 6];
+    const result = chunk(input, 2);
+    expect(result).toEqual([
+      [1, 2],
+      [3, 4],
+      [5, 6],
+    ]);
+  });
+
+  it('handles arrays that do not divide evenly into chunks', () => {
+    const input = [1, 2, 3, 4, 5];
+    const result = chunk(input, 2);
+    expect(result).toEqual([[1, 2], [3, 4], [5]]);
+  });
+
+  it('returns an empty array when input is empty', () => {
+    const input: number[] = [];
+    const result = chunk(input, 3);
+    expect(result).toEqual([]);
+  });
+
+  it('throws an error if chunk size is less than or equal to 0', () => {
+    const input = [1, 2, 3];
+    expect(() => chunk(input, 0)).toThrow('Chunk size must be greater than 0');
+    expect(() => chunk(input, -1)).toThrow('Chunk size must be greater than 0');
+  });
+
+  it('returns the entire array as a single chunk if chunk size is greater than array length', () => {
+    const input = [1, 2, 3];
+    const result = chunk(input, 10);
+    expect(result).toEqual([[1, 2, 3]]);
+  });
+
+  it('handles arrays with one element', () => {
+    const input = [1];
+    const result = chunk(input, 2);
+    expect(result).toEqual([[1]]);
+  });
+
+  it('handles chunk size of 1', () => {
+    const input = [1, 2, 3];
+    const result = chunk(input, 1);
+    expect(result).toEqual([[1], [2], [3]]);
   });
 });
