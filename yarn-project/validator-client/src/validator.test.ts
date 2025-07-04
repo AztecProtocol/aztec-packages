@@ -20,7 +20,6 @@ import { Offense, type SlasherConfig, WANT_TO_SLASH_EVENT } from '@aztec/slasher
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
-import { ReadRequest } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
