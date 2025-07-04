@@ -100,6 +100,16 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
                 num_frs_read += num_frs_Comm;
             }
         }
+
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const override
+        {
+            throw_or_abort("to_field_elements not implemented for AvmRecursiveFlavor_::VerificationKey");
+        }
     };
 
     using WitnessCommitments = NativeFlavor::WitnessEntities<Commitment>;

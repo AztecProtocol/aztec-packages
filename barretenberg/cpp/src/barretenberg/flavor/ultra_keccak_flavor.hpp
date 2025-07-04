@@ -108,17 +108,15 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
          * @param domain_separator
          * @param transcript
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript)
         {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to update this function to look
+            // like UltraFlavor's add_hash_to_transcript. Alternatively, the VerificationKey class will go away when we
+            // add pairing point aggregation to the solidity verifier.
             transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
             transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
             transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): The rest is commented out because the
-            // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a
-            // followup PR.
-            // for (const Commitment& commitment : this->get_all()) {
-            //     transcript->add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
-            // }
+            return 0;
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
