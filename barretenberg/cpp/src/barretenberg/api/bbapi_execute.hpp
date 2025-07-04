@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/api/bbrpc_commands.hpp"
+#include "barretenberg/api/bbapi_commands.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -18,9 +18,20 @@
 #include <queue>
 #include <string>
 
-namespace bb::bbrpc {
+namespace bb::bbapi {
 
-struct BBRpcRequest {
+/**
+ * @brief Convert a vector of field elements to JSON array format
+ */
+inline std::string field_elements_to_json(const std::vector<bb::fr>& fields)
+{
+    if (fields.empty()) {
+        return "[]";
+    }
+    return format("[", join(transform::map(fields, [](auto fr) { return format("\"", fr, "\""); })), "]");
+}
+
+struct BBApiRequest {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
@@ -38,85 +49,107 @@ inline const std::string& get_error_message(const CommandResponse& response)
     return response.visit([](const auto& resp) -> const std::string& { return resp.error_message; });
 }
 
-inline CircuitProve::Response execute(BB_UNUSED BBRpcRequest& request, CircuitProve&& command)
+inline CircuitProve::Response execute(BB_UNUSED BBApiRequest& request, CircuitProve&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline CircuitComputeVk::Response execute(BB_UNUSED BBRpcRequest& request, CircuitComputeVk&& command)
+inline CircuitComputeVk::Response execute(BB_UNUSED BBApiRequest& request, CircuitComputeVk&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline CircuitVerify::Response execute(BB_UNUSED BBRpcRequest& request, CircuitVerify&& command)
+inline CircuitVerify::Response execute(BB_UNUSED BBApiRequest& request, CircuitVerify&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline CircuitInfo::Response execute(BB_UNUSED BBRpcRequest& request, CircuitInfo&& command)
+inline CircuitInfo::Response execute(BB_UNUSED BBApiRequest& request, CircuitInfo&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline CircuitCheck::Response execute(BB_UNUSED BBRpcRequest& request, CircuitCheck&& command)
+inline CircuitCheck::Response execute(BB_UNUSED BBApiRequest& request, CircuitCheck&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline ProofAsFields::Response execute(BB_UNUSED BBRpcRequest& request, ProofAsFields&& command)
+inline ProofAsFields::Response execute(BB_UNUSED BBApiRequest& request, ProofAsFields&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline VkAsFields::Response execute(BB_UNUSED BBRpcRequest& request, VkAsFields&& command)
+inline VkAsFields::Response execute(BB_UNUSED BBApiRequest& request, VkAsFields&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline ClientIvcStart::Response execute(BBRpcRequest& request, BB_UNUSED ClientIvcStart&& command)
+inline ClientIvcStart::Response execute(BBApiRequest& request, BB_UNUSED ClientIvcStart&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline ClientIvcLoad::Response execute(BBRpcRequest& request, ClientIvcLoad&& command)
+inline ClientIvcLoad::Response execute(BBApiRequest& request, ClientIvcLoad&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline ClientIvcAccumulate::Response execute(BBRpcRequest& request, ClientIvcAccumulate&& command)
+inline ClientIvcAccumulate::Response execute(BBApiRequest& request, ClientIvcAccumulate&& command)
 {
     (void)request;
     (void)command;
     throw_or_abort("code in progress! should not be called");
 }
 
-inline ClientIvcProve::Response execute(BBRpcRequest& request, ClientIvcProve&& command)
+inline ClientIvcProve::Response execute(BBApiRequest& request, BB_UNUSED ClientIvcProve&& command)
 {
-    (void)request;
-    (void)command;
-    throw_or_abort("code in progress! should not be called");
+    if (!request.ivc_in_progress) {
+        return ClientIvcProve::Response{ .proof = {},
+                                         .error_message = "ClientIVC not started. Call ClientIvcStart first." };
+    }
+
+    if (request.ivc_stack_depth == 0) {
+        return ClientIvcProve::Response{ .proof = {},
+                                         .error_message = "No circuits accumulated. Call ClientIvcAccumulate first." };
+    }
+
+    info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
+
+    ClientIVC::Proof proof = request.ivc_in_progress->prove();
+
+    // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
+    // and it is mysterious if this transaction fails later in the lifecycle.
+    // The files are still written in case they are needed to investigate this failure.
+    if (!request.ivc_in_progress->verify(proof)) {
+        return ClientIvcProve::Response{ .proof = {}, .error_message = "Failed to verify the generated proof!" };
+    }
+
+    request.ivc_in_progress.reset();
+    request.ivc_stack_depth = 0;
+
+    return ClientIvcProve::Response{ .proof = std::move(proof), .error_message = "" };
 }
 
 inline std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
-    const BBRpcRequest& request, acir_format::AcirProgram& program)
+    const BBApiRequest& request, acir_format::AcirProgram& program)
 {
     ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
@@ -124,7 +157,7 @@ inline std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-inline ClientIVC::VerificationKey compute_vk_for_ivc(const BBRpcRequest& request,
+inline ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request,
                                                      size_t num_public_inputs_in_final_circuit)
 {
     ClientIVC ivc{ request.trace_settings };
@@ -147,7 +180,7 @@ inline ClientIVC::VerificationKey compute_vk_for_ivc(const BBRpcRequest& request
     return ivc.get_vk();
 }
 
-inline ClientIvcComputeVk::Response execute(BBRpcRequest& request, ClientIvcComputeVk&& command)
+inline ClientIvcComputeStandaloneVk::Response execute(BBApiRequest& request, ClientIvcComputeStandaloneVk&& command)
 {
     info("ClientIvcComputeVk - deriving VK for circuit '", command.circuit.name, "', standalone: ", command.standalone);
 
@@ -169,10 +202,43 @@ inline ClientIvcComputeVk::Response execute(BBRpcRequest& request, ClientIvcComp
         info("ClientIvcComputeVk - full IVC VK derived, size: ", vk_data.size(), " bytes");
     }
 
-    return ClientIvcComputeVk::Response{ .verification_key = vk_data, .error_message = "" };
+    acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
+    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+
+    response.vk_bytes = to_buffer(*verification_key);
+    response.vk_fields = verification_key->to_field_elements();
+
+    info("ClientIvcComputeStandaloneVk - VK derived, size: ", response.vk_bytes.size(), " bytes");
+
+    response.error_message = "";
+    return response;
 }
 
-inline ClientIvcCheckPrecomputedVk::Response execute(BBRpcRequest& request, ClientIvcCheckPrecomputedVk&& command)
+inline ClientIvcComputeIvcVk::Response execute(BBApiRequest& request, ClientIvcComputeIvcVk&& command)
+{
+    info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", command.circuit.name, "'");
+
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(command.circuit.bytecode));
+
+    ClientIvcComputeIvcVk::Response response;
+
+    auto vk = compute_vk_for_ivc(request, constraint_system.public_inputs.size());
+    response.vk_bytes = to_buffer(vk);
+
+    info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.vk_bytes.size(), " bytes");
+
+    response.error_message = "";
+    return response;
+}
+
+template <typename T> inline typename T::Response execute(T&& command)
+{
+    BBApiRequest request;
+    return execute_or_throw(request, std::forward<T>(command));
+}
+
+inline ClientIvcCheckPrecomputedVk::Response execute(BBApiRequest& request, ClientIvcCheckPrecomputedVk&& command)
 {
     (void)request;
     (void)command;
@@ -186,23 +252,14 @@ inline ClientIvcCheckPrecomputedVk::Response execute(BBRpcRequest& request, Clie
  * @param request The circuit registry (acting as the request context).
  * @return A variant of all possible command responses.
  */
-inline CommandResponse execute(BBRpcRequest& request, Command&& command)
+inline CommandResponse execute(BBApiRequest& request, Command&& command)
 {
     return std::move(command).visit(
         [&request](auto&& cmd) -> CommandResponse { return execute(request, std::forward<decltype(cmd)>(cmd)); });
 }
 
-template <typename T> typename T::Response execute_or_throw(BBRpcRequest& request, T&& command)
-{
-    auto response = execute(request, std::forward<T>(command));
-    if (!response.error_message.empty()) {
-        throw_or_abort(response.error_message);
-    }
-    return response;
-}
-
 // Can only be called from the execution thread (the same as the main thread, except in threaded WASM).
-inline std::vector<CommandResponse> execute_request(BBRpcRequest&& request, std::vector<Command>&& commands)
+inline std::vector<CommandResponse> execute_request(BBApiRequest&& request, std::vector<Command>&& commands)
 {
     std::vector<CommandResponse> responses;
     responses.reserve(commands.size());
@@ -216,4 +273,29 @@ inline std::vector<CommandResponse> execute_request(BBRpcRequest&& request, std:
     return responses;
 }
 
-} // namespace bb::bbrpc
+} // namespace bb::bbapi
+
+namespace bb {
+template <typename T>
+inline typename T::Response do_bbapi(T&& command)
+    requires(!bbapi::RequiresBBApiRequest<T>)
+{
+    bbapi::BBApiRequest request;
+    typename T::Response result = execute(request, std::forward<T>(command));
+    const std::string& error_message = bbapi::get_error_message(result);
+    if (error_message.empty()) {
+        return result;
+    }
+    throw std::runtime_error{ error_message };
+}
+
+template <bbapi::RequiresBBApiRequest T> inline typename T::Response do_bbapi(bbapi::BBApiRequest& request, T&& command)
+{
+    typename T::Response result = execute(request, std::forward<T>(command));
+    const std::string& error_message = bbapi::get_error_message(result);
+    if (error_message.empty()) {
+        return result;
+    }
+    throw std::runtime_error{ error_message };
+}
+} // namespace bb

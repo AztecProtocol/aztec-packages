@@ -1,4 +1,6 @@
 #include "api_client_ivc.hpp"
+#include "barretenberg/api/bbapi_commands.hpp"
+#include "barretenberg/api/bbapi_execute.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
@@ -16,12 +18,13 @@
 #include <stdexcept>
 
 namespace bb {
+namespace {} // anonymous namespace
 
 acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
     acir_format::WitnessVector wv;
     size_t index = 0;
-    for (auto& e : witness_map) {
+    for (const auto& e : witness_map) {
         uint64_t value = stoull(e.first);
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
@@ -58,12 +61,23 @@ void write_standalone_vk(const std::string& output_data_type,
                          const std::string& output_path)
 {
 
-    acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
-    PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ .key = verification_key };
+    bbapi::BBApiRequest request;
 
-    write(to_write, output_data_type, "vk", output_path);
+    auto response = bbapi::execute(bbapi::ClientIvcComputeStandaloneVk{
+        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) } });
+
+    if (!response.error_message.empty()) {
+        throw_or_abort("Failed to compute standalone VK: " + response.error_message);
+    }
+
+    if (output_format == "bytes") {
+        write_file(output_path / "vk", response.vk_bytes);
+    } else if (output_format == "fields") {
+        std::string json = bbapi::field_elements_to_json(response.vk_fields);
+        write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
+    } else {
+        throw_or_abort("Unsupported output format for standalone vk: " + output_format);
+    }
 }
 
 size_t get_num_public_inputs_in_circuit(const std::filesystem::path& bytecode_path)
@@ -83,19 +97,10 @@ void write_vk_for_ivc(const std::string& output_format,
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
-    // Initialize the IVC with an arbitrary circuit
-    // We segfault if we only call accumulate once
-    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-    ivc.accumulate(circuit_0);
+    bbapi::BBApiRequest request;
 
-    // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 =
-        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
-    ivc.accumulate(circuit_1);
-
-    // Construct the hiding circuit and its VK (stored internally in the IVC)
-    ivc.construct_hiding_circuit_key();
+    auto vk = bbapi::compute_vk_for_ivc(request, num_public_inputs_in_final_circuit);
+    const auto buf = to_buffer(vk);
 
     const bool output_to_stdout = output_dir == "-";
     const auto buf = to_buffer(ivc.get_vk());
@@ -111,9 +116,27 @@ void write_vk_for_ivc(const std::string& output_data_type,
                       const std::string& bytecode_path,
                       const std::filesystem::path& output_dir)
 {
-    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
-    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-    write_vk_for_ivc(output_data_type, num_public_inputs_in_final_circuit, output_dir);
+    if (output_data_type != "bytes") {
+        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_data_type);
+    }
+
+    auto bytecode = get_bytecode(bytecode_path);
+
+    bbapi::BBApiRequest request;
+
+    auto response = bbapi::execute(
+        bbapi::ClientIvcComputeIvcVk{ .circuit = { .name = "final_circuit", .bytecode = std::move(bytecode) } });
+
+    if (!response.error_message.empty()) {
+        throw_or_abort("Failed to compute IVC VK: " + response.error_message);
+    }
+
+    const bool output_to_stdout = output_dir == "-";
+    if (output_to_stdout) {
+        write_bytes_to_stdout(response.vk_bytes);
+    } else {
+        write_file(output_dir / "vk", response.vk_bytes);
+    }
 }
 
 void ClientIVCAPI::prove(const Flags& flags,
@@ -121,17 +144,32 @@ void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& output_dir)
 {
 
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    bbapi::BBApiRequest request;
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
-    ClientIVC::Proof proof = ivc->prove();
+    auto start_response = bbapi::execute(request, bbapi::ClientIvcStart{});
+    if (!start_response.error_message.empty()) {
+        throw_or_abort("Failed to start ClientIVC: " + start_response.error_message);
+    }
 
-    // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
-    // and it is mysterious if this transaction fails later in the lifecycle.
-    // The files are still written in case they are needed to investigate this failure.
-    if (!ivc->verify(proof)) {
-        THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+    for (const auto& step : raw_steps) {
+        auto load_response = bbapi::execute(
+            request,
+            bbapi::ClientIvcLoad{
+                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk } });
+        if (!load_response.error_message.empty()) {
+            throw_or_abort("Failed to load circuit: " + load_response.error_message);
+        }
+
+        info("ClientIVC: accumulating " + step.function_name);
+        auto acc_response = bbapi::execute(request, bbapi::ClientIvcAccumulate{ .witness = step.witness });
+        if (!acc_response.error_message.empty()) {
+            throw_or_abort("Failed to accumulate circuit: " + acc_response.error_message);
+        }
+    }
+
+    auto prove_response = bbapi::execute(request, bbapi::ClientIvcProve{});
+    if (!prove_response.error_message.empty()) {
+        throw_or_abort("Failed to prove: " + prove_response.error_message);
     }
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
@@ -199,16 +237,24 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    for (auto [program, precomputed_vk, function_name] :
-         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
-        if (precomputed_vk == nullptr) {
-            info("FAIL: Expected precomputed vk for function ", function_name);
+    bbapi::BBApiRequest request;
+
+    for (const auto& step : raw_steps) {
+        if (step.vk.empty()) {
+            info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
-        std::string error_message = "FAIL: Precomputed vk does not match computed vk for function " + function_name;
-        if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+
+        auto response = bbapi::execute(
+            request,
+            bbapi::ClientIvcCheckPrecomputedVk{
+                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+                .function_name = step.function_name });
+
+        if (!response.error_message.empty() || !response.valid) {
+            if (!response.error_message.empty()) {
+                info(response.error_message);
+            }
             return false;
         }
     }
