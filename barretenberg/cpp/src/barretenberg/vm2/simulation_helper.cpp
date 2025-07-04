@@ -163,6 +163,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
 
     Execution execution(alu,
+                        bitwise,
                         data_copy,
                         execution_components,
                         context_provider,

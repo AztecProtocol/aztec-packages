@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
+#include "barretenberg/vm2/simulation/bitwise.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/data_copy.hpp"
@@ -47,6 +48,7 @@ class ExecutionInterface {
 class Execution : public ExecutionInterface {
   public:
     Execution(AluInterface& alu,
+              BitwiseInterface& bitwise,
               DataCopyInterface& data_copy,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
@@ -58,6 +60,7 @@ class Execution : public ExecutionInterface {
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
+        , bitwise(bitwise)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
@@ -96,6 +99,9 @@ class Execution : public ExecutionInterface {
     void internal_return(ContextInterface& context);
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
     void success_copy(ContextInterface& context, MemoryAddress dst_addr);
+    void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -127,6 +133,7 @@ class Execution : public ExecutionInterface {
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;
+    BitwiseInterface& bitwise;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
