@@ -102,6 +102,18 @@ const size_t BATCH_INVERT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2 + size
 
 template <typename Field> struct FieldVM {
     static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= 0x4000000000000000ULL);
+
+    // Check if this field supports sqrt operations
+    // Fields with very small 2-adicity (like secp256r1) have issues with Tonelli-Shanks
+    static constexpr bool SUPPORTS_SQRT = []() {
+        if constexpr (requires { Field::primitive_root_log_size(); }) {
+            // For fields that define primitive_root_log_size, check if it's large enough
+            return Field::primitive_root_log_size() >= 6;
+        } else {
+            // For other fields, assume they support sqrt
+            return true;
+        }
+    }();
     std::array<Field, INTERNAL_STATE_SIZE> field_internal_state;
     std::array<numeric::uint256_t, INTERNAL_STATE_SIZE> uint_internal_state;
     bool with_debug;
@@ -130,7 +142,7 @@ template <typename Field> struct FieldVM {
         settings.enable_sqr = true;
         settings.enable_sqr_assign = true;
         settings.enable_pow = true;
-        settings.enable_sqrt = true;
+        settings.enable_sqrt = SUPPORTS_SQRT;
         settings.enable_is_zero = true;
         settings.enable_equal = true;
         settings.enable_not_equal = true;
@@ -152,6 +164,27 @@ template <typename Field> struct FieldVM {
         auto get_index = [&](const unsigned char* data_ptr_index, size_t offset) -> size_t {
             return static_cast<size_t>(data_ptr_index[offset]) % INTERNAL_STATE_SIZE;
         };
+
+        // Read the instruction for debug output
+        Instruction instruction = static_cast<Instruction>(*data_ptr);
+        if (with_debug) {
+            const char* instruction_names[] = { "SET_VALUE",   "ADD",           "ADD_ASSIGN",
+                                                "INCREMENT",   "MUL",           "MUL_ASSIGN",
+                                                "SUB",         "SUB_ASSIGN",    "DIV",
+                                                "DIV_ASSIGN",  "INV",           "NEG",
+                                                "SQR",         "SQR_ASSIGN",    "POW",
+                                                "SQRT",        "IS_ZERO",       "EQUAL",
+                                                "NOT_EQUAL",   "TO_MONTGOMERY", "FROM_MONTGOMERY",
+                                                "REDUCE_ONCE", "SELF_REDUCE",   "BATCH_INVERT" };
+            const char* instruction_name =
+                (static_cast<int>(instruction) >= 0 &&
+                 static_cast<int>(instruction) <
+                     static_cast<int>(sizeof(instruction_names) / sizeof(instruction_names[0])))
+                    ? instruction_names[static_cast<int>(instruction)]
+                    : "UNKNOWN";
+            std::cout << "Executing instruction: " << instruction_name << " (" << static_cast<int>(instruction)
+                      << ") at step: " << step_count << std::endl;
+        }
         auto get_value = [&](const unsigned char* data_ptr_value, size_t offset) -> numeric::uint256_t {
             std::array<uint64_t, 4> limbs;
             for (size_t i = 0; i < 4; i++) {
@@ -162,8 +195,6 @@ template <typename Field> struct FieldVM {
         auto get_uint64 = [&](const unsigned char* data_ptr_value, size_t offset) -> uint64_t {
             return *reinterpret_cast<const uint64_t*>(data_ptr_value + offset);
         };
-        // Read the instruction
-        Instruction instruction = static_cast<Instruction>(*data_ptr);
         switch (instruction) {
         case Instruction::SET_VALUE:
             if (size_left < SET_VALUE_SIZE) {
@@ -601,31 +632,33 @@ template <typename Field> struct FieldVM {
             if (size_left < SQRT_SIZE) {
                 return size_left;
             }
-            if (!settings.enable_sqrt) {
-                return SQRT_SIZE; // Skip disabled operation but return correct size
+            if (!settings.enable_sqrt || !SUPPORTS_SQRT) {
+                return SQRT_SIZE; // Skip disabled/unsupported operation but return correct size
             }
             // Read the operand
             {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
-                auto [found, root] = field_internal_state[index1].sqrt();
-                if (found) {
-                    field_internal_state[index2] = root;
-                    assert((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
-                            uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2]))) %
-                               uint512_t(Field::modulus) ==
-                           uint512_t(uint_internal_state[index1]));
-                    uint_internal_state[index2] = static_cast<numeric::uint256_t>(root);
-                }
-                if (with_debug) {
-                    info("SQRT: index1: ",
-                         index1,
-                         " index2: ",
-                         index2,
-                         " found: ",
-                         found,
-                         " value: ",
-                         field_internal_state[index2]);
+                if constexpr (SUPPORTS_SQRT) {
+                    auto [found, root] = field_internal_state[index1].sqrt();
+                    if (found) {
+                        field_internal_state[index2] = root;
+                        assert((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
+                                uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2]))) %
+                                   uint512_t(Field::modulus) ==
+                               uint512_t(uint_internal_state[index1]));
+                        uint_internal_state[index2] = static_cast<numeric::uint256_t>(root);
+                    }
+                    if (with_debug) {
+                        info("SQRT: index1: ",
+                             index1,
+                             " index2: ",
+                             index2,
+                             " found: ",
+                             found,
+                             " value: ",
+                             field_internal_state[index2]);
+                    }
                 }
             }
             return SQRT_SIZE;
@@ -728,12 +761,25 @@ template <typename Field> struct FieldVM {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = field_internal_state[index1].from_montgomery_form();
-                uint_internal_state[index2] = uint_internal_state[index1];
-                for (size_t i = 0; i < 256; i++) {
-                    if (uint_internal_state[index2] & 1) {
-                        uint_internal_state[index2] += Field::modulus;
+                if constexpr (LARGE_MODULUS) {
+                    // For large modulus fields, use uint512_t to prevent overflow
+                    uint512_t value = uint512_t(uint_internal_state[index1]);
+                    for (size_t i = 0; i < 256; i++) {
+                        if (value & 1) {
+                            value += uint512_t(Field::modulus);
+                        }
+                        value >>= 1;
                     }
-                    uint_internal_state[index2] >>= 1;
+                    uint_internal_state[index2] = value.lo;
+                } else {
+                    // For small modulus fields, use uint256_t
+                    uint_internal_state[index2] = uint_internal_state[index1];
+                    for (size_t i = 0; i < 256; i++) {
+                        if (uint_internal_state[index2] & 1) {
+                            uint_internal_state[index2] += Field::modulus;
+                        }
+                        uint_internal_state[index2] >>= 1;
+                    }
                 }
                 if (with_debug) {
                     info("FROM_MONTGOMERY: index1: ",
@@ -893,12 +939,21 @@ template <typename Field> struct FieldVM {
      * @param Data The data to run the VM on
      * @param Size The size of the data
      * @param reset_steps Whether to reset the step counter (default: true)
-     *
+     * @return size_t The number of bytes consumed, or 0 if not enough data for settings
      */
-    void run(const unsigned char* Data, size_t Size, bool reset_steps = true)
+    size_t run(const unsigned char* Data, size_t Size, bool reset_steps = true)
     {
         if (Size < SETTINGS_SIZE) {
-            return; // Not enough data for settings
+            if (with_debug) {
+                std::cout << "[FieldVM] Not enough data for settings: Size=" << Size
+                          << ", SETTINGS_SIZE=" << SETTINGS_SIZE << std::endl;
+                std::cout << "[FieldVM] First bytes: ";
+                for (size_t i = 0; i < std::min(Size, size_t(16)); ++i) {
+                    printf("%02x ", Data[i]);
+                }
+                std::cout << std::endl;
+            }
+            return 0; // Not enough data for settings
         }
 
         // Read settings from the beginning of the buffer
@@ -912,24 +967,27 @@ template <typename Field> struct FieldVM {
             step_count = 0;
         }
 
+        if (with_debug) {
+            std::cout << "Starting VM run with " << size_left << " bytes of data, max_steps: " << max_steps
+                      << std::endl;
+        }
+
         while (size_left > 0 && step_count < max_steps) {
             size_t shift = this->execute_instruction(data_ptr, size_left);
             size_left -= shift;
             data_ptr += shift;
             step_count++;
         }
+
+        return Size - size_left; // Return the number of bytes consumed
     }
     bool check_internal_state() const
     {
         for (size_t i = 0; i < INTERNAL_STATE_SIZE; i++) {
             if (field_internal_state[i] != Field(uint_internal_state[i])) {
                 if (with_debug) {
-                    info("check_internal_state: index: ",
-                         i,
-                         " field: ",
-                         field_internal_state[i],
-                         " uint: ",
-                         uint_internal_state[i]);
+                    std::cout << "check_internal_state: index: " << i << " field: " << field_internal_state[i]
+                              << " uint: " << uint_internal_state[i] << std::endl;
                 }
                 return false;
             }
@@ -985,6 +1043,40 @@ template <typename Field> struct FieldVM {
      * @return bool True if more steps can be executed
      */
     bool has_remaining_steps() const { return step_count < max_steps; }
+
+    /**
+     * @brief Reduce a uint256_t value to the field's modulus
+     * @param value The value to reduce
+     * @return numeric::uint256_t The reduced value
+     */
+    static numeric::uint256_t reduce_to_modulus(const numeric::uint256_t& value)
+    {
+        if constexpr (LARGE_MODULUS) {
+            return (uint512_t(value) % uint512_t(Field::modulus)).lo;
+        } else {
+            return value % Field::modulus;
+        }
+    }
+
+    /**
+     * @brief Verify that the initial state is correctly loaded
+     * @param state The state vector to verify against
+     * @return bool True if the state is correctly loaded
+     */
+    bool verify_initial_state(const std::vector<numeric::uint256_t>& state) const
+    {
+        for (size_t i = 0; i < std::min(state.size(), size_t(INTERNAL_STATE_SIZE)); i++) {
+            // Check that uint_internal_state matches the reduced state
+            if (uint_internal_state[i] != reduce_to_modulus(state[i])) {
+                return false;
+            }
+            // Check that field_internal_state is consistent with uint_internal_state
+            if (field_internal_state[i] != Field(uint_internal_state[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 } // namespace bb
