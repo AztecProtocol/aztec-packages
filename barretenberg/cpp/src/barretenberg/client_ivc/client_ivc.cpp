@@ -145,25 +145,13 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs, decider_vk->vk_and_hash->vk->pairing_inputs_public_input_key);
 
     pairing_points.aggregate(nested_pairing_points);
-    // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
-    // consistency checks between the calldata commitments and the return data commitments contained within the public
-    // inputs
-
-    // bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
-    //     decider_vk->witness_commitments.return_data,
-    //     decider_vk->witness_commitments.calldata,
-    //     decider_vk->witness_commitments.secondary_calldata,
-    //     decider_vk->public_inputs,
-    //     decider_vk->verification_key->databus_propagation_data);
 
     // get the consistency check data from the public inputs
     // check whether we are in a kernel circuit
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
         kernel_return_data_commitment_exists = true;
         // kernel_input.reconstruct_from_public(decider_vk->public_inputs);
-        kernel_input.reconstruct_from_public(
-            decider_vk->public_inputs,
-            static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
+        kernel_input.reconstruct_from_public(decider_vk->public_inputs);
 
         auto return_data = decider_vk->witness_commitments.return_data;
         auto calldata = decider_vk->witness_commitments.calldata;

@@ -28,7 +28,6 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     using Commitment = typename NativeCurve::AffineElement;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
-
     using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
     template <size_t log_poly_length>
     std::pair<std::shared_ptr<StdlibTranscript>, OpeningClaim<Curve>> create_ipa_claim(Builder& builder)

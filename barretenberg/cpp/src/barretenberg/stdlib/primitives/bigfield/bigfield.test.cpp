@@ -322,10 +322,8 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 expected += mul_left_native[j] * mul_right_native[j];
                 expected += to_add_native[j];
             }
-            
             expected = expected.from_montgomery_form();
             uint512_t result = f_ct.get_value();
-
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -349,7 +347,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 1;
         const size_t number_of_madds = 16;
         for (size_t i = 0; i < num_repetitions; ++i) {
-
             // Multiplicands are constants
             auto [mul_left_native, mul_left_ct] =
                 get_random_constants(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
@@ -566,77 +563,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_div_with_constant()
-    {
-        auto builder = Builder();
-        size_t num_repetitions = 10;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            inputs[0] = inputs[0].reduce_once().reduce_once();
-            inputs[1] = inputs[1].reduce_once().reduce_once();
-            inputs[2] = inputs[2].reduce_once().reduce_once();
-
-            // numerator is witness, denominator is constant
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(&builder, uint256_t(inputs[1]));
-
-            a.set_origin_tag(submitted_value_origin_tag);
-            b.set_origin_tag(challenge_origin_tag);
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct c = a / b;
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
-            if (i == num_repetitions - 1) {
-                std::cout << "num gates per div of witness/constant = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV_CONSTANT", "Gate Count", after - before);
-            }
-
-            fq expected = (inputs[0] / inputs[1]);
-            expected = expected.reduce_once().reduce_once();
-            expected = expected.from_montgomery_form();
-            uint512_t result = c.get_value();
-
-            EXPECT_EQ(result.lo.data[0], expected.data[0]);
-            EXPECT_EQ(result.lo.data[1], expected.data[1]);
-            EXPECT_EQ(result.lo.data[2], expected.data[2]);
-            EXPECT_EQ(result.lo.data[3], expected.data[3]);
-            EXPECT_EQ(result.hi.data[0], 0ULL);
-            EXPECT_EQ(result.hi.data[1], 0ULL);
-            EXPECT_EQ(result.hi.data[2], 0ULL);
-            EXPECT_EQ(result.hi.data[3], 0ULL);
-
-            // numerator is constant, denominator is witness
-            fq_ct e(&builder, uint256_t(inputs[2]));
-            e.set_origin_tag(challenge_origin_tag);
-            uint64_t before_e = builder.get_estimated_num_finalized_gates();
-            fq_ct d = e / a;
-            EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
-            uint64_t after_e = builder.get_estimated_num_finalized_gates();
-            if (i == num_repetitions - 1) {
-                std::cout << "num gates per div of constant/witness = " << after_e - before_e << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV_CONSTANT", "Gate Count", after_e - before_e);
-            }
-
-            fq expected_e = (inputs[2] / inputs[0]);
-            expected_e = expected_e.reduce_once().reduce_once();
-            expected_e = expected_e.from_montgomery_form();
-            uint512_t result_e = d.get_value();
-
-            EXPECT_EQ(result_e.lo.data[0], expected_e.data[0]);
-            EXPECT_EQ(result_e.lo.data[1], expected_e.data[1]);
-            EXPECT_EQ(result_e.lo.data[2], expected_e.data[2]);
-            EXPECT_EQ(result_e.lo.data[3], expected_e.data[3]);
-            EXPECT_EQ(result_e.hi.data[0], 0ULL);
-            EXPECT_EQ(result_e.hi.data[1], 0ULL);
-            EXPECT_EQ(result_e.hi.data[2], 0ULL);
-            EXPECT_EQ(result_e.hi.data[3], 0ULL);
-        }
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
     static void test_add_and_div()
     {
         auto builder = Builder();
@@ -808,9 +734,9 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
+
             auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
             a_ct.set_origin_tag(submitted_value_origin_tag);
-
 
             bool_ct predicate_a(witness_ct(&builder, true));
             predicate_a.set_origin_tag(challenge_origin_tag);

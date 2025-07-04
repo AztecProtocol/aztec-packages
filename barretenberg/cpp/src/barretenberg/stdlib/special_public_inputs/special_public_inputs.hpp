@@ -26,10 +26,10 @@ class KernelIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicKey = PublicComponentKey;
 
-    // bool is_kernel = false;
-    // PairingInputs pairing_inputs;
     G1 kernel_return_data;
     G1 app_return_data;
+    // TODO(khashayar): add the following fields to the kernel IO
+    // PairingInputs pairing_inputs;
     // G1 ecc_op_table;
     // FF pg_acc_hash;
 
@@ -41,38 +41,26 @@ class KernelIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs, uint32_t start_idx = 0)
     {
-        uint32_t index = start_idx;
-        // pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
-        info("public_inputs.size()", public_inputs.size());
-        info("PairingInputs::PUBLIC_INPUTS_SIZE", PairingInputs::PUBLIC_INPUTS_SIZE);
-        info("G1::PUBLIC_INPUTS_SIZE", G1::PUBLIC_INPUTS_SIZE);
-        info("G1::PUBLIC_INPUTS_SIZE", G1::PUBLIC_INPUTS_SIZE);
-        // ASSERT(public_inputs.size() ==
-        //        PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE);
+        uint32_t index =
+            start_idx + static_cast<uint32_t>(public_inputs.size() - (PairingInputs::PUBLIC_INPUTS_SIZE +
+                                                                      G1::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE));
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
         app_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
-
-        // index += G1::PUBLIC_INPUTS_SIZE;
-        // ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
-        // index += G1::PUBLIC_INPUTS_SIZE;
-        // pg_acc_hash = public_inputs[index];
     }
 
     /**
      * @brief Set each IO component to be a public input of the underlying circuit.
      *
      */
-    void set_public()
+    void set_public() const
     {
         Builder* builder = kernel_return_data.get_context();
         builder->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx =
             kernel_return_data.set_public();
         builder->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
             app_return_data.set_public();
-        // ecc_op_table.set_public();
-        // pg_acc_hash.set_public();
     }
 };
 

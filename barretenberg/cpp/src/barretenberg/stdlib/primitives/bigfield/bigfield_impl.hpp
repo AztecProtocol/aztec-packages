@@ -797,7 +797,6 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                                         bool check_for_zero)
 {
     ASSERT(numerators.size() < MAXIMUM_SUMMAND_COUNT);
-
     if (numerators.empty()) {
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
@@ -2297,7 +2296,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
         }
     }
     ASSERT(ctx != nullptr);
-
 
     /**
      * Step 1: Compute the maximum potential value of our product limbs
