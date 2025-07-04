@@ -22,7 +22,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0xf302136f8b3a84d3c36be87e283cda0d6ad04392b7e3c5379c55b2d5b2634c1c, ERR_STRING
+      codeHash, 0x4d29f06fa134ba35144344e590693ae5436c551f0b4503ffa03249e3fccf8aee, ERR_STRING
     );
   }
 
@@ -49,7 +49,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0x86b91c31175542a55a9822a5a1eb74b05ea2deb27a30f1db9a21514162dd2a4b, ERR_STRING
+      codeHash, 0x7ac2cde965c32c4609e0be6316fa40373fdeafe75032dd891ee6038d578f673e, ERR_STRING
     );
   }
 }
