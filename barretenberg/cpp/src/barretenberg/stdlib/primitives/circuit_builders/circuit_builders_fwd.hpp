@@ -35,6 +35,7 @@ class UltraKeccakZKFlavor;
 class UltraRollupFlavor;
 class ECCVMFlavor;
 class TranslatorFlavor;
+class AvmRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
@@ -44,9 +45,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
-template <typename BuilderType> class AvmRecursiveFlavor_;
 namespace avm2 {
-template <typename BuilderType> class AvmRecursiveFlavor_;
+class AvmRecursiveFlavor;
 }
 
 #ifdef STARKNET_GARAGA_FLAVORS
