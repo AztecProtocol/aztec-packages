@@ -104,7 +104,6 @@ pub contract StateVars {
         storage.private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
 
@@ -115,7 +114,6 @@ pub contract StateVars {
         storage.private_mutable.initialize(private_mutable).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
 
@@ -125,7 +123,6 @@ pub contract StateVars {
 
         storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
             context.msg_sender(),
         ));
     }
@@ -144,7 +141,6 @@ pub contract StateVars {
         // Replace existing note with new note
         storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
             context.msg_sender(),
         ));
     }

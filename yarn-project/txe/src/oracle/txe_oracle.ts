@@ -1364,6 +1364,10 @@ export class TXE implements TypedOracle {
       this.simulator,
       0,
       1,
+      undefined, // log
+      undefined, // scopes
+      /** In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a contract would perform, including setting senderForTags */
+      this.msgSender,
     );
 
     context.storeInExecutionCache(args, argsHash);

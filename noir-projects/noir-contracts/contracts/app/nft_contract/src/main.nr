@@ -193,16 +193,13 @@ pub contract NFT {
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
     ) -> PartialNFTNote {
-        let sender_and_completer = context.msg_sender();
-
         // We setup a partial note with unpopulated/zero token id for 'to'.
         let partial_note = NFTNote::partial(
             to,
             storage.private_nfts.at(to).storage_slot,
             context,
             to,
-            sender_and_completer,
-            sender_and_completer,
+            to,
         );
 
         partial_note
@@ -305,7 +302,7 @@ pub contract NFT {
 
         let new_note = NFTNote::new(token_id, to);
 
-        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
+        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to));
     }
     // docs:end:transfer_in_private
 

@@ -131,10 +131,11 @@ export class ContractFunctionSimulator {
       noteCache,
       this.executionDataProvider,
       this.simulator,
-      /*totalPublicArgsCount=*/ 0,
+      0, // totalPublicArgsCount
       startSideEffectCounter,
-      undefined,
+      undefined, // log
       scopes,
+      undefined, // senderForTags
     );
 
     const setupTime = simulatorSetupTimer.ms();
