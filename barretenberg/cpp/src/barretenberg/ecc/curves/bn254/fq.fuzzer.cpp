@@ -9,7 +9,10 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* Data, size_t Size)
     FieldVM<fq> vm(false, 500);
 
     // Phase 1: Run for first 500 steps
-    vm.run(Data, Size);
+    size_t bytes_consumed = vm.run(Data, Size);
+    if (bytes_consumed == 0) {
+        return 0; // Not enough data
+    }
 
     // Check state after first phase
     if (!vm.check_internal_state()) {
