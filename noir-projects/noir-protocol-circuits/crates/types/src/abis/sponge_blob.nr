@@ -1,5 +1,5 @@
 use crate::{
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH, TWO_POW_64},
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
     hash::poseidon2_absorb_chunks_existing_sponge,
     poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
@@ -21,6 +21,7 @@ use crate::{
 // Init is given by input len * 2^64 (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
 global IV: Field = (FIELDS_PER_BLOB * BLOBS_PER_BLOCK) as Field * TWO_POW_64;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct SpongeBlob {
     pub sponge: Poseidon2Sponge,
     pub fields: u32,
@@ -59,58 +60,10 @@ impl SpongeBlob {
     }
 }
 
-impl Eq for SpongeBlob {
-    // TODO: should Poseidon2 struct have a .eq() impl?
-    fn eq(self, other: Self) -> bool {
-        (self.fields == other.fields)
-            & (self.sponge.cache == other.sponge.cache)
-            & (self.sponge.state == other.sponge.state)
-            & (self.sponge.cache_size == other.sponge.cache_size)
-            & (self.sponge.squeeze_mode == other.sponge.squeeze_mode)
-    }
-}
-
-impl Serialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
-    fn serialize(self) -> [Field; SPONGE_BLOB_LENGTH] {
-        let mut fields: BoundedVec<Field, SPONGE_BLOB_LENGTH> = BoundedVec::new();
-        fields.extend_from_array(self.sponge.cache);
-        fields.extend_from_array(self.sponge.state);
-        fields.push(self.sponge.cache_size as Field);
-        fields.push(self.sponge.squeeze_mode as Field);
-        fields.push(self.fields as Field);
-        fields.push(self.expected_fields as Field);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
-    fn deserialize(fields: [Field; SPONGE_BLOB_LENGTH]) -> Self {
-        Self {
-            sponge: Poseidon2Sponge {
-                cache: [fields[0], fields[1], fields[2]],
-                state: [fields[3], fields[4], fields[5], fields[6]],
-                cache_size: fields[7] as u32,
-                squeeze_mode: fields[8] != 0,
-            },
-            fields: fields[9] as u32,
-            expected_fields: fields[10] as u32,
-        }
-    }
-}
-
 impl Empty for SpongeBlob {
     fn empty() -> Self {
         Self { sponge: Poseidon2Sponge::new(0), fields: 0, expected_fields: 0 }
     }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = SpongeBlob::empty();
-    let serialized = item.serialize();
-    let deserialized = SpongeBlob::deserialize(serialized);
-    assert(item.eq(deserialized));
 }
 
 #[test]

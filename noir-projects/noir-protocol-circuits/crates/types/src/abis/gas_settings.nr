@@ -1,10 +1,6 @@
-use crate::{
-    abis::{gas::Gas, gas_fees::GasFees},
-    constants::GAS_SETTINGS_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
-};
+use crate::{abis::{gas::Gas, gas_fees::GasFees}, traits::{Deserialize, Empty, Serialize}};
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct GasSettings {
     pub gas_limits: Gas,
     pub teardown_gas_limits: Gas,
@@ -23,15 +19,6 @@ impl GasSettings {
     }
 }
 
-impl Eq for GasSettings {
-    fn eq(self, other: Self) -> bool {
-        (self.gas_limits == other.gas_limits)
-            & (self.teardown_gas_limits == other.teardown_gas_limits)
-            & (self.max_fees_per_gas == other.max_fees_per_gas)
-            & (self.max_priority_fees_per_gas == other.max_priority_fees_per_gas)
-    }
-}
-
 impl Empty for GasSettings {
     fn empty() -> Self {
         GasSettings::new(
@@ -43,35 +30,20 @@ impl Empty for GasSettings {
     }
 }
 
-impl Serialize<GAS_SETTINGS_LENGTH> for GasSettings {
-    fn serialize(self) -> [Field; GAS_SETTINGS_LENGTH] {
-        let mut serialized: BoundedVec<Field, GAS_SETTINGS_LENGTH> = BoundedVec::new();
+mod test {
+    use crate::{
+        abis::gas_settings::GasSettings,
+        constants::GAS_SETTINGS_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-        serialized.extend_from_array(self.gas_limits.serialize());
-        serialized.extend_from_array(self.teardown_gas_limits.serialize());
-        serialized.extend_from_array(self.max_fees_per_gas.serialize());
-        serialized.extend_from_array(self.max_priority_fees_per_gas.serialize());
-
-        serialized.storage()
+    #[test]
+    fn serialization_of_empty() {
+        let item = GasSettings::empty();
+        // We use the GAS_SETTINGS_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; GAS_SETTINGS_LENGTH] = item.serialize();
+        let deserialized = GasSettings::deserialize(serialized);
+        assert(item.eq(deserialized));
     }
-}
-
-impl Deserialize<GAS_SETTINGS_LENGTH> for GasSettings {
-    fn deserialize(serialized: [Field; GAS_SETTINGS_LENGTH]) -> GasSettings {
-        let mut reader = Reader::new(serialized);
-        GasSettings::new(
-            reader.read_struct(Gas::deserialize),
-            reader.read_struct(Gas::deserialize),
-            reader.read_struct(GasFees::deserialize),
-            reader.read_struct(GasFees::deserialize),
-        )
-    }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = GasSettings::empty();
-    let serialized = item.serialize();
-    let deserialized = GasSettings::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

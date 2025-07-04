@@ -23,14 +23,18 @@ impl Ordered for TestValue {
     }
 }
 
-impl Serialize<2> for TestValue {
-    fn serialize(self) -> [Field; 2] {
+impl Serialize for TestValue {
+    let N: u32 = 2;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self.value, self.counter as Field]
     }
 }
 
-impl Deserialize<2> for TestValue {
-    fn deserialize(fields: [Field; 2]) -> Self {
+impl Deserialize for TestValue {
+    let N: u32 = 2;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         Self { value: fields[0], counter: fields[1] as u32 }
     }
 }
