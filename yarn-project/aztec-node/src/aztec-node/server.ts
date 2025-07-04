@@ -42,6 +42,7 @@ import {
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type SimulationError } from '@aztec/stdlib/errors';
 import {
   type InBlock,
   type L2Block,
@@ -966,6 +967,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
+   * Provides limited error enrichment for simulation errors using the node's ContractDataSource.
+   * This adds function names to error call stacks when available.
+   */
+  private async enrichNodeSimulationError(err: SimulationError): Promise<void> {
+    const callStack = err.getCallStack();
+
+    // Try to enrich each call in the stack with function names
+    await Promise.all(
+      callStack.map(async ({ contractAddress, functionSelector }) => {
+        if (functionSelector) {
+          try {
+            const functionName = await this.contractDataSource.getDebugFunctionName(contractAddress, functionSelector);
+            if (functionName) {
+              err.enrichWithFunctionName(contractAddress, functionSelector, functionName);
+            }
+          } catch (enrichErr) {
+            // Log but don't fail if enrichment fails
+            this.log.warn(`Failed to get function name for ${contractAddress}:${functionSelector}: ${enrichErr}`);
+          }
+        }
+      })
+    );
+  }
+
+  /**
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
@@ -1025,7 +1051,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       // REFACTOR: Consider returning the error rather than throwing
       if (failedTxs.length) {
         this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
-        throw failedTxs[0].error;
+        const error = failedTxs[0].error;
+
+        // Try to enrich the error if it's a SimulationError
+        if (error && typeof error === 'object' && 'getCallStack' in error) {
+          try {
+            await this.enrichNodeSimulationError(error as SimulationError);
+          } catch (enrichErr) {
+            this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
+          }
+        }
+
+        throw error;
       }
 
       const [processedTx] = processedTxs;
