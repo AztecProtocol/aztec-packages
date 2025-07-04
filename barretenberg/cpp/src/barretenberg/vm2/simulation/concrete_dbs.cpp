@@ -310,10 +310,4 @@ void MerkleDB::revert_checkpoint()
     }
 }
 
-uint32_t MerkleDB::get_written_public_data_slots_counter() const
-{
-    // Minus one since the tree has a prefill leaf.
-    return static_cast<uint32_t>(written_public_data_slots_tree_stack.top().get_snapshot().nextAvailableLeafIndex - 1);
-}
-
 } // namespace bb::avm2::simulation

@@ -92,8 +92,6 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     bool nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const;
     bool nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier);
 
-    uint32_t get_written_public_data_slots_counter() const;
-
     std::stack<WrittenPublicDataSlotsTree> written_public_data_slots_tree_stack = {};
 
     LowLevelMerkleDBInterface& raw_merkle_db;
