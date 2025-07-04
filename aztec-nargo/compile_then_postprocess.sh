@@ -11,6 +11,9 @@ dir=$(dirname $0)
 NARGO=${NARGO:-"$dir/../noir/noir-repo/target/release/nargo"}
 TRANSPILER=${TRANSPILER:-"$dir/../avm-transpiler/target/release/avm-transpiler"}
 BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
+CACHE_DIR=${CACHE_DIR:-"$HOME/.aztec/cache"}
+
+mkdir -p "$CACHE_DIR"
 
 if [ "${1:-}" != "compile" ]; then
   # if not compiling, just pass through to nargo verbatim
@@ -18,6 +21,10 @@ if [ "${1:-}" != "compile" ]; then
   exit $?
 fi
 shift # remove the compile arg so we can inject --show-artifact-paths
+
+# bb --version returns 00000000.00000000.00000000, so we compute
+# the binary hash to ensure we invalidate vk cache artifacts when bb changes
+bb_hash=$(sha256sum "$BB" | cut -d' ' -f1)
 
 # Forward all arguments to nargo, tee output to console.
 # Nargo should be outputting errors to stderr, but it doesn't. Use tee to duplicate stdout to stderr to display errors.
@@ -38,17 +45,26 @@ for artifact in $artifacts_to_process; do
   job_commands=()
   for fn_index in $private_fn_indices; do
     fn_name=$(jq -r ".functions[$fn_index].name" "$artifact")
-    fn_artifact=$(jq -r ".functions[$fn_index]" "$artifact")
+    # Remove debug symbols since they don't affect vk computation, but can cause cache misses
+    fn_artifact=$(jq -r ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
+    fn_artifact_hash=$(echo "$fn_artifact-$bb_hash" | sha256sum | cut -d' ' -f1)
+
+    # File to capture the base64 encoded verification key.
+    vk_cache="$CACHE_DIR/$artifact_name.verification_key_$fn_artifact_hash.vk"
+
+    # Don't regenerate if vk_cache exists
+    if [ -f "$vk_cache" ]; then
+      echo "Verification key for function $fn_name already exists"
+      continue
+    fi
+
     fn_artifact_path="$artifact.function_artifact_$fn_index.json"
     echo "$fn_artifact" > "$fn_artifact_path"
 
-    # Temporary file to capture the base64 encoded verification key.
-    vk_tmp="$artifact.verification_key_$fn_index.tmp"
-
     # Construct the command:
     # The BB call is wrapped by GNU parallel's memsuspend (active memory-based suspension)
-    # This command will generate the verification key, base64 encode it, and save it to vk_tmp.
-    job_commands+=("echo \"Generating verification key for function $fn_name\"; $BB write_vk --scheme client_ivc --verifier_type standalone -b \"$fn_artifact_path\" -o - | base64 > \"$vk_tmp\"; rm \"$fn_artifact_path\"")
+    # This command will generate the verification key, base64 encode it, and save it to vk_cache.
+    job_commands+=("echo \"Generating verification key for function $fn_name\"; $BB write_vk --scheme client_ivc --verifier_type standalone -b \"$fn_artifact_path\" -o - | base64 > \"$vk_cache\"; rm \"$fn_artifact_path\"")
   done
 
   # Run the commands in parallel, limiting to available cores and using memsuspend to actively suspend jobs if memory usage exceeds 2G.
@@ -57,11 +73,12 @@ for artifact in $artifacts_to_process; do
 
   # Now, update the artifact sequentially with each generated verification key.
   for fn_index in $private_fn_indices; do
-    vk_tmp="$artifact.verification_key_$fn_index.tmp"
-    verification_key=$(cat "$vk_tmp")
+    fn_artifact=$(jq -r ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
+    fn_artifact_hash=$(echo "$fn_artifact-$bb_hash" | sha256sum | cut -d' ' -f1)
+    vk_cache="$CACHE_DIR/$artifact_name.verification_key_$fn_artifact_hash.vk"
+    verification_key=$(cat "$vk_cache")
     # Update the artifact with the new verification key.
     jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" > "$artifact.tmp"
     mv "$artifact.tmp" "$artifact"
-    rm "$vk_tmp"
   done
 done
