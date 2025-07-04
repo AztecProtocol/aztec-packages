@@ -635,7 +635,7 @@ class ArithmeticFuzzHelper {
         // If there is a posprocessing function, use it
         if constexpr (PostProcessingEnabled<T, Composer, std::vector<typename T::ExecutionHandler>>) {
             final_value_check = T::postProcess(&composer, state);
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             if (!final_value_check) {
                 std::cerr << "Final value check failed" << std::endl;
             }
