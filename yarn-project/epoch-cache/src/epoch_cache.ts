@@ -42,6 +42,7 @@ export interface EpochCacheInterface {
     nextSlot: bigint;
   }>;
   isInCommittee(validator: EthAddress): Promise<boolean>;
+  getRegisteredValidators(): Promise<EthAddress[]>;
 }
 
 /**
@@ -55,6 +56,8 @@ export interface EpochCacheInterface {
  */
 export class EpochCache implements EpochCacheInterface {
   private cache: Map<bigint, EpochCommitteeInfo> = new Map();
+  private allValidators: Set<string> = new Set();
+  private lastValidatorRefresh = new Date(0);
   private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
@@ -64,7 +67,7 @@ export class EpochCache implements EpochCacheInterface {
     initialSampleSeed: bigint = 0n,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     private readonly dateProvider: DateProvider = new DateProvider(),
-    private readonly config = { cacheSize: 12 },
+    private readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
     this.cache.set(initialEpoch, { epoch: initialEpoch, committee: initialValidators, seed: initialSampleSeed });
     this.log.debug(`Initialized EpochCache with ${initialValidators?.length ?? 'no'} validators`, {
@@ -295,5 +298,17 @@ export class EpochCache implements EpochCacheInterface {
     }
     const committeeSet = new Set(committee.map(v => v.toString()));
     return validators.filter(v => committeeSet.has(v.toString()));
+  }
+
+  async getRegisteredValidators(): Promise<EthAddress[]> {
+    if (
+      this.lastValidatorRefresh.getTime() + this.config.validatorRefreshIntervalSeconds * 1000 <
+      this.dateProvider.now()
+    ) {
+      const currentSet = await this.rollup.getAttesters();
+      this.allValidators = new Set(currentSet);
+      this.lastValidatorRefresh = this.dateProvider.now();
+    }
+    return Array.from(this.allValidators.keys().map(v => EthAddress.fromString(v)));
   }
 }

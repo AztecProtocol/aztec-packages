@@ -56,4 +56,8 @@ export class MockEpochCache implements EpochCacheInterface {
   isInCommittee(_validator: EthAddress): Promise<boolean> {
     return Promise.resolve(false);
   }
+
+  getRegisteredValidators(): Promise<EthAddress[]> {
+    return Promise.resolve([]);
+  }
 }

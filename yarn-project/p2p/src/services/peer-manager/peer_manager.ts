@@ -1,3 +1,7 @@
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { recoverAddress } from '@aztec/foundation/crypto';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -6,6 +10,7 @@ import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
+import { peerIdFromString } from '@libp2p/peer-id';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import type { Libp2p } from 'libp2p';
 import { inspect } from 'util';
@@ -13,6 +18,7 @@ import { inspect } from 'util';
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
+import { AuthRequest, AuthResponse } from '../reqresp/protocols/auth.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
@@ -50,6 +56,8 @@ export class PeerManager implements PeerManagerInterface {
   private trustedPeersInitialized: boolean = false;
   private privatePeers: Set<string> = new Set();
   private privatePeersInitialized: boolean = false;
+  private preferredPeers: Set<string> = new Set();
+  private authenticatedPeers: Map<string, EthAddress> = new Map();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -68,6 +76,7 @@ export class PeerManager implements PeerManagerInterface {
     private reqresp: ReqResp,
     private readonly worldStateSynchronizer: WorldStateSynchronizer,
     private readonly protocolVersion: string,
+    private readonly epochCache: EpochCacheInterface,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
@@ -85,7 +94,7 @@ export class PeerManager implements PeerManagerInterface {
     this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
 
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
+    this.peerDiscoveryService?.on(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
@@ -124,6 +133,13 @@ export class PeerManager implements PeerManagerInterface {
         })
         .catch(e => this.logger.error('Error initializing private peers', e));
     }
+
+    if (this.config.preferredPeers) {
+      const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+      await Promise.all(preferredPeersEnrs.map(enr => enr.peerId()))
+        .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
+        .catch(e => this.logger.error('Error initializing preferred peers', e));
+    }
   }
 
   get tracer() {
@@ -131,9 +147,10 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   @trackSpan('PeerManager.heartbeat')
-  public heartbeat() {
+  public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
+    await this.updateAuthenticatedPeers();
 
     this.cleanupExpiredTimeouts();
 
@@ -163,13 +180,13 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
-    if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
-      this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
-    } else {
-      this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
+    if (this.config.p2pDisableStatusHandshake) {
+      return;
     }
-    if (!this.config.p2pDisableStatusHandshake) {
+    if (!this.config.p2pAllowOnlyValidators) {
       void this.exchangeStatusHandshake(peerId);
+    } else {
+      void this.exchangeAuthHandshake(peerId);
     }
   }
 
@@ -179,7 +196,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
-    if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
+    if (this.peerDiscoveryService?.isBootstrapPeer(peerId)) {
       this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
     } else {
       this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
@@ -240,12 +257,32 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   /**
+   * Adds a peer to the preferred peers set.
+   * @param peerId - The peer ID to add to preferred peers.
+   */
+  public addPreferredPeer(peerId: PeerId): void {
+    const peerIdStr = peerId.toString();
+
+    this.preferredPeers.add(peerIdStr);
+    this.logger.verbose(`Added preferred peer ${peerIdStr}`);
+  }
+
+  /**
+   * Checks if a peer is preferred.
+   * @param peerId - The peer ID.
+   * @returns True if the peer is preferred, false otherwise.
+   */
+  private isPreferredPeer(peerId: PeerId): boolean {
+    return this.preferredPeers.has(peerId.toString());
+  }
+
+  /**
    * Checks if a peer is protected (either trusted or private).
    * @param peerId - The peer ID.
    * @returns True if the peer is protected, false otherwise.
    */
   private isProtectedPeer(peerId: PeerId): boolean {
-    return this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
+    return this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId) || this.isPreferredPeer(peerId);
   }
 
   /**
@@ -268,6 +305,9 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public getPeerScore(peerId: string): number {
+    if (this.config.p2pAllowOnlyValidators && !this.isAuthenticatedPeer(peerIdFromString(peerId))) {
+      return -Infinity;
+    }
     return this.peerScoring.getScore(peerId);
   }
 
@@ -304,6 +344,13 @@ export class PeerManager implements PeerManagerInterface {
     return [...connected, ...dialQueue, ...cachedPeers];
   }
 
+  public isAuthenticatedPeer(peerId: PeerId): boolean {
+    return (
+      this.privatePeers.has(peerId.toString()) ||
+      this.trustedPeers.has(peerId.toString()) ||
+      this.authenticatedPeers.has(peerId.toString())
+    );
+  }
   /**
    * Discovers peers.
    */
@@ -315,12 +362,13 @@ export class PeerManager implements PeerManagerInterface {
     );
 
     // Calculate how many connections we're looking to make
-    const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
+    const protectedPeerCount = this.getProtectedPeerCount();
+    const peersToConnect = this.config.maxPeerCount - healthyConnections.length - protectedPeerCount;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
     this.logger[logLevel](`Connected to ${healthyConnections.length + this.trustedPeers.size} peers`, {
       discoveredConnections: healthyConnections.length,
-      protectedConnections: this.trustedPeers.size,
+      protectedConnections: protectedPeerCount,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -377,6 +425,10 @@ export class PeerManager implements PeerManagerInterface {
     return connections.filter(conn => !this.isProtectedPeer(conn.remotePeer));
   }
 
+  private getProtectedPeerCount(): number {
+    return this.trustedPeers.size + this.privatePeers.size + this.preferredPeers.size;
+  }
+
   private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
     const connectedHealthyPeers: Connection[] = [];
 
@@ -404,7 +456,8 @@ export class PeerManager implements PeerManagerInterface {
    * @returns The pruned list of connections.
    */
   private prioritizePeers(connections: Connection[]): Connection[] {
-    if (connections.length > this.config.maxPeerCount - this.trustedPeers.size) {
+    const protectedPeerCount = this.getProtectedPeerCount();
+    if (connections.length > this.config.maxPeerCount - protectedPeerCount) {
       // Sort the regular peer scores from highest to lowest
       const prioritizedConnections = connections.sort((connectionA, connectionB) => {
         const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
@@ -413,7 +466,7 @@ export class PeerManager implements PeerManagerInterface {
       });
 
       // Calculate how many regular peers we can keep
-      const peersToKeep = Math.max(0, this.config.maxPeerCount - this.trustedPeers.size);
+      const peersToKeep = Math.max(0, this.config.maxPeerCount - protectedPeerCount);
 
       // Disconnect from the lowest scoring regular connections that exceed our limit
       for (const conn of prioritizedConnections.slice(peersToKeep)) {
@@ -622,6 +675,11 @@ export class PeerManager implements PeerManagerInterface {
     }
   }
 
+  private async createStatusMessage() {
+    const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
+    return StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+  }
+
   /**
    * Performs status Handshake with the Peer
    * The way the protocol is designed is that each peer will call this method on newly established p2p connection.
@@ -634,8 +692,7 @@ export class PeerManager implements PeerManagerInterface {
    * */
   private async exchangeStatusHandshake(peerId: PeerId) {
     try {
-      const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
-      const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+      const ourStatus = await this.createStatusMessage();
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
       this.logger.trace(`Initiating status handshake with peer ${peerId}`);
@@ -672,6 +729,71 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   /**
+   * Performs auth Handshake with the Peer
+   * A superset of the status handshake. Also includes a challenge that needs to be signed by the peer's validator key.
+   * @param: peerId The Id of the peer to request the Status from.
+   * */
+  private async exchangeAuthHandshake(peerId: PeerId) {
+    try {
+      const ourStatus = await this.createStatusMessage();
+      const authRequest = new AuthRequest(ourStatus, Fr.random());
+
+      //Note: Technically we don't have to send our status to peer as well, but we do.
+      //It will be easier to update protocol in the future this way if need be.
+      this.logger.debug(`Initiating auth handshake with peer ${peerId}`);
+      const { status, data } = await this.reqresp.sendRequestToPeer(
+        peerId,
+        ReqRespSubProtocol.AUTH,
+        authRequest.toBuffer(),
+      );
+      const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
+      if (status !== ReqRespStatus.SUCCESS) {
+        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond auth handshake`, logData);
+        await this.disconnectPeer(peerId);
+        return;
+      }
+
+      const peerAuthResponse = AuthResponse.fromBuffer(data);
+
+      const peerStatusMessage = peerAuthResponse.status;
+      if (!ourStatus.validate(peerStatusMessage)) {
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
+        await this.disconnectPeer(peerId);
+        return;
+      }
+
+      const hashToRecover = authRequest.getPayloadToSign();
+      const sender = recoverAddress(hashToRecover, peerAuthResponse.signature);
+      const registeredValidators = await this.epochCache.getRegisteredValidators();
+      const found = registeredValidators.find(v => v.toString() === sender.toString()) !== undefined;
+      if (!found) {
+        this.logger.debug(
+          `Disconnecting peer ${peerId} due to failed auth handshake, peer is not a registered validator.`,
+          {
+            peerId,
+            address: sender.toString(),
+          },
+        );
+        await this.disconnectPeer(peerId);
+        return;
+      }
+
+      const peerIdString = peerId.toString();
+      this.authenticatedPeers.set(peerIdString, sender);
+      this.logger.info(
+        `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
+        logData,
+      );
+    } catch (err: any) {
+      //TODO: maybe hard ban these peers in the future
+      this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
+        peerId,
+      });
+      await this.disconnectPeer(peerId);
+    }
+  }
+
+  /**
    * Stops the peer manager.
    * Removing all event listeners.
    */
@@ -686,6 +808,36 @@ export class PeerManager implements PeerManagerInterface {
 
     this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handlers.handleConnectedPeerEvent);
     this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
+  }
+
+  private shouldTrustWithIdentity(peerId: PeerId): boolean {
+    return this.isPreferredPeer(peerId) || this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
+  }
+
+  public async handleAuthFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    if (!this.shouldTrustWithIdentity(peerId)) {
+      this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
+      throw new Error('Unauthorised');
+    }
+    this.logger.debug(`Received auth request from trusted peer ${peerId.toString()}`);
+    return await this.createStatusMessage();
+  }
+
+  private async updateAuthenticatedPeers(): Promise<void> {
+    const registeredValidators = await this.epochCache.getRegisteredValidators();
+    const validatorSet = new Set(registeredValidators.map(v => v.toString()));
+
+    const toDelete: Set<string> = new Set();
+    for (const [peer, address] of this.authenticatedPeers.entries()) {
+      if (!address || !validatorSet.has(address.toString())) {
+        toDelete.add(peer);
+      }
+    }
+
+    for (const peer of toDelete) {
+      this.authenticatedPeers.delete(peer);
+      this.logger.info(`Removed peer ${peer} from authenticated peers`);
+    }
   }
 }
 
