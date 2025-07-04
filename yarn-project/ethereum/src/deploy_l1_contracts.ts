@@ -1,3 +1,4 @@
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -69,10 +70,11 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
 import {
-  DefaultEntryQueueConfig,
-  DefaultRewardBoostConfig,
-  DefaultRewardConfig,
   type L1ContractsConfig,
+  getEntryQueueConfig,
+  getGovernanceConfiguration,
+  getRewardBoostConfig,
+  getRewardConfig,
 } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
@@ -89,6 +91,8 @@ import type { ExtendedViemWalletClient } from './types.js';
 import { ZK_PASSPORT_SCOPE, ZK_PASSPORT_SUB_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+const networkName = getActiveNetworkName();
 
 export type Operator = {
   attester: EthAddress;
@@ -325,6 +329,7 @@ export const deploySharedContracts = async (
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
     gseAddress.toString(),
+    getGovernanceConfiguration(networkName),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
@@ -633,9 +638,11 @@ export const deployRollup = async (
   }
 
   const rewardConfig = {
-    ...DefaultRewardConfig,
+    ...getRewardConfig(networkName),
     rewardDistributor: addresses.rewardDistributorAddress.toString(),
   };
+
+  const stakingQueueConfig = getEntryQueueConfig(networkName);
 
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
@@ -645,11 +652,11 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
-    entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
-    entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
+    entryQueueFlushSizeMin: stakingQueueConfig.normalFlushSizeMin,
+    entryQueueFlushSizeQuotient: stakingQueueConfig.normalFlushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
-    rewardBoostConfig: DefaultRewardBoostConfig,
+    rewardBoostConfig: getRewardBoostConfig(networkName),
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
