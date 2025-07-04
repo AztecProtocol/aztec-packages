@@ -42,7 +42,6 @@
     "merkle-tree",
     "native",
     "node-lib",
-    "noir-bb-bench",
     "noir-contracts.js",
     "noir-protocol-circuits-types",
     "noir-test-contracts.js",
