@@ -9,8 +9,8 @@
 
 using namespace bb;
 
-const size_t LOG_DEGREE = 4;
-const size_t MAX_POLY_DEGREE = 1UL << LOG_DEGREE;
+static constexpr size_t LOG_DEGREE = 4;
+static constexpr size_t MAX_POLY_DEGREE = 1UL << LOG_DEGREE;
 template <class Builder> class ShplonkRecursionTest : public CommitmentTest<typename curve::BN254> {
   public:
     using Curve = stdlib::bn254<Builder>;

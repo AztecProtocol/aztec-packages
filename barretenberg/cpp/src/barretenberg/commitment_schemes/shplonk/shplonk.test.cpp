@@ -11,8 +11,8 @@
 namespace bb {
 template <class Params> class ShplonkTest : public CommitmentTest<Params> {};
 
-const size_t LOG_DEGREE = 4;
-const size_t MAX_POLY_DEGREE = 1UL << LOG_DEGREE;
+static constexpr size_t LOG_DEGREE = 4;
+static constexpr size_t MAX_POLY_DEGREE = 1UL << LOG_DEGREE;
 
 using CurveTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
 TYPED_TEST_SUITE(ShplonkTest, CurveTypes);
