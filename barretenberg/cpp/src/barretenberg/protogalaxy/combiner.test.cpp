@@ -203,7 +203,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->metadata.circuit_size = 2;
+                key->metadata.dyadic_size = 2;
                 keys_data[idx] = key;
             }
 
@@ -237,7 +237,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->metadata.circuit_size = 2;
+                key->metadata.dyadic_size = 2;
                 keys_data[idx] = key;
             }
 
@@ -341,7 +341,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->metadata.circuit_size = 2;
+                key->metadata.dyadic_size = 2;
                 keys_data[idx] = key;
             }
 
@@ -426,7 +426,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 key->polynomials = std::move(prover_polynomials);
-                key->metadata.circuit_size = 2;
+                key->metadata.dyadic_size = 2;
                 keys_data[idx] = key;
             }
 

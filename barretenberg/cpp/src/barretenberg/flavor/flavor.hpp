@@ -122,9 +122,12 @@ struct ActiveRegionData {
     size_t current_end{ 0 };                       // end of last range; for ensuring monotonicity of ranges
 };
 
-// Dyadic trace size and public inputs metadata; Common between prover and verifier keys
+/**
+ * @brief Dyadic trace size and public inputs metadata; Common between prover and verifier keys
+ *
+ */
 struct MetaData {
-    size_t circuit_size = 0;
+    size_t dyadic_size = 0; // power-of-2
     size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
     PublicComponentKey pairing_inputs_public_input_key;

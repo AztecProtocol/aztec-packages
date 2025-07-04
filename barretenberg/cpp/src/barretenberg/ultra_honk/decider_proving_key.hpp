@@ -67,7 +67,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     size_t final_active_wire_idx{ 0 };   // idx of last non-trivial wire value in the trace
     size_t overflow_size{ 0 };           // size of the structured execution trace overflow
 
-    size_t dyadic_size() const { return metadata.circuit_size; }
+    size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
     size_t num_public_inputs() const
     {
@@ -89,7 +89,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
-            metadata.circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+            metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
@@ -98,9 +98,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
-                metadata.circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
+                metadata.dyadic_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
             } else {
-                metadata.circuit_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
+                metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
             }
         }
 

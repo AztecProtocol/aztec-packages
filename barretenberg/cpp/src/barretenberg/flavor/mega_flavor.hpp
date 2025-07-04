@@ -444,7 +444,7 @@ class MegaFlavor {
 
         void set_metadata(const MetaData& metadata)
         {
-            this->circuit_size = metadata.circuit_size;
+            this->circuit_size = metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
@@ -458,7 +458,7 @@ class MegaFlavor {
         {
             set_metadata(metadata);
 
-            CommitmentKey commitment_key{ metadata.circuit_size };
+            CommitmentKey commitment_key{ metadata.dyadic_size };
             for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }

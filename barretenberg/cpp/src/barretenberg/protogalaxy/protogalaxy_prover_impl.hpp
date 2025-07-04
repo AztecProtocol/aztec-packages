@@ -142,8 +142,8 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
     if (incoming->overflow_size > accumulator->overflow_size) {
-        std::swap(accumulator->polynomials, incoming->polynomials);                     // swap the polys
-        std::swap(accumulator->metadata.circuit_size, incoming->metadata.circuit_size); // swap circuit size
+        std::swap(accumulator->polynomials, incoming->polynomials);                   // swap the polys
+        std::swap(accumulator->metadata.dyadic_size, incoming->metadata.dyadic_size); // swap circuit size
         std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
         std::swap(accumulator->overflow_size, incoming->overflow_size); // swap overflow size
     }
