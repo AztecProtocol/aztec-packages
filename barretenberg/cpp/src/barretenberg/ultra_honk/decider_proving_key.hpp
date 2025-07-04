@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
@@ -71,7 +72,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
     size_t num_public_inputs() const
     {
-        ASSERT(metadata.num_public_inputs == public_inputs.size());
+        BB_ASSERT_EQ(metadata.num_public_inputs, public_inputs.size());
         return metadata.num_public_inputs;
     }
 
