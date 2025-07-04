@@ -74,7 +74,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     pol commit sel_should_get_env_var;
     // Should only do env var retrieval if the GetEnvVar opcode has reached dispatch (there are no earlier errors).
     #[SHOULD_GET_ENV_VAR]
-    sel_should_get_env_var = sel_get_env_var * should_execute_opcode;
+    sel_should_get_env_var = sel_get_env_var * sel_should_execute_opcode;
 
     ////////////////////////////////////////////////////////////////////////////
     // from precomputed.pil's GETENVVAR opcode precomputed columns

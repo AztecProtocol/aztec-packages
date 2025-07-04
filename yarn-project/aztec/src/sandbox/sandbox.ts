@@ -2,7 +2,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -14,6 +13,7 @@ import {
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
@@ -36,6 +36,7 @@ import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
+import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 

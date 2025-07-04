@@ -95,13 +95,10 @@ class AbiDecoder {
    * @returns The decoded return values.
    */
   public decode(): AbiDecoded {
-    if (this.types.length > 1) {
-      throw new Error('Multiple types not supported');
+    if (this.types.length === 1) {
+      return this.decodeNext(this.types[0]);
     }
-    if (this.types.length === 0) {
-      return [];
-    }
-    return this.decodeNext(this.types[0]);
+    return this.types.map(type => this.decodeNext(type));
   }
 }
 

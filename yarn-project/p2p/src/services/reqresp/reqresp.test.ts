@@ -20,7 +20,7 @@ import {
 } from '../../test-helpers/reqresp-nodes.js';
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
-import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
+import { type ReqRespResponse, ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 import { ReqRespStatus, prettyPrintReqRespStatus } from './status.js';
@@ -59,10 +59,11 @@ describe('ReqResp', () => {
 
     await sleep(500);
 
-    const { data: res } = await pinger.sendRequestToPeer(other.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+    const resp = await pinger.sendRequestToPeer(other.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+    expectSuccess(resp);
 
     await sleep(500);
-    expect(res?.toString('utf-8')).toEqual('pong');
+    expect(resp.data.toString('utf-8')).toEqual('pong');
   });
 
   it('should handle gracefully if a peer connected peer is offline', async () => {
@@ -78,9 +79,10 @@ describe('ReqResp', () => {
 
     const stopPonger = ponger.stop();
 
-    // It should return empty buffer if it cannot dial the peer
-    const { data } = await pinger.sendRequestToPeer(pongerNode.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
-    expect(data.length).toEqual(0);
+    //It should not return any data in case we cannot dial the peer
+    const response = await pinger.sendRequestToPeer(pongerNode.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+    expect(response.status).toEqual(ReqRespStatus.FAILURE);
+    expect(response).not.toHaveProperty('data');
 
     await stopPonger;
   });
@@ -141,13 +143,11 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const { data: res } = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.TX,
-        txHash.toBuffer(),
-      );
+      const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.TX, txHash.toBuffer());
+      expectSuccess(resp);
+
       // Set tx hash since expect will compare private properties
-      const resTx = Tx.fromBuffer(res);
+      const resTx = Tx.fromBuffer(resp.data);
       await resTx.getTxHash();
 
       expect(resTx).toEqual(tx);
@@ -171,14 +171,11 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const { data: res } = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.TX,
-        txHash.toBuffer(),
-      );
+      const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.TX, txHash.toBuffer());
+      expectSuccess(resp);
 
       expect(spySendRequestToPeer).toHaveBeenCalledTimes(1);
-      expect(res.length).toEqual(0);
+      expect(resp.data.length).toEqual(0);
     });
 
     it('should hit individual timeout if nothing is returned over the stream', async () => {
@@ -198,8 +195,10 @@ describe('ReqResp', () => {
       await sleep(500);
 
       const request = TxHash.random().toBuffer();
-      const { data: res } = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.TX, request);
-      expect(res.length).toEqual(0);
+      const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.TX, request);
+
+      expect(resp.status).toEqual(ReqRespStatus.FAILURE);
+      expect(resp).not.toHaveProperty('data');
 
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
@@ -307,12 +306,14 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const { data } = await nodes[0].req.sendRequestToPeer(
+      const resp = await nodes[0].req.sendRequestToPeer(
         nodes[1].p2p.peerId,
         ReqRespSubProtocol.BLOCK,
         blockNumberFr.toBuffer(),
       );
-      const res = L2Block.fromBuffer(data);
+      expectSuccess(resp);
+
+      const res = L2Block.fromBuffer(resp.data);
       expect(res).toEqual(block);
     });
   });
@@ -426,3 +427,7 @@ describe('ReqResp', () => {
     });
   });
 });
+
+function expectSuccess(res: ReqRespResponse): asserts res is { status: ReqRespStatus.SUCCESS; data: Buffer } {
+  expect(res.status).toBe(ReqRespStatus.SUCCESS);
+}

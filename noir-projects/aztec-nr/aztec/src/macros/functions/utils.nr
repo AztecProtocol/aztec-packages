@@ -1,14 +1,18 @@
 use crate::macros::{
-    functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
+    functions::{
+        abi_export::create_fn_abi_export, auth_registry::AUTHORIZE_ONCE_REGISTRY,
+        call_interface_stubs::stub_fn, stub_registry,
+    },
     notes::NOTES,
     utils::{
-        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
-        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
-        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        add_to_hasher, fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility,
+        is_fn_contract_library_method, is_fn_initializer, is_fn_internal, is_fn_private,
+        is_fn_public, is_fn_test, is_fn_utility, is_fn_view, modify_fn_body, module_has_initializer,
+        module_has_storage,
     },
 };
 use protocol_types::meta::generate_serialize_to_fields;
-use std::meta::type_of;
+use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
@@ -108,6 +112,13 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // Inject the authwit check if the function is marked with #[authorize_once].
+    let authorize_once_check = if fn_has_authorize_once(f) {
+        create_authorize_once_check(f)
+    } else {
+        quote {}
+    };
+
     // Finally, we need to change the return type to be `PrivateCircuitPublicInputs`, which is what the Private Kernel
     // circuit expects.
     let return_value_var_name = quote { macro__returned__values };
@@ -160,6 +171,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $view_check
         $storage_init
         $message_discovery_call
+        $authorize_once_check
     };
 
     let to_append = quote {
@@ -248,6 +260,13 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    // Inject the authwit check if the function is marked with #[authorize_once].
+    let authorize_once_check = if fn_has_authorize_once(f) {
+        create_authorize_once_check(f)
+    } else {
+        quote {}
+    };
+
     let to_prepend = quote {
         $context_creation
         $assert_initializer
@@ -255,6 +274,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
+        $authorize_once_check
     };
 
     let to_append = quote {
@@ -373,6 +393,88 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
                 _compute_note_hash_and_nullifier,
             );
         };
+    }
+}
+
+/// Injects an authwit verification check of the form:
+/// ```
+///   if (!from.eq(context.msg_sender())) {
+///         assert_current_call_valid_authwit::<N>(&mut context, from);
+///     } else {
+///         assert(authwit_nonce, "Invalid auhtwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
+///     }
+/// ```
+/// where `from` and `authwit_nonce` are the names of the parameters that are expected to be present in the function definition.
+/// This check is injected by the `#[authorize_once("from_arg_name", "nonce_arg_name")]`, which allows the user to define
+/// which parameters to use.
+pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quoted {
+    if !is_fn_private(f) & !is_fn_public(f) {
+        panic(
+            f"Functions marked with #[authorize_once] must either be #[private] or #[public]",
+        );
+    }
+    let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
+    let authorize_once_args = if maybe_authorize_once_args.is_some() {
+        maybe_authorize_once_args.unwrap()
+    } else {
+        panic(
+            f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
+        )
+    };
+
+    let (from_arg_name, nonce_arg_name) = authorize_once_args;
+    let name: Quoted = f.name();
+
+    let from_arg_candidates =
+        f.parameters().filter(|(name, _)| name == f"{from_arg_name}".quoted_contents());
+    let (from_arg_name_quoted, from_arg_type) = if from_arg_candidates.len() == 1 {
+        from_arg_candidates[0]
+    } else {
+        panic(
+            f"Function {name} does not have a {from_arg_name} parameter. Please specify which one to use in #[authorize_once(\"...\", \"authwit_nonce\")]",
+        )
+    };
+    if from_arg_type
+        != quote { dep::protocol_types::address::aztec_address::AztecAddress }.as_type() {
+        panic(
+            f"Argument {from_arg_name_quoted} in function {name} must be of type AztecAddress, but is of type {from_arg_type}",
+        )
+    }
+
+    let nonce_arg_candidates =
+        f.parameters().filter(|(name, _)| name == f"{nonce_arg_name}".quoted_contents());
+    let (nonce_arg_name_quoted, nonce_arg_type) = if nonce_arg_candidates.len() == 1 {
+        nonce_arg_candidates[0]
+    } else {
+        panic(
+            f"Function {name} does not have a {nonce_arg_name}. Please specify which one to use in #[authorize_once(\"from\", \"...\")]",
+        )
+    };
+    if nonce_arg_type != quote { Field }.as_type() {
+        panic(
+            f"Argument {nonce_arg_name_quoted} in function {name} must be of type Field, but is of type {nonce_arg_type}",
+        );
+    }
+
+    let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
+
+    let fn_call = if is_fn_private(f) {
+        // At this point, the original args of the fn have already been altered by the macro
+        // to include PrivateContextInputs, so we need to adjust the args_len accordingly.
+        let args_len = f.parameters().len() - 1;
+        quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
+    } else {
+        quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit_public }
+    };
+    let invalid_nonce_message = f"Invalid authwit nonce. When '{from_arg_name}' and 'msg_sender' are the same, '{nonce_arg_name}' must be zero"
+        .as_ctstring()
+        .as_quoted_str();
+    quote {         
+        if (!$from_arg_name_quoted.eq(context.msg_sender())) {
+            $fn_call(&mut context, $from_arg_name_quoted);
+        } else {
+            assert($nonce_check_quote, $invalid_nonce_message);
+        }
     }
 }
 

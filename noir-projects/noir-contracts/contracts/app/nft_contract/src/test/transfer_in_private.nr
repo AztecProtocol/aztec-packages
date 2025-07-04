@@ -83,7 +83,7 @@ unconstrained fn transfer_in_private_failure_not_an_owner() {
     );
 }
 
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit nonce check is in the beginning so we don't need to waste time on minting the NFT and transferring

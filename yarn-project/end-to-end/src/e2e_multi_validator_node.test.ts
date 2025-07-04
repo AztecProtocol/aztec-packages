@@ -10,7 +10,7 @@ import {
   retryUntil,
   waitForProven,
 } from '@aztec/aztec.js';
-import type { CheatCodes } from '@aztec/aztec.js/testing';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
   RollupContract,

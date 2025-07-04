@@ -51,7 +51,7 @@ import { type Action, type SequencerPublisher, VoteType } from '../publisher/seq
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
-import { SequencerState, orderAttestations } from './utils.js';
+import { SequencerState, type SequencerStateWithSlot, orderAttestations } from './utils.js';
 
 export { SequencerState };
 
@@ -61,8 +61,8 @@ export type SequencerEvents = {
   ['state-changed']: (args: {
     oldState: SequencerState;
     newState: SequencerState;
-    secondsIntoSlot: number;
-    slotNumber: bigint;
+    secondsIntoSlot?: number;
+    slotNumber?: bigint;
   }) => void;
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
@@ -215,7 +215,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.updateConfig(this.config);
     this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
-    this.setState(SequencerState.IDLE, 0n, true /** force */);
+    this.setState(SequencerState.IDLE, undefined, { force: true });
     this.runningPromise.start();
     this.l1Metrics.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
@@ -230,7 +230,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await this.validatorClient?.stop();
     await this.runningPromise?.stop();
     this.publisher.interrupt();
-    this.setState(SequencerState.STOPPED, 0n, true /** force */);
+    this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.l1Metrics.stop();
     this.log.info('Stopped sequencer');
   }
@@ -242,7 +242,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info('Restarting sequencer');
     this.publisher.restart();
     this.runningPromise!.start();
-    this.setState(SequencerState.IDLE, 0n, true /** force */);
+    this.setState(SequencerState.IDLE, undefined, { force: true });
   }
 
   /**
@@ -267,7 +267,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    *          - If our block for some reason is not included, revert the state
    */
   protected async doRealWork() {
-    this.setState(SequencerState.SYNCHRONIZING, 0n);
+    this.setState(SequencerState.SYNCHRONIZING, undefined);
 
     // Check all components are synced to latest as seen by the archiver
     const syncedTo = await this.getChainTip();
@@ -277,7 +277,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    this.setState(SequencerState.PROPOSER_CHECK, 0n);
+    this.setState(SequencerState.PROPOSER_CHECK, undefined);
 
     const chainTipArchive = syncedTo.archive;
     const newBlockNumber = syncedTo.blockNumber + 1;
@@ -474,7 +474,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       });
     }
 
-    this.setState(SequencerState.IDLE, 0n);
+    this.setState(SequencerState.IDLE, undefined);
   }
 
   @trackSpan('Sequencer.work')
@@ -489,32 +489,39 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         throw err;
       }
     } finally {
-      this.setState(SequencerState.IDLE, 0n);
+      this.setState(SequencerState.IDLE, undefined);
     }
   }
 
   /**
    * Sets the sequencer state and checks if we have enough time left in the slot to transition to the new state.
    * @param proposedState - The new state to transition to.
-   * @param currentSlotNumber - The current slot number.
+   * @param slotNumber - The current slot number.
    * @param force - Whether to force the transition even if the sequencer is stopped.
-   *
-   * @dev If the `currentSlotNumber` doesn't matter (e.g. transitioning to IDLE), pass in `0n`;
-   * it is only used to check if we have enough time left in the slot to transition to the new state.
    */
-  setState(proposedState: SequencerState, currentSlotNumber: bigint, force: boolean = false) {
-    if (this.state === SequencerState.STOPPED && force !== true) {
+  setState(proposedState: SequencerStateWithSlot, slotNumber: bigint, opts?: { force?: boolean }): void;
+  setState(
+    proposedState: Exclude<SequencerState, SequencerStateWithSlot>,
+    slotNumber?: undefined,
+    opts?: { force?: boolean },
+  ): void;
+  setState(proposedState: SequencerState, slotNumber: bigint | undefined, opts: { force?: boolean } = {}): void {
+    if (this.state === SequencerState.STOPPED && !opts.force) {
       this.log.warn(`Cannot set sequencer from ${this.state} to ${proposedState} as it is stopped.`);
       return;
     }
-    const secondsIntoSlot = this.getSecondsIntoSlot(currentSlotNumber);
-    this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
-    this.log.debug(`Transitioning from ${this.state} to ${proposedState}`);
+    let secondsIntoSlot = undefined;
+    if (slotNumber !== undefined) {
+      secondsIntoSlot = this.getSecondsIntoSlot(slotNumber);
+      this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
+    }
+
+    this.log.debug(`Transitioning from ${this.state} to ${proposedState}`, { slotNumber, secondsIntoSlot });
     this.emit('state-changed', {
       oldState: this.state,
       newState: proposedState,
       secondsIntoSlot,
-      slotNumber: currentSlotNumber,
+      slotNumber,
     });
     this.state = proposedState;
   }
@@ -536,7 +543,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Deadline is only set if enforceTimeTable is enabled.
     const deadline = this.enforceTimeTable
-      ? new Date((this.getSlotStartTimestamp(slot) + processingEndTimeWithinSlot) * 1000)
+      ? new Date((this.getSlotStartBuildTimestamp(slot) + processingEndTimeWithinSlot) * 1000)
       : undefined;
     return {
       maxTransactions: this.maxTxsPerBlock,
@@ -744,7 +751,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Time out tx at the end of the slot
     const slot = block.header.globalVariables.slotNumber.toNumber();
-    const txTimeoutAt = new Date((this.getSlotStartTimestamp(slot) + this.aztecSlotDuration) * 1000);
+    const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
 
     const enqueued = await this.publisher.enqueueProposeL2Block(block, attestations, txHashes, {
       txTimeoutAt,
@@ -813,12 +820,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
   }
 
-  private getSlotStartTimestamp(slotNumber: number | bigint): number {
-    return Number(this.l1Constants.l1GenesisTime) + Number(slotNumber) * this.l1Constants.slotDuration;
+  private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {
+    return (
+      Number(this.l1Constants.l1GenesisTime) +
+      Number(slotNumber) * this.l1Constants.slotDuration -
+      this.l1Constants.ethereumSlotDuration
+    );
   }
 
   private getSecondsIntoSlot(slotNumber: number | bigint): number {
-    const slotStartTimestamp = this.getSlotStartTimestamp(slotNumber);
+    const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
   }
 

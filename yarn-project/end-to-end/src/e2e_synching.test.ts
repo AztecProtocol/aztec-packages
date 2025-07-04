@@ -45,7 +45,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
+import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {

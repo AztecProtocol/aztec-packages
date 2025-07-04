@@ -90,14 +90,14 @@ export class GoodbyeProtocolHandler {
  * @returns A resolved promise with the goodbye response.
  */
 export function reqGoodbyeHandler(peerManager: PeerManagerInterface): ReqRespSubProtocolHandler {
-  return (peerId: PeerId, _msg: Buffer) => {
-    const reason = decodeGoodbyeReason(_msg);
+  return (peerId: PeerId, msg: Buffer) => {
+    const reason = decodeGoodbyeReason(msg);
 
     peerManager.goodbyeReceived(peerId, reason);
 
     // NOTE: In the current implementation this won't be sent to peer,
     // as the connection to peer has been already closed by peerManager.goodbyeReceived
     // We have this just to satisfy interface
-    return Promise.resolve(Buffer.from([0x0]));
+    return Promise.resolve(Buffer.alloc(0));
   };
 }

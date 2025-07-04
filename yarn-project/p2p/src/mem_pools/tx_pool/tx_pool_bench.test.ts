@@ -12,8 +12,7 @@ import { ServerWorldStateSynchronizer, worldStateConfigMappings } from '@aztec/w
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { mock } from 'jest-mock-extended';
-import { mkdtemp, rm } from 'node:fs/promises';
-import fs from 'node:fs/promises';
+import fs, { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';

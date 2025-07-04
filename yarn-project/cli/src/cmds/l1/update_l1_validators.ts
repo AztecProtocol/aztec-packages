@@ -1,5 +1,4 @@
 import {
-  EthCheatCodes,
   L1TxUtils,
   RollupContract,
   createEthereumChain,
@@ -8,6 +7,7 @@ import {
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';

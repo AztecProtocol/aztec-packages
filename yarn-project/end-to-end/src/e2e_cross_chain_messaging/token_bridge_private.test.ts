@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 

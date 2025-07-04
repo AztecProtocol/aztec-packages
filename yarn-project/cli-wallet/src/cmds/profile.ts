@@ -31,7 +31,7 @@ export async function profile(
     authWitnesses,
     skipProofGeneration: false,
   });
-  printProfileResult(result.stats, log, result.executionSteps);
+  printProfileResult(result.stats, log, true, result.executionSteps);
   if (debugOutputPath) {
     const ivcInputsPath = path.join(debugOutputPath, 'ivc-inputs.msgpack');
     log(`Debug output written to ${ivcInputsPath}.`);

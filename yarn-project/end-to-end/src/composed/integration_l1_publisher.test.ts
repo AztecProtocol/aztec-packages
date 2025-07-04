@@ -469,7 +469,6 @@ describe('L1Publisher integration', () => {
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
-              txHashes: [],
             },
             RollupContract.packAttestations([]),
             Blob.getPrefixedEthBlobCommitments(blockBlobs),

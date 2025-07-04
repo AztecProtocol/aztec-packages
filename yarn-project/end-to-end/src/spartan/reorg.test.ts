@@ -1,5 +1,5 @@
 import { sleep } from '@aztec/aztec.js';
-import { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 

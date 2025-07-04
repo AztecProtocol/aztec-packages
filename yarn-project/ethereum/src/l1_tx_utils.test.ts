@@ -11,9 +11,9 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client, getPublicClient } from './client.js';
-import { EthCheatCodes } from './eth_cheat_codes.js';
 import { L1TxUtils, ReadOnlyL1TxUtils, defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
+import { EthCheatCodes } from './test/eth_cheat_codes.js';
 import { startAnvil } from './test/start_anvil.js';
 import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 import { formatViemError } from './utils.js';

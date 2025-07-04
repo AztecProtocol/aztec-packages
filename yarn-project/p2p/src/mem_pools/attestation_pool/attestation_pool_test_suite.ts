@@ -1,7 +1,6 @@
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
-import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -83,13 +82,12 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   it('should handle duplicate proposals in a slot', async () => {
     const slotNumber = 420;
     const archive = Fr.random();
-    const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
 
     // Use the same signer for all attestations
     const attestations: BlockAttestation[] = [];
     const signer = signers[0];
     for (let i = 0; i < NUMBER_OF_SIGNERS_PER_TEST; i++) {
-      attestations.push(mockAttestation(signer, slotNumber, archive, txs));
+      attestations.push(mockAttestation(signer, slotNumber, archive));
     }
 
     // Add them to store and check we end up with only one
@@ -98,7 +96,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     const retreivedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), archive.toString());
     expect(retreivedAttestations.length).toBe(1);
     expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
-    expect(retreivedAttestations[0].payload.txHashes).toEqual(txs);
     expect(retreivedAttestations[0].getSender().toString()).toEqual(signer.address.toString());
 
     // Try adding them on another operation and check they are still not duplicated
