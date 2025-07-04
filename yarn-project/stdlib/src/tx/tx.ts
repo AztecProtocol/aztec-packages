@@ -338,10 +338,14 @@ export type TxWithHash = Tx & { txHash: TxHash };
  **/
 export class TxArray extends Array<Tx> {
   static fromBuffer(buffer: Buffer | BufferReader): TxArray {
-    const reader = BufferReader.asReader(buffer);
-    const txs = reader.readVector(Tx);
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const txs = reader.readVector(Tx);
 
-    return new TxArray(...txs);
+      return new TxArray(...txs);
+    } catch {
+      return new TxArray();
+    }
   }
 
   public toBuffer(): Buffer {

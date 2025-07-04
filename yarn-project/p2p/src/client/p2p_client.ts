@@ -15,7 +15,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, type P2PClientType } from '@aztec/stdlib/p2p';
-import { type Tx, type TxHash, TxHashArray } from '@aztec/stdlib/tx';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -33,6 +33,7 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
+import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import type { P2PBlockReceivedCallback, P2PService } from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { TxProvider } from '../services/tx_provider.js';
@@ -375,32 +376,26 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    */
   public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<Tx[]> {
     const timeoutMs = 8000; // Longer timeout for now
-    const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
     const maxRetryAttempts = 10; // Keep retrying within the timeout
-    // Per: https://github.com/AztecProtocol/aztec-packages/issues/15149#issuecomment-2999054485
-    // we define Q as max number of transactions per batch, the comment explains why we use 8.
-    const maxTxsPerBatch = 8;
-    const batches: Array<TxHashArray> = [];
-    for (let i = 0; i < txHashes.length; i += maxTxsPerBatch) {
-      batches.push(new TxHashArray(...txHashes.slice(i, i + maxTxsPerBatch)));
-    }
+    const requests = chunkTxHashesRequest(txHashes);
+    const maxPeers = Math.min(Math.ceil(requests.length / 3), 10);
 
     const txBatches = await this.p2pService.sendBatchRequest(
       ReqRespSubProtocol.TX,
-      batches,
+      requests,
       pinnedPeerId,
       timeoutMs,
       maxPeers,
       maxRetryAttempts,
     );
 
-    const txs = txBatches.flatMap(t => t);
+    const txs = txBatches.flat();
     if (txs.length > 0) {
       await this.txPool.addTxs(txs);
     }
 
-    //const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    //this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}) from peers`);
+    const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
+    this.log.debug(`Requested txs ${txHashesStr} (${txs.length} / ${txHashes.length}) from peers`);
 
     // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
     return txs;
