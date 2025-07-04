@@ -21,7 +21,7 @@ use dep::types::{
 pub struct TailOutputValidator {
     output: PrivateToRollupKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
     hints: TailOutputHints,
 }
 
@@ -29,7 +29,7 @@ impl TailOutputValidator {
     pub fn new(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     ) -> Self {
         // Safety: the below hints are constrained by calling validate(). See private_kernel_tail for use.
         let hints = unsafe { generate_tail_output_hints(previous_kernel) };
@@ -37,7 +37,7 @@ impl TailOutputValidator {
         TailOutputValidator::new_with_hints(
             output,
             previous_kernel,
-            include_by_timestamp_set_by_wallet,
+            include_by_timestamp_upper_bound,
             hints,
         )
     }
@@ -45,10 +45,10 @@ impl TailOutputValidator {
     pub fn new_with_hints(
         output: PrivateToRollupKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
         hints: TailOutputHints,
     ) -> Self {
-        TailOutputValidator { output, previous_kernel, include_by_timestamp_set_by_wallet, hints }
+        TailOutputValidator { output, previous_kernel, include_by_timestamp_upper_bound, hints }
     }
 
     pub fn validate(self) {
@@ -86,7 +86,7 @@ impl TailOutputValidator {
         // include_by_timestamp
         let include_by_timestamp = std::cmp::min(
             self.previous_kernel.include_by_timestamp,
-            self.include_by_timestamp_set_by_wallet,
+            self.include_by_timestamp_upper_bound,
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,

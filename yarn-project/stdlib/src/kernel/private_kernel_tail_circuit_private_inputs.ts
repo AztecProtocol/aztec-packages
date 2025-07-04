@@ -20,7 +20,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
     /**
      * The timestamp by which the transaction must be included in a block.
      */
-    public includeByTimestampSetByWallet: UInt64,
+    public includeByTimestampUpperBound: UInt64,
   ) {}
 
   isForPublic() {
@@ -38,7 +38,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
     return serializeToBuffer(
       this.previousKernel,
       this.paddedSideEffectAmounts,
-      bigintToUInt64BE(this.includeByTimestampSetByWallet),
+      bigintToUInt64BE(this.includeByTimestampUpperBound),
     );
   }
 

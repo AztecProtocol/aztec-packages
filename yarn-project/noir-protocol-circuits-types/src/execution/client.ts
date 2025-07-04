@@ -138,9 +138,7 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
     ),
-    include_by_timestamp_set_by_wallet: mapU64ToNoir(
-      privateKernelTailCircuitPrivateInputs.includeByTimestampSetByWallet,
-    ),
+    include_by_timestamp_upper_bound: mapU64ToNoir(privateKernelTailCircuitPrivateInputs.includeByTimestampUpperBound),
   };
   pushTestData('private-kernel-tail', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailAbi, mapped);
@@ -164,8 +162,8 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
     ),
-    include_by_timestamp_set_by_wallet: mapU64ToNoir(
-      privateKernelTailToPublicCircuitPrivateInputs.includeByTimestampSetByWallet,
+    include_by_timestamp_upper_bound: mapU64ToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.includeByTimestampUpperBound,
     ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);

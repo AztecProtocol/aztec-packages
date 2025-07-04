@@ -8,7 +8,7 @@ use dep::types::{
 
 pub struct TailOutputComposerBuilder {
     previous_kernel: FixtureBuilder,
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl TailOutputComposerBuilder {
@@ -16,9 +16,9 @@ impl TailOutputComposerBuilder {
         let mut previous_kernel = FixtureBuilder::new();
         previous_kernel.set_protocol_nullifier(); // Need the first nullifier to silo note hashes.
 
-        let include_by_timestamp_set_by_wallet = previous_kernel.include_by_timestamp;
+        let include_by_timestamp_upper_bound = previous_kernel.include_by_timestamp;
 
-        TailOutputComposerBuilder { previous_kernel, include_by_timestamp_set_by_wallet }
+        TailOutputComposerBuilder { previous_kernel, include_by_timestamp_upper_bound }
     }
 
     pub fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
@@ -26,7 +26,7 @@ impl TailOutputComposerBuilder {
         // Safety: This is only used in tests.
         unsafe {
             let composer =
-                TailOutputComposer::new(previous_kernel, self.include_by_timestamp_set_by_wallet);
+                TailOutputComposer::new(previous_kernel, self.include_by_timestamp_upper_bound);
             composer.finish()
         }
     }

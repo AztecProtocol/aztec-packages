@@ -25,7 +25,7 @@ pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     // and decide whether to keep it or lower it.
     // For example, it may round the value down to the nearest hour to improve privacy.
     // If this value is higher than the `include_by_timestamp` requested during tx execution, it will be ignored.
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -33,12 +33,12 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
             padded_side_effect_amounts,
-            include_by_timestamp_set_by_wallet,
+            include_by_timestamp_upper_bound,
         }
     }
 
@@ -46,7 +46,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         TailToPublicOutputComposer::new(
             self.previous_kernel.public_inputs,
             self.padded_side_effect_amounts,
-            self.include_by_timestamp_set_by_wallet,
+            self.include_by_timestamp_upper_bound,
         )
             .finish()
     }
@@ -69,7 +69,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
                 output,
                 self.previous_kernel.public_inputs,
                 self.padded_side_effect_amounts,
-                self.include_by_timestamp_set_by_wallet,
+                self.include_by_timestamp_upper_bound,
             )
                 .validate();
         }
@@ -107,7 +107,7 @@ mod tests {
     struct PrivateKernelTailToPublicInputsBuilder {
         previous_kernel: FixtureBuilder,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     }
 
     impl PrivateKernelTailToPublicInputsBuilder {
@@ -124,7 +124,7 @@ mod tests {
             PrivateKernelTailToPublicInputsBuilder {
                 previous_kernel,
                 padded_side_effect_amounts,
-                include_by_timestamp_set_by_wallet: previous_kernel.include_by_timestamp,
+                include_by_timestamp_upper_bound: previous_kernel.include_by_timestamp,
             }
         }
 
@@ -132,7 +132,7 @@ mod tests {
             let kernel = PrivateKernelTailToPublicCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
                 padded_side_effect_amounts: self.padded_side_effect_amounts,
-                include_by_timestamp_set_by_wallet: self.include_by_timestamp_set_by_wallet,
+                include_by_timestamp_upper_bound: self.include_by_timestamp_upper_bound,
             };
             kernel.execute()
         }

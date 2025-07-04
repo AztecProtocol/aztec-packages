@@ -20,25 +20,25 @@ pub struct PrivateKernelTailCircuitPrivateInputs {
     // and decide whether to keep it or lower it.
     // For example, it may round the value down to the nearest hour to improve privacy.
     // If this value is higher than the `include_by_timestamp` requested during tx execution, it will be ignored.
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl PrivateKernelTailCircuitPrivateInputs {
     pub fn new(
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
-            include_by_timestamp_set_by_wallet,
+            include_by_timestamp_upper_bound,
         }
     }
 
     unconstrained fn generate_output(self) -> PrivateToRollupKernelCircuitPublicInputs {
         TailOutputComposer::new(
             self.previous_kernel.public_inputs,
-            self.include_by_timestamp_set_by_wallet,
+            self.include_by_timestamp_upper_bound,
         )
             .finish()
     }
@@ -60,7 +60,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             TailOutputValidator::new(
                 output,
                 self.previous_kernel.public_inputs,
-                self.include_by_timestamp_set_by_wallet,
+                self.include_by_timestamp_upper_bound,
             )
                 .validate();
         }
@@ -90,7 +90,7 @@ mod tests {
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailInputs and PrivateKernelTailToPublicInputs.
     struct PrivateKernelTailInputsBuilder {
         previous_kernel: FixtureBuilder,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     }
 
     impl PrivateKernelTailInputsBuilder {
@@ -103,14 +103,14 @@ mod tests {
 
             PrivateKernelTailInputsBuilder {
                 previous_kernel,
-                include_by_timestamp_set_by_wallet: previous_kernel.include_by_timestamp,
+                include_by_timestamp_upper_bound: previous_kernel.include_by_timestamp,
             }
         }
 
         pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
             let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
-                include_by_timestamp_set_by_wallet: self.include_by_timestamp_set_by_wallet,
+                include_by_timestamp_upper_bound: self.include_by_timestamp_upper_bound,
             };
             kernel.execute()
         }
@@ -130,7 +130,7 @@ mod tests {
 
         let constants = builder.previous_kernel.to_tx_constant_data();
         builder.previous_kernel.fee_payer = AztecAddress::from_field(90);
-        builder.include_by_timestamp_set_by_wallet = 999;
+        builder.include_by_timestamp_upper_bound = 999;
         builder.previous_kernel.include_by_timestamp = 13;
 
         let public_inputs = builder.execute();

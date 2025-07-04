@@ -277,18 +277,18 @@ export class PrivateKernelExecutionProver {
 
     // Use the aggregated includeByTimestamp set throughout the tx execution.
     // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
-    const includeByTimestampSetByWallet = previousKernelData.publicInputs.includeByTimestamp;
+    const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
     const blockTimestamp = previousKernelData.publicInputs.constants.historicalHeader.globalVariables.timestamp;
-    if (includeByTimestampSetByWallet <= blockTimestamp) {
+    if (includeByTimestampUpperBound <= blockTimestamp) {
       throw new Error(
-        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampSetByWallet}.`,
+        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
       );
     }
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,
       paddedSideEffectAmounts,
-      includeByTimestampSetByWallet,
+      includeByTimestampUpperBound,
     );
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);

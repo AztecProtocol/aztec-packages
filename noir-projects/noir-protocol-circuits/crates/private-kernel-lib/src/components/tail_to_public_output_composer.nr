@@ -15,14 +15,14 @@ use dep::types::abis::kernel_circuit_public_inputs::{
 pub struct TailToPublicOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl TailToPublicOutputComposer {
     pub unconstrained fn new(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     ) -> Self {
         let mut output_composer =
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
@@ -31,7 +31,7 @@ impl TailToPublicOutputComposer {
         TailToPublicOutputComposer {
             output_composer,
             padded_side_effect_amounts,
-            include_by_timestamp_set_by_wallet,
+            include_by_timestamp_upper_bound,
         }
     }
 
@@ -53,7 +53,7 @@ impl TailToPublicOutputComposer {
 
         let include_by_timestamp = std::cmp::min(
             source.include_by_timestamp,
-            self.include_by_timestamp_set_by_wallet,
+            self.include_by_timestamp_upper_bound,
         );
 
         let mut output = PrivateToPublicKernelCircuitPublicInputs {

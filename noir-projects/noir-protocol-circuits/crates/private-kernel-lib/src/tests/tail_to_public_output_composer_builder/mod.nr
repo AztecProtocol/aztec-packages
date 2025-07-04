@@ -14,7 +14,7 @@ use dep::types::{
 pub struct TailToPublicOutputComposerBuilder {
     previous_kernel: FixtureBuilder,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl TailToPublicOutputComposerBuilder {
@@ -27,7 +27,7 @@ impl TailToPublicOutputComposerBuilder {
         TailToPublicOutputComposerBuilder {
             previous_kernel,
             padded_side_effect_amounts,
-            include_by_timestamp_set_by_wallet: previous_kernel.include_by_timestamp,
+            include_by_timestamp_upper_bound: previous_kernel.include_by_timestamp,
         }
     }
 
@@ -38,7 +38,7 @@ impl TailToPublicOutputComposerBuilder {
             let composer = TailToPublicOutputComposer::new(
                 previous_kernel,
                 self.padded_side_effect_amounts,
-                self.include_by_timestamp_set_by_wallet,
+                self.include_by_timestamp_upper_bound,
             );
             composer.finish()
         }

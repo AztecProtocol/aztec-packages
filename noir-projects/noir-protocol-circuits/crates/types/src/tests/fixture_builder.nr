@@ -233,9 +233,11 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
+        builder.historical_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
-        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
 
         let max_allowed_include_by_timestamp = builder.historical_header.global_variables.timestamp
             + MAX_INCLUDE_BY_TIMESTAMP_DURATION;

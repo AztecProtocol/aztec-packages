@@ -67,7 +67,7 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
 fn validate_propagated_values_include_by_timestamp_use_previous_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.include_by_timestamp_set_by_wallet = 9999;
+    builder.include_by_timestamp_upper_bound = 9999;
     builder.previous_kernel.include_by_timestamp = 123;
     builder.output.include_by_timestamp = 123;
 
@@ -78,7 +78,7 @@ fn validate_propagated_values_include_by_timestamp_use_previous_succeeds() {
 fn validate_propagated_values_include_by_timestamp_use_custom_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.include_by_timestamp_set_by_wallet = 99;
+    builder.include_by_timestamp_upper_bound = 99;
     builder.previous_kernel.include_by_timestamp = 123;
     builder.output.include_by_timestamp = 99;
 
@@ -89,7 +89,7 @@ fn validate_propagated_values_include_by_timestamp_use_custom_succeeds() {
 fn validate_propagated_values_include_by_timestamp_use_larger_custom_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.include_by_timestamp_set_by_wallet = 9999;
+    builder.include_by_timestamp_upper_bound = 9999;
     builder.previous_kernel.include_by_timestamp = 123;
     builder.output.include_by_timestamp = 9999;
 
@@ -100,7 +100,7 @@ fn validate_propagated_values_include_by_timestamp_use_larger_custom_fails() {
 fn validate_propagated_values_include_by_timestamp_use_larger_previous_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.include_by_timestamp_set_by_wallet = 99;
+    builder.include_by_timestamp_upper_bound = 99;
     builder.previous_kernel.include_by_timestamp = 123;
     // The value in the output should be 99.
     builder.output.include_by_timestamp = 123;
@@ -117,7 +117,7 @@ fn validate_propagated_values_include_by_timestamp_custom_equals_max_duration_su
     builder.output.historical_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_set_by_wallet = max_timestamp;
+    builder.include_by_timestamp_upper_bound = max_timestamp;
     builder.previous_kernel.include_by_timestamp = max_timestamp;
     builder.output.include_by_timestamp = max_timestamp;
 
@@ -133,7 +133,7 @@ fn validate_propagated_values_include_by_timestamp_custom_exceeds_max_duration_f
     builder.output.historical_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_set_by_wallet = max_timestamp + 1;
+    builder.include_by_timestamp_upper_bound = max_timestamp + 1;
     builder.previous_kernel.include_by_timestamp = max_timestamp + 1;
     builder.output.include_by_timestamp = max_timestamp + 1;
 
@@ -149,7 +149,7 @@ fn validate_propagated_values_include_by_timestamp_custom_exceeds_max_pick_previ
     builder.output.historical_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_set_by_wallet = max_timestamp + 1;
+    builder.include_by_timestamp_upper_bound = max_timestamp + 1;
     builder.previous_kernel.include_by_timestamp = max_timestamp;
     builder.output.include_by_timestamp = max_timestamp;
 
@@ -165,7 +165,7 @@ fn validate_propagated_values_include_by_timestamp_previous_exceeds_max_pick_cus
     builder.output.historical_header.global_variables.timestamp = block_timestamp;
 
     let max_timestamp = block_timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
-    builder.include_by_timestamp_set_by_wallet = max_timestamp;
+    builder.include_by_timestamp_upper_bound = max_timestamp;
     builder.previous_kernel.include_by_timestamp = max_timestamp + 1;
     builder.output.include_by_timestamp = max_timestamp;
 

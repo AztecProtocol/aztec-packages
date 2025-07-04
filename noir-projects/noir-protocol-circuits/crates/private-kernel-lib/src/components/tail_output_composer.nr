@@ -21,20 +21,20 @@ use dep::types::{
 
 pub struct TailOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
-    include_by_timestamp_set_by_wallet: u64,
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl TailOutputComposer {
     pub unconstrained fn new(
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        include_by_timestamp_set_by_wallet: u64,
+        include_by_timestamp_upper_bound: u64,
     ) -> Self {
         let mut output_composer =
             PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel);
         // Q: Why are we sorting in the tail, if sorting has already happened in the Reset?
         output_composer.sort_ordered_values();
 
-        TailOutputComposer { output_composer, include_by_timestamp_set_by_wallet }
+        TailOutputComposer { output_composer, include_by_timestamp_upper_bound }
     }
 
     pub unconstrained fn finish(self) -> PrivateToRollupKernelCircuitPublicInputs {
@@ -46,7 +46,7 @@ impl TailOutputComposer {
 
         let include_by_timestamp = std::cmp::min(
             source.include_by_timestamp,
-            self.include_by_timestamp_set_by_wallet,
+            self.include_by_timestamp_upper_bound,
         );
 
         PrivateToRollupKernelCircuitPublicInputs {

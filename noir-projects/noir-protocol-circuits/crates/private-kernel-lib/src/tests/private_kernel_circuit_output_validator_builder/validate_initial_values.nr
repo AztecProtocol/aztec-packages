@@ -1,9 +1,5 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::{
-    address::AztecAddress,
-    constants::{DEFAULT_UPDATE_DELAY, MAX_U64_VALUE},
-    traits::FromField,
-};
+use dep::types::{address::AztecAddress, constants::DEFAULT_UPDATE_DELAY, traits::FromField};
 
 #[test]
 fn validate_initial_values_empty_data_succeeds() {
@@ -131,13 +127,12 @@ fn validate_initial_values_include_by_timestamp_empty_output_fails() {
 }
 
 #[test]
-fn validate_initial_values_include_by_timestamp_override_default_succeeds() {
+fn validate_initial_values_include_by_timestamp_override_private_call_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.private_call.include_by_timestamp = MAX_U64_VALUE;
 
     let include_by_timestamp_for_contract_updates =
         builder.private_call.historical_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY;
+    builder.private_call.include_by_timestamp = include_by_timestamp_for_contract_updates + 1;
     builder.output.include_by_timestamp = include_by_timestamp_for_contract_updates;
 
     builder.validate_as_first_call();

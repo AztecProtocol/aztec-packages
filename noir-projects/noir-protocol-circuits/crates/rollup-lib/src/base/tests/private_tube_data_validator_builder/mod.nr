@@ -12,8 +12,7 @@ pub struct PrivateTubeDataValidatorBuilder {
 
 impl PrivateTubeDataValidatorBuilder {
     pub fn new() -> Self {
-        let mut tube_data = FixtureBuilder::new().use_last_archive();
-
+        let tube_data = FixtureBuilder::new().use_last_archive();
         let block_constant_data = tube_data.to_block_constant_data();
         PrivateTubeDataValidatorBuilder { tube_data, block_constant_data }
     }
