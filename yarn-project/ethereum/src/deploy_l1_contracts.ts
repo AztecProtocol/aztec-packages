@@ -642,6 +642,8 @@ export const deployRollup = async (
     rewardDistributor: addresses.rewardDistributorAddress.toString(),
   };
 
+  const stakingQueueConfig = getEntryQueueConfig(networkName);
+
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
@@ -650,10 +652,11 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
+    entryQueueFlushSizeMin: stakingQueueConfig.normalFlushSizeMin,
+    entryQueueFlushSizeQuotient: stakingQueueConfig.normalFlushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
     rewardBoostConfig: getRewardBoostConfig(networkName),
-    stakingQueueConfig: getEntryQueueConfig(networkName),
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
