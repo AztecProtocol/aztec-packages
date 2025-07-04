@@ -576,6 +576,11 @@ export async function setup(
     // handled by the if-else branches on line 632.
     // For more details on why the tx would be dropped see `validate_include_by_timestamp` function in
     // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    //
+    // Note: If the following seems too convoluted or if it starts making problems, we could drop the "progressing
+    // past genesis via an account contract deployment" optimization and just call flush() on the sequencer and wait
+    // for an empty block to be mined. This would simplify it all quite a bit but the setup would be slower for tests
+    // deploying accounts.
     const originalMinTxsPerBlock = config.minTxsPerBlock;
     if (originalMinTxsPerBlock === undefined) {
       throw new Error('minTxsPerBlock is undefined in e2e test setup');

@@ -59,7 +59,7 @@ export class Role {
 
 export class BlacklistTokenContractTest {
   // This value MUST match the same value that we have in the contract
-  static CHANGE_ROLES_DELAY = 43200;
+  static CHANGE_ROLES_DELAY = 86400;
 
   private snapshotManager: ISnapshotManager;
   logger: Logger;

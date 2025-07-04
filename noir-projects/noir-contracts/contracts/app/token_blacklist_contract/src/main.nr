@@ -36,7 +36,7 @@ pub contract TokenBlacklist {
         utils::comparison::Comparator,
     };
 
-    use std::{meta::ctstring::AsCtString, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use crate::types::{
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
@@ -46,8 +46,8 @@ pub contract TokenBlacklist {
         address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
 
-    // Changing an address' roles has a certain delay before it goes into effect. Here set to half a day.
-    global CHANGE_ROLES_DELAY: u64 = 43200;
+    // Changing an address' roles has a certain delay before it goes into effect. Here set to 1 day.
+    global CHANGE_ROLES_DELAY: u64 = 86400;
 
     #[storage]
     struct Storage<Context> {
