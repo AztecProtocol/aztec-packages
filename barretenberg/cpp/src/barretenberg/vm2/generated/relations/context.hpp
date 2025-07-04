@@ -13,10 +13,10 @@ template <typename FF_> class contextImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 46> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 4, 5, 5, 5, 5, 5,
-                                                                            6, 5, 5, 5, 5, 5, 3, 5, 5, 5, 5, 5,
-                                                                            5, 5, 6, 5, 5, 6, 5, 5, 5, 5, 5, 5,
-                                                                            5, 5, 5, 5, 5, 5, 5, 3, 3, 3 };
+    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 4, 5, 5, 5, 5, 5, 6, 5,
+                                                                            5, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 6, 5,
+                                                                            5, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                                                                            5, 3, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,6 +38,18 @@ template <typename FF_> class contextImpl {
         const auto execution_DEFAULT_CTX_ROW = (FF(1) - execution_SWITCH_CTX);
         const auto execution_NESTED_RET_REV_ONLY =
             in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_error));
+        const auto execution_SEL_CONSUMED_ALL_GAS = in.get(C::execution_sel_error);
+        const auto execution_BASE_L2_GAS = in.get(C::execution_opcode_gas) + in.get(C::execution_addressing_gas);
+        const auto execution_DYNAMIC_L2_GAS_USED =
+            in.get(C::execution_dynamic_l2_gas) * in.get(C::execution_dynamic_l2_gas_factor);
+        const auto execution_DYNAMIC_DA_GAS_USED =
+            in.get(C::execution_dynamic_da_gas) * in.get(C::execution_dynamic_da_gas_factor);
+        const auto execution_TOTAL_L2_GAS_USED = execution_BASE_L2_GAS + execution_DYNAMIC_L2_GAS_USED;
+        const auto execution_TOTAL_DA_GAS_USED = in.get(C::execution_base_da_gas) + execution_DYNAMIC_DA_GAS_USED;
+        const auto execution_PREV_GAS_PLUS_USAGE_L2 =
+            in.get(C::execution_prev_l2_gas_used) + execution_TOTAL_L2_GAS_USED;
+        const auto execution_PREV_GAS_PLUS_USAGE_DA =
+            in.get(C::execution_prev_da_gas_used) + execution_TOTAL_DA_GAS_USED;
         const auto execution_PC_JUMP = in.get(C::execution_sel_internal_call) +
                                        in.get(C::execution_sel_internal_return) + in.get(C::execution_sel_jump) +
                                        in.get(C::execution_sel_jumpi);
@@ -369,6 +381,68 @@ template <typename FF_> class contextImpl {
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }
+        {
+            using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
+            auto tmp = (((in.get(C::execution_l2_gas_limit) - execution_PREV_GAS_PLUS_USAGE_L2) *
+                             execution_SEL_CONSUMED_ALL_GAS +
+                         execution_PREV_GAS_PLUS_USAGE_L2) -
+                        in.get(C::execution_l2_gas_used));
+            tmp *= scaling_factor;
+            std::get<46>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
+            auto tmp = (((in.get(C::execution_da_gas_limit) - execution_PREV_GAS_PLUS_USAGE_DA) *
+                             execution_SEL_CONSUMED_ALL_GAS +
+                         execution_PREV_GAS_PLUS_USAGE_DA) -
+                        in.get(C::execution_da_gas_used));
+            tmp *= scaling_factor;
+            std::get<47>(evals) += typename Accumulator::View(tmp);
+        }
+        { // L2_GAS_USED_CONTINUITY
+            using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
+                       (in.get(C::execution_l2_gas_used) - in.get(C::execution_prev_l2_gas_used_shift));
+            tmp *= scaling_factor;
+            std::get<48>(evals) += typename Accumulator::View(tmp);
+        }
+        { // L2_GAS_USED_ZERO_AFTER_CALL
+            using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
+                       in.get(C::execution_prev_l2_gas_used_shift);
+            tmp *= scaling_factor;
+            std::get<49>(evals) += typename Accumulator::View(tmp);
+        }
+        { // L2_GAS_USED_INGEST_AFTER_EXIT
+            using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
+                       ((in.get(C::execution_parent_l2_gas_used) + in.get(C::execution_l2_gas_used)) -
+                        in.get(C::execution_prev_l2_gas_used_shift));
+            tmp *= scaling_factor;
+            std::get<50>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DA_GAS_USED_CONTINUITY
+            using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_CTX_ROW *
+                       (in.get(C::execution_da_gas_used) - in.get(C::execution_prev_da_gas_used_shift));
+            tmp *= scaling_factor;
+            std::get<51>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DA_GAS_USED_ZERO_AFTER_CALL
+            using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_enter_call) *
+                       in.get(C::execution_prev_da_gas_used_shift);
+            tmp *= scaling_factor;
+            std::get<52>(evals) += typename Accumulator::View(tmp);
+        }
+        { // DA_GAS_USED_INGEST_AFTER_EXIT
+            using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_nested_exit_call) *
+                       ((in.get(C::execution_parent_da_gas_used) + in.get(C::execution_da_gas_used)) -
+                        in.get(C::execution_prev_da_gas_used_shift));
+            tmp *= scaling_factor;
+            std::get<53>(evals) += typename Accumulator::View(tmp);
+        }
     }
 };
 
@@ -429,6 +503,18 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
             return "PARENT_DA_GAS_USED_NEXT_ROW";
         case 42:
             return "PARENT_DA_GAS_USED_STORE_ON_ENTER";
+        case 48:
+            return "L2_GAS_USED_CONTINUITY";
+        case 49:
+            return "L2_GAS_USED_ZERO_AFTER_CALL";
+        case 50:
+            return "L2_GAS_USED_INGEST_AFTER_EXIT";
+        case 51:
+            return "DA_GAS_USED_CONTINUITY";
+        case 52:
+            return "DA_GAS_USED_ZERO_AFTER_CALL";
+        case 53:
+            return "DA_GAS_USED_INGEST_AFTER_EXIT";
         }
         return std::to_string(index);
     }
@@ -459,6 +545,12 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
     static constexpr size_t SR_PARENT_L2_GAS_USED_STORE_ON_ENTER = 40;
     static constexpr size_t SR_PARENT_DA_GAS_USED_NEXT_ROW = 41;
     static constexpr size_t SR_PARENT_DA_GAS_USED_STORE_ON_ENTER = 42;
+    static constexpr size_t SR_L2_GAS_USED_CONTINUITY = 48;
+    static constexpr size_t SR_L2_GAS_USED_ZERO_AFTER_CALL = 49;
+    static constexpr size_t SR_L2_GAS_USED_INGEST_AFTER_EXIT = 50;
+    static constexpr size_t SR_DA_GAS_USED_CONTINUITY = 51;
+    static constexpr size_t SR_DA_GAS_USED_ZERO_AFTER_CALL = 52;
+    static constexpr size_t SR_DA_GAS_USED_INGEST_AFTER_EXIT = 53;
 };
 
 } // namespace bb::avm2

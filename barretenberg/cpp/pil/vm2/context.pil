@@ -349,3 +349,28 @@ namespace execution;
         context_stack.parent_da_gas_used
     };
 
+    // ==== GAS USED CONSTRAINING ====
+
+    // If any error happened during execution (i.e., sel_error=1), all gas should be consumed.
+    pol SEL_CONSUMED_ALL_GAS = sel_error;
+    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
+    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;
+
+    // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
+    // sel_enter_call   = 1 <==> prev_gas_used' = 0
+    // otherwise        = 0 <==> prev_gas_used' = gas_used
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
+    #[L2_GAS_USED_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
+    #[L2_GAS_USED_ZERO_AFTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * prev_l2_gas_used' = 0;
+    #[L2_GAS_USED_INGEST_AFTER_EXIT]
+    NOT_LAST_EXEC * nested_exit_call * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
+    #[DA_GAS_USED_CONTINUITY]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
+    #[DA_GAS_USED_ZERO_AFTER_CALL]
+    NOT_LAST_EXEC * sel_enter_call * prev_da_gas_used' = 0;
+    #[DA_GAS_USED_INGEST_AFTER_EXIT]
+    NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;
