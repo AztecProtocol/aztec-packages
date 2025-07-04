@@ -73,6 +73,7 @@ function compile_all {
     noir-test-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
+    noir-bb-bench \
     pxe
   cat joblog.txt
 
