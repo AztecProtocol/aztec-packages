@@ -50,62 +50,89 @@ git switch -c "$work_branch" "origin/$pr_base_ref" 2>/dev/null || {
 ###############################################################################
 # low-level helpers
 ###############################################################################
+# Try to apply a single commit using squash merge
 function apply_single {
   local sha="$1" before=$(git rev-parse --verify HEAD)
-  if git cherry-pick "$sha" >/dev/null 2>&1; then
-    git diff --quiet HEAD~1 HEAD && { git reset --hard "$before"; return 1; }
+  
+  # Try to squash merge this single commit
+  if git merge --squash --no-commit "$sha" >/dev/null 2>&1; then
+    # Check if there are any changes
+    if git diff --cached --quiet; then
+      git reset --hard "$before"
+      return 1
+    fi
+    
+    # Commit with the original commit's title
+    local original_msg=$(git log -1 --format=%s "$sha")
+    local original_body=$(git log -1 --format=%b "$sha")
+    if [[ -n "$original_body" ]]; then
+      git commit -m "$original_msg" -m "$original_body" >/dev/null
+    else
+      git commit -m "$original_msg" >/dev/null
+    fi
     return 0
   else
-    git cherry-pick --abort || true
-    git reset --hard "$before"; return 1
+    git merge --abort >/dev/null 2>&1 || true
+    git reset --hard "$before"
+    return 1
   fi
 }
 
-# Try commits[i..j] as **one squash commit**.
-# Success criteria:
-#   • the squash merges cleanly
-#   • if j+1 < total, that next commit cherry-picks cleanly (sim test)
+# Try to squash merge from merge_base to commits[j]
+# This includes ALL commits (including merge commits) in that range
 function apply_batch_squash {
   local i=$1 j=$2 before=$(git rev-parse --verify HEAD)
-
-  # 1. stage combined diff with merge --squash
+  
+  # Try to squash merge everything up to commits[j]
   if ! git merge --squash --no-commit "${commits[$j]}" >/dev/null 2>&1; then
     git merge --abort >/dev/null 2>&1 || true
     git reset --hard "$before"
     return 1
   fi
-  git diff --cached --quiet && { git reset --hard "$before"; return 1; }
-
-  # 2. commit with linked title
-  links=(); for ((k=i;k<=j;k++)); do links+=("$(github_link "${commits[$k]}")"); done
-  git commit -m "squash: $(IFS=, ; echo "${links[*]}")" >/dev/null
-
-  # 3. look-ahead test
-  local next=$((j+1))
-  if (( next < total )); then
-    if git cherry-pick --no-commit "${commits[$next]}" >/dev/null 2>&1; then
-      git cherry-pick --abort >/dev/null 2>&1 || true   # undo test pick
-      return 0
-    fi
-    git cherry-pick --abort >/dev/null 2>&1 || true
+  
+  # Check if there are any changes
+  if git diff --cached --quiet; then
     git reset --hard "$before"
     return 1
   fi
-  return 0                      # squash was last chunk
+  
+  # Create the squash commit with links to meaningful commits only
+  links=()
+  commit_list=""
+  for ((k=i; k<=j; k++)); do
+    local sha="${commits[$k]}"
+    local short_sha="${sha:0:7}"
+    local msg=$(git log -1 --format=%s "$sha")
+    links+=("$(github_link "$sha")")
+    commit_list="${commit_list}- ${short_sha} ${msg} (${short_sha})"$'\n'
+  done
+  
+  # Remove trailing newline
+  commit_list=${commit_list%$'\n'}
+  
+  # Commit with both comma-separated links and detailed list
+  git commit -m "squash: $(IFS=, ; echo "${links[*]}")" -m "$commit_list" >/dev/null
+  
+  return 0
 }
 
 ###############################################################################
-# greedy loop
+# main rebasing loop
 ###############################################################################
 idx=0
 while (( idx < total )); do
+  # First, try to squash merge just this single commit
   if apply_single "${commits[$idx]}"; then
     ((idx++)) || true
     continue
   fi
 
+  # Single commit failed. Now we need to batch.
+  # Try progressively larger batches starting from merge_base (or previous commit)
+  # up to commits[idx], commits[idx+1], etc.
   applied_batch=false
-  for ((end=idx+1; end<total; end++)); do
+  
+  for ((end=idx; end<total; end++)); do
     if apply_batch_squash "$idx" "$end"; then
       idx=$((end+1))
       applied_batch=true
@@ -113,7 +140,34 @@ while (( idx < total )); do
     fi
   done
 
-  $applied_batch || die "rebase failed: even squashing whole tail conflicted"
+  # If we still can't apply anything, try to squash merge the entire PR branch
+  if ! $applied_batch; then
+    echo "Warning: Unable to rebase commits individually. Squashing entire PR branch..." >&2
+    
+    # Reset to base and squash merge the entire PR
+    git reset --hard "origin/$pr_base_ref"
+    if git merge --squash "origin/$pr_head_ref" >/dev/null 2>&1; then
+      # Commit with links to all meaningful commits
+      links=()
+      commit_list=""
+      for ((k=0; k<total; k++)); do
+        local sha="${commits[$k]}"
+        local short_sha="${sha:0:7}"
+        local msg=$(git log -1 --format=%s "$sha")
+        links+=("$(github_link "$sha")")
+        commit_list="${commit_list}- ${short_sha} ${msg} (${short_sha})"$'\n'
+      done
+      
+      # Remove trailing newline
+      commit_list=${commit_list%$'\n'}
+      
+      git commit -m "squash: $(IFS=, ; echo "${links[*]}")" -m "$commit_list" >/dev/null
+      break
+    else
+      git merge --abort >/dev/null 2>&1 || true
+      die "rebase failed: unable to squash merge entire PR branch"
+    fi
+  fi
 done
 
 ###############################################################################
