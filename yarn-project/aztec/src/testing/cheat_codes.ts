@@ -33,8 +33,8 @@ export class CheatCodes {
    * the target timestamp. L2 timestamp is not advanced exactly to the target timestamp because it is determined
    * by the slot number, which advances in fixed intervals.
    * This is useful for testing time-dependent contract behavior.
-   * @param sequencerClient - The sequencer client to use for configuring min txs per block
-   * @param node - The Aztec node to query for new blocks
+   * @param sequencerClient - The sequencer client to use to force an empty block to be mined.
+   * @param node - The Aztec node used to query if a new block has been mined.
    * @param targetTimestamp - The target timestamp to warp to (in seconds)
    */
   async warpL2TimeAtLeastTo(sequencerClient: SequencerClient, node: AztecNode, targetTimestamp: bigint | number) {
@@ -43,8 +43,8 @@ export class CheatCodes {
     // We warp the L1 timestamp
     await this.eth.warp(targetTimestamp, { resetBlockInterval: true });
 
-    // Force an empty block to be mined
-    sequencerClient!.getSequencer().flush();
+    // Force an empty block to be mined by "flushing" the sequencer.
+    sequencerClient.getSequencer().flush();
 
     // Wait for a new block to be mined by polling the node
     while ((await node.getBlockNumber()) === currentL2BlockNumber) {
@@ -57,8 +57,8 @@ export class CheatCodes {
    * least by the duration. L2 timestamp is not advanced exactly by the duration because it is determined by the slot
    * number, which advances in fixed intervals.
    * This is useful for testing time-dependent contract behavior.
-   * @param sequencerClient - The sequencer client to use for configuring min txs per block
-   * @param node - The Aztec node to query for new blocks
+   * @param sequencerClient - The sequencer client to use to force an empty block to be mined.
+   * @param node - The Aztec node used to query if a new block has been mined.
    * @param duration - The duration to advance time by (in seconds)
    */
   async warpL2TimeAtLeastBy(sequencerClient: SequencerClient, node: AztecNode, duration: bigint | number) {
