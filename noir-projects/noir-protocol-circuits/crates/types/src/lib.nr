@@ -12,9 +12,9 @@ pub mod constants;
 pub mod contract_class_id;
 pub mod merkle_tree;
 pub mod contract_instance;
+pub mod messaging;
 pub mod abis;
 
-pub mod messaging;
 pub mod hash;
 pub mod poseidon2;
 pub mod type_serialization;

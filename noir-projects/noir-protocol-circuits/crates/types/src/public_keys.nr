@@ -11,14 +11,6 @@ use crate::{
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use std::{default::Default, meta::derive};
 
-#[derive(Deserialize, Eq, Serialize)]
-pub struct PublicKeys {
-    pub npk_m: NpkM,
-    pub ivpk_m: IvpkM,
-    pub ovpk_m: OvpkM,
-    pub tpk_m: TpkM,
-}
-
 pub trait ToPoint {
     fn to_point(self) -> Point;
 }
@@ -78,6 +70,14 @@ impl ToPoint for TpkM {
     fn to_point(self) -> Point {
         self.inner
     }
+}
+
+#[derive(Deserialize, Eq, Serialize)]
+pub struct PublicKeys {
+    pub npk_m: NpkM,
+    pub ivpk_m: IvpkM,
+    pub ovpk_m: OvpkM,
+    pub tpk_m: TpkM,
 }
 
 impl Default for PublicKeys {

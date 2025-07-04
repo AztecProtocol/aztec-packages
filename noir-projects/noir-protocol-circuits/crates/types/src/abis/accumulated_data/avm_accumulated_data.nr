@@ -1,13 +1,12 @@
 use crate::{
     abis::{public_data_write::PublicDataWrite, public_log::PublicLog, side_effect::scoped::Scoped},
     constants::{
-        AVM_ACCUMULATED_DATA_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
-        MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NUM_AVM_ACCUMULATED_DATA_ARRAYS,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
-    utils::{arrays::array_length, reader::Reader},
+    utils::arrays::array_length,
 };
 use std::meta::derive;
 
