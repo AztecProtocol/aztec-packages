@@ -9,6 +9,7 @@
 #include "../bigfield/bigfield.hpp"
 #include "../biggroup/biggroup.hpp"
 #include "../field/field.hpp"
+#include "../uint/uint.hpp"
 
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 

@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "../bit_array/bit_array.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "../plookup/plookup.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"

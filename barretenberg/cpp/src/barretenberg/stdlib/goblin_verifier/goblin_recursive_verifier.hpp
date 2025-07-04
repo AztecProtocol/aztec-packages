@@ -14,7 +14,6 @@ namespace bb::stdlib::recursion::honk {
 
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
-    using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
     using Curve = grumpkin<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using PairingAccumulator = PairingPoints<Builder>;
@@ -30,13 +29,11 @@ class GoblinRecursiveVerifier {
     using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
-    using TranslatorFlavor = TranslatorRecursiveFlavor_<Builder>;
-    using TranslatorVerifier = TranslatorRecursiveVerifier_<TranslatorFlavor>;
+    using TranslatorFlavor = TranslatorRecursiveFlavor;
+    using TranslatorVerifier = TranslatorRecursiveVerifier;
     using TranslationEvaluations = TranslatorVerifier::TranslationEvaluations;
-    using TranslatorBF = TranslatorFlavor::BF;
 
-    using ECCVMFlavor = ECCVMRecursiveFlavor_<Builder>;
-    using ECCVMVerifier = ECCVMRecursiveVerifier_<ECCVMFlavor>;
+    using ECCVMVerifier = ECCVMRecursiveVerifier;
 
     // ECCVM and Translator verification keys
     using VerificationKey = Goblin::VerificationKey;

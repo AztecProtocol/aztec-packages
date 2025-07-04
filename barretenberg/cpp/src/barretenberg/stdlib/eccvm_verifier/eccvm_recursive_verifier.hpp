@@ -10,19 +10,20 @@
 #include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
-template <typename Flavor> class ECCVMRecursiveVerifier_ {
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Curve = typename Flavor::Curve;
-    using Commitment = typename Flavor::Commitment;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Builder = typename Flavor::CircuitBuilder;
-    using PCS = typename Flavor::PCS;
+class ECCVMRecursiveVerifier {
+    using Flavor = ECCVMRecursiveFlavor;
+    using FF = Flavor::FF;
+    using BF = Flavor::BF;
+    using Curve = Flavor::Curve;
+    using Commitment = Flavor::Commitment;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using VerificationKey = Flavor::VerificationKey;
+    using NativeVerificationKey = Flavor::NativeVerificationKey;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using Builder = Flavor::CircuitBuilder;
+    using PCS = Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using VerifierCommitments = Flavor::VerifierCommitments;
     using StdlibPreIpaProof = bb::stdlib::Proof<Builder>;
     using StdlibIpaProof = bb::stdlib::Proof<Builder>;
     using IpaClaimAndProof = std::pair<OpeningClaim<Curve>, StdlibIpaProof>;
@@ -38,9 +39,9 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
         {}
     };
 
-    explicit ECCVMRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                     const std::shared_ptr<Transcript>& transcript);
+    explicit ECCVMRecursiveVerifier(Builder* builder,
+                                    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                    const std::shared_ptr<Transcript>& transcript);
 
     [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const ECCVMProof& proof);
     [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const StdlibProof& proof);

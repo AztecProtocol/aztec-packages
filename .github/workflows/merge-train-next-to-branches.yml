@@ -29,5 +29,7 @@ jobs:
           git config --global user.email tech@aztecprotocol.com
 
       - name: Run merge-next script
+        continue-on-error: true
         run: |
           GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/merge-next.sh "${{ matrix.train-branch }}"
+
