@@ -151,9 +151,9 @@ while (( idx < total )); do
       links=()
       commit_list=""
       for ((k=0; k<total; k++)); do
-        local sha="${commits[$k]}"
-        local short_sha="${sha:0:7}"
-        local msg=$(git log -1 --format=%s "$sha")
+        sha="${commits[$k]}"
+        short_sha="${sha:0:7}"
+        msg=$(git log -1 --format=%s "$sha")
         links+=("$(github_link "$sha")")
         commit_list="${commit_list}- ${short_sha} ${msg} (${short_sha})"$'\n'
       done
