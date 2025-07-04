@@ -18,7 +18,6 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          CommitmentKey commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     , pcs_commitment_key(commitment_key.initialized() ? commitment_key
                                                       : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
     , transcript(transcript){};
@@ -28,10 +27,13 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
  * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
  * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
- * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
- * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
- *
- *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
+ * length of the subtable columns t_j. This protocol demonstrates that the aggregate ecc op table has been
+ * constructed correctly via:
+ * - the Schwartz-Zippel check:
+ *      \f[ T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)) \f]
+ * - the degree check a la Thakur:
+ *      \f[ x^{l-1} t_j(1/x) = g_j(x) \f]
+ *   where \f$g_j(X) = X^{l-1} t_j(1 / X)\f$.
  *
  * @note: the prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
  * circuit, and therefore t_j has already been added to the transcript by PG.
@@ -45,6 +47,9 @@ MergeProver::MergeProof MergeProver::construct_proof()
     std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+
+    // Compute g_j(X) = t_j(1/X)
+    std::array<Polynomial, NUM_WIRES> g;
 
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
