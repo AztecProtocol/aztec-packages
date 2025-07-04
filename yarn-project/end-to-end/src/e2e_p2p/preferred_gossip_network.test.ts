@@ -77,9 +77,8 @@ describe('e2e_p2p_preferred_network', () => {
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_preferred_network',
-      numberOfNodes: NUM_NODES,
+      numberOfNodes: NUM_NODES + NUM_PREFERRED_NODES,
       numberOfValidators: NUM_VALIDATORS,
-      numberOfPreferredNodes: NUM_PREFERRED_NODES,
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {

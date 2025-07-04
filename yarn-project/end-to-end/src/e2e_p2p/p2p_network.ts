@@ -80,7 +80,6 @@ export class P2PNetworkTest {
     public numberOfValidators: number,
     initialValidatorConfig: AztecNodeConfig,
     public numberOfNodes = 0,
-    public numberOfPreferredNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
@@ -92,7 +91,7 @@ export class P2PNetworkTest {
     this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
     this.attesterPrivateKeys = generatePrivateKeys(
-      ATTESTER_PRIVATE_KEYS_START_INDEX + numberOfNodes + numberOfPreferredNodes,
+      ATTESTER_PRIVATE_KEYS_START_INDEX + numberOfNodes,
       numberOfValidators,
     );
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
@@ -133,7 +132,6 @@ export class P2PNetworkTest {
     testName,
     numberOfNodes,
     numberOfValidators,
-    numberOfPreferredNodes,
     basePort,
     metricsPort,
     initialConfig,
@@ -143,7 +141,6 @@ export class P2PNetworkTest {
     testName: string;
     numberOfNodes: number;
     numberOfValidators: number;
-    numberOfPreferredNodes: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
@@ -167,7 +164,6 @@ export class P2PNetworkTest {
       numberOfValidators,
       initialValidatorConfig,
       numberOfNodes,
-      numberOfPreferredNodes,
       metricsPort,
       startProverNode,
       mockZkPassportVerifier,

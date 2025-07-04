@@ -38,7 +38,6 @@ describe('e2e_p2p_validators_sentinel', () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_validators_sentinel',
       numberOfNodes: 0,
-      numberOfPreferredNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,

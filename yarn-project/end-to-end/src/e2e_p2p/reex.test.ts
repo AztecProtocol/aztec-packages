@@ -33,7 +33,6 @@ describe('e2e_p2p_reex', () => {
     t = await P2PNetworkTest.create({
       testName: 'e2e_p2p_reex',
       numberOfNodes: 0,
-      numberOfPreferredNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BASE_BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
