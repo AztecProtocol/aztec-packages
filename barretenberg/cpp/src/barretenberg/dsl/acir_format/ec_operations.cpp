@@ -28,7 +28,9 @@ namespace acir_format {
  * it doubles the point. In this case, it can handle the case of a point at infinity.
  *  - If it is known that the points are at infinity or not (controlling boolean for both is a constant), it will return
  * the other point if one is at infinity.
- *  - If none of the points are at infinity, it assumes that they are different and adds them.
+ *  - If it is known that the points are opposite, it will return the infinity point.
+ *  - If it is known that the points have the same abscissa at this stage, it will return an error.
+ *  - If none of the points are at infinity, it assumes that they have distinct abscissa and adds them.
  *  - If it is not known whether the points are points at infinity, it will return an error.
  *
  */
@@ -105,8 +107,17 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                                            has_valid_witness_assignments,
                                            /*use_g1=*/true,
                                            builder);
+            } else if (x_match && !y_match) {
+                if (input.input1_y.is_constant && input.input2_y.is_constant) {
+                    // we know x1==x2 and y1!=y2, so we assume the points are opposite
+                    result = cycle_group_ct(bb::fr::zero(), bb::fr::zero(), true);
+                } else {
+                    ASSERT(false,
+                           "Unsupported EC ADDITION UNSAFE; asbcissas should be disctinct, or the points should be "
+                           "identical "
+                           "(doubling)");
+                }
             } else {
-
                 cycle_group_ct input1_point;
                 cycle_group_ct input2_point;
                 // all or nothing: the inputs must be all constant or all witness. Cf #1108 for more details.
