@@ -1,8 +1,7 @@
 use crate::{
     abis::side_effect::{Counted, scoped::Scoped},
     address::{AztecAddress, EthAddress},
-    constants::L2_TO_L1_MESSAGE_LENGTH,
-    traits::{Deserialize, Empty, Serialize, ToField},
+    traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
 

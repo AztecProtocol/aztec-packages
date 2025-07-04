@@ -1,6 +1,5 @@
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    constants::TREE_SNAPSHOTS_LENGTH,
     partial_state_reference::PartialStateReference,
     traits::{Deserialize, Empty, Serialize},
 };
