@@ -131,11 +131,6 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
     }
 
-    // if (decider_vk.is_kernel) {
-    //     kernel_input.reconstruct_from_public_inputs(decider_vk->public_inputs,
-    //                                                 decider_vk->verification_key->pairing_inputs_public_input_key);
-    // }
-
     // Recursively verify the corresponding merge proof
     PairingPoints pairing_points = goblin.recursively_verify_merge(
         circuit, decider_vk->witness_commitments.get_ecc_op_wires(), accumulation_recursive_transcript);
@@ -150,7 +145,6 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // check whether we are in a kernel circuit
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
         kernel_return_data_commitment_exists = true;
-        // kernel_input.reconstruct_from_public(decider_vk->public_inputs);
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
 
         auto return_data = decider_vk->witness_commitments.return_data;

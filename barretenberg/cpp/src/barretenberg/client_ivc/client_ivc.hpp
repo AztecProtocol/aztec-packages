@@ -172,9 +172,6 @@ class ClientIVC {
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
 
-    // Management of linking databus commitments between circuits in the IVC
-    // DataBusDepot bus_depot;
-
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
@@ -226,7 +223,8 @@ class ClientIVC {
 
     VerificationKey get_vk() const;
 
-    // the input/outputs for consistency checks in the consistency checks
+    // the input/outputs for consistency checks in the consistency checks (databus, pairing point accumulator, merge)
+    // TODO(khashayar): at the moment only databus propagations are done through this type. We should add the others.
     KernelIO kernel_input;
     KernelIO kernel_output;
     bool app_return_data_commitment_exists = false;
