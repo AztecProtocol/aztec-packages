@@ -44,7 +44,6 @@ struct CircuitProve {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 struct CircuitComputeVk {
@@ -58,7 +57,20 @@ struct CircuitComputeVk {
 
     CircuitInputNoVK circuit;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
+};
+
+/** Compute verification key, Treat the previously loaded circuit as either a standalone circuit
+ * or a common final circuit used to verify all of IVC. */
+struct CircuitComputeIvcVk {
+    static constexpr const char* NAME = "CircuitComputeIvcVk";
+
+    struct Response {
+        static constexpr const char* NAME = "CircuitComputeIvcVkResponse";
+
+        std::vector<uint8_t> bytes; // Serialized verification key
+    };
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -80,7 +92,7 @@ struct CircuitInfo {
     CircuitInput circuit;
     bool include_gates_per_opcode = false;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -100,7 +112,7 @@ struct CircuitCheck {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -120,7 +132,7 @@ struct CircuitVerify {
     PublicInputsVector public_inputs;
     HonkProof proof;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -137,7 +149,7 @@ struct ProofAsFields {
     };
 
     HonkProof proof;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -155,7 +167,7 @@ struct VkAsFields {
 
     std::vector<uint8_t> verification_key;
     bool is_mega_honk = false;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -172,7 +184,7 @@ struct CircuitWriteSolidityVerifier {
 
     std::vector<uint8_t> verification_key;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -192,7 +204,44 @@ struct CircuitProveAndVerify {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
+};
+
+/**
+ * @brief Command to write circuit bytecode in various formats
+ */
+struct CircuitWriteBytecode {
+    static constexpr const char* NAME = "CircuitWriteBytecode";
+
+    struct Response {
+        static constexpr const char* NAME = "CircuitWriteBytecodeResponse";
+
+        std::vector<uint8_t> bytecode;
+        std::string formatted_output; // For hex/base64
+    };
+
+    CircuitInput circuit;
+    std::string format = "binary"; // binary, hex, base64
+    Response execute(const BBApiRequest& request = {}) const;
+};
+
+/**
+ * @brief Command to validate circuit structure
+ */
+struct CircuitValidate {
+    static constexpr const char* NAME = "CircuitValidate";
+
+    struct Response {
+        static constexpr const char* NAME = "CircuitValidateResponse";
+
+        bool is_valid;
+        std::vector<std::string> validation_errors;
+    };
+
+    CircuitInput circuit;
+    ProofSystemSettings settings;
+    bool check_recursive_structure = false;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 /**
@@ -216,7 +265,7 @@ struct CircuitBenchmark {
     uint32_t num_iterations = 1;
     bool benchmark_witness_generation = true;
     bool benchmark_proving = true;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) const;
 };
 
 // OracleHashType enum and parse_oracle_hash_type are defined in bbapi_shared.hpp
