@@ -229,7 +229,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async stop(): Promise<void> {
-    if (this.currentState === PeerDiscoveryState.RUNNING) {
+    if (this.currentState !== PeerDiscoveryState.RUNNING) {
       return;
     }
     await this.discv5.off(Discv5Event.DISCOVERED, this.handlers.onDiscovered);

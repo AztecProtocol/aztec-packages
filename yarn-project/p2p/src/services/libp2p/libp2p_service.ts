@@ -252,7 +252,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       )
     ).filter(peer => peer !== undefined);
 
-    logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
+    if (directPeers.length > 0) {
+      logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
+    }
 
     const node = await createLibp2p({
       start: false,
