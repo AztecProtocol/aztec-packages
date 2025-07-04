@@ -1,5 +1,6 @@
 // An integration test for the p2p client to test req resp protocols
 import type { EpochCache } from '@aztec/epoch-cache';
+import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -22,6 +23,8 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import { mockAttestation } from '../mem_pools/attestation_pool/mocks.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
+import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import {
   type MakeTestP2PClientOptions,
@@ -279,6 +282,139 @@ describe('p2p client integration', () => {
 
       // Expect the tx to be the returned tx to be the same as the one we mocked
       expect(requestedTx?.toBuffer()).toStrictEqual(tx.toBuffer());
+
+      await shutdown(clients);
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'request batch of txs from another peer',
+    async () => {
+      const txBatchSize = 8;
+      // We want to create a set of nodes and request transaction from them
+      clients = (
+        await makeAndStartTestP2PClients(3, {
+          p2pBaseConfig,
+          mockAttestationPool: attestationPool,
+          mockTxPool: txPool,
+          mockEpochCache: epochCache,
+          mockWorldState: worldState,
+          logger,
+        })
+      ).map(x => x.client);
+      const [client1] = clients;
+
+      // Give the nodes time to discover each other
+      await sleep(6000);
+      logger.info(`Finished waiting for clients to connect`);
+
+      // Perform a get tx request from client 1
+      const txs = await Promise.all(times(txBatchSize, () => mockTx()));
+      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+
+      // Mock the tx pool to return the tx we are looking for
+      //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
+      txPool.getTxByHash.mockImplementation((hash: TxHash) => Promise.resolve(txs.find(t => t.txHash?.equals(hash))));
+      //@ts-expect-error - we want to spy on the sendBatchRequest method
+      const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
+      //@ts-expect-error - we want to spy on the sendRequestToPeer method
+      const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
+
+      const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+      expect(resultingTxs).toHaveLength(txs.length);
+
+      // Expect the tx to be the returned tx to be the same as the one we mocked
+      resultingTxs.forEach((requestedTx, i) => {
+        expect(requestedTx.toBuffer()).toStrictEqual(txs[i].toBuffer());
+      });
+
+      const request = chunkTxHashesRequest(txHashes, txBatchSize);
+      // We have created txs equal to the number of hashes, so we expect the request
+      // length to be just 1, since we are creating only one batch
+      expect(request).toHaveLength(1);
+
+      expect(sendBatchSpy).toHaveBeenCalledWith(
+        ReqRespSubProtocol.TX,
+        request,
+        undefined, // pinnedPeer
+        expect.anything(), // timeoutMs
+        expect.anything(), // maxPeers
+        expect.anything(), // maxRetryAttempts
+      );
+
+      // since we have only 1 batch we send only 1 request
+      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(1);
+
+      await shutdown(clients);
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'request batches of txs from another peers',
+    async () => {
+      const txBatchSize = 8;
+      // We want to create a set of nodes and request transaction from them
+      clients = (
+        await makeAndStartTestP2PClients(3, {
+          p2pBaseConfig,
+          mockAttestationPool: attestationPool,
+          mockTxPool: txPool,
+          mockEpochCache: epochCache,
+          mockWorldState: worldState,
+          logger,
+        })
+      ).map(x => x.client);
+      const [client1] = clients;
+
+      // Give the nodes time to discover each other
+      await sleep(6000);
+      logger.info(`Finished waiting for clients to connect`);
+
+      // Perform a get tx request from client 1
+      const txs = await Promise.all(times(txBatchSize + 2, () => mockTx()));
+      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+
+      // Mock the tx pool to return every other tx we are looking for
+      txPool.getTxByHash.mockImplementation((hash: TxHash) => {
+        //@ts-expect-error - txHash is protected and should not be accessed directly outside of the test env.
+        const idx = txs.findIndex(t => t.txHash.equals(hash));
+        return idx % 2 === 0 ? Promise.resolve(txs[idx]) : Promise.resolve(undefined);
+      });
+      //@ts-expect-error - we want to spy on the sendBatchRequest method
+      const sendBatchSpy = jest.spyOn(client1.p2pService, 'sendBatchRequest');
+      //@ts-expect-error - we want to spy on the sendRequestToPeer method
+      const sendRequestToPeerSpy = jest.spyOn(client1.p2pService.reqresp, 'sendRequestToPeer');
+
+      const resultingTxs = await client1.requestTxsByHash(txHashes, undefined);
+      expect(resultingTxs).toHaveLength(txs.length / 2);
+
+      // Expect the tx to be the returned tx to be the same as the one we mocked
+      // Note we have only returned the half of the txs, so we expect the resulting txs to be every other tx
+      resultingTxs.forEach((requestedTx, i) => {
+        expect(requestedTx.toBuffer()).toStrictEqual(txs[2 * i].toBuffer());
+      });
+
+      const request = chunkTxHashesRequest(txHashes, txBatchSize);
+      // We have created txs equal to the number of hashes + 1, so we expect the request
+      // length to be 2, since we are creating only 2 batches,
+      // 1 with the size of txBatchSize and the other with the size of 1
+      expect(request).toHaveLength(2);
+      expect(request[0]).toHaveLength(txBatchSize);
+      expect(request[1]).toHaveLength(txs.length - txBatchSize);
+
+      expect(sendBatchSpy).toHaveBeenCalledWith(
+        ReqRespSubProtocol.TX,
+        request,
+        undefined, // pinnedPeer
+        expect.anything(), // timeoutMs
+        expect.anything(), // maxPeers
+        expect.anything(), // maxRetryAttempts
+      );
+
+      // since we have only 1 batch we send only 1 request
+      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(2);
 
       await shutdown(clients);
     },

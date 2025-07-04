@@ -5,9 +5,10 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import { TxHash, TxHashArray, type TxWithHash } from '@aztec/stdlib/tx';
+import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastTxCollection } from './fast_tx_collection.js';
 import type { MissingTxInfo } from './tx_collection.js';
@@ -149,20 +150,12 @@ export class SlowTxCollection {
     const timeoutMs = this.config.txCollectionSlowReqRespTimeoutMs;
     const maxPeers = boundInclusive(Math.ceil(missingTxs.length / 3), 4, 16);
     const maxRetryAttempts = 3;
-    // Per: https://github.com/AztecProtocol/aztec-packages/issues/15149#issuecomment-2999054485
-    // we define Q as max number of transactions per batch, the comment explains why we use 8.
-    const maxTxsPerBatch = 8;
-
     // Send a batch request via reqresp for the missing txs
     await this.txCollectionSink.collect(
       async txHashes => {
-        const batches: Array<TxHashArray> = [];
-        for (let i = 0; i < txHashes.length; i += maxTxsPerBatch) {
-          batches.push(new TxHashArray(...txHashes.slice(i, i + maxTxsPerBatch)));
-        }
         const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
           ReqRespSubProtocol.TX,
-          batches,
+          chunkTxHashesRequest(txHashes),
           pinnedPeer,
           timeoutMs,
           maxPeers,

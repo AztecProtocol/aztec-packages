@@ -6,7 +6,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxArray, TxHash, TxHashArray, type TxWithHash } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -15,6 +15,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { TxPool } from '../../mem_pools/index.js';
 import type { TxPoolEvents } from '../../mem_pools/tx_pool/tx_pool.js';
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import type { SlowTxCollection } from './slow_tx_collection.js';
@@ -77,15 +78,9 @@ describe('TxCollection', () => {
   };
 
   const expectReqRespToHaveBeenCalledWith = (txHashes: TxHash[], opts: { pinnedPeer?: PeerId } = {}) => {
-    const maxTxsPerBatch = 8;
-    const batches: Array<TxHashArray> = [];
-    for (let i = 0; i < txHashes.length; i += maxTxsPerBatch) {
-      batches.push(new TxHashArray(...txHashes.slice(i, i + maxTxsPerBatch)));
-    }
-
     expect(reqResp.sendBatchRequest).toHaveBeenCalledWith(
       ReqRespSubProtocol.TX,
-      batches,
+      chunkTxHashesRequest(txHashes),
       opts.pinnedPeer,
       expect.any(Number),
       expect.any(Number),

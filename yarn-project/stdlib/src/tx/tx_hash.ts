@@ -72,10 +72,14 @@ export class TxHash {
  **/
 export class TxHashArray extends Array<TxHash> {
   static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    const hashes = reader.readVector(TxHash);
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const hashes = reader.readVector(TxHash);
 
-    return new TxHashArray(...hashes);
+      return new TxHashArray(...hashes);
+    } catch {
+      return new TxHashArray();
+    }
   }
 
   public toBuffer(): Buffer {
