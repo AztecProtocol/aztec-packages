@@ -97,7 +97,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
-    // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Execute Sumcheck Verifier

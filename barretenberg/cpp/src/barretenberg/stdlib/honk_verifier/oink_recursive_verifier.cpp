@@ -119,13 +119,13 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     // Get the subrelation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas{ 1 };
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
-    // It is more efficient to generate an array of challenges than to generate them individually.
-    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> generated_challenges;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
         challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    generated_challenges = transcript->template get_challenges<FF>(challenge_labels);
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    std::array<FF, Flavor::NUM_SUBRELATIONS - 1> generated_challenges =
+        transcript->template get_challenges<FF>(challenge_labels);
 
     for (size_t idx = 1; idx < Flavor::NUM_SUBRELATIONS; idx++) {
         alphas[idx] = generated_challenges[idx - 1];

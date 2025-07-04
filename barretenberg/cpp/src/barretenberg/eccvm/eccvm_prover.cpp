@@ -113,9 +113,9 @@ void ECCVMProver::execute_relation_check_rounds()
 
     using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
 
-    // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-
     Sumcheck sumcheck(key->circuit_size, transcript, alpha);
 
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);

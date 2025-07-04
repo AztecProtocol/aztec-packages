@@ -144,7 +144,6 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     // Prepare the inputs for the sumcheck prover:
     // Compute and add beta to relation parameters
     const FF alpha = FF::random_element();
-
     complete_proving_key_for_test(relation_parameters, pk, gate_challenges);
 
     // Clear the transcript
