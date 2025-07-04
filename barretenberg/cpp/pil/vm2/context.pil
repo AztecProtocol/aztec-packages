@@ -58,6 +58,7 @@ namespace execution;
 
     pol commit prev_nullifier_tree_root;
     pol commit prev_nullifier_tree_size;
+    pol commit prev_num_nullifiers_emitted;
 
     pol commit prev_public_data_tree_root;
     pol commit prev_public_data_tree_size;
