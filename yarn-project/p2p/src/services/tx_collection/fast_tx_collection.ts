@@ -7,7 +7,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import type { BlockInfo } from '@aztec/stdlib/block';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { TxHash, TxHashArray, type TxWithHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -241,6 +241,9 @@ export class FastTxCollection {
     const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;
+    // Per: https://github.com/AztecProtocol/aztec-packages/issues/15149#issuecomment-2999054485
+    // we define Q as max number of transactions per batch, the comment explains why we use 8.
+    const maxTxsPerBatch = 8;
 
     if (timeoutMs < 100) {
       this.log.warn(
@@ -257,15 +260,22 @@ export class FastTxCollection {
 
     try {
       await this.txCollectionSink.collect(
-        txHashes =>
-          this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
+        async txHashes => {
+          const batches: Array<TxHashArray> = [];
+          for (let i = 0; i < txHashes.length; i += maxTxsPerBatch) {
+            batches.push(new TxHashArray(...txHashes.slice(i, i + maxTxsPerBatch)));
+          }
+          const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
             ReqRespSubProtocol.TX,
-            txHashes,
+            batches,
             pinnedPeer,
             timeoutMs,
             maxPeers,
             maxRetryAttempts,
-          ),
+          );
+
+          return txs.flat();
+        },
         Array.from(request.missingTxHashes).map(txHash => TxHash.fromString(txHash)),
         { description: `reqresp for slot ${slotNumber}`, method: 'fast-req-resp', ...opts, ...request.blockInfo },
       );

@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { L2Block } from '@aztec/stdlib/block';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -191,8 +191,8 @@ export const subProtocolMap = {
     response: StatusMessage,
   },
   [ReqRespSubProtocol.TX]: {
-    request: TxHash,
-    response: Tx,
+    request: TxHashArray,
+    response: TxArray,
   },
   [ReqRespSubProtocol.GOODBYE]: {
     request: RequestableBuffer,
@@ -217,7 +217,7 @@ export interface ReqRespInterface {
     timeoutMs?: number,
     maxPeers?: number,
     maxRetryAttempts?: number,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>;
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>;
   sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,

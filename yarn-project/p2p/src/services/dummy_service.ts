@@ -209,13 +209,13 @@ export class DummyReqResp implements ReqRespInterface {
   }
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     _subProtocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    _requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     _pinnedPeer: PeerId | undefined,
     _timeoutMs?: number,
     _maxPeers?: number,
     _maxRetryAttempts?: number,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
-    return Promise.resolve(requests.map(() => undefined));
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
+    return Promise.resolve([]);
   }
   public sendRequestToPeer(
     _peerId: PeerId,

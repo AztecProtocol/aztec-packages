@@ -6,7 +6,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, TxHashArray, type TxWithHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -62,16 +62,30 @@ describe('TxCollection', () => {
   const setReqRespTxs = (txs: TxWithHash[]) => {
     reqResp.sendBatchRequest.mockImplementation(async (_subProtocol, hashes) => {
       await sleep(1);
-      return (hashes as any as TxHash[])
-        .map(h => txs.find(tx => tx.txHash.equals(h)))
+
+      //NOTE: The type of hashes is Array<TxHashArray>
+      //Hashes is array of arrays
+      return hashes
+        .flat()
+        .map(h => {
+          return txs.find(tx => {
+            return tx.txHash.equals(h as TxHash);
+          });
+        })
         .filter(tx => tx !== undefined) as any[];
     });
   };
 
   const expectReqRespToHaveBeenCalledWith = (txHashes: TxHash[], opts: { pinnedPeer?: PeerId } = {}) => {
+    const maxTxsPerBatch = 8;
+    const batches: Array<TxHashArray> = [];
+    for (let i = 0; i < txHashes.length; i += maxTxsPerBatch) {
+      batches.push(new TxHashArray(...txHashes.slice(i, i + maxTxsPerBatch)));
+    }
+
     expect(reqResp.sendBatchRequest).toHaveBeenCalledWith(
       ReqRespSubProtocol.TX,
-      txHashes,
+      batches,
       opts.pinnedPeer,
       expect.any(Number),
       expect.any(Number),
@@ -423,7 +437,7 @@ describe('TxCollection', () => {
       txs = times(4, () => makeTx());
       txHashes = txs.map(tx => tx.txHash);
 
-      const reqRespPromise = promiseWithResolvers<TxWithHash[]>();
+      const reqRespPromise = promiseWithResolvers<TxArray[]>();
       reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
       const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
@@ -438,7 +452,7 @@ describe('TxCollection', () => {
 
       // Simulate a tx found in a node, another one via reqresp, and a third one added to the pool via gossipsub
       setNodeTxs(nodes[0], [txs[0]]);
-      reqRespPromise.resolve([txs[1]]);
+      reqRespPromise.resolve([new TxArray(...[txs[1]])]);
       await txCollection.handleTxsAddedToPool({ txs: [txs[2]], source: 'test' });
       jest.clearAllMocks();
 

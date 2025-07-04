@@ -7,7 +7,7 @@ import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
-import { TxHash } from '@aztec/stdlib/tx';
+import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -160,22 +160,24 @@ describe('P2P Client', () => {
     const mockTx3 = await mockTx();
 
     // P2P service will not return tx2
-    p2pService.sendBatchRequest.mockResolvedValue([mockTx1, undefined, mockTx3]);
+    p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[mockTx1, mockTx3])]);
 
     // Spy on the tx pool addTxs method, it should not be called for the missing tx
     const addTxsSpy = jest.spyOn(txPool, 'addTxs');
 
     // We query for all 3 txs
-    const query = await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()]);
+    const query = new TxHashArray(
+      ...(await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()])),
+    );
     const results = await client.requestTxsByHash(query, undefined);
 
     // We should receive the found transactions
-    expect(results).toEqual([mockTx1, undefined, mockTx3]);
+    expect(results).toEqual([mockTx1, mockTx3]);
 
     // P2P should have been called with the 3 tx hashes
     expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
       ReqRespSubProtocol.TX,
-      query,
+      [query],
       undefined,
       expect.anything(),
       expect.anything(),
@@ -205,7 +207,7 @@ describe('P2P Client', () => {
     const addTxsSpy = jest.spyOn(txPool, 'addTxs');
     const requestTxsSpy = jest.spyOn(client, 'requestTxsByHash');
 
-    p2pService.sendBatchRequest.mockResolvedValue([txToBeRequested, undefined]);
+    p2pService.sendBatchRequest.mockResolvedValue([new TxArray(...[txToBeRequested])]);
 
     await client.start();
 
