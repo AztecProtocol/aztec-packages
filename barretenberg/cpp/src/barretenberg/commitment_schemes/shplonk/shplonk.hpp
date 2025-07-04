@@ -384,6 +384,10 @@ template <typename Curve> class ShplonkVerifier_ {
         for (size_t idx = 0; idx < num_claims; idx++) {
             pows_of_nu.emplace_back(pows_of_nu.back() * pows_of_nu[1]);
         }
+
+        if constexpr (Curve::is_stdlib_type) {
+            evaluation.convert_constant_to_fixed_witness(pows_of_nu[1].get_context());
+        }
     }
 
     /**
@@ -434,6 +438,10 @@ template <typename Curve> class ShplonkVerifier_ {
      */
     OpeningClaim<Curve> finalize(const Commitment& g1_identity)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/673): The recursive and non-recursive (native)
+        // logic is completely separated via the following conditional. Much of the logic could be shared, but I've
+        // chosen to do it this way since soon the "else" branch should be removed in its entirety, and "native"
+        // verification will utilize the recursive code paths
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(identity_scalar_coefficient);
         GroupElement result;
