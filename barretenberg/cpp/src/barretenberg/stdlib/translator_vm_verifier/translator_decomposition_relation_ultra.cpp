@@ -10,6 +10,5 @@
 
 namespace bb {
 template class TranslatorDecompositionRelationImpl<stdlib::field_t<UltraCircuitBuilder>>;
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorDecompositionRelationImpl,
-                                        TranslatorRecursiveFlavor_<UltraCircuitBuilder>);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(TranslatorDecompositionRelationImpl, TranslatorRecursiveFlavor);
 } // namespace bb

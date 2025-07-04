@@ -1,14 +1,12 @@
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -18,23 +16,24 @@
 auto& engine = bb::numeric::get_debug_randomness();
 
 namespace bb::stdlib::recursion::honk {
-template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public testing::Test {
+class ProtogalaxyRecursiveTests : public testing::Test {
   public:
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
-    using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
+    using RecursiveFlavor = MegaRecursiveFlavor_<MegaCircuitBuilder>;
+    using InnerFlavor = RecursiveFlavor::NativeFlavor;
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
-    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+    using InnerBuilder = InnerFlavor::CircuitBuilder;
     using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
     using InnerDeciderVerificationKey = ::bb::DeciderVerificationKey_<InnerFlavor>;
-    using InnerVerificationKey = typename InnerFlavor::VerificationKey;
+    using InnerVerificationKey = InnerFlavor::VerificationKey;
     using InnerCurve = bn254<InnerBuilder>;
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
 
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
-    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
+    using OuterBuilder = RecursiveFlavor::CircuitBuilder;
+    using OuterFlavor = MegaFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
@@ -499,48 +498,45 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     }
 };
 
-using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-TYPED_TEST_SUITE(ProtogalaxyRecursiveTests, FlavorTypes);
-
-TYPED_TEST(ProtogalaxyRecursiveTests, InnerCircuit)
+TEST_F(ProtogalaxyRecursiveTests, InnerCircuit)
 {
-    TestFixture::test_circuit();
+    ProtogalaxyRecursiveTests::test_circuit();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, NewEvaluate)
+TEST_F(ProtogalaxyRecursiveTests, NewEvaluate)
 {
-    TestFixture::test_new_evaluate();
+    ProtogalaxyRecursiveTests::test_new_evaluate();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, RecursiveFoldingTest)
+TEST_F(ProtogalaxyRecursiveTests, RecursiveFoldingTest)
 {
-    TestFixture::test_recursive_folding();
+    ProtogalaxyRecursiveTests::test_recursive_folding();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, RecursiveFoldingTwiceTest)
+TEST_F(ProtogalaxyRecursiveTests, RecursiveFoldingTwiceTest)
 {
-    TestFixture::test_recursive_folding(/* num_verifiers= */ 2);
+    ProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 2);
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
+TEST_F(ProtogalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
 {
 
-    TestFixture::test_full_protogalaxy_recursive();
+    ProtogalaxyRecursiveTests::test_full_protogalaxy_recursive();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, TamperedDeciderProof)
+TEST_F(ProtogalaxyRecursiveTests, TamperedDeciderProof)
 {
-    TestFixture::test_tampered_decider_proof();
+    ProtogalaxyRecursiveTests::test_tampered_decider_proof();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, TamperedAccumulator)
+TEST_F(ProtogalaxyRecursiveTests, TamperedAccumulator)
 {
-    TestFixture::test_tampered_accumulator();
+    ProtogalaxyRecursiveTests::test_tampered_accumulator();
 }
 
-TYPED_TEST(ProtogalaxyRecursiveTests, ConstantVerifierCircuit)
+TEST_F(ProtogalaxyRecursiveTests, ConstantVerifierCircuit)
 {
-    TestFixture::test_constant_pg_verifier_circuit();
+    ProtogalaxyRecursiveTests::test_constant_pg_verifier_circuit();
 }
 
 } // namespace bb::stdlib::recursion::honk
