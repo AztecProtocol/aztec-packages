@@ -10,6 +10,7 @@ import {
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
+import type { CheatCodes } from '@aztec/aztec.js/testing';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
@@ -55,9 +56,8 @@ export class Role {
 }
 
 export class BlacklistTokenContractTest {
-  // A low delay is really poor ux, but we need to keep it low for the tests to run "quickly".
   // This value MUST match the same value that we have in the contract
-  static DELAY = 2;
+  static CHANGE_ROLES_DELAY = 43200;
 
   private snapshotManager: ISnapshotManager;
   logger: Logger;
@@ -67,6 +67,7 @@ export class BlacklistTokenContractTest {
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
+  cheatCodes!: CheatCodes;
 
   admin!: AccountWallet;
   other!: AccountWallet;
@@ -77,10 +78,8 @@ export class BlacklistTokenContractTest {
     this.snapshotManager = createSnapshotManager(`e2e_blacklist_token_contract/${testName}`, dataPath);
   }
 
-  async mineBlocks(amount: number = BlacklistTokenContractTest.DELAY) {
-    for (let i = 0; i < amount; ++i) {
-      await this.asset.methods.get_roles(this.admin.getAddress()).send().wait();
-    }
+  async crossTimestampOfChange() {
+    await this.cheatCodes.warpL2TimeAtLeastBy(this.admin, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
   }
 
   /**
@@ -95,8 +94,9 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe }) => {
+      async ({ deployedAccounts }, { pxe, cheatCodes }) => {
         this.pxe = pxe;
+        this.cheatCodes = cheatCodes;
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.admin = this.wallets[0];
         this.other = this.wallets[1];
@@ -121,7 +121,7 @@ export class BlacklistTokenContractTest {
         this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
-        await this.mineBlocks();
+        await this.crossTimestampOfChange();
 
         return { tokenContractAddress: this.asset.address, badAccountAddress: this.badAccount.address };
       },
@@ -203,7 +203,7 @@ export class BlacklistTokenContractTest {
           .send()
           .wait();
 
-        await this.mineBlocks(); // This gets us past the block of change
+        await this.crossTimestampOfChange();
 
         expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
           adminMinterRole.toNoirStruct(),

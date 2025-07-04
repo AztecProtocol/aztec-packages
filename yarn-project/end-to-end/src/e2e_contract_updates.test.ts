@@ -1,5 +1,5 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
@@ -13,7 +13,6 @@ import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/st
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -27,7 +26,6 @@ const UPDATED_CONTRACT_PUBLIC_VALUE = 27n;
 
 describe('e2e_contract_updates', () => {
   let wallet: Wallet;
-  let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
   let contract: UpdatableContract;
   let updatedContractClassId: Fr;
@@ -78,7 +76,7 @@ describe('e2e_contract_updates', () => {
     const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
     const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
 
-    ({ teardown, wallet, aztecNode, cheatCodes } = await setup(1, {
+    ({ teardown, wallet, cheatCodes } = await setup(1, {
       genesisPublicData,
       initialFundedAccounts,
     }));
@@ -93,30 +91,14 @@ describe('e2e_contract_updates', () => {
     updatedContractClassId = (await getContractClassFromArtifact(UpdatedContractArtifact)).id;
   });
 
-  // Advances L2 time by at least the given duration.
-  const advanceL2TimeAtLeastBy = async (duration: UInt64) => {
-    const currentL1Timestamp = await cheatCodes.eth.timestamp();
-    const targetTimestamp = currentL1Timestamp + Number(duration);
-
-    // We warp the L1 timestamp
-    await cheatCodes.eth.warp(targetTimestamp, { resetBlockInterval: true });
-
-    // Now we mine an L2 block for the L2 timestamp to advance
-    const { blockNumber } = await contract.methods.get_update_delay().send().wait();
-    const blockHeader = await aztecNode.getBlockHeader(blockNumber);
-
-    // We expect the L2 timestamp to be at least the target timestamp.
-    expect(blockHeader?.globalVariables.timestamp).toBeGreaterThanOrEqual(BigInt(targetTimestamp));
-  };
-
   afterEach(() => teardown());
 
   it('should update the contract', async () => {
     expect(await contract.methods.get_private_value().simulate()).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
     expect(await contract.methods.get_public_value().simulate()).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
     await contract.methods.update_to(updatedContractClassId).send().wait();
-    // Mine some blocks
-    await advanceL2TimeAtLeastBy(DEFAULT_TEST_UPDATE_DELAY);
+    // Warp time to get past the timestamp of change where the update takes effect
+    await cheatCodes.warpL2TimeAtLeastBy(wallet, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
     const updatedContract = await UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
@@ -141,7 +123,7 @@ describe('e2e_contract_updates', () => {
     expect(await contract.methods.get_update_delay().simulate()).toEqual(BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     await contract.methods.update_to(updatedContractClassId).send().wait();
-    await advanceL2TimeAtLeastBy(BigInt(MINIMUM_UPDATE_DELAY) + 1n);
+    await cheatCodes.warpL2TimeAtLeastBy(wallet, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     // Should be updated now
     const updatedContract = await UpdatedContract.at(contract.address, wallet);

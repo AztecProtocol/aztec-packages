@@ -46,8 +46,8 @@ pub contract TokenBlacklist {
         address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
 
-    // Changing an address' roles has a certain delay before it goes into effect. Here set to 2 slots.
-    global CHANGE_ROLES_DELAY: u64 = 72;
+    // Changing an address' roles has a certain delay before it goes into effect. Here set to half a day.
+    global CHANGE_ROLES_DELAY: u64 = 43200;
 
     #[storage]
     struct Storage<Context> {
