@@ -181,8 +181,7 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     return verified;
 }
 
-void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
-                         [[maybe_unused]] const std::filesystem::path& bytecode_path)
+void ClientIVCAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
