@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -xeuo pipefail
 
 ###############################################################################
 # helpers
@@ -100,7 +100,7 @@ function apply_batch_squash {
 idx=0
 while (( idx < total )); do
   if apply_single "${commits[$idx]}"; then
-    ((idx++))
+    ((idx++)) || true
     continue
   fi
 
