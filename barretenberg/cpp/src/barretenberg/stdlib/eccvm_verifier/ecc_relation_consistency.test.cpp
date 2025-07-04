@@ -18,9 +18,9 @@ class EccRelationsConsistency : public testing::Test {
     template <template <typename> class Relation> static void validate_relation_execution()
     {
         auto builder = UltraCircuitBuilder();
-        using RecursiveFlavor = ECCVMRecursiveFlavor_<UltraCircuitBuilder>;
-        using RecursiveRelation = Relation<typename RecursiveFlavor::FF>;
-        const RelationParameters<typename RecursiveFlavor::FF> parameters;
+        using RecursiveFlavor = ECCVMRecursiveFlavor;
+        using RecursiveRelation = Relation<RecursiveFlavor::FF>;
+        const RelationParameters<RecursiveFlavor::FF> parameters;
         RecursiveFlavor::AllValues input_elements;
         for (auto& element : input_elements.get_all()) {
             element = 4;
