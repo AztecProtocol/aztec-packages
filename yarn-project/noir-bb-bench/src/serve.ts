@@ -89,7 +89,7 @@ function overrideCreateDebugLog(addLogMessage: (message: string) => void): void 
   const originalDebugLog = logger.debug.bind(logger);
 
   // Override the createDebug log function
-  logger.debug = (...args: any[]) => {
+  logger.debug = ((...args: Parameters<typeof originalDebugLog>) => {
     // Call the original createDebug log function
     originalDebugLog(...args);
 
@@ -106,7 +106,7 @@ function overrideCreateDebugLog(addLogMessage: (message: string) => void): void 
       .join(' ');
     addLogMessage(message);
     return undefined;
-  };
+  }) as typeof originalDebugLog;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
