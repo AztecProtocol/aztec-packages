@@ -473,7 +473,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     pinnedPeerId: PeerId | undefined,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
     return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
@@ -782,40 +782,49 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Validate a tx that has been requested from a peer.
+   * Validate a collection of txs that has been requested from a peer.
    *
-   * The core component of this validator is that the tx hash MUST match the requested tx hash,
+   * The core component of this validator is that each tx hash MUST match the requested tx hash,
    * In order to perform this check, the tx proof must be verified.
    *
    * Note: This function is called from within `ReqResp.sendRequest` as part of the
    * ReqRespSubProtocol.TX subprotocol validation.
    *
-   * @param requestedTxHash - The hash of the tx that was requested.
-   * @param responseTx - The tx that was received as a response to the request.
+   * @param requestedTxHash - The collection of the txs that was requested.
+   * @param responseTx - The collectin of txs that was received as a response to the request.
    * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the tx is valid, false otherwise.
+   * @returns True if the whole collection of txs is valid, false otherwise.
    */
+  //TODO: (mralj) - this is somewhat naive implementation, if single tx is invlid we consider the whole response invalid.
+  // I think we should still extract the valid txs and return them, so that we can still use the response.
   @trackSpan('Libp2pService.validateRequestedTx', (requestedTxHash, _responseTx) => ({
     [Attributes.TX_HASH]: requestedTxHash.toString(),
   }))
-  private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
+  private async validateRequestedTx(requestedTxHash: TxHash[], responseTx: Tx[], peerId: PeerId): Promise<boolean> {
+    const requested = new Set(requestedTxHash.map(h => h.toString()));
+
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const validProof = await proofValidator.validateTx(responseTx);
 
-    // If the node returns the wrong data, we penalize it
-    if (!requestedTxHash.equals(await responseTx.getTxHash())) {
-      // Returning the wrong data is a low tolerance error
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+    try {
+      await Promise.all(
+        responseTx.map(async tx => {
+          if (!requested.has((await tx.getTxHash()).toString())) {
+            this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+            throw new Error(`Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`);
+          }
+
+          const { result } = await proofValidator.validateTx(tx);
+          if (result === 'invalid') {
+            this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+            throw new Error(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
+          }
+        }),
+      );
+      return true;
+    } catch (e: any) {
+      this.logger.warn(`Failed to validate requested txs from peer ${peerId.toString()}`, e);
       return false;
     }
-
-    if (validProof.result === 'invalid') {
-      // If the proof is invalid, but the txHash is correct, then this is an active attack and we severly punish
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-      return false;
-    }
-
-    return true;
   }
 
   @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
