@@ -464,23 +464,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Send Request via the ReqResp service
-   * The subprotocol defined will determine the request and response types
-   *
-   * See the subProtocolMap for the mapping of subprotocols to request/response types in `interface.ts`
-   *
-   * @param protocol The request response protocol to use
-   * @param request The request type to send
-   * @returns
-   */
-  sendRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    return this.reqresp.sendRequest(protocol, request);
-  }
-
-  /**
    * Send a batch of requests to peers, and return the responses
    * @param protocol - The request response protocol to use
    * @param requests - The requests to send to the peers
@@ -537,7 +520,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
-  protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
+  protected preValidateReceivedMessage(
+    msg: Message,
+    msgId: string,
+    source: PeerId,
+  ): { result: boolean; topicType?: TopicType } {
     let topicType: TopicType | undefined;
 
     switch (msg.topic) {
@@ -560,12 +547,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!validator || !validator.addMessage(msgId)) {
       this.instrumentation.incMessagePrevalidationStatus(false, topicType);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
-      return false;
+      return { result: false, topicType };
     }
 
     this.instrumentation.incMessagePrevalidationStatus(true, topicType);
 
-    return true;
+    return { result: true, topicType };
   }
 
   /**
@@ -583,8 +570,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageLatency,
     });
 
-    if (!this.preValidateReceivedMessage(msg, msgId, source)) {
+    const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
+
+    if (!preValidationResult.result) {
       return;
+    } else if (preValidationResult.topicType !== undefined) {
+      // guard against clock skew & DST
+      if (messageLatency > 0) {
+        this.instrumentation.recordMessageLatency(preValidationResult.topicType, messageLatency);
+      }
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {
@@ -736,7 +730,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
 
     // Mark the txs in this proposal as non-evictable
-    await this.mempools.txPool.markTxsAsNonEvictable(block.payload.txHashes);
+    await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
     const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice

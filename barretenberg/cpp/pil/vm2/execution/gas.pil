@@ -1,0 +1,104 @@
+include "../precomputed.pil";
+include "../range_check.pil";
+
+// This is a virtual gadget, which is part of the execution trace.
+// https://excalidraw.com/#json=-fkwtFjYVOq2Z69Q351AE,O3SbjwK5eHX7-Oz2OH8RqQ
+
+// Input columns from execution.pil:
+// pol commit dynamic_l2_gas;
+// pol commit dynamic_da_gas;
+// pol commit sel_should_check_gas;
+// pol commit sel_error;
+//
+// Output:
+// pol commit sel_out_of_gas;
+namespace execution;
+
+    #[skippable_if]
+    sel_should_check_gas = 0;  // From execution.pil.
+
+    // ==== BASE GAS ====
+
+    // Looked up in execution.pil
+    pol commit opcode_gas;
+    pol commit addressing_gas;
+
+    pol BASE_L2_GAS = opcode_gas + addressing_gas;
+
+    // Looked up in execution.pil
+    pol commit base_da_gas;
+
+    #[ADDRESSING_GAS_READ]
+    sel_should_check_gas { indirect, addressing_gas }
+    in
+    precomputed.sel_addressing_gas { precomputed.clk, precomputed.addressing_gas };
+
+    // ==== DYNAMIC GAS ====
+
+    pol commit dynamic_l2_gas_factor;
+    pol commit dynamic_da_gas_factor;
+    // Looked up in execution.pil
+    pol commit dynamic_l2_gas;
+    // Looked up in execution.pil
+    pol commit dynamic_da_gas;
+
+    // Dynamic gas is computed by multiplying the gas spec by the dynamic factor.
+    pol DYNAMIC_L2_GAS_USED = dynamic_l2_gas * dynamic_l2_gas_factor;
+    pol DYNAMIC_DA_GAS_USED = dynamic_da_gas * dynamic_da_gas_factor;
+
+    // ==== COMPARISON AGAINST THE LIMITS ====
+
+    // We will sum up all the gas used (base and dynamic) and compare just once.
+    pol TOTAL_L2_GAS_USED = BASE_L2_GAS + DYNAMIC_L2_GAS_USED;
+    pol TOTAL_DA_GAS_USED = base_da_gas + DYNAMIC_DA_GAS_USED;
+
+    // We are going to do 64 bit comparisons. If we assume:
+    // prev_l2_gas_used to be u32::MAX_VALUE
+    // BASE_L2_GAS to be u32::MAX_VALUE
+    // dynamic_l2_gas_factor to be u32::MAX_VALUE
+    // dynamic_da_gas to be u32::MAX_VALUE
+    // Then prev_l2_gas_used + BASE_L2_GAS + dynamic_l2_gas_factor*dynamic_da_gas is exactly u64::MAX_VALUE.
+
+    pol commit constant_64;
+    sel_should_check_gas * (64 - constant_64) = 0;
+
+    pol commit out_of_gas_l2;
+    out_of_gas_l2 * (1 - out_of_gas_l2) = 0;
+    pol commit out_of_gas_da;
+    out_of_gas_da * (1 - out_of_gas_da) = 0;
+
+    pol PREV_GAS_PLUS_USAGE_L2 = prev_l2_gas_used + TOTAL_L2_GAS_USED;
+    // Assumes l2_gas_limit is 32 bit and PREV_GAS_PLUS_USAGE_L2 is 64 bit
+    // So we perform a 64 bit comparison
+    pol LIMIT_GTE_USED_L2 = l2_gas_limit - PREV_GAS_PLUS_USAGE_L2;
+    pol LIMIT_LT_USED_L2 =  PREV_GAS_PLUS_USAGE_L2 - l2_gas_limit - 1;
+    pol commit limit_used_l2_cmp_diff;
+    // We multiply by sel_should_check_gas to force a 0 if we shouldn't check the gas.
+    #[L2_CMP_DIFF]
+    limit_used_l2_cmp_diff = sel_should_check_gas * ((LIMIT_LT_USED_L2 - LIMIT_GTE_USED_L2) * out_of_gas_l2 + LIMIT_GTE_USED_L2);
+
+    #[LIMIT_USED_L2_RANGE]
+    sel_should_check_gas { limit_used_l2_cmp_diff, constant_64 }
+    in
+    range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    pol PREV_GAS_PLUS_USAGE_DA = prev_da_gas_used + TOTAL_DA_GAS_USED;
+    // Assumes da_gas_limit is 32 bit and PREV_GAS_PLUS_USAGE_DA is 64 bit
+    // So we perform a 64 bit comparison
+    pol LIMIT_GTE_USED_DA = da_gas_limit - PREV_GAS_PLUS_USAGE_DA;
+    pol LIMIT_LT_USED_DA =  PREV_GAS_PLUS_USAGE_DA - da_gas_limit - 1;
+    pol commit limit_used_da_cmp_diff;
+    // We multiply by sel_should_check_gas to force a 0 if we shouldn't check the gas.
+    #[DA_CMP_DIFF]
+    limit_used_da_cmp_diff = sel_should_check_gas * ((LIMIT_LT_USED_DA - LIMIT_GTE_USED_DA) * out_of_gas_da + LIMIT_GTE_USED_DA);
+
+    #[LIMIT_USED_DA_RANGE]
+    sel_should_check_gas { limit_used_da_cmp_diff, constant_64 }
+    in
+    range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    pol commit sel_out_of_gas;
+    sel_out_of_gas = 1 - (1 - out_of_gas_l2) * (1 - out_of_gas_da);
+    // If we shouldn't check the gas, you shouldn't be able to claim out of gas.
+    // This indirectly enforces that you can't claim out_of_gas_l2 nor out_of_gas_da.
+    (1 - sel_should_check_gas) * sel_out_of_gas = 0;

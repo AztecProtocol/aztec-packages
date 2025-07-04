@@ -46,7 +46,7 @@ import {
   deriveStorageSlotInMap,
   siloNoteHash,
 } from '@aztec/stdlib/hash';
-import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
+import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
@@ -355,8 +355,8 @@ describe('Private Execution test suite', () => {
         args,
       });
 
-      const privateLogs = getNonEmptyItems(result.entrypoint.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(1);
+      const privateLogs = result.entrypoint.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(1);
     });
   });
 
@@ -411,19 +411,19 @@ describe('Private Execution test suite', () => {
         functionName: 'constructor',
         contractAddress: instance.address,
       });
-      const result = executionResult.entrypoint.nestedExecutions[0];
+      const result = executionResult.entrypoint.nestedExecutionResults[0];
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
       expect(newNote.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
-      const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
-      expect(noteHashes).toHaveLength(1);
-      expect(noteHashes[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
+      const noteHashes = result.publicInputs.noteHashes;
+      expect(noteHashes.claimedLength).toBe(1);
+      expect(noteHashes.array[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
 
-      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(1);
+      const privateLogs = result.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(1);
     });
 
     it('should run the create_note function', async () => {
@@ -438,12 +438,12 @@ describe('Private Execution test suite', () => {
       expect(newNote.storageSlot).toEqual(await deriveStorageSlotInMap(new Fr(1n), owner));
       expect(newNote.noteTypeId).toEqual(valueNoteTypeId); // ValueNote
 
-      const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
-      expect(noteHashes).toHaveLength(1);
-      expect(noteHashes[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
+      const noteHashes = result.publicInputs.noteHashes;
+      expect(noteHashes.claimedLength).toBe(1);
+      expect(noteHashes.array[0].value).toEqual(await computeNoteHash(newNote.note, newNote.storageSlot));
 
-      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(1);
+      const privateLogs = result.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(1);
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -482,25 +482,25 @@ describe('Private Execution test suite', () => {
 
       // The two notes were nullified. Uses one of the notes as first nullifier, not requiring a protocol injected
       // nullifier, so the total number of nullifiers is still two.
-      const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers).map(n => n.value);
-      expect(nullifiers).toHaveLength(consumedNotes.length);
+      const nullifiers = result.publicInputs.nullifiers;
+      expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
       expect(recipientNote.noteTypeId).toEqual(valueNoteTypeId);
 
-      const noteHashes = getNonEmptyItems(result.publicInputs.noteHashes);
-      expect(noteHashes).toHaveLength(2);
+      const noteHashes = result.publicInputs.noteHashes;
+      expect(noteHashes.claimedLength).toBe(2);
 
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
-      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(2);
+      const privateLogs = result.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(2);
 
-      const readRequests = getNonEmptyItems(result.publicInputs.noteHashReadRequests).map(r => r.value);
-      expect(readRequests).toHaveLength(consumedNotes.length);
+      const readRequests = result.publicInputs.noteHashReadRequests;
+      expect(readRequests.claimedLength).toBe(consumedNotes.length);
     });
 
     it('should be able to destroy_and_create with dummy notes', async () => {
@@ -531,16 +531,16 @@ describe('Private Execution test suite', () => {
         contractAddress,
       });
 
-      const nullifiers = getNonEmptyItems(result.publicInputs.nullifiers).map(n => n.value);
-      expect(nullifiers).toHaveLength(consumedNotes.length);
+      const nullifiers = result.publicInputs.nullifiers;
+      expect(nullifiers.claimedLength).toBe(consumedNotes.length);
 
       expect(result.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
 
-      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(2);
+      const privateLogs = result.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(2);
     });
   });
 
@@ -579,10 +579,10 @@ describe('Private Execution test suite', () => {
 
       // First fetch of the function artifact is the parent contract
       expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
-      expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
-      expect(result.publicInputs.privateCallRequests[0].callContext).toEqual(
-        result.nestedExecutions[0].publicInputs.callContext,
+      expect(result.nestedExecutionResults).toHaveLength(1);
+      expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
+      expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(
+        result.nestedExecutionResults[0].publicInputs.callContext,
       );
     });
   });
@@ -634,8 +634,8 @@ describe('Private Execution test suite', () => {
 
       expect(result.returnValues).toEqual([argsHash]);
       expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([testAddress, testCodeGenSelector]);
-      expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues).toEqual([argsHash]);
+      expect(result.nestedExecutionResults).toHaveLength(1);
+      expect(result.nestedExecutionResults[0].returnValues).toEqual([argsHash]);
     });
   });
 
@@ -706,8 +706,8 @@ describe('Private Execution test suite', () => {
         });
 
         // Check a nullifier has been inserted
-        const nullifiers = getNonEmptyItems(result.entrypoint.publicInputs.nullifiers);
-        expect(nullifiers).toHaveLength(1);
+        const nullifiers = result.entrypoint.publicInputs.nullifiers;
+        expect(nullifiers.claimedLength).toBe(1);
       });
 
       it('Invalid membership proof', async () => {
@@ -993,10 +993,10 @@ describe('Private Execution test suite', () => {
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
-      const noteHashesFromCall = getNonEmptyItems(result.publicInputs.noteHashes);
-      expect(noteHashesFromCall).toHaveLength(1);
+      const noteHashesFromCall = result.publicInputs.noteHashes;
+      expect(noteHashesFromCall.claimedLength).toBe(1);
 
-      const noteHashFromCall = noteHashesFromCall[0].value;
+      const noteHashFromCall = noteHashesFromCall.array[0].value;
       const storageSlot = await deriveStorageSlotInMap(
         PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
         owner,
@@ -1005,16 +1005,16 @@ describe('Private Execution test suite', () => {
       const derivedNoteHash = await computeNoteHash(noteAndSlot.note, storageSlot);
       expect(noteHashFromCall).toEqual(derivedNoteHash);
 
-      const privateLogs = getNonEmptyItems(result.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(1);
+      const privateLogs = result.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(1);
 
       // read request should match a note hash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = getNonEmptyItems(result.publicInputs.noteHashReadRequests)[0];
+      const readRequest = result.publicInputs.noteHashReadRequests.array[0];
       expect(readRequest.value).toEqual(derivedNoteHash);
 
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
-      const nullifier = result.publicInputs.nullifiers[0];
+      const nullifier = result.publicInputs.nullifiers.array[0];
       const expectedNullifier = await poseidon2HashWithSeparator(
         [derivedNoteHash, await computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,
@@ -1055,8 +1055,8 @@ describe('Private Execution test suite', () => {
         contractAddress: contractAddress,
       });
 
-      const execInsert = result.nestedExecutions[0];
-      const execGetThenNullify = result.nestedExecutions[1];
+      const execInsert = result.nestedExecutionResults[0];
+      const execGetThenNullify = result.nestedExecutionResults[1];
 
       const storageSlot = await deriveStorageSlotInMap(
         PendingNoteHashesContractArtifact.storageLayout['balances'].slot,
@@ -1070,22 +1070,22 @@ describe('Private Execution test suite', () => {
 
       expect(noteAndSlot.note.items[0]).toEqual(new Fr(amountToTransfer));
 
-      const noteHashes = getNonEmptyItems(execInsert.publicInputs.noteHashes);
-      expect(noteHashes).toHaveLength(1);
+      const noteHashes = execInsert.publicInputs.noteHashes;
+      expect(noteHashes.claimedLength).toBe(1);
 
       const derivedNoteHash = await computeNoteHash(noteAndSlot.note, storageSlot);
-      expect(noteHashes[0].value).toEqual(derivedNoteHash);
+      expect(noteHashes.array[0].value).toEqual(derivedNoteHash);
 
-      const privateLogs = getNonEmptyItems(execInsert.publicInputs.privateLogs);
-      expect(privateLogs).toHaveLength(1);
+      const privateLogs = execInsert.publicInputs.privateLogs;
+      expect(privateLogs.claimedLength).toBe(1);
 
       // read request should match a note hash for pending notes (there is no nonce, so can't compute "unique" hash)
-      const readRequest = execGetThenNullify.publicInputs.noteHashReadRequests[0];
+      const readRequest = execGetThenNullify.publicInputs.noteHashReadRequests.array[0];
       expect(readRequest.value).toEqual(derivedNoteHash);
 
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
-      const nullifier = execGetThenNullify.publicInputs.nullifiers[0];
+      const nullifier = execGetThenNullify.publicInputs.nullifiers.array[0];
       const expectedNullifier = await poseidon2HashWithSeparator(
         [derivedNoteHash, await computeAppNullifierSecretKey(ownerNskM, contractAddress)],
         GeneratorIndex.NOTE_NULLIFIER,

@@ -16,14 +16,14 @@ namespace bb::avm2 {
 struct lookup_get_env_var_precomputed_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_ENV_VAR_PRECOMPUTED_INFO";
     static constexpr std::string_view RELATION_NAME = "get_env_var";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 11;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_should_get_env_var;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_get_env_var_precomputed_info_counts;
     static constexpr Column INVERSES = Column::lookup_get_env_var_precomputed_info_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_opcode_error,
+        ColumnAndShifts::execution_sel_opcode_error,
         ColumnAndShifts::execution_sel_envvar_pi_lookup_col0,
         ColumnAndShifts::execution_sel_envvar_pi_lookup_col1,
         ColumnAndShifts::execution_envvar_pi_row_idx,
@@ -32,7 +32,8 @@ struct lookup_get_env_var_precomputed_info_settings_ {
         ColumnAndShifts::execution_is_transactionfee,
         ColumnAndShifts::execution_is_isstaticcall,
         ColumnAndShifts::execution_is_l2gasleft,
-        ColumnAndShifts::execution_is_dagasleft
+        ColumnAndShifts::execution_is_dagasleft,
+        ColumnAndShifts::execution_mem_tag_reg_0_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
@@ -45,7 +46,8 @@ struct lookup_get_env_var_precomputed_info_settings_ {
         ColumnAndShifts::precomputed_is_transactionfee,
         ColumnAndShifts::precomputed_is_isstaticcall,
         ColumnAndShifts::precomputed_is_l2gasleft,
-        ColumnAndShifts::precomputed_is_dagasleft
+        ColumnAndShifts::precomputed_is_dagasleft,
+        ColumnAndShifts::precomputed_out_tag
     };
 };
 

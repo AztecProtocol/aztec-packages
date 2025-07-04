@@ -47,6 +47,10 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
+pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("authorize_once")
+}
+
 /// Takes a function body as a collection of expressions, and alters it by prepending and appending quoted values.
 pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
     // We need to quote the body before we can alter its contents, so we fold it by quoting each expression.
@@ -177,7 +181,17 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"str<{str_len}>".quoted_contents()
     } else if typ.as_array().is_some() {
         let (element_type, array_len) = typ.as_array().unwrap();
-        let array_len = array_len.as_constant().unwrap();
+        let array_len = if array_len.as_constant().is_some() {
+            let const_len = array_len.as_constant().unwrap();
+            f"{const_len}".quoted_contents()
+        } else {
+            // If array length is not a constant, chances are it's a numeric generic
+            // This will make the signature of a type like Struct<N> be the same regardless
+            // of the value of N, but at least this fn will not crash. It is up to the caller
+            // to decide whether this is acceptable.
+            f"{array_len}".quoted_contents()
+        };
+
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_data_type().is_some() {
@@ -279,8 +293,9 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
     // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
     let storage_size = std::meta::typ::fresh_type_variable();
     assert(
-        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
-        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+        typ.implements(quote { crate::state_vars::HasStorageSlot<$storage_size> }
+            .as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the HasStorageSlot trait",
     );
 
     storage_size.as_constant().unwrap()

@@ -1,6 +1,7 @@
 import type { Logger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 
-import { type DBSchema, type IDBPDatabase, type IDBPTransaction, deleteDB, openDB } from 'idb';
+import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
@@ -40,7 +41,7 @@ export interface AztecIDBSchema extends DBSchema {
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;
-  #currentTx: IDBPTransaction<AztecIDBSchema, ['data'], 'readwrite'> | undefined;
+  #txQueue: SerialQueue;
 
   #containers = new Set<
     | IndexedDBAztecArray<any>
@@ -57,6 +58,8 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   ) {
     this.#rootDB = rootDB;
     this.#name = name;
+    this.#txQueue = new SerialQueue();
+    this.#txQueue.start();
   }
   /**
    * Creates a new AztecKVStore backed by IndexedDB. The path to the database is optional. If not provided,
@@ -153,28 +156,27 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param callback - Function to execute in a transaction
    * @returns A promise that resolves to the return value of the callback
    */
-  async transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T> {
     // We can only have one transaction at a time for the same store
     // So we need to wait for the current one to finish
-    if (this.#currentTx) {
-      await this.#currentTx.done;
-    }
-    this.#currentTx = this.#rootDB.transaction('data', 'readwrite');
-    for (const container of this.#containers) {
-      container.db = this.#currentTx.store;
-    }
-    // Avoid awaiting this promise so it doesn't get scheduled in the next microtask
-    // By then, the tx would be closed
-    const runningPromise = callback();
-    // Wait for the transaction to finish
-    await this.#currentTx.done;
-    for (const container of this.#containers) {
-      container.db = undefined;
-    }
+    return this.#txQueue.put(async () => {
+      const tx = this.#rootDB.transaction('data', 'readwrite');
+      for (const container of this.#containers) {
+        container.db = tx.store;
+      }
+      // Avoid awaiting this promise so it doesn't get scheduled in the next microtask
+      // By then, the tx would be closed
+      const runningPromise = callback();
+      // Wait for the transaction to finish
+      await tx.done;
+      for (const container of this.#containers) {
+        container.db = undefined;
+      }
 
-    // Return the result of the callback.
-    // Tx is guaranteed to already be closed, so the await doesn't hurt anything here
-    return await runningPromise;
+      // Return the result of the callback.
+      // Tx is guaranteed to already be closed, so the await doesn't hurt anything here
+      return await runningPromise;
+    });
   }
 
   /**
