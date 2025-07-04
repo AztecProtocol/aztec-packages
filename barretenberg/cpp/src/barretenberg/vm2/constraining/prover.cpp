@@ -97,21 +97,17 @@ void AvmProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
 
-    auto sumcheck = Sumcheck(key->circuit_size, transcript);
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    RelationSeparator alphas{ 1 };
-    for (size_t i = 1; i < alphas.size(); ++i) {
-        alphas[i] = alphas[i - 1] * alpha;
-    }
+
+    Sumcheck sumcheck(key->circuit_size, transcript, alpha);
 
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
 
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alphas, gate_challenges);
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, gate_challenges);
 }
 
 void AvmProver::execute_pcs_rounds()

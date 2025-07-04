@@ -21,7 +21,6 @@ class ECCVMVerifier {
     using VerifierCommitments = Flavor::VerifierCommitments;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using PCS = Flavor::PCS;
-    using RelationSeparator = Flavor::RelationSeparator;
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)

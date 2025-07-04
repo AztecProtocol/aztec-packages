@@ -22,7 +22,6 @@ class TranslatorVerifier {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using TranslationEvaluations = bb::TranslationEvaluations_<BF>;
     using Transcript = Flavor::Transcript;
-    using RelationSeparator = Flavor::RelationSeparator;
 
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;

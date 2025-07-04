@@ -94,7 +94,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     constrain_log_circuit_size(padding_indicator_array, key->vk_and_hash->vk->circuit_size);
 
-    auto sumcheck = Sumcheck(transcript);
+    Sumcheck sumcheck(transcript, key->alphas);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -102,7 +102,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(key->relation_parameters, key->alphas, gate_challenges, padding_indicator_array);
+        sumcheck.verify(key->relation_parameters, gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {

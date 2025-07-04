@@ -122,14 +122,11 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     const auto padding_indicator_array =
         stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
-    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    RelationSeparator alphas{ 1 };
-    for (size_t i = 1; i < alphas.size(); ++i) {
-        alphas[i] = alphas[i - 1] * alpha;
-    }
+
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
@@ -138,8 +135,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    SumcheckOutput<Flavor> output =
-        sumcheck.verify(relation_parameters, alphas, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks

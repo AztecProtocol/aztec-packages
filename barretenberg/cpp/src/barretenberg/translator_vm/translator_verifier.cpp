@@ -97,15 +97,11 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
-    // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    RelationSeparator alphas{ 1 };
-    for (size_t i = 1; i < alphas.size(); ++i) {
-        alphas[i] = alphas[i - 1] * alpha;
-    }
+
+    // Execute Sumcheck Verifier
+    Sumcheck sumcheck(transcript, alpha);
 
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -119,7 +115,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, FF{ 1 });
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alphas, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {

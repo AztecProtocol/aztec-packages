@@ -113,14 +113,10 @@ void ECCVMProver::execute_relation_check_rounds()
 
     using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
 
-    Sumcheck sumcheck(key->circuit_size, transcript);
-
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    RelationSeparator alphas{ 1 };
-    for (size_t i = 1; i < alphas.size(); ++i) {
-        alphas[i] = alphas[i - 1] * alpha;
-    }
+
+    Sumcheck sumcheck(key->circuit_size, transcript, alpha);
 
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -129,7 +125,7 @@ void ECCVMProver::execute_relation_check_rounds()
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
-    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, alphas, gate_challenges, zk_sumcheck_data);
+    sumcheck_output = sumcheck.prove(key->polynomials, relation_parameters, gate_challenges, zk_sumcheck_data);
 }
 
 /**

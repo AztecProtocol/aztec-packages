@@ -26,7 +26,6 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     using StdlibPreIpaProof = bb::stdlib::Proof<Builder>;
     using StdlibIpaProof = bb::stdlib::Proof<Builder>;
     using IpaClaimAndProof = std::pair<OpeningClaim<Curve>, StdlibIpaProof>;
-    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     struct StdlibProof {
