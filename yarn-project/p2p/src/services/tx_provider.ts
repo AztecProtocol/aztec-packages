@@ -60,7 +60,7 @@ export class TxProvider implements ITxProvider {
     return this.getOrderedTxsFromAllSources(
       { type: 'proposal', blockProposal },
       blockProposal.toBlockInfo(),
-      blockProposal.payload.txHashes,
+      blockProposal.txHashes,
       { ...opts, pinnedPeer: opts.pinnedPeer },
     );
   }

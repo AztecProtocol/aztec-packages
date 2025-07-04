@@ -196,8 +196,7 @@ contract RollupBase is DecoderBase {
       header: full.block.header,
       archive: full.block.archive,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: new bytes32[](0)
+      oracleInput: OracleInput(0)
     });
 
     if (_revertMsg.length > 0) {
