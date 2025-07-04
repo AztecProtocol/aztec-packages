@@ -8,8 +8,41 @@
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
 #include <memory>
+
+template <typename T> struct AlignedMemory {
+
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    using Value = T[];
+
+    static std::shared_ptr<Value> allocate(size_t size)
+    {
+        return std::static_pointer_cast<Value>(bb::get_mem_slab(sizeof(T) * size));
+    }
+
+    static T* get_data(const std::shared_ptr<Value>& backing_memory) { return backing_memory.get(); }
+};
+
+#ifdef BB_SLOW_LOW_MEMORY
+#include "barretenberg/polynomials/file_backed_memory.hpp"
+template <typename Fr> using BackingMemory = FileBackedMemory<Fr>;
+#else
+template <typename Fr> using BackingMemory = AlignedMemory<Fr>;
+#endif
+
+template <typename M, typename T>
+concept BackingMemoryConcept = requires(size_t size, std::shared_ptr<typename M::Value> mem) {
+    typename M::Value;
+
+    {
+        M::allocate(size)
+    } -> std::same_as<std::shared_ptr<typename M::Value>>;
+    {
+        M::get_data(mem)
+    } -> std::same_as<T*>;
+};
 
 /**
  * @brief A shared pointer array template that represents a virtual array filled with zeros up to `virtual_size_`,
@@ -25,7 +58,9 @@
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T> struct SharedShiftedVirtualZeroesArray {
+template <typename T, typename BackingMemory>
+    requires BackingMemoryConcept<BackingMemory, T>
+struct SharedShiftedVirtualZeroesArray {
 
     /**
      * @brief Sets the value at the specified index.
@@ -76,8 +111,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_.get(); }
-    const T* data() const { return backing_memory_.get(); }
+    T* data() { return BackingMemory::get_data(backing_memory_); }
+    const T* data() const { return BackingMemory::get_data(backing_memory_); }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -139,6 +174,5 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
      * for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    std::shared_ptr<T[]> backing_memory_;
+    std::shared_ptr<typename BackingMemory::Value> backing_memory_;
 };
