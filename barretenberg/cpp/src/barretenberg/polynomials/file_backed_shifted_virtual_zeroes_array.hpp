@@ -9,17 +9,16 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include <atomic>
 #include <cstddef>
+#include <fcntl.h>
+#include <filesystem>
 #include <memory>
+#include <string>
+#include <sys/mman.h>
+#include <unistd.h>
 
 namespace bb {
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    return std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * n_elements));
-}
 
 /**
  * @brief A shared pointer array template that represents a virtual array filled with zeros up to `virtual_size_`,
@@ -35,26 +34,73 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T> struct MemoryBackedSharedShiftedVirtualZeroesArray {
+template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
 
-    MemoryBackedSharedShiftedVirtualZeroesArray() = default;
+    struct MemoryResource {
+        size_t file_size = 0;
+        std::string filename;
+        int fd;
+        T* data;
 
-    MemoryBackedSharedShiftedVirtualZeroesArray(size_t start,
-                                                size_t end,
-                                                size_t virtual_size,
-                                                // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-                                                std::shared_ptr<T[]> backing_memory)
+        // Create a new file-backed memory region
+        MemoryResource(size_t file_size, const std::string& filename)
+            : file_size(file_size)
+            , filename(filename)
+            , fd(open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644))
+        {
+            // Create file
+            if (fd < 0) {
+                throw std::runtime_error("Failed to create backing file: " + filename);
+            }
+
+            // Set file size
+            if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
+                throw std::runtime_error("Failed to set file size");
+            }
+
+            // Memory map the file
+            void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+            if (addr == MAP_FAILED) {
+                throw std::runtime_error("Failed to mmap file");
+            }
+
+            data = static_cast<T*>(addr);
+            // std::cout << "JONATHAN: mmap " << addr << ' ' << file_size << std::endl;
+        }
+
+        ~MemoryResource()
+        {
+            // std::cout << "JONATHAN: free " << filename << ' ' << static_cast<void*>(data) << std::endl;
+            if (data != nullptr && file_size > 0) {
+                munmap(data, file_size);
+            }
+            if (fd >= 0) {
+                close(fd);
+            }
+            if (!filename.empty()) {
+                std::filesystem::remove(filename);
+            }
+        }
+    };
+
+    FileBackedSharedShiftedVirtualZeroesArray() = default;
+
+    FileBackedSharedShiftedVirtualZeroesArray(size_t start,
+                                              size_t end,
+                                              size_t virtual_size,
+                                              // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+                                              std::shared_ptr<MemoryResource> backing_memory)
         : start_(start)
         , end_(end)
         , virtual_size_(virtual_size)
         , backing_memory_(backing_memory)
     {}
 
-    MemoryBackedSharedShiftedVirtualZeroesArray(size_t size, size_t virtual_size, size_t start_index)
+    FileBackedSharedShiftedVirtualZeroesArray(size_t size, size_t virtual_size, size_t start_index)
         : start_(start_index)
         , end_(size + start_index)
         , virtual_size_(virtual_size)
-        , backing_memory_(_allocate_aligned_memory<T>(size))
+        , backing_memory_(allocate_file_backing(size))
     {}
 
     /**
@@ -106,8 +152,8 @@ template <typename T> struct MemoryBackedSharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_.get(); }
-    const T* data() const { return backing_memory_.get(); }
+    T* data() { return backing_memory_->data; }
+    const T* data() const { return backing_memory_->data; }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -134,21 +180,34 @@ template <typename T> struct MemoryBackedSharedShiftedVirtualZeroesArray {
         return data()[index - start_];
     }
 
-    MemoryBackedSharedShiftedVirtualZeroesArray clone(size_t right_expansion = 0, size_t left_expansion = 0) const
+    FileBackedSharedShiftedVirtualZeroesArray clone(size_t right_expansion = 0, size_t left_expansion = 0) const
     {
+        // std::cout << "JONATHAN: clone " << right_expansion << ' ' << left_expansion << std::endl;
         size_t expanded_size = size() + right_expansion + left_expansion;
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        std::shared_ptr<T[]> backing_clone = _allocate_aligned_memory<T>(expanded_size);
+        std::shared_ptr<MemoryResource> backing_clone = allocate_file_backing(expanded_size);
         // zero any left extensions to the array
-        memset(static_cast<void*>(backing_clone.get()), 0, sizeof(T) * left_expansion);
+        memset(static_cast<void*>(backing_clone->data), 0, sizeof(T) * left_expansion);
         // copy our cloned array over
-        memcpy(static_cast<void*>(backing_clone.get() + left_expansion),
-               static_cast<const void*>(backing_memory_.get()),
+        memcpy(static_cast<void*>(backing_clone->data + left_expansion),
+               static_cast<const void*>(backing_memory_->data),
                sizeof(T) * size());
         // zero any right extensions to the array
-        memset(static_cast<void*>(backing_clone.get() + left_expansion + size()), 0, sizeof(T) * right_expansion);
-        return MemoryBackedSharedShiftedVirtualZeroesArray(
+        memset(static_cast<void*>(backing_clone->data + left_expansion + size()), 0, sizeof(T) * right_expansion);
+        return FileBackedSharedShiftedVirtualZeroesArray(
             start_ - left_expansion, end_ + right_expansion, virtual_size_, backing_clone);
+    }
+
+    static std::shared_ptr<MemoryResource> allocate_file_backing(size_t size)
+    {
+        // Generate unique filename
+        static std::atomic<size_t> file_counter{ 0 };
+        size_t id = file_counter.fetch_add(1);
+        std::string filename = "/tmp/poly-mmap-" + std::to_string(id);
+        // std::cout << "JONATHAN: allocate_file_backing " << filename << std::endl;
+
+        // Create file-backed memory using the shared memory manager
+        return std::make_shared<MemoryResource>(size, filename);
     }
 
     // MEMBERS:
@@ -186,7 +245,6 @@ template <typename T> struct MemoryBackedSharedShiftedVirtualZeroesArray {
      * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
      * for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    std::shared_ptr<T[]> backing_memory_;
+    std::shared_ptr<MemoryResource> backing_memory_;
 };
 } // namespace bb
