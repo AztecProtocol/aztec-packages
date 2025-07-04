@@ -1,5 +1,5 @@
 use crate::{
-    abis::side_effect::{Counted, scoped::Scoped},
+    abis::side_effect::{counted::Counted, scoped::Scoped},
     address::{AztecAddress, EthAddress},
     traits::{Deserialize, Empty, Serialize},
 };
