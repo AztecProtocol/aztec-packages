@@ -2,47 +2,46 @@
 set -euo pipefail
 
 ###############################################################################
-# utilities
+# helpers
 ###############################################################################
-function die {
-  echo "❌  $*" >&2
-  exit 1
-}
-
-function is_merge {
-  [[ $(git rev-list --parents -n1 "$1" | wc -w) -gt 2 ]]
-}
-
+function die            { echo "❌  $*" >&2; exit 1; }
+function is_merge       { [[ $(git rev-list --parents -n1 "$1" | wc -w) -gt 2 ]]; }
+function has_pr_suffix  { [[ $(git show -s --format=%s "$1") =~ \(\#[0-9]+\)$ ]]; }
+function is_empty       { git diff --quiet "$1"^ "$1"; }   # true if tree unchanged
 function github_commit_url {
-  local sha="$1"
-  local repo_url
-  repo_url=$(git remote get-url origin)
-
-  # normalise to https://github.com/user/repo
-  repo_url=${repo_url%.git}
-  repo_url=${repo_url/git@github.com:/https:\/\/github.com\/}
-  repo_url=${repo_url/https:\/\/github.com:/https:\/\/github.com\/}
-
-  echo "${repo_url}/commit/${sha}"
+  local sha="$1" repo
+  repo=$(git remote get-url origin)
+  repo=${repo%.git}
+  repo=${repo/git@github.com:/https:\/\/github.com\/}
+  repo=${repo/https:\/\/github.com:/https:\/\/github.com\/}
+  echo "${repo}/commit/${sha}"
 }
 
 ###############################################################################
-# arguments & setup
+# args
 ###############################################################################
-pr_head_ref=${1:-}
-pr_base_ref=${2:-}
+pr_head_ref=${1:-}; pr_base_ref=${2:-}
 [[ -z $pr_head_ref || -z $pr_base_ref ]] && die "usage: $0 <pr_head_ref> <pr_base_ref>"
 
-echo "[auto-rebase] rebasing $pr_head_ref onto $pr_base_ref"
-
 git fetch origin "$pr_base_ref" "$pr_head_ref"
-
 merge_base=$(git merge-base "origin/$pr_base_ref" "origin/$pr_head_ref")
-echo "[auto-rebase] merge-base: $merge_base"
 
-commits=($(git rev-list --reverse --no-merges "$merge_base".."origin/$pr_head_ref"))
-[[ ${#commits[@]} -eq 0 ]] && { echo "[auto-rebase] nothing to do"; exit 0; }
+###############################################################################
+# collect commits to replay
+###############################################################################
+commits=()
+while read -r c; do
+  is_merge "$c"  && continue
+  is_empty "$c"  && continue
+  has_pr_suffix "$c" && continue
+  commits+=("$c")
+done < <(git rev-list --reverse "$merge_base".."origin/$pr_head_ref")
 
+[[ ${#commits[@]} -eq 0 ]] && exit 0
+
+###############################################################################
+# working branch
+###############################################################################
 work_branch="auto-rebase-${pr_head_ref//\//-}"
 git switch -c "$work_branch" "origin/$pr_base_ref" 2>/dev/null || {
   git switch "$work_branch"
@@ -50,18 +49,18 @@ git switch -c "$work_branch" "origin/$pr_base_ref" 2>/dev/null || {
 }
 
 ###############################################################################
-# attempt linear cherry-pick
+# replay
 ###############################################################################
-echo "[auto-rebase] cherry-picking ${#commits[@]} commits…"
-cherry_ok=true
-applied_count=0
-
+cherry_ok=true; applied=0; kept_commits=()
 for c in "${commits[@]}"; do
-  if git cherry-pick "$c" >/dev/null 2>&1; then
-    ((applied_count++))
-    echo "  ✔  ${c:0:7} applied"
+  if git cherry-pick "$c"  >/dev/null 2>&1; then
+    # Drop if cherry-pick produced no content
+    if git diff --quiet HEAD~1 HEAD; then
+      git reset --hard HEAD~1 >/dev/null
+      continue
+    fi
+    kept_commits+=("$c"); ((applied++))
   else
-    echo "  ⚠️   conflict at ${c:0:7}; falling back to squash"
     git cherry-pick --abort || true
     cherry_ok=false
     break
@@ -69,41 +68,37 @@ for c in "${commits[@]}"; do
 done
 
 ###############################################################################
-# fall back to squash merge if needed
+# squash fallback
 ###############################################################################
 if ! $cherry_ok; then
   git reset --hard "origin/$pr_base_ref"
-
-  echo "[auto-rebase] performing squash merge"
   git merge --squash "origin/$pr_head_ref"
 
-  # build squash commit message
-  commit_msg="squash: rebased ${pr_head_ref} onto ${pr_base_ref}
+  links=()
+  for s in "${kept_commits[@]}"; do
+    links+=("[${s:0:7}]($(github_commit_url "$s"))")
+  done
+  title="squash: $(IFS=, ; echo "${links[*]}")"
 
-original commits:"
-  for s in "${commits[@]}"; do
+  body=""
+  for s in "${kept_commits[@]}"; do
     subj=$(git show -s --format=%s "$s")
-    commit_msg+="
+    body+="
 - ${s:0:7} ${subj} ($(github_commit_url "$s"))"
   done
 
-  git commit -m "$commit_msg"
-  applied_count=1
+  git commit -m "${title}${body}"
+  applied=1
 fi
 
 ###############################################################################
-# fast-forward the PR branch & push (if token present)
+# fast-forward branch & optional push
 ###############################################################################
 git branch -f "$pr_head_ref" HEAD
 git switch "$pr_head_ref"
 git branch -D "$work_branch"
 
-echo "[auto-rebase] done — branch $pr_head_ref now has $applied_count commit(s)"
-
 if [[ -n "${GH_TOKEN:-}" || -n "${GITHUB_TOKEN:-}" ]]; then
-  echo "[auto-rebase] pushing to origin/$pr_head_ref"
   git push origin "$pr_head_ref" --force-with-lease
-else
-  echo "[auto-rebase] dry-run — not pushing"
-  git log --oneline "origin/$pr_base_ref".."$pr_head_ref"
 fi
+
