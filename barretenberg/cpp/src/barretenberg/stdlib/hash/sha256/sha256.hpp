@@ -14,7 +14,6 @@
 // namespace bb
 
 namespace bb::stdlib {
-template <typename Builder> class bit_array;
 
 template <typename Builder>
 std::array<uint32<Builder>, 8> sha256_block(const std::array<uint32<Builder>, 8>& h_init,
