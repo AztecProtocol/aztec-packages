@@ -21,10 +21,13 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
  * the contribution from a single circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
  * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
- * length of the subtable columns t_j. This protocol demonstrates, assuming the length of t is at most k, that the
- * aggregate ecc op table has been constructed correctly via the simple Schwartz-Zippel check:
- *
- *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
+ * length of the subtable columns t_j. This protocol demonstrates that the aggregate ecc op table has been
+ * constructed correctly via:
+ * - the Schwartz-Zippel check:
+ *      \f[ T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)) \f]
+ * - the degree check a la Thakur:
+ *      \f[ x^{l-1} t_j(1/x) = g_j(x) \f]
+ *   where \f$g_j(X) = X^{l-1} t_j(1 / X)\f$.
  *
  * @tparam CircuitBuilder
  * @param proof
@@ -41,64 +44,107 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 
-    // Receive table column polynomial commitments [T_{j,prev}], and [T_j], j = 1,2,3,4
+    // Receive table column polynomial commitments [T_{j,prev}], [T_j], [inverted_t_j] j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
+    std::array<Commitment, NUM_WIRES> inverted_t_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         std::string suffix = std::to_string(idx);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
         T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
+        inverted_t_commitments[idx] =
+            transcript->template receive_from_prover<Commitment>("INVERTED_t_CURRENT_" + suffix);
     }
 
+    // Evaluation challenge
     FF kappa = transcript->template get_challenge<FF>("kappa");
+    FF minus_pow_kappa = -kappa.pow(subtable_size);
+    FF kappa_inv = kappa.invert();
+    FF pow_kappa_minus_one = -minus_pow_kappa * kappa_inv;
 
     // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
+    std::array<FF, NUM_WIRES> inverted_t_evals;
+    std::array<FF, NUM_WIRES> t_evals_inv;
     std::array<FF, NUM_WIRES> t_evals;
     std::array<FF, NUM_WIRES> T_prev_evals;
     std::array<FF, NUM_WIRES> T_evals;
-    std::vector<OpeningClaim> opening_claims;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, t_evals[idx] }, t_commitments[idx] });
+        t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_prev_evals[idx] }, T_prev_commitments[idx] });
+        T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx + 1));
-        opening_claims.emplace_back(OpeningClaim{ { kappa, T_evals[idx] }, T_commitments[idx] });
+        T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
-
-    // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
-        T_evals[idx].assert_equal(t_evals[idx] + T_prev_shifted_eval_reconstructed);
+        inverted_t_evals[idx] = transcript->template receive_from_prover<FF>("inverted_t_eval_" + std::to_string(idx));
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        t_evals_inv[idx] = transcript->template receive_from_prover<FF>("t_evals_inv_" + std::to_string(idx));
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    // Allocate commitment vector
+    std::vector<Commitment> verifier_commitments;
+    verifier_commitments.reserve(NUM_WIRES * 4);
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        verifier_commitments.push_back(t_commitments[idx]);
+    }
+    verifier_commitments.insert(verifier_commitments.end(), T_prev_commitments.begin(), T_prev_commitments.end());
+    verifier_commitments.insert(verifier_commitments.end(), T_commitments.begin(), T_commitments.end());
+    verifier_commitments.insert(
+        verifier_commitments.end(), inverted_t_commitments.begin(), inverted_t_commitments.end());
 
-    // Constuct inputs to batched commitment and batched evaluation from constituents using batching challenge \alpha
-    std::vector<FF> scalars;
-    std::vector<Commitment> commitments;
-    scalars.emplace_back(FF(builder, 1));
-    commitments.emplace_back(opening_claims[0].commitment);
-    auto batched_eval = opening_claims[0].opening_pair.evaluation;
-    auto alpha_pow = alpha;
-    for (size_t idx = 1; idx < opening_claims.size(); ++idx) {
-        auto& claim = opening_claims[idx];
-        scalars.emplace_back(alpha_pow);
-        commitments.emplace_back(claim.commitment);
-        batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        if (idx < opening_claims.size() - 1) {
-            alpha_pow *= alpha;
-        }
+    // Prepare opening vectors
+    std::vector<OpeningVector> opening_vectors;
+    opening_vectors.reserve(NUM_WIRES * 3);
+    // Add opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        OpeningVector tmp(kappa, { FF(1), minus_pow_kappa, FF(-1) }, { t_evals[idx], T_prev_evals[idx], T_evals[idx] });
+        opening_vectors.emplace_back(tmp);
+    }
+    // Add opening claim for g_j(kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        OpeningVector tmp(kappa, { FF(1) }, { inverted_t_evals[idx] });
+        opening_vectors.emplace_back(tmp);
+    }
+    // Add opening claim for t_j(1/kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        OpeningVector tmp(kappa_inv, { FF(1) }, { t_evals_inv[idx] });
+        opening_vectors.emplace_back(tmp);
     }
 
-    auto batched_commitment = Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+    // Prepare indices
+    std::vector<std::vector<size_t>> indices;
+    // Add indices for opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        std::vector<size_t> tmp{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
+        indices.emplace_back(tmp);
+    }
+    // Add indices for opening claim for g_j(kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        std::vector<size_t> tmp{ idx + 3 * NUM_WIRES };
+        indices.emplace_back(tmp);
+    }
+    // Add indices for opening claim for t_j(1/kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        std::vector<size_t> tmp{ idx };
+        indices.emplace_back(tmp);
+    }
 
-    OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
+    // Initialize Shplonk verifier
+    ShplonkVerifier verifier(verifier_commitments, transcript, 3 * NUM_WIRES);
+    verifier.reduce_verification_vector_claims_no_finalize(indices, opening_vectors);
 
-    auto pairing_points = KZG::reduce_verify(batched_claim, transcript);
+    // Export batched claim
+    auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));
+
+    // KZG verifier
+    auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
+
+    // Check t_j(1/kappa) = g_j(kappa) * kappa^{l-1}
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        inverted_t_evals[idx].assert_equal(t_evals_inv[idx] * pow_kappa_minus_one);
+    }
 
     return { pairing_points[0], pairing_points[1] };
 }

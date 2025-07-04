@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -19,7 +20,9 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
     using GroupElement = typename Curve::Element;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using KZG = ::bb::KZG<Curve>;
+    using OpeningVector = ::bb::OpeningVector<Curve>;
     using OpeningClaim = ::bb::OpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
     using PairingPoints = stdlib::recursion::PairingPoints<CircuitBuilder>;
