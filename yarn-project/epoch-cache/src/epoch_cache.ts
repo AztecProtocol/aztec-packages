@@ -310,7 +310,7 @@ export class EpochCache implements EpochCacheInterface {
     ) {
       const currentSet = await this.rollup.getAttesters();
       this.allValidators = new Set(currentSet);
-      this.lastValidatorRefresh = new Date();
+      this.lastValidatorRefresh = this.dateProvider.now();
     }
     return Array.from(this.allValidators.keys().map(v => EthAddress.fromString(v)));
   }
