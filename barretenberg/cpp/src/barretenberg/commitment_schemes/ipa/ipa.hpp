@@ -29,8 +29,7 @@ namespace bb {
 // clang-format off
 // Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private, rollup-base-public,
 // rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating IPA_PROOF_LENGTH in other places.
-static constexpr size_t IPA_PROOF_LENGTH =  /* poly_length */ 2 +
-                                            /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N  +
+static constexpr size_t IPA_PROOF_LENGTH =  /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N  +
                                             /* comm G_0 */    2 +
                                             /* eval a_0 */    2;
 
@@ -411,8 +410,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G₀
         Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
-
+        // BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
+        // Using BB_ASSERT_EQ caused the test `ClientIVCTests.WrongProofComponentFailure` to fail,
+        // insomuch as `EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));` throws an
+        // error rather than returning false.
+        if (!(G_zero == G_zero_sent)){
+            return false;
+        }
         // Step 9.
         // Receive a₀ from the prover
         auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
