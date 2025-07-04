@@ -932,6 +932,7 @@ describe('PeerManager', () => {
 
       await newPeerManager.initializePeers();
 
+      // We should return a valid status message as this is a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
       await expect(newPeerManager.handleAuthFromPeer(authRequest, peerId)).resolves.not.toThrow();
       const statusMessage = await newPeerManager.handleAuthFromPeer(authRequest, peerId);
@@ -963,6 +964,7 @@ describe('PeerManager', () => {
 
       await newPeerManager.initializePeers();
 
+      // Should reject as this is not a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
       await expect(newPeerManager.handleAuthFromPeer(authRequest, someOtherPeer)).rejects.toThrow();
     });
@@ -1002,6 +1004,7 @@ describe('PeerManager', () => {
         },
       );
 
+      // Adding a connection should trigger the auth request as we are configured to only allow validators
       const ev = {
         detail: peerId,
       };
@@ -1032,6 +1035,7 @@ describe('PeerManager', () => {
         blockHash,
       );
 
+      // Mock the auth request to fail
       mockReqResp.sendRequestToPeer.mockImplementation(
         (_peerId: PeerId, _subProtocol: ReqRespSubProtocol, _payload: Buffer, _dialTimeout?: number) => {
           const returnData = {
@@ -1082,6 +1086,7 @@ describe('PeerManager', () => {
 
       mockEpochCache.getRegisteredValidators.mockResolvedValue([signer.address]);
 
+      // Mock the auth request to return a valid signature
       mockReqResp.sendRequestToPeer.mockImplementation(
         (peerId: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           expect(peerId.toString()).toEqual(peerId.toString());
@@ -1148,6 +1153,7 @@ describe('PeerManager', () => {
         times(10, () => new Secp256k1Signer(Buffer32.fromString(generatePrivateKey())).address),
       );
 
+      // Mock returning a valid signature, but it won't be a registered validator
       mockReqResp.sendRequestToPeer.mockImplementation(
         (peerId: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           expect(peerId.toString()).toEqual(peerId.toString());
@@ -1173,6 +1179,7 @@ describe('PeerManager', () => {
 
       await sleep(100);
 
+      // Peer should not be authenticated as it is not registered as a validator
       expect(mockReqResp.sendRequestToPeer).toHaveBeenCalledTimes(1);
       expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
 
@@ -1206,6 +1213,7 @@ describe('PeerManager', () => {
 
       mockEpochCache.getRegisteredValidators.mockResolvedValue([signer.address]);
 
+      // Mock returning a valid signature
       mockReqResp.sendRequestToPeer.mockImplementation(
         (peerId: PeerId, subProtocol: ReqRespSubProtocol, payload: Buffer, _dialTimeout?: number) => {
           expect(peerId.toString()).toEqual(peerId.toString());
@@ -1238,7 +1246,7 @@ describe('PeerManager', () => {
       // The peer's score should be >= 0
       expect(newPeerManager.getPeerScore(peerId.toString())).toBeGreaterThanOrEqual(0);
 
-      // Should no longer be authenticated
+      // After the nest heartbeat the peer should no longer be authenticated
       mockEpochCache.getRegisteredValidators.mockResolvedValue(
         times(10, () => new Secp256k1Signer(Buffer32.fromString(generatePrivateKey())).address),
       );
