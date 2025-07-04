@@ -593,7 +593,11 @@ export async function setup(
 
     if (sequencerClient) {
       const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(
+        publisher.l1TxUtils,
+        dateProvider,
+        config.ethereumSlotDuration,
+      );
     }
 
     let proverNode: ProverNode | undefined = undefined;

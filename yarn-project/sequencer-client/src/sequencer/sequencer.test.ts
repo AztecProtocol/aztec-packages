@@ -602,7 +602,7 @@ class TestSubject extends Sequencer {
     return super.doRealWork();
   }
 
-  public override getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
-    return super.getDefaultBlockBuilderOptions(slot);
+  public override getBlockBuilderOptions(slot: number): PublicProcessorLimits {
+    return super.getBlockBuilderOptions(slot);
   }
 }
