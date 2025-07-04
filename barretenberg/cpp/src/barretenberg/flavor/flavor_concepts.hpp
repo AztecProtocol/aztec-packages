@@ -55,10 +55,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
                                        TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
                                        ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-                                       AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                       AvmRecursiveFlavor_<MegaCircuitBuilder>,
-                                       avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                       avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
+                                       AvmRecursiveFlavor,
+                                       avm2::AvmRecursiveFlavor>;
 
 // These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
