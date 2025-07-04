@@ -1,7 +1,41 @@
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include <cstddef>
 using namespace bb;
-const size_t INTERNAL_STATE_SIZE = 10;
+const size_t INTERNAL_STATE_SIZE = 32;
+
+// Settings structure to control which operations are enabled
+struct VMSettings {
+    bool enable_set_value : 1;
+    bool enable_add : 1;
+    bool enable_add_assign : 1;
+    bool enable_increment : 1;
+    bool enable_mul : 1;
+    bool enable_mul_assign : 1;
+    bool enable_sub : 1;
+    bool enable_sub_assign : 1;
+    bool enable_div : 1;
+    bool enable_div_assign : 1;
+    bool enable_inv : 1;
+    bool enable_neg : 1;
+    bool enable_sqr : 1;
+    bool enable_sqr_assign : 1;
+    bool enable_pow : 1;
+    bool enable_sqrt : 1;
+    bool enable_is_zero : 1;
+    bool enable_equal : 1;
+    bool enable_not_equal : 1;
+    bool enable_to_montgomery : 1;
+    bool enable_from_montgomery : 1;
+    bool enable_reduce_once : 1;
+    bool enable_self_reduce : 1;
+    bool enable_batch_invert : 1;
+    uint8_t reserved : 8; // Reserved for future use
+};
+
+static_assert(sizeof(VMSettings) == 4, "VMSettings must be exactly 4 bytes");
+
+const size_t SETTINGS_SIZE = sizeof(VMSettings);
+
 enum class Instruction {
     SET_VALUE,
     ADD,
@@ -26,6 +60,7 @@ enum class Instruction {
     FROM_MONTGOMERY,
     REDUCE_ONCE,
     SELF_REDUCE,
+    BATCH_INVERT,
 };
 const size_t INSTRUCTION_HEADER_SIZE = 1;
 const size_t INDEX_SIZE = 1;
@@ -54,16 +89,46 @@ const size_t TO_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
 const size_t FROM_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
 const size_t REDUCE_ONCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
 const size_t SELF_REDUCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
+const size_t BATCH_INVERT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2 + sizeof(uint8_t);
 
-struct FieldVM {
-    std::array<fq, INTERNAL_STATE_SIZE> field_internal_state;
+template <typename Field> struct FieldVM {
+    std::array<Field, INTERNAL_STATE_SIZE> field_internal_state;
     std::array<numeric::uint256_t, INTERNAL_STATE_SIZE> uint_internal_state;
     bool with_debug;
+    VMSettings settings;
+
     FieldVM(bool with_debug = false)
         : with_debug(with_debug)
     {
+        // Initialize with all operations enabled by default
+        settings.enable_set_value = true;
+        settings.enable_add = true;
+        settings.enable_add_assign = true;
+        settings.enable_increment = true;
+        settings.enable_mul = true;
+        settings.enable_mul_assign = true;
+        settings.enable_sub = true;
+        settings.enable_sub_assign = true;
+        settings.enable_div = true;
+        settings.enable_div_assign = true;
+        settings.enable_inv = true;
+        settings.enable_neg = true;
+        settings.enable_sqr = true;
+        settings.enable_sqr_assign = true;
+        settings.enable_pow = true;
+        settings.enable_sqrt = true;
+        settings.enable_is_zero = true;
+        settings.enable_equal = true;
+        settings.enable_not_equal = true;
+        settings.enable_to_montgomery = true;
+        settings.enable_from_montgomery = true;
+        settings.enable_reduce_once = true;
+        settings.enable_self_reduce = true;
+        settings.enable_batch_invert = true;
+        settings.reserved = 0;
+
         for (size_t i = 0; i < INTERNAL_STATE_SIZE; i++) {
-            field_internal_state[i] = fq::zero();
+            field_internal_state[i] = Field::zero();
             uint_internal_state[i] = numeric::uint256_t(0);
         }
     }
@@ -87,6 +152,9 @@ struct FieldVM {
         Instruction instruction = static_cast<Instruction>(*data_ptr);
         switch (instruction) {
         case Instruction::SET_VALUE:
+            if (!settings.enable_set_value) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SET_VALUE_SIZE) {
                 return size_left;
             }
@@ -94,14 +162,17 @@ struct FieldVM {
             {
                 size_t index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 auto value = get_value(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
-                field_internal_state[index] = fq(value);
-                uint_internal_state[index] = value % fq::modulus;
+                field_internal_state[index] = Field(value);
+                uint_internal_state[index] = value % Field::modulus;
                 if (with_debug) {
                     info("SET_VALUE: index: ", index, " value: ", value);
                 }
             }
             return SET_VALUE_SIZE;
         case Instruction::ADD:
+            if (!settings.enable_add) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < ADD_SIZE) {
                 return size_left;
             }
@@ -111,7 +182,8 @@ struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 size_t index3 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index3] = field_internal_state[index1] + field_internal_state[index2];
-                uint_internal_state[index3] = (uint_internal_state[index1] + uint_internal_state[index2]) % fq::modulus;
+                uint_internal_state[index3] =
+                    (uint_internal_state[index1] + uint_internal_state[index2]) % Field::modulus;
                 if (with_debug) {
                     info("ADD: index1: ",
                          index1,
@@ -125,6 +197,9 @@ struct FieldVM {
             }
             return ADD_SIZE;
         case Instruction::ADD_ASSIGN:
+            if (!settings.enable_add_assign) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < ADD_ASSIGN_SIZE) {
                 return size_left;
             }
@@ -133,13 +208,17 @@ struct FieldVM {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index1] += field_internal_state[index2];
-                uint_internal_state[index1] = (uint_internal_state[index1] + uint_internal_state[index2]) % fq::modulus;
+                uint_internal_state[index1] =
+                    (uint_internal_state[index1] + uint_internal_state[index2]) % Field::modulus;
                 if (with_debug) {
                     info("ADD_ASSIGN: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index1]);
                 }
             }
             return ADD_ASSIGN_SIZE;
         case Instruction::INCREMENT:
+            if (!settings.enable_increment) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < INCREMENT_SIZE) {
                 return size_left;
             }
@@ -147,13 +226,16 @@ struct FieldVM {
             {
                 size_t index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 field_internal_state[index]++;
-                uint_internal_state[index] = (uint_internal_state[index] + 1) % fq::modulus;
+                uint_internal_state[index] = (uint_internal_state[index] + 1) % Field::modulus;
                 if (with_debug) {
                     info("INCREMENT: index: ", index, " value: ", field_internal_state[index]);
                 }
             }
             return INCREMENT_SIZE;
         case Instruction::MUL:
+            if (!settings.enable_mul) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < MUL_SIZE) {
                 return size_left;
             }
@@ -164,7 +246,7 @@ struct FieldVM {
                 size_t index3 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index3] = field_internal_state[index1] * field_internal_state[index2];
                 uint_internal_state[index3] =
-                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index2])) % fq::modulus)
+                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index2])) % Field::modulus)
                         .lo;
                 if (with_debug) {
                     info("MUL: index1: ",
@@ -179,6 +261,9 @@ struct FieldVM {
             }
             return MUL_SIZE;
         case Instruction::MUL_ASSIGN:
+            if (!settings.enable_mul_assign) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < MUL_ASSIGN_SIZE) {
                 return size_left;
             }
@@ -188,7 +273,7 @@ struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index1] *= field_internal_state[index2];
                 uint_internal_state[index1] =
-                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index2])) % fq::modulus)
+                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index2])) % Field::modulus)
                         .lo;
                 if (with_debug) {
                     info("MUL_ASSIGN: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index1]);
@@ -196,6 +281,9 @@ struct FieldVM {
             }
             return MUL_ASSIGN_SIZE;
         case Instruction::SUB:
+            if (!settings.enable_sub) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SUB_SIZE) {
                 return size_left;
             }
@@ -206,7 +294,7 @@ struct FieldVM {
                 size_t index3 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index3] = field_internal_state[index1] - field_internal_state[index2];
                 uint_internal_state[index3] =
-                    (fq::modulus + uint_internal_state[index1] - uint_internal_state[index2]) % fq::modulus;
+                    (Field::modulus + uint_internal_state[index1] - uint_internal_state[index2]) % Field::modulus;
                 if (with_debug) {
                     info("SUB: index1: ",
                          index1,
@@ -220,6 +308,9 @@ struct FieldVM {
             }
             return SUB_SIZE;
         case Instruction::SUB_ASSIGN:
+            if (!settings.enable_sub_assign) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SUB_ASSIGN_SIZE) {
                 return size_left;
             }
@@ -229,13 +320,16 @@ struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index1] -= field_internal_state[index2];
                 uint_internal_state[index1] =
-                    (fq::modulus + uint_internal_state[index1] - uint_internal_state[index2]) % fq::modulus;
+                    (Field::modulus + uint_internal_state[index1] - uint_internal_state[index2]) % Field::modulus;
                 if (with_debug) {
                     info("SUB_ASSIGN: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index1]);
                 }
             }
             return SUB_ASSIGN_SIZE;
         case Instruction::DIV:
+            if (!settings.enable_div) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < DIV_SIZE) {
                 return size_left;
             }
@@ -250,7 +344,7 @@ struct FieldVM {
                     // For uint256_t, we'll compute division using the field result
                     assert((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index3])) *
                             uint512_t(uint_internal_state[index2])) %
-                               uint512_t(fq::modulus) ==
+                               uint512_t(Field::modulus) ==
                            uint512_t(uint_internal_state[index1]));
                     uint_internal_state[index3] = static_cast<numeric::uint256_t>(field_internal_state[index3]);
                 }
@@ -267,6 +361,9 @@ struct FieldVM {
             }
             return DIV_SIZE;
         case Instruction::DIV_ASSIGN:
+            if (!settings.enable_div_assign) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < DIV_ASSIGN_SIZE) {
                 return size_left;
             }
@@ -281,7 +378,7 @@ struct FieldVM {
                     // For uint256_t, we'll compute division using the field result
                     if (!((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index1])) *
                            uint512_t(uint_internal_state[index2])) %
-                              uint512_t(fq::modulus) ==
+                              uint512_t(Field::modulus) ==
                           uint512_t(uint_internal_state[index1]))) {
                         // Deliberately set to different value
                         uint_internal_state[index1] = uint256_t(field_internal_state[index1]) + 1;
@@ -301,6 +398,9 @@ struct FieldVM {
             }
             return DIV_ASSIGN_SIZE;
         case Instruction::INV:
+            if (!settings.enable_inv) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < INV_SIZE) {
                 return size_left;
             }
@@ -315,7 +415,7 @@ struct FieldVM {
                     // For uint256_t, we'll compute inversion using the field result
                     if (!((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
                            uint512_t(uint_internal_state[index1])) %
-                              uint512_t(fq::modulus) ==
+                              uint512_t(Field::modulus) ==
                           uint512_t(1))) {
                         // Deliberately set to different value
                         uint_internal_state[index2] = uint256_t(field_internal_state[index2]) + 1;
@@ -336,6 +436,9 @@ struct FieldVM {
             }
             return INV_SIZE;
         case Instruction::NEG:
+            if (!settings.enable_neg) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < NEG_SIZE) {
                 return size_left;
             }
@@ -344,13 +447,16 @@ struct FieldVM {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = -field_internal_state[index1];
-                uint_internal_state[index2] = (fq::modulus - uint_internal_state[index1]) % fq::modulus;
+                uint_internal_state[index2] = (Field::modulus - uint_internal_state[index1]) % Field::modulus;
                 if (with_debug) {
                     info("NEG: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index2]);
                 }
             }
             return NEG_SIZE;
         case Instruction::SQR:
+            if (!settings.enable_sqr) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SQR_SIZE) {
                 return size_left;
             }
@@ -360,7 +466,7 @@ struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = field_internal_state[index1].sqr();
                 uint_internal_state[index2] =
-                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index1])) % fq::modulus)
+                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index1])) % Field::modulus)
                         .lo;
                 if (with_debug) {
                     info("SQR: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index2]);
@@ -368,6 +474,9 @@ struct FieldVM {
             }
             return SQR_SIZE;
         case Instruction::SQR_ASSIGN:
+            if (!settings.enable_sqr_assign) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SQR_ASSIGN_SIZE) {
                 return size_left;
             }
@@ -376,13 +485,17 @@ struct FieldVM {
                 size_t index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 field_internal_state[index].self_sqr();
                 uint_internal_state[index] =
-                    ((uint512_t(uint_internal_state[index]) * uint512_t(uint_internal_state[index])) % fq::modulus).lo;
+                    ((uint512_t(uint_internal_state[index]) * uint512_t(uint_internal_state[index])) % Field::modulus)
+                        .lo;
                 if (with_debug) {
                     info("SQR_ASSIGN: index: ", index, " value: ", field_internal_state[index]);
                 }
             }
             return SQR_ASSIGN_SIZE;
         case Instruction::POW:
+            if (!settings.enable_pow) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < POW_SIZE) {
                 return size_left;
             }
@@ -396,9 +509,9 @@ struct FieldVM {
                 auto current = uint512_t(1);
                 while (exponent > 0) {
                     if (exponent & 1) {
-                        current = (current * multiplicand) % uint512_t(fq::modulus);
+                        current = (current * multiplicand) % uint512_t(Field::modulus);
                     }
-                    multiplicand = (multiplicand * multiplicand) % uint512_t(fq::modulus);
+                    multiplicand = (multiplicand * multiplicand) % uint512_t(Field::modulus);
                     exponent >>= 1;
                 }
                 uint_internal_state[index2] = current.lo;
@@ -415,6 +528,9 @@ struct FieldVM {
             }
             return POW_SIZE;
         case Instruction::SQRT:
+            if (!settings.enable_sqrt) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SQRT_SIZE) {
                 return size_left;
             }
@@ -427,7 +543,7 @@ struct FieldVM {
                     field_internal_state[index2] = root;
                     assert((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
                             uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2]))) %
-                               uint512_t(fq::modulus) ==
+                               uint512_t(Field::modulus) ==
                            uint512_t(uint_internal_state[index1]));
                     uint_internal_state[index2] = static_cast<numeric::uint256_t>(root);
                 }
@@ -444,6 +560,9 @@ struct FieldVM {
             }
             return SQRT_SIZE;
         case Instruction::IS_ZERO:
+            if (!settings.enable_is_zero) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < IS_ZERO_SIZE) {
                 return size_left;
             }
@@ -457,6 +576,9 @@ struct FieldVM {
             }
             return IS_ZERO_SIZE;
         case Instruction::EQUAL:
+            if (!settings.enable_equal) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < EQUAL_SIZE) {
                 return size_left;
             }
@@ -477,6 +599,9 @@ struct FieldVM {
             }
             return EQUAL_SIZE;
         case Instruction::NOT_EQUAL:
+            if (!settings.enable_not_equal) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < NOT_EQUAL_SIZE) {
                 return size_left;
             }
@@ -497,6 +622,9 @@ struct FieldVM {
             }
             return NOT_EQUAL_SIZE;
         case Instruction::TO_MONTGOMERY:
+            if (!settings.enable_to_montgomery) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < TO_MONTGOMERY_SIZE) {
                 return size_left;
             }
@@ -506,7 +634,7 @@ struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = field_internal_state[index1].to_montgomery_form();
                 uint_internal_state[index2] =
-                    ((uint512_t(uint_internal_state[index1]) << 256) % uint512_t(fq::modulus)).lo;
+                    ((uint512_t(uint_internal_state[index1]) << 256) % uint512_t(Field::modulus)).lo;
                 // Note: uint_internal_state doesn't track Montgomery form
                 if (with_debug) {
                     info("TO_MONTGOMERY: index1: ",
@@ -519,6 +647,9 @@ struct FieldVM {
             }
             return TO_MONTGOMERY_SIZE;
         case Instruction::FROM_MONTGOMERY:
+            if (!settings.enable_from_montgomery) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < FROM_MONTGOMERY_SIZE) {
                 return size_left;
             }
@@ -530,7 +661,7 @@ struct FieldVM {
                 uint_internal_state[index2] = uint_internal_state[index1];
                 for (size_t i = 0; i < 256; i++) {
                     if (uint_internal_state[index2] & 1) {
-                        uint_internal_state[index2] += fq::modulus;
+                        uint_internal_state[index2] += Field::modulus;
                     }
                     uint_internal_state[index2] >>= 1;
                 }
@@ -545,6 +676,9 @@ struct FieldVM {
             }
             return FROM_MONTGOMERY_SIZE;
         case Instruction::REDUCE_ONCE:
+            if (!settings.enable_reduce_once) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < REDUCE_ONCE_SIZE) {
                 return size_left;
             }
@@ -561,6 +695,9 @@ struct FieldVM {
             }
             return REDUCE_ONCE_SIZE;
         case Instruction::SELF_REDUCE:
+            if (!settings.enable_self_reduce) {
+                return 1; // Skip disabled operation
+            }
             if (size_left < SELF_REDUCE_SIZE) {
                 return size_left;
             }
@@ -573,6 +710,108 @@ struct FieldVM {
                 }
             }
             return SELF_REDUCE_SIZE;
+        case Instruction::BATCH_INVERT:
+            if (!settings.enable_batch_invert) {
+                return 1; // Skip disabled operation
+            }
+            if (size_left < BATCH_INVERT_SIZE) {
+                return size_left;
+            }
+            // Read the operands and count
+            {
+                size_t start_index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
+                size_t count =
+                    static_cast<size_t>(data_ptr[INSTRUCTION_HEADER_SIZE + INDEX_SIZE]) % (INTERNAL_STATE_SIZE / 2);
+                if (count == 0)
+                    count = 1; // Ensure at least one element
+                if (start_index + count > INTERNAL_STATE_SIZE) {
+                    count = INTERNAL_STATE_SIZE - start_index;
+                }
+
+                // Store original values for comparison
+                std::vector<Field> original_elements;
+                std::vector<numeric::uint256_t> original_uint_elements;
+                std::vector<size_t> valid_indices;
+
+                for (size_t i = 0; i < count; i++) {
+                    size_t idx = start_index + i;
+                    original_elements.push_back(field_internal_state[idx]);
+                    original_uint_elements.push_back(uint_internal_state[idx]);
+                    valid_indices.push_back(idx);
+                }
+
+                // Perform individual inversions for comparison
+                std::vector<Field> individual_inverses;
+                std::vector<numeric::uint256_t> individual_uint_inverses;
+                for (size_t i = 0; i < valid_indices.size(); i++) {
+                    size_t idx = valid_indices[i];
+                    if (!field_internal_state[idx].is_zero()) {
+                        Field inv = field_internal_state[idx].invert();
+                        individual_inverses.push_back(inv);
+                        individual_uint_inverses.push_back(static_cast<numeric::uint256_t>(inv));
+                    } else {
+                        individual_inverses.push_back(Field::zero());
+                        individual_uint_inverses.push_back(numeric::uint256_t(0));
+                    }
+                }
+
+                // Collect non-zero elements for batch inversion
+                std::vector<Field> non_zero_elements;
+                std::vector<size_t> non_zero_indices;
+                for (size_t i = 0; i < count; i++) {
+                    size_t idx = start_index + i;
+                    if (!field_internal_state[idx].is_zero()) {
+                        non_zero_elements.push_back(field_internal_state[idx]);
+                        non_zero_indices.push_back(idx);
+                    }
+                }
+
+                if (!non_zero_elements.empty()) {
+                    // Perform batch inversion (modifies non_zero_elements in-place)
+                    Field::batch_invert(non_zero_elements);
+
+                    // Store batch results back
+                    for (size_t i = 0; i < non_zero_indices.size(); i++) {
+                        size_t idx = non_zero_indices[i];
+                        field_internal_state[idx] = non_zero_elements[i];
+                        uint_internal_state[idx] = static_cast<numeric::uint256_t>(non_zero_elements[i]);
+                    }
+                }
+
+                // Verify that batch inversion produces the same results as individual inversions
+                for (size_t i = 0; i < valid_indices.size(); i++) {
+                    size_t idx = valid_indices[i];
+                    if (!original_elements[i].is_zero()) {
+                        // Check that batch and individual inversions match
+                        assert(field_internal_state[idx] == individual_inverses[i]);
+                        assert(uint_internal_state[idx] == individual_uint_inverses[i]);
+
+                        // Verify the inverse property: a * a^(-1) = 1
+                        Field product = original_elements[i] * field_internal_state[idx];
+                        assert(product == Field::one());
+
+                        // Verify uint arithmetic consistency
+                        uint512_t uint_product =
+                            (uint512_t(original_uint_elements[i]) * uint512_t(uint_internal_state[idx])) %
+                            uint512_t(Field::modulus);
+                        assert(uint_product == uint512_t(1));
+                    } else {
+                        // Zero elements should remain zero
+                        assert(field_internal_state[idx] == Field::zero());
+                        assert(uint_internal_state[idx] == numeric::uint256_t(0));
+                    }
+                }
+
+                if (with_debug) {
+                    info("BATCH_INVERT: start_index: ",
+                         start_index,
+                         " count: ",
+                         count,
+                         " non_zero_count: ",
+                         non_zero_elements.size());
+                }
+            }
+            return BATCH_INVERT_SIZE;
         default:
             // Move the pointer forward by 1
             return 1;
@@ -587,8 +826,16 @@ struct FieldVM {
      */
     void run(const unsigned char* Data, size_t Size)
     {
-        size_t size_left = Size;
-        const unsigned char* data_ptr = Data;
+        if (Size < SETTINGS_SIZE) {
+            return; // Not enough data for settings
+        }
+
+        // Read settings from the beginning of the buffer
+        const VMSettings* settings_ptr = reinterpret_cast<const VMSettings*>(Data);
+        settings = *settings_ptr;
+
+        size_t size_left = Size - SETTINGS_SIZE;
+        const unsigned char* data_ptr = Data + SETTINGS_SIZE;
         while (size_left > 0) {
             size_t shift = this->execute_instruction(data_ptr, size_left);
             size_left -= shift;
@@ -598,7 +845,7 @@ struct FieldVM {
     bool check_internal_state() const
     {
         for (size_t i = 0; i < INTERNAL_STATE_SIZE; i++) {
-            if (field_internal_state[i] != fq(uint_internal_state[i])) {
+            if (field_internal_state[i] != Field(uint_internal_state[i])) {
                 if (with_debug) {
                     info("check_internal_state: index: ",
                          i,
@@ -615,10 +862,10 @@ struct FieldVM {
 };
 extern "C" int LLVMFuzzerTestOneInput(const unsigned char* Data, size_t Size)
 {
-    FieldVM vm;
+    FieldVM<fq> vm;
     vm.run(Data, Size);
     if (!vm.check_internal_state()) {
-        FieldVM vm_debug(true);
+        FieldVM<fq> vm_debug(true);
         vm_debug.run(Data, Size);
         assert(false);
         return 1;
