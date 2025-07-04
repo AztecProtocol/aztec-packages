@@ -18,14 +18,6 @@
 
 using namespace bb;
 
-/* A note regarding Plookup:
-   stdlib_bigfield_plookup tests were present when this file was standardized
-   to be more proving system-agnostic. Those tests are commented out  below, but modified
-   in the following ways:
-     - pbigfield_t was replaced by bn254::BaseField;
-     - pwitness_t  was replaced by bn254::witness_ct.
-*/
-
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
@@ -33,12 +25,13 @@ auto& engine = numeric::get_debug_randomness();
 STANDARD_TESTING_TAGS
 template <typename Builder> class stdlib_bigfield : public testing::Test {
 
-    typedef stdlib::bn254<Builder> bn254;
+    using bn254 = stdlib::bn254<Builder>;
 
-    typedef typename bn254::ScalarField fr_ct;
-    typedef typename bn254::BaseField fq_ct;
-    typedef typename bn254::public_witness_ct public_witness_ct;
-    typedef typename bn254::witness_ct witness_ct;
+    using fr_ct = typename bn254::ScalarField;
+    using fq_ct = typename bn254::BaseField;
+    using public_witness_ct = typename bn254::public_witness_ct;
+    using witness_ct = typename bn254::witness_ct;
+    using bool_ct = typename bn254::bool_ct;
 
   public:
     static void test_add_to_lower_limb_regression()
@@ -70,6 +63,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+
     // The bug happens when we are applying the CRT formula to a*b < r, which can happen when using the division
     // operator
     static void test_division_formula_bug()
@@ -96,77 +90,109 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static std::pair<fq, fq_ct> get_random_element(Builder* ctx)
+    // Gets a random bigfield element that is a circuit-witness
+    static std::pair<fq, fq_ct> get_random_witness(Builder* builder, bool reduce_input = false)
     {
-        fq elt = fq::random_element();
-        return std::make_pair(elt, fq_ct::from_witness(ctx, elt));
+        fq elt_native = fq::random_element();
+        if (reduce_input) {
+            elt_native = elt_native.reduce_once().reduce_once();
+        }
+        fr elt_native_lo = fr(uint256_t(elt_native).slice(0, fq_ct::NUM_LIMB_BITS * 2));
+        fr elt_native_hi = fr(uint256_t(elt_native).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4));
+        fq_ct elt_ct(witness_ct(builder, elt_native_lo), witness_ct(builder, elt_native_hi));
+        return std::make_pair(elt_native, elt_ct);
     }
 
-    static std::pair<std::vector<fq>, std::vector<fq_ct>> get_random_elements(Builder* ctx, size_t num)
+    // Gets a random bigfield element that is a circuit-constant
+    static std::pair<fq, fq_ct> get_random_constant(Builder* builder, bool reduce_input = false)
+    {
+        fq elt_native = fq::random_element();
+        if (reduce_input) {
+            elt_native = elt_native.reduce_once().reduce_once();
+        }
+        fq_ct elt_ct(builder, uint256_t(elt_native));
+        return std::make_pair(elt_native, elt_ct);
+    }
+
+    static std::pair<std::vector<fq>, std::vector<fq_ct>> get_random_witnesses(Builder* builder,
+                                                                               size_t num,
+                                                                               bool reduce_input = false)
     {
         std::vector<fq> elts(num);
         std::vector<fq_ct> big_elts(num);
         for (size_t i = 0; i < num; ++i) {
-            auto [elt, big_elt] = get_random_element(ctx);
+            auto [elt, big_elt] = get_random_witness(builder, reduce_input);
             elts[i] = elt;
             big_elts[i] = big_elt;
         }
         return std::make_pair(elts, big_elts);
     }
 
-  public:
+    static std::pair<std::vector<fq>, std::vector<fq_ct>> get_random_constants(Builder* builder,
+                                                                               size_t num,
+                                                                               bool reduce_input = false)
+    {
+        std::vector<fq> elts(num);
+        std::vector<fq_ct> big_elts(num);
+        for (size_t i = 0; i < num; ++i) {
+            auto [elt, big_elt] = get_random_constant(builder, reduce_input);
+            elts[i] = elt;
+            big_elts[i] = big_elt;
+        }
+        return std::make_pair(elts, big_elts);
+    }
+
     static void test_basic_tag_logic()
     {
         auto builder = Builder();
-        auto input = fq::random_element();
-        fq_ct a(witness_ct(&builder, fr(uint256_t(input).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                witness_ct(&builder, fr(uint256_t(input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-        a.binary_basis_limbs[0].element.set_origin_tag(submitted_value_origin_tag);
-        a.binary_basis_limbs[1].element.set_origin_tag(challenge_origin_tag);
-        a.prime_basis_limb.set_origin_tag(next_challenge_tag);
+        auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
 
-        EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
+        a_ct.binary_basis_limbs[0].element.set_origin_tag(submitted_value_origin_tag);
+        a_ct.binary_basis_limbs[1].element.set_origin_tag(challenge_origin_tag);
+        a_ct.prime_basis_limb.set_origin_tag(next_challenge_tag);
 
-        a.set_origin_tag(clear_tag);
-        EXPECT_EQ(a.binary_basis_limbs[0].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a.binary_basis_limbs[1].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a.binary_basis_limbs[2].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a.binary_basis_limbs[3].element.get_origin_tag(), clear_tag);
-        EXPECT_EQ(a.prime_basis_limb.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a_ct.get_origin_tag(), first_second_third_merged_tag);
+
+        a_ct.set_origin_tag(clear_tag);
+        EXPECT_EQ(a_ct.binary_basis_limbs[0].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a_ct.binary_basis_limbs[1].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a_ct.binary_basis_limbs[2].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a_ct.binary_basis_limbs[3].element.get_origin_tag(), clear_tag);
+        EXPECT_EQ(a_ct.prime_basis_limb.get_origin_tag(), clear_tag);
 
 #ifndef NDEBUG
-        a.set_origin_tag(instant_death_tag);
-        EXPECT_THROW(a + a, std::runtime_error);
+        a_ct.set_origin_tag(instant_death_tag);
+        EXPECT_THROW(a_ct + a_ct, std::runtime_error);
 #endif
     }
+
     static void test_mul()
     {
         auto builder = Builder();
         size_t num_repetitions = 4;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            a.set_origin_tag(submitted_value_origin_tag);
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            b.set_origin_tag(challenge_origin_tag);
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            b_ct.set_origin_tag(challenge_origin_tag);
 
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct c = a * b;
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
-            // Don't profile 1st repetition. It sets up a lookup table, cost is not representative of a typical mul
-            if (i == num_repetitions - 2) {
-                std::cerr << "num gates per mul = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "MUL", "Gate Count", after - before);
+            fq_ct c_ct;
+            if (i == num_repetitions - 1) {
+                // We don't profile in the first repetition. It sets up a lookup table, cost is not representative of a
+                // typical mul.
+                BENCH_GATE_COUNT_START(builder, "MUL");
+                c_ct = a_ct * b_ct;
+                BENCH_GATE_COUNT_END(builder, "MUL");
+            } else {
+                c_ct = a_ct * b_ct;
             }
 
-            fq expected = (inputs[0] * inputs[1]);
+            // Multiplication merges tags
+            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
+
+            fq expected = (a_native * b_native);
             expected = expected.from_montgomery_form();
-            uint512_t result = c.get_value();
+            uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -186,26 +212,24 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            a.set_origin_tag(next_challenge_tag);
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            a_ct.set_origin_tag(next_challenge_tag);
 
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct c = a.sqr();
-
-            // Squaring preserves tags
-            EXPECT_EQ(a.get_origin_tag(), next_challenge_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            fq_ct c_ct;
             if (i == num_repetitions - 1) {
-                std::cerr << "num gates per mul = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "SQR", "Gate Count", after - before);
+                BENCH_GATE_COUNT_START(builder, "SQR");
+                c_ct = a_ct.sqr();
+                BENCH_GATE_COUNT_END(builder, "SQR");
+            } else {
+                c_ct = a_ct.sqr();
             }
 
-            fq expected = (inputs[0].sqr());
+            // Squaring preserves tags
+            EXPECT_EQ(a_ct.get_origin_tag(), next_challenge_tag);
+
+            fq expected = (a_native.sqr());
             expected = expected.from_montgomery_form();
-            uint512_t result = c.get_value();
+            uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -225,34 +249,28 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder); // fq, fq_ct
+            a_ct.set_origin_tag(challenge_origin_tag);
+            b_ct.set_origin_tag(submitted_value_origin_tag);
+            c_ct.set_origin_tag(next_challenge_tag);
 
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            a.set_origin_tag(challenge_origin_tag);
-            b.set_origin_tag(submitted_value_origin_tag);
-            c.set_origin_tag(next_challenge_tag);
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct d = a.madd(b, { c });
-
-            // Madd merges tags
-            EXPECT_EQ(d.get_origin_tag(), first_second_third_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            fq_ct d_ct;
             if (i == num_repetitions - 1) {
-                std::cerr << "num gates per mul = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "MADD", "Gate Count", after - before);
+                BENCH_GATE_COUNT_START(builder, "MADD");
+                d_ct = a_ct.madd(b_ct, { c_ct });
+                BENCH_GATE_COUNT_END(builder, "MADD");
+            } else {
+                d_ct = a_ct.madd(b_ct, { c_ct });
             }
 
-            fq expected = (inputs[0] * inputs[1]) + inputs[2];
+            // Madd merges tags
+            EXPECT_EQ(d_ct.get_origin_tag(), first_second_third_merged_tag);
+
+            fq expected = (a_native * b_native) + c_native;
             expected = expected.from_montgomery_form();
-            uint512_t result = d.get_value();
+            uint512_t result = d_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -273,52 +291,103 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 1;
         const size_t number_of_madds = 16;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq mul_left_values[number_of_madds];
-            fq mul_right_values[number_of_madds];
-            fq to_add_values[number_of_madds];
+            // Get random witnesses for the multiplicands and the to_add values
+            auto [mul_left_native, mul_left_ct] =
+                get_random_witnesses(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
+            auto [mul_right_native, mul_right_ct] =
+                get_random_witnesses(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
+            auto [to_add_native, to_add_ct] =
+                get_random_witnesses(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
 
-            fq expected(0);
+            // Set the origin tags of the last multiplicands and summand
+            mul_left_ct[number_of_madds - 1].set_origin_tag(submitted_value_origin_tag);
+            mul_right_ct[number_of_madds - 1].set_origin_tag(challenge_origin_tag);
+            to_add_ct[number_of_madds - 1].set_origin_tag(next_challenge_tag);
 
-            std::vector<fq_ct> mul_left;
-            std::vector<fq_ct> mul_right;
-            std::vector<fq_ct> to_add;
-            mul_left.reserve(number_of_madds);
-            mul_right.reserve(number_of_madds);
-            to_add.reserve(number_of_madds);
-            for (size_t j = 0; j < number_of_madds; j++) {
-                mul_left_values[j] = fq::random_element();
-                mul_right_values[j] = fq::random_element();
-                expected += mul_left_values[j] * mul_right_values[j];
-                mul_left.emplace_back(
-                    fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_left_values[j]))));
-                mul_right.emplace_back(
-                    fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_right_values[j]))));
-                to_add_values[j] = fq::random_element();
-                expected += to_add_values[j];
-                to_add.emplace_back(
-                    fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(to_add_values[j]))));
-
-                // Since this test uses  create_from_u512_as_witness, the tags are set to free_witness_tag
-                // We need to unset them so that we can test the tag propagation logic without interference
-                mul_left[j].unset_free_witness_tag();
-                mul_right[j].unset_free_witness_tag();
-                to_add[j].unset_free_witness_tag();
-            }
-            mul_left[number_of_madds - 1].set_origin_tag(submitted_value_origin_tag);
-            mul_right[number_of_madds - 1].set_origin_tag(challenge_origin_tag);
-            to_add[number_of_madds - 1].set_origin_tag(next_challenge_tag);
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct f = fq_ct::mult_madd(mul_left, mul_right, to_add);
-            // mult_madd merges tags
-            EXPECT_EQ(f.get_origin_tag(), first_second_third_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            fq_ct f_ct;
             if (i == num_repetitions - 1) {
-                std::cerr << "num gates with mult_madd = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "MULT_MADD", "Gate Count", after - before);
+                BENCH_GATE_COUNT_START(builder, "MULT_MADD");
+                f_ct = fq_ct::mult_madd(mul_left_ct, mul_right_ct, to_add_ct);
+                BENCH_GATE_COUNT_END(builder, "MULT_MADD");
+            } else {
+                f_ct = fq_ct::mult_madd(mul_left_ct, mul_right_ct, to_add_ct);
             }
 
+            // mult_madd merges tags
+            EXPECT_EQ(f_ct.get_origin_tag(), first_second_third_merged_tag);
+
+            // Compute expected value
+            fq expected(0);
+            for (size_t j = 0; j < number_of_madds; j++) {
+                expected += mul_left_native[j] * mul_right_native[j];
+                expected += to_add_native[j];
+            }
             expected = expected.from_montgomery_form();
-            uint512_t result = f.get_value();
+            uint512_t result = f_ct.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+        if (builder.failed()) {
+            info("Builder failed with error: ", builder.err());
+        };
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_mult_madd_with_constants()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 1;
+        const size_t number_of_madds = 16;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            // Multiplicands are constants
+            auto [mul_left_native, mul_left_ct] =
+                get_random_constants(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
+            auto [mul_right_native, mul_right_ct] =
+                get_random_constants(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
+
+            // Set tags of the multiplicands
+            for (size_t j = 0; j < number_of_madds; j++) {
+                mul_left_ct[j].set_origin_tag(submitted_value_origin_tag);
+                mul_right_ct[j].set_origin_tag(challenge_origin_tag);
+            }
+
+            // to_add (summands) are witnesses
+            auto [to_add_native, to_add_ct] =
+                get_random_witnesses(&builder, number_of_madds); // std::vector<fq>, std::vector<fq_ct>
+
+            fq_ct f_ct;
+            if (i == num_repetitions - 1) {
+                BENCH_GATE_COUNT_START(builder, "MULT_MADD");
+                f_ct = fq_ct::mult_madd(mul_left_ct, mul_right_ct, to_add_ct);
+                BENCH_GATE_COUNT_END(builder, "MULT_MADD");
+            } else {
+                f_ct = fq_ct::mult_madd(mul_left_ct, mul_right_ct, to_add_ct);
+            }
+
+            // result might not be reduced, so we need to reduce it
+            f_ct.self_reduce();
+
+            // mult_madd merges tags
+            EXPECT_EQ(f_ct.get_origin_tag(), first_two_merged_tag);
+
+            // Compute expected value
+            fq expected(0);
+            for (size_t j = 0; j < number_of_madds; j++) {
+                expected += mul_left_native[j] * mul_right_native[j];
+                expected += to_add_native[j];
+            }
+            // Reduce the expected value to match the circuit's reduction
+            expected = expected.reduce_once().reduce_once();
+            expected = expected.from_montgomery_form();
+            uint512_t result = f_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -417,40 +486,31 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[5]{ -1, -2, -3, -4, -5 };
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [d_native, d_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [e_native, e_ct] = get_random_witness(&builder); // fq, fq_ct
 
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            d_ct.set_origin_tag(challenge_origin_tag);
+            e_ct.set_origin_tag(next_challenge_tag);
 
-            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct e(witness_ct(&builder, fr(uint256_t(inputs[4]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[4]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-            a.set_origin_tag(submitted_value_origin_tag);
-            d.set_origin_tag(challenge_origin_tag);
-            e.set_origin_tag(next_challenge_tag);
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct f = fq_ct::dual_madd(a, b, c, d, { e });
-            // dual_madd merges tags
-            EXPECT_EQ(f.get_origin_tag(), first_second_third_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            fq_ct f_ct;
             if (i == num_repetitions - 1) {
-                std::cerr << "num gates per mul = " << after - before << std::endl;
+                BENCH_GATE_COUNT_START(builder, "DUAL_MADD");
+                f_ct = fq_ct::dual_madd(a_ct, b_ct, c_ct, d_ct, { e_ct });
+                BENCH_GATE_COUNT_END(builder, "DUAL_MADD");
+            } else {
+                f_ct = fq_ct::dual_madd(a_ct, b_ct, c_ct, d_ct, { e_ct });
             }
 
-            fq expected = (inputs[0] * inputs[1]) + (inputs[2] * inputs[3]) + inputs[4];
+            // dual_madd merges tags
+            EXPECT_EQ(f_ct.get_origin_tag(), first_second_third_merged_tag);
+
+            fq expected = (a_native * b_native) + (c_native * d_native) + e_native;
             expected = expected.from_montgomery_form();
-            uint512_t result = f.get_value();
+            uint512_t result = f_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -473,30 +533,28 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            inputs[0] = inputs[0].reduce_once().reduce_once();
-            inputs[1] = inputs[1].reduce_once().reduce_once();
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            a.set_origin_tag(submitted_value_origin_tag);
-            b.set_origin_tag(challenge_origin_tag);
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct c = a / b;
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            // We need reduced inputs for division.
+            auto [a_native, a_ct] = get_random_witness(&builder, true); // reduced fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder, true); // reduced fq, fq_ct
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            b_ct.set_origin_tag(challenge_origin_tag);
+
+            fq_ct c_ct;
             if (i == num_repetitions - 1) {
-                std::cout << "num gates per div = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV", "Gate Count", after - before);
+                BENCH_GATE_COUNT_START(builder, "DIV");
+                c_ct = a_ct / b_ct;
+                BENCH_GATE_COUNT_END(builder, "DIV");
+            } else {
+                c_ct = a_ct / b_ct;
             }
 
-            fq expected = (inputs[0] / inputs[1]);
+            // Division merges tags
+            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
+
+            fq expected = (a_native / b_native);
             expected = expected.reduce_once().reduce_once();
             expected = expected.from_montgomery_form();
-            uint512_t result = c.get_value();
+            uint512_t result = c_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -516,32 +574,30 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            inputs[0] = inputs[0].reduce_once().reduce_once();
-            inputs[1] = inputs[1].reduce_once().reduce_once();
-            inputs[2] = inputs[2].reduce_once().reduce_once();
+            auto [a_native, a_ct] = get_random_witness(&builder, true);  // reduced fq, fq_ct
+            auto [b_native, b_ct] = get_random_constant(&builder, true); // reduced fq, fq_ct
+            auto [c_native, c_ct] = get_random_constant(&builder, true); // reduced fq, fq_ct
+            a_ct.set_origin_tag(submitted_value_origin_tag);
+            b_ct.set_origin_tag(challenge_origin_tag);
+            c_ct.set_origin_tag(next_challenge_tag);
 
-            // numerator is witness, denominator is constant
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(&builder, uint256_t(inputs[1]));
-
-            a.set_origin_tag(submitted_value_origin_tag);
-            b.set_origin_tag(challenge_origin_tag);
-            uint64_t before = builder.get_estimated_num_finalized_gates();
-            fq_ct c = a / b;
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            // numerator is witness and denominator is constant.
+            fq_ct d_ct;
             if (i == num_repetitions - 1) {
-                std::cout << "num gates per div of witness/constant = " << after - before << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV_CONSTANT", "Gate Count", after - before);
+                BENCH_GATE_COUNT_START(builder, "DIV_WIT_BY_CONST");
+                d_ct = a_ct / b_ct;
+                BENCH_GATE_COUNT_END(builder, "DIV_WIT_BY_CONST");
+            } else {
+                d_ct = a_ct / b_ct;
             }
 
-            fq expected = (inputs[0] / inputs[1]);
+            // Division merges tags
+            EXPECT_EQ(d_ct.get_origin_tag(), first_two_merged_tag);
+
+            fq expected = (a_native / b_native);
             expected = expected.reduce_once().reduce_once();
             expected = expected.from_montgomery_form();
-            uint512_t result = c.get_value();
+            uint512_t result = d_ct.get_value();
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -553,21 +609,22 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(result.hi.data[3], 0ULL);
 
             // numerator is constant, denominator is witness
-            fq_ct e(&builder, uint256_t(inputs[2]));
-            e.set_origin_tag(challenge_origin_tag);
-            uint64_t before_e = builder.get_estimated_num_finalized_gates();
-            fq_ct d = e / a;
-            EXPECT_EQ(d.get_origin_tag(), first_two_merged_tag);
-            uint64_t after_e = builder.get_estimated_num_finalized_gates();
+            fq_ct e_ct;
             if (i == num_repetitions - 1) {
-                std::cout << "num gates per div of constant/witness = " << after_e - before_e << std::endl;
-                benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV_CONSTANT", "Gate Count", after_e - before_e);
+                BENCH_GATE_COUNT_START(builder, "DIV_CONST_BY_WIT");
+                e_ct = c_ct / a_ct;
+                BENCH_GATE_COUNT_END(builder, "DIV_CONST_BY_WIT");
+            } else {
+                e_ct = c_ct / a_ct;
             }
 
-            fq expected_e = (inputs[2] / inputs[0]);
+            // Division merges tags
+            EXPECT_EQ(e_ct.get_origin_tag(), first_and_third_merged_tag);
+
+            fq expected_e = (c_native / a_native);
             expected_e = expected_e.reduce_once().reduce_once();
             expected_e = expected_e.from_montgomery_form();
-            uint512_t result_e = d.get_value();
+            uint512_t result_e = e_ct.get_value();
 
             EXPECT_EQ(result_e.lo.data[0], expected_e.data[0]);
             EXPECT_EQ(result_e.lo.data[1], expected_e.data[1]);
@@ -587,26 +644,19 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element() };
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            b.set_origin_tag(submitted_value_origin_tag);
-            c.set_origin_tag(challenge_origin_tag);
-            d.set_origin_tag(next_challenge_tag);
-            fq_ct e = (a + b) / (c + d);
+
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [d_native, d_ct] = get_random_witness(&builder); // fq, fq_ct
+            b_ct.set_origin_tag(submitted_value_origin_tag);
+            c_ct.set_origin_tag(challenge_origin_tag);
+            d_ct.set_origin_tag(next_challenge_tag);
+
+            fq_ct e = (a_ct + b_ct) / (c_ct + d_ct);
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
 
-            fq expected = (inputs[0] + inputs[1]) / (inputs[2] + inputs[3]);
+            fq expected = (a_native + b_native) / (c_native + d_native);
             expected = expected.reduce_once().reduce_once();
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
@@ -629,29 +679,19 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
 
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [d_native, d_ct] = get_random_witness(&builder); // fq, fq_ct
+            b_ct.set_origin_tag(submitted_value_origin_tag);
+            c_ct.set_origin_tag(challenge_origin_tag);
+            d_ct.set_origin_tag(next_challenge_tag);
 
-            b.set_origin_tag(submitted_value_origin_tag);
-            c.set_origin_tag(challenge_origin_tag);
-            d.set_origin_tag(next_challenge_tag);
-
-            fq_ct e = (a + b) * (c + d);
+            fq_ct e = (a_ct + b_ct) * (c_ct + d_ct);
 
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
-            fq expected = (inputs[0] + inputs[1]) * (inputs[2] + inputs[3]);
+            fq expected = (a_native + b_native) * (c_native + d_native);
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
 
@@ -673,25 +713,18 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[2]{ fq::random_element(), fq::random_element() };
-            uint256_t constants[2]{ engine.get_random_uint256() % fq_ct::modulus,
-                                    engine.get_random_uint256() % fq_ct::modulus };
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(&builder, constants[0]);
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct d(&builder, constants[1]);
-            b.set_origin_tag(submitted_value_origin_tag);
-            c.set_origin_tag(challenge_origin_tag);
-            d.set_origin_tag(next_challenge_tag);
+            auto [a_native, a_ct] = get_random_witness(&builder);  // fq, fq_ct
+            auto [b_native, b_ct] = get_random_constant(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder);  // fq, fq_ct
+            auto [d_native, d_ct] = get_random_constant(&builder); // fq, fq_ct
+            b_ct.set_origin_tag(submitted_value_origin_tag);
+            c_ct.set_origin_tag(challenge_origin_tag);
+            d_ct.set_origin_tag(next_challenge_tag);
 
-            fq_ct e = (a + b) * (c + d);
+            fq_ct e = (a_ct + b_ct) * (c_ct + d_ct);
 
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
-            fq expected = (inputs[0] + constants[0]) * (inputs[1] + constants[1]);
+            fq expected = (a_native + b_native) * (c_native + d_native);
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
 
@@ -713,29 +746,18 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [d_native, d_ct] = get_random_witness(&builder); // fq, fq_ct
+            b_ct.set_origin_tag(submitted_value_origin_tag);
+            c_ct.set_origin_tag(challenge_origin_tag);
+            d_ct.set_origin_tag(next_challenge_tag);
 
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-            b.set_origin_tag(submitted_value_origin_tag);
-            c.set_origin_tag(challenge_origin_tag);
-            d.set_origin_tag(next_challenge_tag);
-
-            fq_ct e = (a - b) * (c - d);
+            fq_ct e = (a_ct - b_ct) * (c_ct - d_ct);
 
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
-            fq expected = (inputs[0] - inputs[1]) * (inputs[2] - inputs[3]);
+            fq expected = (a_native - b_native) * (c_native - d_native);
 
             expected = expected.from_montgomery_form();
             uint512_t result = e.get_value();
@@ -758,22 +780,18 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 8;
         for (size_t i = 0; i < num_repetitions; ++i) {
             auto builder = Builder();
-            auto [mul_l, mul_l_ct] = get_random_element(&builder);
-            auto [mul_r1, mul_r1_ct] = get_random_element(&builder);
-            auto [mul_r2, mul_r2_ct] = get_random_element(&builder);
-            auto [divisor1, divisor1_ct] = get_random_element(&builder);
-            auto [divisor2, divisor2_ct] = get_random_element(&builder);
-            auto [to_sub1, to_sub1_ct] = get_random_element(&builder);
-            auto [to_sub2, to_sub2_ct] = get_random_element(&builder);
+            auto [mul_l, mul_l_ct] = get_random_witness(&builder);
+            auto [mul_r1, mul_r1_ct] = get_random_witness(&builder);
+            auto [mul_r2, mul_r2_ct] = get_random_witness(&builder);
+            auto [divisor1, divisor1_ct] = get_random_witness(&builder);
+            auto [divisor2, divisor2_ct] = get_random_witness(&builder);
+            auto [to_sub1, to_sub1_ct] = get_random_witness(&builder);
+            auto [to_sub2, to_sub2_ct] = get_random_witness(&builder);
 
             mul_l_ct.set_origin_tag(submitted_value_origin_tag);
             mul_r1_ct.set_origin_tag(challenge_origin_tag);
             divisor1_ct.set_origin_tag(next_submitted_value_origin_tag);
             to_sub1_ct.set_origin_tag(next_challenge_tag);
-
-            mul_r2_ct.unset_free_witness_tag();
-            divisor2_ct.unset_free_witness_tag();
-            to_sub2_ct.unset_free_witness_tag();
 
             fq_ct result_ct = fq_ct::msub_div(
                 { mul_l_ct }, { mul_r1_ct - mul_r2_ct }, divisor1_ct - divisor2_ct, { to_sub1_ct, to_sub2_ct });
@@ -793,24 +811,18 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            a_ct.set_origin_tag(submitted_value_origin_tag);
 
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-            a.set_origin_tag(submitted_value_origin_tag);
-
-            typename bn254::bool_ct predicate_a(witness_ct(&builder, true));
-
+            bool_ct predicate_a(witness_ct(&builder, true));
             predicate_a.set_origin_tag(challenge_origin_tag);
 
-            fq_ct c = a.conditional_negate(predicate_a);
+            fq_ct c = a_ct.conditional_negate(predicate_a);
 
             // Conditional negate merges tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-            fq_ct d = a.conditional_negate(!predicate_a);
+            fq_ct d = a_ct.conditional_negate(!predicate_a);
             fq_ct e = c + d;
             uint512_t c_out = c.get_value();
             uint512_t d_out = d.get_value();
@@ -820,8 +832,8 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq result_d(d_out.lo);
             fq result_e(e_out.lo);
 
-            fq expected_c = (-inputs[0]);
-            fq expected_d = inputs[0];
+            fq expected_c = (-a_native);
+            fq expected_d = a_native;
 
             EXPECT_EQ(result_c, expected_c);
             EXPECT_EQ(result_d, expected_d);
@@ -851,13 +863,15 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq_ct y2(
                 witness_ct(&builder, fr(uint256_t(P2.y).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                 witness_ct(&builder, fr(uint256_t(P2.y).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            uint64_t before = builder.get_estimated_num_finalized_gates();
 
+            uint64_t before = builder.get_estimated_num_finalized_gates();
             fq_ct lambda = (y2 - y1) / (x2 - x1);
             fq_ct x3 = lambda.sqr() - (x2 + x1);
             fq_ct y3 = (x1 - x3) * lambda - y1;
             uint64_t after = builder.get_estimated_num_finalized_gates();
             std::cerr << "added gates = " << after - before << std::endl;
+
+            // Check the result against the native group addition
             g1::affine_element P3(g1::element(P1) + g1::element(P2));
             fq expected_x = P3.x;
             fq expected_y = P3.y;
@@ -883,31 +897,25 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
 
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
-
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-            fq_ct c = a;
-            fq expected = inputs[0];
+            fq_ct c_ct = a_ct;
+            fq expected = a_native;
             for (size_t i = 0; i < 16; ++i) {
-                c = b * b + c;
-                expected = inputs[1] * inputs[1] + expected;
+                c_ct = b_ct * b_ct + c_ct;
+                expected = b_native * b_native + expected;
             }
 
-            c.set_origin_tag(challenge_origin_tag);
-            // fq_ct c = a + a + a + a - b - b - b - b;
-            c.self_reduce();
+            c_ct.set_origin_tag(challenge_origin_tag);
+            c_ct.self_reduce();
+
             // self_reduce preserves tags
-            EXPECT_EQ(c.get_origin_tag(), challenge_origin_tag);
-            fq result = fq(c.get_value().lo);
+            EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
+
+            fq result = fq(c_ct.get_value().lo);
             EXPECT_EQ(result, expected);
-            EXPECT_EQ(c.get_value().get_msb() < 254, true);
+            EXPECT_EQ(c_ct.get_value().get_msb() < 254, true);
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -919,26 +927,25 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
 
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-            fq_ct c = a;
-            fq expected = inputs[0];
+            fq_ct c_ct = a_ct;
+            fq expected = a_native;
             for (size_t i = 0; i < 16; ++i) {
-                c = b * b + c;
-                expected = inputs[1] * inputs[1] + expected;
+                c_ct = b_ct * b_ct + c_ct;
+                expected = b_native * b_native + expected;
             }
-            // fq_ct c = a + a + a + a - b - b - b - b;
-            c.assert_is_in_field();
-            uint256_t result = (c.get_value().lo);
+
+            c_ct.set_origin_tag(challenge_origin_tag);
+            c_ct.assert_is_in_field();
+
+            // assert_is_in_field preserves tags
+            EXPECT_EQ(c_ct.get_origin_tag(), challenge_origin_tag);
+
+            uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
-            EXPECT_EQ(c.get_value().get_msb() < 254, true);
+            EXPECT_EQ(c_ct.get_value().get_msb() < 254, true);
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -952,42 +959,36 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         constexpr uint256_t bit_mask = (uint256_t(1) << num_bits) - 1;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
-            fq inputs[4]{ uint256_t(fq::random_element()) && bit_mask,
-                          uint256_t(fq::random_element()) && bit_mask,
-                          uint256_t(fq::random_element()) && bit_mask,
-                          uint256_t(fq::random_element()) && bit_mask };
+            uint256_t a_u256 = uint256_t(fq::random_element()) && bit_mask;
+            uint256_t b_u256 = uint256_t(fq::random_element()) && bit_mask;
 
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct a_ct(witness_ct(&builder, fr(a_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(a_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct b_ct(witness_ct(&builder, fr(b_u256.slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                       witness_ct(&builder, fr(b_u256.slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
-            fq_ct c = a;
-            fq expected = inputs[0];
+            fq_ct c_ct = a_ct;
+            fq expected = fq(a_u256);
             for (size_t i = 0; i < 16; ++i) {
-                c = b * b + c;
-                expected = inputs[1] * inputs[1] + expected;
+                c_ct = b_ct * b_ct + c_ct;
+                expected = fq(b_u256) * fq(b_u256) + expected;
             }
-            // fq_ct c = a + a + a + a - b - b - b - b;
-            c.assert_less_than(bit_mask + 1);
-            uint256_t result = (c.get_value().lo);
+
+            c_ct.assert_less_than(bit_mask + 1);
+            uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
-            EXPECT_EQ(c.get_value().get_msb() < num_bits, true);
+            EXPECT_EQ(c_ct.get_value().get_msb() < num_bits, true);
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
-        // Checking edge conditions
-        fq random_input = fq::random_element();
-        fq_ct a(witness_ct(&builder, fr(uint256_t(random_input).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                witness_ct(&builder,
-                           fr(uint256_t(random_input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
 
-        a.assert_less_than(random_input + 1);
+        // Checking edge conditions
+        auto [random_input, a_ct] = get_random_witness(&builder);
+
+        a_ct.assert_less_than(random_input + 1);
         EXPECT_EQ(CircuitChecker::check(builder), true);
 
-        a.assert_less_than(random_input);
+        a_ct.assert_less_than(random_input);
         EXPECT_EQ(CircuitChecker::check(builder), false);
     }
 
@@ -997,11 +998,13 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+            fq a_native = fq::random_element();
+            fq b_native = fq::random_element();
+
             std::vector<uint8_t> input_a(sizeof(fq));
-            fq::serialize_to_buffer(inputs[0], &input_a[0]);
+            fq::serialize_to_buffer(a_native, &input_a[0]);
             std::vector<uint8_t> input_b(sizeof(fq));
-            fq::serialize_to_buffer(inputs[1], &input_b[0]);
+            fq::serialize_to_buffer(b_native, &input_b[0]);
 
             stdlib::byte_array<Builder> input_arr_a(&builder, input_a);
             stdlib::byte_array<Builder> input_arr_b(&builder, input_b);
@@ -1009,15 +1012,15 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             input_arr_a.set_origin_tag(submitted_value_origin_tag);
             input_arr_b.set_origin_tag(challenge_origin_tag);
 
-            fq_ct a(input_arr_a);
-            fq_ct b(input_arr_b);
+            fq_ct a_ct(input_arr_a);
+            fq_ct b_ct(input_arr_b);
 
-            fq_ct c = a * b;
+            fq_ct c_ct = a_ct * b_ct;
 
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            EXPECT_EQ(c_ct.get_origin_tag(), first_two_merged_tag);
 
-            fq expected = inputs[0] * inputs[1];
-            uint256_t result = (c.get_value().lo);
+            fq expected = a_native * b_native;
+            uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
         }
         bool result = CircuitChecker::check(builder);
@@ -1073,7 +1076,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq b(1);
         fq_ct a_ct(&builder, a);
         fq_ct b_ct(&builder, b);
-        fq_ct selected = a_ct.conditional_select(b_ct, typename bn254::bool_ct(&builder, true));
+        fq_ct selected = a_ct.conditional_select(b_ct, bool_ct(&builder, true));
         EXPECT_EQ(fq((selected.get_value() % uint512_t(bb::fq::modulus)).lo), b);
     }
 
@@ -1104,33 +1107,22 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         auto builder = Builder();
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
-            fq inputs[4]{ fq::random_element(), fq::random_element(), fq::random_element(), fq::random_element() };
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_witness(&builder); // fq, fq_ct
+            auto [d_native, d_ct] = get_random_witness(&builder); // fq, fq_ct
 
-            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct b(witness_ct(&builder, fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct c(witness_ct(&builder, fr(uint256_t(inputs[2]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            fq_ct d(witness_ct(&builder, fr(uint256_t(inputs[3]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                    witness_ct(&builder,
-                               fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-
-            fq_ct two = fq_ct::unsafe_construct_from_limbs(witness_ct(&builder, fr(2)),
-                                                           witness_ct(&builder, fr(0)),
-                                                           witness_ct(&builder, fr(0)),
-                                                           witness_ct(&builder, fr(0)));
-            fq_ct t0 = a + a;
-            fq_ct t1 = a * two;
+            fq_ct two_ct = fq_ct::unsafe_construct_from_limbs(witness_ct(&builder, fr(2)),
+                                                              witness_ct(&builder, fr(0)),
+                                                              witness_ct(&builder, fr(0)),
+                                                              witness_ct(&builder, fr(0)));
+            fq_ct t0 = a_ct + a_ct;
+            fq_ct t1 = a_ct * two_ct;
 
             t0.assert_equal(t1);
-            t0.assert_is_not_equal(c);
-            t0.assert_is_not_equal(d);
+            t0.assert_is_not_equal(c_ct);
+            t0.assert_is_not_equal(d_ct);
             stdlib::bool_t<Builder> is_equal_a = t0 == t1;
-            stdlib::bool_t<Builder> is_equal_b = t0 == c;
+            stdlib::bool_t<Builder> is_equal_b = t0 == c_ct;
             EXPECT_TRUE(is_equal_a.get_value());
             EXPECT_FALSE(is_equal_b.get_value());
         }
@@ -1147,10 +1139,10 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         // Set the high bit
         exponent_val |= static_cast<uint32_t>(1) << 31;
         fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
-        auto base_witness = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_witness_ct = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
         // This also tests for the case where the exponent is zero
         for (size_t i = 0; i <= 32; i += 4) {
-            auto current_exponent_val = exponent_val >> i;
+            uint32_t current_exponent_val = exponent_val >> i;
             fq expected = base_val.pow(current_exponent_val);
 
             // Check for constant bigfield element with constant exponent
@@ -1158,10 +1150,10 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             EXPECT_EQ(fq(result_constant_base.get_value()), expected);
 
             // Check for witness base with constant exponent
-            fq_ct result_witness_base = base_witness.pow(current_exponent_val);
+            fq_ct result_witness_base = base_witness_ct.pow(current_exponent_val);
             EXPECT_EQ(fq(result_witness_base.get_value()), expected);
 
-            base_witness.set_origin_tag(submitted_value_origin_tag);
+            base_witness_ct.set_origin_tag(submitted_value_origin_tag);
         }
 
         bool check_result = CircuitChecker::check(builder);
@@ -1175,16 +1167,16 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fq base_val(engine.get_random_uint256());
 
         uint32_t current_exponent_val = 1;
-        fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
-        auto base_witness = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_constant_ct(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_witness_ct = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
         fq expected = base_val.pow(current_exponent_val);
 
         // Check for constant bigfield element with constant exponent
-        fq_ct result_constant_base = base_constant.pow(current_exponent_val);
+        fq_ct result_constant_base = base_constant_ct.pow(current_exponent_val);
         EXPECT_EQ(fq(result_constant_base.get_value()), expected);
 
         // Check for witness base with constant exponent
-        fq_ct result_witness_base = base_witness.pow(current_exponent_val);
+        fq_ct result_witness_base = base_witness_ct.pow(current_exponent_val);
         EXPECT_EQ(fq(result_witness_base.get_value()), expected);
 
         bool check_result = CircuitChecker::check(builder);
@@ -1302,6 +1294,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         (void)w2;
         EXPECT_TRUE(CircuitChecker::check(builder));
     }
+
     static void test_assert_not_equal_regression()
     {
         auto builder = Builder();

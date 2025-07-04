@@ -19,6 +19,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
+import EventEmitter from 'events';
 
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
@@ -35,7 +36,7 @@ import type { PubSubLibp2p } from '../util.js';
 // Simple mock implementation
 function mockTxPool(): TxPool {
   // Mock all methods
-  return {
+  const pool: Omit<TxPool, keyof EventEmitter> = {
     isEmpty: () => Promise.resolve(false),
     addTxs: () => Promise.resolve(1),
     getTxByHash: () => Promise.resolve(undefined),
@@ -54,6 +55,7 @@ function mockTxPool(): TxPool {
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
   };
+  return Object.assign(new EventEmitter(), pool);
 }
 
 function mockAttestationPool(): AttestationPool {
@@ -84,6 +86,7 @@ function mockEpochCache(): EpochCacheInterface {
       }),
     getEpochAndSlotInNextL1Slot: () => ({ epoch: 0n, slot: 0n, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
+    filterInCommittee: () => Promise.resolve([]),
   };
 }
 
@@ -204,6 +207,7 @@ process.on('message', async msg => {
         worldState,
         epochCache,
         'test-p2p-bench-worker',
+        undefined,
         telemetry,
         deps,
       );

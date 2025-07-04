@@ -14,30 +14,27 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Token {
     // Libs
-    use std::ops::{Add, Sub};
+    use std::{meta::ctstring::AsCtString, ops::{Add, Sub}};
 
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        context::{PrivateCallInterface, PrivateContext},
+        context::{PrivateCallInterface, PrivateContext, PublicContext},
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
-            functions::{initializer, internal, private, public, utility, view},
+            functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
         messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-    use aztec::protocol_types::traits::ToField;
+    use aztec::protocol_types::{address::AztecAddress, traits::ToField};
 
     // docs:start:import_authwit
-    use aztec::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-        compute_authwit_nullifier,
-    };
+    use aztec::authwit::auth::compute_authwit_nullifier;
     // docs:end:import_authwit
 
     use crate::types::balance_set::BalanceSet;
@@ -201,6 +198,7 @@ pub contract Token {
     // docs:end:mint_to_public
 
     // docs:start:transfer_in_public
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_in_public(
         from: AztecAddress,
@@ -208,11 +206,6 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
         let to_balance = storage.public_balances.at(to).read().add(amount);
@@ -221,15 +214,11 @@ pub contract Token {
     // docs:end:transfer_in_public
 
     // docs:start:burn_public
+    // docs:start:authorize_once_public
+    #[authorize_once("from", "authwit_nonce")]
+    // docs:end:authorize_once_public
     #[public]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        // docs:start:assert_current_call_valid_authwit_public
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-        // docs:end:assert_current_call_valid_authwit_public
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
         let new_supply = storage.total_supply.read().sub(amount);
@@ -238,6 +227,7 @@ pub contract Token {
     // docs:end:burn_public
 
     // docs:start:transfer_to_public
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public(
         from: AztecAddress,
@@ -245,12 +235,6 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,
             from,
@@ -274,6 +258,7 @@ pub contract Token {
     ///
     /// The contract can use the returned partial note to complete the transfer back to private
     /// once the final amount is known during public execution.
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer_to_public_and_prepare_private_balance_increase(
         from: AztecAddress,
@@ -281,12 +266,6 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) -> PartialUintNote {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,
             from,
@@ -406,6 +385,9 @@ pub contract Token {
     // docs:end:cancel_authwit
 
     // docs:start:transfer_in_private
+    // docs:start:authorize_once
+    #[authorize_once("from", "authwit_nonce")]
+    // docs:end:authorize_once
     #[private]
     fn transfer_in_private(
         from: AztecAddress,
@@ -413,14 +395,6 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        // docs:start:assert_current_call_valid_authwit
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-        // docs:end:assert_current_call_valid_authwit
-
         // docs:start:increase_private_balance
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,
@@ -433,13 +407,9 @@ pub contract Token {
     // docs:end:transfer_in_private
 
     // docs:start:burn_private
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,
             from,
@@ -535,6 +505,7 @@ pub contract Token {
     /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
     /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
     /// to find the pending partial note when trying to complete it).
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn finalize_transfer_to_private_from_private(
         from: AztecAddress,
@@ -542,12 +513,6 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
-
         // First we subtract the `amount` from the private balance of `from`
         storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
             &mut context,

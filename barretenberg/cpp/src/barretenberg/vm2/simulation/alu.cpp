@@ -7,10 +7,19 @@ namespace bb::avm2::simulation {
 
 MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
 {
-    // TODO: check types and tags and propagate.
-    MemoryValue c = a + b;
-
-    events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
+    MemoryValue c = MemoryValue::from_tag(a.get_tag(), 0); // Initialize c with the same tag as a
+    try {
+        if (a.get_tag() != b.get_tag()) {
+            throw AluError::TAG_ERROR;
+        }
+        // TODO(MW): Apart from tags, how can the below fail and how to catch/assign the errors?
+        c = a + b;
+        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
+    } catch (const AluError& e) {
+        debug("ALU operation failed: ", to_string(e));
+        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c, .error = e });
+        throw AluException();
+    }
     return c;
 }
 

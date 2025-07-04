@@ -989,7 +989,7 @@ template <typename Builder> class FieldBase {
             switch (VarianceRNG.next() % 9) {
             case 0:
 #ifdef SHOW_INFORMATION
-                std::cout << "Construct via bit_array" << std::endl;
+                std::cout << "Construct via field_t" << std::endl;
 #endif
                 return ExecutionHandler(this->base, field_t(this->field));
             case 1:

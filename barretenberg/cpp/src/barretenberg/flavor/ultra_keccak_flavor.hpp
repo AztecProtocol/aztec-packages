@@ -109,14 +109,14 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
          */
         void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
         {
-            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): The rest is commented out because the
             // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a
             // followup PR.
             // for (const Commitment& commitment : this->get_all()) {
-            //     transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+            //     transcript->add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
             // }
         }
 

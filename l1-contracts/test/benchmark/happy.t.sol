@@ -72,7 +72,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -173,8 +173,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     rollup = builder.getConfig().rollup;
     slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
 
-    rollup.preheatHeaders();
-
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
     uint96[] memory amounts = new uint96[](0);
@@ -222,8 +220,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
@@ -251,8 +247,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       header: header,
       archive: archiveRoot,
       stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
-      txHashes: txHashes
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier})
     });
 
     CommitteeAttestation[] memory attestations;
@@ -268,8 +263,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         archive: proposeArgs.archive,
         stateReference: proposeArgs.stateReference,
         oracleInput: proposeArgs.oracleInput,
-        headerHash: headerHash,
-        txHashes: proposeArgs.txHashes
+        headerHash: headerHash
       });
 
       bytes32 digest = ProposeLib.digest(proposePayload);

@@ -37,12 +37,12 @@ export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRa
 
 /**
  * The response from the ReqResp protocol
- * Consists of a status (Error code) and data
+ * Consists of a status
+ * And, optionally, a data buffer (in case status is SUCCESS)
  */
-export interface ReqRespResponse {
-  status: ReqRespStatus;
-  data: Buffer;
-}
+export type ReqRespResponse =
+  | { status: ReqRespStatus.SUCCESS; data: Buffer }
+  | { status: Exclude<ReqRespStatus, ReqRespStatus.SUCCESS> };
 
 /**
  * A rate limit quota
@@ -99,7 +99,10 @@ export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
  * Req Resp protocol
  */
 export type SubProtocolMap = {
-  [S in ReqRespSubProtocol]: RequestResponsePair<any, any>;
+  [S in ReqRespSubProtocol]: RequestResponsePair<
+    InstanceType<(typeof subProtocolMap)[S]['request']>,
+    InstanceType<(typeof subProtocolMap)[S]['response']>
+  >;
 };
 
 /**
@@ -139,6 +142,22 @@ interface RequestResponsePair<Req extends { toBuffer(): Buffer }, Res> {
   };
 }
 
+/*
+ * Small helper function which parses buffer into specific response type
+ * It is needed to make TypeScript happy, as it cannot infer the type from the buffer
+ *
+ * @param proto - The sub protocol to parse the response for
+ * @param buffer - The buffer to parse
+ *
+ * @returns - The parsed response object
+ * */
+export function responseFromBuffer<P extends ReqRespSubProtocol>(
+  proto: P,
+  buffer: Buffer,
+): InstanceType<(typeof subProtocolMap)[P]['response']> {
+  return subProtocolMap[proto].response.fromBuffer(buffer) as InstanceType<(typeof subProtocolMap)[P]['response']>;
+}
+
 /**
  * RequestableBuffer is a wrapper around a buffer that allows it to be
  * used in generic request response protocols
@@ -162,7 +181,7 @@ export class RequestableBuffer {
  * This defines the request and response types for each sub protocol, used primarily
  * as a type rather than an object
  */
-export const subProtocolMap: SubProtocolMap = {
+export const subProtocolMap = {
   [ReqRespSubProtocol.PING]: {
     request: RequestableBuffer,
     response: RequestableBuffer,
@@ -191,10 +210,6 @@ export interface ReqRespInterface {
     subProtocolValidators: ReqRespSubProtocolValidators,
   ): Promise<void>;
   stop(): Promise<void>;
-  sendRequest<SubProtocol extends ReqRespSubProtocol>(
-    subProtocol: SubProtocol,
-    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>;
   sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
     subProtocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],

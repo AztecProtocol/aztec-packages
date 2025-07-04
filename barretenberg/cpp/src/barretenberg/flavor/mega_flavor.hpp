@@ -435,7 +435,6 @@ class MegaFlavor {
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
-        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
@@ -511,21 +510,20 @@ class MegaFlavor {
          */
         void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
         {
-            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
+            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
                                           this->pairing_inputs_public_input_key.start_idx);
             transcript.add_to_hash_buffer(
-                domain_separator + "vkey_app_return_data_commitment_start_idx",
+                domain_separator + "vk_app_return_data_commitment_start_idx",
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
             transcript.add_to_hash_buffer(
-                domain_separator + "vkey_kernel_return_data_commitment_start_idx",
+                domain_separator + "vk_kernel_return_data_commitment_start_idx",
                 this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_is_kernel",
-                                          this->databus_propagation_data.is_kernel);
+            transcript.add_to_hash_buffer(domain_separator + "vk_is_kernel", this->databus_propagation_data.is_kernel);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
         }
 

@@ -932,7 +932,7 @@ export class TXE implements TypedOracle {
 
     await this.addPrivateLogs(
       targetContractAddress,
-      publicInputs.privateLogs.filter(privateLog => !privateLog.isEmpty()).map(privateLog => privateLog.log),
+      publicInputs.privateLogs.getActiveItems().map(privateLog => privateLog.log),
     );
 
     this.setContractAddress(currentContractAddress);
@@ -1382,10 +1382,12 @@ export class TXE implements TypedOracle {
       const { usedTxRequestHashForNonces } = noteCache.finish();
       const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
-      const publicCallRequests = collectNested([executionResult], r => [
-        ...r.publicInputs.publicCallRequests.map(r => r.inner),
-        r.publicInputs.publicTeardownCallRequest,
-      ]).filter(r => !r.isEmpty());
+      const publicCallRequests = collectNested([executionResult], r =>
+        r.publicInputs.publicCallRequests
+          .getActiveItems()
+          .map(r => r.inner)
+          .concat(r.publicInputs.publicTeardownCallRequest.isEmpty() ? [] : [r.publicInputs.publicTeardownCallRequest]),
+      );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
           const calldata = await context.loadFromExecutionCache(r.calldataHash);
@@ -1431,11 +1433,11 @@ export class TXE implements TypedOracle {
 
     const results = await processor.process([tx]);
 
-    const processedTxs = results[0];
+    const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0 || !processedTx.revertCode.isOK()) {
+      throw new Error('Public execution has failed', processedTx.revertReason);
     }
 
     if (isStaticCall) {
@@ -1453,11 +1455,11 @@ export class TXE implements TypedOracle {
 
     const txEffect = TxEffect.empty();
 
-    txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
+    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 

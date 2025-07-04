@@ -7,30 +7,41 @@
 #include "./eccvm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-
-template <typename Flavor>
-ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
-    Builder* builder,
-    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-    const std::shared_ptr<Transcript>& transcript)
+ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
+                                               const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                               const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
     , transcript(transcript)
 {}
 
 /**
- * @brief This function verifies an ECCVM Honk proof for given program settings up to sumcheck.
+ * @brief Creates a circuit that executes the ECCVM verifier algorithm up to IPA verification.
  *
+ * @tparam Flavor
+ * @param proof Native ECCVM proof
  */
-template <typename Flavor>
-std::pair<OpeningClaim<typename Flavor::Curve>, StdlibProof<typename ECCVMRecursiveVerifier_<Flavor>::Builder>>
-ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
+
+ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(const ECCVMProof& proof)
 {
-    using Curve = typename Flavor::Curve;
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof);
+}
+
+/**
+ * @brief Creates a circuit that executes the ECCVM verifier algorithm up to IPA verification.
+ *
+ * @tparam Flavor
+ * @param proof Stdlib ECCVM proof
+ */
+ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(const StdlibProof& proof)
+{
+    using Curve = Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
@@ -40,9 +51,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof.pre_ipa_proof);
-    StdlibProof<Builder> ipa_proof = bb::convert_native_proof_to_stdlib(builder, proof.ipa_proof);
-    transcript->load_proof(stdlib_proof);
+    transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -133,7 +142,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
 
-    return { batch_opening_claim, ipa_proof };
+    return { batch_opening_claim, proof.ipa_proof };
 }
 
 /**
@@ -145,20 +154,18 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
  * @param translation_commitments Commitments to  `op`, `Px`, `Py`, `z1`, and `z2`
  * @return Populate `opening_claims`.
  */
-template <typename Flavor>
-void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
-    const std::vector<Commitment>& translation_commitments)
+void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments)
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
-    using SmallIPA = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
+    using SmallIPA = SmallSubgroupIPAVerifier<Flavor::Curve>;
 
     // Initialize SmallSubgroupIPA structures
     SmallSubgroupIPACommitments<Commitment> small_ipa_commitments;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations;
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> labels = SmallIPA::evaluation_labels("Translation:");
 
-    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of `translation_polynomials`,
-    // Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
+    // Get a commitment to M + Z_H * R, where M is a concatenation of the masking terms of
+    // `translation_polynomials`, Z_H = X^{|H|} - 1, and R is a random degree 2 polynomial
     small_ipa_commitments.concatenated =
         transcript->template receive_from_prover<Commitment>("Translation:concatenated_masking_term_commitment");
 
@@ -221,9 +228,8 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
 
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK}
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size -
+    // NUM_DISABLED_ROWS_IN_SUMCHECK}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
-
-template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb

@@ -190,9 +190,10 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
  * @tparam FF
  * @tparam PrecomputedCommitments
  */
-template <typename Builder, typename PrecomputedCommitments>
+template <typename Builder_, typename PrecomputedCommitments>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
+    using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
@@ -267,16 +268,40 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     virtual void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
     {
-        transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-        transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+        transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+        transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
         FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
         pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx", pairing_points_start_idx);
+        transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx", pairing_points_start_idx);
         for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+            transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
     }
+};
+
+template <typename FF, typename VerificationKey> class VKAndHash_ {
+  public:
+    using Builder = VerificationKey::Builder;
+    using NativeVerificationKey = VerificationKey::NativeVerificationKey;
+
+    VKAndHash_() = default;
+    VKAndHash_(const std::shared_ptr<VerificationKey>& vk)
+        : vk(vk)
+        , hash(vk->hash())
+    {}
+
+    VKAndHash_(const std::shared_ptr<VerificationKey>& vk, const FF& hash)
+        : vk(vk)
+        , hash(hash)
+    {}
+
+    VKAndHash_(Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_vk)
+        : vk(std::make_shared<VerificationKey>(&builder, native_vk))
+        , hash(FF::from_witness(&builder, native_vk->hash()))
+    {}
+    std::shared_ptr<VerificationKey> vk;
+    FF hash;
 };
 
 // Because of how Gemini is written, it is important to put the polynomials out in this order.
@@ -397,14 +422,14 @@ class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
+class ECCVMRecursiveFlavor;
+class TranslatorRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
-template <typename BuilderType> class TranslatorRecursiveFlavor_;
-template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
 namespace avm2 {
 

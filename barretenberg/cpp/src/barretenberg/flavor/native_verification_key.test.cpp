@@ -56,9 +56,9 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     std::vector<fr> vk_field_elements = vk.to_field_elements();
     NativeTranscript transcript;
     for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_hash_buffer("vkey_element", field_element);
+        transcript.add_to_hash_buffer("vk_element", field_element);
     }
-    fr vkey_hash_1 = transcript.get_challenge<fr>("vkey_hash");
+    fr vkey_hash_1 = transcript.get_challenge<fr>("vk_hash");
     // Second method of hashing: using hash().
     fr vkey_hash_2 = vk.hash();
     EXPECT_EQ(vkey_hash_1, vkey_hash_2);
@@ -68,7 +68,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
         // Third method of hashing: using add_to_transcript.
         typename Flavor::Transcript transcript_2;
         vk.add_to_transcript("", transcript_2);
-        fr vkey_hash_3 = transcript_2.template get_challenge<fr>("vkey_hash");
+        fr vkey_hash_3 = transcript_2.template get_challenge<fr>("vk_hash");
         EXPECT_EQ(vkey_hash_2, vkey_hash_3);
     }
 }

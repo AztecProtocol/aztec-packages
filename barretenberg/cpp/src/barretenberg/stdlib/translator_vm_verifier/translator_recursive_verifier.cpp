@@ -16,8 +16,7 @@
 
 namespace bb {
 
-template <typename Flavor>
-TranslatorRecursiveVerifier_<Flavor>::TranslatorRecursiveVerifier_(
+TranslatorRecursiveVerifier::TranslatorRecursiveVerifier(
     Builder* builder,
     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
     const std::shared_ptr<Transcript>& transcript)
@@ -27,10 +26,9 @@ TranslatorRecursiveVerifier_<Flavor>::TranslatorRecursiveVerifier_(
 {}
 
 // Relation params used in sumcheck which is done over FF but the received data is from BF
-template <typename Flavor>
-void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
-                                                                                       const BF& batching_challenge_v,
-                                                                                       const BF& accumulated_result)
+void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
+                                                                              const BF& batching_challenge_v,
+                                                                              const BF& accumulated_result)
 {
 
     const auto compute_four_limbs = [](const BF& in) {
@@ -60,24 +58,46 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
 };
 
 /**
- * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
+ *
+ * @tparam Flavor
+ * @param proof Native proof
+ * @param evaluation_input_x Translation polynomial evaluation challenge
+ * @param batching_challenge_v Challenge for batching translation polynomial evaluations
+ * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
  */
-template <typename Flavor>
-TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
+TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(const HonkProof& proof,
+                                                                                     const BF& evaluation_input_x,
+                                                                                     const BF& batching_challenge_v)
+{
+    StdlibProof stdlib_proof(*builder, proof);
+    return verify_proof(stdlib_proof, evaluation_input_x, batching_challenge_v);
+}
+
+/**
+ * @brief Creates a circuit that executes the Translator verifier algorithm up to the final pairing check.
+ *
+ * @tparam Flavor
+ * @param proof Stdlib proof
+ * @param evaluation_input_x Translation polynomial evaluation challenge
+ * @param batching_challenge_v Challenge for batching translation polynomial evaluations
+ * @return TranslatorRecursiveVerifier_<Flavor>::PairingPoints
+ */
+TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_proof(const StdlibProof& proof,
+                                                                                     const BF& evaluation_input_x,
+                                                                                     const BF& batching_challenge_v)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
-    using PCS = typename Flavor::PCS;
-    using Curve = typename Flavor::Curve;
+    using PCS = Flavor::PCS;
+    using Curve = Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using VerifierCommitments = Flavor::VerifierCommitments;
+    using CommitmentLabels = Flavor::CommitmentLabels;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
-    transcript->load_proof(stdlib_proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -154,9 +174,8 @@ TranslatorRecursiveVerifier_<Flavor>::PairingPoints TranslatorRecursiveVerifier_
     return { pairing_points[0], pairing_points[1] };
 }
 
-template <typename Flavor>
-void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
-    const TranslationEvaluations_<BF>& translation_evaluations, const BF& translation_masking_term_eval)
+void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluations_<BF>& translation_evaluations,
+                                                     const BF& translation_masking_term_eval)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         return BF::construct_from_limbs(arr[0], arr[1], arr[2], arr[3]);
@@ -179,8 +198,7 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_translation(
     eccvm_opening.assert_equal(x * accumulated_result);
 }
 
-template <typename Flavor>
-void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
+void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
     const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
 {
     // Check the consistency with final merge
@@ -202,6 +220,5 @@ void TranslatorRecursiveVerifier_<Flavor>::verify_consistency_with_final_merge(
         merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
     }
 }
-template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 
 } // namespace bb

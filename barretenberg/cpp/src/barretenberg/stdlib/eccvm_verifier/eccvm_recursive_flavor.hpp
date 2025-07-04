@@ -26,9 +26,9 @@
 
 namespace bb {
 
-template <typename BuilderType> class ECCVMRecursiveFlavor_ {
+class ECCVMRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
+    using CircuitBuilder = UltraCircuitBuilder; // determines the arithmetisation of recursive verifier
     using Curve = stdlib::grumpkin<CircuitBuilder>;
     using Commitment = Curve::AffineElement;
     using GroupElement = Curve::Element;
@@ -95,7 +95,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public StdlibVerificationKey_<BuilderType, ECCVMFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey
+        : public StdlibVerificationKey_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerifierCommitmentKey pcs_verification_key;
 
@@ -135,6 +136,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using VerifierCommitments = ECCVMFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from ECCVM
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 
 }; // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 

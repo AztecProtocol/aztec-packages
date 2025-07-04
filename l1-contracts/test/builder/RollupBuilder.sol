@@ -13,7 +13,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
@@ -227,7 +227,12 @@ contract RollupBuilder is Test {
       GovernanceProposer proposer = new GovernanceProposer(
         config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
       );
-      config.governance = new Governance(config.testERC20, address(proposer), address(config.gse));
+      config.governance = new Governance(
+        config.testERC20,
+        address(proposer),
+        address(config.gse),
+        TestConstants.getGovernanceConfiguration()
+      );
       vm.label(address(config.governance), "Governance");
       vm.label(address(proposer), "GovernanceProposer");
 
@@ -253,6 +258,8 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
+
+    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());

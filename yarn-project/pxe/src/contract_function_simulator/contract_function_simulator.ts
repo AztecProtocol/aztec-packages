@@ -27,7 +27,7 @@ import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas } from '@aztec/stdlib/gas';
-import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
@@ -140,6 +140,10 @@ export class ContractFunctionSimulator {
     const setupTime = simulatorSetupTimer.ms();
 
     try {
+      // Note: any nested private function calls are made recursively within this
+      // function call. So this execution result is the result of executing _all_
+      // private functions of this tx (the results of those executions are contained
+      // within executionResult.nestedExecutionResults).
       const executionResult = await executePrivateFunction(
         this.simulator,
         privateExecutionOracle,
@@ -151,10 +155,12 @@ export class ContractFunctionSimulator {
       const { usedTxRequestHashForNonces } = noteCache.finish();
       const firstNullifierHint = usedTxRequestHashForNonces ? Fr.ZERO : noteCache.getAllNullifiers()[0];
 
-      const publicCallRequests = collectNested([executionResult], r => [
-        ...r.publicInputs.publicCallRequests.map(r => r.inner),
-        r.publicInputs.publicTeardownCallRequest,
-      ]).filter(r => !r.isEmpty());
+      const publicCallRequests = collectNested([executionResult], r =>
+        r.publicInputs.publicCallRequests
+          .getActiveItems()
+          .map(r => r.inner)
+          .concat(r.publicInputs.publicTeardownCallRequest.isEmpty() ? [] : [r.publicInputs.publicTeardownCallRequest]),
+      );
       const publicFunctionsCalldata = await Promise.all(
         publicCallRequests.map(async r => {
           const calldata = await privateExecutionOracle.loadFromExecutionCache(r.calldataHash);
@@ -169,6 +175,9 @@ export class ContractFunctionSimulator {
         executionResult.profileResult.timings.witgen += setupTime + teardownTime;
       }
 
+      // Not to be confused with a PrivateCallExecutionResult. This is a superset
+      // of the PrivateCallExecutionResult, containing also firstNullifierHint
+      // and publicFunctionsCalldata.
       return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
@@ -268,29 +277,37 @@ export async function generateSimulatedProvingResult(
 
   let publicTeardownCallRequest;
 
-  let noteHashIndexInTx = 0;
   const executions = [privateExecutionResult.entrypoint];
+
+  // See TODO on line 296
+  //let noteHashIndexInTx = 0;
 
   while (executions.length !== 0) {
     const execution = executions.shift()!;
-    executions.unshift(...execution!.nestedExecutions);
+    executions.unshift(...execution!.nestedExecutionResults);
 
     const { contractAddress } = execution.publicInputs.callContext;
 
     const noteHashesFromExecution = await Promise.all(
       execution.publicInputs.noteHashes
+        .getActiveItems()
         .filter(noteHash => !noteHash.isEmpty())
         .map(async noteHash => {
-          const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
+          // TODO: Once we properly implement revertible/non-revertible side effects,
+          // we have to compute the unique note hash for non-revertible notes.
+          // Leaving this as a reference because this is obscure af.
+          //const nonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
           const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
-          // We could defer this to the public processor, and pass this in as non-revertible.
-          return new OrderedSideEffect(await computeUniqueNoteHash(nonce, siloedNoteHash), noteHash.counter);
+          return new OrderedSideEffect(
+            /*await computeUniqueNoteHash(nonce, siloedNoteHash)*/ siloedNoteHash,
+            noteHash.counter,
+          );
         }),
     );
 
     const nullifiersFromExecution = await Promise.all(
       execution.publicInputs.nullifiers
-        .filter(nullifier => !nullifier.isEmpty())
+        .getActiveItems()
         .map(
           async nullifier =>
             new OrderedSideEffect(await siloNullifier(contractAddress, nullifier.value), nullifier.counter),
@@ -298,12 +315,10 @@ export async function generateSimulatedProvingResult(
     );
 
     const privateLogsFromExecution = await Promise.all(
-      execution.publicInputs.privateLogs
-        .filter(privateLog => !privateLog.isEmpty())
-        .map(async metadata => {
-          metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
-          return new OrderedSideEffect(metadata.log, metadata.counter);
-        }),
+      execution.publicInputs.privateLogs.getActiveItems().map(async metadata => {
+        metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
+        return new OrderedSideEffect(metadata.log, metadata.counter);
+      }),
     );
 
     uniqueNoteHashes.push(...noteHashesFromExecution);
@@ -311,12 +326,12 @@ export async function generateSimulatedProvingResult(
     nullifiers.push(...nullifiersFromExecution);
     l2ToL1Messages.push(
       ...execution.publicInputs.l2ToL1Msgs
-        .filter(l2ToL1Message => !l2ToL1Message.isEmpty())
+        .getActiveItems()
         .map(message => new OrderedSideEffect(message.message.scope(contractAddress), message.counter)),
     );
     contractClassLogsHashes.push(
       ...execution.publicInputs.contractClassLogsHashes
-        .filter(contractClassLogsHash => !contractClassLogsHash.isEmpty())
+        .getActiveItems()
         .map(
           contractClassLogHash =>
             new OrderedSideEffect(contractClassLogHash.logHash.scope(contractAddress), contractClassLogHash.counter),
@@ -324,7 +339,7 @@ export async function generateSimulatedProvingResult(
     );
     publicCallRequests.push(
       ...execution.publicInputs.publicCallRequests
-        .filter(publicCallRequest => !publicCallRequest.isEmpty())
+        .getActiveItems()
         .map(callRequest => new OrderedSideEffect(callRequest.inner, callRequest.counter)),
     );
 
@@ -362,7 +377,10 @@ export async function generateSimulatedProvingResult(
   const sortByCounter = <T>(a: OrderedSideEffect<T>, b: OrderedSideEffect<T>) => a.counter - b.counter;
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
-  const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+  let sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+
+  // If the tx generated no nullifiers, the nonce generator (txRequest hash)
+  // is injected as the first nullifier as per protocol rules.
   if (sortedNullifiers.length === 0) {
     sortedNullifiers.push(nonceGenerator);
   }
@@ -387,7 +405,17 @@ export async function generateSimulatedProvingResult(
 
     inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
   } else {
-    const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
+    const nonRevertibleData = PrivateToPublicAccumulatedData.empty();
+
+    // The nullifier array contains the nonce generator in position 0
+    // Here we remove it from the revertible data and
+    // add it as the first non-revertible nullifier (we can't have dupes!)
+    // This is because public processor will use that first non-revertible nullifier
+    // as the nonce generator for the note hashes in the revertible part of the tx.
+    sortedNullifiers = sortedNullifiers.slice(1);
+    nonRevertibleData.nullifiers[0] = nonceGenerator;
+
+    const revertibleData = new PrivateToPublicAccumulatedData(
       padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
       padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
@@ -409,10 +437,8 @@ export async function generateSimulatedProvingResult(
     );
 
     inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
-      // nonrevertible
-      accumulatedDataForPublic,
-      // revertible
-      PrivateToPublicAccumulatedData.empty(),
+      nonRevertibleData,
+      revertibleData,
       publicTeardownCallRequest ?? PublicCallRequest.empty(),
     );
   }

@@ -4,7 +4,6 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./eth-cheatcodes": "./dest/eth_cheat_codes.js",
     "./test": "./dest/test/index.js",
     "./contracts": "./dest/contracts/index.js",
     "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",

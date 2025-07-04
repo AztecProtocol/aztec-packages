@@ -9,7 +9,7 @@ pub mod scheduled_value_change;
 pub mod shared_mutable_values;
 pub mod with_hash;
 
-pub fn compute_shared_mutable_timestamp_horizon<T, let INITIAL_DELAY: u64>(
+pub fn compute_shared_mutable_time_horizon<T, let INITIAL_DELAY: u64>(
     shared_mutable_values: SharedMutableValues<T, INITIAL_DELAY>,
     historical_timestamp: u64,
 ) -> u64
@@ -18,5 +18,5 @@ where
 {
     let effective_minimum_delay =
         shared_mutable_values.sdc.get_effective_minimum_delay_at(historical_timestamp);
-    shared_mutable_values.svc.get_timestamp_horizon(historical_timestamp, effective_minimum_delay)
+    shared_mutable_values.svc.get_time_horizon(historical_timestamp, effective_minimum_delay)
 }

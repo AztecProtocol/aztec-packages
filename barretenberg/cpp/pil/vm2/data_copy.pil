@@ -1,54 +1,72 @@
 include "memory.pil";
 include "calldata.pil";
 include "precomputed.pil";
+include "constants_gen.pil";
+include "range_check.pil";
 
-// This trace handles CALLDATACOPY and RETURNDATACOPY
-// It is memory aware and so is expected to call the memory subtrace directly
-// Example: Lookup to execution trace
-//  execution.sel_data_copy {
-//      clk, context_id,
-//      context_id, parent_id
-//      reg1, reg2, rop3
-//      parent_calldata_size, parent_calldata_offset,
-//      gadget_id
-//  }
-//  in
-//  sel_data_copy {
-//      clk, context_id,
-//      src_context_id, dst_context_id,
-//      data_copy_size, data_offset, write_address
-//      data_size, data_addr,
-//      operation_id
-//  }
-
-// Reading from calldata column
-// Calldata Trace
-// +-----+-------+-------+------------+
-// | sel | value | index | context_id |
-// +-----+-------+-------+------------+
-// |   1 |   100 |     1 |          1 |
-// |   1 |   200 |     2 |          1 |
-// |   1 |   300 |     3 |          1 |
-// +-----+-------+-------+------------+
-// Execution Trace                          (cd_size)  (cd_offset)
-// +-----+-----+------------+-----------+------------+------------+
-// | clk | sel | context_id | parent_id | register_1 | register_2 |
-// +-----+-----+------------+-----------+------------+------------+
-// |   1 |   1 |          1 |         0 |          3 |          0 |
-// +-----+-----+------------+-----------+------------+------------+
-// DataCopy Trace
-// +-------------+------------+------------+-----------+------------------+----------+-------+------------+
-// | sel_cd_copy | src_ctx_id | dst_ctx_id | copy_size | cd_copy_col_read | cd_index | value | write_addr |
-// +-------------+------------+------------+-----------+------------------+----------+-------+------------+
-// |           1 |          0 |          1 |         3 |                1 |        1 |   100 |          5 |
-// |           1 |          0 |          1 |         2 |                1 |        2 |   200 |          6 |
-// |           1 |          0 |          1 |         1 |                1 |        3 |   300 |          7 |
-// +-------------+------------+------------+-----------+------------------+----------+-------+------------+
-
+/** This trace handles CALLDATACOPY and RETURNDATACOPY
+ * The data_copy gadget handles CALLDATACOPY (both enqueued and nested) and RETURNDATACOPY
+ * ERROR HANDLING:
+ * There is one potential errors that is checked: memory out of range accesses
+ * If there are no errors, we read and write the calldata/returndata from the parent/child context to the current context
+ * COMPUTING AMOUNT OF DATA TO READ
+ * We need to ensure that we do not read outside the bounds designated by the parent/child context for their respective data.
+ * this max_read_index is computed via min(data_size, copy_size + copy_offset).
+ * READING / WRITING DATA
+ * At each row, the i-th data is simultaneously read from the parent/child and written into the current context
+ * For top level calldatacopy, the data is retrieved from the calldata column.
+ * the number of reads that are performed is (max_read_index - copy_offset), while the number of writes is copy_size
+ * If the max_read_index < copy_offset, the number of reads is constrained to be 0.
+ * If num_reads < copy_size, the remaining (copy_size - num_reads) rows are designated as padding rows.
+ * padding rows are constrained to have the value = 0.
+ *
+ * It is memory aware and so is expected to call the memory subtrace directly
+ * Example: Lookup to execution trace
+ *  execution.sel_data_copy {
+ *      clk, context_id,
+ *      context_id, parent_id
+ *      reg1, mem_tag1, reg2, mem_tag2, rop3
+ *      parent_callsrc_data_size, parent_calloffset,
+ *      gadget_id
+ *  }
+ *  in
+ *  sel_data_copy {
+ *      clk, context_id,
+ *      src_context_id, dst_context_id,
+ *      copy_size, copy_size_mem_tag, offset, offset_mem_tag, dst_address
+ *      src_data_size, src_addr,
+ *      operation_id
+ *  }
+ *
+ * Reading from calldata column
+ * Calldata Trace
+ * +-----+-------+-------+------------+
+ * | sel | value | index | context_id |
+ * +-----+-------+-------+------------+
+ * |   1 |   100 |     1 |          1 |
+ * |   1 |   200 |     2 |          1 |
+ * |   1 |   300 |     3 |          1 |
+ * +-----+-------+-------+------------+
+ * Execution Trace                          (cd_size)  (cd_offset)
+ * +-----+-----+------------+-----------+------------+------------+
+ * | clk | sel | context_id | parent_id | register_1 | register_2 |
+ * +-----+-----+------------+-----------+------------+------------+
+ * |   1 |   1 |          1 |         0 |          3 |          0 |
+ * +-----+-----+------------+-----------+------------+------------+
+ * DataCopy Trace
+ * +-------------+------------+------------+-----------+------------------+----------+-------+------------+
+ * | sel_cd_copy | src_ctx_id | dst_ctx_id | copy_size | cd_copy_col_read | cd_index | value |  dst_addr  |
+ * +-------------+------------+------------+-----------+------------------+----------+-------+------------+
+ * |           1 |          0 |          1 |         3 |                1 |        1 |   100 |          5 |
+ * |           1 |          0 |          1 |         2 |                1 |        2 |   200 |          6 |
+ * |           1 |          0 |          1 |         1 |                1 |        3 |   300 |          7 |
+ * +-------------+------------+------------+-----------+------------------+----------+-------+------------+
+ */ 
 
 namespace data_copy;
 
     pol SEL = sel_rd_copy + sel_cd_copy;
+    pol MAX_MEM_ADDR = constants.AVM_HIGHEST_MEM_ADDRESS;
 
     #[skippable_if]
     SEL = 0;
@@ -64,110 +82,210 @@ namespace data_copy;
     pol commit operation_id;
     // Bitwise decomposition
     operation_id = sel_cd_copy + (2 ** 1) * sel_rd_copy;
+    // Two varieties depending of if we gate by error
+    pol SEL_NO_ERR = SEL * (1 - err);
 
-    // TODO: Since we are memory aware, we need some kind of timestamp
     pol commit clk;
 
-    // Constrained as inputs from execution trace
+    // Things are range checked to 32 bits
+    pol commit thirty_two;
+    SEL * (thirty_two - 32) = 0;
+
+    //////////////////////////////
+    // Error Flags
+    //////////////////////////////
+    pol commit src_out_of_range_err; // Read slices should be in MEM range
+    src_out_of_range_err * (1 - src_out_of_range_err) = 0;
+    pol commit dst_out_of_range_err; // Write slices should be in MEM range
+    dst_out_of_range_err * (1 - dst_out_of_range_err) = 0;
+
+    // Consolidate the errors
+    pol commit err;
+    err = 1 - (1 - dst_out_of_range_err) * (1 - src_out_of_range_err);
+
+    ///////////////////////////////
+    // Inputs from execution trace
+    ///////////////////////////////
     pol commit src_context_id; // The context that is read from
     pol commit dst_context_id; // The context that is written to
 
-    pol commit data_copy_size; // This is also the number of writes
-    pol commit data_offset; // This is the offset within the data to start copying
-    pol commit data_addr; // This is the address of the start of the data in parent/child
-    pol commit data_size; // This is the size of the data in parent/child
+    pol commit copy_size; // This is also the number of writes
+    pol commit offset; // This is the offset within the data to start copying
+    pol commit src_addr; // This is the address of the start of the data in parent/child, should be 0 for top level
+    pol commit src_data_size; // This is the size of the data in parent/child, for top level needs to be retrieved from calldata col
 
-    pol commit write_addr; // The dst addr, comes from lookup to main trace
+    pol commit dst_addr;
 
-    // Control flow management
-    // These selectors should be implied to be 1 if SEL = 1;
+    //////////////////////////////
+    // Unconditional Operations
+    //////////////////////////////
+    // These relations occur independent of if we error (mainly because they help in finding out if there is an error)
+    // Start and end constrained in "Control Flow Management" section
     pol commit sel_start;
     sel_start * (1 - sel_start) = 0;
-    // An active row succeeding sel_end has to be a sel_start
-    #[END_AFTER_START]
-    (sel_cd_copy' + sel_rd_copy') * sel_end * (sel_start' - 1) = 0;
 
+    // End controls most of the row propagation, so if we error we also set end to turn off row propagation
     pol commit sel_end;
     sel_end * (1 - sel_end) = 0;
-    pol WRITE_CNT_MINUS_ONE = data_copy_size - 1;
-    pol commit next_write_count_inv;
-    // sel_end = 1 IFF data_copy_size - 1 = 0;
-    #[END_WRITE_CONDITION]
-    SEL * (WRITE_CNT_MINUS_ONE * (sel_end * (1 - next_write_count_inv) + next_write_count_inv) - 1 + sel_end) = 0;
 
-    // ===== Writing to dst_context_id =====
-    // Data copy size decrements for each row until we end
-    #[DECR_COPY_SIZE]
-    SEL * (1 - sel_end) * (data_copy_size' - data_copy_size + 1) = 0;
-
-    pol commit sel_mem_write;
-    // Regardless of operation, we have to write
-    // TODO check out of bound
-    sel_mem_write = SEL;
-    #[INCR_WRITE_ADDR]
-    (1 - precomputed.first_row) * SEL * (1 - sel_end) * (write_addr' - write_addr - 1) = 0;
-    #[MEM_WRITE]
-    sel_mem_write { clk, write_addr, value, /*mem_tag=*/precomputed.zero/*(FF)*/, /*rw=*/sel_mem_write/*(write)*/, dst_context_id }
-    in
-    memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
-
-    // ===== Reading for nested call =====
-    // === Helper ===
-    // When calling calldatacopy, the src_context_id == parent_id
+    // Check if this is a nested or enqueued call
     pol commit is_top_level; // == 1 iff parent_id == 0
     is_top_level * (1 - is_top_level) = 0;
     pol commit parent_id_inv; // For zero-check of has_parent_ctx
     #[TOP_LEVEL_COND]
-    SEL * (src_context_id * (is_top_level * (1 - parent_id_inv) + parent_id_inv) - 1 + is_top_level) = 0;
+    sel_cd_copy * (src_context_id * (is_top_level * (1 - parent_id_inv) + parent_id_inv) - 1 + is_top_level) = 0;
 
-    // === Establishing the read_addr ===
-    // (1) The initial Read Addr is data_addr + data_offset
-    // (2) Subsequent read addrs are incremented by 1 unless this is a padding row
-    // (3) Error handling if read_addr is OOB
-    pol commit read_addr;  // The addr to start reading the data from
-    SEL * sel_start * (read_addr - data_addr - data_offset) = 0;
+    ////////////////////////////////////////////////
+    // Computing the max src index that can be read
+    ////////////////////////////////////////////////
+    // Computing the read count, i.e. the number of elements that will be read from the src data.
+    // We compute the max read index using min(offset + copy_size, src_data_size)
+    // This ensures that we cannot read pass the designated data address assigned by the parent/child
+    // The min operation is essentially checking the comparison of the following
+    // 1) (offset + copy_size) > src_data_size or
+    // 2) (offset + copy_size) <= src_data_size
+    // if (1) then max_read_index = src_data_size, otherwise max_read_index = (offset + copy_size)
+    // these are enforced to be correct by are 32 bit range check of |a - b|
+
+    // Convert comparisons to subtractions - check we don't underflow by range checking the absolute difference
+    pol OFFSET_PLUS_SIZE = offset + copy_size;
+    pol DATA_SIZE_LT = OFFSET_PLUS_SIZE - src_data_size - 1; // (offset + copy_size) > src_data_size
+    pol DATA_SIZE_GTE = src_data_size - OFFSET_PLUS_SIZE;    // (offset + copy_size) <= src_data_size
+
+    pol commit src_data_size_is_lt; // Prover claims which one is the smaller of the two
+    src_data_size_is_lt * (1 - src_data_size_is_lt) = 0;
+
+    pol MAX_READ_DIFF = src_data_size_is_lt * DATA_SIZE_LT + (1 - src_data_size_is_lt) * DATA_SIZE_GTE;
+    pol commit abs_diff_max_read_index; // Needed for the range check lookup
+    SEL * sel_start * (abs_diff_max_read_index - MAX_READ_DIFF) = 0;
+    #[RANGE_MAX_READ_SIZE_DIFF]
+    sel_start { abs_diff_max_read_index, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    // Based on the prover's claim, we select the smaller of the two
+    pol MAX_READ_INDEX = src_data_size_is_lt * src_data_size + (1 - src_data_size_is_lt) * OFFSET_PLUS_SIZE;
+
+    //////////////////////////////
+    // Error Handling
+    //////////////////////////////
+    // The one error that we need to handle
+    // Memory Out of Range: If reading or writing would access an address outside of the AVM memory range
+    // If there is an error, no data copy operation is performed
+
+    // Memory Out of Range, this section checks that the maximum number of reads ans writes do not 
+    // If top level, we trivially succeed since there is no mem read i.e. we cannot have a src_out_of_range_err
+    pol MAX_READ_ADDR = (src_addr + MAX_READ_INDEX) * (1 - is_top_level);
+    pol commit abs_read_diff;
+    #[SRC_OUT_OF_RANGE] // MAX_MEM_ADDR < MAX_READ_ADDR or MAX_MEM_ADDR >= MAX_READ_ADDR
+    SEL * sel_start * (src_out_of_range_err * (MAX_READ_ADDR - MAX_MEM_ADDR - 1) + (1 - src_out_of_range_err) * (MAX_MEM_ADDR - MAX_READ_ADDR) - abs_read_diff) = 0;
+
+    pol MAX_WRITE_ADDR = dst_addr + copy_size;
+    pol commit abs_write_diff;
+    #[DST_OUT_OF_RANGE] // MAX_MEM_ADDR < MAX_WRITE_ADDR or MAX_MEM_ADDR >= MAX_WRITE_ADDR
+    SEL * sel_start * (dst_out_of_range_err * (MAX_WRITE_ADDR - MAX_MEM_ADDR - 1) + (1 - dst_out_of_range_err) * (MAX_MEM_ADDR - MAX_WRITE_ADDR) - abs_write_diff) = 0;
+
+    #[RANGE_READ]
+    sel_start { abs_read_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    #[RANGE_WRITE]
+    sel_start { abs_write_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    //////////////////////////////
+    // Control flow management 
+    //////////////////////////////
+    pol commit sel_start_no_err;
+    sel_start_no_err * (1 - sel_start_no_err) = 0;
+    sel_start_no_err = sel_start * (1 - err);
+
+    // An active row succeeding sel_end has to be a sel_start 
+    #[START_AFTER_END]
+    (sel_cd_copy' + sel_rd_copy') * sel_end * (sel_start' - 1) = 0;
+
+    pol WRITE_COUNT_MINUS_ONE = copy_size - 1;
+    pol commit write_count_minus_one_inv;
+    // sel_end = 1 IFF copy_size - 1 = 0;
+    #[END_WRITE_CONDITION]
+    SEL_NO_ERR * (WRITE_COUNT_MINUS_ONE * (sel_end * (1 - write_count_minus_one_inv) + write_count_minus_one_inv) - 1 + sel_end) = 0;
+
+    #[END_ON_ERR] // sel_end = 1 if error
+    err * (sel_end - 1) = 0;
+
+    pol commit reads_left; // Number of reads of the src data, if reads_left = 0 but copy_size != 0 then it is a padding row
+    // Src data elements are read from indicies [offset, MAX_READ_INDEX], therefore reads_left = MAX_READ_INDEX - offset
+    // We need to be careful that MAX_READ_INDEX - offset does not underflow (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
+    pol OFFSET_GT_MAX_READ = offset - MAX_READ_INDEX - 1; // offset > MAX_READ_INDEX
+    pol OFFSET_LTE_MAX_READ = MAX_READ_INDEX - offset; // offset <= MAX_READ_INDEX
+    pol commit sel_offset_gt_max_read;
+    sel_offset_gt_max_read * (1 - sel_offset_gt_max_read) = 0;
+
+    pol commit abs_max_read_offset; // Needed for lookup
+    abs_max_read_offset = SEL * sel_start_no_err * (sel_offset_gt_max_read * OFFSET_GT_MAX_READ + (1 - sel_offset_gt_max_read) * OFFSET_LTE_MAX_READ);
+
+    #[RANGE_READS_LEFT]
+    sel_start_no_err { abs_max_read_offset, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    // If sel_offset_gt_max_read = 1 (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
+    // otherwise, reads_left = MAX_READ_INDEX - offset
+    #[INIT_READS_LEFT] 
+    SEL * sel_start_no_err * (reads_left - OFFSET_LTE_MAX_READ * (1 - sel_offset_gt_max_read))  = 0;
+
+    //////////////////////////////
+    // Execute Data Copy
+    //////////////////////////////
+    // Most of these relations are either gated explicitly by an err or by sel_end (which is 1 when err = 1)
+    // ===== Writing to dst_context_id =====
+    pol commit sel_mem_write;
+    sel_mem_write = SEL_NO_ERR; // We write if there is no error
+    // Data copy size decrements for each row until we end
+    #[DECR_COPY_SIZE]
+    SEL * (1 - sel_end) * (copy_size' - copy_size + 1) = 0;
+
+    #[INCR_WRITE_ADDR]
+    (1 - precomputed.first_row) * SEL * (1 - sel_end) * (dst_addr' - dst_addr - 1) = 0;
+
+    #[MEM_WRITE]
+    sel_mem_write { clk, dst_addr, value, /*mem_tag=*/precomputed.zero/*(FF)*/, /*rw=*/sel_mem_write/*(write)*/, dst_context_id }
+    in
+    memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+
+    // ===== Reading for nested call =====
+    pol commit read_addr;  // The addr to start reading the data from: src_addr + offset;
+    #[INIT_READ_ADDR]
+    SEL * sel_start_no_err * (read_addr - src_addr - offset) = 0;
+    // Subsequent read addrs are incremented by 1 unless this is a padding row
     #[INCR_READ_ADDR]
     SEL * (1 - padding) * (1 - sel_end) * (read_addr' - read_addr - 1) = 0;
 
-    // === Establishing number of reads ===
-    // Number of reads: min(data_offset + data_copy_size, data_size)
-    pol commit read_count;
-    // TODO: @sel_start read_count = min(data_offset + data_copy_size, data_size)
+    // Read count decrements 
     #[DECR_READ_COUNT]
-    SEL * (1 - padding) * (read_count' - read_count + 1) = 0; // Decrement
-    pol commit padding; // Padding = 1 if read_count = 0
-    pol commit read_count_inv;
+    SEL * (1 - padding) * (1 - sel_end) * (reads_left' - reads_left + 1) = 0;
+    pol commit padding; // Padding = 1 if reads_left = 0
+    pol commit reads_left_inv;
     #[PADDING_CONDITION]
-    SEL * (read_count * (padding * (1 - read_count_inv) + read_count_inv) - 1 + padding) = 0;
+    SEL_NO_ERR * (reads_left * (padding * (1 - reads_left_inv) + reads_left_inv) - 1 + padding) = 0;
 
     // Read from memory if we are not the top level call and not a padding row
     pol commit sel_mem_read; // If the current row is a memory op read
-    sel_mem_read = SEL * (1 - is_top_level) * (1 - padding);
+    sel_mem_read = SEL_NO_ERR * (1 - is_top_level) * (1 - padding);
 
     // === Value Padding ===
     pol commit value;
     #[PAD_VALUE]
-    SEL * padding * value = 0;
+    SEL_NO_ERR * padding * value = 0;
 
     #[MEM_READ]
     sel_mem_read { clk, read_addr, value, /*mem_tag=*/precomputed.zero/*FF*/, /*rw=*/precomputed.zero/*(read)*/, src_context_id }
     in
     memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
 
-    // ===== Reading for top level call =====
+    // ===== Reading cd column for top level cd copy =====
     // Reading from column
     // TODO: data size for top level column reads need to be constrained
     // After calldata hashing
     pol commit cd_copy_col_read;
-    pol commit cd_index;
     #[CD_COPY_COLUMN]
-    cd_copy_col_read = SEL * (1 - padding) * is_top_level * sel_cd_copy;
-    sel_start * cd_copy_col_read * (cd_index - 1) = 0; // CD Index starts at 1
-    #[INCR_CD_INDEX]
-    SEL * (1 - sel_end) * cd_copy_col_read * (cd_index' - cd_index - 1) = 0; // Increment CD Index
+    cd_copy_col_read = SEL_NO_ERR * (1 - padding) * is_top_level * sel_cd_copy;
 
     #[COL_READ]
-    cd_copy_col_read { value, dst_context_id, cd_index }
+    cd_copy_col_read { value, dst_context_id, read_addr }
     in
     calldata.sel { calldata.value, calldata.context_id, calldata.index };
 

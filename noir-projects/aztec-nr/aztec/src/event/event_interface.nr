@@ -12,7 +12,6 @@ use dep::protocol_types::{
     constants::GENERATOR_INDEX__EVENT_COMMITMENT,
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
-    utils::arrays::array_concat,
 };
 
 pub struct PrivateLogContentConstraintsEnum {
@@ -66,7 +65,7 @@ where
     // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
     // nullifier can be computed.
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
-    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+    let serialized_event_with_randomness = [randomness].concat(event.serialize());
     let event_commitment = poseidon2_hash_with_separator(
         serialized_event_with_randomness,
         GENERATOR_INDEX__EVENT_COMMITMENT,
@@ -103,14 +102,16 @@ where
     // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
     // nullifier can be computed.
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
-    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+    let serialized_event_with_randomness = [randomness].concat(event.serialize());
     let event_commitment = poseidon2_hash_with_separator(
         serialized_event_with_randomness,
         GENERATOR_INDEX__EVENT_COMMITMENT,
     );
     context.push_nullifier(event_commitment);
 
-    emit_offchain_message(message_ciphertext, recipient);
+    // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+    // which we don't use for anything besides its side effects, therefore this is safe to call.
+    unsafe { emit_offchain_message(message_ciphertext, recipient) };
 }
 
 pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)

@@ -7,37 +7,50 @@
 #pragma once
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
-template <typename Flavor> class ECCVMRecursiveVerifier_ {
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Curve = typename Flavor::Curve;
-    using Commitment = typename Flavor::Commitment;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using Builder = typename Flavor::CircuitBuilder;
-    using PCS = typename Flavor::PCS;
+class ECCVMRecursiveVerifier {
+    using Flavor = ECCVMRecursiveFlavor;
+    using FF = Flavor::FF;
+    using BF = Flavor::BF;
+    using Curve = Flavor::Curve;
+    using Commitment = Flavor::Commitment;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using VerificationKey = Flavor::VerificationKey;
+    using NativeVerificationKey = Flavor::NativeVerificationKey;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using Builder = Flavor::CircuitBuilder;
+    using PCS = Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
+    using VerifierCommitments = Flavor::VerifierCommitments;
+    using StdlibPreIpaProof = bb::stdlib::Proof<Builder>;
+    using StdlibIpaProof = bb::stdlib::Proof<Builder>;
+    using IpaClaimAndProof = std::pair<OpeningClaim<Curve>, StdlibIpaProof>;
 
   public:
-    explicit ECCVMRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                     const std::shared_ptr<Transcript>& transcript);
+    struct StdlibProof {
+        StdlibPreIpaProof pre_ipa_proof;
+        StdlibIpaProof ipa_proof;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
-    [[nodiscard("IPA claim should be accumulated")]] std::pair<OpeningClaim<Curve>, StdlibProof<Builder>> verify_proof(
-        const ECCVMProof& proof);
+        StdlibProof(Builder& builder, const ECCVMProof& eccvm_proof)
+            : pre_ipa_proof(builder, eccvm_proof.pre_ipa_proof)
+            , ipa_proof(builder, eccvm_proof.ipa_proof)
+        {}
+    };
+
+    explicit ECCVMRecursiveVerifier(Builder* builder,
+                                    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                    const std::shared_ptr<Transcript>& transcript);
+
+    [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const ECCVMProof& proof);
+    [[nodiscard("IPA claim should be accumulated")]] IpaClaimAndProof verify_proof(const StdlibProof& proof);
     void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-    StdlibProof<Builder> ipa_proof;
     TranslationEvaluations_<FF> translation_evaluations;
 
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
