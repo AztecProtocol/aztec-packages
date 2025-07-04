@@ -8,10 +8,17 @@ const ROUNDED_DURATIONS = [
   1, // 1 second
 ];
 
-function roundTimestamp(blockTimestamp: bigint, includeByTimestamp: bigint, duration: number): UInt64 {
-  const totalDuration = includeByTimestamp - blockTimestamp;
-  const roundedDuration = totalDuration - (totalDuration % BigInt(duration));
-  return blockTimestamp + roundedDuration;
+function roundTimestamp(blockTimestamp: bigint, includeByTimestamp: bigint): UInt64 {
+  return ROUNDED_DURATIONS.reduce((timestamp, duration) => {
+    if (timestamp <= blockTimestamp) {
+      // The timestamp must be greater than the block timestamp.
+      // If it is too small, round it down again using a smaller duration.
+      const totalDuration = includeByTimestamp - blockTimestamp;
+      const roundedDuration = totalDuration - (totalDuration % BigInt(duration));
+      return blockTimestamp + roundedDuration;
+    }
+    return timestamp;
+  }, 0n);
 }
 
 export function computeTxIncludeByTimestamp(
@@ -37,13 +44,7 @@ export function computeTxIncludeByTimestamp(
 
   // Round it down to the nearest hour/min/second to reduce precision and avoid revealing the exact value.
   // This makes it harder for others to infer what function calls may have been used to produce a specific timestamp.
-  const roundedTimestamp = ROUNDED_DURATIONS.reduce((timestamp, duration) => {
-    if (timestamp <= blockTimestamp) {
-      // The timestamp must be greater than the block timestamp. Round it down again using a smaller duration.
-      return roundTimestamp(blockTimestamp, includeByTimestamp, duration);
-    }
-    return timestamp;
-  }, 0n);
+  const roundedTimestamp = roundTimestamp(blockTimestamp, includeByTimestamp);
 
   // The tx can't be published if the timestamp is the same or less than the historical block's timestamp.
   // Future blocks will have a greater timestamp, so the tx would never be included.

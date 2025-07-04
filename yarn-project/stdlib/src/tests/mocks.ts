@@ -127,7 +127,7 @@ export const mockTx = async (
   data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
   // Set includeByTimestamp to the maximum allowed duration from the current time.
-  data.includeByTimestamp = BigInt(Date.now() + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+  data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
 
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {

@@ -114,6 +114,10 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect initial min_revertible_side_effect_counter",
         );
 
+        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // This value can only decrease with each iteration. Here we take the minimum of:
+        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value computed for contract updates
         let include_by_timestamp = std::cmp::min(
             private_call.public_inputs.include_by_timestamp,
             get_include_by_timestamp_for_contract_updates(private_call),
@@ -162,7 +166,11 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect output min_revertible_side_effect_counter",
         );
 
-        // include_by_timestamp
+        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // This value can only decrease with each iteration. Here we take the minimum of:
+        // - The value from the previous kernel iteration
+        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value computed for contract updates
         let include_by_timestamp = std::cmp::min(
             previous_kernel.include_by_timestamp,
             std::cmp::min(

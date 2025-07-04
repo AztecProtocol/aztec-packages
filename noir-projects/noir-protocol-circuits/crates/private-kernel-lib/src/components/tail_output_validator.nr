@@ -83,7 +83,10 @@ impl TailOutputValidator {
 
         assert_eq(self.output.fee_payer, self.previous_kernel.fee_payer, "mismatch fee_payer");
 
-        // include_by_timestamp
+        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // This value can only decrease with each iteration. Here we take the minimum of:
+        // - The value from the previous kernel iteration
+        // - An upper bound value set by the user
         let include_by_timestamp = std::cmp::min(
             self.previous_kernel.include_by_timestamp,
             self.include_by_timestamp_upper_bound,

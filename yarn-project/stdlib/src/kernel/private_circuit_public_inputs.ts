@@ -302,6 +302,8 @@ export class PrivateCircuitPublicInputs {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
+    // TODO(#15525): Use the line below once UInt64 can be serialized correctly.
+    // return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
     return serializeToBuffer([
       this.callContext,
       this.argsHash,

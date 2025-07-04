@@ -73,7 +73,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
             public_inputs_builder.claimed_first_nullifier = first_nullifier_hint;
         }
 
-        // Must set it to max u64, so that the minimum value can be picked from the private call correctly.
+        // Set the value to max u64, which is the natural default value as the timestamp can only be decreased.
+        // This value will be overridden later when propagating the value from the private call or the previous kernel.
         public_inputs_builder.include_by_timestamp = MAX_U64_VALUE;
 
         // Note that we do not need to nullify the transaction request nonce anymore.
@@ -192,6 +193,12 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
+        // The timestamp can only decrease. Here we take the minimum of:
+        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value computed for contract updates
+        // - The initial value when this composer is constructed, which is:
+        //   - max u64, if this is the first call. Set in `new_from_tx_request`.
+        //   - the value from the previous kernel iteration. Set in `new_from_previous_kernel`.
         self.public_inputs_builder.include_by_timestamp = std::cmp::min(
             self.public_inputs_builder.include_by_timestamp,
             std::cmp::min(
