@@ -48,6 +48,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
+      aztecEpochDuration: 32,
       startProverNode: false,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       enforceTimeTable: true,
