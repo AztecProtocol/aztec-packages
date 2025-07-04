@@ -256,7 +256,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
  * @brief Create an addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c * in.c_scaling +
  * in.const_scaling = 0
  *
- * @details Arithmetic selector is set to 1, all other gate selectors are 0. Mutliplication selector is set to 0
+ * @details Arithmetic selector is set to 1, all other gate selectors are 0. Multiplication selector is set to 0
  *
  * @param in A structure with variable indexes and selector values for the gate.
  */
