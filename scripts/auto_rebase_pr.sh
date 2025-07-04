@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# intelligent-rebase-simple.sh
-#
-# USAGE
-#   ./intelligent-rebase-simple.sh <pr_head_ref> <pr_base_ref>
-#
-# EXAMPLE
-#   ./intelligent-rebase-simple.sh merge-train/barretenberg origin/main
-#
-# Required: a GitHub-backed remote called "origin".
-
 ###############################################################################
 # utilities
 ###############################################################################
@@ -110,7 +100,7 @@ git branch -D "$work_branch"
 
 echo "[auto-rebase] done — branch $pr_head_ref now has $applied_count commit(s)"
 
-if [[ -n "${gh_token:-}" || -n "${github_token:-}" ]]; then
+if [[ -n "${GH_TOKEN:-}" || -n "${GITHUB_TOKEN:-}" ]]; then
   echo "[auto-rebase] pushing to origin/$pr_head_ref"
   git push origin "$pr_head_ref" --force-with-lease
 else
