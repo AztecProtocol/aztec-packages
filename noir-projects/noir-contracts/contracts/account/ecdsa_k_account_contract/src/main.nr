@@ -27,11 +27,7 @@ pub contract EcdsaKAccount {
         let this = context.this_address();
         let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
 
-        storage.public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
-            &mut context,
-            this,
-            this,
-        ));
+        storage.public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(&mut context, this));
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts

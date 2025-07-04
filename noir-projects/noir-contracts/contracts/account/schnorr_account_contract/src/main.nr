@@ -42,7 +42,6 @@ pub contract SchnorrAccount {
         storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this,
-            this,
         ));
     }
 

@@ -104,7 +104,6 @@ pub contract DocsExample {
         storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
         ));
     }
     // docs:end:initialize-private-mutable
@@ -130,7 +129,6 @@ pub contract DocsExample {
         // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
             context.msg_sender(),
         ));
         // docs:end:state_vars-PrivateMutableReplace

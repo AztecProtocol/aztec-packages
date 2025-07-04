@@ -35,7 +35,7 @@ pub contract Spam {
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller, amount).emit(
-                encode_and_encrypt_note_unconstrained(&mut context, caller, caller),
+                encode_and_encrypt_note_unconstrained(&mut context, caller),
             );
         }
 

@@ -28,11 +28,7 @@ pub contract Escrow {
         // docs:start:addressnote_new
         let note = AddressNote::new(owner, owner);
         // docs:end:addressnote_new
-        storage.owner.initialize(note).emit(encode_and_encrypt_note(
-            &mut context,
-            owner,
-            context.msg_sender(),
-        ));
+        storage.owner.initialize(note).emit(encode_and_encrypt_note(&mut context, owner));
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.

@@ -29,12 +29,11 @@ pub fn increment(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     recipient: AztecAddress, // docs:end:increment_args
-    sender: AztecAddress,
 ) {
     let note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     // TODO: consider how to give devs choice over this `encode_and_encrypt_note` function. At the moment, it's hard-coded as one of many potential strategies.
-    balance.insert(note).emit(encode_and_encrypt_note(balance.context, recipient, sender));
+    balance.insert(note).emit(encode_and_encrypt_note(balance.context, recipient));
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -45,9 +44,8 @@ pub fn decrement(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     amount: Field,
     owner: AztecAddress,
-    sender: AztecAddress,
 ) {
-    let sum = decrement_by_at_most(balance, amount, owner, sender);
+    let sum = decrement_by_at_most(balance, amount, owner);
     assert(sum == amount, "Balance too low");
 }
 
@@ -63,7 +61,6 @@ pub fn decrement_by_at_most(
     balance: PrivateSet<ValueNote, &mut PrivateContext>,
     max_amount: Field,
     owner: AztecAddress,
-    sender: AztecAddress,
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let notes = balance.pop_notes(options);
@@ -82,7 +79,7 @@ pub fn decrement_by_at_most(
         change_value = decremented - max_amount;
         decremented -= change_value;
     }
-    increment(balance, change_value, owner, sender);
+    increment(balance, change_value, owner);
 
     decremented
 }

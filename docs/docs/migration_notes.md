@@ -9,6 +9,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Sender for tags now managed via oracle functions
+
+The `_prepare_private_balance_increase` function in token contracts no longer accepts a `from` parameter for the sender of tags. Instead, it uses `get_sender_for_tags()` oracle function. Account contracts should call `set_sender_for_tags()` before calling functions that create notes with tags.
+
 ## [TXE]
 
 ### API overhaul

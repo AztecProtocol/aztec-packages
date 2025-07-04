@@ -127,11 +127,7 @@ pub contract SimpleToken {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         SimpleToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
         );
@@ -151,12 +147,10 @@ pub contract SimpleToken {
         storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from,
-            from,
         ));
         storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             to,
-            from,
         ));
 
         emit_event_in_private_log(
@@ -171,11 +165,7 @@ pub contract SimpleToken {
     #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
-            &mut context,
-            from,
-            from,
-        ));
+        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
         SimpleToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
@@ -184,18 +174,17 @@ pub contract SimpleToken {
         let from = context.msg_sender();
         let token = SimpleToken::at(context.this_address());
 
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
         token._finalize_transfer_to_private_unsafe(from, amount, partial_note).enqueue(&mut context);
     }
 
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> PartialUintNote {
-        _prepare_private_balance_increase(from, to, &mut context, storage)
+        _prepare_private_balance_increase(to, &mut context, storage)
     }
 
     #[contract_library_method]
     fn _prepare_private_balance_increase(
-        from: AztecAddress,
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -205,8 +194,7 @@ pub contract SimpleToken {
             storage.balances.at(to).set.storage_slot,
             context,
             to,
-            from,
-            from,
+            to,
         );
 
         partial_note
@@ -257,7 +245,7 @@ pub contract SimpleToken {
     #[private]
     fn mint_privately(from: AztecAddress, to: AztecAddress, amount: u128) {
         let token = SimpleToken::at(context.this_address());
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
         token._finalize_mint_to_private_unsafe(context.msg_sender(), amount, partial_note).enqueue(
             &mut context,
         );

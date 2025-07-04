@@ -140,7 +140,6 @@ pub contract Test {
         create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            sender,
         ));
     }
     // docs:end:create_note
@@ -309,13 +308,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        emit_event_in_private_log(
-            event,
-            &mut context,
-            sender,
-            owner,
-            PrivateLogContent.NO_CONSTRAINTS,
-        );
+        emit_event_in_private_log(event, &mut context, owner, PrivateLogContent.NO_CONSTRAINTS);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
