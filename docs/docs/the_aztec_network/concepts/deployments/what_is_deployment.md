@@ -11,7 +11,7 @@ An Aztec deployment is a set of the following contracts:
 | Issuer Contract              | Immutable    |
 | Registry Contract            | Immutable    |
 | Governance Staking Escrow    | Immutable    |
-| Reward Distribution Contract | Mutable      |
+| RewardDistributor Contract   | Mutable      |
 | GovernanceProposer Contract  | Mutable      |
 | Governance Contract          | Immutable    |
 | Rollup Contract              | Immutable    |
