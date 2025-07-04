@@ -246,7 +246,7 @@ describe('e2e_p2p_preferred_network', () => {
       preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
     };
 
-    const pickyValidators = await createNodes(
+    const noDiscoveryValidators = await createNodes(
       lastValidatorConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
@@ -259,21 +259,21 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, ...pickyValidators, t.ctx.aztecNode];
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNode];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
       .concat(validators.map((_, i) => `Validator ${i + 1}`))
-      .concat(pickyValidators.map((_, i) => `Picky Validator ${i + 1}`))
+      .concat(noDiscoveryValidators.map((_, i) => `Picky Validator ${i + 1}`))
       .concat(['Default Node']);
 
     const validatorsUsingDiscovery = validators.length;
-    const totalNumValidators = validators.length + pickyValidators.length;
+    const totalNumValidators = validators.length + noDiscoveryValidators.length;
     const expectedPeerCounts = nodes
       .map(() => nodes.length - 1 + validatorsUsingDiscovery + 1) // Regular nodes connect to the default node and the validators that have discovery enabled
       .concat(preferredNodes.map(() => totalNumValidators)) // Preferred nodes only connect to validators (all of them)
       .concat(validators.map(() => nodes.length + preferredNodes.length + validatorsUsingDiscovery - 1 + 1)) // Validators connect to all nodes, preferred nodes, validators using discovery and the default node
-      .concat(pickyValidators.map(() => preferredNodes.length)) // The 'picky' validators ONLY connect to preferred nodes (no discovery)
+      .concat(noDiscoveryValidators.map(() => preferredNodes.length)) // The no-discovery validators ONLY connect to preferred nodes (no discovery)
       .concat([nodes.length + validatorsUsingDiscovery]); // The default node connects to other regular nodes and validators using discovery
     for (let i = 0; i < allNodes.length; i++) {
       const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 600, identifiers[i]);
@@ -281,7 +281,7 @@ describe('e2e_p2p_preferred_network', () => {
     }
     t.logger.info('All node/validator peer connections established');
 
-    validators.push(...pickyValidators);
+    validators.push(...noDiscoveryValidators);
 
     // We will setup some gossip monitors to ensure that nodes that restrict who they connect to
     // only receive messages from expected peers
@@ -290,8 +290,8 @@ describe('e2e_p2p_preferred_network', () => {
     const validatorEnrs = await Promise.all(validators.map(p => p.getEncodedEnr()));
     const validatorPeerIds = await Promise.all(validatorEnrs.map(x => ENR.decodeTxt(x!).peerId()));
 
-    // Picky validators should only receive P2P gossip from preferred nodes
-    pickyValidators.forEach(validator => {
+    // No-discovery validators should only receive P2P gossip from preferred nodes, as that is all they connect to
+    noDiscoveryValidators.forEach(validator => {
       monitorP2PTraffic(
         validator,
         preferredNodePeerIds.map(x => x.toString()),
