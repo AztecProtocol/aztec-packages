@@ -24,7 +24,7 @@ values_file="${3:-default.yaml}"
 sepolia_deployment="${4:-false}"
 mnemonic_file="${5:-"mnemonic.tmp"}"
 helm_instance="${6:-spartan}"
-project_name="${7:-"testnet-440309"}"
+project_id="${7:-testnet-440309}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
@@ -69,8 +69,8 @@ elif [ "$target" = "gke" ]; then
     exit 1
   fi
 
-  gcloud config set project "$project_name"
   gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+  gcloud config set project "$project_id"
   gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$ZONE"
 else
   echo "Unknown target: $target"
