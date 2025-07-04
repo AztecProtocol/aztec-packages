@@ -199,10 +199,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   private setTimeTable() {
     this.timetable = new SequencerTimetable(
-      this.l1Constants.ethereumSlotDuration,
-      this.aztecSlotDuration,
-      this.maxL1TxInclusionTimeIntoSlot,
-      this.enforceTimeTable,
+      {
+        ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
+        aztecSlotDuration: this.aztecSlotDuration,
+        maxL1TxInclusionTimeIntoSlot: this.maxL1TxInclusionTimeIntoSlot,
+        attestationPropagationTime: this.config.attestationPropagationTime,
+        enforce: this.enforceTimeTable,
+      },
       this.metrics,
       this.log,
     );
@@ -536,7 +539,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await this.p2pClient.deleteTxs(failedTxHashes);
   }
 
-  protected getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
+  protected getBlockBuilderOptions(slot: number): PublicProcessorLimits {
     // Deadline for processing depends on whether we're proposing a block
     const secondsIntoSlot = this.getSecondsIntoSlot(slot);
     const processingEndTimeWithinSlot = this.timetable.getBlockProposalExecTimeEnd(secondsIntoSlot);
@@ -584,7 +587,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.CREATING_BLOCK, slot);
 
     try {
-      const blockBuilderOptions = this.getDefaultBlockBuilderOptions(Number(slot));
+      const blockBuilderOptions = this.getBlockBuilderOptions(Number(slot));
       const buildBlockRes = await this.blockBuilder.buildBlock(
         pendingTxs,
         l1ToL2Messages,

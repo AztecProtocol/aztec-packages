@@ -2,6 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
@@ -14,6 +15,7 @@ import type {
   MerkleTreeWriteOperations,
   PublicProcessorLimits,
   PublicProcessorValidator,
+  SequencerConfig,
 } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -129,6 +131,7 @@ export class PublicProcessor implements Traceable {
     private dateProvider: DateProvider,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     private log = createLogger('simulator:public-processor'),
+    private opts: Pick<SequencerConfig, 'fakeProcessingDelayPerTxMs'> = {},
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
   }
@@ -310,7 +313,7 @@ export class PublicProcessor implements Traceable {
   }
 
   @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))
-  private async processTx(tx: Tx, deadline?: Date): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
+  private async processTx(tx: Tx, deadline: Date | undefined): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 
     this.log.verbose(
@@ -376,11 +379,23 @@ export class PublicProcessor implements Traceable {
   /** Processes the given tx within deadline. Returns timeout if deadline is hit. */
   private async processTxWithinDeadline(
     tx: Tx,
-    deadline?: Date,
+    deadline: Date | undefined,
   ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> {
-    const processFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> = tx.hasPublicCalls()
+    const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined]> = tx.hasPublicCalls()
       ? () => this.processTxWithPublicCalls(tx)
       : () => this.processPrivateOnlyTx(tx);
+
+    // Fake a delay per tx if instructed (used for tests)
+    const fakeDelayPerTxMs = this.opts.fakeProcessingDelayPerTxMs;
+    const processFn =
+      fakeDelayPerTxMs && fakeDelayPerTxMs > 0
+        ? async () => {
+            const result = await innerProcessFn();
+            this.log.warn(`Sleeping ${fakeDelayPerTxMs}ms after processing tx ${await tx.getTxHash()}`);
+            await sleep(fakeDelayPerTxMs);
+            return result;
+          }
+        : innerProcessFn;
 
     if (!deadline) {
       return await processFn();

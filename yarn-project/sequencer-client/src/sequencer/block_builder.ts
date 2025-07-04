@@ -1,4 +1,5 @@
 import { MerkleTreeId, elapsed } from '@aztec/aztec.js';
+import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -90,7 +91,7 @@ export async function buildBlock(
 
 type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList'>;
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
 
 export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   constructor(
@@ -101,13 +102,16 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
     private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
-  public getConfig() {
-    return {
-      l1GenesisTime: this.config.l1GenesisTime,
-      slotDuration: this.config.slotDuration,
-      l1ChainId: this.config.l1ChainId,
-      rollupVersion: this.config.rollupVersion,
-    };
+  public getConfig(): FullNodeBlockBuilderConfig {
+    return pick(
+      this.config,
+      'l1GenesisTime',
+      'slotDuration',
+      'l1ChainId',
+      'rollupVersion',
+      'txPublicSetupAllowList',
+      'fakeProcessingDelayPerTxMs',
+    );
   }
 
   public updateConfig(config: FullNodeBlockBuilderConfig) {
@@ -136,7 +140,10 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
+      undefined,
+      this.config,
     );
+
     const validator = createValidatorForBlockBuilding(
       fork,
       this.contractDataSource,

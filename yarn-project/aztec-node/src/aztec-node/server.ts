@@ -272,13 +272,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
     const blockBuilder = new BlockBuilder(
-      {
-        l1GenesisTime,
-        slotDuration: Number(slotDuration),
-        rollupVersion: config.rollupVersion,
-        l1ChainId: config.l1ChainId,
-        txPublicSetupAllowList: config.txPublicSetupAllowList,
-      },
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       worldStateSynchronizer,
       archiver,
       dateProvider,
