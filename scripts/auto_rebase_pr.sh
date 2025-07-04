@@ -50,6 +50,35 @@ total=${#commits[@]}
 echo "📊 Total commits to rebase: $total" >&2
 
 ###############################################################################
+# configure git based on most common author in candidate commits
+###############################################################################
+echo "🔧 Configuring git author from candidate commits" >&2
+
+# Get the most common author from the candidate commits
+author_info=""
+if [[ ${#commits[@]} -gt 0 ]]; then
+  author_info=$(
+    for commit in "${commits[@]}"; do
+      git log -1 --format="%an|%ae" "$commit"
+    done | sort | uniq -c | sort -rn | head -1 | awk '{$1=""; print $0}' | xargs
+  )
+fi
+
+if [[ -n "$author_info" ]]; then
+  author_name=$(echo "$author_info" | cut -d'|' -f1)
+  author_email=$(echo "$author_info" | cut -d'|' -f2)
+  echo "  Using most common author: $author_name <$author_email>" >&2
+else
+  # Fallback to aztec-bot
+  author_name="AztecBot"
+  author_email="tech@aztecprotocol.com"
+  echo "  Using fallback author: $author_name <$author_email>" >&2
+fi
+
+git config user.name "$author_name"
+git config user.email "$author_email"
+
+###############################################################################
 # prepare working branch
 ###############################################################################
 work_branch="auto-rebase-${pr_head_ref//\//-}"
