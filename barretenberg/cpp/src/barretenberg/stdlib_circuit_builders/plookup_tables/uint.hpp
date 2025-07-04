@@ -100,6 +100,30 @@ inline MultiTable get_uint32_xor_table(const MultiTableId id = UINT32_XOR)
     return table;
 }
 
+inline MultiTable get_uint64_xor_table(const MultiTableId id = UINT64_XOR)
+{
+    const size_t TABLE_BIT_SIZE = 6;
+    const size_t num_entries = 64 / TABLE_BIT_SIZE;
+    const uint64_t base = 1 << TABLE_BIT_SIZE;
+    MultiTable table(base, base, base, num_entries);
+
+    table.id = id;
+    for (size_t i = 0; i < num_entries; ++i) {
+        table.slice_sizes.emplace_back(base);
+        table.basic_table_ids.emplace_back(UINT_XOR_SLICE_6_ROTATE_0);
+        table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<6, 0>);
+    }
+
+    // 64 = 10 * 6 + 4
+    // all remaining bits
+    const size_t LAST_TABLE_BIT_SIZE = 64 - TABLE_BIT_SIZE * num_entries;
+    const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
+    table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
+    table.basic_table_ids.emplace_back(UINT_XOR_SLICE_4_ROTATE_0);
+    table.get_table_values.emplace_back(&get_xor_rotate_values_from_key<LAST_TABLE_BIT_SIZE, 0>);
+    return table;
+}
+
 inline MultiTable get_uint32_and_table(const MultiTableId id = UINT32_AND)
 {
     const size_t TABLE_BIT_SIZE = 6;
@@ -119,6 +143,31 @@ inline MultiTable get_uint32_and_table(const MultiTableId id = UINT32_AND)
     const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
     table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
     table.basic_table_ids.emplace_back(UINT_AND_SLICE_2_ROTATE_0);
+    table.get_table_values.emplace_back(&get_and_rotate_values_from_key<LAST_TABLE_BIT_SIZE, 0>);
+
+    return table;
+}
+
+inline MultiTable get_uint64_and_table(const MultiTableId id = UINT64_AND)
+{
+    const size_t TABLE_BIT_SIZE = 6;
+    const size_t num_entries = 64 / TABLE_BIT_SIZE;
+    const uint64_t base = 1 << TABLE_BIT_SIZE;
+    MultiTable table(base, base, base, num_entries);
+
+    table.id = id;
+    for (size_t i = 0; i < num_entries; ++i) {
+        table.slice_sizes.emplace_back(base);
+        table.basic_table_ids.emplace_back(UINT_AND_SLICE_6_ROTATE_0);
+        table.get_table_values.emplace_back(&get_and_rotate_values_from_key<TABLE_BIT_SIZE, 0>);
+    }
+
+    // 64 = 10 * 6 + 4
+    // all remaining bits
+    const size_t LAST_TABLE_BIT_SIZE = 64 - TABLE_BIT_SIZE * num_entries;
+    const size_t LAST_SLICE_SIZE = 1 << LAST_TABLE_BIT_SIZE;
+    table.slice_sizes.emplace_back(LAST_SLICE_SIZE);
+    table.basic_table_ids.emplace_back(UINT_AND_SLICE_4_ROTATE_0);
     table.get_table_values.emplace_back(&get_and_rotate_values_from_key<LAST_TABLE_BIT_SIZE, 0>);
 
     return table;

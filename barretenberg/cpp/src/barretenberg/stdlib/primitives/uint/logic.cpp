@@ -281,11 +281,25 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
 
     ReadData<field_t<Builder>> lookup;
     if (op_type == XOR) {
-        lookup = plookup_read<Builder>::get_lookup_accumulators(
-            MultiTableId::UINT32_XOR, field_t<Builder>(*this), field_t<Builder>(other), true);
+        if constexpr (std::is_same_v<Native, uint64_t>) {
+            // use the 64-bit XOR lookup
+            lookup = plookup_read<Builder>::get_lookup_accumulators(
+                MultiTableId::UINT64_XOR, field_t<Builder>(*this), field_t<Builder>(other), true);
+        } else {
+            // use the 32-bit XOR lookup
+            lookup = plookup_read<Builder>::get_lookup_accumulators(
+                MultiTableId::UINT32_XOR, field_t<Builder>(*this), field_t<Builder>(other), true);
+        }
     } else {
-        lookup = plookup_read<Builder>::get_lookup_accumulators(
-            MultiTableId::UINT32_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
+        if constexpr (std::is_same_v<Native, uint64_t>) {
+            // use the 64-bit AND lookup
+            lookup = plookup_read<Builder>::get_lookup_accumulators(
+                MultiTableId::UINT64_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
+        } else {
+            // use the 32-bit AND lookup
+            lookup = plookup_read<Builder>::get_lookup_accumulators(
+                MultiTableId::UINT32_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
+        }
     }
     uint<Builder, Native> result(ctx);
     // result.accumulators.resize(num_accumulators());

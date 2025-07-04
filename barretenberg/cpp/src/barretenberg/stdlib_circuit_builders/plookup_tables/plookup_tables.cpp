@@ -59,7 +59,9 @@ void init_multi_tables()
     MULTI_TABLES[MultiTableId::AES_INPUT] = aes128_tables::get_aes_input_table(MultiTableId::AES_INPUT);
     MULTI_TABLES[MultiTableId::AES_SBOX] = aes128_tables::get_aes_sbox_table(MultiTableId::AES_SBOX);
     MULTI_TABLES[MultiTableId::UINT32_XOR] = uint_tables::get_uint32_xor_table(MultiTableId::UINT32_XOR);
+    MULTI_TABLES[MultiTableId::UINT64_XOR] = uint_tables::get_uint64_xor_table(MultiTableId::UINT64_XOR);
     MULTI_TABLES[MultiTableId::UINT32_AND] = uint_tables::get_uint32_and_table(MultiTableId::UINT32_AND);
+    MULTI_TABLES[MultiTableId::UINT64_AND] = uint_tables::get_uint64_and_table(MultiTableId::UINT64_AND);
     MULTI_TABLES[MultiTableId::BN254_XLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_table(
         MultiTableId::BN254_XLO, BasicTableId::BN254_XLO_BASIC);
     MULTI_TABLES[MultiTableId::BN254_XHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_table(
@@ -321,8 +323,14 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     case UINT_AND_SLICE_6_ROTATE_0: {
         return uint_tables::generate_and_rotate_table<6, 0>(UINT_AND_SLICE_6_ROTATE_0, index);
     }
+    case UINT_XOR_SLICE_4_ROTATE_0: {
+        return uint_tables::generate_xor_rotate_table<4, 0>(UINT_XOR_SLICE_4_ROTATE_0, index);
+    }
     case UINT_XOR_SLICE_2_ROTATE_0: {
         return uint_tables::generate_xor_rotate_table<2, 0>(UINT_XOR_SLICE_2_ROTATE_0, index);
+    }
+    case UINT_AND_SLICE_4_ROTATE_0: {
+        return uint_tables::generate_and_rotate_table<4, 0>(UINT_AND_SLICE_4_ROTATE_0, index);
     }
     case UINT_AND_SLICE_2_ROTATE_0: {
         return uint_tables::generate_and_rotate_table<2, 0>(UINT_AND_SLICE_2_ROTATE_0, index);
