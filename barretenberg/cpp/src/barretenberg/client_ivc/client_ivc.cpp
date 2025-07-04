@@ -160,7 +160,11 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // check whether we are in a kernel circuit
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
         kernel_return_data_commitment_exists = true;
-        kernel_input.reconstruct_from_public(decider_vk->public_inputs);
+        // kernel_input.reconstruct_from_public(decider_vk->public_inputs);
+        kernel_input.reconstruct_from_public(
+            decider_vk->public_inputs,
+            static_cast<uint32_t>(decider_vk->vk_and_hash->vk->num_public_inputs.get_value()));
+
         auto return_data = decider_vk->witness_commitments.return_data;
         auto calldata = decider_vk->witness_commitments.calldata;
         auto secondary_calldata = decider_vk->witness_commitments.secondary_calldata;

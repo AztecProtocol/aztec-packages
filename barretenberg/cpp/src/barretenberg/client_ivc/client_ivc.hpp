@@ -80,7 +80,6 @@ class ClientIVC {
     using Commitment = typename Curve::Group;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
-
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
      * recursive verified the last folding and decider proof) and a Goblin proof (translator VM, ECCVM and last merge
