@@ -4,7 +4,7 @@
 Aztec engineers usually share computing resources on a mainframe. Its CPU load varies which adds noise to benchmark results.
 
 ## Who
-To eliminate such noise, we have a machine dedicated to run benchmarks for Aztec engineers.
+To eliminate such noise, we have a machine dedicated to run benchmarks for the Aztec cryptography engineering team.
 
 ## What
 There are scripts that:
