@@ -1,6 +1,6 @@
 #pragma once
 /**
- * @file bbrpc.hpp
+ * @file bbapi.hpp
  * @brief Barretenberg RPC provides a stateful API for all core barretenberg proving functions.
  * Not included:
  * - Solidity verifier generation
@@ -11,7 +11,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include <map>
 
-namespace bb::bbrpc {
+namespace bb::bbapi {
 
 /**
  * @struct CircuitInputNoVK
@@ -496,6 +496,12 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitBenchmark::Response,
                                    ClientIvcCheckPrecomputedVk::Response>;
 
+// Specifically check for ClientIvcStart, ClientIvcLoad, ClientIvcAccumulate, and ClientIvcProve
+// Helps type-check C++ code, but we don't use this distinction for RPC commands or WASM.
+template <typename T>
+concept RequiresBBApiRequest = std::is_same_v<T, ClientIvcStart> || std::is_same_v<T, ClientIvcLoad> ||
+                               std::is_same_v<T, ClientIvcAccumulate> || std::is_same_v<T, ClientIvcProve>;
+
 /**
  * @brief Convert oracle hash type string to enum for internal use
  */
@@ -512,4 +518,4 @@ inline OracleHashType parse_oracle_hash_type(const std::string& type)
     return OracleHashType::POSEIDON2; // default
 }
 
-} // namespace bb::bbrpc
+} // namespace bb::bbapi
