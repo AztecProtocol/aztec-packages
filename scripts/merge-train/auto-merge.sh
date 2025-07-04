@@ -49,19 +49,6 @@ function get_last_meaningful_commit_info {
   echo "$latest_sha|$latest_date"
 }
 
-function has_merge_queue_failure {
-  local commit_sha="$1"
-
-  if [[ -z "$commit_sha" ]]; then
-    return 1
-  fi
-
-  # Check for merge queue failure in check runs for the commit
-  local failures=$(gh api "repos/{owner}/{repo}/commits/$commit_sha/check-runs" \
-    --jq '.check_runs[] | select(.name | contains("merge-queue") or contains("Merge queue")) | select(.conclusion == "failure") | .name')
-
-  [[ -n "$failures" ]]
-}
 
 function is_pr_inactive {
   local last_commit_date="$1"
@@ -115,10 +102,19 @@ while IFS= read -r pr_json; do
   latest_sha="${commit_info%%|*}"
   last_commit_date="${commit_info##*|}"
 
-  # Check for merge queue failures on the latest commit
-  if has_merge_queue_failure "$latest_sha"; then
-    log_info "PR #$pr_number has merge queue failures, skipping auto-merge"
-    continue
+  # Check if the last merge queue run failed
+  log_info "Checking last merge queue run for PR #$pr_number"
+  
+  # Get the most recent completed CI3 merge queue run for this PR
+  last_mq_run=$(gh api "repos/{owner}/{repo}/actions/runs?event=merge_group&per_page=50" \
+    --jq '.workflow_runs[] | select(.head_commit.message | contains("#'$pr_number'")) | select(.status == "completed") | select(.name == "CI3") | {conclusion: .conclusion, name: .name}' 2>/dev/null | head -1)
+  
+  if [[ -n "$last_mq_run" ]]; then
+    last_mq_conclusion=$(echo "$last_mq_run" | jq -r '.conclusion // empty')
+    if [[ "$last_mq_conclusion" == "failure" ]] || [[ "$last_mq_conclusion" == "cancelled" ]]; then
+      log_info "PR #$pr_number last merge queue run failed ($last_mq_conclusion), skipping auto-merge"
+      continue
+    fi
   fi
 
   if is_pr_inactive "$last_commit_date"; then
