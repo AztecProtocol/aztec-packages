@@ -1,7 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil } from '@aztec/aztec.js';
-import type { P2PClient } from '@aztec/p2p';
+import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -72,6 +72,43 @@ describe('e2e_p2p_preferred_network', () => {
       'Wait for peers',
       timeout,
     );
+  };
+
+  // Intercepts all P2P gossip and verifies that it is received from one of a set of expect peers
+  const monitorP2PTraffic = (node: AztecNodeService, expectedPeers: string[]) => {
+    const p2pService = (node.getP2P() as any).p2pService as P2PService;
+
+    // @ts-expect-error - we want to spy on received tx handler
+    const oldTxHandler = p2pService.handleGossipedTx.bind(p2pService);
+    // Mock the function to just call the old one
+    const handleGossipedTxSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
+      expect(expectedPeers.includes(source.toString())).toBe(true);
+      await oldTxHandler(payload, msgId, source);
+    });
+    // @ts-expect-error - replace with our own handler
+    p2pService.handleGossipedTx = handleGossipedTxSpy;
+
+    // @ts-expect-error - we want to spy on received proposal handler
+    const oldProposalHandler = p2pService.processBlockFromPeer.bind(p2pService);
+
+    // Mock the function to just call the old one
+    const handleGossipedProposalSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
+      expect(expectedPeers.includes(source.toString())).toBe(true);
+      await oldProposalHandler(payload, msgId, source);
+    });
+    // @ts-expect-error - replace with our own handler
+    p2pService.processBlockFromPeer = handleGossipedProposalSpy;
+
+    // @ts-expect-error - we want to spy on received attestation handler
+    const oldAttestationHandler = p2pService.processAttestationFromPeer.bind(p2pService);
+
+    // Mock the function to just call the old one
+    const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
+      expect(expectedPeers.includes(source.toString())).toBe(true);
+      await oldAttestationHandler(payload, msgId, source);
+    });
+    // @ts-expect-error - replace with our own handler
+    p2pService.processAttestationFromPeer = handleGossipedAttestationSpy;
   };
 
   beforeEach(async () => {
@@ -233,11 +270,11 @@ describe('e2e_p2p_preferred_network', () => {
     const validatorsUsingDiscovery = validators.length;
     const totalNumValidators = validators.length + pickyValidators.length;
     const expectedPeerCounts = nodes
-      .map(() => nodes.length - 1 + validatorsUsingDiscovery + 1) // +1 for the Aztec Node
-      .concat(preferredNodes.map(() => totalNumValidators)) // Only connect to validators
-      .concat(validators.map(() => nodes.length + preferredNodes.length + validatorsUsingDiscovery - 1 + 1)) // +1 for the Aztec Node
-      .concat(pickyValidators.map(() => preferredNodes.length))
-      .concat([nodes.length + validatorsUsingDiscovery]);
+      .map(() => nodes.length - 1 + validatorsUsingDiscovery + 1) // Regular nodes connect to the default node and the validators that have discovery enabled
+      .concat(preferredNodes.map(() => totalNumValidators)) // Preferred nodes only connect to validators (all of them)
+      .concat(validators.map(() => nodes.length + preferredNodes.length + validatorsUsingDiscovery - 1 + 1)) // Validators connect to all nodes, preferred nodes, validators using discovery and the default node
+      .concat(pickyValidators.map(() => preferredNodes.length)) // The 'picky' validators ONLY connect to preferred nodes (no discovery)
+      .concat([nodes.length + validatorsUsingDiscovery]); // The default node connects to other regular nodes and validators using discovery
     for (let i = 0; i < allNodes.length; i++) {
       const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 600, identifiers[i]);
       expect(peerResult).toBeTruthy();
@@ -245,6 +282,28 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('All node/validator peer connections established');
 
     validators.push(...pickyValidators);
+
+    // We will setup some gossip monitors to ensure that nodes that restrict who they connect to
+    // only receive messages from expected peers
+
+    const preferredNodePeerIds = await Promise.all(preferredNodeEnrs.map(x => ENR.decodeTxt(x!).peerId()));
+    const validatorEnrs = await Promise.all(validators.map(p => p.getEncodedEnr()));
+    const validatorPeerIds = await Promise.all(validatorEnrs.map(x => ENR.decodeTxt(x!).peerId()));
+
+    // Picky validators should only receive P2P gossip from preferred nodes
+    pickyValidators.forEach(validator => {
+      monitorP2PTraffic(
+        validator,
+        preferredNodePeerIds.map(x => x.toString()),
+      );
+    });
+    // Preferred nodes should only receive P2P gossip from validators
+    preferredNodes.forEach(node => {
+      monitorP2PTraffic(
+        node,
+        validatorPeerIds.map(x => x.toString()),
+      );
+    });
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
