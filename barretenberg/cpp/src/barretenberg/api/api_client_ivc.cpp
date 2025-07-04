@@ -1,5 +1,8 @@
 #include "api_client_ivc.hpp"
+#include "barretenberg/api/bbrpc_commands.hpp"
+#include "barretenberg/api/bbrpc_execute.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -36,15 +39,6 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
     return wv;
 }
 
-std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(acir_format::AcirProgram& program)
-{
-    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
-}
-
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
@@ -53,17 +47,30 @@ std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_k
  * @param bytecode_path
  * @param witness_path
  */
-void write_standalone_vk(const std::string& output_data_type,
+void write_standalone_vk(const std::string& output_format,
                          const std::string& bytecode_path,
-                         const std::string& output_path)
+                         const std::filesystem::path& output_path)
 {
+    auto bytecode = get_bytecode(bytecode_path);
 
-    acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-    PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ .key = verification_key };
+    bbrpc::BBRpcRequest request;
 
-    write(to_write, output_data_type, "vk", output_path);
+    auto response = bbrpc::execute(request,
+                                   bbrpc::ClientIvcComputeStandaloneVk{
+                                       .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) } });
+
+    if (!response.error_message.empty()) {
+        throw_or_abort("Failed to compute standalone VK: " + response.error_message);
+    }
+
+    if (output_format == "bytes") {
+        write_file(output_path / "vk", response.vk_bytes);
+    } else if (output_format == "fields") {
+        std::string json = bbrpc::field_elements_to_json(response.vk_fields);
+        write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
+    } else {
+        throw_or_abort("Unsupported output format for standalone vk: " + output_format);
+    }
 }
 
 size_t get_num_public_inputs_in_circuit(const std::filesystem::path& bytecode_path)
@@ -80,26 +87,13 @@ void write_vk_for_ivc(const std::string& output_format,
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
-    ClientIVCMockCircuitProducer circuit_producer;
 
-    // Initialize the IVC with an arbitrary circuit
-    // We segfault if we only call accumulate once
-    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-    ivc.accumulate(circuit_0);
+    bbrpc::BBRpcRequest request;
 
-    // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 =
-        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
-    ivc.accumulate(circuit_1);
-
-    // Construct the hiding circuit and its VK (stored internally in the IVC)
-    ivc.construct_hiding_circuit_key();
+    auto vk = bbrpc::compute_vk_for_ivc(request, num_public_inputs_in_final_circuit);
+    const auto buf = to_buffer(vk);
 
     const bool output_to_stdout = output_dir == "-";
-    const auto buf = to_buffer(ivc.get_vk());
-
     if (output_to_stdout) {
         write_bytes_to_stdout(buf);
     } else {
@@ -111,41 +105,73 @@ void write_vk_for_ivc(const std::string& output_data_type,
                       const std::string& bytecode_path,
                       const std::filesystem::path& output_dir)
 {
-    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
-    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-    write_vk_for_ivc(output_data_type, num_public_inputs_in_final_circuit, output_dir);
+    if (output_data_type != "bytes") {
+        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_data_type);
+    }
+
+    auto bytecode = get_bytecode(bytecode_path);
+
+    bbrpc::BBRpcRequest request;
+
+    auto response = bbrpc::execute(
+        request,
+        bbrpc::ClientIvcComputeIvcVk{ .circuit = { .name = "final_circuit", .bytecode = std::move(bytecode) } });
+
+    if (!response.error_message.empty()) {
+        throw_or_abort("Failed to compute IVC VK: " + response.error_message);
+    }
+
+    const bool output_to_stdout = output_dir == "-";
+    if (output_to_stdout) {
+        write_bytes_to_stdout(response.vk_bytes);
+    } else {
+        write_file(output_dir / "vk", response.vk_bytes);
+    }
 }
 
 void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
 {
+    auto raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    bbrpc::BBRpcRequest request;
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
-    ClientIVC::Proof proof = ivc->prove();
-
-    // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
-    // and it is mysterious if this transaction fails later in the lifecycle.
-    // The files are still written in case they are needed to investigate this failure.
-    if (!ivc->verify(proof)) {
-        THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+    auto start_response = bbrpc::execute(request, bbrpc::ClientIvcStart{});
+    if (!start_response.error_message.empty()) {
+        throw_or_abort("Failed to start ClientIVC: " + start_response.error_message);
     }
 
-    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
-    // std::string representations of vks that don't feel worth implementing
-    const bool output_to_stdout = output_dir == "-";
+    for (const auto& step : raw_steps) {
+        auto load_response = bbrpc::execute(
+            request,
+            bbrpc::ClientIvcLoad{
+                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk } });
+        if (!load_response.error_message.empty()) {
+            throw_or_abort("Failed to load circuit: " + load_response.error_message);
+        }
 
+        info("ClientIVC: accumulating " + step.function_name);
+        auto acc_response = bbrpc::execute(request, bbrpc::ClientIvcAccumulate{ .witness = step.witness });
+        if (!acc_response.error_message.empty()) {
+            throw_or_abort("Failed to accumulate circuit: " + acc_response.error_message);
+        }
+    }
+
+    auto prove_response = bbrpc::execute(request, bbrpc::ClientIvcProve{});
+    if (!prove_response.error_message.empty()) {
+        throw_or_abort("Failed to prove: " + prove_response.error_message);
+    }
+
+    const bool output_to_stdout = output_dir == "-";
     const auto write_proof = [&]() {
-        const auto buf = to_buffer(proof);
+        const auto buf = to_buffer(prove_response.proof);
         if (output_to_stdout) {
             vinfo("writing ClientIVC proof to stdout");
             write_bytes_to_stdout(buf);
         } else {
             vinfo("writing ClientIVC proof in directory ", output_dir);
-            proof.to_file_msgpack(output_dir / "proof");
+            prove_response.proof.to_file_msgpack(output_dir / "proof");
         }
     };
 
@@ -153,8 +179,9 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        const size_t num_public_inputs_in_final_circuit = steps.folding_stack.back().constraints.public_inputs.size();
-        write_vk_for_ivc("bytes", num_public_inputs_in_final_circuit, output_dir);
+        auto last_bytecode_copy = raw_steps.back().bytecode;
+        auto last_constraints = acir_format::circuit_buf_to_acir_format(std::move(last_bytecode_copy));
+        write_vk_for_ivc("bytes", last_constraints.public_inputs.size(), output_dir);
     }
 }
 
@@ -194,24 +221,31 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
 }
 
 bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path)
-
 {
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    auto raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    for (auto [program, precomputed_vk, function_name] :
-         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
-        if (precomputed_vk == nullptr) {
-            info("FAIL: Expected precomputed vk for function ", function_name);
+    bbrpc::BBRpcRequest request;
+
+    for (const auto& step : raw_steps) {
+        if (step.vk.empty()) {
+            info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        std::string error_message = "FAIL: Precomputed vk does not match computed vk for function " + function_name;
-        if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+
+        auto response = bbrpc::execute(
+            request,
+            bbrpc::ClientIvcCheckPrecomputedVk{
+                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+                .function_name = step.function_name });
+
+        if (!response.error_message.empty() || !response.valid) {
+            if (!response.error_message.empty()) {
+                info(response.error_message);
+            }
             return false;
         }
     }
+
     return true;
 }
 

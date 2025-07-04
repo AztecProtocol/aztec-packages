@@ -46,22 +46,20 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
     // Get the VK for the app circuit
     bbrpc::BBRpcRequest request;
 
-    auto app_vk =
-        bbrpc::execute(request,
-                       bbrpc::ClientIvcComputeVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode },
-                                                  .standalone = true })
-            .verification_key;
+    auto app_vk = bbrpc::execute(request,
+                                 bbrpc::ClientIvcComputeStandaloneVk{
+                                     .circuit = { .name = "app_circuit", .bytecode = app_bytecode } })
+                      .vk_bytes;
     auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
 
     // Now create a kernel circuit that verifies the app circuit
     auto kernel_bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/true);
     auto kernel_witness_data = acir_bincode_mocks::create_kernel_witness(app_vk_fields);
 
-    auto kernel_vk =
-        bbrpc::execute(request,
-                       bbrpc::ClientIvcComputeVk{ .circuit = { .name = "kernel_circuit", .bytecode = kernel_bytecode },
-                                                  .standalone = true })
-            .verification_key;
+    auto kernel_vk = bbrpc::execute(request,
+                                    bbrpc::ClientIvcComputeStandaloneVk{
+                                        .circuit = { .name = "kernel_circuit", .bytecode = kernel_bytecode } })
+                         .vk_bytes;
 
     // Create PrivateExecutionStepRaw for the kernel
     std::vector<PrivateExecutionStepRaw> raw_steps;
@@ -104,12 +102,10 @@ ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 {
     auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
     bbrpc::BBRpcRequest request;
-    // First create an app standalone VK.
-    auto app_vk =
-        bbrpc::execute(request,
-                       bbrpc::ClientIvcComputeVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode },
-                                                  .standalone = true })
-            .verification_key;
+    auto app_vk = bbrpc::execute(request,
+                                 bbrpc::ClientIvcComputeStandaloneVk{
+                                     .circuit = { .name = "app_circuit", .bytecode = app_bytecode } })
+                      .vk_bytes;
     auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
     // Use this to get the size of the vk.
     auto bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/false);
@@ -268,22 +264,20 @@ TEST_F(ClientIVCAPITests, CheckPrecomputedVksMismatch)
     auto [bytecode, witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
 
     bbrpc::BBRpcRequest request;
-    size_t vk_size =
-        from_buffer<MegaFlavor::VerificationKey>(
-            bbrpc::execute(request,
-                           bbrpc::ClientIvcComputeVk{ .circuit = { .name = "simple_circuit", .bytecode = bytecode },
-                                                      .standalone = true })
-                .verification_key)
-            .to_field_elements()
-            .size();
+    size_t vk_size = from_buffer<MegaFlavor::VerificationKey>(
+                         bbrpc::execute(request,
+                                        bbrpc::ClientIvcComputeStandaloneVk{
+                                            .circuit = { .name = "simple_circuit", .bytecode = bytecode } })
+                             .vk_bytes)
+                         .to_field_elements()
+                         .size();
 
     // Create a WRONG verification key (use a different circuit)
     auto different_bytecode = acir_bincode_mocks::create_simple_kernel(vk_size, /*is_init_kernel=*/true);
-    auto vk = bbrpc::execute(
-                  request,
-                  bbrpc::ClientIvcComputeVk{ .circuit = { .name = "different_circuit", .bytecode = different_bytecode },
-                                             .standalone = true })
-                  .verification_key;
+    auto vk = bbrpc::execute(request,
+                             bbrpc::ClientIvcComputeStandaloneVk{
+                                 .circuit = { .name = "different_circuit", .bytecode = different_bytecode } })
+                  .vk_bytes;
 
     // Create PrivateExecutionStepRaw with wrong VK
     std::vector<PrivateExecutionStepRaw> raw_steps;
