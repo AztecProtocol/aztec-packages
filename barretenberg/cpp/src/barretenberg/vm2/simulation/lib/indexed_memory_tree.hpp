@@ -130,10 +130,9 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
             FF low_leaf_hash = HashingPolicy::hash(low_leaf.get_hash_inputs());
             tree.update_element(find_low_leaf_result.index, low_leaf_hash);
 
+            append_leaf(new_indexed_leaf);
             FF new_leaf_hash = HashingPolicy::hash(new_indexed_leaf.get_hash_inputs());
             tree.update_element(insertion_index, new_leaf_hash);
-
-            append_leaf(new_indexed_leaf);
 
             result.insertion_witness_data.push_back(LeafUpdateWitnessData<LeafType>(
                 new_indexed_leaf, insertion_index, tree.get_sibling_path(insertion_index)));
