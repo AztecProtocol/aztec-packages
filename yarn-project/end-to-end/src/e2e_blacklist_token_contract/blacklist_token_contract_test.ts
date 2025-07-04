@@ -2,6 +2,7 @@ import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   AztecAddress,
+  type AztecNode,
   type CompleteAddress,
   Fr,
   type Logger,
@@ -10,10 +11,11 @@ import {
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
-import type { CheatCodes } from '@aztec/aztec.js/testing';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
+import type { SequencerClient } from '@aztec/sequencer-client';
 
 import { jest } from '@jest/globals';
 
@@ -68,6 +70,8 @@ export class BlacklistTokenContractTest {
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
   cheatCodes!: CheatCodes;
+  sequencer!: SequencerClient;
+  aztecNode!: AztecNode;
 
   admin!: AccountWallet;
   other!: AccountWallet;
@@ -79,7 +83,11 @@ export class BlacklistTokenContractTest {
   }
 
   async crossTimestampOfChange() {
-    await this.cheatCodes.warpL2TimeAtLeastBy(this.admin, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
+    await this.cheatCodes.warpL2TimeAtLeastBy(
+      this.sequencer,
+      this.aztecNode,
+      BlacklistTokenContractTest.CHANGE_ROLES_DELAY,
+    );
   }
 
   /**
@@ -94,9 +102,11 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe, cheatCodes }) => {
+      async ({ deployedAccounts }, { pxe, cheatCodes, aztecNode, sequencer }) => {
         this.pxe = pxe;
         this.cheatCodes = cheatCodes;
+        this.aztecNode = aztecNode;
+        this.sequencer = sequencer;
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.admin = this.wallets[0];
         this.other = this.wallets[1];

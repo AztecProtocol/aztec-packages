@@ -1,5 +1,5 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
 import { registerContractClass } from '@aztec/aztec.js/deployment';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
@@ -7,6 +7,7 @@ import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
@@ -30,6 +31,8 @@ describe('e2e_contract_updates', () => {
   let contract: UpdatableContract;
   let updatedContractClassId: Fr;
   let cheatCodes: CheatCodes;
+  let sequencer: SequencerClient;
+  let aztecNode: AztecNode;
 
   const setupScheduledDelay = async (constructorArgs: any[], salt: Fr, deployer: AztecAddress) => {
     const predictedInstance = await getContractInstanceFromDeployParams(UpdatableContract.artifact, {
@@ -76,10 +79,23 @@ describe('e2e_contract_updates', () => {
     const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
     const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
 
-    ({ teardown, wallet, cheatCodes } = await setup(1, {
+    let maybeSequencer: SequencerClient | undefined = undefined;
+
+    ({
+      aztecNode,
+      teardown,
+      wallet,
+      cheatCodes,
+      sequencer: maybeSequencer,
+    } = await setup(1, {
       genesisPublicData,
       initialFundedAccounts,
     }));
+
+    if (!maybeSequencer) {
+      throw new Error('Sequencer client not found');
+    }
+    sequencer = maybeSequencer;
 
     contract = await UpdatableContract.deploy(wallet, constructorArgs[0])
       .send({ contractAddressSalt: salt })
@@ -98,7 +114,7 @@ describe('e2e_contract_updates', () => {
     expect(await contract.methods.get_public_value().simulate()).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
     await contract.methods.update_to(updatedContractClassId).send().wait();
     // Warp time to get past the timestamp of change where the update takes effect
-    await cheatCodes.warpL2TimeAtLeastBy(wallet, DEFAULT_TEST_UPDATE_DELAY);
+    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
     const updatedContract = await UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
@@ -123,7 +139,7 @@ describe('e2e_contract_updates', () => {
     expect(await contract.methods.get_update_delay().simulate()).toEqual(BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     await contract.methods.update_to(updatedContractClassId).send().wait();
-    await cheatCodes.warpL2TimeAtLeastBy(wallet, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
+    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     // Should be updated now
     const updatedContract = await UpdatedContract.at(contract.address, wallet);
