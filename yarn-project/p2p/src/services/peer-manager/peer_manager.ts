@@ -57,8 +57,7 @@ export class PeerManager implements PeerManagerInterface {
   private privatePeers: Set<string> = new Set();
   private privatePeersInitialized: boolean = false;
   private preferredPeers: Set<string> = new Set();
-  private authenticatedPeers: Set<string> = new Set();
-  private peerToValidator: Map<string, EthAddress> = new Map();
+  private authenticatedPeers: Map<string, EthAddress> = new Map();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -740,7 +739,7 @@ export class PeerManager implements PeerManagerInterface {
 
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.debug(`Initiating auth handshake with peer ${peerId}\n\n\n`);
+      this.logger.debug(`Initiating auth handshake with peer ${peerId}`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.AUTH,
@@ -779,8 +778,7 @@ export class PeerManager implements PeerManagerInterface {
       }
 
       const peerIdString = peerId.toString();
-      this.authenticatedPeers.add(peerIdString);
-      this.peerToValidator.set(peerIdString, sender);
+      this.authenticatedPeers.set(peerIdString, sender);
       this.logger.info(
         `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
         logData,
@@ -816,23 +814,28 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public async handleAuthFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
-    if (this.shouldTrustWithIdentity(peerId)) {
-      this.logger.debug(`Received auth request from trusted peer ${peerId.toString()}`);
-      return await this.createStatusMessage();
+    if (!this.shouldTrustWithIdentity(peerId)) {
+      this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
+      throw new Error('Unauthorised');
     }
-    this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
-    throw new Error('Unauthorised');
+    this.logger.debug(`Received auth request from trusted peer ${peerId.toString()}`);
+    return await this.createStatusMessage();
   }
 
-  private async updateAuthenticatedPeers() {
-    const currentSet = await this.epochCache.getRegisteredValidators();
-    const asSet = new Set(currentSet.map(v => v.toString()));
-    const peersToRemove = this.authenticatedPeers.keys().filter(peerId => {
-      const validatorAddress = this.peerToValidator.get(peerId);
-      return validatorAddress === undefined || !asSet.has(validatorAddress.toString());
-    });
-    for (const peerId of peersToRemove) {
-      this.authenticatedPeers.delete(peerId);
+  private async updateAuthenticatedPeers(): Promise<void> {
+    const registeredValidators = await this.epochCache.getRegisteredValidators();
+    const validatorSet = new Set(registeredValidators.map(v => v.toString()));
+
+    const toDelete: Set<string> = new Set();
+    for (const [peer, address] of this.authenticatedPeers.entries()) {
+      if (!address || !validatorSet.has(address.toString())) {
+        toDelete.add(peer);
+      }
+    }
+
+    for (const peer of toDelete) {
+      this.authenticatedPeers.delete(peer);
+      this.logger.info(`Removed peer ${peer} from authenticated peers`);
     }
   }
 }

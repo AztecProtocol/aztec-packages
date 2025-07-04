@@ -240,14 +240,18 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const directPeers = (
       await Promise.all(
         preferredPeersEnrs.map(async enr => {
+          const address = enr.getLocationMultiaddr('tcp');
+          if (address === undefined) {
+            return undefined;
+          }
           const peerId = await enr.peerId();
           return {
             id: peerId,
-            addrs: [enr.getLocationMultiaddr('tcp')].filter(addr => addr !== undefined),
+            addrs: [address],
           } as AddrInfo;
         }),
       )
-    ).filter(peer => peer.addrs.length > 0);
+    ).filter(peer => peer !== undefined);
 
     logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
 
