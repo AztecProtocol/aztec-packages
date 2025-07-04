@@ -736,9 +736,7 @@ export class PXEService implements PXE {
             totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        this.log.info(`Proving completed in ${totalTime}ms`, {
-          timings,
-        });
+        this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
