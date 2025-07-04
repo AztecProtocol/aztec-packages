@@ -11,9 +11,7 @@ dir=$(dirname $0)
 NARGO=${NARGO:-"$dir/../noir/noir-repo/target/release/nargo"}
 TRANSPILER=${TRANSPILER:-"$dir/../avm-transpiler/target/release/avm-transpiler"}
 BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
-CACHE_DIR=${CACHE_DIR:-"$HOME/.aztec/cache"}
 
-mkdir -p "$CACHE_DIR"
 
 if [ "${1:-}" != "compile" ]; then
   # if not compiling, just pass through to nargo verbatim
@@ -36,7 +34,9 @@ for artifact in $artifacts_to_process; do
   # Transpile in-place
   $TRANSPILER "$artifact" "$artifact"
   artifact_name=$(basename "$artifact")
-  echo "Generating verification keys for functions in $artifact_name"
+  cache_dir=$(dirname "$artifact")/cache
+  mkdir -p "$cache_dir"
+  echo "Generating verification keys for functions in $artifact_name. Cache directory: $cache_dir"
 
   # See contract_artifact.ts (getFunctionType) for reference
   private_fn_indices=$(jq -r '.functions | to_entries | map(select((.value.custom_attributes | contains(["public"]) | not) and (.value.is_unconstrained == false))) | map(.key) | join(" ")' "$artifact")
@@ -50,11 +50,11 @@ for artifact in $artifacts_to_process; do
     fn_artifact_hash=$(echo "$fn_artifact-$bb_hash" | sha256sum | cut -d' ' -f1)
 
     # File to capture the base64 encoded verification key.
-    vk_cache="$CACHE_DIR/$artifact_name.verification_key_$fn_artifact_hash.vk"
+    vk_cache="$cache_dir/${artifact_name}_${fn_artifact_hash}.vk"
 
     # Don't regenerate if vk_cache exists
     if [ -f "$vk_cache" ]; then
-      echo "Verification key for function $fn_name already exists"
+      echo "Using cached verification key for function \"$fn_name\""
       continue
     fi
 
@@ -75,7 +75,7 @@ for artifact in $artifacts_to_process; do
   for fn_index in $private_fn_indices; do
     fn_artifact=$(jq -r ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
     fn_artifact_hash=$(echo "$fn_artifact-$bb_hash" | sha256sum | cut -d' ' -f1)
-    vk_cache="$CACHE_DIR/$artifact_name.verification_key_$fn_artifact_hash.vk"
+    vk_cache="$cache_dir/${artifact_name}_${fn_artifact_hash}.vk"
     verification_key=$(cat "$vk_cache")
     # Update the artifact with the new verification key.
     jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" > "$artifact.tmp"
