@@ -26,6 +26,7 @@
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
+#include "barretenberg/vm2/simulation/events/written_public_data_slot_tree_check_event.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -60,6 +61,7 @@ struct EventsContainer {
     EventEmitterInterface<CalldataEvent>::Container calldata_events;
     EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
     EventEmitterInterface<NoteHashTreeCheckEvent>::Container note_hash_tree_check_events;
+    EventEmitterInterface<WrittenPublicDataSlotsTreeCheckEvent>::Container written_public_data_slots_tree_check_events;
 };
 
 } // namespace bb::avm2::simulation

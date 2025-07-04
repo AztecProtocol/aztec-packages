@@ -91,7 +91,11 @@ describe('Public Side Effect Trace', () => {
   describe('Maximum accesses', () => {
     it('Should enforce maximum number of user public storage writes', async () => {
       for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-        await trace.tracePublicStorageWrite(address, slot, value, false);
+        await trace.tracePublicStorageWrite(address, slot.add(new Fr(i)), value, false);
+      }
+      // We should be able to write again to all the same slots, since we've already written to them.
+      for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
+        await trace.tracePublicStorageWrite(address, slot.add(new Fr(i)), value.add(new Fr(1)), false);
       }
       await expect(
         trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), value, false),
@@ -229,8 +233,6 @@ describe('Public Side Effect Trace', () => {
 
       // parent trace adopts nested call's counter
       expect(trace.getCounter()).toBe(testCounter);
-      // parent trace adopts nested call's writtenPublicDataSlots
-      expect(trace.isStorageCold(address, slot)).toBe(false);
 
       // parent absorbs child's side effects
       const parentSideEffects = trace.getSideEffects();
@@ -242,8 +244,12 @@ describe('Public Side Effect Trace', () => {
         expect(parentSideEffects.nullifiers).toEqual([]);
         expect(parentSideEffects.l2ToL1Msgs).toEqual([]);
         expect(parentSideEffects.publicLogs).toEqual([]);
+        // parent trace does not adopt nested call's writtenPublicDataSlots
+        expect(trace.isStorageCold(address, slot)).toBe(true);
       } else {
         expect(parentSideEffects).toEqual(childSideEffects);
+        // parent trace adopts nested call's writtenPublicDataSlots
+        expect(trace.isStorageCold(address, slot)).toBe(false);
       }
     });
   });

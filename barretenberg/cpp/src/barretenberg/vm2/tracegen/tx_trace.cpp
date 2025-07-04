@@ -70,9 +70,12 @@ std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree
         { Column::tx_prev_nullifier_tree_size, prev_tree_state.nullifierTree.tree.nextAvailableLeafIndex },
         { Column::tx_prev_num_nullifiers_emitted, prev_tree_state.nullifierTree.counter },
         // Public Data Tree Roots
-        { Column::tx_prev_public_data_tree_root, prev_tree_state.publicDataTree.tree.root },
-        { Column::tx_prev_public_data_tree_size, prev_tree_state.publicDataTree.tree.nextAvailableLeafIndex },
-        { Column::tx_prev_num_pub_data_writes_emitted, prev_tree_state.publicDataTree.counter },
+        { Column::tx_prev_public_data_tree_root, prev_tree_state.publicDataTree.root },
+        { Column::tx_prev_public_data_tree_size, prev_tree_state.publicDataTree.nextAvailableLeafIndex },
+        // Written public data slots tree roots
+        { Column::tx_prev_written_public_data_slots_tree_root, prev_tree_state.writtenPublicDataSlotsTree.root },
+        { Column::tx_prev_written_public_data_slots_tree_size,
+          prev_tree_state.writtenPublicDataSlotsTree.nextAvailableLeafIndex },
         // L1 to L2 Message Tree Roots
         { Column::tx_prev_l1_l2_tree_root, prev_tree_state.l1ToL2MessageTree.tree.root },
         { Column::tx_prev_l1_l2_tree_size, prev_tree_state.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
@@ -86,9 +89,12 @@ std::vector<std::pair<Column, FF>> insert_tree_state(const TreeStates& prev_tree
         { Column::tx_next_nullifier_tree_size, next_tree_state.nullifierTree.tree.nextAvailableLeafIndex },
         { Column::tx_next_num_nullifiers_emitted, next_tree_state.nullifierTree.counter },
         // Public Data Tree Roots
-        { Column::tx_next_public_data_tree_root, next_tree_state.publicDataTree.tree.root },
-        { Column::tx_next_public_data_tree_size, next_tree_state.publicDataTree.tree.nextAvailableLeafIndex },
-        { Column::tx_next_num_pub_data_writes_emitted, next_tree_state.publicDataTree.counter },
+        { Column::tx_next_public_data_tree_root, next_tree_state.publicDataTree.root },
+        { Column::tx_next_public_data_tree_size, next_tree_state.publicDataTree.nextAvailableLeafIndex },
+        // Written public data slots tree roots
+        { Column::tx_next_written_public_data_slots_tree_root, next_tree_state.writtenPublicDataSlotsTree.root },
+        { Column::tx_next_written_public_data_slots_tree_size,
+          next_tree_state.writtenPublicDataSlotsTree.nextAvailableLeafIndex },
         // L1 to L2 Message Tree Roots
         { Column::tx_next_l1_l2_tree_root, next_tree_state.l1ToL2MessageTree.tree.root },
         { Column::tx_next_l1_l2_tree_size, next_tree_state.l1ToL2MessageTree.tree.nextAvailableLeafIndex },
@@ -460,8 +466,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
         // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
         // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         // .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

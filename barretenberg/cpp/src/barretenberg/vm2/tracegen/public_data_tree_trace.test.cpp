@@ -107,6 +107,8 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
 {
     const auto& param = GetParam();
 
+    auto test_public_inputs = testing::PublicInputsBuilder().build();
+
     ExecutionIdManager execution_id_manager(0);
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
@@ -131,6 +133,8 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
     Poseidon2TraceBuilder poseidon2_builder;
     MerkleCheckTraceBuilder merkle_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+    PublicInputsTraceBuilder public_inputs_builder;
     PublicDataTreeTraceBuilder public_data_tree_read_builder;
 
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
@@ -153,6 +157,9 @@ TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
                                                      .nextAvailableLeafIndex = 128,
                                                  });
 
+    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    public_inputs_builder.process_public_inputs(trace, test_public_inputs);
+    public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -179,7 +186,10 @@ TEST(PublicDataTreeCheckTracegenTest, WriteExistsWithInteractions)
         .value = new_value,
     };
 
-    auto test_public_inputs = testing::PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
+    auto test_public_inputs = testing::PublicInputsBuilder()
+                                  .set_accumulated_data(accumulated_data)
+                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .build();
     ExecutionIdManager execution_id_manager(0);
 
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
@@ -268,7 +278,10 @@ TEST(PublicDataTreeCheckTracegenTest, WriteAndUpdateWithInteractions)
         .value = updated_value,
     };
 
-    auto test_public_inputs = testing::PublicInputsBuilder().set_accumulated_data(accumulated_data).build();
+    auto test_public_inputs = testing::PublicInputsBuilder()
+                                  .set_accumulated_data(accumulated_data)
+                                  .set_accumulated_data_array_lengths({ .publicDataWrites = 1 })
+                                  .build();
 
     ExecutionIdManager execution_id_manager(0);
 

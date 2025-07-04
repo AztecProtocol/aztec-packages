@@ -39,7 +39,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
 
-    TreeSnapshots trees;
+    InternalTreeSnapshots trees = {};
     trees.publicDataTree.root = 42;
 
     NiceMock<MockPoseidon2> poseidon2;
@@ -52,7 +52,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
 
     EXPECT_CALL(merkle_db, storage_read(AztecAddress(DEPLOYER_CONTRACT_ADDRESS), shared_mutable_hash_slot))
         .WillRepeatedly(Return(FF(0)));
-    EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
 
@@ -177,7 +177,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 
     FF update_hash = poseidon2::hash(update_preimage);
 
-    TreeSnapshots trees;
+    InternalTreeSnapshots trees = {};
     trees.publicDataTree.root = 42;
 
     NiceMock<MockPoseidon2> poseidon2;
@@ -190,7 +190,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 
     EXPECT_CALL(merkle_db, storage_read(AztecAddress(DEPLOYER_CONTRACT_ADDRESS), shared_mutable_hash_slot))
         .WillRepeatedly(Return(update_hash));
-    EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
     EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
@@ -258,7 +258,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     FF shared_mutable_leaf_slot =
         poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, shared_mutable_hash_slot });
 
-    TreeSnapshots trees;
+    InternalTreeSnapshots trees(TreeSnapshots{}, AppendOnlyTreeSnapshot{ 0, 0 });
 
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
@@ -270,7 +270,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
 
     EXPECT_CALL(merkle_db, storage_read(AztecAddress(DEPLOYER_CONTRACT_ADDRESS), shared_mutable_hash_slot))
         .WillRepeatedly(Return(FF(27)));
-    EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
     EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
