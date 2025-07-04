@@ -36,8 +36,20 @@
       "name": "Debug CIVC transaction",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-low-memory/bin/bb",
       "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack"],
+      "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      // Debug CIVC using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
+      "name": "Debug test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-low-memory/bin/polynomials_tests",
+      "args": [],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
