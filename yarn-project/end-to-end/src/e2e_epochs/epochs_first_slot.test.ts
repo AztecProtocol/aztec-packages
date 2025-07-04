@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, type Logger, getTimestampRangeForEpoch } from '@aztec/aztec.js';
+import { EthAddress, type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
@@ -108,6 +108,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1) * 1000;
     await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait())), timeout);
     logger.warn(`All txs have been mined`);
+    await sleep(1000);
 
     // Check that the first two slots of the epoch have a block
     const blocks = await nodes[0].getBlocks(1, 10);
