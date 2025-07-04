@@ -1,8 +1,6 @@
 #pragma once
 
-#include "barretenberg/api/bbapi_client_ivc.hpp"
-#include "barretenberg/api/bbapi_shared.hpp"
-#include "barretenberg/api/bbapi_ultra_honk.hpp"
+#include "barretenberg/api/bbapi.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <vector>
 
@@ -26,24 +24,6 @@ using Command = NamedUnion<CircuitProve,
                            CircuitBenchmark,
                            ClientIvcCheckPrecomputedVk>;
 
-using CommandResponse = NamedUnion<CircuitProve::Response,
-                                   CircuitComputeVk::Response,
-                                   CircuitInfo::Response,
-                                   CircuitCheck::Response,
-                                   CircuitVerify::Response,
-                                   ClientIvcComputeStandaloneVk::Response,
-                                   ClientIvcComputeIvcVk::Response,
-                                   ClientIvcStart::Response,
-                                   ClientIvcLoad::Response,
-                                   ClientIvcAccumulate::Response,
-                                   ClientIvcProve::Response,
-                                   ProofAsFields::Response,
-                                   VkAsFields::Response,
-                                   CircuitWriteSolidityVerifier::Response,
-                                   CircuitProveAndVerify::Response,
-                                   CircuitBenchmark::Response,
-                                   ClientIvcCheckPrecomputedVk::Response>;
-
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
  *
@@ -55,7 +35,11 @@ inline CommandResponse execute(BBApiRequest& request, Command&& command)
 {
     return std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
         using CmdType = std::decay_t<decltype(cmd)>;
-        return std::forward<CmdType>(cmd).execute(request);
+        if constexpr (RequiresBBApiRequest<CmdType>) {
+            return cmd.execute(request);
+        } else {
+            return cmd.execute(request);
+        }
     });
 }
 
@@ -65,9 +49,29 @@ inline std::vector<CommandResponse> execute_request(BBApiRequest&& request, std:
     std::vector<CommandResponse> responses;
     responses.reserve(commands.size());
     for (Command& command : commands) {
-        responses.push_back(execute(request, std::move(command)));
+        try {
+            responses.push_back(execute(request, std::move(command)));
+        } catch (const std::exception& e) {
+            // If there was an error, we stop processing further commands.
+            throw_or_abort(e.what());
+        }
     }
     return responses;
 }
 
 } // namespace bb::bbapi
+
+namespace bb {
+template <typename T>
+inline typename T::Response do_bbapi(T&& command)
+    requires(!bbapi::RequiresBBApiRequest<T>)
+{
+    bbapi::BBApiRequest request;
+    return command.execute(request);
+}
+
+template <bbapi::RequiresBBApiRequest T> inline typename T::Response do_bbapi(bbapi::BBApiRequest& request, T&& command)
+{
+    return command.execute(request);
+}
+} // namespace bb
