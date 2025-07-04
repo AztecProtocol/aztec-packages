@@ -299,6 +299,45 @@ template <typename Curve> class ShplonkProver_ {
 /**
  * @brief Shplonk Verifier
  *
+ *
+ * @details Given commitments to polynomials \f$[p_1], \dots, [p_m]\f$ and couples of challenge/evaluation
+ * \f$(x_i, v_i)\f$, the Shplonk verifier computes the following commitment:
+ * \f[
+ *      [G] := [Q] - \sum_{i=1}^m \frac{\nu^{i-1} [p_i]}{(z - x_i)} + \sum_{i=1}^m \frac{\nu^{i-1} v_i}{(z - x_i)} [1]
+ * \f]
+ * where \f$\nu\f$ is a random batching challenge, \f$[Q]\f$ is the commiment to the quotient polymomial
+ * \f[
+ *      \sum_{i=1}^m \nu^{i-1} \frac{(p_i - v_i)}{(x - x_i)}
+ * \f]
+ * and \f$z\f$ is the evaluation challenge.
+ *
+ * When the polynomials \f$p_1, \dots, p_m\f$ are linearly dependent, and the verifier which calls the Shplonk
+ * verifier needs to compute the commitments \f$[p_1], \dots, [p_m]\f$ starting from the linearly independent factors,
+ * computing the commitments and then executing the Shplonk verifier is not the most efficient way to execute the
+ * Shplonk verifier algorithm.
+ *
+ * Consider the case \f$m = 2\f$, and take \f$p_2 = a p_1\f$ for some constant \f$a \in \mathbb{F}\f$. Then, the
+ * most efficient way to execute the Shplonk verifier algorithm is to compute the following MSM
+ * \f[
+ *      [Q] - \left( \frac{1}{(z - x_1)} \
+ *                  + \frac{a \nu}{(z - x_2)} \right) [p_1]  \
+ *                      + \left( \frac{v_1}{(z - x_1)} + \frac{v_2 \nu}{(z - x_2)} \right) [1]
+ * \f]
+ *
+ * The Shplonk verifier api is designed to allow the execution of the Shplonk verifier algorithm in its most efficient
+ * form. To achieve this, the Shplonk verifier maintains an internal state depending of the following variables:
+ *  - \f$[f_1], \dots, [f_n]\f$ (`commitments` in code) the commitments to the linearly independent polynomials such
+ * that for each polynomial \f$p_i\f$ we wish to open it holds \f$p_i = \sum_{i=1}^n p_{i,j} f_j\f$ for some \f$p_j
+ * \in \mathbb{F}\f$.
+ *  - \f$\nu\f$ (`nu` in code) the challenge used to batch the polynomial commitments.
+ *  - \f$\nu^{i}\f$ (`current_nu` in code), which is the power of the batching challenge used to batch the
+ *      \f$i\f$-th polynomial \f$ p_i \f$ in the Shplonk verifier algorithm.
+ *  - \f$[Q]\f$ (`quotient` in code).
+ *  - \f$z\f$ (`z_challenge` in code), the partial evaluation challenge.
+ *  - \f$(s_1, \dots, s_n)\f$ (`scalars` in code), the coefficient of \f$[f_i]\f$ in the Shplonk verifier MSM.
+ *  - \f$\theta\f$ (`identity_scalar_coefficient` in code), the coefficient of \f$[1]\f$ in the Shplonk verifier MSM.
+ *  - `evaluation`, the claimed evaluation at \f$z\f$ of the commitment produced by the Shplonk verifier, always equal
+ *      to \f$0\f$.
  */
 template <typename Curve> class ShplonkVerifier_ {
     using Fr = typename Curve::ScalarField;
@@ -306,16 +345,16 @@ template <typename Curve> class ShplonkVerifier_ {
     using Commitment = typename Curve::AffineElement;
     using VK = VerifierCommitmentKey<Curve>;
 
-    // Random challenge to batch the polynomials f_1, \dots, f_n
-    Fr nu;
-    Fr current_nu;
-    // Commitment to quotient polynomial \sum_i \nu^{i-1} f_i / (x - x_i)
+    // Random challenges
+    std::vector<Fr> pows_of_nu;
+    size_t pow_idx = 0;
+    // Commitment to quotient polynomial
     Commitment quotient;
     // Partial evaluation challenge
     Fr z_challenge;
-    // Commitments to f_1, \dots, f_n
+    // Commitments \f$[f_1], \dots, [f_n]\f$
     std::vector<Commitment> commitments;
-    // Scalar coefficients of \cm(f_1), \dots, \cm(f_n) in the MSM needed to compute the commitment to the partially
+    // Scalar coefficients of \f$[f_1], \dots, [f_n]\f$ in the MSM needed to compute the commitment to the partially
     // evaluated quotient
     std::vector<Fr> scalars;
     // Coefficient of the identity in partially evaluated quotient
@@ -325,72 +364,71 @@ template <typename Curve> class ShplonkVerifier_ {
 
   public:
     template <typename Transcript>
-    ShplonkVerifier_(std::vector<Commitment>& polynomial_commitments, std::shared_ptr<Transcript>& transcript)
-        : nu(transcript->template get_challenge<Fr>("Shplonk:nu"))
+    ShplonkVerifier_(std::vector<Commitment>& polynomial_commitments,
+                     std::shared_ptr<Transcript>& transcript,
+                     const size_t num_claims)
+        : pows_of_nu({ Fr(1), transcript->template get_challenge<Fr>("Shplonk:nu") })
         , quotient(transcript->template receive_from_prover<Commitment>("Shplonk:Q"))
         , z_challenge(transcript->template get_challenge<Fr>("Shplonk:z"))
         , commitments({ quotient })
+        , scalars{ Fr{ 1 } }
     {
+        ASSERT(num_claims > 1, "Using Shplonk with just one claim. Should use batch reduction.");
+        const size_t num_commitments = commitments.size();
+        commitments.reserve(num_commitments);
+        scalars.reserve(num_commitments);
+        pows_of_nu.reserve(num_claims);
+
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
-        if constexpr (Curve::is_stdlib_type) {
-            auto builder = nu.get_context();
-            current_nu = Fr(1);                                           // Circuit constant
-            scalars = { Fr(1) };                                          // Circuit constant
-            scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
-            evaluation.convert_constant_to_fixed_witness(builder);
-        } else {
-            current_nu = Fr(1);
-            scalars = { Fr(1) };
-            scalars.insert(scalars.end(), commitments.size() - 1, Fr(0));
+        scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
+        for (size_t idx = 0; idx < num_claims; idx++) {
+            pows_of_nu.emplace_back(pows_of_nu.back() * pows_of_nu[1]);
         }
     }
 
     /**
-     * @brief Update the internal state of the Shponk verifier
+     * @brief Update the internal state of the Shplonk verifier
      *
-     * @details Given a list of indices = (i_1, \dots, i_k), a list of coefficients = (a_1, \dots, a_k), an evaluation
-     * challenge = x, and a series of evaluations = (v_1, \dots, v_k), update the internal state of the Shplonk
-     * verifier so to add the check \sum_{j=1}^k a_j f_{i_j}(x) = \sum_{j=1}^k a_j v_j. This amounts to update:
-     *  - scalars[i_j] -= current_nu * a_j / (z - x)
-     *  - identity_scalar_coefficient += \sum_{j=1}^k current_nu * a_j * v_j / (z - x)
+     * @details Given a list of indices = \f$(i_1, \dots, i_k)\f$, a list of coefficients = \f$(a_1, \dots, a_k)\f$, an
+     * evaluation challenge = \f$x\f$, and a series of evaluations = \f$(v_1, \dots, v_k)\f$, update the internal
+     * state of the Shplonk verifier so to add the check
+     *      \f[ \sum_{j=1}^k a_j f_{i_j}(x) = \sum_{j=1}^k a_j v_j \f]
+     * This amounts to update:
+     *  - \f$s_{i_j} -= \frac{\nu^{i-1} * a_j}{z - x}\f$
+     *  - \f$\theta += \sum_{j=1}^k \nu^{i-1} \frac{a_j v_j}{z - x}\f$
      *
      * @param indices
      * @param coefficients
-     * @param evaluation_challenge
      * @param evaluations
+     * @param inverse_vanishing_eval
      */
     void update(const std::vector<size_t>& indices,
                 const std::vector<Fr>& coefficients,
                 const std::vector<Fr>& evaluations,
-                const Fr& evaluation_challenge,
-                const std::optional<Fr>& precomputed_inverse_vanishing_eval = std::nullopt)
+                const Fr& inverse_vanishing_eval)
     {
-        // Compute 1 / (z - x)
-        Fr inverse_vanishing_eval = precomputed_inverse_vanishing_eval.has_value()
-                                        ? precomputed_inverse_vanishing_eval.value()
-                                        : (z_challenge - evaluation_challenge).invert();
 
         // Compute \nu^{i-1} / (z - x)
-        auto scalar_factor = current_nu * inverse_vanishing_eval;
+        auto scalar_factor = pows_of_nu[pow_idx] * inverse_vanishing_eval;
 
         for (const auto& [index, coefficient, evaluation] : zip_view(indices, coefficients, evaluations)) {
-            // \nu^{i-1} * j / (z - x)
+            // \nu^{i-1} * a_j / (z - x)
             auto scaling_factor = scalar_factor * coefficient;
-            // scalars[i_j] = \nu^{i-1} * a_j / (z - x)
+            // s_{i_j} -= \nu^{i-1} * a_j / (z - x)
             scalars[index + 1] -= scaling_factor;
-            // identity_scalar_coefficient += \nu^{i-1} * a_j * v_j / (z - x)
+            // \theta += \nu^{i-1} * a_j * v_j / (z - x)
             identity_scalar_coefficient += scaling_factor * evaluation;
         }
 
-        // Update current_nu
-        current_nu *= nu;
+        // Update `pow_idx`
+        pow_idx += 1;
     }
 
     /**
      * @brief Finalize the Shplonk verification and return the KZG opening claim
      *
      * @details Compute the commitment:
-     *      [quotient] - \sum_i scalars[i] * commitments[i] + identity_scalar_coefficient * [1]
+     *      \f[ [Q] - \sum_i s_i * [f_i] + \theta * [1] \f]
      * @param g1_identity
      * @return OpeningClaim<Curve>
      */
@@ -412,67 +450,116 @@ template <typename Curve> class ShplonkVerifier_ {
     }
 
     /**
-     * @brief Export the state of the Shplonk verifier
+     * @brief Export a BatchOpeningClaim instead of performing final batch_mul
      *
-     * @details Append g1_identity to the commitments, identity_scalar_factor to scalars, and export the resulting
+     * @details Append g1_identity to `commitments`, `identity_scalar_factor` to scalars, and export the resulting
      * vectors. This method is useful when we perform KZG verification of the Shplonk claim right after Shplonk (because
-     * we can add the last commitment [W] and scalar factor (0 in this case) to the list and then execute a single batch
-     * mul.
+     * we can add the last commitment \f$[W]\f$ and scalar factor (0 in this case) to the list and then execute a single
+     * batch mul.
+     *
+     * @note This function modifies the `commitments` and `scalars` attribute of the class instance on which it is
+     * called.
      *
      * @param g1_identity
      * @return BatchOpeningClaim<Curve>
      */
     BatchOpeningClaim<Curve> export_batch_opening_claim(const Commitment& g1_identity)
     {
-        auto exported_commitments = commitments;
-        exported_commitments.emplace_back(g1_identity);
-        auto exported_scalars = scalars;
-        exported_scalars.emplace_back(identity_scalar_coefficient);
+        commitments.emplace_back(g1_identity);
+        scalars.emplace_back(identity_scalar_coefficient);
 
-        return { exported_commitments, exported_scalars, z_challenge };
+        return { commitments, scalars, z_challenge };
     }
 
     /**
-     * @brief Instantiate a Shplonk verifier and updates its state with the provided claims.
+     * @brief Instantiate a Shplonk verifier and update its state with the provided claims.
      *
-     * @param g1_identity the identity element for the Curve
-     * @param claims list of opening claims (Cⱼ, xⱼ, vⱼ) for a witness polynomial fⱼ(X), s.t. fⱼ(xⱼ) = vⱼ.
+     * @param claims list of opening claims \f$(C_j, x_j, v_j)\f$ for a witness polynomial \f$f_j(X)\f$, s.t.
+     * \f$f_j(x_j) = v_j\f$.
      * @param transcript
      */
     template <typename Transcript>
     static ShplonkVerifier_<Curve> reduce_verification_no_finalize(std::span<const OpeningClaim<Curve>> claims,
                                                                    std::shared_ptr<Transcript>& transcript)
     {
+        // Initialize Shplonk verifier
         const size_t num_claims = claims.size();
         std::vector<Commitment> polynomial_commiments;
         polynomial_commiments.reserve(num_claims);
         for (const auto& claim : claims) {
             polynomial_commiments.emplace_back(claim.commitment);
         }
-        ShplonkVerifier_<Curve> verifier(polynomial_commiments, transcript);
+        ShplonkVerifier_<Curve> verifier(polynomial_commiments, transcript, num_claims);
 
+        // Compute { 1 / (z - x_i) }
+        std::vector<Fr> inverse_vanishing_evals;
+        inverse_vanishing_evals.reserve(num_claims);
         if constexpr (Curve::is_stdlib_type) {
-            for (size_t idx = 0; idx < claims.size(); idx++) {
-                verifier.update(
-                    { idx }, { Fr(1) }, { claims[idx].opening_pair.evaluation }, claims[idx].opening_pair.challenge);
+            for (const auto& claim : claims) {
+                inverse_vanishing_evals.emplace_back((verifier.z_challenge - claim.opening_pair.challenge).invert());
             }
         } else {
-            std::vector<Fr> inverse_vanishing_evals;
-            inverse_vanishing_evals.reserve(num_claims);
             for (const auto& claim : claims) {
                 inverse_vanishing_evals.emplace_back(verifier.z_challenge - claim.opening_pair.challenge);
             }
             Fr::batch_invert(inverse_vanishing_evals);
-            for (size_t idx = 0; idx < claims.size(); idx++) {
-                verifier.update({ idx },
-                                { Fr(1) },
-                                { claims[idx].opening_pair.evaluation },
-                                claims[idx].opening_pair.challenge,
-                                inverse_vanishing_evals[idx]);
-            }
+        }
+
+        for (size_t idx = 0; idx < claims.size(); idx++) {
+            verifier.update({ idx }, { Fr(1) }, { claims[idx].opening_pair.evaluation }, inverse_vanishing_evals[idx]);
         }
 
         return verifier;
+    };
+
+    /**
+     * @brief Instantiate a Shplonk verifier and update its state with the provided opening vectors.
+     *
+     * @param indices List \f${ (i_{j_1}, \dots, i_{j_k}) }_k \f$ of indices
+     * @param claims List of opening vectors \f$\{ (r, (a_{j_1}, \dots, a_{j_k}), (v_1, \dots, v_{j_k})) \}_k\f$ s.t.
+     *      \f[ \sum_{l=1}^k a_{j_l} f_{j_l}(r) = \sum_{l=1}^k a_{j_l} v_{j_r} \f]
+     * where \f$f_1, \dots, f_m\f$ are the polynomials whose commitments are held by the Shplonk verifier.
+     */
+    void reduce_verification_vector_claims_no_finalize(std::span<const std::vector<size_t>> indices,
+                                                       std::span<const OpeningVector<Curve>> claims)
+    {
+        const size_t num_claims = claims.size();
+
+        // Compute { 1 / (z - x_i) }
+        std::vector<Fr> inverse_vanishing_evals;
+        inverse_vanishing_evals.reserve(num_claims);
+        if constexpr (Curve::is_stdlib_type) {
+            for (const auto& claim : claims) {
+                inverse_vanishing_evals.emplace_back((this->z_challenge - claim.challenge).invert());
+            }
+        } else {
+            for (const auto& claim : claims) {
+                inverse_vanishing_evals.emplace_back(this->z_challenge - claim.challenge);
+            }
+            Fr::batch_invert(inverse_vanishing_evals);
+        }
+
+        for (const auto& [idx, claim, inv] : zip_view(indices, claims, inverse_vanishing_evals)) {
+            this->update(idx, claim.coefficients, claim.evaluations, inv);
+        }
+    }
+
+    /**
+     * @brief Recomputes the new claim commitment [G] given the proof and
+     * the challenge r. No verification happens so this function always succeeds.
+     *
+     * @param g1_identity the identity element for the Curve
+     * @param indices List \f${ (i_{j_1}, \dots, i_{j_k}) }_k \f$ of indices
+     * @param claims List of opening vectors \f$\{ (r, (a_{j_1}, \dots, a_{j_k}), (v_1, \dots, v_{j_k})) \}_k\f$ s.t.
+     *      \f[ \sum_{l=1}^k a_{j_l} f_{j_l}(r) = \sum_{l=1}^k a_{j_l} v_{j_r} \f]
+     * where \f$f_1, \dots, f_m\f$ are the polynomials whose commitments are held by the Shplonk verifier.
+     */
+    OpeningClaim<Curve> reduce_vector_claims_verification(Commitment g1_identity,
+                                                          std::span<const std::vector<size_t>> indices,
+                                                          std::span<const OpeningVector<Curve>> claims)
+    {
+        this->reduce_verification_vector_claims_no_finalize(indices, claims);
+        return this->finalize(g1_identity);
     };
 
     /**
@@ -480,7 +567,8 @@ template <typename Curve> class ShplonkVerifier_ {
      * the challenge r. No verification happens so this function always succeeds.
      *
      * @param g1_identity the identity element for the Curve
-     * @param claims list of opening claims (Cⱼ, xⱼ, vⱼ) for a witness polynomial fⱼ(X), s.t. fⱼ(xⱼ) = vⱼ.
+     * @param claims list of opening claims \f$(C_j, x_j, v_j)\f$ for a witness polynomial \f$f_j(X)\f$, s.t.
+     * \f$f_j(x_j) = v_j\f$.
      * @param transcript
      * @return OpeningClaim
      */

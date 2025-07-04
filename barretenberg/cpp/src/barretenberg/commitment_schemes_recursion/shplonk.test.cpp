@@ -9,11 +9,10 @@
 
 using namespace bb;
 
+const size_t LOG_DEGREE = 4;
+const size_t MAX_POLY_DEGREE = 1UL << LOG_DEGREE;
 template <class Builder> class ShplonkRecursionTest : public CommitmentTest<typename curve::BN254> {
   public:
-    size_t log_n = 4;
-    size_t n = 1UL << log_n;
-
     using Curve = stdlib::bn254<Builder>;
     using NativeCurve = Curve::NativeCurve;
     using Fr = Curve::ScalarField;
@@ -70,7 +69,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Test data
-    auto setup = this->generate_claim_data({ this->n, this->n / 2 });
+    auto setup = this->generate_claim_data({ MAX_POLY_DEGREE, MAX_POLY_DEGREE / 2 });
 
     // Shplonk prover functionality
     auto prover_opening_claims = ClaimData::prover_opening_claims(setup);
@@ -107,6 +106,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using OpeningClaim = OpeningClaim<Curve>;
+    using OpeningVector = OpeningVector<Curve>;
     using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using StdlibProof = stdlib::Proof<Builder>;
 
@@ -114,7 +114,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Generate two random (unrelated) polynomials of two different sizes and a random linear combinations
-    auto setup = this->generate_claim_data({ this->n, this->n / 2 });
+    auto setup = this->generate_claim_data({ MAX_POLY_DEGREE, MAX_POLY_DEGREE / 2 });
 
     // Extract the commitments to be used in the Shplonk verifier
     auto commitments = ClaimData::polynomial_commitments(setup);
@@ -158,10 +158,10 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            info("Num gates UltraCircuitBuilder (non-efficient way): ", builder.num_gates);
+            info("Num gates UltraCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ", builder.num_gates);
         } else if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            info("Num gates MegaCircuitBuilder (non-efficient way): ",
-                 builder.num_gates + builder.op_queue->get_num_rows());
+            info("Num MSM rows MegaCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ",
+                 builder.op_queue->get_num_rows());
         }
     }
 
@@ -179,32 +179,31 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
             &builder, native_opening_claims, native_opening_claims.size() - 1);
 
         // Shplonk verifier functionality - cheap way
+        std::vector<OpeningVector> opening_vectors = {
+            { stdlib_opening_pairs[0].challenge, { Fr(1) }, { stdlib_opening_pairs[0].evaluation } },
+            { stdlib_opening_pairs[1].challenge, { Fr(1) }, { stdlib_opening_pairs[1].evaluation } },
+            { Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge),
+              { coeff1, coeff2 },
+              { Fr::from_witness(&builder, evals[0]), Fr::from_witness(&builder, evals[1]) } }
+        };
+        std::vector<std::vector<size_t>> indices = { { 0 }, { 1 }, { 0, 1 } };
+
         auto verifier_transcript = std::make_shared<Transcript>();
         verifier_transcript->load_proof(stdlib_proof);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
 
-        ShplonkVerifier verifier(stdlib_commitments, verifier_transcript);
-
-        // Update internal state for poly1(r1) = eval1
-        verifier.update({ 0 }, { Fr(1) }, { stdlib_opening_pairs[0].evaluation }, stdlib_opening_pairs[0].challenge);
-        // Update internal state for poly2(r2) = eval2
-        verifier.update({ 1 }, { Fr(1) }, { stdlib_opening_pairs[1].evaluation }, stdlib_opening_pairs[1].challenge);
-        // Update internal state for poly3(r3) = eval3
-        verifier.update({ 0, 1 },
-                        { coeff1, coeff2 },
-                        { Fr::from_witness(&builder, evals[0]), Fr::from_witness(&builder, evals[1]) },
-                        Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge));
+        ShplonkVerifier verifier(stdlib_commitments, verifier_transcript, native_opening_claims.size());
 
         // Execute the shplonk verifier functionality
-        [[maybe_unused]] auto batched_verifier_claim = verifier.finalize(Commitment::one(&builder));
+        [[maybe_unused]] auto batched_verifier_claim =
+            verifier.reduce_vector_claims_verification(this->vk().get_g1_identity(), indices, opening_vectors);
 
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            info("Num gates UltraCircuitBuilder (efficient way): ", builder.num_gates);
+            info("Num gates UltraCircuitBuilder (efficient way: size-4 MSM): ", builder.num_gates);
         } else if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            info("Num gates MegaCircuitBuilder (efficient way): ",
-                 builder.num_gates + builder.op_queue->get_num_rows());
+            info("Num MSM rows MegaCircuitBuilder (efficient way: size-4 MSM): ", builder.op_queue->get_num_rows());
         }
     }
 }

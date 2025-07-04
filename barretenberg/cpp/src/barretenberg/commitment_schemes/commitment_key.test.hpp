@@ -11,7 +11,6 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "claim.hpp"
 
 #include <gtest/gtest.h>
