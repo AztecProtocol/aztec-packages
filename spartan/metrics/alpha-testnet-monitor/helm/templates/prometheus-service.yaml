@@ -1,0 +1,20 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alpha-testnet-monitor.fullname" . }}-prometheus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "alpha-testnet-monitor.labels" . | nindent 4 }}
+    app: prometheus
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "alpha-testnet-monitor.selectorLabels" . | nindent 4 }}
+    app: prometheus
+{{- end }}

@@ -1,0 +1,21 @@
+{
+  "name": "alpha-testnet-monitor",
+  "version": "1.0.0",
+  "description": "Monitors rollup block height",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "prom-client": "^15.1.2",
+    "viem": "^2.13.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.30",
+    "typescript": "^5.4.5"
+  },
+  "packageManager": "yarn@4.5.2+sha512.570504f67349ef26d2d86a768dc5ec976ead977aa086b0bb4237e97d5db7ae5c620f9f0e0edf3ea5047205063faff102bf2a2d778664a94eaaa1085ad483fe2e"
+}

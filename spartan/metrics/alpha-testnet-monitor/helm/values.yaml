@@ -1,0 +1,34 @@
+replicaCount: 1
+
+image:
+  repository: spypsy/block-height-monitor
+  pullPolicy: Always
+  tag: "latest"
+
+serviceAccount:
+  create: true
+
+service:
+  type: ClusterIP
+  port: 80
+
+env:
+  ROLLUP_CONTRACT_ADDRESS: "0xee6d4e937f0493fb461f28a75cf591f1dba8704e"
+
+secrets:
+  # These will be populated from GCP secrets during deployment
+  infuraSepoliaUrl: ""
+  grafanaCloudPassword: ""
+
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: "v2.52.0"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"

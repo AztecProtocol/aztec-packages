@@ -1,0 +1,5 @@
+apiVersion: v2
+name: alpha-testnet-monitor
+description: A Helm chart for deploying the alpha testnet monitor
+version: 0.1.0
+appVersion: "1.0.0"
