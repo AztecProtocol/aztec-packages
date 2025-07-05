@@ -44,10 +44,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
     bool is_structured;
 
+    MetaData metadata;                 // circuit size and public inputs metadata
+    size_t overflow_size{ 0 };         // size of the structured execution trace overflow
+    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+
   public:
     using Trace = TraceToPolynomials<Flavor>;
-
-    MetaData metadata; // circuit size and public inputs metadata
 
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
@@ -65,16 +67,21 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     CommitmentKey commitment_key;
 
     ActiveRegionData active_region_data; // specifies active regions of execution trace
-    size_t final_active_wire_idx{ 0 };   // idx of last non-trivial wire value in the trace
-    size_t overflow_size{ 0 };           // size of the structured execution trace overflow
 
+    void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
+    void set_overflow_size(size_t size) { overflow_size = size; }
+    void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
+    size_t pub_inputs_offset() const { return metadata.pub_inputs_offset; }
     size_t num_public_inputs() const
     {
         BB_ASSERT_EQ(metadata.num_public_inputs, public_inputs.size());
         return metadata.num_public_inputs;
     }
+    MetaData get_metadata() const { return metadata; }
+    size_t get_overflow_size() const { return overflow_size; }
+    size_t get_final_active_wire_idx() const { return final_active_wire_idx; }
 
     Flavor::PrecomputedData get_precomputed()
     {

@@ -239,7 +239,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     }
     // mock_vk is used in benchmarks to avoid any VK construction.
     if (mock_vk) {
-        honk_vk->set_metadata(proving_key->metadata);
+        honk_vk->set_metadata(proving_key->get_metadata());
         vinfo("set honk vk metadata");
     }
 
