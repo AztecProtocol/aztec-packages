@@ -319,9 +319,9 @@ describe('full_prover', () => {
           new Tx(
             new PrivateKernelTailCircuitPublicInputs(
               data.constants,
-              data.rollupValidationRequests,
               data.gasUsed.add(new Gas(i + 1, 0)),
               data.feePayer,
+              data.includeByTimestamp,
               data.forPublic,
               data.forRollup,
             ),

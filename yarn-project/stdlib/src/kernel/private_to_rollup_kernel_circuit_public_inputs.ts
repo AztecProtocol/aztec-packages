@@ -2,14 +2,14 @@ import { GeneratorIndex, PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH }
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import type { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { Gas } from '../gas/gas.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
-import { RollupValidationRequests } from './hints/rollup_validation_requests.js';
+import type { UInt64 } from '../types/index.js';
 import { PrivateToRollupAccumulatedData } from './private_to_rollup_accumulated_data.js';
 
 /**
@@ -23,10 +23,6 @@ export class PrivateToRollupKernelCircuitPublicInputs {
      */
     public constants: TxConstantData,
     /**
-     * Validation requests accumulated from private and public execution to be completed by the rollup.
-     */
-    public rollupValidationRequests: RollupValidationRequests,
-    /**
      * Data accumulated from both public and private circuits.
      */
     public end: PrivateToRollupAccumulatedData,
@@ -38,6 +34,10 @@ export class PrivateToRollupKernelCircuitPublicInputs {
      * The address of the fee payer for the transaction.
      */
     public feePayer: AztecAddress,
+    /**
+     * The timestamp by which the transaction must be included in a block.
+     */
+    public includeByTimestamp: UInt64,
   ) {}
 
   getNonEmptyNullifiers() {
@@ -45,7 +45,13 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.constants, this.rollupValidationRequests, this.end, this.gasUsed, this.feePayer);
+    return serializeToBuffer(
+      this.constants,
+      this.end,
+      this.gasUsed,
+      this.feePayer,
+      bigintToUInt64BE(this.includeByTimestamp),
+    );
   }
 
   /**
@@ -57,20 +63,20 @@ export class PrivateToRollupKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateToRollupKernelCircuitPublicInputs(
       reader.readObject(TxConstantData),
-      reader.readObject(RollupValidationRequests),
       reader.readObject(PrivateToRollupAccumulatedData),
       reader.readObject(Gas),
       reader.readObject(AztecAddress),
+      reader.readUInt64(),
     );
   }
 
   static empty() {
     return new PrivateToRollupKernelCircuitPublicInputs(
       TxConstantData.empty(),
-      RollupValidationRequests.empty(),
       PrivateToRollupAccumulatedData.empty(),
       Gas.empty(),
       AztecAddress.ZERO,
+      0n,
     );
   }
 
@@ -88,7 +94,7 @@ export class PrivateToRollupKernelCircuitPublicInputs {
   }
 
   static getFields(fields: FieldsOf<PrivateToRollupKernelCircuitPublicInputs>) {
-    return [fields.constants, fields.rollupValidationRequests, fields.end, fields.gasUsed, fields.feePayer] as const;
+    return [fields.constants, fields.end, fields.gasUsed, fields.feePayer, fields.includeByTimestamp] as const;
   }
 
   /** Creates an instance from a hex string. */

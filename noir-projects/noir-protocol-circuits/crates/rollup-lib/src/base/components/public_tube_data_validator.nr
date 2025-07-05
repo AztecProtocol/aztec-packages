@@ -1,6 +1,6 @@
 use crate::base::components::{
     constants::validate_tx_constant_data, gas::clamp_gas_settings_for_avm,
-    validation_requests::validate_include_by_timestamp,
+    include_by_timestamp::validate_include_by_timestamp,
 };
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
@@ -59,7 +59,7 @@ impl PublicTubeDataValidator {
         );
 
         validate_include_by_timestamp(
-            self.data.public_inputs.rollup_validation_requests,
+            self.data.public_inputs.include_by_timestamp,
             constants.global_variables,
         );
     }

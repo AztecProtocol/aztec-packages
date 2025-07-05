@@ -17,14 +17,12 @@ import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   GlobalVariables,
-  IncludeByTimestamp,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
@@ -230,18 +228,13 @@ describe('aztec node', () => {
     });
 
     it('tests that the node correctly validates expiration timestamps', async () => {
-      const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
-      const noIncludeByTimestampMetadata = txs[0];
-      const invalidIncludeByTimestampMetadata = txs[1];
-      const validIncludeByTimestampMetadata = txs[2];
+      const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
+      const invalidIncludeByTimestampMetadata = txs[0];
+      const validIncludeByTimestampMetadata = txs[1];
 
-      invalidIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new IncludeByTimestamp(true, BigInt(NOW_S)),
-      );
+      invalidIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S);
 
-      validIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new IncludeByTimestamp(true, BigInt(NOW_S + 1)),
-      );
+      validIncludeByTimestampMetadata.data.includeByTimestamp = BigInt(NOW_S + 1);
 
       // We need to set the last block number to get this working properly because if it was set to 0, it would mean
       // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
@@ -250,7 +243,6 @@ describe('aztec node', () => {
       lastBlockNumber = 1;
 
       // Default tx with no should be valid
-      expect(await node.isValidTx(noIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
       // Tx with include by timestamp < current block number should be invalid
       expect(await node.isValidTx(invalidIncludeByTimestampMetadata)).toEqual({
         result: 'invalid',
