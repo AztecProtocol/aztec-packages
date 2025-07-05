@@ -59,6 +59,12 @@ Manages a queue of proving jobs, distributing them to available agents and forwa
 
 Executes the actual proof jobs. Agents are stateless, fetch work from the broker, and return the results.
 
+The number of agents required depends on the throughput of the network. Running 20 agents should be sufficient to prove at current network throughput.
+
+:::info
+It is expected that institutional and professional operators will run provers as the network throughput increases to target levels. Home prover setups will not be sufficient for the target network throughput.
+:::
+
 - **Resources**: Each agent may use up to 16 cores and 128GB RAM.
 
 ## Setting Up Your Prover
