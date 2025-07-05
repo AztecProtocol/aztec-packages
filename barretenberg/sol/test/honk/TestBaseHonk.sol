@@ -19,8 +19,12 @@ contract TestBaseHonk is TestBase {
     function testValidProof() public {
         bytes memory proofData = fuzzer.generate_proof();
         (bytes32[] memory publicInputs, bytes memory proof) = splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
-        console.log("After split proof verified");
+        console.log("proof");
+        console.logBytes(proof);
+        console.log("public inputs");
+        for (uint i = 0; i < publicInputs.length; ++i) {
+            console.logBytes32(publicInputs[i]);
+        }
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
-        console.log("Honk proof verified");
     }
 }
