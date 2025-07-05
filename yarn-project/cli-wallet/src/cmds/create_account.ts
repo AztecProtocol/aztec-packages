@@ -113,7 +113,7 @@ export async function createAccount(
       tx = provenTx.send();
 
       const txHash = await tx.getTxHash();
-      debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
+      debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);
       out.txHash = txHash;
       if (wait) {
         if (!json) {
@@ -132,7 +132,7 @@ export async function createAccount(
     log(prettyPrintJSON(out));
   } else {
     if (tx) {
-      log(`Deploy tx hash:  ${await tx.getTxHash()}`);
+      log(`Deploy tx hash:  ${(await tx.getTxHash()).toString()}`);
     }
     if (txReceipt) {
       log(`Deploy tx fee:   ${txReceipt.transactionFee}`);

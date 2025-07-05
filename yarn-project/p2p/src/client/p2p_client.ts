@@ -518,17 +518,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     // TODO: optimize
     // Merge the found txs in order
-    const mergingTxsPromises = txHashes.map(async txHash => {
+    const mergingTxs = txHashes.map(txHash => {
       // Is it in the txs list from the mempool?
       for (const tx of txs) {
-        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+        if (tx !== undefined && tx.getTxHash().equals(txHash)) {
           return tx;
         }
       }
 
       // Is it in the fetched missing txs?
       for (const tx of fetchedMissingTxs) {
-        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+        if (tx !== undefined && tx.getTxHash().equals(txHash)) {
           return tx;
         }
       }
@@ -537,7 +537,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return undefined;
     });
 
-    return await Promise.all(mergingTxsPromises);
+    return mergingTxs;
   }
 
   /**
@@ -778,7 +778,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber > latestBlock) {
-        const txHash = await tx.getTxHash();
+        const txHash = tx.getTxHash();
         txsToDelete.set(txHash.toString(), txHash);
       }
     }

@@ -71,7 +71,7 @@ describe('Tx', () => {
     const tx = await mockTxForRollup(42);
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await tx.getTxHash(true);
+      tx.getTxHash();
       privateTxHistogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });
@@ -80,7 +80,7 @@ describe('Tx', () => {
     const tx = await mockTx(42);
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await tx.getTxHash(true);
+      tx.getTxHash();
       publicTxHistogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });

@@ -6,7 +6,7 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import { L2Block } from '@aztec/stdlib/block';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -32,7 +32,7 @@ describe('TxCollection', () => {
   let dateProvider: TestDateProvider;
 
   let deadline: Date;
-  let txs: TxWithHash[];
+  let txs: Tx[];
   let txHashes: TxHash[];
   let block: L2Block;
 
@@ -43,23 +43,19 @@ describe('TxCollection', () => {
     return node;
   };
 
-  const makeTx = (hash?: string | TxHash): TxWithHash => {
-    const txHash = (typeof hash === 'string' ? TxHash.fromString(hash) : hash) ?? TxHash.random();
-    const tx = Tx.random();
-    return tx.setTxHash(txHash);
-  };
+  const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
 
   const makeL2Block = (blockNumber = 1, slotNumber?: number) =>
     L2Block.random(blockNumber, 0, 0, 0, undefined, slotNumber ?? blockNumber);
 
-  const setNodeTxs = (node: MockProxy<TxSource>, txs: TxWithHash[]) => {
+  const setNodeTxs = (node: MockProxy<TxSource>, txs: Tx[]) => {
     node.getTxsByHash.mockImplementation(async hashes => {
       await sleep(1);
       return hashes.map(h => txs.find(tx => tx.txHash.equals(h)));
     });
   };
 
-  const setReqRespTxs = (txs: TxWithHash[]) => {
+  const setReqRespTxs = (txs: Tx[]) => {
     reqResp.sendBatchRequest.mockImplementation(async (_subProtocol, hashes) => {
       await sleep(1);
       return (hashes as any as TxHash[])
@@ -79,11 +75,11 @@ describe('TxCollection', () => {
     );
   };
 
-  const expectTxsAddedToPool = (txs: TxWithHash[]) => {
+  const expectTxsAddedToPool = (txs: Tx[]) => {
     expect(txPool.addTxs).toHaveBeenCalledWith(txs, { source: 'tx-collection' });
   };
 
-  const sortByHash = (txs: TxWithHash[]) => txs.sort((a, b) => a.txHash.toString().localeCompare(b.txHash.toString()));
+  const sortByHash = (txs: Tx[]) => txs.sort((a, b) => a.txHash.toString().localeCompare(b.txHash.toString()));
 
   beforeEach(async () => {
     reqResp = mock<Pick<ReqRespInterface, 'sendBatchRequest'>>();
@@ -423,7 +419,7 @@ describe('TxCollection', () => {
       txs = times(4, () => makeTx());
       txHashes = txs.map(tx => tx.txHash);
 
-      const reqRespPromise = promiseWithResolvers<TxWithHash[]>();
+      const reqRespPromise = promiseWithResolvers<Tx[]>();
       reqResp.sendBatchRequest.mockReturnValue(reqRespPromise.promise);
       const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 

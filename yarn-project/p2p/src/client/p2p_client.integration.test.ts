@@ -237,7 +237,7 @@ describe('p2p client integration', () => {
 
       // Perform a get tx request from client 1
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
       expect(requestedTxs).toEqual([]);
@@ -269,7 +269,7 @@ describe('p2p client integration', () => {
 
       // Perform a get tx request from client 1
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
       // Mock the tx pool to return the tx we are looking for
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
 
@@ -311,7 +311,7 @@ describe('p2p client integration', () => {
 
       // Perform a get tx request from client 1
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       // Return the correct tx with an invalid proof -> active attack
       txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
@@ -354,7 +354,7 @@ describe('p2p client integration', () => {
 
       // Perform a get tx request from client 1
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
       const tx2 = await mockTx(420);
 
       // Return an invalid tx
