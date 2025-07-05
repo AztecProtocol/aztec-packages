@@ -27,6 +27,10 @@ export class RegistryContract {
     this.registry = getContract({ address, abi: RegistryAbi, client });
   }
 
+  public async getOwner(): Promise<EthAddress> {
+    return EthAddress.fromString(await this.registry.read.owner());
+  }
+
   /**
    * Returns the address of the rollup for a given version.
    * @param version - The version of the rollup. 'canonical' can be used to get the canonical address (i.e. the latest version).
