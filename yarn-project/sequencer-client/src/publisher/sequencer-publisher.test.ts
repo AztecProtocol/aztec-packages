@@ -259,9 +259,8 @@ describe('SequencerPublisher', () => {
         },
       ],
       l1TxUtils,
-      // vote + val + (val * 20n) / 100n
       {
-        gasLimit: SequencerPublisher.VOTE_GAS_GUESS + 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n,
+        gasLimit: 2085048n,
         txTimeoutAt: undefined,
       },
       { blobs: expectedBlobs.map(b => b.data), kzg },
