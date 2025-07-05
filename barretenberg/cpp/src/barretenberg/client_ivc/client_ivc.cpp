@@ -97,6 +97,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
 
         // Perform folding recursive verification to update the verifier accumulator
+
         FoldingRecursiveVerifier verifier{
             &circuit, stdlib_verifier_accum, { verifier_inputs.honk_vk_and_hash }, accumulation_recursive_transcript
         };
@@ -139,15 +140,24 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs, decider_vk->vk_and_hash->vk->pairing_inputs_public_input_key);
 
     pairing_points.aggregate(nested_pairing_points);
-    // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
-    // consistency checks between the calldata commitments and the return data commitments contained within the public
-    // inputs
-    bus_depot.set_return_data_to_be_propagated_and_perform_consistency_checks(
-        decider_vk->witness_commitments.return_data,
-        decider_vk->witness_commitments.calldata,
-        decider_vk->witness_commitments.secondary_calldata,
-        decider_vk->public_inputs,
-        decider_vk->vk_and_hash->vk->databus_propagation_data);
+
+    // get the consistency check data from the public inputs
+    // check whether we are in a kernel circuit
+    if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
+        kernel_return_data_commitment_exists = true;
+        kernel_input.reconstruct_from_public(decider_vk->public_inputs);
+
+        auto return_data = decider_vk->witness_commitments.return_data;
+        auto calldata = decider_vk->witness_commitments.calldata;
+        auto secondary_calldata = decider_vk->witness_commitments.secondary_calldata;
+        // check the consistency of the return data commitments
+        kernel_output.kernel_return_data = return_data;
+        calldata.assert_equal(kernel_input.kernel_return_data);
+        secondary_calldata.assert_equal(kernel_input.app_return_data);
+    } else {
+        app_return_data_commitment_exists = true;
+        kernel_output.app_return_data = decider_vk->witness_commitments.return_data;
+    }
 
     return pairing_points;
 }
@@ -191,7 +201,22 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     points_accumulator.set_public();
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
-    bus_depot.propagate_return_data_commitments(circuit);
+    if (!kernel_return_data_commitment_exists) {
+        CommitmentNative DEFAULT_COMMITMENT_VALUE = CommitmentNative::one() * FrNative(DEFAULT_VALUE);
+        Commitment kernel_return_data_commitment = Commitment(DEFAULT_COMMITMENT_VALUE);
+        kernel_return_data_commitment.convert_constant_to_fixed_witness(&circuit);
+        kernel_output.kernel_return_data = kernel_return_data_commitment;
+    }
+    if (!app_return_data_commitment_exists) {
+        CommitmentNative DEFAULT_COMMITMENT_VALUE = CommitmentNative::one() * FrNative(DEFAULT_VALUE);
+        Commitment app_return_data_commitment = Commitment(DEFAULT_COMMITMENT_VALUE);
+        app_return_data_commitment.convert_constant_to_fixed_witness(&circuit);
+        kernel_output.app_return_data = app_return_data_commitment;
+    }
+
+    kernel_output.set_public();
+    kernel_return_data_commitment_exists = false;
+    app_return_data_commitment_exists = false;
 }
 
 /**
