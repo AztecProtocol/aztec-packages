@@ -126,7 +126,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(proving_key->proving_key);
+            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(proving_key->get_precomputed());
             OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
@@ -180,7 +180,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->proving_key);
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
 
             return { outer_circuit.blocks, outer_verification_key };
         };

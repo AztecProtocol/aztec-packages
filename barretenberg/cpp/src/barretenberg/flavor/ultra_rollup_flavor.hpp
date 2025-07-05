@@ -19,12 +19,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
 
     using UltraFlavor::UltraFlavor;
-    class ProvingKey : public UltraFlavor::ProvingKey {
-      public:
-        using UltraFlavor::ProvingKey::ProvingKey;
-        PublicComponentKey ipa_claim_public_input_key;
-        HonkProof ipa_proof;
-    };
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -103,20 +97,18 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             }
         }
 
-        VerificationKey(ProvingKey& proving_key)
-            : ipa_claim_public_input_key(proving_key.ipa_claim_public_input_key)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = proving_key.circuit_size;
+            this->circuit_size = precomputed.metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
+            this->num_public_inputs = precomputed.metadata.num_public_inputs;
+            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
+            this->ipa_claim_public_input_key = precomputed.metadata.ipa_claim_public_input_key;
 
-            if (!proving_key.commitment_key.initialized()) {
-                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 

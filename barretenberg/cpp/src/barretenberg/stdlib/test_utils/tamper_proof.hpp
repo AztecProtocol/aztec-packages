@@ -38,7 +38,7 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
 
     // Deserialize the transcript into the struct so that we can tamper it
-    auto num_public_inputs = inner_prover.proving_key->proving_key.num_public_inputs;
+    auto num_public_inputs = inner_prover.proving_key->num_public_inputs();
     inner_prover.transcript->deserialize_full_transcript(num_public_inputs);
 
     switch (type) {
