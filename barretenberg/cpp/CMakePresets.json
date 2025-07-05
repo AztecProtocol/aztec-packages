@@ -351,8 +351,8 @@
       "inherits": "clang16-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
-        "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
+        "FUZZING_SHOW_INFORMATION": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"

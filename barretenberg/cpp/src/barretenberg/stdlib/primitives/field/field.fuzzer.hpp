@@ -1573,7 +1573,7 @@ template <typename Builder> class FieldBase {
             size_t output_index = instruction.arguments.sliceArgs.out3;
             PRINT_SLICE(first_index, lsb, msb, stack)
             // Check assert conditions
-            if ((lsb > msb) || (msb > 252) ||
+            if ((lsb > msb) || (msb >= bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) ||
                 (static_cast<uint256_t>(stack[first_index].f().get_value()) >=
                  (static_cast<uint256_t>(1) << bb::grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH))) {
                 return 0;

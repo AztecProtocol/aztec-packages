@@ -64,7 +64,11 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
         if (!result) {
+            #ifndef FUZZING_DISABLE_WARNINGS
             info("Failed at block idx = ", block_idx);
+            #else
+            (void)block_idx;
+            #endif
             return false;
         }
         block_idx++;
@@ -107,7 +111,12 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     params.eta_three = memory_data.eta_three;
 
     auto report_fail = [&](const char* message, size_t row_idx) {
+#ifndef FUZZING_DISABLE_WARNINGS
         info(message, row_idx);
+#else
+        (void)message;
+        (void)row_idx;
+#endif
 #ifdef CHECK_CIRCUIT_STACKTRACES
         block.stack_traces.print(row_idx);
 #endif

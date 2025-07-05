@@ -72,8 +72,10 @@ endif()
 
 if(FUZZING)
     add_definitions(-DULTRA_FUZZ)
-    if(SHOW_INFORMATION)
-        add_definitions(-DSHOW_INFORMATION=1)
+    if(FUZZING_SHOW_INFORMATION)
+        add_definitions(-DFUZZING_SHOW_INFORMATION)
+    else()
+        add_definitions(-DFUZZING_DISABLE_WARNINGS)
     endif()
 
     add_definitions(-DFUZZING=1)
