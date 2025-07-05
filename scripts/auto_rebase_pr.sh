@@ -142,22 +142,25 @@ function create_squash_commit {
     return
   fi
   
-  # Multiple commits - use squash format
-  links=()
+  # Multiple commits - create title with first...last format
+  local first_msg=$(git log -1 --format=%s "${commits[$start_idx]}")
+  local last_msg=$(git log -1 --format=%s "${commits[$end_idx]}")
+  local title="squash \"$first_msg\"...\"$last_msg\""
+  
+  # Build commit list for the body
   commit_list=""
   for ((k=start_idx; k<=end_idx; k++)); do
     local sha="${commits[$k]}"
     local short_sha="${sha:0:7}"
     local msg=$(git log -1 --format=%s "$sha")
-    links+=("$short_sha")
-    commit_list="${commit_list}- ${short_sha} ${msg} (${short_sha})"$'\n'
+    commit_list="${commit_list}- ${short_sha} ${msg}"$'\n'
   done
   
   # Remove trailing newline
   commit_list=${commit_list%$'\n'}
   
-  # Commit with both comma-separated links and detailed list
-  git commit -m "squash: $(IFS=, ; echo "${links[*]}")" -m "$commit_list" >/dev/null
+  # Commit with title and detailed list
+  git commit -m "$title" -m "$commit_list" >/dev/null
 }
 
 # Try to find and apply the minimal batch that works

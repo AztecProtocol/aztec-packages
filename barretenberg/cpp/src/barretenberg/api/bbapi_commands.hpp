@@ -1,6 +1,6 @@
 #pragma once
 /**
- * @file bbrpc.hpp
+ * @file bbapi.hpp
  * @brief Barretenberg RPC provides a stateful API for all core barretenberg proving functions.
  * Not included:
  * - Solidity verifier generation
@@ -11,7 +11,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include <map>
 
-namespace bb::bbrpc {
+namespace bb::bbapi {
 
 /**
  * @struct CircuitInputNoVK
@@ -165,24 +165,44 @@ struct CircuitComputeIvcVk {
     bool standalone;
 };
 
-/** Compute verification key, Treat the previously loaded circuit as either a standalone circuit
- * or a common final circuit used to verify all of IVC. */
-struct ClientIvcComputeVk {
-    static constexpr const char* NAME = "ClientIvcComputeVk";
+/** Compute standalone verification key for a circuit */
+struct ClientIvcComputeStandaloneVk {
+    static constexpr const char* NAME = "ClientIvcComputeStandaloneVk";
 
     struct Response {
-        static constexpr const char* NAME = "ClientIvcComputeVkResponse";
+        static constexpr const char* NAME = "ClientIvcComputeStandaloneVkResponse";
 
         /**
          * @brief Serialized verification key.
          */
-        std::vector<uint8_t> verification_key;
+        std::vector<uint8_t> vk_bytes;
+        /**
+         * @brief Verification key as field elements.
+         */
+        std::vector<bb::fr> vk_fields;
         // Empty if successful.
         std::string error_message;
     };
 
     CircuitInputNoVK circuit;
-    bool standalone;
+};
+
+/** Compute IVC verification key */
+struct ClientIvcComputeIvcVk {
+    static constexpr const char* NAME = "ClientIvcComputeIvcVk";
+
+    struct Response {
+        static constexpr const char* NAME = "ClientIvcComputeIvcVkResponse";
+
+        /**
+         * @brief Serialized IVC verification key.
+         */
+        std::vector<uint8_t> vk_bytes;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    CircuitInputNoVK circuit;
 };
 
 /**
@@ -463,7 +483,8 @@ using Command = NamedUnion<CircuitProve,
                            CircuitInfo,
                            CircuitCheck,
                            CircuitVerify,
-                           ClientIvcComputeVk,
+                           ClientIvcComputeStandaloneVk,
+                           ClientIvcComputeIvcVk,
                            ClientIvcStart,
                            ClientIvcLoad,
                            ClientIvcAccumulate,
@@ -482,7 +503,8 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitInfo::Response,
                                    CircuitCheck::Response,
                                    CircuitVerify::Response,
-                                   ClientIvcComputeVk::Response,
+                                   ClientIvcComputeStandaloneVk::Response,
+                                   ClientIvcComputeIvcVk::Response,
                                    ClientIvcStart::Response,
                                    ClientIvcLoad::Response,
                                    ClientIvcAccumulate::Response,
@@ -495,6 +517,12 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitValidate::Response,
                                    CircuitBenchmark::Response,
                                    ClientIvcCheckPrecomputedVk::Response>;
+
+// Specifically check for ClientIvcStart, ClientIvcLoad, ClientIvcAccumulate, and ClientIvcProve
+// Helps type-check C++ code, but we don't use this distinction for RPC commands or WASM.
+template <typename T>
+concept RequiresBBApiRequest = std::is_same_v<T, ClientIvcStart> || std::is_same_v<T, ClientIvcLoad> ||
+                               std::is_same_v<T, ClientIvcAccumulate> || std::is_same_v<T, ClientIvcProve>;
 
 /**
  * @brief Convert oracle hash type string to enum for internal use
@@ -512,4 +540,4 @@ inline OracleHashType parse_oracle_hash_type(const std::string& type)
     return OracleHashType::POSEIDON2; // default
 }
 
-} // namespace bb::bbrpc
+} // namespace bb::bbapi
