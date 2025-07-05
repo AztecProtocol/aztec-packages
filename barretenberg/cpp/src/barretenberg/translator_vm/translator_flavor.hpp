@@ -701,15 +701,16 @@ class TranslatorFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
+        size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+        size_t log_circuit_size = CONST_TRANSLATOR_LOG_N;
+
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        CommitmentKey commitment_key = CommitmentKey();
 
         ProvingKey(CommitmentKey commitment_key = CommitmentKey())
-            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
+            : commitment_key(commitment_key)
         {}
     };
 
@@ -740,8 +741,8 @@ class TranslatorFlavor {
         {
             this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {

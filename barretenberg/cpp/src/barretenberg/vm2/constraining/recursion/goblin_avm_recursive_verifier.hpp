@@ -214,7 +214,7 @@ class AvmGoblinRecursiveVerifier {
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
-        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->proving_key);
+        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->get_precomputed());
         MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
