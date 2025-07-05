@@ -124,7 +124,6 @@ struct ActiveRegionData {
 
 /**
  * @brief Dyadic trace size and public inputs metadata; Common between prover and verifier keys
- *
  */
 struct MetaData {
     size_t dyadic_size = 0; // power-of-2 size of the execution trace
@@ -135,9 +134,12 @@ struct MetaData {
     DatabusPropagationData databus_propagation_data;
 };
 
+/**
+ * @brief The precomputed data needed to compute a Honk VK
+ */
 template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct PrecomputedData_ {
-    RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials;
-    MetaData metadata; // circuit size and public inputs metadata
+    RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials; // polys whose commitments comprise the VK
+    MetaData metadata;                                          // execution trace metadata
 };
 
 /**
