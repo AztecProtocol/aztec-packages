@@ -67,7 +67,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         );
 
         PrivateValidationRequests {
-            for_rollup: self.validation_requests.for_rollup,
             note_hash_read_requests: kept_note_hash_read_requests,
             nullifier_read_requests: kept_nullifier_read_requests,
             scoped_key_validation_requests_and_generators,
@@ -76,12 +75,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     }
 
     pub fn validate(self, output: PrivateValidationRequests) {
-        assert_eq(
-            output.for_rollup,
-            self.validation_requests.for_rollup,
-            "mismatch validation request for rollup",
-        );
-
         // note_hash_read_requests
         verify_reset_read_requests(
             self.validation_requests.note_hash_read_requests,
