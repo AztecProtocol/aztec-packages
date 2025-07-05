@@ -24,7 +24,7 @@ import {
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
   mapTxRequestToNoir,
 } from '../conversion/client.js';
-import { mapFieldToNoir } from '../conversion/common.js';
+import { mapFieldToNoir, mapU64ToNoir } from '../conversion/common.js';
 import type {
   PrivateKernelInitInputType,
   PrivateKernelInitReturnType,
@@ -138,6 +138,7 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
     ),
+    include_by_timestamp_upper_bound: mapU64ToNoir(privateKernelTailCircuitPrivateInputs.includeByTimestampUpperBound),
   };
   pushTestData('private-kernel-tail', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailAbi, mapped);
@@ -160,6 +161,9 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     ),
     padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
+    ),
+    include_by_timestamp_upper_bound: mapU64ToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.includeByTimestampUpperBound,
     ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);

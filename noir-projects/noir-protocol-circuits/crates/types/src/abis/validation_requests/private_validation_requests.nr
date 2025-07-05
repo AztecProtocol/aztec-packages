@@ -1,10 +1,7 @@
 use crate::{
     abis::{
         read_request::ScopedReadRequest,
-        validation_requests::{
-            rollup_validation_requests::RollupValidationRequests,
-            scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
-        },
+        validation_requests::scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
     },
     constants::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -15,7 +12,6 @@ use crate::{
 };
 
 pub struct PrivateValidationRequests {
-    pub for_rollup: RollupValidationRequests,
     pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -31,7 +27,6 @@ impl Empty for PrivateValidationRequests {
         let empty_scoped_key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX> =
             ClaimedLengthArray::empty();
         PrivateValidationRequests {
-            for_rollup: RollupValidationRequests::empty(),
             note_hash_read_requests: empty_note_hash_read_requests,
             nullifier_read_requests: empty_nullifier_read_requests,
             scoped_key_validation_requests_and_generators: empty_scoped_key_validation_requests,
@@ -42,8 +37,7 @@ impl Empty for PrivateValidationRequests {
 
 impl Eq for PrivateValidationRequests {
     fn eq(self, other: Self) -> bool {
-        (self.for_rollup.eq(other.for_rollup))
-            & (self.note_hash_read_requests == other.note_hash_read_requests)
+        (self.note_hash_read_requests == other.note_hash_read_requests)
             & (self.nullifier_read_requests == other.nullifier_read_requests)
             & (
                 self.scoped_key_validation_requests_and_generators

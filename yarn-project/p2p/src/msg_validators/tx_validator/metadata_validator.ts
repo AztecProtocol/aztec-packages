@@ -90,19 +90,19 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   async #isValidForTimestamp(tx: T): Promise<boolean> {
-    const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
+    const includeByTimestamp = tx.data.includeByTimestamp;
     // If building block 1, we skip the expiration check. For details on why see the `validate_include_by_timestamp`
     // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
     const buildingBlock1 = this.values.blockNumber === 1;
 
-    if (!buildingBlock1 && includeByTimestamp.isSome && includeByTimestamp.value < this.values.timestamp) {
+    if (!buildingBlock1 && includeByTimestamp < this.values.timestamp) {
       if (tx.data.constants.historicalHeader.globalVariables.blockNumber === 0) {
         this.#log.warn(
           `A tx built against a genesis block failed to be included in block 1 which is the only block in which txs built against a genesis block are allowed to be included.`,
         );
       }
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp.value}, timestamp: ${this.values.timestamp}.`,
+        `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${this.values.timestamp}.`,
       );
       return false;
     } else {
