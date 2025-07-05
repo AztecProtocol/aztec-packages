@@ -178,7 +178,7 @@ export class PublicProcessor implements Traceable {
       }
 
       // Skip this tx if it'd exceed max block size
-      const txHash = (await origTx.getTxHash()).toString();
+      const txHash = origTx.getTxHash().toString();
       const preTxSizeInBytes = origTx.getEstimatedPrivateTxEffectsSize();
       if (maxBlockSize !== undefined && totalSizeInBytes + preTxSizeInBytes > maxBlockSize) {
         this.log.warn(`Skipping processing of tx ${txHash} sized ${preTxSizeInBytes} bytes due to block size limit`, {
@@ -208,7 +208,7 @@ export class PublicProcessor implements Traceable {
       // We validate the tx before processing it, to avoid unnecessary work.
       if (preprocessValidator) {
         const result = await preprocessValidator.validateTx(tx);
-        const txHash = await tx.getTxHash();
+        const txHash = tx.getTxHash();
         if (result.result === 'invalid') {
           const reason = result.reason.join(', ');
           this.log.warn(`Rejecting tx ${txHash.toString()} due to pre-process validation fail: ${reason}`);
@@ -312,7 +312,7 @@ export class PublicProcessor implements Traceable {
     return [result, failed, usedTxs, returns];
   }
 
-  @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))
+  @trackSpan('PublicProcessor.processTx', tx => ({ [Attributes.TX_HASH]: tx.getTxHash().toString() }))
   private async processTx(tx: Tx, deadline: Date | undefined): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const [time, [processedTx, returnValues]] = await elapsed(() => this.processTxWithinDeadline(tx, deadline));
 
@@ -391,7 +391,7 @@ export class PublicProcessor implements Traceable {
       fakeDelayPerTxMs && fakeDelayPerTxMs > 0
         ? async () => {
             const result = await innerProcessFn();
-            this.log.warn(`Sleeping ${fakeDelayPerTxMs}ms after processing tx ${await tx.getTxHash()}`);
+            this.log.warn(`Sleeping ${fakeDelayPerTxMs}ms after processing tx ${tx.getTxHash().toString()}`);
             await sleep(fakeDelayPerTxMs);
             return result;
           }
@@ -401,7 +401,7 @@ export class PublicProcessor implements Traceable {
       return await processFn();
     }
 
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const timeout = +deadline - this.dateProvider.now();
     if (timeout <= 0) {
       throw new PublicProcessorTimeoutError();
@@ -448,8 +448,8 @@ export class PublicProcessor implements Traceable {
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
 
-  @trackSpan('PublicProcessor.processPrivateOnlyTx', async (tx: Tx) => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  @trackSpan('PublicProcessor.processPrivateOnlyTx', (tx: Tx) => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
     const gasFees = this.globalVariables.gasFees;
@@ -457,7 +457,7 @@ export class PublicProcessor implements Traceable {
 
     const feePaymentPublicDataWrite = await this.performFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
-    const processedTx = await makeProcessedTxFromPrivateOnlyTx(
+    const processedTx = makeProcessedTxFromPrivateOnlyTx(
       tx,
       transactionFee,
       feePaymentPublicDataWrite,
@@ -482,8 +482,8 @@ export class PublicProcessor implements Traceable {
     return [processedTx, undefined];
   }
 
-  @trackSpan('PublicProcessor.processTxWithPublicCalls', async tx => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  @trackSpan('PublicProcessor.processTxWithPublicCalls', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
@@ -517,13 +517,7 @@ export class PublicProcessor implements Traceable {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
-    const processedTx = await makeProcessedTxFromTxWithPublicCalls(
-      tx,
-      avmProvingRequest,
-      gasUsed,
-      revertCode,
-      revertReason,
-    );
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 

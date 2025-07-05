@@ -17,7 +17,7 @@ export class ProvenTx extends Tx {
     // eslint-disable-next-line jsdoc/require-jsdoc
     public stats?: ProvingStats,
   ) {
-    super(tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
+    super(tx.txHash, tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
     this.#wallet = wallet;
   }
 

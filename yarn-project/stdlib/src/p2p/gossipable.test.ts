@@ -3,7 +3,7 @@ import { Tx } from '@aztec/stdlib/tx';
 
 describe('p2p message', () => {
   it('serializes and deserializes', async () => {
-    const tx = Tx.random(true);
+    const tx = Tx.random({ randomProof: true });
     const txAsBuffer = tx.toBuffer();
     const p2pMessage = await P2PMessage.fromGossipable(tx);
     const serialized = p2pMessage.toMessageData();

@@ -631,7 +631,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!result || !tx) {
       return;
     }
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
       source: source.toString(),
@@ -803,7 +803,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const validProof = await proofValidator.validateTx(responseTx);
 
     // If the node returns the wrong data, we penalize it
-    if (!requestedTxHash.equals(await responseTx.getTxHash())) {
+    if (!requestedTxHash.equals(responseTx.getTxHash())) {
       // Returning the wrong data is a low tolerance error
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;
@@ -818,8 +818,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return true;
   }
 
-  @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
-    [Attributes.TX_HASH]: (await tx.getTxHash()).toString(),
+  @trackSpan('Libp2pService.validatePropagatedTx', tx => ({
+    [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
   private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const currentBlockNumber = await this.archiver.getBlockNumber();

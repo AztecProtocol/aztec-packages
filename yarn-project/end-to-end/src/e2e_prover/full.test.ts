@@ -312,27 +312,27 @@ describe('full_prover', () => {
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
       const data = provenTx.data;
-      const invalidTxs = Array.from({ length: NUM_INVALID_TXS }, (_, i) => {
-        // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
-        const invalidProvenTx = new ProvenTx(
-          wallet,
-          new Tx(
-            new PrivateKernelTailCircuitPublicInputs(
-              data.constants,
-              data.rollupValidationRequests,
-              data.gasUsed.add(new Gas(i + 1, 0)),
-              data.feePayer,
-              data.forPublic,
-              data.forRollup,
-            ),
-            ClientIvcProof.random(),
-            provenTx.contractClassLogFields,
-            provenTx.publicFunctionCalldata,
-          ),
-          [],
-        );
-        return invalidProvenTx.send();
-      });
+      const invalidTxs = await Promise.all(
+        Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
+          // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
+          const invalidPublicInputs = new PrivateKernelTailCircuitPublicInputs(
+            data.constants,
+            data.rollupValidationRequests,
+            data.gasUsed.add(new Gas(i + 1, 0)),
+            data.feePayer,
+            data.forPublic,
+            data.forRollup,
+          );
+          const invalidTx = await Tx.create({
+            data: invalidPublicInputs,
+            clientIvcProof: ClientIvcProof.random(),
+            contractClassLogFields: provenTx.contractClassLogFields,
+            publicFunctionCalldata: provenTx.publicFunctionCalldata,
+          });
+          const invalidProvenTx = new ProvenTx(wallet, invalidTx, []);
+          return invalidProvenTx.send();
+        }),
+      );
 
       logger.info(`Sending proven tx`);
       const validTx = provenTx.send();

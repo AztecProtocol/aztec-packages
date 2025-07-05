@@ -89,7 +89,7 @@ describe('e2e_gov_proposal', () => {
         const txs = await submitTxsTo(pxe as PXEService, 8, wallet, logger);
         await Promise.all(
           txs.map(async (tx, j) => {
-            logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+            logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);
             return tx.wait({ timeout: 2 * aztecSlotDuration + 2 });
           }),
         );

@@ -4,7 +4,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
@@ -32,12 +32,12 @@ export class TxProvider implements ITxProvider {
   }
 
   /** Returns txs from the tx pool given their hashes.*/
-  public async getAvailableTxs(txHashes: TxHash[]): Promise<{ txs: TxWithHash[]; missingTxs: TxHash[] }> {
+  public async getAvailableTxs(txHashes: TxHash[]): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     const response = await this.txPool.getTxsByHash(txHashes);
     if (response.length !== txHashes.length) {
       throw new Error(`Unexpected response size from tx pool: expected ${txHashes.length} but got ${response.length}`);
     }
-    const txs: TxWithHash[] = [];
+    const txs: Tx[] = [];
     const missingTxs: TxHash[] = [];
 
     for (let i = 0; i < txHashes.length; i++) {
@@ -56,7 +56,7 @@ export class TxProvider implements ITxProvider {
   public getTxsForBlockProposal(
     blockProposal: BlockProposal,
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
-  ): Promise<{ txs: TxWithHash[]; missingTxs: TxHash[] }> {
+  ): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     return this.getOrderedTxsFromAllSources(
       { type: 'proposal', blockProposal },
       blockProposal.toBlockInfo(),
@@ -66,10 +66,7 @@ export class TxProvider implements ITxProvider {
   }
 
   /** Gathers txs from the tx pool, remote rpc nodes, and reqresp. */
-  public getTxsForBlock(
-    block: L2Block,
-    opts: { deadline: Date },
-  ): Promise<{ txs: TxWithHash[]; missingTxs: TxHash[] }> {
+  public getTxsForBlock(block: L2Block, opts: { deadline: Date }): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     return this.getOrderedTxsFromAllSources(
       { type: 'block', block },
       block.toBlockInfo(),
@@ -110,7 +107,7 @@ export class TxProvider implements ITxProvider {
     return { txs: orderedTxs, missingTxs: (missingTxHashes ?? []).map(TxHash.fromString), durationMs };
   }
 
-  private orderTxs(txs: TxWithHash[], order: TxHash[]): TxWithHash[] {
+  private orderTxs(txs: Tx[], order: TxHash[]): Tx[] {
     const txsMap = new Map(txs.map(tx => [tx.txHash.toString(), tx]));
     return order.map(hash => txsMap.get(hash.toString())!).filter(tx => tx !== undefined);
   }
@@ -129,8 +126,8 @@ export class TxProvider implements ITxProvider {
 
     // First go to our tx pool and fetch whatever txs we have there
     // We go to the mempool first since those txs are already validated
-    const txsFromMempool = await this.txPool.getTxsByHash(txHashes).then(txs => Tx.toTxsWithHashes(compactArray(txs)));
-    txsFromMempool.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
+    const txsFromMempool = compactArray(await this.txPool.getTxsByHash(txHashes));
+    txsFromMempool.forEach(tx => missingTxHashes.delete(tx.getTxHash().toString()));
     this.instrumentation.incTxsFromMempool(txsFromMempool.length);
     this.log.debug(
       `Retrieved ${txsFromMempool.length} txs from mempool for block proposal (${missingTxHashes.size} pending)`,
@@ -144,7 +141,7 @@ export class TxProvider implements ITxProvider {
     // Take txs from the proposal body if there are any
     // Note that we still have to validate these txs, but we do it in parallel with tx collection
     const proposal = request.type === 'proposal' ? request.blockProposal : undefined;
-    const txsFromProposal = await this.extractFromProposal(proposal, [...missingTxHashes]);
+    const txsFromProposal = this.extractFromProposal(proposal, [...missingTxHashes]);
     if (txsFromProposal.length > 0) {
       this.instrumentation.incTxsFromProposals(txsFromProposal.length);
       txsFromProposal.forEach(tx => missingTxHashes.delete(tx.txHash.toString()));
@@ -179,9 +176,7 @@ export class TxProvider implements ITxProvider {
     }
 
     // We are still missing txs, make one last attempt to collect them from our pool, in case they showed up somehow else
-    const moreTxsFromPool = await this.txPool
-      .getTxsByHash([...missingTxHashes].map(TxHash.fromString))
-      .then(txs => Tx.toTxsWithHashes(compactArray(txs)));
+    const moreTxsFromPool = compactArray(await this.txPool.getTxsByHash([...missingTxHashes].map(TxHash.fromString)));
 
     if (moreTxsFromPool.length > 0) {
       this.instrumentation.incTxsFromMempool(moreTxsFromPool.length);
@@ -203,19 +198,14 @@ export class TxProvider implements ITxProvider {
     };
   }
 
-  private async extractFromProposal(
-    proposal: BlockProposal | undefined,
-    missingTxHashes: string[],
-  ): Promise<TxWithHash[]> {
+  private extractFromProposal(proposal: BlockProposal | undefined, missingTxHashes: string[]): Tx[] {
     if (!proposal) {
       return [];
     }
-    return (await Tx.toTxsWithHashes(compactArray(proposal.txs ?? []))).filter(tx =>
-      missingTxHashes.includes(tx.txHash.toString()),
-    );
+    return compactArray(proposal.txs ?? []).filter(tx => missingTxHashes.includes(tx.getTxHash().toString()));
   }
 
-  private async processProposalTxs(txs: TxWithHash[]): Promise<void> {
+  private async processProposalTxs(txs: Tx[]): Promise<void> {
     if (txs.length === 0) {
       return;
     }

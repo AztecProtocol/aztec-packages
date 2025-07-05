@@ -184,7 +184,7 @@ describe('Contract Class', () => {
     const param0 = 12;
     const param1 = 345n;
     const sentTx = fooContract.methods.bar(param0, param1).send();
-    const txHash = await sentTx.getTxHash();
+    const txHash = sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
     expect(txHash).toBe(mockTxHash);
