@@ -144,7 +144,7 @@ describe('EpochPruneWatcher', () => {
       1, // block number
       4, // txs per block
     );
-    const tx = await Tx.random().toTxWithHash();
+    const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
     blockBuilder.buildBlock.mockResolvedValue({
       block: block,
@@ -198,7 +198,7 @@ describe('EpochPruneWatcher', () => {
       2, // block number
       1, // txs per block
     );
-    const tx = await Tx.random().toTxWithHash();
+    const tx = Tx.random();
     txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
     blockBuilder.buildBlock.mockResolvedValue({
       block: blockFromBuilder,

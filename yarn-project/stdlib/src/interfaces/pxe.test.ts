@@ -416,7 +416,7 @@ class MockPXE implements PXE {
   }
   sendTx(tx: Tx): Promise<TxHash> {
     expect(tx).toBeInstanceOf(Tx);
-    return tx.getTxHash();
+    return Promise.resolve(tx.getTxHash());
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     expect(txHash).toBeInstanceOf(TxHash);

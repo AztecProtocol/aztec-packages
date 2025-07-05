@@ -410,7 +410,7 @@ export class AvmTxHint {
     public readonly feePayer: AztecAddress,
   ) {}
 
-  static async fromTx(tx: Tx): Promise<AvmTxHint> {
+  static fromTx(tx: Tx): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
@@ -421,7 +421,7 @@ export class AvmTxHint {
     );
 
     // For informational purposes. Assumed quick because it should be cached.
-    const txHash = await tx.getTxHash();
+    const txHash = tx.getTxHash();
 
     return new AvmTxHint(
       txHash.hash.toString(),

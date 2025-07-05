@@ -119,7 +119,7 @@ export class PublicTxContext {
     const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
 
     return new PublicTxContext(
-      await tx.getTxHash(),
+      tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       await txStateManager.getTreeSnapshots(),
       globalVariables,

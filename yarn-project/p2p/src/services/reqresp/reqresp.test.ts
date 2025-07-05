@@ -125,7 +125,7 @@ describe('ReqResp', () => {
   describe('Tx req protocol', () => {
     it('can request a Tx from TxHash', async () => {
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
@@ -148,14 +148,14 @@ describe('ReqResp', () => {
 
       // Set tx hash since expect will compare private properties
       const resTx = Tx.fromBuffer(resp.data);
-      await resTx.getTxHash();
+      resTx.getTxHash();
 
       expect(resTx).toEqual(tx);
     });
 
     it('handles returning empty buffers', async () => {
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {

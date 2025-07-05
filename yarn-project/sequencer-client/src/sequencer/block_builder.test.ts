@@ -169,7 +169,7 @@ describe('BlockBuilder', () => {
     expect(blockResult.block.header.globalVariables.chainId.toNumber()).toBe(chainId);
     expect(blockResult.block.header.globalVariables.version.toNumber()).toBe(version);
     expect(blockResult.block.body.txEffects.length).toBe(1);
-    expect(blockResult.block.body.txEffects[0].txHash).toBe(await tx.getTxHash());
+    expect(blockResult.block.body.txEffects[0].txHash).toBe(tx.getTxHash());
   });
 
   it('builds a block with the correct options', async () => {
@@ -209,7 +209,7 @@ describe('BlockBuilder', () => {
       const failedTxs: FailedTx[] = [];
 
       for await (const tx of pendingTxsIterator) {
-        if (validTxHashes.includes(await tx.getTxHash())) {
+        if (validTxHashes.includes(tx.getTxHash())) {
           usedTxs.push(tx);
           const processedTx = await makeProcessedTxFromPrivateOnlyTx(
             tx,
