@@ -477,7 +477,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .addOption(l1ChainIdOption)
     .requiredOption('-t, --token <string>', 'The address of the token to bridge', parseEthereumAddress)
     .requiredOption('-p, --portal <string>', 'The address of the portal contract', parseEthereumAddress)
-    .option('-f, --faucet <string>', 'The address of the faucet contract (only used if minting)', parseEthereumAddress)
     .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option('--json', 'Output the claim in JSON format')
     .action(async (amount, recipient, options) => {
@@ -490,7 +489,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.l1PrivateKey,
         options.mnemonic,
         options.token,
-        options.faucet,
         options.portal,
         options.private,
         options.mint,
