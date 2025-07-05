@@ -449,7 +449,14 @@ export class SlasherClient {
 
     const nextRound = round + 1n;
     this.log.info(`Waiting for round ${nextRound} to be reached`);
-    await this.slashingProposer.waitForRound(nextRound, this.config.slashProposerRoundPollingIntervalSeconds);
+    const reached = await this.slashingProposer.waitForRound(
+      nextRound,
+      this.config.slashProposerRoundPollingIntervalSeconds,
+    );
+    if (!reached) {
+      this.log.error('Round not reached', { proposal, round });
+      return;
+    }
     this.log.info('Executing round', { proposal, round });
 
     await this.slashingProposer
