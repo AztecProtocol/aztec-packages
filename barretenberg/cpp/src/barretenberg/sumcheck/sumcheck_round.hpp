@@ -75,6 +75,9 @@ template <typename Flavor> class SumcheckProverRound {
      * "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+
+    static constexpr std::array<size_t, Flavor::NUM_ALL_ENTITIES> ENTITY_DEGREES = Flavor::ENTITY_DEGREES;
+
     using SumcheckRoundUnivariate = bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>;
     SumcheckTupleOfTuplesOfUnivariates univariate_accumulators;
 
@@ -85,7 +88,11 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
     {
-
+        // if constexpr (IsGrumpkinFlavor<Flavor>) {
+        //     ENTITY_DEGREES = Flavor::ENTITY_DEGREES;
+        // } else {
+        //     std::ranges::fill(ENTITY_DEGREES, MAX_PARTIAL_RELATION_LENGTH);
+        // }
         PROFILE_THIS_NAME("SumcheckProverRound constructor");
 
         // Initialize univariate accumulators to 0
@@ -124,6 +131,7 @@ template <typename Flavor> class SumcheckProverRound {
     void extend_edges(ExtendedEdges& extended_edges,
                       const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       const size_t edge_idx)
+        requires(!IsGrumpkinFlavor<Flavor>)
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
             bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
@@ -140,6 +148,137 @@ template <typename Flavor> class SumcheckProverRound {
         }
     }
 
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    void extend_edges(ExtendedEdges& extended_edges,
+                      const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                      const size_t edge_idx)
+        requires(IsGrumpkinFlavor<Flavor>)
+    {
+#define EXTEND_FIELD(NAME)                                                                                             \
+    extended_edges.NAME.value_at(0) = multivariates.NAME[edge_idx];                                                    \
+    extended_edges.NAME.value_at(1) = multivariates.NAME[edge_idx + 1];                                                \
+    extended_edges.NAME.extend_two_points(multivariates.NAME[edge_idx], multivariates.NAME[edge_idx + 1]);
+
+        // === BEGIN GENERATED ===
+        EXTEND_FIELD(lagrange_first)
+        EXTEND_FIELD(lagrange_second)
+        EXTEND_FIELD(lagrange_last)
+        EXTEND_FIELD(transcript_add)
+        EXTEND_FIELD(transcript_eq)
+        EXTEND_FIELD(transcript_msm_transition)
+        EXTEND_FIELD(transcript_Px)
+        EXTEND_FIELD(transcript_Py)
+        EXTEND_FIELD(transcript_z1)
+        EXTEND_FIELD(transcript_z2)
+        EXTEND_FIELD(transcript_z1zero)
+        EXTEND_FIELD(transcript_z2zero)
+        EXTEND_FIELD(transcript_op)
+        EXTEND_FIELD(transcript_msm_x)
+        EXTEND_FIELD(transcript_msm_y)
+        EXTEND_FIELD(precompute_point_transition)
+        EXTEND_FIELD(precompute_s1lo)
+        EXTEND_FIELD(precompute_s2hi)
+        EXTEND_FIELD(precompute_s2lo)
+        EXTEND_FIELD(precompute_s3hi)
+        EXTEND_FIELD(precompute_s3lo)
+        EXTEND_FIELD(precompute_s4hi)
+        EXTEND_FIELD(precompute_s4lo)
+        EXTEND_FIELD(precompute_skew)
+        EXTEND_FIELD(msm_size_of_msm)
+        EXTEND_FIELD(msm_add2)
+        EXTEND_FIELD(msm_add3)
+        EXTEND_FIELD(msm_add4)
+        EXTEND_FIELD(msm_x1)
+        EXTEND_FIELD(msm_y1)
+        EXTEND_FIELD(msm_x2)
+        EXTEND_FIELD(msm_y2)
+        EXTEND_FIELD(msm_x3)
+        EXTEND_FIELD(msm_y3)
+        EXTEND_FIELD(msm_x4)
+        EXTEND_FIELD(msm_y4)
+        EXTEND_FIELD(msm_collision_x1)
+        EXTEND_FIELD(msm_collision_x2)
+        EXTEND_FIELD(msm_collision_x3)
+        EXTEND_FIELD(msm_collision_x4)
+        EXTEND_FIELD(msm_lambda1)
+        EXTEND_FIELD(msm_lambda2)
+        EXTEND_FIELD(msm_lambda3)
+        EXTEND_FIELD(msm_lambda4)
+        EXTEND_FIELD(msm_slice1)
+        EXTEND_FIELD(msm_slice2)
+        EXTEND_FIELD(msm_slice3)
+        EXTEND_FIELD(msm_slice4)
+        EXTEND_FIELD(transcript_reset_accumulator)
+        EXTEND_FIELD(lookup_read_counts_0)
+        EXTEND_FIELD(lookup_read_counts_1)
+        EXTEND_FIELD(transcript_base_infinity)
+        EXTEND_FIELD(transcript_base_x_inverse)
+        EXTEND_FIELD(transcript_base_y_inverse)
+        EXTEND_FIELD(transcript_add_x_equal)
+        EXTEND_FIELD(transcript_add_y_equal)
+        EXTEND_FIELD(transcript_add_lambda)
+        EXTEND_FIELD(transcript_msm_intermediate_x)
+        EXTEND_FIELD(transcript_msm_intermediate_y)
+        EXTEND_FIELD(transcript_msm_infinity)
+        EXTEND_FIELD(transcript_msm_x_inverse)
+        EXTEND_FIELD(transcript_msm_count_zero_at_transition)
+        EXTEND_FIELD(transcript_msm_count_at_transition_inverse)
+        EXTEND_FIELD(transcript_mul)
+        EXTEND_FIELD(transcript_msm_count)
+        EXTEND_FIELD(precompute_scalar_sum)
+        EXTEND_FIELD(precompute_s1hi)
+        EXTEND_FIELD(precompute_dx)
+        EXTEND_FIELD(precompute_dy)
+        EXTEND_FIELD(precompute_tx)
+        EXTEND_FIELD(precompute_ty)
+        EXTEND_FIELD(msm_transition)
+        EXTEND_FIELD(msm_add)
+        EXTEND_FIELD(msm_double)
+        EXTEND_FIELD(msm_skew)
+        EXTEND_FIELD(msm_accumulator_x)
+        EXTEND_FIELD(msm_accumulator_y)
+        EXTEND_FIELD(msm_count)
+        EXTEND_FIELD(msm_round)
+        EXTEND_FIELD(msm_add1)
+        EXTEND_FIELD(msm_pc)
+        EXTEND_FIELD(precompute_pc)
+        EXTEND_FIELD(transcript_pc)
+        EXTEND_FIELD(precompute_round)
+        EXTEND_FIELD(precompute_select)
+        EXTEND_FIELD(transcript_accumulator_empty)
+        EXTEND_FIELD(transcript_accumulator_x)
+        EXTEND_FIELD(transcript_accumulator_y)
+        EXTEND_FIELD(z_perm)
+        EXTEND_FIELD(lookup_inverses)
+        EXTEND_FIELD(transcript_mul_shift)
+        EXTEND_FIELD(transcript_msm_count_shift)
+        EXTEND_FIELD(precompute_scalar_sum_shift)
+        EXTEND_FIELD(precompute_s1hi_shift)
+        EXTEND_FIELD(precompute_dx_shift)
+        EXTEND_FIELD(precompute_dy_shift)
+        EXTEND_FIELD(precompute_tx_shift)
+        EXTEND_FIELD(precompute_ty_shift)
+        EXTEND_FIELD(msm_transition_shift)
+        EXTEND_FIELD(msm_add_shift)
+        EXTEND_FIELD(msm_double_shift)
+        EXTEND_FIELD(msm_skew_shift)
+        EXTEND_FIELD(msm_accumulator_x_shift)
+        EXTEND_FIELD(msm_accumulator_y_shift)
+        EXTEND_FIELD(msm_count_shift)
+        EXTEND_FIELD(msm_round_shift)
+        EXTEND_FIELD(msm_add1_shift)
+        EXTEND_FIELD(msm_pc_shift)
+        EXTEND_FIELD(precompute_pc_shift)
+        EXTEND_FIELD(transcript_pc_shift)
+        EXTEND_FIELD(precompute_round_shift)
+        EXTEND_FIELD(precompute_select_shift)
+        EXTEND_FIELD(transcript_accumulator_empty_shift)
+        EXTEND_FIELD(transcript_accumulator_x_shift)
+        EXTEND_FIELD(transcript_accumulator_y_shift)
+        EXTEND_FIELD(z_perm_shift)
+        // === END GENERATED ===
+#undef EXTEND_FIELD
+    }
     /**
      * @brief Non-ZK version: Return the evaluations of the univariate round polynomials \f$ \tilde{S}_{i} (X_{i}) \f$
      at \f$ X_{i } = 0,\ldots, D \f$. Most likely, \f$ D \f$ is around  \f$ 12 \f$. At the

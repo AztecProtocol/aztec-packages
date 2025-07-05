@@ -558,6 +558,13 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
 
+    void extend_two_points(const Fr& eval0, const Fr& eval1)
+    {
+        Fr delta = eval1 - eval0;
+        for (size_t idx = 1; idx < LENGTH - 1; idx++) {
+            value_at(idx + 1) = value_at(idx) + delta;
+        }
+    }
     /**
      * @brief Evaluate a univariate at a point u not known at compile time
      * and assumed not to be in the domain (else we divide by zero).

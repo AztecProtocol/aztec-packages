@@ -65,6 +65,15 @@ class ECCVMFlavor {
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
     static constexpr size_t NUM_ALL_ENTITIES = 116;
+
+    // static constexpr std::array<size_t, NUM_ALL_ENTITIES> ENTITY_DEGREES = {
+    //     22, 8,  22, 9, 8, 22, 22, 22, 22, 22, 22, 22, 9,  22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+    //     9, 9,  9,  9,  9, 9, 9,  9,  8,  8,  8,  8,  8,  8,  8,  8,  22, 22, 22, 22, 9,  9,  9,  22, 9,  9,  9,  9,
+    //     9,  9, 9,  9,  9,  8, 8, 22, 22, 22, 22, 6,  6,  22, 22, 8,  9,  8,  9,  8,  8,  22, 22, 22, 22, 22, 22, 22,
+    //     22, 8,  8, 8,  22, 9,  8, 8, 5,  22, 6,  6,  6,  6,  22, 8,  8,  8,  22, 22, 8,  8,  8,  22, 5,  22, 5,  5,
+    //     8,  8,  8,  22
+    // };
+
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
@@ -391,7 +400,245 @@ class ECCVMFlavor {
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
-    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+    class ExtendedEdges {
+      public:
+        bb::Univariate<FF, 22> lagrange_first;
+        bb::Univariate<FF, 8> lagrange_second;
+        bb::Univariate<FF, 22> lagrange_last;
+        bb::Univariate<FF, 9> transcript_add;
+        bb::Univariate<FF, 8> transcript_eq;
+        bb::Univariate<FF, 22> transcript_msm_transition;
+        bb::Univariate<FF, 22> transcript_Px;
+        bb::Univariate<FF, 22> transcript_Py;
+        bb::Univariate<FF, 22> transcript_z1;
+        bb::Univariate<FF, 22> transcript_z2;
+        bb::Univariate<FF, 22> transcript_z1zero;
+        bb::Univariate<FF, 22> transcript_z2zero;
+        bb::Univariate<FF, 9> transcript_op;
+        bb::Univariate<FF, 22> transcript_msm_x;
+        bb::Univariate<FF, 22> transcript_msm_y;
+        bb::Univariate<FF, 22> precompute_point_transition;
+        bb::Univariate<FF, 22> precompute_s1lo;
+        bb::Univariate<FF, 22> precompute_s2hi;
+        bb::Univariate<FF, 22> precompute_s2lo;
+        bb::Univariate<FF, 22> precompute_s3hi;
+        bb::Univariate<FF, 22> precompute_s3lo;
+        bb::Univariate<FF, 22> precompute_s4hi;
+        bb::Univariate<FF, 22> precompute_s4lo;
+        bb::Univariate<FF, 22> precompute_skew;
+        bb::Univariate<FF, 22> msm_size_of_msm;
+        bb::Univariate<FF, 22> msm_add2;
+        bb::Univariate<FF, 22> msm_add3;
+        bb::Univariate<FF, 22> msm_add4;
+        bb::Univariate<FF, 9> msm_x1;
+        bb::Univariate<FF, 9> msm_y1;
+        bb::Univariate<FF, 9> msm_x2;
+        bb::Univariate<FF, 9> msm_y2;
+        bb::Univariate<FF, 9> msm_x3;
+        bb::Univariate<FF, 9> msm_y3;
+        bb::Univariate<FF, 9> msm_x4;
+        bb::Univariate<FF, 9> msm_y4;
+        bb::Univariate<FF, 8> msm_collision_x1;
+        bb::Univariate<FF, 8> msm_collision_x2;
+        bb::Univariate<FF, 8> msm_collision_x3;
+        bb::Univariate<FF, 8> msm_collision_x4;
+        bb::Univariate<FF, 8> msm_lambda1;
+        bb::Univariate<FF, 8> msm_lambda2;
+        bb::Univariate<FF, 8> msm_lambda3;
+        bb::Univariate<FF, 8> msm_lambda4;
+        bb::Univariate<FF, 22> msm_slice1;
+        bb::Univariate<FF, 22> msm_slice2;
+        bb::Univariate<FF, 22> msm_slice3;
+        bb::Univariate<FF, 22> msm_slice4;
+        bb::Univariate<FF, 9> transcript_reset_accumulator;
+        bb::Univariate<FF, 9> lookup_read_counts_0;
+        bb::Univariate<FF, 9> lookup_read_counts_1;
+        bb::Univariate<FF, 22> transcript_base_infinity;
+        bb::Univariate<FF, 9> transcript_base_x_inverse;
+        bb::Univariate<FF, 9> transcript_base_y_inverse;
+        bb::Univariate<FF, 9> transcript_add_x_equal;
+        bb::Univariate<FF, 9> transcript_add_y_equal;
+        bb::Univariate<FF, 9> transcript_add_lambda;
+        bb::Univariate<FF, 9> transcript_msm_intermediate_x;
+        bb::Univariate<FF, 9> transcript_msm_intermediate_y;
+        bb::Univariate<FF, 9> transcript_msm_infinity;
+        bb::Univariate<FF, 9> transcript_msm_x_inverse;
+        bb::Univariate<FF, 8> transcript_msm_count_zero_at_transition;
+        bb::Univariate<FF, 8> transcript_msm_count_at_transition_inverse;
+        bb::Univariate<FF, 22> transcript_mul;
+        bb::Univariate<FF, 22> transcript_msm_count;
+        bb::Univariate<FF, 22> precompute_scalar_sum;
+        bb::Univariate<FF, 22> precompute_s1hi;
+        bb::Univariate<FF, 6> precompute_dx;
+        bb::Univariate<FF, 6> precompute_dy;
+        bb::Univariate<FF, 22> precompute_tx;
+        bb::Univariate<FF, 22> precompute_ty;
+        bb::Univariate<FF, 8> msm_transition;
+        bb::Univariate<FF, 9> msm_add;
+        bb::Univariate<FF, 8> msm_double;
+        bb::Univariate<FF, 9> msm_skew;
+        bb::Univariate<FF, 8> msm_accumulator_x;
+        bb::Univariate<FF, 8> msm_accumulator_y;
+        bb::Univariate<FF, 22> msm_count;
+        bb::Univariate<FF, 22> msm_round;
+        bb::Univariate<FF, 22> msm_add1;
+        bb::Univariate<FF, 22> msm_pc;
+        bb::Univariate<FF, 22> precompute_pc;
+        bb::Univariate<FF, 22> transcript_pc;
+        bb::Univariate<FF, 22> precompute_round;
+        bb::Univariate<FF, 22> precompute_select;
+        bb::Univariate<FF, 8> transcript_accumulator_empty;
+        bb::Univariate<FF, 8> transcript_accumulator_x;
+        bb::Univariate<FF, 8> transcript_accumulator_y;
+        bb::Univariate<FF, 22> z_perm;
+        bb::Univariate<FF, 9> lookup_inverses;
+        bb::Univariate<FF, 8> transcript_mul_shift;
+        bb::Univariate<FF, 8> transcript_msm_count_shift;
+        bb::Univariate<FF, 5> precompute_scalar_sum_shift;
+        bb::Univariate<FF, 22> precompute_s1hi_shift;
+        bb::Univariate<FF, 6> precompute_dx_shift;
+        bb::Univariate<FF, 6> precompute_dy_shift;
+        bb::Univariate<FF, 6> precompute_tx_shift;
+        bb::Univariate<FF, 6> precompute_ty_shift;
+        bb::Univariate<FF, 22> msm_transition_shift;
+        bb::Univariate<FF, 8> msm_add_shift;
+        bb::Univariate<FF, 8> msm_double_shift;
+        bb::Univariate<FF, 8> msm_skew_shift;
+        bb::Univariate<FF, 22> msm_accumulator_x_shift;
+        bb::Univariate<FF, 22> msm_accumulator_y_shift;
+        bb::Univariate<FF, 8> msm_count_shift;
+        bb::Univariate<FF, 8> msm_round_shift;
+        bb::Univariate<FF, 8> msm_add1_shift;
+        bb::Univariate<FF, 22> msm_pc_shift;
+        bb::Univariate<FF, 5> precompute_pc_shift;
+        bb::Univariate<FF, 22> transcript_pc_shift;
+        bb::Univariate<FF, 5> precompute_round_shift;
+        bb::Univariate<FF, 5> precompute_select_shift;
+        bb::Univariate<FF, 8> transcript_accumulator_empty_shift;
+        bb::Univariate<FF, 8> transcript_accumulator_x_shift;
+        bb::Univariate<FF, 8> transcript_accumulator_y_shift;
+        bb::Univariate<FF, 22> z_perm_shift;
+
+        auto get_all()
+        {
+            return std::tuple(lagrange_first,
+                              lagrange_second,
+                              lagrange_last,
+                              transcript_add,
+                              transcript_eq,
+                              transcript_msm_transition,
+                              transcript_Px,
+                              transcript_Py,
+                              transcript_z1,
+                              transcript_z2,
+                              transcript_z1zero,
+                              transcript_z2zero,
+                              transcript_op,
+                              transcript_msm_x,
+                              transcript_msm_y,
+                              precompute_point_transition,
+                              precompute_s1lo,
+                              precompute_s2hi,
+                              precompute_s2lo,
+                              precompute_s3hi,
+                              precompute_s3lo,
+                              precompute_s4hi,
+                              precompute_s4lo,
+                              precompute_skew,
+                              msm_size_of_msm,
+                              msm_add2,
+                              msm_add3,
+                              msm_add4,
+                              msm_x1,
+                              msm_y1,
+                              msm_x2,
+                              msm_y2,
+                              msm_x3,
+                              msm_y3,
+                              msm_x4,
+                              msm_y4,
+                              msm_collision_x1,
+                              msm_collision_x2,
+                              msm_collision_x3,
+                              msm_collision_x4,
+                              msm_lambda1,
+                              msm_lambda2,
+                              msm_lambda3,
+                              msm_lambda4,
+                              msm_slice1,
+                              msm_slice2,
+                              msm_slice3,
+                              msm_slice4,
+                              transcript_reset_accumulator,
+                              lookup_read_counts_0,
+                              lookup_read_counts_1,
+                              transcript_base_infinity,
+                              transcript_base_x_inverse,
+                              transcript_base_y_inverse,
+                              transcript_add_x_equal,
+                              transcript_add_y_equal,
+                              transcript_add_lambda,
+                              transcript_msm_intermediate_x,
+                              transcript_msm_intermediate_y,
+                              transcript_msm_infinity,
+                              transcript_msm_x_inverse,
+                              transcript_msm_count_zero_at_transition,
+                              transcript_msm_count_at_transition_inverse,
+                              transcript_mul,
+                              transcript_msm_count,
+                              precompute_scalar_sum,
+                              precompute_s1hi,
+                              precompute_dx,
+                              precompute_dy,
+                              precompute_tx,
+                              precompute_ty,
+                              msm_transition,
+                              msm_add,
+                              msm_double,
+                              msm_skew,
+                              msm_accumulator_x,
+                              msm_accumulator_y,
+                              msm_count,
+                              msm_round,
+                              msm_add1,
+                              msm_pc,
+                              precompute_pc,
+                              transcript_pc,
+                              precompute_round,
+                              precompute_select,
+                              transcript_accumulator_empty,
+                              transcript_accumulator_x,
+                              transcript_accumulator_y,
+                              z_perm,
+                              lookup_inverses,
+                              transcript_mul_shift,
+                              transcript_msm_count_shift,
+                              precompute_scalar_sum_shift,
+                              precompute_s1hi_shift,
+                              precompute_dx_shift,
+                              precompute_dy_shift,
+                              precompute_tx_shift,
+                              precompute_ty_shift,
+                              msm_transition_shift,
+                              msm_add_shift,
+                              msm_double_shift,
+                              msm_skew_shift,
+                              msm_accumulator_x_shift,
+                              msm_accumulator_y_shift,
+                              msm_count_shift,
+                              msm_round_shift,
+                              msm_add1_shift,
+                              msm_pc_shift,
+                              precompute_pc_shift,
+                              transcript_pc_shift,
+                              precompute_round_shift,
+                              precompute_select_shift,
+                              transcript_accumulator_empty_shift,
+                              transcript_accumulator_x_shift,
+                              transcript_accumulator_y_shift,
+                              z_perm_shift);
+        }
+    };
 
     /**
      * @brief A container for the prover polynomials.

@@ -56,6 +56,7 @@ void eccvm_generate_prover(State& state) noexcept
 
 void eccvm_prove(State& state) noexcept
 {
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
