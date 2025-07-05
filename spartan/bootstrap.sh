@@ -85,7 +85,7 @@ function start_env {
     export CLUSTER_NAME=aztec-gke-private
     export ZONE=us-west1-a
     echo "Installing test network in namespace $NIGHTLY_NS"
-    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS"
+    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
   fi
 }
 
