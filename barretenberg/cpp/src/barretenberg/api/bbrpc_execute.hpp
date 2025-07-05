@@ -161,8 +161,7 @@ inline ClientIvcComputeVk::Response execute(BBRpcRequest& request, ClientIvcComp
         acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
         std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
             get_acir_program_decider_proving_key(request, program);
-        auto verification_key =
-            std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         vk_data = to_buffer(*verification_key);
         info("ClientIvcComputeVk - standalone VK derived, size: ", vk_data.size(), " bytes");
     } else {

@@ -55,15 +55,15 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
-        VerificationKey(ProverPolynomials& polynomials, const MetaData& metadata)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = metadata.dyadic_size;
+            this->circuit_size = precomputed.metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = metadata.num_public_inputs;
-            this->pub_inputs_offset = metadata.pub_inputs_offset;
+            this->num_public_inputs = precomputed.metadata.num_public_inputs;
+            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
 
-            auto commitment_key = CommitmentKey(metadata.dyadic_size);
-            for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
         }

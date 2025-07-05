@@ -68,7 +68,7 @@ void fold_k(State& state) noexcept
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
         std::shared_ptr<DeciderProvingKey> decider_pk = construct_key();
-        auto honk_vk = std::make_shared<Flavor::VerificationKey>(decider_pk->polynomials, decider_pk->metadata);
+        auto honk_vk = std::make_shared<Flavor::VerificationKey>(decider_pk->get_precomputed());
         std::shared_ptr<DeciderVerificationKey> decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
         decider_pks.emplace_back(decider_pk);
         decider_vks.emplace_back(decider_vk);

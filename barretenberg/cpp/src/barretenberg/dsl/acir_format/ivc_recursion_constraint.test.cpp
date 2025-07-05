@@ -88,8 +88,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
             // Compute native verification key
             auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(inner_circuit);
-            auto honk_vk =
-                std::make_shared<UltraFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+            auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->get_precomputed());
             UltraProver prover(proving_key, honk_vk); // A prerequisite for computing VK
             auto inner_proof = prover.construct_proof();
 
@@ -189,8 +188,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
-        auto verification_key =
-            std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         return verification_key;
     }
 

@@ -53,7 +53,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     void prove_and_verify(auto& circuit_builder, bool expected_result)
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->polynomials, proving_key->metadata);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
@@ -104,8 +104,7 @@ TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    auto verification_key =
-        std::make_shared<typename Flavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof ultra_proof = prover.construct_proof();
     size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
@@ -128,8 +127,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
-    auto verification_key =
-        std::make_shared<typename TypeParam::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
     auto& polynomials = proving_key->polynomials;
@@ -280,7 +278,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     };
 
     auto prove_and_verify = [](auto& proving_key) {
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->polynomials, proving_key->metadata);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<TypeParam>) {

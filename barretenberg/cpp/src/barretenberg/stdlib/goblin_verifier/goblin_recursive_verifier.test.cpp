@@ -149,8 +149,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        auto verification_key =
-            std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
@@ -178,7 +177,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         auto outer_verification_key =
-            std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+            std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, outer_verification_key);
         OuterVerifier outer_verifier(outer_verification_key);
         return { builder.blocks, outer_verification_key };

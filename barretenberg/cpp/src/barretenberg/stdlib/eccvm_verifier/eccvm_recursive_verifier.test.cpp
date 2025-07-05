@@ -129,8 +129,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         // Construct a full proof from the recursive verifier circuit
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto verification_key =
-                std::make_shared<OuterFlavor::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(proving_key->get_precomputed());
             OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
@@ -225,8 +224,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto outer_verification_key = std::make_shared<OuterFlavor::VerificationKey>(outer_proving_key->polynomials,
-                                                                                         outer_proving_key->metadata);
+            auto outer_verification_key =
+                std::make_shared<OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
 
             return { outer_circuit.blocks, outer_verification_key };
         };

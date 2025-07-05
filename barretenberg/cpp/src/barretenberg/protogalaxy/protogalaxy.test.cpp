@@ -61,8 +61,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
 
         auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
-        auto verification_key =
-            std::make_shared<VerificationKey>(decider_proving_key->polynomials, decider_proving_key->metadata);
+        auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->get_precomputed());
         auto decider_verification_keys = std::make_shared<DeciderVerificationKey>(verification_key);
         get<0>(keys).emplace_back(decider_proving_key);
         get<1>(keys).emplace_back(decider_verification_keys);
@@ -472,8 +471,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
             auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
             trace_usage_tracker.update(builder);
-            auto verification_key =
-                std::make_shared<VerificationKey>(decider_proving_key->polynomials, decider_proving_key->metadata);
+            auto verification_key = std::make_shared<VerificationKey>(decider_proving_key->get_precomputed());
             auto decider_verification_key = std::make_shared<DeciderVerificationKey>(verification_key);
             decider_pks.push_back(decider_proving_key);
             decider_vks.push_back(decider_verification_key);

@@ -330,6 +330,8 @@ class UltraFlavor {
         }
     };
 
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -352,16 +354,16 @@ class UltraFlavor {
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
-        VerificationKey(ProverPolynomials& polynomials, const MetaData& metadata)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = metadata.dyadic_size;
+            this->circuit_size = precomputed.metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = metadata.num_public_inputs;
-            this->pub_inputs_offset = metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
+            this->num_public_inputs = precomputed.metadata.num_public_inputs;
+            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
 
-            CommitmentKey commitment_key{ metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
         }

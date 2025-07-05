@@ -76,6 +76,11 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         return metadata.num_public_inputs;
     }
 
+    Flavor::PrecomputedData get_precomputed()
+    {
+        return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
+    }
+
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
                        CommitmentKey commitment_key = CommitmentKey())

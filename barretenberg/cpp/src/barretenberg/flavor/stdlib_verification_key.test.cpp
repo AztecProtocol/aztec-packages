@@ -59,7 +59,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     InnerBuilder builder;
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto native_vk = std::make_shared<NativeVerificationKey>(proving_key->polynomials, proving_key->metadata);
+    auto native_vk = std::make_shared<NativeVerificationKey>(proving_key->get_precomputed());
 
     OuterBuilder outer_builder;
     StdlibVerificationKey vk(&outer_builder, native_vk);

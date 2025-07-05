@@ -166,8 +166,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         for (auto& inner_circuit : inner_circuits) {
 
             auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-            auto verification_key =
-                std::make_shared<InnerVerificationKey>(proving_key->polynomials, proving_key->metadata);
+            auto verification_key = std::make_shared<InnerVerificationKey>(proving_key->get_precomputed());
             InnerProver prover(proving_key, verification_key);
             InnerVerifier verifier(verification_key);
             auto inner_proof = prover.construct_proof();
@@ -247,12 +246,12 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
 
     auto proving_key_dummy =
         std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit_with_dummy_witnesses);
-    auto verification_key_dummy = std::make_shared<typename TestFixture::OuterVerificationKey>(
-        proving_key_dummy->polynomials, proving_key_dummy->metadata);
+    auto verification_key_dummy =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key_dummy->get_precomputed());
 
     // Compare the two vks
     EXPECT_EQ(*verification_key_dummy, *verification_key);
@@ -270,7 +269,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
@@ -299,7 +298,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
@@ -367,7 +366,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();
@@ -424,7 +423,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
 
     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
     auto verification_key =
-        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->get_precomputed());
     typename TestFixture::OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
     auto proof = prover.construct_proof();

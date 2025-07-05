@@ -235,8 +235,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key =
-        std::make_shared<typename TestFixture::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -274,8 +273,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key =
-        std::make_shared<typename TestFixture::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -354,8 +352,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key =
-        std::make_shared<typename TestFixture::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
@@ -397,8 +394,7 @@ TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
 
         // Automatically generate a transcript manifest by constructing a proof
         auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-        auto verification_key =
-            std::make_shared<typename TestFixture::VerificationKey>(proving_key->polynomials, proving_key->metadata);
+        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
         typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         EXPECT_EQ(proof.size(), TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());

@@ -49,7 +49,7 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
     circuit.pairing_inputs_public_input_key.start_idx = pairing_points_idx;
 
     DeciderProvingKey proving_key{ circuit, trace_settings };
-    VerificationKey verification_key{ proving_key.polynomials, proving_key.metadata };
+    VerificationKey verification_key{ proving_key.get_precomputed() };
 
     return verification_key.hash();
 }

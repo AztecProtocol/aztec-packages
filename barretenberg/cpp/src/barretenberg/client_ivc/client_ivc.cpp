@@ -234,9 +234,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Set the verification key from precomputed if available, else compute it
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        honk_vk = precomputed_vk
-                      ? precomputed_vk
-                      : std::make_shared<MegaVerificationKey>(proving_key->polynomials, proving_key->metadata);
+        honk_vk =
+            precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
     }
     // mock_vk is used in benchmarks to avoid any VK construction.
     if (mock_vk) {
@@ -373,7 +372,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     points_accumulator.set_public();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->polynomials, decider_pk->metadata);
+    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->get_precomputed());
 
     return decider_pk;
 }
@@ -389,8 +388,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
     // key during proving. Precompute instead.
-    auto hiding_circuit_vk =
-        std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->polynomials, hiding_decider_pk->metadata);
+    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
     HonkProof proof = prover.construct_proof();

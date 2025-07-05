@@ -134,16 +134,14 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
-        auto verification_key =
-            std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->polynomials, ultra_instance->metadata);
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->get_precomputed());
         OuterProver ultra_prover(ultra_instance, verification_key);
         return ultra_prover.construct_proof();
     }();
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
-    auto ultra_verification_key =
-        std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->polynomials, ultra_instance->metadata);
+    auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->get_precomputed());
     OuterVerifier ultra_verifier(ultra_verification_key);
     EXPECT_TRUE(ultra_verifier.verify_proof(outer_proof)) << "outer/recursion proof verification failed";
 }
@@ -218,15 +216,15 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->polynomials,
-                                                                                     outer_proving_key->metadata);
+        auto verification_key =
+            std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
         UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
-    auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->polynomials,
-                                                                                       outer_proving_key->metadata);
+    auto outer_verification_key =
+        std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 

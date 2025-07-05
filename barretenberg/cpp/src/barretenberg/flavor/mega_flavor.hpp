@@ -413,6 +413,8 @@ class MegaFlavor {
         }
     };
 
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
      * polynomials used by the verifier.
@@ -454,12 +456,12 @@ class MegaFlavor {
             this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
-        VerificationKey(ProverPolynomials& polynomials, const MetaData& metadata)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            set_metadata(metadata);
+            set_metadata(precomputed.metadata);
 
-            CommitmentKey commitment_key{ metadata.dyadic_size };
-            for (auto [polynomial, commitment] : zip_view(polynomials.get_precomputed(), this->get_all())) {
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
         }

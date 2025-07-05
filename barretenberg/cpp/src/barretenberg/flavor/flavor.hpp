@@ -135,6 +135,11 @@ struct MetaData {
     DatabusPropagationData databus_propagation_data;
 };
 
+template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct PrecomputedData_ {
+    RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials;
+    MetaData metadata; // circuit size and public inputs metadata
+};
+
 /**
  * @brief Base Native verification key class.
  * @details We want a separate native and stdlib verification key class because we don't have nice mappings from native
