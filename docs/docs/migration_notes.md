@@ -61,6 +61,18 @@ use dep::aztec::protocol_types::{
 };
 ```
 
+### `include_by_timestamp` is now mandatory
+
+Each transaction must now include a valid `include_by_timestamp` that satisfies the following conditions:
+
+- It must be greater than the historical block’s timestamp.
+- The duration between the `include_by_timestamp` and the historical block’s timestamp must not exceed the maximum allowed (currently 24 hours).
+- It must be greater than or equal to the timestamp of the block in which the transaction is included.
+
+The protocol circuits compute the `include_by_timestamp` for contract updates during each private function iteration. If a contract does not explicitly specify a value, the default will be the maximum allowed duration. This ensures that `include_by_timestamp` is never left unset.
+
+No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
+
 ## 0.88.0
 
 ## [Aztec.nr] Deprecation of the `authwit` library

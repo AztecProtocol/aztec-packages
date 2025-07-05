@@ -257,8 +257,7 @@ describe('e2e_state_vars', () => {
       // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
       const tx = await authContract.methods.get_authorized_in_private().prove();
 
-      expect(tx.data.rollupValidationRequests.includeByTimestamp.isSome).toEqual(true);
-      expect(tx.data.rollupValidationRequests.includeByTimestamp.value).toEqual(expectedModifiedIncludeByTimestamp);
+      expect(tx.data.includeByTimestamp).toEqual(expectedModifiedIncludeByTimestamp);
     });
   });
 });

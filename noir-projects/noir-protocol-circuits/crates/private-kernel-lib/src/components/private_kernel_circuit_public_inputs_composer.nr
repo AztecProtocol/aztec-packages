@@ -1,29 +1,25 @@
+pub(crate) mod create_protocol_nullifier;
+pub(crate) mod get_include_by_timestamp_for_contract_updates;
+
+pub(crate) use create_protocol_nullifier::create_protocol_nullifier;
+pub(crate) use get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates;
+
 use dep::types::{
     abis::{
-        include_by_timestamp::IncludeByTimestamp,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
         },
-        nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         side_effect::{Ordered, OrderedValue},
         tx_constant_data::TxConstantData,
     },
-    address::AztecAddress,
-    constants::DEFAULT_UPDATE_DELAY,
-    contract_class_id::ContractClassId,
+    constants::MAX_U64_VALUE,
     debug::no_op,
-    shared_mutable::{compute_shared_mutable_time_horizon, SharedMutableValues},
-    traits::{Empty, Hash, Packable},
+    traits::Empty,
     transaction::tx_request::TxRequest,
     utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
 };
-
-pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
-    // TODO: consider using `-1` instead, for consistency with `-1` being the "null" address for msg_sender.
-    Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
-}
 
 unconstrained fn transform_array<T, let N: u32, Env>(
     array: ClaimedLengthArray<T, N>,
@@ -76,6 +72,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
         } else {
             public_inputs_builder.claimed_first_nullifier = first_nullifier_hint;
         }
+
+        // Set the value to max u64, which is the natural default value as the timestamp can only be decreased.
+        // This value will be overridden later when propagating the value from the private call or the previous kernel.
+        public_inputs_builder.include_by_timestamp = MAX_U64_VALUE;
+
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -95,13 +96,13 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs_builder.min_revertible_side_effect_counter =
             previous_kernel_public_inputs.min_revertible_side_effect_counter;
         public_inputs_builder.fee_payer = previous_kernel_public_inputs.fee_payer;
+        public_inputs_builder.include_by_timestamp =
+            previous_kernel_public_inputs.include_by_timestamp;
         public_inputs_builder.public_teardown_call_request =
             previous_kernel_public_inputs.public_teardown_call_request;
 
         let start = previous_kernel_public_inputs.validation_requests;
 
-        public_inputs_builder.validation_requests.include_by_timestamp =
-            start.for_rollup.include_by_timestamp;
         public_inputs_builder.validation_requests.note_hash_read_requests =
             start.note_hash_read_requests;
         public_inputs_builder.validation_requests.nullifier_read_requests =
@@ -192,26 +193,19 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
-        // Update the expiration timestamp if the private call requested a lower one.
-        self.public_inputs_builder.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
-            self.public_inputs_builder.validation_requests.include_by_timestamp,
-            private_call.public_inputs.include_by_timestamp,
+        // The timestamp can only decrease. Here we take the minimum of:
+        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value computed for contract updates
+        // - The initial value when this composer is constructed, which is:
+        //   - max u64, if this is the first call. Set in `new_from_tx_request`.
+        //   - the value from the previous kernel iteration. Set in `new_from_previous_kernel`.
+        self.public_inputs_builder.include_by_timestamp = std::cmp::min(
+            self.public_inputs_builder.include_by_timestamp,
+            std::cmp::min(
+                private_call.public_inputs.include_by_timestamp,
+                get_include_by_timestamp_for_contract_updates(private_call),
+            ),
         );
-
-        // Update the expiration timestamp for the shared mutable read
-        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
-            let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
-                private_call.verification_key_hints.updated_class_id_shared_mutable_values,
-            );
-
-            self.public_inputs_builder.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
-                self.public_inputs_builder.validation_requests.include_by_timestamp,
-                IncludeByTimestamp::new(compute_shared_mutable_time_horizon(
-                    shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.timestamp,
-                )),
-            );
-        }
     }
 
     unconstrained fn scope_and_propagate_note_hash_read_requests(

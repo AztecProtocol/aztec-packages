@@ -1,4 +1,4 @@
-use crate::{traits::Empty, utils::arrays::validate_array};
+use crate::{traits::{Deserialize, Empty}, utils::arrays::validate_array};
 
 pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
@@ -25,4 +25,15 @@ pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M]
         output[i] = items[i];
     }
     output
+}
+
+pub fn make_fixture<T, let N: u32>(seed: Field) -> T
+where
+    T: Deserialize<N>,
+{
+    let mut fields = [0; N];
+    for i in 0..N {
+        fields[i] = seed + i as Field;
+    }
+    T::deserialize(fields)
 }

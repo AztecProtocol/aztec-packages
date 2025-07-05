@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         accumulated_data::PrivateToRollupAccumulatedData, gas::Gas,
-        tx_constant_data::TxConstantData, validation_requests::RollupValidationRequests,
+        tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
     constants::{
@@ -16,20 +16,20 @@ use std::meta::derive;
 #[derive(Eq)]
 pub struct PrivateToRollupKernelCircuitPublicInputs {
     pub constants: TxConstantData,
-    pub rollup_validation_requests: RollupValidationRequests,
     pub end: PrivateToRollupAccumulatedData,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
+    pub include_by_timestamp: u64,
 }
 
 impl Empty for PrivateToRollupKernelCircuitPublicInputs {
     fn empty() -> Self {
         PrivateToRollupKernelCircuitPublicInputs {
-            rollup_validation_requests: RollupValidationRequests::empty(),
             end: PrivateToRollupAccumulatedData::empty(),
             constants: TxConstantData::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
+            include_by_timestamp: 0,
         }
     }
 }
@@ -40,10 +40,10 @@ impl Serialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Privat
             BoundedVec::new();
 
         fields.extend_from_array(self.constants.serialize());
-        fields.extend_from_array(self.rollup_validation_requests.serialize());
         fields.extend_from_array(self.end.serialize());
         fields.extend_from_array(self.gas_used.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
+        fields.push(self.include_by_timestamp as Field);
 
         assert_eq(fields.len(), PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -64,10 +64,10 @@ impl Deserialize<PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Priv
         let mut reader = Reader::new(fields);
         let item = Self {
             constants: reader.read_struct(TxConstantData::deserialize),
-            rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
             end: reader.read_struct(PrivateToRollupAccumulatedData::deserialize),
             gas_used: reader.read_struct(Gas::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
+            include_by_timestamp: reader.read_u64(),
         };
 
         reader.finish();

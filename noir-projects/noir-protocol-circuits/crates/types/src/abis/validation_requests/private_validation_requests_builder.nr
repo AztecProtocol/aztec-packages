@@ -1,10 +1,8 @@
 use crate::{
     abis::{
-        include_by_timestamp::IncludeByTimestamp,
         read_request::ScopedReadRequest,
         validation_requests::{
             private_validation_requests::PrivateValidationRequests,
-            rollup_validation_requests::RollupValidationRequests,
             scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
         },
     },
@@ -18,7 +16,6 @@ use crate::{
 
 #[derive(Eq)]
 pub struct PrivateValidationRequestsBuilder {
-    pub include_by_timestamp: IncludeByTimestamp,
     pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -29,7 +26,6 @@ pub struct PrivateValidationRequestsBuilder {
 impl PrivateValidationRequestsBuilder {
     pub fn finish(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
-            for_rollup: self.for_rollup(),
             note_hash_read_requests: self.note_hash_read_requests,
             nullifier_read_requests: self.nullifier_read_requests,
             scoped_key_validation_requests_and_generators: self
@@ -37,16 +33,11 @@ impl PrivateValidationRequestsBuilder {
             split_counter: self.split_counter,
         }
     }
-
-    pub fn for_rollup(self) -> RollupValidationRequests {
-        RollupValidationRequests { include_by_timestamp: self.include_by_timestamp }
-    }
 }
 
 impl Empty for PrivateValidationRequestsBuilder {
     fn empty() -> Self {
         PrivateValidationRequestsBuilder {
-            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: ClaimedLengthArray::empty(),
             nullifier_read_requests: ClaimedLengthArray::empty(),
             scoped_key_validation_requests_and_generators: ClaimedLengthArray::empty(),
