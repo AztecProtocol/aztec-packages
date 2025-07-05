@@ -13,6 +13,7 @@ import {
   retryUntil,
   waitForProven,
 } from '@aztec/aztec.js';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type ContractArtifacts,
   type ExtendedViemWalletClient,
@@ -283,10 +284,9 @@ async function fundFPC(
 
   const feeJuicePortal = await L1FeeJuicePortalManager.new(wallet, l1Client, debugLog);
 
-  const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensPublic(
+  const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensAsMinter(
     fpcAddress,
-    undefined,
-    true,
+    FEE_FUNDING_FOR_TESTER_ACCOUNT,
   );
 
   await retryUntil(async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(messageHash)), 'message sync', 600, 1);
