@@ -61,7 +61,7 @@ export interface EpochCacheInterface {
 export class EpochCache implements EpochCacheInterface {
   private cache: Map<bigint, EpochCommitteeInfo> = new Map();
   private allValidators: Set<string> = new Set();
-  private lastValidatorRefresh = new Date(0);
+  private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
   constructor(
@@ -304,10 +304,9 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   async getRegisteredValidators(): Promise<EthAddress[]> {
-    if (
-      this.lastValidatorRefresh.getTime() + this.config.validatorRefreshIntervalSeconds * 1000 <
-      this.dateProvider.now()
-    ) {
+    const validatorRefreshIntervalMs = this.config.validatorRefreshIntervalSeconds * 1000;
+    const validatorRefreshTime = this.lastValidatorRefresh + validatorRefreshIntervalMs;
+    if (validatorRefreshTime < this.dateProvider.now()) {
       const currentSet = await this.rollup.getAttesters();
       this.allValidators = new Set(currentSet);
       this.lastValidatorRefresh = this.dateProvider.now();

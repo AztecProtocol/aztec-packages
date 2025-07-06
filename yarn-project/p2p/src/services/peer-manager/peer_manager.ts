@@ -761,17 +761,19 @@ export class PeerManager implements PeerManagerInterface {
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
       this.logger.debug(`Initiating auth handshake with peer ${peerId}`);
-      const { status, data } = await this.reqresp.sendRequestToPeer(
-        peerId,
-        ReqRespSubProtocol.AUTH,
-        authRequest.toBuffer(),
-      );
-      const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
+      const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
+      const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond auth handshake`, logData);
+        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
+          peerId,
+          status: ReqRespStatus[status],
+        });
         await this.disconnectPeer(peerId);
         return;
       }
+
+      const { data } = response;
+      const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
 
       const peerAuthResponse = AuthResponse.fromBuffer(data);
 
