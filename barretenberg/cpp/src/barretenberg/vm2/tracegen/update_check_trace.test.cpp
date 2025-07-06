@@ -72,7 +72,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
-    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     FF delayed_public_mutable_hash_leaf_slot = poseidon2::hash(
         { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
 

@@ -14,7 +14,7 @@ namespace bb::avm2 {
 /////////////////// lookup_update_check_delayed_public_mutable_slot_poseidon2 ///////////////////
 
 struct lookup_update_check_delayed_public_mutable_slot_poseidon2_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_SHARED_MUTABLE_SLOT_POSEIDON2";
+    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;

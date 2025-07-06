@@ -6,7 +6,7 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 import { ScheduledDelayChange } from './scheduled_delay_change.js';
 import { ScheduledValueChange } from './scheduled_value_change.js';
 
-export const SHARED_MUTABLE_VALUES_LEN = 2 * UPDATES_VALUE_SIZE + 1;
+export const DELAYED_PUBLIC_MUTABLE_VALUES_LEN = 2 * UPDATES_VALUE_SIZE + 1;
 
 export class DelayedPublicMutableValues {
   constructor(
@@ -69,7 +69,7 @@ export class DelayedPublicMutableValues {
 
   static async readFromTree(delayedPublicMutableSlot: Fr, readStorage: (storageSlot: Fr) => Promise<Fr>) {
     const fields = [];
-    for (let i = 0; i < SHARED_MUTABLE_VALUES_LEN; i++) {
+    for (let i = 0; i < DELAYED_PUBLIC_MUTABLE_VALUES_LEN; i++) {
       fields.push(await readStorage(delayedPublicMutableSlot.add(new Fr(i))));
     }
     return DelayedPublicMutableValues.fromFields(fields);

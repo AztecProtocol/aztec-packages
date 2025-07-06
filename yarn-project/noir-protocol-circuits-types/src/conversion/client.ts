@@ -8,7 +8,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
   type NULLIFIER_TREE_HEIGHT,
-  UPDATES_SHARED_MUTABLE_VALUES_LEN,
+  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
@@ -548,7 +548,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
 ): PrivateVerificationKeyHintsNoir {
   const updatedClassIdDelayedPublicMutableValuesFields = assertLength(
     privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
-    UPDATES_SHARED_MUTABLE_VALUES_LEN,
+    UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
   );
 
   return {

@@ -48,12 +48,12 @@ namespace update_check;
 
     pol commit delayed_public_mutable_slot;
 
-    #[SHARED_MUTABLE_SLOT_POSEIDON2]
+    #[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2]
     sel { updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit delayed_public_mutable_hash_slot;
-    sel * (delayed_public_mutable_slot + constants.UPDATES_SHARED_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
+    sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
 
     // TODO: Remove this as a column when we can lookup with constants
     pol commit public_leaf_index_domain_separator;
@@ -108,7 +108,7 @@ namespace update_check;
     pol TWO_POW_32 = 2**32;
     // TODO: Remove this as a column when we can lookup with constants
     pol commit update_hi_metadata_bit_size;
-    hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - update_hi_metadata_bit_size) = 0;
+    hash_not_zero * (constants.UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - update_hi_metadata_bit_size) = 0;
     // TODO: Remove this as a column when we can lookup with constants
     pol commit timestamp_of_change_bit_size; // 32
     hash_not_zero * (constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - timestamp_of_change_bit_size) = 0;

@@ -24,7 +24,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
 {
     // Compute the public data tree slots
     FF delayed_public_mutable_slot = poseidon2.hash({ UPDATED_CLASS_IDS_SLOT, address });
-    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
+    FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     // Read the hash from the tree. We do a trick with shared mutables (updates are shared mutables) where we store in
     // one public data tree slot the hash of the whole structure. This is nice because in circuits you can receive the
     // preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain the hash read
@@ -69,7 +69,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         uint64_t timestamp_of_change =
             static_cast<uint64_t>(static_cast<uint32_t>(update_preimage_metadata & 0xffffffff));
         range_check.assert_range(update_metadata_hi,
-                                 UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
+                                 UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
         range_check.assert_range(timestamp_of_change, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
         // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.

@@ -34,8 +34,8 @@ template <typename FF_> class update_checkImpl {
         const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
         const auto constants_UPDATED_CLASS_IDS_SLOT = FF(1);
         const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
-        const auto constants_UPDATES_SHARED_MUTABLE_VALUES_LEN = FF(3);
-        const auto constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE = FF(144);
+        const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN = FF(3);
+        const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE = FF(144);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
         const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
         const auto update_check_TWO_POW_32 = FF(4294967296UL);
@@ -59,10 +59,9 @@ template <typename FF_> class update_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::update_check_sel) *
-                ((in.get(C::update_check_delayed_public_mutable_slot) + constants_UPDATES_SHARED_MUTABLE_VALUES_LEN) -
-                 in.get(C::update_check_delayed_public_mutable_hash_slot));
+            auto tmp = in.get(C::update_check_sel) * ((in.get(C::update_check_delayed_public_mutable_slot) +
+                                                       constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN) -
+                                                      in.get(C::update_check_delayed_public_mutable_hash_slot));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
@@ -105,9 +104,10 @@ template <typename FF_> class update_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::update_check_hash_not_zero) *
-                       ((constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants_TIMESTAMP_OF_CHANGE_BIT_SIZE) -
-                        in.get(C::update_check_update_hi_metadata_bit_size));
+            auto tmp =
+                in.get(C::update_check_hash_not_zero) *
+                ((constants_UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - constants_TIMESTAMP_OF_CHANGE_BIT_SIZE) -
+                 in.get(C::update_check_update_hi_metadata_bit_size));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
