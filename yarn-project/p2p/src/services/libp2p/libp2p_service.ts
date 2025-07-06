@@ -35,7 +35,7 @@ import {
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
-import { type AddrInfo, SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
+import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
@@ -240,15 +240,15 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const directPeers = (
       await Promise.all(
         preferredPeersEnrs.map(async enr => {
+          const peerId = await enr.peerId();
           const address = enr.getLocationMultiaddr('tcp');
           if (address === undefined) {
-            return undefined;
+            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
           }
-          const peerId = await enr.peerId();
           return {
             id: peerId,
             addrs: [address],
-          } as AddrInfo;
+          };
         }),
       )
     ).filter(peer => peer !== undefined);
