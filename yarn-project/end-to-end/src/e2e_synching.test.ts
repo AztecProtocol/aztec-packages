@@ -202,8 +202,8 @@ class TestVariant {
         this.contractAddresses.push(accountManager.getAddress());
         const tx = accountManager.deploy({
           deployWallet,
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
+          skipClassPublication: true,
+          skipInstancePublication: true,
         });
         txs.push(tx);
       }

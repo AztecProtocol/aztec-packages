@@ -4,7 +4,7 @@ import {
   type ContractInstanceWithAddress,
   PublicKeys,
   DeployMethod,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   Contract,
   type DeployOptions,
   AztecAddress,
@@ -101,7 +101,7 @@ export function CreateContractDialog({
     setIsRegistering(true);
     try {
       const salt = Fr.random();
-      const contract = await getContractInstanceFromDeployParams(contractArtifact, {
+      const contract = await getContractInstanceFromInstantiationParams(contractArtifact, {
         publicKeys: PublicKeys.default(),
         constructorArtifact: initializer,
         constructorArgs: parameters,

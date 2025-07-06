@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -449,11 +449,11 @@ export class PublicProcessor implements Traceable {
       this.globalVariables,
     );
 
-    this.metrics.recordClassRegistration(
+    this.metrics.recordClassPublication(
       ...tx
         .getContractClassLogs()
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
-        .map(log => ContractClassRegisteredEvent.fromLog(log)),
+        .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+        .map(log => ContractClassPublishedEvent.fromLog(log)),
     );
 
     // Fee payment insertion has already been done. Do the rest.
@@ -492,10 +492,10 @@ export class PublicProcessor implements Traceable {
     const contractClassLogs = revertCode.isOK()
       ? tx.getContractClassLogs()
       : tx.getSplitContractClassLogs(false /* revertible */);
-    this.metrics.recordClassRegistration(
+    this.metrics.recordClassPublication(
       ...contractClassLogs
-        .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
-        .map(log => ContractClassRegisteredEvent.fromLog(log)),
+        .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+        .map(log => ContractClassPublishedEvent.fromLog(log)),
     );
 
     const phaseCount = processedPhases.length;

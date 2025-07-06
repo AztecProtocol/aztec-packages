@@ -9,7 +9,7 @@ import {
   type PXE,
   TxExecutionRequest,
   type Wallet,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -55,7 +55,7 @@ export class CopyCatWallet extends AccountWallet {
     const { currentContractClassId: originalContractClassId } = contractInstance;
     const accountInterface = new DefaultAccountInterface(simulatedAuthWitnessProvider, originalAddress, nodeInfo);
     const { SimulatedAccountContractArtifact } = await import('@aztec/noir-contracts.js/SimulatedAccount');
-    const instance = await getContractInstanceFromDeployParams(SimulatedAccountContractArtifact, {});
+    const instance = await getContractInstanceFromInstantiationParams(SimulatedAccountContractArtifact, {});
     return new CopyCatWallet(
       pxe,
       accountInterface,

@@ -8,14 +8,14 @@ import {
   type ContractInstanceWithAddress,
   computePartialAddress,
   getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { Capsule, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
-import { deployInstance } from '../deployment/deploy_instance.js';
-import { registerContractClass } from '../deployment/register_class.js';
+import { publishContractClass } from '../deployment/publish_class.js';
+import { publishInstance } from '../deployment/publish_instance.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { Contract } from './contract.js';
@@ -35,10 +35,10 @@ export type DeployOptions = {
   contractAddressSalt?: Fr;
   /** Set to true to *not* include the sender in the address computation. */
   universalDeploy?: boolean;
-  /** Skip contract class registration. */
-  skipClassRegistration?: boolean;
-  /** Skip public deployment, instead just privately initialize the contract. */
-  skipPublicDeployment?: boolean;
+  /** Skip contract class publication. */
+  skipClassPublication?: boolean;
+  /** Skip publication, instead just privately initialize the contract. */
+  skipInstancePublication?: boolean;
   /** Skip contract initialization. */
   skipInitialization?: boolean;
 } & SendMethodOptions;
@@ -46,8 +46,16 @@ export type DeployOptions = {
 // TODO(@spalladino): Add unit tests for this class!
 
 /**
- * Contract interaction for deployment. Handles class registration, public instance deployment,
- * and initialization of the contract. Extends the BaseContractInteraction class.
+ * Contract interaction for deployment.
+ * Handles class publication, instance publication, and initialization of the contract.
+ *
+ * Note that for some contracts, a tx is not required as part of its "creation":
+ * If there are no public functions, and if there are no initialization functions,
+ * then technically the contract has already been "created", and all of the contract's
+ * functions (private and utility) can be interacted-with immediately, without any
+ * "deployment tx".
+ *
+ * Extends the BaseContractInteraction class.
  */
 export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
   /** The contract instance to be deployed. */
@@ -71,7 +79,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Create a contract deployment transaction, given the deployment options.
+   * Prepare a transaction execution request which can optionally (depending on the `options`):
+   * - Publish the contract's class_id
+   * - Publish the contract instance data, to enable execution of its public functions.
+   * - Initialize the contract
+   *
+   * A tx is not necessary if the function has no public functions nor any
+   * initializer function.
+   *
    * This function internally calls `request()` and `sign()` methods to prepare
    * the transaction for deployment. The resulting signed transaction can be
    * later sent using the `send()` method.
@@ -98,7 +113,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * it returns a promise for an array instead of a function call directly.
    */
   public async request(options: DeployOptions = {}): Promise<ExecutionPayload> {
-    const deployment = await this.getDeploymentExecutionPayload(options);
+    const publication = await this.getPublicationExecutionPayload(options);
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
     // Note that we need to run this registerContract here so it's available when computeFeeOptionsFromEstimatedGas
@@ -108,11 +123,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // once this tx has gone through.
     await this.wallet.registerContract({ artifact: this.artifact, instance: await this.getInstance(options) });
 
-    const bootstrap = await this.getInitializeExecutionPayload(options);
-    const exec = [deployment, bootstrap];
+    const initialization = await this.getInitializationExecutionPayload(options);
+    const exec = [publication, initialization];
     const fnCalls = exec.map(exec => exec.calls).flat();
     if (!fnCalls.length) {
-      throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
+      throw new Error(`No transactions are needed to publish or initialize contract ${this.artifact.name}`);
     }
 
     return mergeExecutionPayloads(exec);
@@ -132,7 +147,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Register this contract in the PXE and returns the Contract object.
+   * Adds this contract to the PXE and returns the Contract object.
    * @param options - Deployment options.
    */
   public async register(options: DeployOptions = {}): Promise<TContract> {
@@ -142,11 +157,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Returns the execution payload for registration of the class and deployment of the instance, depending on the provided options.
-   * @param options - Deployment options.
-   * @returns An execution payload with potentially calls (and bytecode capsule) to the class registerer  and instance deployer.
+   * Returns an execution payload for:
+   * - publication of the contract class and
+   * - publication of the contract instance to enable public execution
+   * depending on the provided options.
+   * @param options - Contract creation options.
+   * @returns An execution payload with potentially calls (and bytecode capsule) to the class registry and instance registry.
    */
-  protected async getDeploymentExecutionPayload(options: DeployOptions = {}): Promise<ExecutionPayload> {
+  protected async getPublicationExecutionPayload(options: DeployOptions = {}): Promise<ExecutionPayload> {
     const calls: ExecutionPayload[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -162,23 +180,24 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     }
 
     // Register the contract class if it hasn't been published already.
-    if (!options.skipClassRegistration) {
+    if (!options.skipClassPublication) {
       if ((await this.wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
         this.log.debug(
-          `Skipping registration of already registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
+          `Skipping publication of already-registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
         );
       } else {
         this.log.info(
-          `Creating request for registering contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
+          `Creating request for publishing contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
         );
-        const registerContractClassInteraction = await registerContractClass(this.wallet, this.artifact);
+        const registerContractClassInteraction = await publishContractClass(this.wallet, this.artifact);
         calls.push(await registerContractClassInteraction.request());
       }
     }
 
-    // Deploy the contract via the instance deployer.
-    if (!options.skipPublicDeployment) {
-      const deploymentInteraction = await deployInstance(this.wallet, instance);
+    // Publish the contract instance:
+    if (!options.skipInstancePublication) {
+      // TODO: Read the artifact, and if there are no public functions, warn the caller that publication of the contract instance is not necessary (until such time as they wish to update the instance (i.e. change its class_id).
+      const deploymentInteraction = await publishInstance(this.wallet, instance);
       calls.push(await deploymentInteraction.request());
     }
 
@@ -190,7 +209,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected async getInitializeExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
+  protected async getInitializationExecutionPayload(options: DeployOptions): Promise<ExecutionPayload> {
     const executionsPayloads: ExecutionPayload[] = [];
     if (this.constructorArtifact && !options.skipInitialization) {
       const { address } = await this.getInstance(options);
@@ -206,7 +225,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Send the contract deployment transaction using the provided options.
+   * Send a contract deployment transaction (initialize and/or publish) using the provided options.
    * This function extends the 'send' method from the ContractFunctionInteraction class,
    * allowing us to send a transaction specifically for contract deployment.
    *
@@ -220,14 +239,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Builds the contract instance to be deployed and returns it.
+   * Builds the contract instance and returns it.
    *
-   * @param options - An object containing various deployment options.
+   * @param options - An object containing various initialization and publication options.
    * @returns An instance object.
    */
   public async getInstance(options: DeployOptions = {}): Promise<ContractInstanceWithAddress> {
     if (!this.instance) {
-      this.instance = await getContractInstanceFromDeployParams(this.artifact, {
+      this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
         publicKeys: this.publicKeys,
@@ -240,7 +259,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
   /**
    * Prove the request.
-   * @param options - Deployment options.
+   * @param options - initialization and publication options.
    * @returns The proven tx.
    */
   public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {

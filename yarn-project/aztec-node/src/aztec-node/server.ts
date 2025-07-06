@@ -1085,9 +1085,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
     return Promise.resolve({
-      classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+      classRegistry: ProtocolContractAddress.ContractClassRegistry,
       feeJuice: ProtocolContractAddress.FeeJuice,
-      instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+      instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
       multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
     });
   }

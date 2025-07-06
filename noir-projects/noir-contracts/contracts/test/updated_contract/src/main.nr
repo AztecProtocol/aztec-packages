@@ -8,7 +8,7 @@ contract Updated {
     use aztec::state_vars::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS;
-    use contract_instance_deployer::ContractInstanceDeployer;
+    use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -35,7 +35,7 @@ contract Updated {
 
     #[public]
     fn get_update_delay() -> u64 {
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay()
             .view(&mut context)
     }

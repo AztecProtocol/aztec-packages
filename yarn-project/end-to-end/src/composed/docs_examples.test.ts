@@ -30,7 +30,6 @@ describe('docs_examples', () => {
     const newWallet = await newAccount.getWallet();
     // docs:end:create_wallet
 
-    // docs:start:deploy_contract
     const deployedContract = await TokenContract.deploy(
       wallet, // wallet instance
       wallet.getAddress(), // account
@@ -40,7 +39,6 @@ describe('docs_examples', () => {
     )
       .send()
       .deployed();
-    // docs:end:deploy_contract
 
     // docs:start:get_contract
     const contract = await Contract.at(deployedContract.address, TokenContractArtifact, wallet);

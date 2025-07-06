@@ -1,9 +1,9 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -387,7 +387,7 @@ export class PublicPersistableStateManager {
         instance.address,
       );
       const readDeployerStorage = async (storageSlot: Fr) =>
-        await this.readStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
+        await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
       const hash = await readDeployerStorage(sharedMutableHashSlot);
       const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readDeployerStorage);
@@ -494,7 +494,7 @@ function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
   return (
     contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))

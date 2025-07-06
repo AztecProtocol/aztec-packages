@@ -10,7 +10,7 @@ contract Updatable {
     use aztec::protocol_types::{
         constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
     };
-    use contract_instance_deployer::ContractInstanceDeployer;
+    use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -39,21 +39,21 @@ contract Updatable {
 
     #[private]
     fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .update(new_class_id)
             .enqueue(&mut context);
     }
 
     #[private]
     fn set_update_delay(new_delay: u64) {
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .set_update_delay(new_delay)
             .enqueue(&mut context);
     }
 
     #[public]
     fn get_update_delay() -> u64 {
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay()
             .view(&mut context)
     }

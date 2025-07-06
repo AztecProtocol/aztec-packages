@@ -6,11 +6,11 @@ tags: [contracts]
 
 For familiarity we've used terminology like "deploying a contract instance of a contract class". When considering how it works with contract upgrades it helps to be more specific.
 
-Each deployed contract holds its state, and refers to a class id for its code. Upgrading a contracts implementation is achieved by updating its "current class id" to the new class id, whilst retaining the "original class id" for reasons explained below.
+Each contract instance refers to a class id for its code. Upgrading a contract's implementation is achieved by updating its current class id to a new class id, whilst retaining the "original class id" for reasons explained below.
 
 ## Original class id
 
-A contract keeps track of the original contract class that it was deployed with, which is the "original" class id. It is this original class that is used when calculating and verifying the contract's [address](contract_creation#instance-address).
+A contract keeps track of the original contract class that it was instantiated with, which is the "original" class id. It is this original class that is used when calculating and verifying the contract's [address](contract_creation#instance-address).
 This variable remains unchanged even if a contract is upgraded.
 
 ## Current class id
@@ -25,37 +25,37 @@ During an upgrade:
 
 ## How to upgrade
 
-Contract upgrades in Aztec have to be performed by the contract that wishes to be upgraded calling the Contract instance deployer:
+Contract upgrades in Aztec have to be initiated by the contract that wishes to be upgraded calling the `ContractInstanceRegistry`:
 
 ```rust
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
-use contract_instance_deployer::ContractInstanceDeployer;
+use contract_instance_registry::ContractInstanceRegistry;
 
 #[private]
 fn update_to(new_class_id: ContractClassId) {
-    ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+    ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
         .update(new_class_id)
         .enqueue(&mut context);
 }
 ```
 
-The update function in the deployer is a public function, so you can enqueue it from a private function like the example or call it from a public function directly.
+The `update` function in the registry is a public function, so you can enqueue it from a private function like the example or call it from a public function directly.
 
 :::note
 Recall that `#[private]` means calling this function preserves privacy, and it still CAN be called externally by anyone.
 So the `update_to` function above allows anyone to update the contract that implements it. A more complete implementation should have a proper authorization systems to secure contracts from malicious upgrades.
 :::
 
-Contract upgrades are implemented using a SharedMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
+Contract upgrades are implemented using a SharedMutable storage variable in the `ContractInstanceRegistry`, since the upgrade applies to both public and private functions.
 This means that they have a delay before entering into effect. The default delay is `86400` seconds (one day) but can be configured by the contract:
 
 ```rust
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
-use contract_instance_deployer::ContractInstanceDeployer;
+use contract_instance_registry::ContractInstanceRegistry;
 
 #[private]
 fn set_update_delay(new_delay: u64) {
-   ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+   ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
       .set_update_delay(new_delay)
       .enqueue(&mut context);
 }
@@ -108,7 +108,7 @@ contract Updatable {
 
     #[private]
     fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id).enqueue(
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id).enqueue(
             &mut context,
         );
     }
@@ -169,7 +169,7 @@ contract Updatable {
         assert(context.msg_sender() == owner, "Unauthorized");
 
         // Perform the upgrade
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .update(new_class_id)
             .enqueue(&mut context);
     }
@@ -177,7 +177,7 @@ contract Updatable {
     #[private]
     fn set_update_delay(new_delay: u64) {
         // TODO: Add access control
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .set_update_delay(new_delay)
             .enqueue(&mut context);
     }

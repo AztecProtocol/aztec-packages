@@ -13,8 +13,8 @@ use dep::types::{
     },
     address::AztecAddress,
     constants::{
-        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
-        REGISTERER_CONTRACT_ADDRESS,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+        MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     traits::FromField,
     transaction::tx_request::TxRequest,
@@ -257,8 +257,8 @@ impl PrivateCallDataValidator {
         if (self.data.public_inputs.contract_class_logs_hashes.length != 0) {
             assert_eq(
                 call_context.contract_address,
-                REGISTERER_CONTRACT_ADDRESS,
-                "only the class registerer may emit contract class logs",
+                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+                "only the class registry may emit contract class logs",
             );
         }
     }

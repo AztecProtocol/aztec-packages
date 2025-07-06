@@ -42,7 +42,7 @@ unconstrained fn get_contract_instance_initialization_hash_oracle_avm(
     _address: AztecAddress,
 ) -> [GetContractInstanceResult; 1] {}
 
-unconstrained fn get_contract_instance_deployer_internal_avm(
+unconstrained fn get_contract_instance_registry_deployer_avm(
     address: AztecAddress,
 ) -> [GetContractInstanceResult; 1] {
     get_contract_instance_deployer_oracle_avm(address)
@@ -61,7 +61,7 @@ unconstrained fn get_contract_instance_initialization_hash_internal_avm(
 pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<AztecAddress> {
     // Safety: AVM opcodes are constrained by the AVM itself
     let GetContractInstanceResult { exists, member } =
-        unsafe { get_contract_instance_deployer_internal_avm(address)[0] };
+        unsafe { get_contract_instance_registry_deployer_avm(address)[0] };
     if exists {
         Option::some(AztecAddress::from_field(member))
     } else {

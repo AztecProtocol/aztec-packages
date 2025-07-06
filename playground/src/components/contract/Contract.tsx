@@ -6,7 +6,7 @@ import {
   getAllFunctionAbis,
   type FunctionAbi,
   FunctionType,
-  DeployMethod,
+  ContractCreationInteraction,
   type DeployOptions,
   TxStatus,
   getContractClassFromArtifact,
@@ -193,11 +193,11 @@ export function ContractComponent() {
         utility: true,
       });
       if (currentContractAddress) {
-        const { isContractPubliclyDeployed } = await wallet.getContractMetadata(currentContractAddress);
-        // Temporarily filter out undeployed contracts
-        if (isContractPubliclyDeployed) {
+        const { isContractPublished } = await wallet.getContractMetadata(currentContractAddress);
+        // Temporarily filter out not-yet-published contracts
+        if (isContractPublished) {
           const contractInstance = await node.getContract(currentContractAddress);
-          await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
+          await wallet.addContract({ instance: contractInstance, artifact: currentContractArtifact });
           const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
           setCurrentContract(contract);
         }
@@ -219,7 +219,7 @@ export function ContractComponent() {
   const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
     publiclyDeploy?: boolean,
-    interaction?: DeployMethod,
+    interaction?: ContractCreationInteraction,
     opts?: DeployOptions,
   ) => {
     setOpenCreateContractDialog(false);
