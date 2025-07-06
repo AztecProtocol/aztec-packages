@@ -59,9 +59,10 @@ template <typename FF_> class update_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::update_check_sel) *
-                       ((in.get(C::update_check_shared_mutable_slot) + constants_UPDATES_SHARED_MUTABLE_VALUES_LEN) -
-                        in.get(C::update_check_shared_mutable_hash_slot));
+            auto tmp =
+                in.get(C::update_check_sel) *
+                ((in.get(C::update_check_delayed_public_mutable_slot) + constants_UPDATES_SHARED_MUTABLE_VALUES_LEN) -
+                 in.get(C::update_check_delayed_public_mutable_hash_slot));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }

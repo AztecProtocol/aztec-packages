@@ -15,7 +15,8 @@ pub contract Test {
     use dep::aztec::{
         note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
         state_vars::{
-            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
+            DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
+            PublicImmutable,
         },
     };
 
@@ -88,7 +89,7 @@ pub contract Test {
         note_in_public_immutable: PublicImmutable<TestNote, Context>,
         struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
         struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-        struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
         dummy_variable: PrivateImmutable<TestNote, Context>,
     }
 

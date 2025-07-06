@@ -8,7 +8,7 @@ include "../trees/public_data_check.pil";
 // Contract updates are written to the public data tree using the `shared mutable` structure.
 // The shared mutable structure looks like this:
 // +-------+---------------------+-----------------------+-----------------------+-------------------------+
-// | slot  | shared_mutable_slot | shared_mutable_slot+1 | shared_mutable_slot+2 |  shared_mutable_slot+3  |
+// | slot  | delayed_public_mutable_slot | delayed_public_mutable_slot+1 | delayed_public_mutable_slot+2 |  delayed_public_mutable_slot+3  |
 // +-------+---------------------+-----------------------+-----------------------+-------------------------+
 // | value | metadata            | pre                   | post                  | hash(metadata,pre,post) |
 // +-------+---------------------+-----------------------+-----------------------+-------------------------+
@@ -46,14 +46,14 @@ namespace update_check;
     pol commit updated_class_ids_slot;
     sel * (constants.UPDATED_CLASS_IDS_SLOT - updated_class_ids_slot) = 0;
 
-    pol commit shared_mutable_slot;
+    pol commit delayed_public_mutable_slot;
 
     #[SHARED_MUTABLE_SLOT_POSEIDON2]
-    sel { updated_class_ids_slot, address, precomputed.zero, shared_mutable_slot }
+    sel { updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
-    pol commit shared_mutable_hash_slot;
-    sel * (shared_mutable_slot + constants.UPDATES_SHARED_MUTABLE_VALUES_LEN - shared_mutable_hash_slot) = 0;
+    pol commit delayed_public_mutable_hash_slot;
+    sel * (delayed_public_mutable_slot + constants.UPDATES_SHARED_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
 
     // TODO: Remove this as a column when we can lookup with constants
     pol commit public_leaf_index_domain_separator;
@@ -66,7 +66,7 @@ namespace update_check;
     #[UPDATE_HASH_PUBLIC_DATA_READ]
     sel {
         deployer_protocol_contract_address,
-        shared_mutable_hash_slot,
+        delayed_public_mutable_hash_slot,
         update_hash,
         public_data_tree_root
     } in public_data_check.sel {

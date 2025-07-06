@@ -1,9 +1,9 @@
 use dep::protocol_types::{
-    shared_mutable::{
+    delayed_public_mutable::{
+        delayed_public_mutable_values::{unpack_delay_change, unpack_value_change},
+        DelayedPublicMutableValues,
         ScheduledDelayChange,
         ScheduledValueChange,
-        shared_mutable_values::{unpack_delay_change, unpack_value_change},
-        SharedMutableValues,
     },
     traits::Packable,
 };
@@ -16,41 +16,41 @@ use crate::{
 
 mod test;
 
-pub struct SharedMutable<T, let INITIAL_DELAY: u64, Context> {
+pub struct DelayedPublicMutable<T, let INITIAL_DELAY: u64, Context> {
     context: Context,
     storage_slot: Field,
 }
 
 // This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `M` storage
 // slots to this state variable.
-impl<T, let INITIAL_DELAY: u64, Context, let M: u32> HasStorageSlot<M> for SharedMutable<T, INITIAL_DELAY, Context>
+impl<T, let INITIAL_DELAY: u64, Context, let M: u32> HasStorageSlot<M> for DelayedPublicMutable<T, INITIAL_DELAY, Context>
 where
-    WithHash<SharedMutableValues<T, INITIAL_DELAY>, _>: Packable<M>,
+    WithHash<DelayedPublicMutableValues<T, INITIAL_DELAY>, _>: Packable<M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
     }
 }
 
-// SharedMutable<T> stores a value of type T that is:
+// DelayedPublicMutable<T> stores a value of type T that is:
 //  - publicly known (i.e. unencrypted)
 //  - mutable in public
 //  - readable in private with no contention (i.e. multiple parties can all read the same value without blocking one
 //    another nor needing to coordinate)
-// This is famously a hard problem to solve. SharedMutable makes it work by introducing a delay to public mutation:
+// This is famously a hard problem to solve. DelayedPublicMutable makes it work by introducing a delay to public mutation:
 // the value is not changed immediately but rather a value change is scheduled to happen in the future after some delay
 // measured in seconds. Reads in private are only valid as long as they are included in a block with a timestamp not
 // too far into the future, so that they can guarantee the value will not have possibly changed by then (because of the
 // delay). The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
 // `schedule_delay_change`.
-impl<T, let INITIAL_DELAY: u64, Context> SharedMutable<T, INITIAL_DELAY, Context> {
+impl<T, let INITIAL_DELAY: u64, Context> DelayedPublicMutable<T, INITIAL_DELAY, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
     }
 }
 
-impl<T, let INITIAL_DELAY: u64> SharedMutable<T, INITIAL_DELAY, &mut PublicContext>
+impl<T, let INITIAL_DELAY: u64> DelayedPublicMutable<T, INITIAL_DELAY, &mut PublicContext>
 where
     T: Eq,
 {
@@ -168,19 +168,19 @@ where
         T: Packable<N>,
     {
         // Whenever we write to public storage, we write both the value change and delay change to storage at once.
-        // We do so by wrapping them in a single struct (`SharedMutableValues`). Then we wrap the resulting struct in
+        // We do so by wrapping them in a single struct (`DelayedPublicMutableValues`). Then we wrap the resulting struct in
         // `WithHash`.
         // Wrapping in `WithHash` makes for more costly writes but it also makes private proofs much simpler because
         // they only need to produce a historical proof for the hash, which results in a single inclusion proof (as
         // opposed to 4 in the best case scenario in which T is a single field). Private shared mutable reads are
         // assumed to be much more frequent than public writes, so this tradeoff makes sense.
-        let values = WithHash::new(SharedMutableValues::new(value_change, delay_change));
+        let values = WithHash::new(DelayedPublicMutableValues::new(value_change, delay_change));
 
         self.context.storage_write(self.storage_slot, values);
     }
 }
 
-impl<T, let INITIAL_DELAY: u64> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext>
+impl<T, let INITIAL_DELAY: u64> DelayedPublicMutable<T, INITIAL_DELAY, &mut PrivateContext>
 where
     T: Eq,
 {
@@ -227,14 +227,14 @@ where
 
         let historical_timestamp = header.global_variables.timestamp;
 
-        let values: SharedMutableValues<T, INITIAL_DELAY> =
+        let values: DelayedPublicMutableValues<T, INITIAL_DELAY> =
             WithHash::historical_public_storage_read(header, address, self.storage_slot);
 
         (values.svc, values.sdc, historical_timestamp)
     }
 }
 
-impl<T, let INITIAL_DELAY: u64> SharedMutable<T, INITIAL_DELAY, UtilityContext>
+impl<T, let INITIAL_DELAY: u64> DelayedPublicMutable<T, INITIAL_DELAY, UtilityContext>
 where
     T: Eq,
 {
@@ -242,7 +242,7 @@ where
     where
         T: Packable<N>,
     {
-        let smv: SharedMutableValues<T, INITIAL_DELAY> =
+        let smv: DelayedPublicMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
         let current_timestamp = self.context.timestamp();

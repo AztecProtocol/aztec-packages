@@ -8,7 +8,7 @@ import { ScheduledValueChange } from './scheduled_value_change.js';
 
 export const SHARED_MUTABLE_VALUES_LEN = 2 * UPDATES_VALUE_SIZE + 1;
 
-export class SharedMutableValues {
+export class DelayedPublicMutableValues {
   constructor(
     public svc: ScheduledValueChange,
     public sdc: ScheduledDelayChange,
@@ -58,32 +58,32 @@ export class SharedMutableValues {
     return serializeToBuffer(this.toFields());
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader, valueSize: number): SharedMutableValues {
+  static fromBuffer(buffer: Buffer | BufferReader, valueSize: number): DelayedPublicMutableValues {
     const reader = BufferReader.asReader(buffer);
-    return SharedMutableValues.fromFields(reader.readArray(2 * valueSize + 1, Fr));
+    return DelayedPublicMutableValues.fromFields(reader.readArray(2 * valueSize + 1, Fr));
   }
 
   static empty(valueSize: number) {
     return new this(ScheduledValueChange.empty(valueSize), ScheduledDelayChange.empty());
   }
 
-  static async readFromTree(sharedMutableSlot: Fr, readStorage: (storageSlot: Fr) => Promise<Fr>) {
+  static async readFromTree(delayedPublicMutableSlot: Fr, readStorage: (storageSlot: Fr) => Promise<Fr>) {
     const fields = [];
     for (let i = 0; i < SHARED_MUTABLE_VALUES_LEN; i++) {
-      fields.push(await readStorage(sharedMutableSlot.add(new Fr(i))));
+      fields.push(await readStorage(delayedPublicMutableSlot.add(new Fr(i))));
     }
-    return SharedMutableValues.fromFields(fields);
+    return DelayedPublicMutableValues.fromFields(fields);
   }
 
   isEmpty(): boolean {
     return this.svc.isEmpty() && this.sdc.isEmpty();
   }
 
-  async writeToTree(sharedMutableSlot: Fr, storageWrite: (storageSlot: Fr, value: Fr) => Promise<void>) {
+  async writeToTree(delayedPublicMutableSlot: Fr, storageWrite: (storageSlot: Fr, value: Fr) => Promise<void>) {
     const fields = this.toFields();
 
     for (let i = 0; i < fields.length; i++) {
-      await storageWrite(sharedMutableSlot.add(new Fr(i)), fields[i]);
+      await storageWrite(delayedPublicMutableSlot.add(new Fr(i)), fields[i]);
     }
   }
 

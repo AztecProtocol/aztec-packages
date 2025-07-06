@@ -16,7 +16,7 @@ import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } f
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
+import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -375,23 +375,25 @@ export class PublicPersistableStateManager {
     // All failures are fatal and the simulation is not expected to be provable.
     if (this.doMerkleOperations) {
       // Conceptually, we want to do the following:
-      // * Read a SharedMutable at the contract update slot.
-      // * Obtain the expected current class id from the SharedMutable, at the current block.
+      // * Read a DelayedPublicMutable at the contract update slot.
+      // * Obtain the expected current class id from the DelayedPublicMutable, at the current block.
       // * if expectedId == 0 then currentClassId should be original contract class id
       // * if expectedId != 0 then currentClassId should be expectedId
       //
       // However, we will also be checking the hash of the shared mutable values.
       // This is a bit of a leak of information, since the circuit will use it to prove
       // one public read insted of N of the shared mutable values.
-      const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
-        instance.address,
-      );
+      const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
+        await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
       const readDeployerStorage = async (storageSlot: Fr) =>
         await this.readStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
 
-      const hash = await readDeployerStorage(sharedMutableHashSlot);
-      const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readDeployerStorage);
-      const preImage = sharedMutableValues.toFields();
+      const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+      const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
+        delayedPublicMutableSlot,
+        readDeployerStorage,
+      );
+      const preImage = delayedPublicMutableValues.toFields();
 
       // 1) update never scheduled: hash == 0 and preimage should be empty (but poseidon2hash(preimage) will not be 0s)
       if (hash.isZero()) {
@@ -414,7 +416,7 @@ export class PublicPersistableStateManager {
       );
 
       // We now check that, depending on the current block, the current class id is correct.
-      const expectedClassIdRaw = sharedMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
+      const expectedClassIdRaw = delayedPublicMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
       const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
       assert(
         instance.currentContractClassId.equals(expectedClassId),

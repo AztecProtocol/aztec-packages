@@ -11,21 +11,21 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_update_check_shared_mutable_slot_poseidon2 ///////////////////
+/////////////////// lookup_update_check_delayed_public_mutable_slot_poseidon2 ///////////////////
 
-struct lookup_update_check_shared_mutable_slot_poseidon2_settings_ {
+struct lookup_update_check_delayed_public_mutable_slot_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_SHARED_MUTABLE_SLOT_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
-    static constexpr Column COUNTS = Column::lookup_update_check_shared_mutable_slot_poseidon2_counts;
-    static constexpr Column INVERSES = Column::lookup_update_check_shared_mutable_slot_poseidon2_inv;
+    static constexpr Column COUNTS = Column::lookup_update_check_delayed_public_mutable_slot_poseidon2_counts;
+    static constexpr Column INVERSES = Column::lookup_update_check_delayed_public_mutable_slot_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::update_check_updated_class_ids_slot,
         ColumnAndShifts::update_check_address,
         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::update_check_shared_mutable_slot
+        ColumnAndShifts::update_check_delayed_public_mutable_slot
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
@@ -35,11 +35,11 @@ struct lookup_update_check_shared_mutable_slot_poseidon2_settings_ {
     };
 };
 
-using lookup_update_check_shared_mutable_slot_poseidon2_settings =
-    lookup_settings<lookup_update_check_shared_mutable_slot_poseidon2_settings_>;
+using lookup_update_check_delayed_public_mutable_slot_poseidon2_settings =
+    lookup_settings<lookup_update_check_delayed_public_mutable_slot_poseidon2_settings_>;
 template <typename FF_>
-using lookup_update_check_shared_mutable_slot_poseidon2_relation =
-    lookup_relation_base<FF_, lookup_update_check_shared_mutable_slot_poseidon2_settings>;
+using lookup_update_check_delayed_public_mutable_slot_poseidon2_relation =
+    lookup_relation_base<FF_, lookup_update_check_delayed_public_mutable_slot_poseidon2_settings>;
 
 /////////////////// lookup_update_check_update_hash_public_data_read ///////////////////
 
@@ -53,7 +53,7 @@ struct lookup_update_check_update_hash_public_data_read_settings_ {
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::update_check_deployer_protocol_contract_address,
-        ColumnAndShifts::update_check_shared_mutable_hash_slot,
+        ColumnAndShifts::update_check_delayed_public_mutable_hash_slot,
         ColumnAndShifts::update_check_update_hash,
         ColumnAndShifts::update_check_public_data_tree_root
     };

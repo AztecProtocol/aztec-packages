@@ -546,7 +546,7 @@ export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): Functio
 export function mapPrivateVerificationKeyHintsToNoir(
   privateVerificationKeyHints: PrivateVerificationKeyHints,
 ): PrivateVerificationKeyHintsNoir {
-  const updatedClassIdSharedMutableValuesFields = assertLength(
+  const updatedClassIdDelayedPublicMutableValuesFields = assertLength(
     privateVerificationKeyHints.updatedClassIdHints.updatedClassIdValues.toFields(),
     UPDATES_SHARED_MUTABLE_VALUES_LEN,
   );
@@ -571,7 +571,10 @@ export function mapPrivateVerificationKeyHintsToNoir(
     updated_class_id_leaf: mapPublicDataTreePreimageToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdLeaf,
     ),
-    updated_class_id_shared_mutable_values: mapTuple(updatedClassIdSharedMutableValuesFields, mapFieldToNoir),
+    updated_class_id_delayed_public_mutable_values: mapTuple(
+      updatedClassIdDelayedPublicMutableValuesFields,
+      mapFieldToNoir,
+    ),
   };
 }
 

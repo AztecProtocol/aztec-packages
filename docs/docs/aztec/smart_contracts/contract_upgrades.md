@@ -46,7 +46,7 @@ Recall that `#[private]` means calling this function preserves privacy, and it s
 So the `update_to` function above allows anyone to update the contract that implements it. A more complete implementation should have a proper authorization systems to secure contracts from malicious upgrades.
 :::
 
-Contract upgrades are implemented using a SharedMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
+Contract upgrades are implemented using a DelayedPublicMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
 This means that they have a delay before entering into effect. The default delay is `86400` seconds (one day) but can be configured by the contract:
 
 ```rust
@@ -71,7 +71,7 @@ When sending a transaction, the expiration timestamp of your tx will be the time
 If your tx interacts with a contract that can be upgraded in 1000 seconds and another one that can be upgraded in 10000 seconds, the expiration timestamp (include_by_timestamp property on the tx) will be current block timestamp + 1000.
 Note that this can be even lower if there is an upgrade pending in one of the contracts you're interacting with.
 If the contract you interacted with will upgrade in 100 seconds, the expiration timestamp of your tx will be current block timestamp + 99 seconds.
-Other SharedMutable storage variables read in your tx might reduce this expiration timestamp further.
+Other DelayedPublicMutable storage variables read in your tx might reduce this expiration timestamp further.
 
 :::note
 Only deployed contract instances can upgrade or change its upgrade delay currently. This restriction might be lifted in the future.

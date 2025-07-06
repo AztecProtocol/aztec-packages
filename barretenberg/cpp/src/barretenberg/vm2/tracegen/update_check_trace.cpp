@@ -51,9 +51,9 @@ void UpdateCheckTraceBuilder::process(
                       { C::update_check_update_preimage_pre_class_id, event.update_preimage_pre_class_id },
                       { C::update_check_update_preimage_post_class_id, event.update_preimage_post_class_id },
                       { C::update_check_updated_class_ids_slot, UPDATED_CLASS_IDS_SLOT },
-                      { C::update_check_shared_mutable_slot, event.shared_mutable_slot },
-                      { C::update_check_shared_mutable_hash_slot,
-                        event.shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN },
+                      { C::update_check_delayed_public_mutable_slot, event.delayed_public_mutable_slot },
+                      { C::update_check_delayed_public_mutable_hash_slot,
+                        event.delayed_public_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN },
                       { C::update_check_public_leaf_index_domain_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                       { C::update_check_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
                       { C::update_check_timestamp_of_change, timestamp_of_change },
@@ -74,7 +74,7 @@ void UpdateCheckTraceBuilder::process(
 const InteractionDefinition UpdateCheckTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_update_check_update_hash_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_update_check_shared_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_delayed_public_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_update_hi_metadata_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_lo_metadata_range_settings, InteractionType::LookupGeneric>()

@@ -9,15 +9,15 @@ To learn more about storage slots, read [this explainer in the Concepts section]
 
 You control this storage in Aztec using a struct annotated with `#[storage]`. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
 
-These state variables come in two forms: [public](./public_state.md) and [private](./private_state.md). Public variables are visible to anyone, and private variables remain hidden within the contract. A state variable with both public and private components is said to be [shared](./shared_state.md).
+These state variables come in two forms: [public](./public_state.md) and [private](./private_state.md). Public variables are visible to anyone, and private variables remain hidden within the contract. A state variable with both public and private components is said to be [shared](./delayed_public_mutable.md).
 
-Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PrivateImmutable, PublicMutable, PublicImmutable, PrivateSet, and SharedMutable.
+Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PrivateImmutable, PublicMutable, PublicImmutable, PrivateSet, and DelayedPublicMutable.
 
 On this and the following pages in this section, you’ll learn:
 
 - How to manage a smart contract's storage structure
 - The distinctions and applications of public and private state variables
-- How to use PrivateMutable, PrivateImmutable, PrivateSet, PublicMutable, SharedMutable and Map
+- How to use PrivateMutable, PrivateImmutable, PrivateSet, PublicMutable, DelayedPublicMutable and Map
 - An overview of 'notes' and the UTXO model
 - Practical implications of Storage in real smart contracts
   In an Aztec.nr contract, storage is to be defined as a single struct, that contains both public and private state variables.
@@ -82,7 +82,7 @@ require(minters[msg.sender], "caller is not minter");
 
 - [Public State](./public_state.md)
 - [Private State](./private_state.md)
-- [Shared State](./shared_state.md)
+- [Shared State](./delayed_public_mutable.md)
 
 ## Concepts mentioned
 
