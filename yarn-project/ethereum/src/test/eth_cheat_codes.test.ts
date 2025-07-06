@@ -188,7 +188,7 @@ describe('EthCheatCodes', () => {
       ).resolves.toEqual([3, 0, 1]);
     });
 
-    it.skip('reorgs with blocks with replacement txs with blobs', async () => {
+    it('reorgs with blocks with replacement txs with blobs', async () => {
       await cheatCodes.mine(5);
 
       const blobs = [new Uint8Array(131072).fill(1)];
