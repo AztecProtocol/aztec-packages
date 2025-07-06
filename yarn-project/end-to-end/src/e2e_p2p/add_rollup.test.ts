@@ -2,7 +2,7 @@ import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
   type ExtendedViemWalletClient,
@@ -327,7 +327,7 @@ describe('e2e_p2p_add_rollup', () => {
         const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(node, l2OutgoingReceipt!.blockNumber, leaf);
 
         // We need to mark things as proven
-        const cheatcodes = CheatCodes.createRollup(l1RpcUrls, l1ContractAddresses);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses);
         await cheatcodes.markAsProven();
 
         // Then we want to go and comsume it!

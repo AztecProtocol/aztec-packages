@@ -1,6 +1,5 @@
 use crate::{
     macros::{
-        authwits::AUTHWIT_TYPES,
         dispatch::generate_public_dispatch,
         functions::{stub_registry, utils::check_each_fn_macroified},
         notes::{generate_note_export, NOTES},
@@ -26,7 +25,6 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let public_dispatch = generate_public_dispatch(m);
     let sync_private_state = generate_sync_private_state();
     let process_message = generate_process_message();
-    generate_authwit_exports();
 
     quote {
         $note_exports
@@ -255,11 +253,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             }
         }
     }
-}
-
-comptime fn generate_authwit_exports() {
-    let authwits = AUTHWIT_TYPES.values();
-    authwits.for_each(|(s): TypeDefinition| { s.add_attribute("abi(authwits)"); });
 }
 
 comptime fn generate_note_exports() -> Quoted {

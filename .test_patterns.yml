@@ -130,6 +130,10 @@ tests:
     error_regex: "Expected: >= 2"
     owners:
       - *palla
+  - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "ContractFunctionExecutionError.*execution failed"
+    owners:
+      - *palla
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
@@ -174,7 +178,11 @@ tests:
     error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
       - *spyros
-  - regex: "src/e2e_epochs/epochs_monitor_block_building.test.ts"
+  - regex: "src/e2e_epochs/epochs_simple_block_building.test.ts"
+    error_regex: "Failed events from sequencers"
+    owners:
+      - *palla
+  - regex: "src/e2e_epochs/epochs_high_tps_block_building.test.ts"
     error_regex: "Failed events from sequencers"
     owners:
       - *palla

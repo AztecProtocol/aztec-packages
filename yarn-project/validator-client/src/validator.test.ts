@@ -218,7 +218,7 @@ describe('ValidatorClient', () => {
 
       txProvider.getTxsForBlockProposal.mockImplementation((proposal: BlockProposal) =>
         Promise.resolve({
-          txs: proposal.payload.txHashes.map(makeTxFromHash),
+          txs: proposal.txHashes.map(makeTxFromHash),
           missingTxs: [],
         }),
       );
@@ -239,7 +239,7 @@ describe('ValidatorClient', () => {
 
       blockBuildResult = {
         publicProcessorDuration: 0,
-        numTxs: proposal.payload.txHashes.length,
+        numTxs: proposal.txHashes.length,
         blockBuildingTimer: new Timer(),
         failedTxs: [],
         publicGas: Gas.empty(),
@@ -247,7 +247,7 @@ describe('ValidatorClient', () => {
         usedTxs: [],
         block: {
           header: makeHeader(),
-          body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
+          body: { txEffects: times(proposal.txHashes.length, () => ({})) },
           archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
         } as L2Block,
       };
@@ -354,7 +354,7 @@ describe('ValidatorClient', () => {
       txProvider.getTxsForBlockProposal.mockImplementation(proposal =>
         Promise.resolve({
           txs: [],
-          missingTxs: proposal.payload.txHashes,
+          missingTxs: proposal.txHashes,
         }),
       );
 
