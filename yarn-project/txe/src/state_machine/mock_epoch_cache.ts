@@ -1,4 +1,4 @@
-import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import type { EpochAndSlot, EpochCacheInterface, EpochCommitteeInfo, SlotTag } from '@aztec/epoch-cache';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -53,11 +53,15 @@ export class MockEpochCache implements EpochCacheInterface {
     });
   }
 
-  isInCommittee(_validator: EthAddress): Promise<boolean> {
+  isInCommittee(_slot: SlotTag, _validator: EthAddress): Promise<boolean> {
     return Promise.resolve(false);
   }
 
   getRegisteredValidators(): Promise<EthAddress[]> {
+    return Promise.resolve([]);
+  }
+
+  filterInCommittee(_slot: SlotTag, _validators: EthAddress[]): Promise<EthAddress[]> {
     return Promise.resolve([]);
   }
 }
