@@ -110,9 +110,9 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
     using FF = typename InnerFlavor::FF;
 
     if (!end_of_proof) {
-        for (auto& val : inner_proof) {
-            if (val > 0) {
-                val += 1;
+        for (auto& potato : inner_proof) {
+            if (potato > 0) {
+                potato += 1;
                 break;
             }
         }
