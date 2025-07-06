@@ -33,7 +33,7 @@ use contract_instance_deployer::ContractInstanceDeployer;
 
 #[private]
 fn update_to(new_class_id: ContractClassId) {
-    ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+    ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
         .update(new_class_id)
         .enqueue(&mut context);
 }
@@ -55,7 +55,7 @@ use contract_instance_deployer::ContractInstanceDeployer;
 
 #[private]
 fn set_update_delay(new_delay: u32) {
-   ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+   ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
       .set_update_delay(new_delay)
       .enqueue(&mut context);
 }
@@ -108,7 +108,7 @@ contract Updatable {
 
     #[private]
     fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id).enqueue(
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).update(new_class_id).enqueue(
             &mut context,
         );
     }
@@ -169,7 +169,7 @@ contract Updatable {
         assert(context.msg_sender() == owner, "Unauthorized");
 
         // Perform the upgrade
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
             .update(new_class_id)
             .enqueue(&mut context);
     }
@@ -177,7 +177,7 @@ contract Updatable {
     #[private]
     fn set_update_delay(new_delay: u32) {
         // TODO: Add access control
-        ContractInstanceDeployer::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
             .set_update_delay(new_delay)
             .enqueue(&mut context);
     }

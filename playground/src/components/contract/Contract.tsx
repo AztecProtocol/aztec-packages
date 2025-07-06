@@ -6,10 +6,9 @@ import {
   getAllFunctionAbis,
   type FunctionAbi,
   FunctionType,
-  ContractCreationInteraction,
+  DeployMethod,
   type DeployOptions,
   TxStatus,
-  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -197,7 +196,7 @@ export function ContractComponent() {
         // Temporarily filter out not-yet-published contracts
         if (isContractPublished) {
           const contractInstance = await node.getContract(currentContractAddress);
-          await wallet.addContract({ instance: contractInstance, artifact: currentContractArtifact });
+          await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
           const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
           setCurrentContract(contract);
         }
@@ -219,7 +218,7 @@ export function ContractComponent() {
   const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
     publiclyDeploy?: boolean,
-    interaction?: ContractCreationInteraction,
+    interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => {
     setOpenCreateContractDialog(false);

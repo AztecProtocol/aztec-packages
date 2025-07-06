@@ -11,7 +11,7 @@ describe('ContractInstancePublishedEvent', () => {
 
     const event = ContractInstancePublishedEvent.fromLog(log);
 
-    // TODO: How do you update this snapshot?
+    // See ./__snapshots__/README.md for how to update the snapshot.
     expect(event).toMatchSnapshot();
   });
 });
