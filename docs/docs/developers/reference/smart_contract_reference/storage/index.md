@@ -9,7 +9,7 @@ To learn more about storage slots, read [this explainer in the Concepts section]
 
 You control this storage in Aztec using a struct annotated with `#[storage]`. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
 
-These state variables come in two forms: [public](./public_state.md) and [private](./private_state.md). Public variables are visible to anyone, and private variables remain hidden within the contract. A state variable with both public and private components is said to be [shared](./delayed_public_mutable.md).
+These state variables come in two forms: [public](./public_state.md) and [private](./private_state.md). Public variables are visible to anyone, and private variables remain hidden within the contract.
 
 Aztec.nr has a few abstractions to help define the type of data your contract holds. These include PrivateMutable, PrivateImmutable, PublicMutable, PublicImmutable, PrivateSet, and DelayedPublicMutable.
 
@@ -82,7 +82,7 @@ require(minters[msg.sender], "caller is not minter");
 
 - [Public State](./public_state.md)
 - [Private State](./private_state.md)
-- [Shared State](./delayed_public_mutable.md)
+- [Delayed Public Mutable State](./delayed_public_mutable.md)
 
 ## Concepts mentioned
 
