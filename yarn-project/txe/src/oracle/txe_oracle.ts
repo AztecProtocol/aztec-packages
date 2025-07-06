@@ -89,7 +89,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
-  RollupValidationRequests,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
@@ -1433,11 +1432,11 @@ export class TXE implements TypedOracle {
 
     const results = await processor.process([tx]);
 
-    const processedTxs = results[0];
+    const [processedTx] = results[0];
     const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error('Public execution has failed');
+    if (failedTxs.length !== 0 || !processedTx.revertCode.isOK()) {
+      throw new Error('Public execution has failed', processedTx.revertReason);
     }
 
     if (isStaticCall) {
@@ -1455,11 +1454,11 @@ export class TXE implements TypedOracle {
 
     const txEffect = TxEffect.empty();
 
-    txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
+    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 
@@ -1573,9 +1572,9 @@ export class TXE implements TypedOracle {
 
     const txData = new PrivateKernelTailCircuitPublicInputs(
       constantData,
-      RollupValidationRequests.empty(),
       /*gasUsed=*/ new Gas(0, 0),
       /*feePayer=*/ AztecAddress.zero(),
+      /*includeByTimestamp=*/ 0n,
       inputsForPublic,
       undefined,
     );

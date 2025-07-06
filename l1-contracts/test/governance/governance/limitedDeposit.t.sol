@@ -12,6 +12,7 @@ import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
 import {
   ProposalLib,
@@ -36,7 +37,9 @@ contract LimitedDepositTest is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance = new Governance(token, address(governanceProposer), address(this));
+    governance = new Governance(
+      token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration()
+    );
   }
 
   function test_WhenNotAllowedToDeposit(address _caller, address _depositor) external {

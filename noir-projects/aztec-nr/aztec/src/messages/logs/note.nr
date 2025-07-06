@@ -183,6 +183,10 @@ where
         // the tag.
         let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
 
-        emit_offchain_message(message_ciphertext, recipient);
+        // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle
+        // which we don't use for anything besides its side effects, therefore this is safe to call.
+        unsafe {
+            emit_offchain_message(message_ciphertext, recipient);
+        }
     }
 }
