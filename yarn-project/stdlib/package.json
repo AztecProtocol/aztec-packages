@@ -24,7 +24,7 @@
     "./avm": "./dest/avm/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./noir": "./dest/noir/index.js",
-    "./shared-mutable": "./dest/delayed_public_mutable/index.js",
+    "./delayed-public-mutable": "./dest/delayed_public_mutable/index.js",
     "./parity": "./dest/parity/index.js",
     "./vks": "./dest/vks/index.js",
     "./proofs": "./dest/proofs/index.js",

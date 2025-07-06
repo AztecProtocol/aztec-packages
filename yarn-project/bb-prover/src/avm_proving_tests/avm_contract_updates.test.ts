@@ -8,7 +8,7 @@ import {
   DelayedPublicMutableValuesWithHash,
   ScheduledDelayChange,
   ScheduledValueChange,
-} from '@aztec/stdlib/shared-mutable';
+} from '@aztec/stdlib/delayed-public-mutable';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { AvmProvingTester } from './avm_proving_tester.js';

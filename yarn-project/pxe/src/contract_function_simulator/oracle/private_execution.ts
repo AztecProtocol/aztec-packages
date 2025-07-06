@@ -19,9 +19,9 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
+import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
