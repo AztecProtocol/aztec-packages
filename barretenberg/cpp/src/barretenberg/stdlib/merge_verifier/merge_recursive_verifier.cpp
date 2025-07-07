@@ -144,7 +144,29 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     // Initialize Shplonk verifier
     ShplonkVerifier verifier(commitments, transcript, NUM_CLAIMS);
-    verifier.reduce_verification_vector_claims_no_finalize(indices, opening_vectors);
+
+    // Get z_challenge and compute vanishing evals, we save one inversion in this way
+    FF shplonk_z_challenge = verifier.get_z_challenge();
+    std::array<FF, 2> inverse_vanishing_evals{ (shplonk_z_challenge - kappa).invert(),
+                                               (shplonk_z_challenge - kappa_inv).invert() };
+
+    // Update state of the verifier
+    bool is_kappa_inv_claim = false;
+    for (size_t idx = 0; idx < NUM_CLAIMS; ++idx) {
+        if (is_kappa_inv_claim) {
+            verifier.update(indices[idx],
+                            opening_vectors[idx].coefficients,
+                            opening_vectors[idx].evaluations,
+                            inverse_vanishing_evals[1]);
+            is_kappa_inv_claim = !is_kappa_inv_claim;
+        } else {
+            verifier.update(indices[idx],
+                            opening_vectors[idx].coefficients,
+                            opening_vectors[idx].evaluations,
+                            inverse_vanishing_evals[0]);
+            is_kappa_inv_claim = !is_kappa_inv_claim && (idx >= NUM_WIRES);
+        }
+    }
 
     // Export batched claim
     auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));

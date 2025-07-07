@@ -391,6 +391,13 @@ template <typename Curve> class ShplonkVerifier_ {
     }
 
     /**
+     * @brief Get the z challenge object
+     *
+     * @return Fr
+     */
+    Fr get_z_challenge() { return z_challenge; }
+
+    /**
      * @brief Update the internal state of the Shplonk verifier
      *
      * @details Given a list of indices = \f$(i_1, \dots, i_k)\f$, a list of coefficients = \f$(a_1, \dots, a_k)\f$, an
