@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { map, sort, toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { ArchiverApi, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 
@@ -17,6 +17,7 @@ import { describeTxPool } from './tx_pool_test_suite.js';
 describe('KV TX pool', () => {
   let txPool: TestAztecKVTxPool;
   let worldState: MockProxy<WorldStateSynchronizer>;
+  let archiver: MockProxy<ArchiverApi>;
   let db: MockProxy<MerkleTreeReadOperations>;
   let nextTxSeed: number;
   let mockTxSize: number;
@@ -39,10 +40,26 @@ describe('KV TX pool', () => {
     mockTxSize = 100;
 
     worldState = worldState = mock<WorldStateSynchronizer>();
+    archiver = mock<ArchiverApi>();
     db = mock<MerkleTreeReadOperations>();
     worldState.getCommitted.mockReturnValue(db);
 
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
+    // Mock the archiver to return a latest block header with timestamp
+    archiver.getBlockHeader.mockImplementation(blockNumber => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(
+          BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({
+              blockNumber: 100,
+              timestamp: 1000n, // Default timestamp for tests
+            }),
+          }),
+        );
+      }
+      return Promise.resolve(undefined);
+    });
+
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, archiver);
     txPool.mockGasTxValidator.validateTxFee.mockImplementation(() =>
       Promise.resolve({ result: 'valid' } as TxValidationResult),
     );
@@ -64,9 +81,16 @@ describe('KV TX pool', () => {
 
   it('Returns archived txs and purges archived txs once the archived tx limit is reached', async () => {
     // set the archived tx limit to 2
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      archivedTxLimit: 2,
-    });
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        archivedTxLimit: 2,
+      },
+    );
 
     const tx1 = await mockTx(1);
     const tx2 = await mockTx(2);
@@ -96,9 +120,16 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: 15000,
-    });
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        maxTxPoolSize: 15000,
+      },
+    );
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
@@ -115,6 +146,7 @@ describe('KV TX pool', () => {
     const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
     const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
     await txPool.addTxs([tx4, tx5]);
+    await txPool.triggerEviction();
     await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
@@ -125,6 +157,7 @@ describe('KV TX pool', () => {
     // if another low priority tx is added after the tx pool size limit is reached, it should be evicted
     const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     await txPool.addTxs([tx6]);
+    await txPool.triggerEviction();
     await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
@@ -136,6 +169,7 @@ describe('KV TX pool', () => {
     await txPool.deleteTxs([await tx3.getTxHash()]);
     const tx7 = await mockTx(7, { maxPriorityFeesPerGas: new GasFees(2, 2) });
     await txPool.addTxs([tx7]);
+    await txPool.triggerEviction();
     await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
@@ -147,6 +181,7 @@ describe('KV TX pool', () => {
     await txPool.markAsMined([await tx4.getTxHash()], block1Header);
     const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await txPool.addTxs([tx8]);
+    await txPool.triggerEviction();
     await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
@@ -157,6 +192,7 @@ describe('KV TX pool', () => {
     // verify that the tx pool size limit is respected after mining and deletions
     const tx9 = await mockTx(9, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     await txPool.addTxs([tx9]);
+    await txPool.triggerEviction();
     await checkPendingTxConsistency();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
@@ -166,10 +202,17 @@ describe('KV TX pool', () => {
   });
 
   it('respects the overflow factor configured', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
-      txPoolOverflowFactor: 1.5, // but allow it to grow up to 15, but then when it evicts, it evicts until it's left to 10
-    });
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
+        txPoolOverflowFactor: 1.5, // but allow it to grow up to 15, but then when it evicts, it evicts until it's left to 10
+      },
+    );
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
 
@@ -217,14 +260,23 @@ describe('KV TX pool', () => {
     const lastTx = await mockFixedSizeTx();
     await txPool.addTxs([lastTx]);
 
+    await txPool.triggerEviction();
+
     // the pool should evict enough txs to stay under the size limit
     expect(await txPool.getPendingTxCount()).toBeLessThanOrEqual(10);
   });
 
   it('evicts based on the updated size limit', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
-    });
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
+      },
+    );
 
     const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
 
@@ -259,6 +311,8 @@ describe('KV TX pool', () => {
     // now add one more transaction
     const lastTx = await mockFixedSizeTx(new GasFees(20, 20));
     await txPool.addTxs([lastTx]);
+
+    await txPool.triggerEviction();
 
     const finalExpectedPool = expectedRemainingTxs.concat(lastTx);
 
@@ -375,9 +429,16 @@ describe('KV TX pool', () => {
     expect(pendingTxHashes).toHaveLength(2);
   });
   it('Does not evict low priority txs marked as non-evictable', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: 15000,
-    });
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        maxTxPoolSize: 15000,
+      },
+    );
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
@@ -396,6 +457,7 @@ describe('KV TX pool', () => {
     const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
     const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
     await txPool.addTxs([tx4, tx5]);
+    await txPool.triggerEviction();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx4.getTxHash(),
@@ -404,9 +466,16 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts low priority txs after block is mined', async () => {
-    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
-      maxTxPoolSize: 15000,
-    });
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        maxTxPoolSize: 15000,
+      },
+    );
 
     const tx1 = await mockTx(1, { maxPriorityFeesPerGas: new GasFees(1, 1) });
     const tx2 = await mockTx(2, { maxPriorityFeesPerGas: new GasFees(2, 2) });
@@ -426,6 +495,7 @@ describe('KV TX pool', () => {
     const tx4 = await mockTx(4, { maxPriorityFeesPerGas: new GasFees(4, 4) });
     const tx5 = await mockTx(5, { maxPriorityFeesPerGas: new GasFees(5, 5) });
     await txPool.addTxs([tx4, tx5]);
+    await txPool.triggerEviction();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx5.getTxHash(),
       await tx4.getTxHash(),
@@ -441,11 +511,117 @@ describe('KV TX pool', () => {
     // if another tx is added after the tx pool size limit is reached, the lowest priority tx that is evictable (tx1) should be evicted
     const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(6, 6) });
     await txPool.addTxs([tx6]);
+    await txPool.triggerEviction();
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([
       await tx6.getTxHash(),
       await tx5.getTxHash(),
       await tx4.getTxHash(),
     ]);
+  });
+
+  it('Evicts expired txs based on L1 timestamp during periodic eviction', async () => {
+    // Create a tx with an expiration timestamp of 500
+    const expiredTx = await mockTx(1);
+    expiredTx.data.includeByTimestamp = 500n;
+
+    const validTx = await mockTx(2);
+    validTx.data.includeByTimestamp = 2000n; // Valid tx with future timestamp
+
+    await txPool.addTxs([expiredTx, validTx]);
+
+    // Initially both txs should be in the pool
+    expect(await txPool.getPendingTxCount()).toBe(2);
+
+    txPool.triggerEviction();
+
+    // Wait a bit for eviction to process
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Only the valid tx should remain (expired tx should be evicted)
+    const remainingHashes = await txPool.getPendingTxHashes();
+    expect(remainingHashes).toHaveLength(1);
+    expect(remainingHashes[0]).toEqual(await validTx.getTxHash());
+  });
+
+  it('Does not evict valid tx initially, then evicts after timestamp passes', async () => {
+    // Mock archiver to return timestamp 500 initially
+    let currentTimestamp = 500n;
+    archiver.getBlockHeader.mockImplementation(blockNumber => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(
+          BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({
+              blockNumber: 100,
+              timestamp: currentTimestamp,
+            }),
+          }),
+        );
+      }
+      return Promise.resolve(undefined);
+    });
+
+    // Create a tx that expires at timestamp 1000
+    const tx = await mockTx(1);
+    tx.data.includeByTimestamp = 1000n;
+
+    await txPool.addTxs([tx]);
+    expect(await txPool.getPendingTxCount()).toBe(1);
+
+    // First eviction run - tx should NOT be evicted (timestamp 500 < 1000)
+    await txPool.triggerEviction();
+
+    expect(await txPool.getPendingTxCount()).toBe(1);
+    expect(await txPool.getPendingTxHashes()).toContainEqual(await tx.getTxHash());
+
+    // Advance timestamp past expiration
+    currentTimestamp = 1500n;
+
+    // Second eviction run - tx should now be evicted (timestamp 1500 > 1000)
+    await txPool.triggerEviction();
+
+    expect(await txPool.getPendingTxCount()).toBe(0);
+  });
+
+  it('Evicts low fee txs when pool size exceeds limit during periodic eviction', async () => {
+    // Create a pool with small size limit
+    txPool = new TestAztecKVTxPool(
+      await openTmpStore('p2p'),
+      await openTmpStore('archive'),
+      worldState,
+      archiver,
+      undefined,
+      {
+        maxTxPoolSize: 250, // Small pool that can fit ~2 txs of 100 bytes each
+        txPoolOverflowFactor: 1.5, // Allow up to 375 bytes before evicting
+      },
+    );
+
+    // Create txs with different fee priorities
+    const lowFeeTx1 = await mockFixedSizeTx(new GasFees(1, 1)); // Lowest priority
+    const lowFeeTx2 = await mockFixedSizeTx(new GasFees(2, 2)); // Low priority
+    const medFeeTx = await mockFixedSizeTx(new GasFees(5, 5)); // Medium priority
+    const highFeeTx = await mockFixedSizeTx(new GasFees(10, 10)); // Highest priority
+
+    // Add txs to fill pool beyond overflow limit (4 * 100 = 400 bytes > 375 bytes)
+    await txPool.addTxs([lowFeeTx1, lowFeeTx2, medFeeTx, highFeeTx]);
+
+    // All txs should initially be in pool (overflow allowed)
+    expect(await txPool.getPendingTxCount()).toBe(4);
+
+    await txPool.triggerEviction();
+
+    // Pool should evict lowest priority txs to get back under base limit (250 bytes = ~2 txs)
+    const remainingCount = await txPool.getPendingTxCount();
+    expect(remainingCount).toBeLessThanOrEqual(2);
+
+    // High priority txs should remain
+    const remainingHashes = await txPool.getPendingTxHashes();
+    expect(remainingHashes).toContainEqual(await highFeeTx.getTxHash());
+    expect(remainingHashes).toContainEqual(await medFeeTx.getTxHash());
+
+    // Low priority txs should be evicted
+    expect(remainingHashes).not.toContainEqual(await lowFeeTx1.getTxHash());
+    expect(remainingHashes).not.toContainEqual(await lowFeeTx2.getTxHash());
   });
 });
 
