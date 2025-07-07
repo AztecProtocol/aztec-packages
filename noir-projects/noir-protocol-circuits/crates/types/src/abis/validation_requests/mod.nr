@@ -1,7 +1,6 @@
 pub mod key_validation_request;
 pub mod key_validation_request_and_generator;
 pub mod scoped_key_validation_request_and_generator;
-pub mod rollup_validation_requests;
 pub mod private_validation_requests;
 pub mod private_validation_requests_builder;
 

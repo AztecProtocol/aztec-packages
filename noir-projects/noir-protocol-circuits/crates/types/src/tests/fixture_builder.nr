@@ -13,6 +13,7 @@ use crate::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::{AvmCircuitPublicInputs, AvmProofData},
         block_constant_data::BlockConstantData,
+        block_header::BlockHeader,
         call_context::CallContext,
         function_data::FunctionData,
         gas::Gas,
@@ -27,6 +28,7 @@ use crate::{
         log_hash::LogHash,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
+        partial_state_reference::PartialStateReference,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::{PrivateCallData, PrivateVerificationKeyHints},
@@ -47,7 +49,6 @@ use crate::{
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
-    block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
         CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT,
@@ -72,7 +73,6 @@ use crate::{
     },
     merkle_tree::{membership::MembershipWitness, MerkleTree},
     messaging::l2_to_l1_message::L2ToL1Message,
-    partial_state_reference::PartialStateReference,
     point::Point,
     proof::{
         recursive_proof::NestedRecursiveProof,

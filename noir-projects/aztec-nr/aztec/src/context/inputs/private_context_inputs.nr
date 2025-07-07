@@ -1,5 +1,6 @@
 use dep::protocol_types::{
-    abis::call_context::CallContext, block_header::BlockHeader, traits::Empty,
+    abis::{block_header::BlockHeader, call_context::CallContext},
+    traits::Empty,
     transaction::tx_context::TxContext,
 };
 

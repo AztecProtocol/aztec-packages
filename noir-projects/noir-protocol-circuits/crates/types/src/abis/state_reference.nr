@@ -1,6 +1,8 @@
 use crate::{
-    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    partial_state_reference::PartialStateReference,
+    abis::{
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        partial_state_reference::PartialStateReference,
+    },
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
@@ -22,8 +24,8 @@ impl Empty for StateReference {
 
 mod test {
     use crate::{
+        abis::state_reference::StateReference,
         constants::STATE_REFERENCE_LENGTH,
-        state_reference::StateReference,
         traits::{Deserialize, Empty, Serialize},
     };
 
