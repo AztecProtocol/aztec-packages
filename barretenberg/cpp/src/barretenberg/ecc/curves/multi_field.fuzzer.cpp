@@ -5,6 +5,8 @@
 #include "barretenberg/ecc/fields/field.fuzzer.hpp"
 #include <cassert>
 #include <cstddef>
+#include <cstring>
+#include <vector>
 using namespace bb;
 
 // Field type enum
@@ -148,15 +150,13 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* Data, size_t Size)
         return 0; // Not enough data for at least one phase header
     }
 
-    size_t data_offset = 0;
     std::vector<numeric::uint256_t> current_state;
+    size_t data_offset = 0;
 
     while (data_offset + PHASE_HEADER_SIZE <= Size) {
         // Read phase header
         const VMPhaseHeader* header_ptr = reinterpret_cast<const VMPhaseHeader*>(Data + data_offset);
         VMPhaseHeader header = *header_ptr;
-        size_t original_data_offset = data_offset; // Store original offset for debug VM
-        data_offset += PHASE_HEADER_SIZE;
 
         // Always select a valid field type and step count
         FieldType selected_field_type = static_cast<FieldType>(header.field_type % NUM_FIELD_TYPES);
@@ -167,9 +167,8 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* Data, size_t Size)
         header.field_type = static_cast<uint8_t>(selected_field_type);
         header.steps = selected_steps;
 
+        // Execute the phase based on field type
         int phase_result = 0;
-
-        // Create and run VM based on field type
         switch (selected_field_type) {
         case FieldType::BN254_FQ: {
             phase_result = run_field_vm<fq>(header, Data, Size, data_offset, current_state);
@@ -197,48 +196,46 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* Data, size_t Size)
         }
         }
 
-        if (phase_result == 0) {
-            // Not enough data for settings or instructions, just stop processing this input
-            break;
-        }
-
         if (phase_result < 0) {
             // If a phase fails (internal state error), run with debug VM to get more information
             std::cout << "Phase failed for field type: " << static_cast<int>(selected_field_type)
                       << " with steps: " << static_cast<int>(header.steps) << std::endl;
-            std::cout << "Data offset: " << data_offset << " Size: " << Size << std::endl;
 
             // Show the instruction stream that caused the failure
             std::cout << "Instruction stream (first 64 bytes): ";
-            size_t debug_size = std::min(Size - data_offset + PHASE_HEADER_SIZE, size_t(64));
+            size_t debug_size = std::min(Size - data_offset - PHASE_HEADER_SIZE, size_t(64));
             for (size_t i = 0; i < debug_size; i++) {
-                printf("%02x ", Data[data_offset - PHASE_HEADER_SIZE + i]);
+                printf("%02x ", Data[data_offset + PHASE_HEADER_SIZE + i]);
             }
             std::cout << std::endl;
 
             // Run debug VM based on field type
             switch (selected_field_type) {
             case FieldType::BN254_FQ:
-                run_debug_vm<fq>(header, Data, Size, original_data_offset, current_state);
+                run_debug_vm<fq>(header, Data, Size, data_offset, current_state);
                 break;
             case FieldType::BN254_FR:
-                run_debug_vm<fr>(header, Data, Size, original_data_offset, current_state);
+                run_debug_vm<fr>(header, Data, Size, data_offset, current_state);
                 break;
             case FieldType::SECP256K1_FQ:
-                run_debug_vm<secp256k1::fq>(header, Data, Size, original_data_offset, current_state);
+                run_debug_vm<secp256k1::fq>(header, Data, Size, data_offset, current_state);
                 break;
             case FieldType::SECP256K1_FR:
-                run_debug_vm<secp256k1::fr>(header, Data, Size, original_data_offset, current_state);
+                run_debug_vm<secp256k1::fr>(header, Data, Size, data_offset, current_state);
                 break;
             case FieldType::SECP256R1_FQ:
-                run_debug_vm<secp256r1::fq>(header, Data, Size, original_data_offset, current_state);
+                run_debug_vm<secp256r1::fq>(header, Data, Size, data_offset, current_state);
                 break;
             case FieldType::SECP256R1_FR:
-                run_debug_vm<secp256r1::fr>(header, Data, Size, original_data_offset, current_state);
+                run_debug_vm<secp256r1::fr>(header, Data, Size, data_offset, current_state);
                 break;
             }
             return 1;
+        } else if (phase_result == 0) {
+            // Not enough data for this phase, stop processing
+            break;
         }
+        // phase_result > 0 means success, continue to next phase
     }
 
     return 0;
