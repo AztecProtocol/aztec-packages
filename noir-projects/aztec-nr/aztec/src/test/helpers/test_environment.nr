@@ -47,8 +47,49 @@ impl TestEnvironment {
 
     pub unconstrained fn _new() -> Self {
         cheatcodes::reset();
-        cheatcodes::disable_oracles();
+        cheatcodes::enable_context_checks();
         Self {}
+    }
+
+    pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
+        cheatcodes::set_public_txe_context();
+
+        let mut context = self.public();
+        let ret_value = f(&mut context);
+
+        // merge calls below into 'exit public txe context' -> this mines a block
+        cheatcodes::oracle_advance_timestamp_by(36);
+        cheatcodes::advance_blocks_by(1);
+        cheatcodes::set_top_level_txe_context();
+
+        ret_value
+    }
+
+    pub unconstrained fn private_context<Env, T>(
+        &mut self,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
+        let mut context = self.private();
+        cheatcodes::set_private_txe_context();
+
+        let ret_value = f(&mut context);
+        cheatcodes::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context
+
+        ret_value
+    }
+
+    pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
+        cheatcodes::set_utility_txe_context();
+        let context = self.utility();
+        let ret_value = f(context);
+        cheatcodes::set_top_level_txe_context();
+
+        ret_value
     }
 
     /// Returns the block number of the block currently being built. Since sequencer is executing the public part
