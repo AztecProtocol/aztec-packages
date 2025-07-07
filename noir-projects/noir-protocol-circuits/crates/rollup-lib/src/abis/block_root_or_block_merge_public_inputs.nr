@@ -6,7 +6,6 @@ use dep::types::{
     address::EthAddress,
     constants::{AZTEC_MAX_EPOCH_DURATION, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH},
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
@@ -23,6 +22,7 @@ impl Empty for FeeRecipient {
     }
 }
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct BlockRootOrBlockMergePublicInputs {
     pub constants: EpochConstantData,
     pub previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
@@ -57,71 +57,12 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
     }
 }
 
-impl Eq for BlockRootOrBlockMergePublicInputs {
-    fn eq(self, other: Self) -> bool {
-        (self.constants.eq(other.constants))
-            & self.previous_archive.eq(other.previous_archive)
-            & self.new_archive.eq(other.new_archive)
-            & self.start_global_variables.eq(other.start_global_variables)
-            & self.end_global_variables.eq(other.end_global_variables)
-            & self.out_hash.eq(other.out_hash)
-            & self.proposed_block_header_hashes.eq(other.proposed_block_header_hashes)
-            & self.fees.eq(other.fees)
-            & self.blob_public_inputs.eq(other.blob_public_inputs)
-    }
-}
-
-impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBlockMergePublicInputs {
-    fn serialize(self) -> [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> =
-            BoundedVec::new();
-
-        fields.extend_from_array(self.constants.serialize());
-        fields.extend_from_array(self.previous_archive.serialize());
-        fields.extend_from_array(self.new_archive.serialize());
-        fields.extend_from_array(self.start_global_variables.serialize());
-        fields.extend_from_array(self.end_global_variables.serialize());
-        fields.push(self.out_hash as Field);
-        fields.extend_from_array(self.proposed_block_header_hashes);
-        for i in 0..AZTEC_MAX_EPOCH_DURATION {
-            fields.extend_from_array(self.fees[i].serialize());
-        }
-        fields.extend_from_array(self.blob_public_inputs.serialize());
-        assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBlockMergePublicInputs {
-    fn deserialize(
-        fields: [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH],
-    ) -> BlockRootOrBlockMergePublicInputs {
-        let mut reader = Reader::new(fields);
-        let item = Self {
-            constants: reader.read_struct(EpochConstantData::deserialize),
-            previous_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-            new_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-            start_global_variables: reader.read_struct(GlobalVariables::deserialize),
-            end_global_variables: reader.read_struct(GlobalVariables::deserialize),
-            out_hash: reader.read(),
-            proposed_block_header_hashes: reader.read_array(),
-            fees: reader.read_struct_array(
-                FeeRecipient::deserialize,
-                [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION],
-            ),
-            blob_public_inputs: reader.read_struct(BlockBlobPublicInputs::deserialize),
-        };
-
-        reader.finish();
-        item
-    }
-}
-
 #[test]
 fn serialization_of_empty() {
     let item = BlockRootOrBlockMergePublicInputs::empty();
-    let serialized = item.serialize();
+    // We use the BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH constant to ensure that there is a match between
+    // the derived trait implementation and the constant.
+    let serialized: [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH] = item.serialize();
     let deserialized = BlockRootOrBlockMergePublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
 }

@@ -27,7 +27,7 @@ where
 
 impl<T> Empty for Counted<T>
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     fn empty() -> Self {
         Self { inner: T::empty(), counter: 0 }

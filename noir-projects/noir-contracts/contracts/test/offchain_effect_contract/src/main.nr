@@ -21,10 +21,28 @@ contract OffchainEffect {
         pub c: u64,
     }
 
-    #[derive(Serialize)]
+    // #[derive(Serialize)]
     pub struct EffectPayload {
         pub data: [Field; 5],
         pub next_contract: AztecAddress,
+    }
+
+    impl Serialize for EffectPayload {
+        let N: u32 = 6; // 5 for data array + 1 for next_contract
+
+        fn serialize(self) -> [Field; Self::N] {
+            let mut fields = [0; Self::N];
+            
+            // Copy data array fields
+            for i in 0..5 {
+                fields[i] = self.data[i];
+            }
+
+            // Add next_contract field
+            fields[5] = self.next_contract.serialize()[0];
+
+            fields
+        }
     }
 
     #[storage]

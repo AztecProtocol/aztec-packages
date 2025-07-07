@@ -9,6 +9,7 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
         public_call_request::PublicCallRequest,
         side_effect::{Ordered, RangeOrdered},
+        transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
     constants::{
@@ -16,8 +17,7 @@ use dep::types::{
         MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     traits::FromField,
-    transaction::tx_request::TxRequest,
-    utils::arrays::ClaimedLengthArray,
+    utils::arrays::ClaimedLengthArray
 };
 use validate_contract_address::validate_contract_address;
 use validate_min_revertible_side_effect_counter::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;

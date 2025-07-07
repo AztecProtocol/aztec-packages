@@ -48,11 +48,15 @@ pub contract ContractClassRegistry {
         // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
         // docs:start:load_capsule
         let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
-            capsules::load(
+            // TODO: This is a workaround for a weird Noir bug. Uncomment the following line and remove the following lines.
+            // capsules::load(context.this_address(), REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT).unwrap()
+
+            let fields = capsules::very_sad_load::<MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS>(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
-                .unwrap()
+                .unwrap();
+            fields
         };
         // docs:end:load_capsule
         // Compute and check the public bytecode commitment
@@ -105,11 +109,15 @@ pub contract ContractClassRegistry {
         function_data: InnerPrivateFunction,
     ) {
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
-            capsules::load(
+            // TODO: This is a workaround for a weird Noir bug. Uncomment the following line and remove the following lines.
+            // capsules::load(context.this_address(), REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT).unwrap()
+
+            let fields = capsules::very_sad_load::<MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS>(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
-                .unwrap()
+                .unwrap();
+            fields
         };
 
         let event = ClassPrivateFunctionBroadcasted {
@@ -151,11 +159,15 @@ pub contract ContractClassRegistry {
         function_data: InnerUtilityFunction,
     ) {
         let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
-            capsules::load(
+            // TODO: This is a workaround for a weird Noir bug. Uncomment the following line and remove the following lines.
+            // capsules::load(context.this_address(), REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT).unwrap()
+
+            let fields = capsules::very_sad_load::<MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS>(
                 context.this_address(),
                 CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
-                .unwrap()
+                .unwrap();
+            fields
         };
         let event = ClassUtilityFunctionBroadcasted {
             contract_class_id,

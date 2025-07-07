@@ -430,7 +430,7 @@ where
 
 impl<T, let N: u32> Empty for ClaimedLengthArray<T, N>
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     fn empty() -> Self {
         Self { array: [T::empty(); N], length: 0 }

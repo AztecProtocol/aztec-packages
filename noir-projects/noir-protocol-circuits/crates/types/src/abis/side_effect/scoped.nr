@@ -28,7 +28,7 @@ where
 
 impl<T> Empty for Scoped<T>
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     fn empty() -> Self {
         Self { inner: T::empty(), contract_address: AztecAddress::empty() }
