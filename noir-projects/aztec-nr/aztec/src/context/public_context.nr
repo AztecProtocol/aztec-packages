@@ -24,9 +24,9 @@ impl PublicContext {
         PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
-    pub fn emit_public_log<T, let N: u32>(_self: &mut Self, log: T)
+    pub fn emit_public_log<T>(_self: &mut Self, log: T)
     where
-        T: Serialize<N>,
+        T: Serialize,
     {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { emit_public_log(Serialize::serialize(log).as_slice()) };

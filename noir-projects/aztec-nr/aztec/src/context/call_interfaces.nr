@@ -622,7 +622,7 @@ impl<let M: u32, T> CallInterface<M> for PublicStaticCallInterface<M, T> {
 
 // PublicStaticVoidCallInterface
 
-pub struct PublicStaticVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct PublicStaticVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -632,7 +632,7 @@ pub struct PublicStaticVoidCallInterface<let M: u32, T, let N: u32> {
     gas_opts: GasOpts,
 }
 
-impl<let M: u32, T, let N: u32> PublicStaticVoidCallInterface<M, T, N> {
+impl<let M: u32, T> PublicStaticVoidCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -678,7 +678,7 @@ impl<let M: u32, T, let N: u32> PublicStaticVoidCallInterface<M, T, N> {
     }
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for PublicStaticVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for PublicStaticVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -702,7 +702,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for PublicStaticVoidCallInterfa
 
 // UtilityCallInterface
 
-pub struct UtilityCallInterface<let M: u32, T, let N: u32> {
+pub struct UtilityCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -711,7 +711,7 @@ pub struct UtilityCallInterface<let M: u32, T, let N: u32> {
     return_type: T,
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for UtilityCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -733,7 +733,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityCallInterface<M, T, 
     }
 }
 
-impl<let M: u32, T, let N: u32> UtilityCallInterface<M, T, N> {
+impl<let M: u32, T> UtilityCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -763,7 +763,7 @@ impl<let M: u32, T, let N: u32> UtilityCallInterface<M, T, N> {
 
 // UtilityVoidCallInterface
 
-pub struct UtilityVoidCallInterface<let M: u32, T, let N: u32> {
+pub struct UtilityVoidCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
@@ -772,7 +772,7 @@ pub struct UtilityVoidCallInterface<let M: u32, T, let N: u32> {
     return_type: T,
 }
 
-impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityVoidCallInterface<M, T, N> {
+impl<let M: u32, T> CallInterface<M> for UtilityVoidCallInterface<M, T> {
     fn get_args(self) -> [Field] {
         self.args
     }
@@ -794,7 +794,7 @@ impl<let M: u32, T, let N: u32> CallInterface<M> for UtilityVoidCallInterface<M,
     }
 }
 
-impl<let M: u32, T, let N: u32> UtilityVoidCallInterface<M, T, N> {
+impl<let M: u32, T> UtilityVoidCallInterface<M, T> {
     pub fn new(
         target_contract: AztecAddress,
         selector: FunctionSelector,
@@ -822,7 +822,7 @@ impl<let M: u32, T, let N: u32> UtilityVoidCallInterface<M, T, N> {
     }
 }
 
-pub trait TXEPublicCallInterface<T, let N: u32> {
+pub trait TXEPublicCallInterface<T> {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field);
 }
 

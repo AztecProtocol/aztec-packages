@@ -27,9 +27,9 @@ impl<T> CapsuleArray<T> {
     }
 
     /// Stores a value at the end of the array.
-    pub unconstrained fn push<let N: u32>(self, value: T)
+    pub unconstrained fn push(self, value: T)
     where
-        T: Serialize<N>,
+        T: Serialize,
     {
         let current_length = self.len();
 
