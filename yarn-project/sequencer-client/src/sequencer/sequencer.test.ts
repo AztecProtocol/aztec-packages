@@ -84,17 +84,16 @@ describe('sequencer', () => {
   const getSignatures = () => [mockedAttestation];
 
   const getAttestations = () => {
-    const attestation = new BlockAttestation(
-      block.header.globalVariables.blockNumber,
-      ConsensusPayload.fromBlock(block),
-      mockedSig,
-    );
+    const consensusPayload = ConsensusPayload.fromBlock(block);
+    const attestation = new BlockAttestation(block.header.globalVariables.blockNumber, consensusPayload, mockedSig);
     (attestation as any).sender = committee[0];
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(block.header.globalVariables.blockNumber, ConsensusPayload.fromBlock(block), mockedSig);
+    const consensusPayload = ConsensusPayload.fromBlock(block);
+    const txHashes = block.body.txEffects.map(tx => tx.txHash);
+    return new BlockProposal(block.header.globalVariables.blockNumber, consensusPayload, mockedSig, txHashes);
   };
 
   const processTxs = async (txs: Tx[]) => {
@@ -603,7 +602,7 @@ class TestSubject extends Sequencer {
     return super.doRealWork();
   }
 
-  public override getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
-    return super.getDefaultBlockBuilderOptions(slot);
+  public override getBlockBuilderOptions(slot: number): PublicProcessorLimits {
+    return super.getBlockBuilderOptions(slot);
   }
 }

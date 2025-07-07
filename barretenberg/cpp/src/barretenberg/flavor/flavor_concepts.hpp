@@ -37,7 +37,7 @@ concept HasDataBus = IsMegaFlavor<T>;
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
+template <typename T> concept UseRowDisablingPolynomial = !IsAnyOf<T,TranslatorFlavor, TranslatorRecursiveFlavor>;
 
 template <typename T>
 concept HasIPAAccumulator = IsAnyOf<T, UltraRollupFlavor, UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
@@ -52,16 +52,13 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
-                                       TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
-                                       TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
-                                       ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-                                       AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                       AvmRecursiveFlavor_<MegaCircuitBuilder>,
-                                       avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                       avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
+                                       TranslatorRecursiveFlavor,
+                                       ECCVMRecursiveFlavor,
+                                       AvmRecursiveFlavor,
+                                       avm2::AvmRecursiveFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor>;
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
     for (auto [label, data] : zip_view(container.get_labels(), container.get_all())) {

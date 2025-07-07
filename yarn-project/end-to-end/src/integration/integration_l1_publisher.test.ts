@@ -2,6 +2,7 @@ import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -14,12 +15,13 @@ import {
   createExtendedL1Client,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -40,6 +42,7 @@ import {
 } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import type { Anvil } from '@viem/anvil';
 import { writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
@@ -64,12 +67,8 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 const logger = createLogger('integration_l1_publisher');
 
 const config = getConfigEnvVars();
-config.l1RpcUrls = config.l1RpcUrls || ['http://127.0.0.1:8545'];
 
 const numberOfConsecutiveBlocks = 2;
-
-const BLOB_SINK_PORT = 5052;
-const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 jest.setTimeout(1000000);
 
@@ -105,6 +104,9 @@ describe('L1Publisher integration', () => {
   let ethCheatCodes: EthCheatCodesWithState;
   let worldStateSynchronizer: ServerWorldStateSynchronizer;
 
+  let rpcUrl: string;
+  let anvil: Anvil;
+
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
   // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
   // If running ANVIL locally, you can use ETHEREUM_HOSTS="http://0.0.0.0:8545"
@@ -120,6 +122,9 @@ describe('L1Publisher integration', () => {
   };
 
   beforeEach(async () => {
+    ({ rpcUrl, anvil } = await startAnvil());
+    config.l1RpcUrls = [rpcUrl];
+
     deployerAccount = privateKeyToAccount(deployerPK);
     ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
       aztecTargetCommitteeSize: 0,
@@ -195,19 +200,21 @@ describe('L1Publisher integration', () => {
     );
     const dateProvider = new TestDateProvider();
     const epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
+    const blobSinkClient = createBlobSinkClient();
+
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
-        l1ChainId: 31337,
+        l1ChainId: chainId,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
-        blobSinkUrl: BLOB_SINK_URL,
         customForwarderContractAddress: EthAddress.ZERO,
       },
       {
+        blobSinkClient,
         l1TxUtils,
         rollupContract,
         epochCache,
@@ -235,6 +242,7 @@ describe('L1Publisher integration', () => {
   });
 
   afterEach(async () => {
+    await anvil.stop();
     await worldStateSynchronizer.stop();
   });
 
@@ -346,7 +354,7 @@ describe('L1Publisher integration', () => {
 
     const buildAndPublishBlock = async (numTxs: number, jsonFileNamePrefix: string) => {
       const archiveInRollup_ = await rollup.archive();
-      expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
+      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
       const blockNumber = await l1Client.getBlockNumber();
 
@@ -409,7 +417,7 @@ describe('L1Publisher integration', () => {
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
 
-        let prevBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
 
         blocks.push(block);
         allBlobs.push(...blockBlobs);
@@ -446,7 +454,7 @@ describe('L1Publisher integration', () => {
           (await rollup.getEpochNumber(thisBlockNumber)) > (await rollup.getEpochNumber(thisBlockNumber - 1n));
         // If we are at the first blob of the epoch, we must initialise the hash:
         prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
-        const currentBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
         blockBlobs
           .map(b => b.commitment)
@@ -469,7 +477,6 @@ describe('L1Publisher integration', () => {
               oracleInput: {
                 feeAssetPriceModifier: 0n,
               },
-              txHashes: [],
             },
             RollupContract.packAttestations([]),
             Blob.getPrefixedEthBlobCommitments(blockBlobs),
@@ -527,10 +534,10 @@ describe('L1Publisher integration', () => {
   describe('error handling', () => {
     let loggerErrorSpy: ReturnType<(typeof jest)['spyOn']>;
 
-    it.skip(`shows propose custom errors if tx reverts`, async () => {
+    it(`shows propose custom errors if tx simulation fails`, async () => {
       // REFACTOR: code below is duplicated from "builds blocks of 2 empty txs building on each other"
       const archiveInRollup_ = await rollup.archive();
-      expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
+      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
       // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
       // because the INBOX.consume does not match the header.contentCommitment.inHash and we get
@@ -555,65 +562,15 @@ describe('L1Publisher integration', () => {
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
 
-      // Inspect logger
+      // Expect the simulation to fail
       loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
-
-      // Expect the tx to revert
-      expect(await publisher.enqueueProposeL2Block(block)).toEqual(true);
-
-      await expect(publisher.sendRequests()).resolves.toMatchObject({
-        errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
-      });
-
-      // Test for both calls
-      // NOTE: First error is from the simulate fn, which isn't supported by anvil
-      expect(loggerErrorSpy).toHaveBeenCalledTimes(3);
-
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        1,
-        'Forwarder transaction failed',
-        undefined,
-        expect.objectContaining({
-          receipt: expect.objectContaining({
-            type: 'eip4844',
-            blockHash: expect.any(String),
-            blockNumber: expect.any(BigInt),
-            transactionHash: expect.any(String),
-          }),
-        }),
-      );
+      await expect(publisher.enqueueProposeL2Block(block)).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
-        expect.stringContaining('Bundled [propose] transaction [failed]'),
-      );
-
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        3,
-        expect.stringMatching(
-          /^Rollup process tx reverted\. The contract function "forward" reverted\. Error: Rollup__InvalidInHash/i,
-        ),
+        expect.stringMatching('Rollup__InvalidInHash'),
         undefined,
-        expect.objectContaining({
-          blockNumber: expect.any(Number),
-          slotNumber: expect.any(BigInt),
-          txHash: expect.any(String),
-          txCount: expect.any(Number),
-          blockTimestamp: expect.any(Number),
-        }),
+        expect.objectContaining({ blockNumber: 1 }),
       );
     });
   });
 });
-
-/**
- * Converts a hex string into a buffer. String may be 0x-prefixed or not.
- */
-function hexStringToBuffer(hex: string): Buffer {
-  if (!/^(0x)?[a-fA-F0-9]+$/.test(hex)) {
-    throw new Error(`Invalid format for hex string: "${hex}"`);
-  }
-  if (hex.length % 2 === 1) {
-    throw new Error(`Invalid length for hex string: "${hex}"`);
-  }
-  return Buffer.from(hex.replace(/^0x/, ''), 'hex');
-}

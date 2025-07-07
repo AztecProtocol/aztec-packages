@@ -9,9 +9,9 @@
 
 namespace bb::avm2 {
 
-template <typename BuilderType> class AvmRecursiveFlavor_ {
+class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = MegaCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
@@ -61,7 +61,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
         using Base::Base;
     };
 
-    class VerificationKey : public StdlibVerificationKey_<BuilderType, NativeFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey
+        : public StdlibVerificationKey_<CircuitBuilder, NativeFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {

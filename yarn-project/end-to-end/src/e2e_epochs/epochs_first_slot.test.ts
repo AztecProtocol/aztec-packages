@@ -1,12 +1,12 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, type Logger } from '@aztec/aztec.js';
+import { EthAddress, type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import { type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
+import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -16,13 +16,16 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-const NODE_COUNT = 3;
-const TX_COUNT = 3;
+const NODE_COUNT = 8;
+const COMMITTEE_SIZE = 3;
+const TX_COUNT = 2;
+const EPOCH = 3n;
 
-// After setup, stops the initial sequencer and spawns NODE_COUNT validator nodes,
-// connected via a mocked gossip sub network. Then mines N txs across N blocks,
-// checking that no sequencer errors occur during block building and publishing.
-describe('e2e_epochs/epochs_monitor_block_building', () => {
+// Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
+// committee size to 3. Warps to immediately before the beginning of an epoch, and checks
+// that the first slot of the epoch is mined without any errors.
+// Regression test for https://github.com/AztecProtocol/aztec-packages/issues/15414
+describe('e2e_epochs/epochs_first_slot', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
@@ -45,8 +48,14 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
+      aztecEpochDuration: 32,
       startProverNode: false,
+      aztecTargetCommitteeSize: COMMITTEE_SIZE,
       enforceTimeTable: true,
+      minTxsPerBlock: 1,
+      maxTxsPerBlock: 1,
+      attestationPropagationTime: 0.5,
+      maxL1TxInclusionTimeIntoSlot: 0,
     });
 
     ({ context, logger } = test);
@@ -58,7 +67,7 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, minTxsPerBlock: 1, maxTxsPerBlock: 1 }),
+      test.createValidatorNode([privateKey], { dontStartSequencer: true, txDelayerMaxInclusionTimeIntoSlot: 1 }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
@@ -72,51 +81,26 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     await test.teardown();
   });
 
-  it('builds blocks without any errors', async () => {
-    // Create and submit a bunch of txs
+  it('builds blocks on the first two slots of the epoch', async () => {
+    // Create and submit txs for the first two slots of the epoch
+    // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
     const txs = await timesAsync(TX_COUNT, i => contract.methods.spam(i, 1n, false).prove());
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
     logger.warn(`Sent ${sentTxs.length} transactions`, {
       txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
     });
 
-    // Listen to all failure related events of the sequencers.
-    const failEvents: (keyof SequencerEvents)[] = [
-      'block-build-failed',
-      'block-publish-failed',
-      'proposer-rollup-check-failed',
-      'tx-count-check-failed',
-    ];
     const sequencers = nodes.map(node => node.getSequencer()!);
-    const events: TrackedSequencerEvent[] = [];
-    sequencers.forEach((sequencer, i) => {
-      const sequencerIndex = i + 2;
-      sequencer.getSequencer().on('state-changed', (args: Parameters<SequencerEvents['state-changed']>[0]) => {
-        const noisyStates = [SequencerState.IDLE, SequencerState.PROPOSER_CHECK, SequencerState.SYNCHRONIZING];
-        if (!noisyStates.includes(args.newState)) {
-          logger.verbose(
-            `Sequencer ${sequencerIndex} transitioned from state ${args.oldState} to state ${args.newState} (${validators[i].attester})`,
-            args,
-          );
-        }
-      });
-      failEvents.forEach(eventName => {
-        sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
-          events.push({
-            ...args,
-            type: eventName,
-            sequencerIndex,
-            validator: validators[i].attester,
-          } as TrackedSequencerEvent);
-          logger.error(
-            `Failed event ${eventName} from sequencer ${sequencerIndex} (${validators[i].attester})`,
-            events.at(-1)!,
-          );
-        });
-      });
+    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
+
+    // Warp to before the first slot of an epoch, so that the sequencers are ready to build blocks.
+    const [epochStart] = getTimestampRangeForEpoch(EPOCH, test.constants);
+    await test.context.cheatCodes.eth.warp(Number(epochStart) - test.L1_BLOCK_TIME_IN_S, {
+      resetBlockInterval: true,
+      updateDateProvider: test.context.dateProvider,
     });
 
-    // Start the sequencers!
+    // Start the sequencers
     await Promise.all(sequencers.map(sequencer => sequencer.start()));
     logger.warn(`Started all sequencers`);
 
@@ -124,21 +108,21 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     const timeout = test.L2_SLOT_DURATION_IN_S * (TX_COUNT * 2 + 1) * 1000;
     await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait())), timeout);
     logger.warn(`All txs have been mined`);
+    await sleep(1000);
+
+    // Check that the first two slots of the epoch have a block
+    const blocks = await nodes[0].getBlocks(1, 10);
+    const slots = blocks.map(block => block.header.getSlot());
+    const [firstSlot] = getSlotRangeForEpoch(EPOCH, test.constants);
+    expect(slots).toContain(firstSlot);
+    expect(slots).toContain(firstSlot + 1n);
 
     // Expect no failures from sequencers during block building.
     // The following error is marked as a flake on the test ignore patterns,
     // so we can have this test run for a while before it breaks CI on a recoverable error.
-    if (events.length > 0) {
-      logger.error(`Failed events from sequencers`, events);
+    if (failEvents.length > 0) {
+      logger.error(`Failed events from sequencers`, failEvents);
     }
-    expect(events).toEqual([]);
+    expect(failEvents).toEqual([]);
   });
 });
-
-type TrackedSequencerEvent = {
-  [K in keyof SequencerEvents]: Parameters<SequencerEvents[K]>[0] & {
-    type: K;
-    sequencerIndex: number;
-    validator: EthAddress;
-  };
-}[keyof SequencerEvents];
