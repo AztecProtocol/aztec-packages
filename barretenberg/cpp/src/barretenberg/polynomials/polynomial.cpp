@@ -49,20 +49,20 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
     size_t range_per_thread = size / num_threads;
     size_t leftovers = size - (range_per_thread * num_threads);
 
-    // parallel_for(num_threads, [&](size_t j) {
-    for (size_t j = 0; j < num_threads; j++) {
+    parallel_for(num_threads, [&](size_t j) {
+        // for (size_t j = 0; j < num_threads; j++) {
         size_t offset = j * range_per_thread;
         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
         ASSERT(offset < size || size == 0);
         BB_ASSERT_LTE((offset + range), size);
         // std::cout << "JONATHAN: memset " << coefficients_.data() << ' ' << offset << ' ' << sizeof(Fr) * range
         //           << std::endl;
-        info("JONATHAN: ", offset, ' ', sizeof(Fr) * range);
-        ASSERT(coefficients_.data(), "data should not be null");
+        // info("JONATHAN: ", offset, ' ', sizeof(Fr) * range);
+        // ASSERT(coefficients_.data(), "data should not be null");
         memset(static_cast<void*>(coefficients_.data() + offset), 0, sizeof(Fr) * range);
         // std::cout << "JONATHAN: memset finish" << std::endl;
-        // });
-    }
+        // }
+    });
 }
 
 /**

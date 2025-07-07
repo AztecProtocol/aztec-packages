@@ -38,11 +38,15 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
 
     struct MemoryResource {
         // Create a new file-backed memory region
-        MemoryResource(size_t file_size, const std::string& filename)
-            : file_size(file_size)
+        MemoryResource(size_t size, const std::string& filename)
+            : file_size(size * sizeof(T))
             , filename(filename)
-            , fd(open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644))
         {
+            if (file_size == 0) {
+                return;
+            }
+
+            fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
             // Create file
             if (fd < 0) {
                 throw std::runtime_error("Failed to create backing file: " + filename);
@@ -56,11 +60,12 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
             // Memory map the file
             void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
             if (addr == MAP_FAILED) {
+                info(file_size, ' ', PROT_READ | PROT_WRITE, ' ', MAP_SHARED, ' ', fd, ' ', 0);
                 throw std::runtime_error("Failed to mmap file");
             }
 
             memory = static_cast<T*>(addr);
-            info("JONATHAN ", this, memory, filename);
+            // info("JONATHAN ", file_size, ' ', filename);
         }
 
         MemoryResource(const MemoryResource&) = delete;            // delete copy constructor
@@ -71,7 +76,10 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
 
         ~MemoryResource()
         {
-            std::cout << "JONATHAN ~MemoryResource " << this << std::endl;
+            if (file_size == 0) {
+                return;
+            }
+            // std::cout << "JONATHAN ~MemoryResource " << this << std::endl;
             if (memory != nullptr && file_size > 0) {
                 munmap(memory, file_size);
             }
