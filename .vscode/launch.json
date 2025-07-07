@@ -36,7 +36,7 @@
       "name": "Debug CIVC transaction",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-low-memory/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/bb",
       "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack"],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
