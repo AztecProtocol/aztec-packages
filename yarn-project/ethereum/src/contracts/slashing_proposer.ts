@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
@@ -23,6 +24,7 @@ export class ProposalAlreadyExecutedError extends Error {
 }
 
 export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
+  private readonly logger = createLogger('SlashingProposerContract');
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
   constructor(
@@ -123,8 +125,11 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
   public waitForRound(round: bigint, pollingIntervalSeconds: number = 1): Promise<boolean> {
     return retryUntil(
       async () => {
-        const currentRound = await this.proposer.read.getCurrentRound().catch(() => 0n);
-        return currentRound >= round;
+        const currentRound = await this.proposer.read.getCurrentRound().catch(e => {
+          this.logger.error('Error getting current round', e);
+          return undefined;
+        });
+        return currentRound !== undefined && currentRound >= round;
       },
       `Waiting for round ${round} to be reached`,
       0, // no timeout
