@@ -44,11 +44,33 @@
       ],
     },
     {
-      "name": "Debug Test",
+      "name": "Debug BB API Test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/vm2_tests",
-      "args": ["--gtest_filter=AvmRecursiveTests.GoblinRecursion"],
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/api_tests",
+      "args": ["--gtest_filter=ClientIVCAPITests.ProveAndVerifyFileBasedFlow"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB ClientIVC Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/client_ivc_tests",
+      "args": ["--gtest_filter=ClientIVCTests.ProveAndVerifyFileBasedFlow"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug BB DSL Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/dsl_tests",
+      "args": ["--gtest_filter=IvcRecursionConstraintTest.AccumulateTwo"],
       "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"

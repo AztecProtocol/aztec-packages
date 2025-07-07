@@ -135,14 +135,16 @@ class MockCircuits {
      * @param num_gates
      */
     template <typename Builder>
-    static void construct_arithmetic_circuit(Builder& builder, const size_t target_log2_dyadic_size = 4)
+    static void construct_arithmetic_circuit(Builder& builder,
+                                             const size_t target_log2_dyadic_size = 4,
+                                             bool include_public_inputs = true)
     {
         const size_t target_dyadic_size = 1 << target_log2_dyadic_size;
         const size_t num_preamble_gates = builder.num_gates;
         ASSERT(target_dyadic_size >= num_preamble_gates);
 
         // For good measure, include a gate with some public inputs
-        if (target_dyadic_size > num_preamble_gates) {
+        if (include_public_inputs && target_dyadic_size > num_preamble_gates) {
             add_arithmetic_gates_with_public_inputs(builder, 1);
         }
 
