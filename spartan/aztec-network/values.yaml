@@ -82,6 +82,19 @@ aztec:
   ## The number of extra accounts to prefund
   extraAccounts: 10
 
+  slash:
+    payloadTtlSeconds: "27648"
+    pruneEnabled: false
+    prunePenalty: "17000000000000000000"
+    pruneMaxPenalty: "17000000000000000000"
+    inactivityEnabled: false
+    inactivityCreateTargetPercentage: 1
+    inactivitySignalTargetPercentage: 1
+    inactivityCreatePenalty: "17000000000000000000"
+    invalidBlockEnabled: false
+    invalidBlockPenalty: "100000000000000000000"
+    invalidBlockMaxPenalty: "100000000000000000000"
+
 bootNode:
   enabled: true
   peerIdPrivateKey: ""
