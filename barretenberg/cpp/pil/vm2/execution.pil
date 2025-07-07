@@ -266,7 +266,7 @@ pol commit expected_tag_reg[7];
 // The "output we want is" sel_register_read_error from execution_registers.pil.
 
 /**************************************************************************************************
- *  Temporality group 4: Gas (will be moved here).
+ *  Temporality group 4: Gas.
  **************************************************************************************************/
 
 pol commit sel_should_check_gas;
