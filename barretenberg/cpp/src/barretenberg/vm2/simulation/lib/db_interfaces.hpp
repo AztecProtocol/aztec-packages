@@ -72,7 +72,7 @@ class HighLevelMerkleDBInterface {
   public:
     virtual ~HighLevelMerkleDBInterface() = default;
 
-    virtual InternalTreeSnapshots get_tree_roots() const = 0;
+    virtual TreeSnapshots get_tree_roots() const = 0;
     virtual TreeStates get_tree_state() const = 0;
 
     virtual FF storage_read(const AztecAddress& contract_address, const FF& slot) const = 0;

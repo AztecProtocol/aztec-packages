@@ -32,11 +32,10 @@ std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassI
 }
 
 // Merkle DB starts.
-InternalTreeSnapshots MerkleDB::get_tree_roots() const
+TreeSnapshots MerkleDB::get_tree_roots() const
 {
     // No event generated.
-    return InternalTreeSnapshots(raw_merkle_db.get_tree_roots(),
-                                 written_public_data_slots_tree_stack.top().get_snapshot());
+    return raw_merkle_db.get_tree_roots();
 }
 
 TreeStates MerkleDB::get_tree_state() const
@@ -46,8 +45,9 @@ TreeStates MerkleDB::get_tree_state() const
     return { .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = note_hash_counter },
              .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = nullifier_counter },
              .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree, .counter = l2_to_l1_msg_counter },
-             .publicDataTree = tree_snapshots.publicDataTree,
-             .writtenPublicDataSlotsTree = written_public_data_slots_tree_stack.top().get_snapshot() };
+             .publicDataTree = { .tree = tree_snapshots.publicDataTree, .counter = written_public_data_slots.size() },
+             .writtenPublicDataSlotsTree = { .tree = written_public_data_slots.snapshot(),
+                                             .counter = written_public_data_slots.size() } };
 }
 
 FF MerkleDB::storage_read(const AztecAddress& contract_address, const FF& slot) const
@@ -92,38 +92,13 @@ void MerkleDB::storage_write(const AztecAddress& contract_address,
     // Sanity check.
     assert(snapshot_after == get_tree_roots().publicDataTree);
     if (!is_protocol_write) {
-        auto& tree = written_public_data_slots_tree_stack.top();
-        auto slot_snapshot_before = tree.get_snapshot();
-        auto slot_insertion_result = tree.insert_indexed_leaves({ { WrittenPublicDataSlotLeafValue(leaf_slot) } });
-        auto& slot_low_leaf_witness = slot_insertion_result.low_leaf_witness_data.at(0);
-        auto& slot_insertion_witness = slot_insertion_result.insertion_witness_data.at(0);
-
-        AppendOnlyTreeSnapshot slot_snapshot_after =
-            written_public_data_slots_tree_check.upsert(slot,
-                                                        contract_address,
-                                                        slot_low_leaf_witness.leaf,
-                                                        slot_low_leaf_witness.index,
-                                                        slot_low_leaf_witness.path,
-                                                        slot_snapshot_before,
-                                                        slot_insertion_witness.path);
-        (void)slot_snapshot_after; // Silence unused variable warning when assert is stripped out
-        // Sanity check.
-        assert(slot_snapshot_after == get_tree_roots().writtenPublicDataSlotsTree);
+        written_public_data_slots.insert(contract_address, slot);
     }
 }
 
 bool MerkleDB::was_storage_written(const AztecAddress& contract_address, const FF& slot) const
 {
-    const auto& tree = written_public_data_slots_tree_stack.top();
-    auto [present, index] = tree.get_low_indexed_leaf(unconstrained_compute_leaf_slot(contract_address, slot));
-
-    auto path = tree.get_sibling_path(index);
-    auto preimage = tree.get_leaf_preimage(index);
-
-    written_public_data_slots_tree_check.assert_read(
-        slot, contract_address, present, preimage, index, path, tree.get_snapshot());
-
-    return present;
+    return written_public_data_slots.contains(contract_address, slot);
 }
 
 bool MerkleDB::nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const
@@ -284,7 +259,7 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 void MerkleDB::create_checkpoint()
 {
     raw_merkle_db.create_checkpoint();
-    written_public_data_slots_tree_stack.push(written_public_data_slots_tree_stack.top());
+    written_public_data_slots.create_checkpoint();
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_created();
     }
@@ -293,9 +268,7 @@ void MerkleDB::create_checkpoint()
 void MerkleDB::commit_checkpoint()
 {
     raw_merkle_db.commit_checkpoint();
-    WrittenPublicDataSlotsTree current_tree = std::move(written_public_data_slots_tree_stack.top());
-    written_public_data_slots_tree_stack.pop();
-    written_public_data_slots_tree_stack.top() = std::move(current_tree);
+    written_public_data_slots.commit_checkpoint();
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_committed();
     }
@@ -304,7 +277,7 @@ void MerkleDB::commit_checkpoint()
 void MerkleDB::revert_checkpoint()
 {
     raw_merkle_db.revert_checkpoint();
-    written_public_data_slots_tree_stack.pop();
+    written_public_data_slots.revert_checkpoint();
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_reverted();
     }

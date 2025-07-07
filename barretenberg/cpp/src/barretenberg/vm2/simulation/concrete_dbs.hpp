@@ -47,18 +47,16 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
              PublicDataTreeCheckInterface& public_data_tree_check,
              NullifierTreeCheckInterface& nullifier_tree_check,
              NoteHashTreeCheckInterface& note_hash_tree_check,
-             WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree_check)
+             WrittenPublicDataSlotsInterface& written_public_data_slots)
         : raw_merkle_db(raw_merkle_db)
         , public_data_tree_check(public_data_tree_check)
         , nullifier_tree_check(nullifier_tree_check)
         , note_hash_tree_check(note_hash_tree_check)
-        , written_public_data_slots_tree_check(written_public_data_slots_tree_check)
-    {
-        written_public_data_slots_tree_stack.push(build_public_data_slots_tree());
-    }
+        , written_public_data_slots(written_public_data_slots)
+    {}
 
     // Unconstrained.
-    InternalTreeSnapshots get_tree_roots() const override;
+    TreeSnapshots get_tree_roots() const override;
     TreeStates get_tree_state() const override;
     void create_checkpoint() override;
     void commit_checkpoint() override;
@@ -92,15 +90,13 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     bool nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const;
     bool nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier);
 
-    std::stack<WrittenPublicDataSlotsTree> written_public_data_slots_tree_stack = {};
-
     LowLevelMerkleDBInterface& raw_merkle_db;
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
     // It's usually ok for mutexes but a gadget is big...
     PublicDataTreeCheckInterface& public_data_tree_check;
     NullifierTreeCheckInterface& nullifier_tree_check;
     NoteHashTreeCheckInterface& note_hash_tree_check;
-    WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree_check;
+    WrittenPublicDataSlotsInterface& written_public_data_slots;
 
     // Counters only in the HighLevel interface.
     uint32_t nullifier_counter = 0;

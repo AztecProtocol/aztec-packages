@@ -7,7 +7,7 @@
 
 namespace bb::avm2::simulation {
 
-class MockWrittenPublicDataSlotsTreeCheck : public WrittenPublicDataSlotsTreeCheckInterface {
+class MockWrittenPublicDataSlotsTreeCheck : public WrittenPublicDataSlotsInterface {
   public:
     MockWrittenPublicDataSlotsTreeCheck();
     ~MockWrittenPublicDataSlotsTreeCheck() override;

@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
 
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -20,15 +21,16 @@ void WrittenPublicDataSlotsTreeCheck::validate_low_leaf_jumps_over_slot(
     }
 }
 
-void WrittenPublicDataSlotsTreeCheck::assert_read(const FF& slot,
-                                                  const AztecAddress& contract_address,
-                                                  bool exists,
-                                                  const WrittenPublicDataSlotsTreeLeafPreimage& low_leaf_preimage,
-                                                  uint64_t low_leaf_index,
-                                                  std::span<const FF> sibling_path,
-                                                  const AppendOnlyTreeSnapshot& snapshot)
+bool WrittenPublicDataSlotsTreeCheck::contains(const AztecAddress& contract_address, const FF& slot)
 {
     FF leaf_slot = compute_leaf_slot(contract_address, slot);
+
+    const auto& tree = written_public_data_slots_tree_stack.top();
+    const auto snapshot = tree.get_snapshot();
+    auto [exists, low_leaf_index] = tree.get_low_indexed_leaf(leaf_slot);
+    auto sibling_path = tree.get_sibling_path(low_leaf_index);
+    auto low_leaf_preimage = tree.get_leaf_preimage(low_leaf_index);
+
     // Low leaf membership
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());
     merkle_check.assert_membership(low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
@@ -51,18 +53,20 @@ void WrittenPublicDataSlotsTreeCheck::assert_read(const FF& slot,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
     });
+
+    return exists;
 }
 
-AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::upsert(
-    const FF& slot,
-    const AztecAddress& contract_address,
-    const WrittenPublicDataSlotsTreeLeafPreimage& low_leaf_preimage,
-    uint64_t low_leaf_index,
-    std::span<const FF> low_leaf_sibling_path,
-    const AppendOnlyTreeSnapshot& prev_snapshot,
-    std::span<const FF> insertion_sibling_path)
+void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_address, const FF& slot)
 {
     FF leaf_slot = compute_leaf_slot(contract_address, slot);
+
+    auto& tree = written_public_data_slots_tree_stack.top();
+    AppendOnlyTreeSnapshot prev_snapshot = tree.get_snapshot();
+    auto insertion_result = tree.insert_indexed_leaves({ { WrittenPublicDataSlotLeafValue(leaf_slot) } });
+    auto& [low_leaf_preimage, low_leaf_index, low_leaf_sibling_path] = insertion_result.low_leaf_witness_data.at(0);
+    std::span<FF> insertion_sibling_path = insertion_result.insertion_witness_data.at(0).path;
+
     bool exists = leaf_slot == low_leaf_preimage.leaf.slot;
 
     AppendOnlyTreeSnapshot next_snapshot = prev_snapshot;
@@ -95,6 +99,7 @@ AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::upsert(
             .root = write_root,
             .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1,
         };
+        assert(next_snapshot == tree.get_snapshot());
         append_data = SlotAppendData{
             .updated_low_leaf_hash = updated_low_leaf_hash,
             .new_leaf_hash = new_leaf_hash,
@@ -114,8 +119,34 @@ AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::upsert(
         .write = true,
         .append_data = append_data,
     });
+}
 
-    return next_snapshot;
+AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::snapshot() const
+{
+    return written_public_data_slots_tree_stack.top().get_snapshot();
+}
+
+uint32_t WrittenPublicDataSlotsTreeCheck::size() const
+{
+    // -1 Since the tree has a prefill leaf at index 0.
+    return static_cast<uint32_t>(written_public_data_slots_tree_stack.top().get_snapshot().nextAvailableLeafIndex) - 1;
+}
+
+void WrittenPublicDataSlotsTreeCheck::create_checkpoint()
+{
+    written_public_data_slots_tree_stack.push(written_public_data_slots_tree_stack.top());
+}
+
+void WrittenPublicDataSlotsTreeCheck::commit_checkpoint()
+{
+    WrittenPublicDataSlotsTree current_tree = std::move(written_public_data_slots_tree_stack.top());
+    written_public_data_slots_tree_stack.pop();
+    written_public_data_slots_tree_stack.top() = std::move(current_tree);
+}
+
+void WrittenPublicDataSlotsTreeCheck::revert_checkpoint()
+{
+    written_public_data_slots_tree_stack.pop();
 }
 
 } // namespace bb::avm2::simulation
