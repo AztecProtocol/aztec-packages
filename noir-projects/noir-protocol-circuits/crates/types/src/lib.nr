@@ -25,14 +25,14 @@ pub mod tuple_serialization;
 pub mod shared_mutable;
 pub mod proposed_block_header;
 
-pub(crate) mod tests;
-
 pub mod proof;
 pub mod data;
 pub mod storage;
 pub mod validate;
 pub mod meta;
 pub mod indexed_tagging_secret;
+
+pub(crate) mod tests;
 
 pub use abis::kernel_circuit_public_inputs::{
     PrivateKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,

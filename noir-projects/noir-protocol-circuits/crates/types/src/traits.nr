@@ -332,7 +332,7 @@ impl<let M: u32> Serialize for str<M> {
     #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
         let bytes = self.as_bytes();
-        let mut fields = [0; N];
+        let mut fields = [0; Self::N];
         for i in 0..bytes.len() {
             fields[i] = bytes[i] as Field;
         }
