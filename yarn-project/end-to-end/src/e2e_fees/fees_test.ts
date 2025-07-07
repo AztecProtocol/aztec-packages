@@ -8,7 +8,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
@@ -125,13 +125,13 @@ export class FeesTest {
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
     const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
-    this.chainMonitor = new ChainMonitor(rollupContract, this.logger, 200).start();
+    this.chainMonitor = new ChainMonitor(rollupContract, context.dateProvider, this.logger, 200).start();
 
     return this;
   }
 
   async teardown() {
-    this.chainMonitor.stop();
+    await this.chainMonitor.stop();
     await this.snapshotManager.teardown();
   }
 
@@ -325,7 +325,7 @@ export class FeesTest {
           // We round up
           const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
 
-          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp.toBigInt());
+          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp);
           const proverCost =
             mulDiv(
               mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),

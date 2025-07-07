@@ -1,14 +1,26 @@
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
+import type { BlockHeader, Tx, TxHash, TxWithHash } from '@aztec/stdlib/tx';
+
+export type TxPoolOptions = {
+  maxTxPoolSize?: number;
+  txPoolOverflowFactor?: number;
+  archivedTxLimit?: number;
+};
+
+export type TxPoolEvents = {
+  ['txs-added']: (args: { txs: TxWithHash[]; source?: string }) => void | Promise<void>;
+};
 
 /**
  * Interface of a transaction pool. The pool includes tx requests and is kept up-to-date by a P2P client.
  */
-export interface TxPool {
+export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
   /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
+   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
    */
-  addTxs(txs: Tx[]): Promise<void>;
+  addTxs(txs: Tx[], opts?: { source?: string }): Promise<number>;
 
   /**
    * Checks if a transaction exists in the pool and returns it.
@@ -41,8 +53,9 @@ export interface TxPool {
   /**
    * Marks the set of txs as mined, as opposed to pending.
    * @param txHashes - Hashes of the txs to flag as mined.
+   * @param blockHeader - The header of the mined block.
    */
-  markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void>;
+  markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void>;
 
   /**
    * Moves mined txs back to the pending set in the case of a reorg.
@@ -95,7 +108,7 @@ export interface TxPool {
    * Configure the maximum size of the tx pool
    * @param maxSizeBytes - The maximum size in bytes of the mempool. Set to undefined to disable it
    */
-  setMaxTxPoolSize(maxSizeBytes: number | undefined): Promise<void>;
+  updateConfig(config: TxPoolOptions): void;
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;

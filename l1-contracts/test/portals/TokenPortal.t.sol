@@ -76,7 +76,8 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
 
     // Modify the proven block count
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber);
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(l2BlockNumber);
     assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
@@ -218,7 +219,7 @@ contract TokenPortalTest is Test {
     bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }

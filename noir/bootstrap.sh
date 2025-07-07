@@ -160,7 +160,9 @@ function test {
 function test_cmds {
   local test_hash=$NOIR_HASH
   cd noir-repo
-  cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
+
+  NOIR_TEST_FILTER="not (package(noir_ast_fuzzer_fuzz) or package(noir_ast_fuzzer))"
+  cargo nextest list --workspace --locked --release -Tjson-pretty -E "$NOIR_TEST_FILTER" 2>/dev/null | \
       jq -r '
         .["rust-suites"][] |
         .testcases as $tests |
@@ -223,10 +225,13 @@ function bump_noir_repo_ref {
   git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
   scripts/sync.sh write-noir-repo-ref $ref
 
+  # Update the Cargo.lock file in the transpiler to match the new ref.
+  cargo check --manifest-path="../avm-transpiler/Cargo.toml"
+
   # Build nargo and run formatter on `noir-projects`
   build_native
   ../noir-projects/bootstrap.sh format
-  git add .
+  git add ../
   git commit -m "chore: Update noir-repo-ref to $ref" || true
   do_or_dryrun git push --set-upstream origin $branch
 }

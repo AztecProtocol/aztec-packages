@@ -15,6 +15,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -37,6 +38,7 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
 import {
   type IndexedTxEffect,
   PrivateExecutionResult,
+  SimulationOverrides,
   Tx,
   TxHash,
   TxReceipt,
@@ -157,7 +159,14 @@ describe('PXESchema', () => {
   });
 
   it('simulateTx(all)', async () => {
-    const result = await context.client.simulateTx(await TxExecutionRequest.random(), true, address, false, true, []);
+    const result = await context.client.simulateTx(
+      await TxExecutionRequest.random(),
+      true,
+      false,
+      true,
+      { msgSender: address, contracts: {} },
+      [],
+    );
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
@@ -191,7 +200,7 @@ describe('PXESchema', () => {
   it('getTxEffect', async () => {
     const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
     expect(data).toBeInstanceOf(TxEffect);
-    expect(l2BlockHash).toMatch(/0x[a-fA-F0-9]{64}/);
+    expect(l2BlockHash).toBeInstanceOf(L2BlockHash);
     expect(l2BlockNumber).toBe(1);
   });
 
@@ -371,10 +380,13 @@ class MockPXE implements PXE {
     const provingTime = skipProofGeneration ? 1 : undefined;
     return Promise.resolve(
       new TxProfileResult([], {
-        perFunction: [{ functionName: 'something', time: 1 }],
-        proving: provingTime,
-        unaccounted: 1,
-        total: 2,
+        nodeRPCCalls: { getBlockNumber: { times: [1] } },
+        timings: {
+          perFunction: [{ functionName: 'something', time: 1 }],
+          proving: provingTime,
+          unaccounted: 1,
+          total: 2,
+        },
       }),
     );
   }
@@ -388,14 +400,14 @@ class MockPXE implements PXE {
   async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
-    msgSender?: AztecAddress,
     _skipTxValidation?: boolean,
-    _enforceFeePayment?: boolean,
+    _skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    if (msgSender) {
-      expect(msgSender).toBeInstanceOf(AztecAddress);
+    if (overrides?.msgSender) {
+      expect(overrides.msgSender).toBeInstanceOf(AztecAddress);
     }
     if (scopes) {
       expect(scopes).toEqual([]);
@@ -414,7 +426,7 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return {
       data: await TxEffect.random(),
-      l2BlockHash: Fr.random().toString(),
+      l2BlockHash: L2BlockHash.random(),
       l2BlockNumber: 1,
       txIndexInBlock: randomInt(10),
     };
@@ -443,6 +455,10 @@ class MockPXE implements PXE {
     expect(typeof blockNumber).toEqual('number');
     expect(l2Tol1Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random<number>(4)]);
+  }
+  getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
+    expect(typeof blockNumber).toEqual('number');
+    return Promise.resolve([[Fr.random()], [Fr.random(), Fr.random()]]);
   }
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));

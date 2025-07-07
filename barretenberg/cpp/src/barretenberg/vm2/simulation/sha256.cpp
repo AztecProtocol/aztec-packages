@@ -40,7 +40,8 @@ void Sha256::compression(ContextInterface& context,
         memory.set(output_addr + i, MemoryValue::from<uint32_t>(output[i]));
     }
 
-    events.emit({ .state_addr = state_addr,
+    events.emit({ .execution_clk = execution_id_manager.get_execution_id(),
+                  .state_addr = state_addr,
                   .input_addr = input_addr,
                   .output_addr = output_addr,
                   .state = state,

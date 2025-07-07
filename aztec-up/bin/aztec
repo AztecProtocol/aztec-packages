@@ -70,6 +70,7 @@ case ${1:-} in
 
     # TODO: Need to force ipv4 here with 127.0.0.1 for some reason. TXE's not on ipv6?
     exec $(dirname $0)/.aztec-run "" bash -c "
+      export LOG_LEVEL=${LOG_LEVEL:-"info"}
       node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
       while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
       export NARGO_FOREIGN_CALL_TIMEOUT=300000
@@ -99,7 +100,7 @@ case ${1:-} in
       export WS_BLOCK_CHECK_INTERVAL_MS=500
       export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
       export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
-      export LOG_LEVEL=${LOG_LEVEL:-info}
+      export LOG_LEVEL=${LOG_LEVEL:-info;silent:sequencer;verbose:debug_log}
       export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}
 
 
@@ -109,9 +110,10 @@ case ${1:-} in
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+        anvil --version
         anvil --host 0.0.0.0 --silent &
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
-      "
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"\$@\"
+      " bash "$@"
     else
 
       export P2P_PORT="${P2P_PORT:-40400}"
@@ -140,8 +142,8 @@ case ${1:-} in
         export PORTS_TO_EXPOSE=""
       fi
 
-      DOCKER_RESTART_POLICY="no"
-      DOCKER_PULL_POLICY="always"
+      export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
+      export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"

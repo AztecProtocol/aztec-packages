@@ -16,13 +16,11 @@ namespace bb {
  * @brief Oink Prover function that runs all the rounds of the verifier
  * @details Returns the witness commitments and relation_parameters
  * @tparam Flavor
- * @return OinkProverOutput<Flavor>
  */
-template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
-    if (proving_key->proving_key.commitment_key == nullptr) {
-        proving_key->proving_key.commitment_key =
-            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    if (!proving_key->proving_key.commitment_key.initialized()) {
+        proving_key->proving_key.commitment_key = CommitmentKey(proving_key->proving_key.circuit_size);
     }
     {
 
@@ -67,10 +65,17 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 
     // #ifndef __wasm__
     // Free the commitment key
-    proving_key->proving_key.commitment_key = nullptr;
+    proving_key->proving_key.commitment_key = CommitmentKey();
     // #endif
+}
 
-    return transcript->proof_data;
+/**
+ * @brief Export the Oink proof
+ */
+
+template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::export_proof()
+{
+    return transcript->export_proof();
 }
 
 /**
@@ -80,14 +85,12 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
-    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
-    const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
-
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
-
+    honk_vk->add_to_transcript(domain_separator, *transcript);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
+    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
+        vinfo("vk hash in Oink prover: ", vkey_hash);
+    }
     BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 
     for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {
@@ -126,7 +129,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
                 transcript->send_to_verifier(domain_separator + label,
-                                             proving_key->proving_key.commitment_key->commit(polynomial));
+                                             proving_key->proving_key.commitment_key.commit(polynomial));
             };
         }
 
@@ -263,7 +266,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 
     typename Flavor::Commitment commitment;
 
-    commitment = proving_key->proving_key.commitment_key->commit_with_type(
+    commitment = proving_key->proving_key.commitment_key.commit_with_type(
         polynomial, type, proving_key->proving_key.active_region_data.get_ranges());
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);

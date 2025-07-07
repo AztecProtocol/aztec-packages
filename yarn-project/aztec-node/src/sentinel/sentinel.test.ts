@@ -5,7 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import type { SlasherConfig } from '@aztec/slasher/config';
-import { Offence, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   type L2BlockStream,
@@ -49,11 +49,13 @@ describe('sentinel', () => {
     | 'slashInactivityCreateTargetPercentage'
     | 'slashInactivityCreatePenalty'
     | 'slashInactivitySignalTargetPercentage'
+    | 'slashInactivityMaxPenalty'
     | 'slashPayloadTtlSeconds'
   > = {
     slashInactivityCreatePenalty: 100n,
     slashInactivityCreateTargetPercentage: 0.8,
     slashInactivitySignalTargetPercentage: 0.6,
+    slashInactivityMaxPenalty: 200n,
     slashPayloadTtlSeconds: 60 * 60,
   };
 
@@ -75,10 +77,10 @@ describe('sentinel', () => {
       slotDuration: 24,
       epochDuration: 8,
       ethereumSlotDuration: 12,
-      proofSubmissionWindow: 16,
+      proofSubmissionEpochs: 1,
     };
 
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, now: ts });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
@@ -247,7 +249,7 @@ describe('sentinel', () => {
         return header;
       });
 
-      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts });
+      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts, now: ts });
       archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
 
@@ -308,11 +310,13 @@ describe('sentinel', () => {
         fromSlot: headerSlots[0],
         toSlot: headerSlots[headerSlots.length - 1],
       });
-      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
-        validators: [validator2.toString()],
-        amounts: [config.slashInactivityCreatePenalty],
-        offenses: [Offence.INACTIVITY],
-      });
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: validator2,
+          amount: config.slashInactivityCreatePenalty,
+          offense: Offense.INACTIVITY,
+        },
+      ]);
     });
 
     it('should agree with slash', async () => {
@@ -332,20 +336,36 @@ describe('sentinel', () => {
       sentinel.handleProvenPerformance(performance);
       const penalty = config.slashInactivityCreatePenalty;
 
-      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
-        validators: [`0x0000000000000000000000000000000000000008`, `0x0000000000000000000000000000000000000009`],
-        amounts: [penalty, penalty],
-        offenses: [Offence.INACTIVITY, Offence.INACTIVITY],
-      });
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: EthAddress.fromString(`0x0000000000000000000000000000000000000008`),
+          amount: penalty,
+          offense: Offense.INACTIVITY,
+        },
+        {
+          validator: EthAddress.fromString(`0x0000000000000000000000000000000000000009`),
+          amount: penalty,
+          offense: Offense.INACTIVITY,
+        },
+      ]);
 
       for (let i = 0; i < 10; i++) {
         const expectedAgree = i >= 6;
-        const actualAgree = await sentinel.shouldSlash(
-          `0x000000000000000000000000000000000000000${i}`,
-          penalty,
-          Offence.INACTIVITY,
-        );
+        const actualAgree = await sentinel.shouldSlash({
+          validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
+          amount: config.slashInactivityMaxPenalty,
+          offense: Offense.INACTIVITY,
+        });
         expect(actualAgree).toBe(expectedAgree);
+
+        // We never slash if the penalty is above the max penalty
+        await expect(
+          sentinel.shouldSlash({
+            validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
+            amount: config.slashInactivityMaxPenalty + 1n,
+            offense: Offense.INACTIVITY,
+          }),
+        ).resolves.toBe(false);
       }
     });
   });
@@ -362,6 +382,7 @@ class TestSentinel extends Sentinel {
       | 'slashInactivityCreateTargetPercentage'
       | 'slashInactivityCreatePenalty'
       | 'slashInactivitySignalTargetPercentage'
+      | 'slashInactivityMaxPenalty'
       | 'slashPayloadTtlSeconds'
     >,
     protected override blockStream: L2BlockStream,

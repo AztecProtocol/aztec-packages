@@ -493,7 +493,7 @@ export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) =
 }
 
 /** If we are in test mode, we register a special equality for fields. */
-if (process.env.NODE_ENV === 'test' && typeof expect !== 'undefined') {
+if (process.env.NODE_ENV === 'test') {
   const areFieldsEqual = (a: unknown, b: unknown): boolean | undefined => {
     const isAField = a instanceof BaseField;
     const isBField = b instanceof BaseField;
@@ -507,6 +507,11 @@ if (process.env.NODE_ENV === 'test' && typeof expect !== 'undefined') {
     }
   };
 
-  // `addEqualityTesters` doesn't seem to be in the types yet.
-  (expect as any).addEqualityTesters([areFieldsEqual]);
+  if (typeof expect !== 'undefined') {
+    // `addEqualityTesters` doesn't seem to be in the types yet.
+    (expect as any).addEqualityTesters([areFieldsEqual]);
+  } else {
+    (globalThis as any).__extraEqualityTesters ??= [];
+    (globalThis as any).__extraEqualityTesters.push(areFieldsEqual);
+  }
 }

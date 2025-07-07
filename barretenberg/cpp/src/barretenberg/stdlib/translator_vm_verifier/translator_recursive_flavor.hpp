@@ -28,12 +28,12 @@ namespace bb {
  * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class TranslatorRecursiveFlavor_ {
+class TranslatorRecursiveFlavor {
 
   public:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
     // needed
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = UltraCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;
@@ -105,7 +105,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -134,5 +134,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

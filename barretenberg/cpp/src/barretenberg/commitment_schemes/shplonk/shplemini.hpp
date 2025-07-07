@@ -35,7 +35,7 @@ template <typename Curve> class ShpleminiProver_ {
     static OpeningClaim prove(const FF circuit_size,
                               PolynomialBatcher& polynomial_batcher,
                               std::span<FF> multilinear_challenge,
-                              const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                              const CommitmentKey<Curve>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
                               const std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS>& libra_polynomials = {},
                               const std::vector<Polynomial>& sumcheck_round_univariates = {},
@@ -218,6 +218,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1463): Investigate whether this function can be
+        // simplified using the new Shplonk api
         const size_t virtual_log_n = multivariate_challenge.size();
 
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();

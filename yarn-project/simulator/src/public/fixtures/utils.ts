@@ -19,13 +19,13 @@ import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
-  RollupValidationRequests,
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   BlockHeader,
+  GlobalVariables,
   HashedValues,
   PublicCallRequestWithCalldata,
   Tx,
@@ -35,16 +35,28 @@ import {
 
 import { strict as assert } from 'assert';
 
+export type TestPrivateInsertions = {
+  revertible?: {
+    nullifiers?: Fr[];
+    noteHashes?: Fr[];
+  };
+  nonRevertible?: {
+    nullifiers?: Fr[];
+    noteHashes?: Fr[];
+  };
+};
+
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
 export function createTxForPublicCalls(
-  firstNullifier: Fr,
+  privateInsertions: TestPrivateInsertions,
   setupCallRequests: PublicCallRequestWithCalldata[],
   appCallRequests: PublicCallRequestWithCalldata[],
   teardownCallRequest?: PublicCallRequestWithCalldata,
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
+  globals: GlobalVariables = GlobalVariables.empty(),
 ): Tx {
   assert(
     setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
@@ -54,8 +66,38 @@ export function createTxForPublicCalls(
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
-  // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
-  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier;
+
+  // Non revertible private insertions
+  if (!privateInsertions.nonRevertible?.nullifiers?.length) {
+    throw new Error('At least one non-revertible nullifier is required');
+  }
+
+  for (let i = 0; i < privateInsertions.nonRevertible.nullifiers.length; i++) {
+    assert(i < forPublic.nonRevertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
+    forPublic.nonRevertibleAccumulatedData.nullifiers[i] = privateInsertions.nonRevertible.nullifiers[i];
+  }
+  if (privateInsertions.nonRevertible.noteHashes) {
+    for (let i = 0; i < privateInsertions.nonRevertible.noteHashes.length; i++) {
+      assert(i < forPublic.nonRevertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
+      forPublic.nonRevertibleAccumulatedData.noteHashes[i] = privateInsertions.nonRevertible.noteHashes[i];
+    }
+  }
+
+  // Revertible private insertions
+  if (privateInsertions.revertible) {
+    if (privateInsertions.revertible.noteHashes) {
+      for (let i = 0; i < privateInsertions.revertible.noteHashes.length; i++) {
+        assert(i < forPublic.revertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
+        forPublic.revertibleAccumulatedData.noteHashes[i] = privateInsertions.revertible.noteHashes[i];
+      }
+    }
+    if (privateInsertions.revertible.nullifiers) {
+      for (let i = 0; i < privateInsertions.revertible.nullifiers.length; i++) {
+        assert(i < forPublic.revertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
+        forPublic.revertibleAccumulatedData.nullifiers[i] = privateInsertions.revertible.nullifiers[i];
+      }
+    }
+  }
 
   for (let i = 0; i < setupCallRequests.length; i++) {
     forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
@@ -71,13 +113,16 @@ export function createTxForPublicCalls(
   const teardownGasLimits = teardownCallRequest ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+  const header = BlockHeader.empty();
+  header.globalVariables = globals;
+  const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
+  const includeByTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    RollupValidationRequests.empty(),
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
+    includeByTimestamp,
     forPublic,
   );
 
@@ -100,12 +145,13 @@ export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedBy
   const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+  const includeByTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    RollupValidationRequests.empty(),
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
+    includeByTimestamp,
     /*forPublic=*/ undefined,
     forRollup,
   );
@@ -127,10 +173,10 @@ export async function addNewContractClassToTx(
   ];
   const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
   const emittedLength = contractClassLogFields.length;
-  const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+  const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 
   const contractClassLogHash = LogHash.from({
-    value: await log.hash(),
+    value: await logFields.hash(),
     length: emittedLength,
   }).scope(contractAddress);
 
@@ -143,7 +189,7 @@ export async function addNewContractClassToTx(
   const nextLogIndex = countAccumulatedItems(accumulatedData.contractClassLogsHashes);
   accumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
 
-  tx.contractClassLogs.push(log);
+  tx.contractClassLogFields.push(logFields);
 }
 
 export async function addNewContractInstanceToTx(

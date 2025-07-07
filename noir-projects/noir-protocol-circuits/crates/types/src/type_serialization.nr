@@ -20,7 +20,7 @@ impl Serialize<BOOL_SERIALIZED_LEN> for bool {
 
 impl Deserialize<BOOL_SERIALIZED_LEN> for bool {
     fn deserialize(fields: [Field; BOOL_SERIALIZED_LEN]) -> bool {
-        fields[0] as bool
+        fields[0] != 0
     }
 }
 
@@ -98,49 +98,49 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
 
 impl Serialize<I8_SERIALIZED_LEN> for i8 {
     fn serialize(self) -> [Field; I8_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u8 as Field]
     }
 }
 
 impl Deserialize<I8_SERIALIZED_LEN> for i8 {
     fn deserialize(fields: [Field; I8_SERIALIZED_LEN]) -> Self {
-        fields[0] as i8
+        fields[0] as u8 as i8
     }
 }
 
 impl Serialize<I16_SERIALIZED_LEN> for i16 {
     fn serialize(self) -> [Field; I16_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u16 as Field]
     }
 }
 
 impl Deserialize<I16_SERIALIZED_LEN> for i16 {
     fn deserialize(fields: [Field; I16_SERIALIZED_LEN]) -> Self {
-        fields[0] as i16
+        fields[0] as u16 as i16
     }
 }
 
 impl Serialize<I32_SERIALIZED_LEN> for i32 {
     fn serialize(self) -> [Field; I32_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u32 as Field]
     }
 }
 
 impl Deserialize<I32_SERIALIZED_LEN> for i32 {
     fn deserialize(fields: [Field; I32_SERIALIZED_LEN]) -> Self {
-        fields[0] as i32
+        fields[0] as u32 as i32
     }
 }
 
 impl Serialize<I64_SERIALIZED_LEN> for i64 {
     fn serialize(self) -> [Field; I64_SERIALIZED_LEN] {
-        [self as Field]
+        [self as u64 as Field]
     }
 }
 
 impl Deserialize<I64_SERIALIZED_LEN> for i64 {
     fn deserialize(fields: [Field; I64_SERIALIZED_LEN]) -> Self {
-        fields[0] as i64
+        fields[0] as u64 as i64
     }
 }
 
@@ -172,32 +172,90 @@ where
     }
 }
 
-#[test]
-fn test_u16_serialization() {
-    let a: u16 = 10;
-    assert_eq(a, u16::deserialize(a.serialize()));
+impl<T, let N: u32> Serialize<N + 1> for Option<T>
+where
+    T: Serialize<N>,
+{
+    fn serialize(self) -> [Field; N + 1] {
+        let mut result: [Field; N + 1] = std::mem::zeroed();
+
+        result[0] = if self.is_some() { 1 } else { 0 };
+
+        let value_serialized = self.unwrap_unchecked().serialize();
+        for i in 0..N {
+            result[1 + i] = value_serialized[i];
+        }
+
+        result
+    }
 }
 
-#[test]
-fn test_i8_serialization() {
-    let a: i8 = -10;
-    assert_eq(a, i8::deserialize(a.serialize()));
+impl<T, let N: u32> Deserialize<N + 1> for Option<T>
+where
+    T: Deserialize<N>,
+{
+    fn deserialize(fields: [Field; N + 1]) -> Self {
+        if fields[0] == 1 {
+            let mut value_serialized: [Field; N] = std::mem::zeroed();
+            for i in 0..N {
+                value_serialized[i] = fields[1 + i];
+            }
+
+            Option::some(T::deserialize(value_serialized))
+        } else {
+            Option::none()
+        }
+    }
 }
 
-#[test]
-fn test_i16_serialization() {
-    let a: i16 = -10;
-    assert_eq(a, i16::deserialize(a.serialize()));
-}
+mod test {
+    use crate::traits::{Deserialize, Serialize};
 
-#[test]
-fn test_i32_serialization() {
-    let a: i32 = -10;
-    assert_eq(a, i32::deserialize(a.serialize()));
-}
+    #[test]
+    fn u16_serialization() {
+        let a: u16 = 10;
+        assert_eq(a, u16::deserialize(a.serialize()));
+    }
 
-#[test]
-fn test_i64_serialization() {
-    let a: i64 = -10;
-    assert_eq(a, i64::deserialize(a.serialize()));
+    #[test]
+    fn i8_serialization() {
+        let a: i8 = -10;
+        assert_eq(a, i8::deserialize(a.serialize()));
+    }
+
+    #[test]
+    fn i16_serialization() {
+        let a: i16 = -10;
+        assert_eq(a, i16::deserialize(a.serialize()));
+    }
+
+    #[test]
+    fn i32_serialization() {
+        let a: i32 = -10;
+        assert_eq(a, i32::deserialize(a.serialize()));
+    }
+
+    #[test]
+    fn i64_serialization() {
+        let a: i64 = -10;
+        assert_eq(a, i64::deserialize(a.serialize()));
+    }
+
+    #[test]
+    fn option_field_serialization() {
+        let opt_some = Option::some(5);
+        assert_eq(Option::<_>::deserialize(opt_some.serialize()), opt_some);
+
+        let opt_none = Option::none();
+        assert_eq(Option::<Field>::deserialize(opt_none.serialize()), opt_none);
+    }
+
+    #[test]
+    fn option_array_serialization() {
+        let opt_some = Option::some([2, 5]);
+        assert_eq(Option::<_>::deserialize(opt_some.serialize()), opt_some);
+
+        let opt_none = Option::none();
+        assert_eq(Option::<Field>::deserialize(opt_none.serialize()), opt_none);
+    }
 }

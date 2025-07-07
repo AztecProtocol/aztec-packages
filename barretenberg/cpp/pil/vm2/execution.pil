@@ -1,14 +1,6 @@
 include "alu.pil";
-include "addressing.pil";
-include "address_derivation.pil";
-include "bc_decomposition.pil";
-include "bc_hashing.pil";
-include "bc_retrieval.pil";
-include "instr_fetching.pil";
-include "class_id_derivation.pil";
 include "range_check.pil";
 include "bitwise.pil";
-include "merkle_check.pil";
 include "memory.pil";
 include "keccakf1600.pil";
 include "precomputed.pil";
@@ -21,18 +13,276 @@ include "to_radix.pil";
 include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
-include "public_data_check.pil";
-include "update_check.pil";
-include "nullifier_check.pil";
 include "public_inputs.pil";
-include "gas.pil";
+
+include "data_copy.pil";
+include "internal_call_stack.pil";
+
+include "execution/discard.pil";
+include "execution/addressing.pil";
+include "execution/registers.pil";
+include "execution/gas.pil";
+
+include "trees/merkle_check.pil";
+include "trees/nullifier_check.pil";
+include "trees/public_data_check.pil";
+
+include "bytecode/address_derivation.pil";
+include "bytecode/bc_decomposition.pil";
+include "bytecode/bc_hashing.pil";
+include "bytecode/bc_retrieval.pil";
+include "bytecode/instr_fetching.pil";
+include "bytecode/class_id_derivation.pil";
+include "bytecode/update_check.pil";
+
+include "opcodes/get_env_var.pil";
+include "opcodes/internal_call.pil";
+include "opcodes/external_call.pil";
 
 namespace execution;
 
-pol commit sel; // subtrace selector
-
+// If `sel` is 0, then the Execution relation should pass.
 #[skippable_if]
 sel = 0;
+
+pol commit sel; // subtrace selector
+pol commit last; // last row selector
+sel * (1 - sel) = 0;
+last * (1 - last) = 0;
+
+// Selector indicating enqueued call boundaries.
+// Used by TX trace for lookups to dispatch and retrieve results/reverted.
+pol commit enqueued_call_start;
+pol commit enqueued_call_end;
+
+// (enqueued_call_start == 1) <==> (is first active execution row)
+//                               or (is first active row after an enqueued call ends)
+// In other words, if this is the very first (inactive) row, or an enqueued call end,
+// and the next row is active, that next row is an enqueued call start.
+#[ENQUEUED_CALL_START]
+enqueued_call_start' = (precomputed.first_row + enqueued_call_end) * sel';
+
+// (enqueued_call_end == 1) <==> (is exit from top-level context)
+#[ENQUEUED_CALL_END]
+enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
+
+
+/**************************************************************************************************
+ *  Setup (some general constraints)
+ **************************************************************************************************/
+
+// If sel = 0, and it's not the first row, then all following rows should have sel = 0.
+#[TRACE_CONTINUITY]
+(1 - sel) * (1 - precomputed.first_row) * sel' = 0;
+#[LAST_IS_LAST]
+last = sel * (1 - sel');
+
+/**************************************************************************************************
+ *  Temporality group 1: Bytecode retrieval (unconditional)
+ **************************************************************************************************/
+
+pol commit bytecode_id;
+pol commit sel_bytecode_retrieval_failure;
+
+#[BYTECODE_RETRIEVAL_RESULT]
+sel {
+    bytecode_id, contract_address, sel_bytecode_retrieval_failure
+} in bc_retrieval.sel {
+    bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
+};
+
+pol commit sel_bytecode_retrieval_success;
+// If sel = 0, we want sel_bytecode_retrieval_success = 0. We shouldn't be using it.
+sel_bytecode_retrieval_success = sel * (1 - sel_bytecode_retrieval_failure);
+
+/**************************************************************************************************
+ *  Temporality group 2: Instruction fetching
+ **************************************************************************************************/
+
+pol commit instr_length; // Need this for shift col on next_pc
+pol commit sel_instruction_fetching_failure;
+
+pol commit ex_opcode;
+pol commit indirect;
+pol commit op[7];  // operands
+
+// We now proceed to fetch the instruction.
+// The handling is slightly subtle: suppose fetching fails, then in simulation/tracegen
+// we will NOT have the partial information of the instruction, and to be honest we
+// ideally want to leave it unconstrained. This is why we do 2 lookups instead of 1.
+// TODO: We can consider optimizing this later, but it is probably the cleanest right now.
+
+#[INSTRUCTION_FETCHING_RESULT]
+sel_bytecode_retrieval_success {
+    pc, bytecode_id, sel_instruction_fetching_failure
+} in instr_fetching.sel {
+    instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
+};
+
+pol commit sel_instruction_fetching_success;
+// If sel = 0, we want sel_instruction_fetching_success = 0. We shouldn't be using it.
+sel_instruction_fetching_success = sel * (1 - sel_instruction_fetching_failure);
+
+#[INSTRUCTION_FETCHING_BODY]
+sel_instruction_fetching_success {
+    pc, bytecode_id, ex_opcode, instr_length,
+    indirect, op[0], op[1], op[2], op[3], op[4], op[5], op[6]
+} in instr_fetching.sel {
+    instr_fetching.pc,
+    instr_fetching.bytecode_id,
+    instr_fetching.exec_opcode,
+    instr_fetching.instr_size,
+    instr_fetching.indirect,
+    instr_fetching.op1,
+    instr_fetching.op2,
+    instr_fetching.op3,
+    instr_fetching.op4,
+    instr_fetching.op5,
+    instr_fetching.op6,
+    instr_fetching.op7
+};
+
+/**************************************************************************************************
+ *  Temporality group 2
+ *  - Mapping from wire instruction to execution instruction
+ *  - Addressing
+ **************************************************************************************************/
+
+// TODO(fcarreiro): Ideally we would use this one as selector for readability, but it's not supported yet.
+// pol SEL_SHOULD_READ_EXEC_SPEC = sel_instruction_fetching_success;
+#[EXEC_SPEC_READ]
+sel_instruction_fetching_success {
+    ex_opcode,
+    // in gas.pil.
+    opcode_gas,
+    base_da_gas,
+    dynamic_l2_gas,
+    dynamic_da_gas,
+    // addressing
+    sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
+    sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
+    // subtraces, mem ops, etc (defined later in this file)
+    subtrace_operation_id, sel_execution, sel_alu, sel_bitwise, sel_poseidon2_perm,
+    sel_to_radix, sel_ecc_add, sel_keccakf1600, sel_data_copy,
+    // register information
+    sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5], sel_mem_op_reg[6],
+    rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5], rw_reg[6],
+    sel_tag_check_reg[0], sel_tag_check_reg[1], sel_tag_check_reg[2], sel_tag_check_reg[3], sel_tag_check_reg[4], sel_tag_check_reg[5], sel_tag_check_reg[6],
+    expected_tag_reg[0], expected_tag_reg[1], expected_tag_reg[2], expected_tag_reg[3], expected_tag_reg[4], expected_tag_reg[5], expected_tag_reg[6]
+} in
+precomputed.sel_exec_spec {
+    // execution opcode
+    precomputed.clk,
+    // gas
+    precomputed.exec_opcode_opcode_gas,
+    precomputed.exec_opcode_base_da_gas,
+    precomputed.exec_opcode_dynamic_l2_gas,
+    precomputed.exec_opcode_dynamic_da_gas,
+    // addressing
+    precomputed.sel_op_is_address[0],
+    precomputed.sel_op_is_address[1],
+    precomputed.sel_op_is_address[2],
+    precomputed.sel_op_is_address[3],
+    precomputed.sel_op_is_address[4],
+    precomputed.sel_op_is_address[5],
+    precomputed.sel_op_is_address[6],
+    // subtraces
+    precomputed.subtrace_operation_id,
+    precomputed.sel_dispatch_execution,
+    precomputed.sel_dispatch_alu,
+    precomputed.sel_dispatch_bitwise,
+    precomputed.sel_dispatch_poseidon_perm,
+    precomputed.sel_dispatch_to_radix,
+    precomputed.sel_dispatch_ecc,
+    precomputed.sel_dispatch_keccakf1600,
+    precomputed.sel_dispatch_data_copy,
+    // whether we should perform a memory operation on the register
+    precomputed.sel_mem_op_reg[0],
+    precomputed.sel_mem_op_reg[1],
+    precomputed.sel_mem_op_reg[2],
+    precomputed.sel_mem_op_reg[3],
+    precomputed.sel_mem_op_reg[4],
+    precomputed.sel_mem_op_reg[5],
+    precomputed.sel_mem_op_reg[6],
+    // read / write per register
+    precomputed.rw_reg[0],
+    precomputed.rw_reg[1],
+    precomputed.rw_reg[2],
+    precomputed.rw_reg[3],
+    precomputed.rw_reg[4],
+    precomputed.rw_reg[5],
+    precomputed.rw_reg[6],
+    // whether we should perform a tag check on the register
+    precomputed.sel_tag_check_reg[0],
+    precomputed.sel_tag_check_reg[1],
+    precomputed.sel_tag_check_reg[2],
+    precomputed.sel_tag_check_reg[3],
+    precomputed.sel_tag_check_reg[4],
+    precomputed.sel_tag_check_reg[5],
+    precomputed.sel_tag_check_reg[6],
+    // expected register tag to perform the check against
+    precomputed.expected_tag_reg[0],
+    precomputed.expected_tag_reg[1],
+    precomputed.expected_tag_reg[2],
+    precomputed.expected_tag_reg[3],
+    precomputed.expected_tag_reg[4],
+    precomputed.expected_tag_reg[5],
+    precomputed.expected_tag_reg[6]
+};
+
+//////// ADDRESSING ////////
+
+// This is an "input" to addressing.pil.
+pol SEL_SHOULD_RESOLVE_ADDRESS = /*should do instruction fetching*/sel_bytecode_retrieval_success * sel_instruction_fetching_success;
+
+// resolved operands
+pol commit rop[7];
+
+// NOTE: Constraints on the resolved operands are in addressing.pil.
+// The "output we want is" sel_addressing_error from addressing.pil.
+
+/**************************************************************************************************
+ *  Temporality group 3: Register read.
+ **************************************************************************************************/
+
+pol commit sel_should_read_registers;
+sel_should_read_registers = SEL_SHOULD_RESOLVE_ADDRESS * (1 - sel_addressing_error);
+
+// Registers
+pol commit register[7];
+// Memory Acccesses
+pol commit sel_mem_op_reg[7];
+// Read / Write selectors
+pol commit rw_reg[7];
+// Memory Tag
+pol commit mem_tag_reg[7];
+// Whether we should perform a tag check on the register
+pol commit sel_tag_check_reg[7];
+// Expected tag
+pol commit expected_tag_reg[7];
+
+// NOTE: Constraints on the registers are in execution_registers.pil.
+// The "output we want is" sel_register_read_error from execution_registers.pil.
+
+/**************************************************************************************************
+ *  Temporality group 4: Gas.
+ **************************************************************************************************/
+
+pol commit sel_should_check_gas;
+sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error);
+
+// NOTE: Gas is constrained in gas.pil.
+// The "output we want is" sel_out_of_gas from gas.pil.
+
+/**************************************************************************************************
+ *  Temporality group 5: Opcode execution
+ **************************************************************************************************/
+
+pol commit sel_should_execute_opcode;
+sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
+
+pol commit sel_opcode_error;
+sel_opcode_error * (1 - sel_opcode_error) = 0;
 
 // Subtrace operation id
 pol commit subtrace_operation_id;
@@ -42,71 +292,119 @@ pol commit subtrace_operation_id;
 pol commit sel_alu;
 pol commit sel_bitwise;
 pol commit sel_to_radix;
-pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+pol commit sel_ecc_add;
+pol commit sel_execution;
+pol commit sel_data_copy;
 
-pol commit ex_opcode;
-pol commit indirect;
-// operands
-pol commit op1, op2, op3, op4;
-pol commit op5, op6, op7;
-// resolved operands
-pol commit rop1, rop2, rop3, rop4;
-pol commit rop5, rop6, rop7;
-// Registers
-pol commit reg1, reg2, reg3, reg4;
-pol commit reg5, reg6, reg7;
-// Memory Acccesses
-pol commit mem_op1, mem_op2, mem_op3, mem_op4;
-pol commit mem_op5, mem_op6, mem_op7;
-// Memory Tag
-pol commit mem_tag1, mem_tag2, mem_tag3, mem_tag4;
-pol commit mem_tag5, mem_tag6, mem_tag7;
-// Read / Write selectors
-pol commit rw1, rw2, rw3, rw4;
-pol commit rw5, rw6, rw7;
+// Embedded execution opcode selectors
+pol commit sel_get_env_var;
+pol commit sel_set;
+pol commit sel_mov;
+pol commit sel_jump;
+pol commit sel_jumpi;
+pol commit sel_call;
+pol commit sel_static_call;
+pol commit sel_internal_call;
+pol commit sel_internal_return;
+pol commit sel_return;
+pol commit sel_revert;
+pol commit sel_success_copy;
+pol commit sel_returndata_size;
 
-pol commit bytecode_id;
-pol commit instr_length; // Need this for shift col on next_pc, will be part of lookup to instr_fetch
-pol commit last;
+#[EXEC_OP_ID_DECOMPOSITION]
+sel_execution * (
+   sel_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
+   sel_set * constants.AVM_EXEC_OP_ID_SET +
+   sel_mov * constants.AVM_EXEC_OP_ID_MOV +
+   sel_jump * constants.AVM_EXEC_OP_ID_JUMP +
+   sel_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +
+   sel_call * constants.AVM_EXEC_OP_ID_CALL +
+   sel_static_call * constants.AVM_EXEC_OP_ID_STATICCALL +
+   sel_internal_call * constants.AVM_EXEC_OP_ID_INTERNALCALL +
+   sel_internal_return * constants.AVM_EXEC_OP_ID_INTERNALRETURN +
+   sel_return * constants.AVM_EXEC_OP_ID_RETURN +
+   sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
+   sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
+   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE
+   - subtrace_operation_id
+) = 0;
 
-// Selector constraints
-sel * (1 - sel) = 0;
-last * (1 - last) = 0;
+// Boolean relations for the embedded execution opcode selectors.
+sel_get_env_var * (1 - sel_get_env_var) = 0;
+sel_set * (1 - sel_set) = 0;
+sel_mov * (1 - sel_mov) = 0;
+sel_jump * (1 - sel_jump) = 0;
+sel_jumpi * (1 - sel_jumpi) = 0;
+sel_call * (1 - sel_call) = 0;
+sel_static_call * (1 - sel_static_call) = 0;
+sel_internal_call * (1 - sel_internal_call) = 0;
+sel_internal_return * (1 - sel_internal_return) = 0;
+sel_return * (1 - sel_return) = 0;
+sel_revert * (1 - sel_revert) = 0;
+sel_success_copy * (1 - sel_success_copy) = 0;
+sel_returndata_size * (1 - sel_returndata_size) = 0;
 
-// If the current row is an execution row, then either
-// the next row is an execution row, or the current row is marked as the last row.
-// sel => (sel' v last) = 1              iff
-// ¬sel v (sel' v last) = 1              iff
-// ¬(¬sel v (sel' v last)) = 0           iff
-// sel ^ (¬sel' ^ ¬last) = 0             iff
-// sel * (1 - sel') * (1 - last) = 0
-#[TRACE_CONTINUITY_1]
-sel * (1 - sel') * (1 - last) = 0;
-// If the current row is not an execution row, then there are no more execution rows after that.
-// (not enforced for the first row)
-#[TRACE_CONTINUITY_2]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-// If the current row is the last row, then the next row is not an execution row.
-#[LAST_IS_LAST]
-last * sel' = 0;
+// This is used in context.pil
+pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
 
-// These are needed to have a non-empty set of columns for each type.
-pol public input;
+// Whether the opcode logic failed.
+pol commit sel_opcode_failure;
+sel_opcode_failure * (1 - sel_opcode_failure) = 0;
+pol commit sel_keccakf1600;
 
-#[EXEC_SPEC_READ]
-sel {
-    ex_opcode,
-    opcode_gas,
-    base_da_gas,
-    dynamic_l2_gas,
-    dynamic_da_gas
-    // Mem ops, subtrace selectors, etc
-} in
-precomputed.sel_exec_spec {
-    precomputed.clk,
-    precomputed.exec_opcode_opcode_gas,
-    precomputed.exec_opcode_base_da_gas,
-    precomputed.exec_opcode_dynamic_l2_gas,
-    precomputed.exec_opcode_dynamic_da_gas
-};
+/**************************************************************************************************
+* Dispatch permutations to the gadget subtraces
+ **************************************************************************************************/
+
+#[DISPATCH_KECCAKF1600]
+sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error }
+is
+keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
+
+/**************************************************************************************************
+ *  Opcode specific constraints
+ **************************************************************************************************/
+ // todo(ilyas): constraints for call/ret/revert are currently in context.pil. Consider moving some
+ // of them here for greater clarity of execution trace opcodes.
+
+#[PC_NEXT_ROW_INT_CALL_JUMP]
+NOT_LAST_EXEC * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
+
+// For JUMPI opcode, the conditional value is U1 and stored in register[0].
+#[PC_NEXT_ROW_JUMPI]
+NOT_LAST_EXEC * sel_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
+
+#[MOV_SAME_VALUE]
+sel_mov * (register[0] - register[1]) = 0;
+#[MOV_SAME_TAG]
+sel_mov * (mem_tag_reg[0] - mem_tag_reg[1]) = 0;
+
+#[SUCCESS_COPY_WRITE_REG]
+sel_success_copy * (register[0] - last_child_success) = 0; // Copy success flag to register[0]
+#[SUCCESS_COPY_U1_TAG]
+sel_success_copy * (mem_tag_reg[0] - constants.MEM_TAG_U1) = 0; // Write Tag must be U1
+
+#[RETURNDATA_SIZE_WRITE_REG]
+sel_returndata_size * (register[0] - last_child_returndata_size) = 0; // Last return data size to register[0]
+#[RETURNDATA_SIZE_U32_TAG]
+sel_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag must be U32
+
+/**************************************************************************************************
+ *  Temporality group 6: Register write.
+ **************************************************************************************************/
+
+pol commit sel_should_write_registers;
+sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
+
+// NOTE: Constraints on the registers are in execution_registers.pil.
+// There is no output because this group cannot fail.
+
+/**************************************************************************************************
+ *  Error collection
+ **************************************************************************************************/
+
+// sel_error is 1 iff any kind of error happens at the execution level.
+pol commit sel_error;
+// Observe that the errors are mutually exclusive.
+sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;

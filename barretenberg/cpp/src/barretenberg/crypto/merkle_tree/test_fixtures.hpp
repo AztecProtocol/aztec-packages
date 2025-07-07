@@ -281,4 +281,17 @@ template <typename TreeType> void revert_checkpoint_tree(TreeType& tree, bool ex
     auto completion = [&](auto completion) { tree.revert_checkpoint(completion); };
     call_operation(completion, expected_success);
 }
+
+template <typename TreeType> void commit_all_tree_checkpoints(TreeType& tree, bool expected_success = true)
+
+{
+    auto completion = [&](auto completion) { tree.commit_all_checkpoints(completion); };
+    call_operation(completion, expected_success);
+}
+
+template <typename TreeType> void revert_all_tree_checkpoints(TreeType& tree, bool expected_success = true)
+{
+    auto completion = [&](auto completion) { tree.revert_all_checkpoints(completion); };
+    call_operation(completion, expected_success);
+}
 } // namespace bb::crypto::merkle_tree

@@ -1,4 +1,4 @@
-import { BlockBlobPublicInputs } from '@aztec/blob-lib';
+import { FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
@@ -21,8 +21,6 @@ export class RootRollupInputs {
      * from 2 block merge circuits.
      */
     public previousRollupData: [PreviousRollupBlockData, PreviousRollupBlockData],
-    /** Identifier of the prover for this root rollup. */
-    public proverId: Fr,
   ) {}
 
   /**
@@ -56,7 +54,7 @@ export class RootRollupInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<RootRollupInputs>) {
-    return [fields.previousRollupData, fields.proverId] as const;
+    return [fields.previousRollupData] as const;
   }
 
   /**
@@ -66,10 +64,10 @@ export class RootRollupInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): RootRollupInputs {
     const reader = BufferReader.asReader(buffer);
-    return new RootRollupInputs(
-      [reader.readObject(PreviousRollupBlockData), reader.readObject(PreviousRollupBlockData)],
-      Fr.fromBuffer(reader),
-    );
+    return new RootRollupInputs([
+      reader.readObject(PreviousRollupBlockData),
+      reader.readObject(PreviousRollupBlockData),
+    ]);
   }
 
   /**
@@ -110,7 +108,7 @@ export class RootRollupPublicInputs {
     public vkTreeRoot: Fr,
     public protocolContractTreeRoot: Fr,
     public proverId: Fr,
-    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public blobPublicInputs: FinalBlobAccumulatorPublicInputs,
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
@@ -157,7 +155,7 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
+      reader.readObject(FinalBlobAccumulatorPublicInputs),
     );
   }
 
@@ -179,7 +177,7 @@ export class RootRollupPublicInputs {
     return bufferSchemaFor(RootRollupPublicInputs);
   }
 
-  /** Creates a random instance. */
+  /** Creates a random instance. Used for testing only - will not prove/verify. */
   static random() {
     return new RootRollupPublicInputs(
       Fr.random(),
@@ -191,7 +189,7 @@ export class RootRollupPublicInputs {
       Fr.random(),
       Fr.random(),
       Fr.random(),
-      makeTuple(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs.empty),
+      FinalBlobAccumulatorPublicInputs.random(),
     );
   }
 }

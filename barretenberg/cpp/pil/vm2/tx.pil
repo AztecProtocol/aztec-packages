@@ -1,0 +1,535 @@
+include "public_inputs.pil";
+include "execution.pil";
+include "precomputed.pil";
+include "trees/note_hash_tree_check.pil";
+include "poseidon2_hash.pil";
+
+// Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
+// The tx trace manages the various phases that a transaction will undergo while it is being executed.
+// These different phases for a tx include:
+// (a) Non-Revertible Private Insertion of nullifiers, note hashes and L2 to L1 Messages
+// (b) Non-Revertible SETUP phase
+// (c) Revertible Private insertion of nullifiers, note hashes and L2 to L1 Messages
+// (d) Revertible APPLOGIC phase
+// (e) Revertible TEARDOWN phase
+// (f) Non-Revertible Collect Gas Phase
+
+// Things that are still underconstrained - see issue tracker #14666
+namespace tx;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+    #[skippable_if]
+    sel = 0;
+
+    pol commit phase_value;
+    // is is_padded = 1, this is a padded row
+    // A padded row exists for a phase (refer to a to f above for the phases) that is unused for this transaction
+    // This means that the length of values to read for it is 0. We still need to perform some check to prevent
+    // malicious skipping of valid phases.
+    pol commit is_padded;
+    is_padded * (1 - is_padded) = 0;
+
+    pol commit start_phase;
+    start_phase * (1 - start_phase) = 0;
+    pol commit end_phase;
+    end_phase * (1 - end_phase) = 0;
+
+    pol NOT_LAST = sel' * sel; // Could probably use a different condition (i.e. COLLECT_GAS is last row - save this for optimisation)
+    pol NOT_PHASE_END = NOT_LAST * (1 - end_phase);
+
+    #[START_FOLLOWS_END]
+    NOT_LAST * (start_phase' - (end_phase + precomputed.first_row)) = 0;
+
+    // end_phase = 1, remaining_phase - 1 = 0;
+    pol commit is_revertible;
+    pol commit reverted;
+    // phase_value stays the same unless we are at end_phase or reverted
+    #[PHASE_VALUE_CONTINUITY]
+    NOT_PHASE_END * (1 - reverted) * (1 - precomputed.first_row) * (phase_value' - phase_value) = 0;
+    // At the start of a new phase, we need to increment the phase value
+    #[INCR_PHASE_VALUE_ON_END]
+    NOT_LAST * (1 - reverted) * end_phase * (phase_value' - (phase_value + 1)) = 0;
+
+    // If reverted == 1, is_revertible must be 1
+    reverted * (1 - is_revertible) = 0;
+
+    // TODO: Constrain
+    pol commit discard;
+
+    // Control flow
+    pol commit read_pi_offset; // index in public inputs to read data from
+    pol commit write_pi_offset; // index in public inputs to write data to
+    pol commit read_pi_length_offset; // index in public inputs to read lengths from
+
+    pol commit remaining_phase_inv;
+    pol commit remaining_phase_counter;
+    pol commit remaining_phase_minus_one_inv;
+    // If remaining_phase_counter == 0, is_padded = 1
+    #[REM_COUNT_IS_ZERO]
+    sel * (remaining_phase_counter * (is_padded * (1 - remaining_phase_inv) + remaining_phase_inv) - 1 + is_padded) = 0;
+
+    pol REM_COUNT_MINUS_1 = remaining_phase_counter - 1;
+    // If remaining_phase_counter == 1, end_phase = 1
+    #[REM_COUNT_IS_ONE]
+    sel * (1 - is_padded) * (REM_COUNT_MINUS_1 * (end_phase * (1 - remaining_phase_minus_one_inv) + remaining_phase_minus_one_inv) - 1 + end_phase) = 0;
+
+    #[READ_PHASE_TABLE]
+    start_phase {
+        phase_value,
+        is_public_call_request,
+        is_l2_l1_msg_phase,
+        /* Tree Padding Phase */
+        is_collect_fee,
+
+        is_revertible,
+        read_pi_offset,
+        read_pi_length_offset,
+        write_pi_offset,
+        sel_non_revertible_append_note_hash,
+        sel_non_revertible_append_nullifier,
+        sel_revertible_append_note_hash,
+        sel_revertible_append_nullifier
+    }
+    in
+    precomputed.sel_phase {
+        precomputed.phase_value,
+        precomputed.is_public_call_request_phase,
+        precomputed.is_l2_l1_message_phase,
+        /* Tree Padding Phase */
+        precomputed.sel_collect_fee,
+
+        precomputed.is_revertible,
+        precomputed.read_public_input_offset,
+        precomputed.read_public_input_length_offset,
+        precomputed.write_public_input_offset,
+        precomputed.sel_non_revertible_append_note_hash,
+        precomputed.sel_non_revertible_append_nullifier,
+        precomputed.sel_revertible_append_note_hash,
+        precomputed.sel_revertible_append_nullifier
+    };
+
+    // If a phase reverts (when it is allowed to), it jumps to a known next phase
+    #[PHASE_JUMP_ON_REVERT]
+    reverted { phase_value, phase_value' } in
+    precomputed.sel_phase { precomputed.phase_value, precomputed.next_phase_on_revert};
+
+    // === Phase Lengths ===
+    // Read the number of steps in the phase from public inputs
+    pol commit sel_read_phase_length;
+    #[READ_PI_LENGTH_SEL]
+    sel * (sel_read_phase_length - start_phase * (1 - is_collect_fee)) = 0;
+    #[READ_PHASE_LENGTH]
+    sel_read_phase_length { read_pi_length_offset, remaining_phase_counter } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    // Phase events decrement at each row
+    #[DECR_REM_PHASE_EVENTS]
+    (1 - precomputed.first_row) * NOT_PHASE_END * (remaining_phase_counter' - (remaining_phase_counter - 1)) = 0;
+
+    // The read index increments at each row
+    #[INCR_READ_PI_OFFSET]
+    (1 - precomputed.first_row) * NOT_PHASE_END * (read_pi_offset' - (read_pi_offset + 1)) = 0;
+
+    // === Public Call Request Phase ===
+    pol commit is_public_call_request;
+    pol commit msg_sender;
+    pol commit contract_addr;
+    pol commit is_static;
+    pol commit calldata_hash;
+
+    // Read information relating to the public call request from public inputs
+    #[READ_PUBLIC_CALL_REQUEST_PHASE]
+    is_public_call_request {
+        read_pi_offset,
+        msg_sender,
+        contract_addr,
+        is_static,
+        calldata_hash
+    } in
+    public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0],
+        public_inputs.cols[1],
+        public_inputs.cols[2],
+        public_inputs.cols[3]
+    };
+
+    pol commit context_id; // TODO: Constrain
+    pol commit next_context_id; // TODO: Constrain
+    pol commit is_teardown_phase; // TODO: Constrain
+    is_teardown_phase * (1 - is_teardown_phase) = 0;
+
+    pol commit prev_l2_gas_used_sent_to_enqueued_call;
+    pol commit prev_da_gas_used_sent_to_enqueued_call;
+    pol commit next_l2_gas_used_sent_to_enqueued_call;
+    pol commit next_da_gas_used_sent_to_enqueued_call;
+
+    // TODO: Constrain the evolution of the gas limits in the trace
+
+    // Public Call Requests are dispatch to the execution trace
+    // We match the values to the start of an enqueued call in the execution trace
+    // Commented out for now since we dont have enqueued call flags in execution set
+    // #[DISPATCH_EXEC_START]
+    // is_public_call_request {
+    //     context_id,
+    //     next_context_id,
+    //     msg_sender,
+    //     contract_addr,
+    //     fee,
+    //     is_static,
+    //     // Tree State
+    //     prev_note_hash_tree_root,
+    //     prev_note_hash_tree_size,
+    //     prev_num_note_hashes_emitted,
+    //     prev_nullifier_tree_size,
+    //     prev_num_nullifiers_emitted,
+    //     prev_public_data_tree_root,
+    //     prev_public_data_tree_size,
+    //     prev_num_pub_data_writes_emitted,
+    //     // Gas Info
+    //     prev_l2_gas_used_sent_to_enqueued_call,
+    //     prev_da_gas_used_sent_to_enqueued_call,
+    //     l2_gas_limit,
+    //     da_gas_limit
+    // } in
+    // execution.enqueued_call_start {
+    //     execution.context_id,
+    //     execution.next_context_id,
+    //     execution.msg_sender,
+    //     execution.contract_address,
+    //     execution.transaction_fee,
+    //     execution.is_static,
+    //     // Tree State
+    //     execution.prev_note_hash_tree_root,
+    //     execution.prev_note_hash_tree_size,
+    //     execution.prev_num_note_hashes_emitted,
+    //     execution.prev_nullifier_tree_size,
+    //     execution.prev_num_nullifiers_emitted,
+    //     execution.prev_public_data_tree_root,
+    //     execution.prev_public_data_tree_size,
+    //     execution.prev_num_pub_data_writes_emitted,
+    //     // Gas Info
+    //     execution.prev_l2_gas_used_sent_to_enqueued_call,
+    //     execution.prev_da_gas_used_sent_to_enqueued_call,
+    //     execution.l2_gas_limit,
+    //     execution.da_gas_limit
+    // };
+
+    // We retrieve the return values at the end of an enqueued call in the execution trace
+    // Commented out for now since we dont have enqueued call flags in execution set
+    //#[DISPATCH_EXEC_GET_REVERT]
+    //is_public_call_request {
+    //    context_id,
+    //    next_context_id,
+    //    reverted,
+    //    // Tree State
+    //    next_note_hash_tree_root,
+    //    next_note_hash_tree_size,
+    //    next_num_note_hashes_emitted,
+    //    next_nullifier_tree_root,
+    //    next_nullifier_tree_size,
+    //    next_num_nullifiers_emitted,
+    //    next_public_data_tree_root,
+    //    next_public_data_tree_size,
+    //    next_num_pub_data_writes_emitted,
+    //    next_l1_l2_tree_root,
+    //    next_l1_l2_tree_size,
+    //    // Gas Info
+    //    next_l2_gas_used_sent_to_enqueued_call,
+    //    next_da_gas_used_sent_to_enqueued_call
+    //} in
+    //execution.enqueued_call_end {
+    //    execution.context_id,
+    //    execution.next_context_id,
+    //    execution.sel_error,
+    //    // Tree State
+    //    execution.note_hash_tree_root,
+    //    execution.note_hash_tree_size,
+    //    execution.num_note_hashes_emitted,
+    //    execution.nullifier_tree_root,
+    //    execution.nullifier_tree_size,
+    //    execution.num_nullifiers_emitted,
+    //    execution.public_data_tree_root,
+    //    execution.public_data_tree_size,
+    //    execution.num_pub_data_writes_emitted,
+    //    execution.l1_l2_tree_root,
+    //    execution.l1_l2_tree_size,
+    //    // Gas Info
+    //    execution.l2_gas_used_sent_to_enqueued_call,
+    //    execution.da_gas_used_sent_to_enqueued_call
+    //};
+
+    // === Tree Insertion Options for tree ===
+    pol commit sel_revertible_append_note_hash;
+    pol commit sel_non_revertible_append_note_hash;
+    pol commit sel_revertible_append_nullifier;
+    pol commit sel_non_revertible_append_nullifier;
+    // A tree selector means we need to get the tree value
+    pol commit is_tree_insert_phase;
+    is_tree_insert_phase  = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
+    pol commit leaf_value;
+
+    // Read the tree value from public inputs
+    #[READ_TREE_INSERT_VALUE]
+    is_tree_insert_phase { read_pi_offset, leaf_value } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    pol commit should_note_hash_append;
+    should_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+
+    #[NOTE_HASH_APPEND]
+    should_note_hash_append {
+        leaf_value,
+        prev_note_hash_tree_size,
+        prev_note_hash_tree_root,
+        precomputed.zero,
+        sel_revertible_append_note_hash,
+        prev_num_note_hashes_emitted,
+        discard,
+        next_note_hash_tree_root
+    } in
+    note_hash_tree_check.write {
+        note_hash_tree_check.note_hash,
+        note_hash_tree_check.leaf_index,
+        note_hash_tree_check.prev_root,
+        note_hash_tree_check.should_silo,
+        note_hash_tree_check.should_unique,
+        note_hash_tree_check.note_hash_index,
+        note_hash_tree_check.discard,
+        note_hash_tree_check.next_root
+    };
+    should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
+    should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
+
+    // Note hash appends can't fail
+    should_note_hash_append * reverted = 0;
+
+    pol commit should_nullifier_append;
+    should_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+
+    #[NULLIFIER_APPEND]
+    should_nullifier_append {
+        reverted,
+        leaf_value,
+        prev_nullifier_tree_root,
+        next_nullifier_tree_root,
+        prev_nullifier_tree_size,
+        discard,
+        prev_num_nullifiers_emitted,
+        precomputed.zero
+    } in
+    nullifier_check.write {
+        nullifier_check.exists,
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.write_root,
+        nullifier_check.tree_size_before_write,
+        nullifier_check.discard,
+        nullifier_check.nullifier_index,
+        nullifier_check.should_silo
+    };
+
+    should_nullifier_append * ((prev_nullifier_tree_size + 1 - reverted) - next_nullifier_tree_size) = 0;
+    should_nullifier_append * ((prev_num_nullifiers_emitted + 1 - reverted) - next_num_nullifiers_emitted) = 0;
+
+    // Previous Tree State
+    pol commit prev_note_hash_tree_root;
+    pol commit prev_note_hash_tree_size;
+    pol commit prev_num_note_hashes_emitted;
+
+    pol commit prev_nullifier_tree_root;
+    pol commit prev_nullifier_tree_size;
+    pol commit prev_num_nullifiers_emitted;
+
+    pol commit prev_public_data_tree_root;
+    pol commit prev_public_data_tree_size;
+    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_l1_l2_tree_root;
+    pol commit prev_l1_l2_tree_size;
+
+    // Next Tree State
+    pol commit next_note_hash_tree_root;
+    pol commit next_note_hash_tree_size;
+    pol commit next_num_note_hashes_emitted;
+
+    pol commit next_nullifier_tree_root;
+    pol commit next_nullifier_tree_size;
+    pol commit next_num_nullifiers_emitted;
+
+    pol commit next_public_data_tree_root;
+    pol commit next_public_data_tree_size;
+    pol commit next_num_pub_data_writes_emitted;
+
+    pol commit next_l1_l2_tree_root;
+    pol commit next_l1_l2_tree_size;
+
+    // L2 - L1 Messages
+    pol commit is_l2_l1_msg_phase;
+    pol commit l2_l1_msg_contract_address;
+    pol commit l2_l1_msg_recipient;
+    pol commit l2_l1_msg_content;
+    pol commit num_l2_l1_msg_emitted;
+
+    #[READ_L2_L1_MSG]
+    is_l2_l1_msg_phase { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
+
+    pol commit successful_msg_emit;
+    // A msg emit phase must be successful if it didnt revert or isnt a padded row
+    sel * ((1 - reverted - is_padded) * is_l2_l1_msg_phase - successful_msg_emit) = 0;
+
+    #[WRITE_L2_L1_MSG]
+    successful_msg_emit { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    public_inputs.sel { precomputed.clk, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
+
+    // Collect Gas
+    pol commit is_collect_fee;
+    pol commit effective_fee_per_da_gas;
+    pol commit effective_fee_per_l2_gas;
+
+    #[READ_EFFECTIVE_FEE_PUBLIC_INPUTS]
+    is_collect_fee {
+        read_pi_offset,
+        effective_fee_per_da_gas,
+        effective_fee_per_l2_gas
+    } in
+    public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0],
+        public_inputs.cols[1]
+    };
+
+    pol commit fee_payer;
+    pol commit fee_payer_pi_offset;
+
+    #[READ_FEE_PAYER_PUBLIC_INPUTS]
+    is_collect_fee {
+        fee_payer_pi_offset,
+        fee_payer
+    } in
+    public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0]
+    };
+
+    pol commit fee;
+
+    // Overflow safe since effective_fee_per_gas is 128 bits, and gas used is 32 bits, making fee at most 161 bits.
+    #[COMPUTE_FEE]
+    is_collect_fee * (effective_fee_per_da_gas * prev_da_gas_used + effective_fee_per_l2_gas * prev_l2_gas_used - fee) = 0;
+    // During teardown, transaction fee must be the same as the one used in collect_fee (the following row/phase)
+    // (unless it is a padded row)
+    #[TEARDOWN_GETS_FEE]
+    is_teardown_phase * (1 - is_padded) * (fee' - fee) = 0;
+    // In all other phases, force fee to 0
+    #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
+    (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
+
+    pol commit fee_juice_contract_address;
+    is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
+    pol commit fee_juice_balances_slot;
+    is_collect_fee * (constants.FEE_JUICE_BALANCES_SLOT - fee_juice_balances_slot) = 0;
+
+    pol commit fee_juice_balance_slot;
+
+    #[BALANCE_SLOT_POSEIDON2]
+    is_collect_fee { is_collect_fee, fee_juice_balances_slot, fee_payer, precomputed.zero, fee_juice_balance_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit fee_payer_balance;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[BALANCE_READ]
+    // is_collect_fee {
+    //    fee_payer_balance,
+    //    fee_juice_contract_address,
+    //    fee_juice_balance_slot,
+    //    prev_public_data_tree_root
+    // } in public_data_check.sel {
+    //    public_data_check.value,
+    //    public_data_check.address,
+    //    public_data_check.slot,
+    //    public_data_check.root
+    // };
+
+    #[BALANCE_VALIDATION]
+    is_collect_fee { fee, fee_payer_balance, precomputed.zero }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    pol commit fee_payer_new_balance;
+    is_collect_fee * (fee_payer_balance - fee - fee_payer_new_balance) = 0;
+
+    pol commit uint32_max;
+    is_collect_fee * (uint32_max - 0xffffffff) = 0;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Lookup for now: will need multipermutation
+    // #[BALANCE_UPDATE]
+    // is_collect_fee {
+    //     fee_payer_new_balance,
+    //     fee_juice_contract_address,
+    //     fee_juice_balance_slot,
+    //     prev_public_data_tree_root,
+    //     next_public_data_tree_root,
+    //     prev_public_data_tree_size,
+    //     next_public_data_tree_size,
+    //     uint32_max
+    // } in public_data_check.write {
+    //     public_data_check.value,
+    //     public_data_check.address,
+    //     public_data_check.slot,
+    //     public_data_check.root,
+    //     public_data_check.write_root,
+    //     public_data_check.tree_size_before_write,
+    //     public_data_check.tree_size_after_write,
+    //     public_data_check.clk
+    // };
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[WRITE_FEE_PUBLIC_INPUTS]
+    // is_collect_fee { write_pi_offset, fee }
+    // in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    pol commit end_gas_used_pi_offset;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[WRITE_END_GAS_USED_PUBLIC_INPUTS]
+    // is_collect_fee {
+    //     end_gas_used_pi_offset,
+    //     prev_da_gas_used,
+    //     prev_l2_gas_used
+    // } in
+    // public_inputs.sel {
+    //     precomputed.clk,
+    //     public_inputs.cols[0],
+    //     public_inputs.cols[1]
+    // };
+
+    // Gas Info
+    // TODO: Constrain first row read from PI
+    pol commit prev_l2_gas_used;
+    pol commit prev_da_gas_used;
+
+    pol commit next_l2_gas_used;
+    pol commit next_da_gas_used;
+
+    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
+    is_public_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    is_public_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
+    // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
+    is_public_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    is_public_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
+
+    // Collect fee is currently the last phase, so we don't need to propagate gas used further.
+    #[PROPAGATE_L2_GAS_USED]
+    sel * (1 - is_collect_fee) * (next_l2_gas_used - prev_l2_gas_used') = 0;
+    #[PROPAGATE_DA_GAS_USED]
+    sel * (1 - is_collect_fee) * (next_da_gas_used - prev_da_gas_used') = 0;
+
+    // TODO: Constrain evolution: Needs to be read from PI on the first row, then teardown can update
+    pol commit l2_gas_limit;
+    pol commit da_gas_limit;
+

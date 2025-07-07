@@ -3,12 +3,12 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract StaticChild {
-    use dep::aztec::prelude::{AztecAddress, PrivateSet, PublicMutable};
-
     use dep::aztec::{
         macros::{functions::{private, public, view}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
         note::note_getter_options::NoteGetterOptions,
+        protocol_types::address::AztecAddress,
+        state_vars::{PrivateSet, PublicMutable},
         utils::comparison::Comparator,
     };
     use dep::value_note::value_note::ValueNote;
@@ -27,7 +27,7 @@ pub contract StaticChild {
         let return_value = base_value
             + context.chain_id()
             + context.version()
-            + context.block_number()
+            + context.block_number() as Field
             + context.timestamp() as Field;
 
         return_value

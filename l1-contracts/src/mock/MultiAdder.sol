@@ -7,7 +7,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct CheatDepositArgs {
   address attester;
-  address proposer;
   address withdrawer;
 }
 
@@ -19,6 +18,8 @@ contract MultiAdder is IMultiAdder {
   address public immutable OWNER;
   IStaking public immutable STAKING;
 
+  error NotOwner();
+
   constructor(address _staking, address _owner) {
     OWNER = _owner;
     STAKING = IStaking(_staking);
@@ -28,9 +29,10 @@ contract MultiAdder is IMultiAdder {
   }
 
   function addValidators(CheatDepositArgs[] memory _args) external override(IMultiAdder) {
-    require(msg.sender == OWNER, "Not owner");
+    require(msg.sender == OWNER, NotOwner());
     for (uint256 i = 0; i < _args.length; i++) {
-      STAKING.deposit(_args[i].attester, _args[i].proposer, _args[i].withdrawer, true);
+      STAKING.deposit(_args[i].attester, _args[i].withdrawer, true);
     }
+    STAKING.flushEntryQueue();
   }
 }

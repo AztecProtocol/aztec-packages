@@ -1,4 +1,4 @@
-{{- if and .Values.service.p2p.nodePortEnabled (not .Values.hostNetwork) -}}
+{{- if and .Values.service.p2p.enabled .Values.service.p2p.nodePortEnabled (not .Values.hostNetwork) -}}
 {{- range $i, $e := until (.Values.node.replicas | int) }}
 ---
 apiVersion: v1

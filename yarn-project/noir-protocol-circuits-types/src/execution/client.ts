@@ -24,7 +24,7 @@ import {
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
   mapTxRequestToNoir,
 } from '../conversion/client.js';
-import { mapFieldToNoir } from '../conversion/common.js';
+import { mapFieldToNoir, mapU64ToNoir } from '../conversion/common.js';
 import type {
   PrivateKernelInitInputType,
   PrivateKernelInitReturnType,
@@ -99,16 +99,16 @@ export function convertPrivateKernelResetInputsToWitnessMapWithAbi<
   NH_RR_SETTLED extends number,
   NLL_RR_PENDING extends number,
   NLL_RR_SETTLED extends number,
-  KEY_VALIDATION_REQUESTS extends number,
-  NUM_TRANSIENT_DATA_HINTS extends number,
+  KEY_VALIDATION_HINTS_LEN extends number,
+  TRANSIENT_DATA_HINTS_LEN extends number,
 >(
   privateKernelResetCircuitPrivateInputs: PrivateKernelResetCircuitPrivateInputsVariants<
     NH_RR_PENDING,
     NH_RR_SETTLED,
     NLL_RR_PENDING,
     NLL_RR_SETTLED,
-    KEY_VALIDATION_REQUESTS,
-    NUM_TRANSIENT_DATA_HINTS
+    KEY_VALIDATION_HINTS_LEN,
+    TRANSIENT_DATA_HINTS_LEN
   >,
   resetAbi: Abi,
 ): WitnessMap {
@@ -138,6 +138,7 @@ export function convertPrivateKernelTailInputsToWitnessMapWithAbi(
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(
       privateKernelTailCircuitPrivateInputs.previousKernel.publicInputs,
     ),
+    include_by_timestamp_upper_bound: mapU64ToNoir(privateKernelTailCircuitPrivateInputs.includeByTimestampUpperBound),
   };
   pushTestData('private-kernel-tail', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailAbi, mapped);
@@ -160,6 +161,9 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
     ),
     padded_side_effect_amounts: mapPaddedSideEffectAmountsToNoir(
       privateKernelTailToPublicCircuitPrivateInputs.paddedSideEffectAmounts,
+    ),
+    include_by_timestamp_upper_bound: mapU64ToNoir(
+      privateKernelTailToPublicCircuitPrivateInputs.includeByTimestampUpperBound,
     ),
   };
   pushTestData('private-kernel-tail-to-public', mapped);

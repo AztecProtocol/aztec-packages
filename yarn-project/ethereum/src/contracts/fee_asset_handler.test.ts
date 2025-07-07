@@ -45,6 +45,7 @@ describe('FeeAssetHandler', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
+      realVerifier: false,
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     const deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress');

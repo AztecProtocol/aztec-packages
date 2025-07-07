@@ -1,5 +1,9 @@
 use dep::protocol_types::{
-    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
+    address::AztecAddress,
+    constants::{
+        GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2,
+        PRIVATE_LOG_CIPHERTEXT_LEN,
+    },
     hash::poseidon2_hash_with_separator,
     point::Point,
 };
@@ -12,15 +16,13 @@ use crate::{
     messages::{
         encryption::log_encryption::{
             EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN,
-            PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
+            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
         },
         logs::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
     },
     oracle::{aes128_decrypt::aes128_decrypt_oracle, shared_secret::get_shared_secret},
-    prelude::AztecAddress,
     utils::{
         array,
         conversion::{
@@ -40,8 +42,8 @@ use std::aes128::aes128_encrypt;
  * NEVER re-use the same iv and sym_key.
  * DO NOT call this function more than once with the same shared_secret.
  *
- * Unsafe, because the caller must understand how the shared_secret has been derived,
- * otherwise usage of this function this could be insecure.
+ * This function is only known to be safe if shared_secret is computed by combining a 
+ * random ephemeral key with an address point. See big comment within the body of the function.
  * See big comment within the body of the function.
  */
 fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
@@ -189,10 +191,10 @@ impl LogEncryption for AES128 {
         let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
             ciphertext_shared_secret,
         );
-        let (sym_key_1, iv_1) = pairs[0];
-        let (sym_key_2, iv_2) = pairs[1];
+        let (body_sym_key, body_iv) = pairs[0];
+        let (header_sym_key, header_iv) = pairs[1];
 
-        let ciphertext_bytes = aes128_encrypt(plaintext_bytes, iv_1, sym_key_1);
+        let ciphertext_bytes = aes128_encrypt(plaintext_bytes, body_iv, body_sym_key);
 
         // |full_pt| = |pt_length| + |pt|
         // |pt_aes_padding| = 16 - (|full_pt| % 16)
@@ -217,7 +219,7 @@ impl LogEncryption for AES128 {
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the
         // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
         // bytes larger than the input in this case.
-        let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv_2, sym_key_2);
+        let header_ciphertext_bytes = aes128_encrypt(header_plaintext, header_iv, header_sym_key);
         // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
         assert(header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES);
 
@@ -312,21 +314,19 @@ impl LogEncryption for AES128 {
         let ciphertext_without_eph_pk_x = bytes_from_fields(ciphertext_without_eph_pk_x_fields);
 
         // First byte of the ciphertext represents the ephemeral public key sign
-        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) as bool;
+        let eph_pk_sign_bool = ciphertext_without_eph_pk_x.get(0) != 0;
         // With the sign and the x-coordinate of the ephemeral public key, we can reconstruct the point
         let eph_pk = point_from_x_coord_and_sign(eph_pk_x, eph_pk_sign_bool);
 
-        // Derive shared secret and symmetric key
+        // Derive shared secret
         let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
-        // For the header:
+
+        // Derive symmetric keys:
         let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
             ciphertext_shared_secret,
         );
-        // For the body:
-        let (sym_key_1, iv_1) = pairs[0];
-
-        // For the header:
-        let (sym_key_2, iv_2) = pairs[1];
+        let (body_sym_key, body_iv) = pairs[0];
+        let (header_sym_key, header_iv) = pairs[1];
 
         // Extract the header ciphertext
         let header_start = EPH_PK_SIGN_BYTE_SIZE_IN_BYTES; // Skip eph_pk_sign byte
@@ -339,7 +339,8 @@ impl LogEncryption for AES128 {
             BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
         // Decrypt header
-        let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, iv_2, sym_key_2);
+        let header_plaintext =
+            aes128_decrypt_oracle(header_ciphertext_bvec, header_iv, header_sym_key);
 
         // Extract ciphertext length from header (2 bytes, big-endian)
         let ciphertext_length =
@@ -353,7 +354,7 @@ impl LogEncryption for AES128 {
             BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
         // Decrypt main ciphertext and return it
-        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv_1, sym_key_1);
+        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, body_iv, body_sym_key);
 
         // Each field of the original note log was serialized to 32 bytes so we convert the bytes back to fields.
         fields_from_bytes(plaintext_bytes)

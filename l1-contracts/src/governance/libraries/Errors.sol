@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 /**
  * @title Errors Library
@@ -27,6 +27,7 @@ library Errors {
   error Governance__ProposalDoesNotExists(uint256 proposalId);
   error Governance__ProposalAlreadyDropped();
   error Governance__ProposalCannotBeDropped();
+  error Governance__DepositNotAllowed();
 
   error Governance__UserLib__NotInPast();
 
@@ -57,6 +58,7 @@ library Errors {
   error GovernanceProposer__ProposalHaveNoCode(IPayload proposal); // 0xb69440a1
   error GovernanceProposer__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); // 0xc3d7aa4f
   error GovernanceProposer__VoteAlreadyCastForSlot(Slot slot); // 0x3a6150ca
+  error GovernanceProposer__GSEPayloadInvalid();
 
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
 
@@ -65,4 +67,20 @@ library Errors {
   error Registry__NoRollupsRegistered();
 
   error RewardDistributor__InvalidCaller(address caller, address canonical); // 0xb95e39f6
+
+  error GSE__NotRollup(address);
+  error GSE__GovernanceAlreadySet();
+  error GSE__InvalidRollupAddress(address);
+  error GSE__RollupAlreadyRegistered(address);
+  error GSE__NotCanonical(address);
+  error GSE__AlreadyRegistered(address, address);
+  error GSE__NothingToExit(address);
+  error GSE__InsufficientStake(uint256, uint256);
+  error GSE__FailedToRemove(address);
+  error GSE__InstanceDoesNotExist(address);
+  error GSE__NotWithdrawer(address, address);
+  error GSE__OutOfBounds(uint256, uint256);
+  error GSE__FatalError(string);
+
+  error Delegation__InsufficientPower(address, uint256, uint256);
 }

@@ -1,4 +1,6 @@
-use blob::blob_public_inputs::BlobCommitment;
+use blob::blob_batching_public_inputs::{
+    BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
+};
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use types::{
     block_header::BlockHeader,
@@ -23,17 +25,29 @@ pub struct BlockRootRollupData {
     // Its hash is checked against the previous archive.
     pub previous_block_header: BlockHeader,
 
-    // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+    // <-- NOTE: start_blob_accumulator and  final_blob_challenges exist here and not BlockRootRollupBlobData
+    // so we can inject easily into EmptyBlockRootRollupInputs:
+
+    // The current blob accumulation state across the epoch.
+    // Injected here and checked vs the previous end state in each block merge and root rollup circuit:
+    pub start_blob_accumulator: BlobAccumulatorPublicInputs,
+    // Finalized challenges z and gamma for performing blob batching. Shared value across the epoch
+    // Precompjuted, injected here, and confirmed in the root rollup circuit:
+    pub final_blob_challenges: FinalBlobBatchingChallenges,
+
+    // -->
+
+    // Identifier of the prover.
     pub prover_id: Field,
 }
 
 pub struct BlockRootRollupBlobData {
     // Fields for blob verification made of all tx effects in this block
-    // (will likely change to be accumulated and sent up to the final root)
     pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating the challenge z
-    pub blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
-    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity vs the blob_public_inputs below
+    // see blob/src/blob.nr -> evaluate_blob() -  these are used for creating each blob's challenge z_i
+    pub blob_commitments: [BLSPoint; BLOBS_PER_BLOCK],
+    // Flat sha256 hash of the EVM blob hashes, can be injected here as the contract checks its validity
+    // Only exists so we have a link between EVM blob hashes and the block header for users to check
     // NB: to fit it into a field, we truncate to 31 bytes
     pub blobs_hash: Field,
 }

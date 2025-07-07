@@ -1,5 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { CommitteeAttestation } from '@aztec/stdlib/block';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 
 export enum SequencerState {
@@ -37,6 +37,12 @@ export enum SequencerState {
   PUBLISHING_BLOCK = 'PUBLISHING_BLOCK',
 }
 
+export type SequencerStateWithSlot =
+  | SequencerState.INITIALIZING_PROPOSAL
+  | SequencerState.CREATING_BLOCK
+  | SequencerState.COLLECTING_ATTESTATIONS
+  | SequencerState.PUBLISHING_BLOCK;
+
 export type SequencerStateCallback = () => SequencerState;
 
 export function sequencerStateToNumber(state: SequencerState): number {
@@ -50,19 +56,27 @@ export function sequencerStateToNumber(state: SequencerState): number {
  *
  * @todo: perform this logic within the memory attestation store instead?
  */
-export function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Signature[] {
+export function orderAttestations(
+  attestations: BlockAttestation[],
+  orderAddresses: EthAddress[],
+): CommitteeAttestation[] {
   // Create a map of sender addresses to BlockAttestations
-  const attestationMap = new Map<string, BlockAttestation>();
+  const attestationMap = new Map<string, CommitteeAttestation>();
 
   for (const attestation of attestations) {
     const sender = attestation.getSender();
-    attestationMap.set(sender.toString(), attestation);
+    if (sender) {
+      attestationMap.set(
+        sender.toString(),
+        CommitteeAttestation.fromAddressAndSignature(sender, attestation.signature),
+      );
+    }
   }
 
-  // Create the ordered array based on the orderAddresses, else return an empty signature
+  // Create the ordered array based on the orderAddresses, else return an empty attestation
   const orderedAttestations = orderAddresses.map(address => {
     const addressString = address.toString();
-    return attestationMap.get(addressString)?.signature || Signature.empty();
+    return attestationMap.get(addressString) || CommitteeAttestation.fromAddress(address);
   });
 
   return orderedAttestations;

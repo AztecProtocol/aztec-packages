@@ -11,7 +11,7 @@ use dep::protocol_types::{
 /// A struct with the discovered information of a complete note, required for delivery to PXE. Note that this is *not*
 /// the complete note information, since it does not include content, storage slot, etc.
 pub struct DiscoveredNoteInfo {
-    pub nonce: Field,
+    pub note_nonce: Field,
     pub note_hash: Field,
     pub inner_nullifier: Field,
 }
@@ -46,7 +46,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
         // new note hashes array. We therefore know for each note in every transaction what its nonce is.
         let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
-        // Given nonce, note content and metadata, we can compute the note hash and silo it to check if it matches
+        // Given note nonce, note content and metadata, we can compute the note hash and silo it to check if it matches
         // the note hash at the array index we're currently processing.
         // TODO(#11157): handle failed note_hash_and_nullifier computation
         let hashes = compute_note_hash_and_nullifier(
@@ -70,7 +70,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
             // application already has more direct means of making a call to it fail the transaction.
             discovered_notes.push(
                 DiscoveredNoteInfo {
-                    nonce: candidate_nonce,
+                    note_nonce: candidate_nonce,
                     note_hash: hashes.note_hash,
                     inner_nullifier: hashes.inner_nullifier,
                 },
@@ -83,7 +83,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     });
 
     debug_log_format(
-        "Discovered a total of {0} notes",
+        "Found valid nonces for a total of {0} notes",
         [discovered_notes.len() as Field],
     );
 
@@ -119,7 +119,7 @@ mod test {
         storage_slot: Field,
         note_type_id: Field,
         contract_address: AztecAddress,
-        nonce: Field,
+        note_nonce: Field,
     ) -> Option<NoteHashAndNullifier> {
         if note_type_id == MockNote::get_id() {
             let note = MockNote::unpack(array::subarray(packed_note.storage(), 0));
@@ -129,7 +129,7 @@ mod test {
                 RetrievedNote {
                     note,
                     contract_address,
-                    metadata: SettledNoteMetadata::new(nonce).into(),
+                    metadata: SettledNoteMetadata::new(note_nonce).into(),
                 },
                 storage_slot,
             );
@@ -186,30 +186,32 @@ mod test {
 
     struct NoteAndData {
         note: MockNote,
-        nonce: Field,
+        note_nonce: Field,
         note_hash: Field,
         unique_note_hash: Field,
         inner_nullifier: Field,
     }
 
     unconstrained fn construct_note(value: Field, note_index_in_tx: u32) -> NoteAndData {
-        let nonce = compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx);
+        let note_nonce = compute_note_hash_nonce(FIRST_NULLIFIER_IN_TX, note_index_in_tx);
 
         let retrieved_note = MockNote::new(value)
             .contract_address(CONTRACT_ADDRESS)
-            .note_metadata(SettledNoteMetadata::new(nonce).into())
+            .note_metadata(SettledNoteMetadata::new(note_nonce).into())
             .build_retrieved_note();
         let note = retrieved_note.note;
 
         let note_hash = note.compute_note_hash(STORAGE_SLOT);
-        let unique_note_hash =
-            compute_unique_note_hash(nonce, compute_siloed_note_hash(CONTRACT_ADDRESS, note_hash));
+        let unique_note_hash = compute_unique_note_hash(
+            note_nonce,
+            compute_siloed_note_hash(CONTRACT_ADDRESS, note_hash),
+        );
         let inner_nullifier = note.compute_nullifier_unconstrained(compute_note_hash_for_nullify(
             retrieved_note,
             STORAGE_SLOT,
         ));
 
-        NoteAndData { note, nonce, note_hash, unique_note_hash, inner_nullifier }
+        NoteAndData { note, note_nonce, note_hash, unique_note_hash, inner_nullifier }
     }
 
     #[test]
@@ -235,7 +237,7 @@ mod test {
         assert_eq(discovered_notes.len(), 1);
         let discovered_note = discovered_notes.get(0);
 
-        assert_eq(discovered_note.nonce, note_and_data.nonce);
+        assert_eq(discovered_note.note_nonce, note_and_data.note_nonce);
         assert_eq(discovered_note.note_hash, note_and_data.note_hash);
         assert_eq(discovered_note.inner_nullifier, note_and_data.inner_nullifier);
     }
@@ -272,13 +274,13 @@ mod test {
         assert_eq(discovered_notes.len(), 2);
 
         assert(discovered_notes.any(|discovered_note| {
-            (discovered_note.nonce == first_note_and_data.nonce)
+            (discovered_note.note_nonce == first_note_and_data.note_nonce)
                 & (discovered_note.note_hash == first_note_and_data.note_hash)
                 & (discovered_note.inner_nullifier == first_note_and_data.inner_nullifier)
         }));
 
         assert(discovered_notes.any(|discovered_note| {
-            (discovered_note.nonce == second_note_and_data.nonce)
+            (discovered_note.note_nonce == second_note_and_data.note_nonce)
                 & (discovered_note.note_hash == second_note_and_data.note_hash)
                 & (discovered_note.inner_nullifier == second_note_and_data.inner_nullifier)
         }));

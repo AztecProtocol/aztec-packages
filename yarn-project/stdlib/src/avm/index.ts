@@ -10,3 +10,4 @@ export * from './contract_storage_read.js';
 export * from './public_inner_call_request.js';
 export * from './public_call_stack_item_compressed.js';
 export * from './avm_proving_request.js';
+export * from './gas.js';

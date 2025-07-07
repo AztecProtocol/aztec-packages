@@ -6,8 +6,10 @@
 
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -15,20 +17,10 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
-    Builder* builder,
-    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-    const std::shared_ptr<Transcript>& transcript)
-    : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
-    , builder(builder)
-    , transcript(transcript)
-{}
-
-template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
-                                                         const std::shared_ptr<VerificationKey>& vkey,
+                                                         const std::shared_ptr<VKAndHash>& vk_and_hash,
                                                          const std::shared_ptr<Transcript>& transcript)
-    : key(vkey)
+    : key(std::make_shared<RecursiveDeciderVK>(builder, vk_and_hash))
     , builder(builder)
     , transcript(transcript)
 {}
@@ -40,7 +32,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(builder, proof);
+    StdlibProof stdlib_proof(*builder, proof);
     return verify_proof(stdlib_proof);
 }
 
@@ -49,7 +41,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
  * @return Output aggregation object
  */
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(const StdlibProof<Builder>& proof)
+UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_proof(
+    const stdlib::Proof<Builder>& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -60,11 +53,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using ClaimBatch = ClaimBatcher::Batch;
     using PublicPairingPoints = PublicInputComponent<PairingPoints<Builder>>;
 
-    const size_t num_public_inputs = static_cast<uint32_t>(key->num_public_inputs.get_value());
+    const size_t num_public_inputs = static_cast<uint32_t>(key->vk_and_hash->vk->num_public_inputs.get_value());
     BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs);
 
     Output output;
-    StdlibProof<Builder> honk_proof;
+    StdlibProof honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
         const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         // The extra calculation is for the IPA proof length.
@@ -73,19 +66,16 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         // split out the ipa proof
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        output.ipa_proof = StdlibProof<Builder>(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        honk_proof = StdlibProof<Builder>(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
+        output.ipa_proof = StdlibProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
+        honk_proof = StdlibProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
     } else {
         honk_proof = proof;
     }
     transcript->load_proof(honk_proof);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
-    // RecursiveDeciderVK here. Seems unnecessary.
-    auto verification_key = std::make_shared<RecursiveDeciderVK>(builder, key);
-    OinkVerifier oink_verifier{ builder, verification_key, transcript };
+    OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
 
-    VerifierCommitments commitments{ key, verification_key->witness_commitments };
+    VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
 
     auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
@@ -94,15 +84,15 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // Extract the aggregation object from the public inputs
     PairingPoints nested_points_accumulator =
-        PublicPairingPoints::reconstruct(verification_key->public_inputs, key->pairing_inputs_public_input_key);
+        PublicPairingPoints::reconstruct(key->public_inputs, key->vk_and_hash->vk->pairing_inputs_public_input_key);
     output.points_accumulator = nested_points_accumulator;
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
+        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
 
-    constrain_log_circuit_size(padding_indicator_array, key->circuit_size);
+    constrain_log_circuit_size(padding_indicator_array, key->vk_and_hash->vk->circuit_size);
 
     auto sumcheck = Sumcheck(transcript);
 
@@ -111,8 +101,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
-        verification_key->relation_parameters, verification_key->alphas, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output =
+        sumcheck.verify(key->relation_parameters, key->alphas, gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -143,8 +133,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // Extract the IPA claim from the public inputs
     if constexpr (HasIPAAccumulator<Flavor>) {
         using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
-        output.ipa_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs,
-                                                       verification_key->verification_key->ipa_claim_public_input_key);
+        output.ipa_claim =
+            PublicIpaClaim::reconstruct(key->public_inputs, key->vk_and_hash->vk->ipa_claim_public_input_key);
     }
 
     return output;
@@ -157,4 +147,6 @@ template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuild
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

@@ -2,6 +2,9 @@ name: Docs Scraper
 
 on:
   workflow_dispatch:
+  schedule:
+    # Run the workflow every night at 3:00 AM UTC, after nightly release
+    - cron: "0 4 * * *"
   push:
     branches:
       - master
@@ -19,7 +22,7 @@ jobs:
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 

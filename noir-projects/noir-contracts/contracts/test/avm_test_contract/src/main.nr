@@ -18,7 +18,6 @@ pub contract AvmTest {
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
-    use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
@@ -31,6 +30,7 @@ pub contract AvmTest {
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
+    use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
@@ -393,7 +393,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_block_number() -> Field {
+    fn get_block_number() -> u32 {
         context.block_number()
     }
 
@@ -403,13 +403,13 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_fee_per_l2_gas() -> Field {
-        context.fee_per_l2_gas()
+    fn get_fee_per_l2_gas() -> u128 {
+        context.base_fee_per_l2_gas()
     }
 
     #[public]
-    fn get_fee_per_da_gas() -> Field {
-        context.fee_per_da_gas()
+    fn get_fee_per_da_gas() -> u128 {
+        context.base_fee_per_da_gas()
     }
 
     #[public]
@@ -606,6 +606,17 @@ pub contract AvmTest {
     #[public]
     fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
+    }
+
+    // function with large array as calldata (for benchmarking call interface macros)
+    #[public]
+    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+        // do nothing and return...
+        5
+    }
+    #[public]
+    fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
+        AvmTest::at(context.this_address()).fn_w_large_calldata(arr).call(&mut context)
     }
 
     /**

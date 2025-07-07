@@ -42,6 +42,36 @@ unconstrained fn transfer_to_private_external_orchestration() {
     utils::check_private_balance(token_contract_address, recipient, amount);
 }
 
+// TODO(#10289): Enable this test once TXE handles partial notes properly. Currently it fails on the recipient amount
+// check.
+// /// External orchestration means that the calls to prepare and finalize are not done by the Token contract. This flow
+// /// will typically be used by a DEX.
+// #[test]
+// unconstrained fn transfer_to_private_from_private_external_orchestration() {
+//     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+//     let (env, token_contract_address, owner, recipient, amount) =
+//         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
+
+//     // We prepare the transfer
+//     let partial_uint_note = Token::at(token_contract_address)
+//         .prepare_private_balance_increase(recipient, owner)
+//         .call(&mut env.private());
+
+//     // Finalize the transfer of the tokens (message sender owns the tokens in public)
+//     Token::at(token_contract_address).finalize_transfer_to_private_from_private(
+//         owner,
+//         partial_uint_note,
+//         amount,
+//         0,
+//     ).call(&mut env.private());
+
+//     env.advance_block_by(1);
+
+//     // Recipient's private balance should be equal to the amount
+//     utils::check_private_balance(token_contract_address, recipient, amount);
+//     utils::check_private_balance(token_contract_address, owner, 0);
+// }
+
 #[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough

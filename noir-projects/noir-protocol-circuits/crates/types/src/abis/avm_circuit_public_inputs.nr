@@ -14,6 +14,7 @@ use crate::{
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_log::PublicLog,
+        side_effect::scoped::Scoped,
         tree_snapshots::TreeSnapshots,
     },
     address::{AztecAddress, EthAddress},
@@ -30,7 +31,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH,
-        AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
+        AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
@@ -71,9 +72,9 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
+        AVM_VK_INDEX, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
@@ -86,6 +87,7 @@ pub struct AvmCircuitPublicInputs {
     pub start_tree_snapshots: TreeSnapshots,
     pub start_gas_used: Gas,
     pub gas_settings: GasSettings,
+    pub effective_gas_fees: GasFees,
     pub fee_payer: AztecAddress,
     pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
@@ -113,6 +115,7 @@ impl Empty for AvmCircuitPublicInputs {
             start_tree_snapshots: TreeSnapshots::empty(),
             start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
+            effective_gas_fees: GasFees::empty(),
             fee_payer: AztecAddress::zero(),
             public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -138,6 +141,7 @@ impl Eq for AvmCircuitPublicInputs {
             & (self.start_tree_snapshots == other.start_tree_snapshots)
             & (self.start_gas_used == other.start_gas_used)
             & (self.gas_settings == other.gas_settings)
+            & (self.effective_gas_fees == other.effective_gas_fees)
             & (self.fee_payer == other.fee_payer)
             & (self.public_call_request_array_lengths == other.public_call_request_array_lengths)
             & (self.public_setup_call_requests == other.public_setup_call_requests)
@@ -176,6 +180,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.start_tree_snapshots.serialize());
         fields.extend_from_array(self.start_gas_used.serialize());
         fields.extend_from_array(self.gas_settings.serialize());
+        fields.extend_from_array(self.effective_gas_fees.serialize());
         fields.push(self.fee_payer.to_field());
         fields.extend_from_array(self.public_call_request_array_lengths.serialize());
         for i in 0..self.public_setup_call_requests.len() {
@@ -212,6 +217,7 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             start_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
             start_gas_used: reader.read_struct(Gas::deserialize),
             gas_settings: reader.read_struct(GasSettings::deserialize),
+            effective_gas_fees: reader.read_struct(GasFees::deserialize),
             fee_payer: AztecAddress::from_field(reader.read()),
             public_call_request_array_lengths: reader.read_struct(
                 PublicCallRequestArrayLengths::deserialize,
@@ -244,7 +250,7 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             ),
             accumulated_data: reader.read_struct(AvmAccumulatedData::deserialize),
             transaction_fee: reader.read(),
-            reverted: reader.read() as bool,
+            reverted: reader.read_bool(),
         };
         reader.finish();
         item
@@ -277,8 +283,8 @@ fn set_gas_fees_in_cols(
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     row_idx: u32,
 ) {
-    cols[0][row_idx] = gas_fees.fee_per_da_gas;
-    cols[1][row_idx] = gas_fees.fee_per_l2_gas;
+    cols[0][row_idx] = gas_fees.fee_per_da_gas as Field;
+    cols[1][row_idx] = gas_fees.fee_per_l2_gas as Field;
 }
 
 fn set_public_call_request_in_cols(
@@ -315,16 +321,15 @@ fn set_field_array_in_cols<let SIZE: u32>(
 }
 
 fn set_l2_to_l1_msg_array_in_cols<let SIZE: u32>(
-    arr: [ScopedL2ToL1Message; SIZE],
+    arr: [Scoped<L2ToL1Message>; SIZE],
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     array_start_row_idx: u32,
 ) {
     for i in 0..arr.len() {
         let row = array_start_row_idx + i;
-        cols[0][row] = arr[i].message.recipient.to_field();
-        cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].message.counter as Field;
-        cols[3][row] = arr[i].contract_address.to_field();
+        cols[0][row] = arr[i].inner.recipient.to_field();
+        cols[1][row] = arr[i].inner.content;
+        cols[2][row] = arr[i].contract_address.to_field();
     }
 }
 
@@ -371,7 +376,7 @@ impl AvmCircuitPublicInputs {
             self.global_variables.chain_id;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX] = self.global_variables.version;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX] =
-            self.global_variables.block_number;
+            self.global_variables.block_number as Field;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX] =
             self.global_variables.slot_number;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX] =
@@ -436,6 +441,13 @@ impl AvmCircuitPublicInputs {
             self.gas_settings.max_priority_fees_per_gas,
             &mut cols,
             AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX,
+        );
+
+        // Effective gas fees
+        set_gas_fees_in_cols(
+            self.global_variables.gas_fees,
+            &mut cols,
+            AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX,
         );
 
         // Fee payer
@@ -615,14 +627,25 @@ pub struct AvmProofData {
 }
 
 impl Verifiable for AvmProofData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     fn verify(self) {
         std::verify_proof_with_type(
             self.vk_data.vk.key,
             self.proof.fields,
             self.public_inputs.to_columns_flat(),
-            0,
+            self.vk_data.vk.hash,
             PROOF_TYPE_AVM,
         );
+    }
+}
+
+impl AvmProofData {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
+    pub fn validate_vk_in_vk_tree(self, vk_tree_root: Field) {
+        assert_eq(self.vk_data.leaf_index, AVM_VK_INDEX);
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
+        self.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }
 
@@ -657,10 +680,9 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.fee_payer = AztecAddress::from_field(12345);
 
     // revertible l2_to_l1_msgs from private
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
+    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.recipient =
         EthAddress::from_field(1234);
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
+    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content = 5678;
     item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
         AztecAddress::from_field(3456);
 
@@ -696,7 +718,6 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     let col0_offset = 0;
     let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
     let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
 
     // Verify serialized values are at the expected positions
 
@@ -713,8 +734,7 @@ fn flat_columns_of_avm_circuit_public_inputs() {
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
     assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
     assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
-    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
-    assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 3456);
 
     // Array elements
     // Note hash array

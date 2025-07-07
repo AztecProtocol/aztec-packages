@@ -27,8 +27,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     const txEffects = await node.getTxEffect(tx.txHash);
     // docs:end:debug
 
-    // We should have nullified all notes, plus an extra nullifier for the transaction
-    expect(txEffects!.data.nullifiers.length).toBe(totalNotes + 1);
+    // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event
+    // commitment.
+    expect(txEffects!.data.nullifiers.length).toBe(totalNotes + 1 + 1);
     // We should have created a single new note, for the recipient
     expect(txEffects!.data.noteHashes.length).toBe(1);
 
@@ -57,8 +58,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     const tx = await asset.methods.transfer(accounts[1].address, toSend).send().wait();
     const txEffects = await node.getTxEffect(tx.txHash);
 
-    // We should have nullified all notes, plus an extra nullifier for the transaction
-    expect(txEffects!.data.nullifiers.length).toBe(noteAmounts.length + 1);
+    // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event
+    // commitment.
+    expect(txEffects!.data.nullifiers.length).toBe(noteAmounts.length + 1 + 1);
     // We should have created two new notes, one for the recipient and one for the sender (with the change)
     expect(txEffects!.data.noteHashes.length).toBe(2);
 

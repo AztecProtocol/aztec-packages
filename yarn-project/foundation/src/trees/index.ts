@@ -8,3 +8,4 @@ export * from './sibling_path.js';
 export * from './membership_witness.js';
 export * from './hasher.js';
 export * from './indexed_tree_leaf.js';
+export * from './unbalanced_merkle_tree_calculator.js';
