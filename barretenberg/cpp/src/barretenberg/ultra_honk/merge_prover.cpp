@@ -43,7 +43,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 MergeProver::MergeProof MergeProver::construct_proof()
 {
 
-    // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
+    // Table polynomials: the current subtable t_j, the previous table T_{j,prev}, the full table T_j, and the reversed
+    // current subtable g_j(X) = X^{l-1} t_j(X)
     std::array<std::array<Polynomial, NUM_WIRES>, 4> table_polynomials;
     const size_t t_current_idx = 0;
     const size_t T_prev_idx = 1;
@@ -68,7 +69,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
 
-    // Compute/get commitments [T_prev], [T], [reversed_t_current] and add to transcript
+    // Compute/get commitments [T_prev], [T], [reversed_t_current], and add to transcript
     std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
     for (size_t idx = 1; idx < 4; ++idx) {
         std::string label = labels[idx - 1];
@@ -84,7 +85,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     auto pow_kappa = kappa.pow(current_subtable_size);
     auto kappa_inv = kappa.invert();
 
-    // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T(X)
+    // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
     std::array<Polynomial, NUM_WIRES> partially_computed_difference;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Polynomial tmp(current_table_size);
@@ -96,11 +97,11 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     // Add univariate opening claims for each polynomial p_j, g_j, t_j
     std::vector<OpeningClaim> opening_claims;
-    // Set opening claims p(\kappa)
+    // Set opening claims p_j(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         opening_claims.emplace_back(OpeningClaim{ std::move(partially_computed_difference[idx]), { kappa, FF(0) } });
     }
-    // Compute evaluation g_j(\kappa), t_j(1/kappa) add to transcript, and set opening claim
+    // Compute evaluation g_j(\kappa), t_j(1/kappa), add to transcript, and set opening claim
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // g_j(kappa)
         FF evaluation = table_polynomials[reversed_t_idx][idx].evaluate(kappa);

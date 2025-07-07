@@ -174,7 +174,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     // KZG verifier
     auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
 
-    // Set T_commitments of the verifier
+    // Store T_commitments of the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_commitments[idx] = commitments[idx + 2 * NUM_WIRES];
     }

@@ -95,7 +95,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     FF kappa_inv = kappa.invert();
     FF pow_kappa = pow_kappa_minus_one * kappa;
 
-    // Boolean keep track of t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
+    // Boolean keeping track of t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
     bool degree_identity_checked = true;
 
     // Indices and opening vectors
