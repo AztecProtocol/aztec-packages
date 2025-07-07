@@ -71,13 +71,10 @@ class ClientIVC {
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
 
+    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
-    using Curve = stdlib::bn254<ClientCircuit>;
-    using CommitmentNative = typename Curve::AffineElementNative;
-    using FrNative = typename Curve::ScalarFieldNative;
-    using Commitment = typename Curve::Group;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**
@@ -172,6 +169,9 @@ class ClientIVC {
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
 
+    // Management of linking databus commitments between circuits in the IVC
+    DataBusDepot bus_depot;
+
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
@@ -227,9 +227,6 @@ class ClientIVC {
     // TODO(khashayar): at the moment only databus propagations are done through this type. We should add the others.
     KernelIO kernel_input;
     KernelIO kernel_output;
-    bool app_return_data_commitment_exists = false;
-    bool kernel_return_data_commitment_exists = false;
-    static constexpr bb::fr DEFAULT_VALUE = 25;
 };
 
 } // namespace bb
