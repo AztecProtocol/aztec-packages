@@ -20,8 +20,9 @@ export function describeTxPool(getTxPool: () => TxPool) {
     pool = getTxPool();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     pool.removeAllListeners('txs-added');
+    await pool.stop();
   });
 
   it('adds txs to the pool as pending', async () => {

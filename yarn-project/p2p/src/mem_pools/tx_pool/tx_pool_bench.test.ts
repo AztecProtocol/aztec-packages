@@ -169,6 +169,7 @@ describe('TxPool: Benchmarks', () => {
   });
 
   afterEach(async () => {
+    await pool.stop();
     await wsSync.stop();
     await ws.close();
     await store.close();
