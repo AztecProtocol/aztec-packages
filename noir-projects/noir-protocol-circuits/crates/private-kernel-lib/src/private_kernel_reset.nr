@@ -746,7 +746,7 @@ mod tests {
     fn siloing_note_hashes_again_fails() {
         let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
 
-        builder.previous_kernel.append_note_hashes_with_logs(2);
+        builder.previous_kernel.append_note_hashes(2);
 
         // The note hash at index 0 is siloed.
         let mut note_hash = builder.previous_kernel.note_hashes.get(0);
