@@ -4,7 +4,7 @@ use crate::{
     constants::PROPOSED_BLOCK_HEADER_LENGTH_BYTES,
     content_commitment::ContentCommitment,
     hash::sha256_to_field,
-    traits::{Deserialize, Empty, Hash, ToField},
+    traits::{Deserialize, Empty, Hash, Serialize, ToField},
 };
 use std::meta::derive;
 

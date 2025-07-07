@@ -168,10 +168,10 @@ mod tests {
         traits::{Empty, Hash, ToField},
         utils::field::field_from_bytes,
     };
-    use types::abis::gas::Gas;
-    use types::abis::gas_fees::GasFees;
-    use types::abis::gas_settings::GasSettings;
     use types::constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+    use types::gas::Gas;
+    use types::gas_fees::GasFees;
+    use types::gas_settings::GasSettings;
 
     #[derive(Eq)]
     struct NullifierInsertion {

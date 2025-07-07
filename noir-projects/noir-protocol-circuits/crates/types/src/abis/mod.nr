@@ -1,19 +1,10 @@
 pub mod append_only_tree_snapshot;
 pub mod tree_snapshots;
 
-pub mod gas;
-pub mod gas_fees;
-pub mod gas_settings;
-pub mod global_variables;
-pub mod function_selector;
 pub mod public_call_request;
-
-pub mod function_data;
 
 pub mod log;
 pub mod private_log;
-pub mod call_context;
-pub mod private_call_request;
 
 pub mod side_effect;
 pub mod read_request;
@@ -23,6 +14,18 @@ pub mod public_data_write;
 pub mod log_hash;
 pub mod note_hash;
 pub mod nullifier;
+
+pub mod function_selector;
+pub mod function_data;
+pub mod gas_fees;
+pub mod gas;
+pub mod gas_settings;
+pub mod transaction;
+
+pub mod global_variables;
+
+pub mod call_context;
+pub mod private_call_request;
 
 pub mod accumulated_data;
 pub mod avm_circuit_public_inputs;

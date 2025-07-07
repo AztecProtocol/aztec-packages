@@ -7,7 +7,7 @@ use crate::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     },
-    traits::Empty,
+    traits::{Deserialize, Empty, Serialize},
     utils::arrays::ClaimedLengthArray,
 };
 use std::meta::derive;

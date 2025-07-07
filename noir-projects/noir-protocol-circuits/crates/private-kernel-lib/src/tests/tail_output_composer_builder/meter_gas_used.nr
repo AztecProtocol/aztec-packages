@@ -1,11 +1,11 @@
 use crate::components::tail_output_composer::meter_gas_used;
 use dep::types::{
-    abis::gas::Gas,
     constants::{
         AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
         DA_GAS_PER_BYTE, L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG,
         L2_GAS_PER_PRIVATE_LOG,
     },
+    gas::Gas,
     tests::fixture_builder::FixtureBuilder,
 };
 

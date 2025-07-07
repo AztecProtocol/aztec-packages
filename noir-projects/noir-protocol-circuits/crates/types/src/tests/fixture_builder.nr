@@ -40,6 +40,7 @@ use crate::{
         public_log::PublicLog,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, Ordered, scoped::Scoped},
+        transaction::{tx_context::TxContext, tx_request::TxRequest},
         tree_snapshots::TreeSnapshots,
         tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
@@ -93,7 +94,6 @@ use crate::{
         merkle_tree_utils::NonEmptyMerkleTree,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
-    transaction::{tx_context::TxContext, tx_request::TxRequest},
     utils::arrays::ClaimedLengthArray,
 };
 
