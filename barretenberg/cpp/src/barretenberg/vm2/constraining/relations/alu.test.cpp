@@ -206,10 +206,20 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     return trace;
 }
 
+class AluTagTest : public ::testing::TestWithParam<MemoryTag> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    AluConstrainingTest,
+    AluTagTest,
+    ::testing::Values(
+        MemoryTag::U1, MemoryTag::U8, MemoryTag::U16, MemoryTag::U32, MemoryTag::U64, MemoryTag::U128, MemoryTag::FF));
+
 TEST(AluConstrainingTest, EmptyRow)
 {
     check_relation<alu>(testing::empty_trace());
 }
+
+// ADD TESTS
 
 TEST(AluConstrainingTest, BasicAdd)
 {
@@ -231,93 +241,18 @@ TEST(AluConstrainingTest, BasicAdd)
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, BasicAddFieldWithLookups)
+TEST_P(AluTagTest, AluBasicAddTag)
 {
-    auto trace = process_basic_add_trace(MemoryTag::FF);
+    const auto tag = GetParam();
+    auto trace = process_basic_add_trace(tag);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
 
-TEST(AluConstrainingTest, BasicAddU1WithLookups)
+TEST_P(AluTagTest, AluCarryAddTag)
 {
-    auto trace = process_basic_add_trace(MemoryTag::U1);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, BasicAddU8WithLookups)
-{
-    auto trace = process_basic_add_trace(MemoryTag::U8);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, BasicAddU16WithLookups)
-{
-    auto trace = process_basic_add_trace(MemoryTag::U16);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, BasicAddU32WithLookups)
-{
-    auto trace = process_basic_add_trace(MemoryTag::U32);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, BasicAddU64WithLookups)
-{
-    auto trace = process_basic_add_trace(MemoryTag::U64);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, BasicAddU128WithLookups)
-{
-    auto trace = process_basic_add_trace(MemoryTag::U128);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryU1WithLookups)
-{
-    auto trace = process_carry_add_trace(MemoryTag::U1);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryU8WithLookups)
-{
-    auto trace = process_carry_add_trace(MemoryTag::U8);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryU16WithLookups)
-{
-    auto trace = process_carry_add_trace(MemoryTag::U16);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryU32WithLookups)
-{
-    auto trace = process_carry_add_trace(MemoryTag::U32);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryU64WithLookups)
-{
-    auto trace = process_carry_add_trace(MemoryTag::U64);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, AddCarryU128WithLookups)
-{
-    auto trace = process_carry_add_trace(MemoryTag::U128);
+    const auto tag = GetParam();
+    auto trace = process_carry_add_trace(tag);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
@@ -422,51 +357,10 @@ TEST(AluConstrainingTest, NegativeAddWrongTagCMismatch)
 
 // LT TESTS
 
-TEST(AluConstrainingTest, LTFieldWithLookups)
+TEST_P(AluTagTest, AluLTTag)
 {
-    auto trace = process_lt_trace(MemoryTag::FF);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, LTU1WithLookups)
-{
-    auto trace = process_lt_trace(MemoryTag::U1);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, LTU8WithLookups)
-{
-    auto trace = process_lt_trace(MemoryTag::U8);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, LTU16WithLookups)
-{
-    auto trace = process_lt_trace(MemoryTag::U16);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, LTU32WithLookups)
-{
-    auto trace = process_lt_trace(MemoryTag::U32);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, LTU64WithLookups)
-{
-    auto trace = process_lt_trace(MemoryTag::U64);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, LTU128WithLookups)
-{
-    auto trace = process_lt_trace(MemoryTag::U128);
+    const auto tag = GetParam();
+    auto trace = process_lt_trace(tag);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
