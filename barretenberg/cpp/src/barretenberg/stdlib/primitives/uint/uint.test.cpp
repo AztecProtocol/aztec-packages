@@ -10,13 +10,6 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-// NOTE: We only test width 32, but widths 8, 16, 32 and 64 can all be tested.
-//       In widths 8, 16, 32: all tests pass.
-//       In width 64, the following tests fail for UltraBuilder.
-//           test_xor_special, test_xor_more_constants, test_and_constants, test_and_special, test_or_special,
-//           test_ror_special, test_hash_rounds, test_and, test_xor, test_or.
-// They fail with 'C++ exception with description"Last key slice greater than 64" thrown in the test body."'
-
 // TestType template for uint tests with Builder and NativeType parameters
 template <typename _Builder, typename _NativeType> struct TestType {
   public:
