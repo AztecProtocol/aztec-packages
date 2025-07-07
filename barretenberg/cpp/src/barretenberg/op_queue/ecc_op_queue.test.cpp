@@ -8,19 +8,24 @@ class ECCOpQueueTest {
     using Curve = curve::BN254;
     using G1 = Curve::AffineElement;
     using Fr = Curve::ScalarField;
+    uing Polynomial = bb::Polynomial<Fr>;
 
     // Perform some basic interactions with the ECC op queue to mock the behavior of a single circuit
-    static void populate_an_arbitrary_subtable_of_ops(const std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void populate_an_arbitrary_subtable_of_ops(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                                      const MergeSettings settings = MergeSettings::PREPEND)
     {
         auto P1 = G1::random_element();
         auto P2 = G1::random_element();
         auto z = Fr::random_element();
 
-        op_queue->initialize_new_subtable();
+        op_queue->initialize_new_subtable(settings);
         op_queue->add_accumulate(P1);
         op_queue->mul_accumulate(P2, z);
         op_queue->eq_and_reset();
     }
+
+    static void check_consistency(
+        Polynomial& result_poly, Polynomial& first, Polynomial& second, size_t shift_size, Fr random_point)
 };
 
 TEST(ECCOpQueueTest, Basic)
