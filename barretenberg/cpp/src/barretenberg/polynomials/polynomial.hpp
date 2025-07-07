@@ -56,8 +56,6 @@ template <typename Fr> struct PolynomialSpan {
     operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
 
-template <typename T> using SharedShiftedVirtualZeroesArray = FileBackedSharedShiftedVirtualZeroesArray<T>;
-
 /**
  * @brief Structured polynomial class that represents the coefficients 'a' of a_0 + a_1 x ... a_n x^n of
  * a finite field polynomial equation of degree that is at most the size of some zk circuit.
@@ -440,7 +438,7 @@ template <typename Fr> class Polynomial {
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)

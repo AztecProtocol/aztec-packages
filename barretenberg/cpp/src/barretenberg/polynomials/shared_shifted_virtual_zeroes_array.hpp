@@ -34,7 +34,7 @@ namespace bb {
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
+template <typename T> struct SharedShiftedVirtualZeroesArray {
 
     struct MemoryResource {
         // Create a new file-backed memory region
@@ -101,20 +101,20 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
         T* memory;
     };
 
-    FileBackedSharedShiftedVirtualZeroesArray() = default;
+    SharedShiftedVirtualZeroesArray() = default;
 
-    FileBackedSharedShiftedVirtualZeroesArray(size_t start,
-                                              size_t end,
-                                              size_t virtual_size,
-                                              // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-                                              std::shared_ptr<MemoryResource> backing_memory)
+    SharedShiftedVirtualZeroesArray(size_t start,
+                                    size_t end,
+                                    size_t virtual_size,
+                                    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+                                    std::shared_ptr<MemoryResource> backing_memory)
         : start_(start)
         , end_(end)
         , virtual_size_(virtual_size)
         , backing_memory_(backing_memory)
     {}
 
-    FileBackedSharedShiftedVirtualZeroesArray(size_t size, size_t virtual_size, size_t start_index)
+    SharedShiftedVirtualZeroesArray(size_t size, size_t virtual_size, size_t start_index)
         : start_(start_index)
         , end_(size + start_index)
         , virtual_size_(virtual_size)
@@ -198,7 +198,7 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
         return data()[index - start_];
     }
 
-    FileBackedSharedShiftedVirtualZeroesArray clone(size_t right_expansion = 0, size_t left_expansion = 0) const
+    SharedShiftedVirtualZeroesArray clone(size_t right_expansion = 0, size_t left_expansion = 0) const
     {
         // std::cout << "JONATHAN: clone " << right_expansion << ' ' << left_expansion << std::endl;
         size_t expanded_size = size() + right_expansion + left_expansion;
@@ -212,7 +212,7 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
                sizeof(T) * size());
         // zero any right extensions to the array
         memset(static_cast<void*>(backing_clone->data() + left_expansion + size()), 0, sizeof(T) * right_expansion);
-        return FileBackedSharedShiftedVirtualZeroesArray(
+        return SharedShiftedVirtualZeroesArray(
             start_ - left_expansion, end_ + right_expansion, virtual_size_, backing_clone);
     }
 
