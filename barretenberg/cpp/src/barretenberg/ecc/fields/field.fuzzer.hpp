@@ -4,8 +4,10 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <vector>
 
 namespace bb {
@@ -216,8 +218,11 @@ template <typename Field> struct FieldVM {
             return static_cast<size_t>(data_ptr_index[offset]) % INTERNAL_STATE_SIZE;
         };
 
-        // Read the instruction for debug output
-        Instruction instruction = static_cast<Instruction>(*data_ptr);
+        // Read the instruction and map it to a valid instruction by taking modulo
+        constexpr size_t NUM_INSTRUCTIONS = static_cast<size_t>(Instruction::BATCH_INVERT) + 1; // Total number of
+                                                                                                // instructions
+        uint8_t original_instruction = *data_ptr;
+        Instruction instruction = static_cast<Instruction>(original_instruction % NUM_INSTRUCTIONS);
         if (with_debug) {
             const char* instruction_names[] = { "SET_VALUE",   "ADD",           "ADD_ASSIGN",
                                                 "INCREMENT",   "MUL",           "MUL_ASSIGN",
@@ -989,10 +994,186 @@ template <typename Field> struct FieldVM {
                 }
             }
             return BATCH_INVERT_SIZE;
-        default:
-            // Move the pointer forward by 1
-            return 1;
         }
+    }
+
+    // Structure to hold parsed instruction data
+    struct ParsedInstruction {
+        Instruction instruction;
+        std::vector<uint8_t> data;
+        size_t size;
+    };
+
+    /**
+     * @brief Parse instructions from data buffer into a vector
+     * @param Data Pointer to the data buffer
+     * @param Size Size of the data buffer
+     * @param max_steps Maximum number of instructions to parse
+     * @return std::pair<std::vector<ParsedInstruction>, size_t> Vector of parsed instructions and bytes consumed
+     */
+    std::pair<std::vector<ParsedInstruction>, size_t> parse_instructions(const unsigned char* Data,
+                                                                         size_t Size,
+                                                                         size_t max_steps)
+    {
+        std::vector<ParsedInstruction> instructions;
+        size_t data_offset = 0;
+        size_t steps_parsed = 0;
+
+        // Skip settings if present
+        if (Size >= SETTINGS_SIZE) {
+            const VMSettings* settings_ptr = reinterpret_cast<const VMSettings*>(Data);
+            settings = *settings_ptr;
+            data_offset += SETTINGS_SIZE;
+        }
+
+        while (data_offset < Size && steps_parsed < max_steps) {
+            if (data_offset >= Size) {
+                break;
+            }
+
+            Instruction instruction = static_cast<Instruction>(Data[data_offset]);
+            size_t instruction_size = 0;
+
+            // Map the instruction to a valid instruction by taking modulo
+            constexpr size_t NUM_INSTRUCTIONS = static_cast<size_t>(Instruction::BATCH_INVERT) + 1; // Total number of
+                                                                                                    // instructions
+            uint8_t original_instruction = Data[data_offset];
+            instruction = static_cast<Instruction>(original_instruction % NUM_INSTRUCTIONS);
+
+            // Determine instruction size based on type
+            switch (instruction) {
+            case Instruction::SET_VALUE:
+                instruction_size = SET_VALUE_SIZE;
+                break;
+            case Instruction::ADD:
+                instruction_size = ADD_SIZE;
+                break;
+            case Instruction::ADD_ASSIGN:
+                instruction_size = ADD_ASSIGN_SIZE;
+                break;
+            case Instruction::INCREMENT:
+                instruction_size = INCREMENT_SIZE;
+                break;
+            case Instruction::MUL:
+                instruction_size = MUL_SIZE;
+                break;
+            case Instruction::MUL_ASSIGN:
+                instruction_size = MUL_ASSIGN_SIZE;
+                break;
+            case Instruction::SUB:
+                instruction_size = SUB_SIZE;
+                break;
+            case Instruction::SUB_ASSIGN:
+                instruction_size = SUB_ASSIGN_SIZE;
+                break;
+            case Instruction::DIV:
+                instruction_size = DIV_SIZE;
+                break;
+            case Instruction::DIV_ASSIGN:
+                instruction_size = DIV_ASSIGN_SIZE;
+                break;
+            case Instruction::INV:
+                instruction_size = INV_SIZE;
+                break;
+            case Instruction::NEG:
+                instruction_size = NEG_SIZE;
+                break;
+            case Instruction::SQR:
+                instruction_size = SQR_SIZE;
+                break;
+            case Instruction::SQR_ASSIGN:
+                instruction_size = SQR_ASSIGN_SIZE;
+                break;
+            case Instruction::POW:
+                instruction_size = POW_SIZE;
+                break;
+            case Instruction::SQRT:
+                instruction_size = SQRT_SIZE;
+                break;
+            case Instruction::IS_ZERO:
+                instruction_size = IS_ZERO_SIZE;
+                break;
+            case Instruction::EQUAL:
+                instruction_size = EQUAL_SIZE;
+                break;
+            case Instruction::NOT_EQUAL:
+                instruction_size = NOT_EQUAL_SIZE;
+                break;
+            case Instruction::TO_MONTGOMERY:
+                instruction_size = TO_MONTGOMERY_SIZE;
+                break;
+            case Instruction::FROM_MONTGOMERY:
+                instruction_size = FROM_MONTGOMERY_SIZE;
+                break;
+            case Instruction::REDUCE_ONCE:
+                instruction_size = REDUCE_ONCE_SIZE;
+                break;
+            case Instruction::SELF_REDUCE:
+                instruction_size = SELF_REDUCE_SIZE;
+                break;
+            case Instruction::BATCH_INVERT:
+                instruction_size = BATCH_INVERT_SIZE;
+                break;
+            }
+
+            // Check if we have enough data for this instruction
+            if (data_offset + instruction_size > Size) {
+                break;
+            }
+
+            // Create parsed instruction
+            ParsedInstruction parsed;
+            parsed.instruction = instruction;
+            parsed.size = instruction_size;
+            parsed.data.resize(instruction_size);
+
+            // Only copy the data that's actually available
+            size_t data_to_copy = std::min(instruction_size, Size - data_offset);
+            std::memcpy(parsed.data.data(), Data + data_offset, data_to_copy);
+
+            // If we couldn't copy all the data, pad with zeros
+            if (data_to_copy < instruction_size) {
+                std::memset(parsed.data.data() + data_to_copy, 0, instruction_size - data_to_copy);
+            }
+
+            instructions.push_back(parsed);
+
+            data_offset += instruction_size;
+            steps_parsed++;
+        }
+
+        return { instructions, data_offset };
+    }
+
+    /**
+     * @brief Execute a parsed instruction
+     * @param parsed The parsed instruction to execute
+     * @return true if execution should continue, false if should stop
+     */
+    bool execute_parsed_instruction(const ParsedInstruction& parsed)
+    {
+        if (with_debug) {
+            const char* instruction_names[] = { "SET_VALUE",   "ADD",           "ADD_ASSIGN",
+                                                "INCREMENT",   "MUL",           "MUL_ASSIGN",
+                                                "SUB",         "SUB_ASSIGN",    "DIV",
+                                                "DIV_ASSIGN",  "INV",           "NEG",
+                                                "SQR",         "SQR_ASSIGN",    "POW",
+                                                "SQRT",        "IS_ZERO",       "EQUAL",
+                                                "NOT_EQUAL",   "TO_MONTGOMERY", "FROM_MONTGOMERY",
+                                                "REDUCE_ONCE", "SELF_REDUCE",   "BATCH_INVERT" };
+            const char* instruction_name =
+                (static_cast<int>(parsed.instruction) >= 0 &&
+                 static_cast<int>(parsed.instruction) <
+                     static_cast<int>(sizeof(instruction_names) / sizeof(instruction_names[0])))
+                    ? instruction_names[static_cast<int>(parsed.instruction)]
+                    : "UNKNOWN";
+            std::cout << "Executing instruction: " << instruction_name << " (" << static_cast<int>(parsed.instruction)
+                      << ") at step: " << step_count << std::endl;
+        }
+
+        // Execute the instruction using the existing logic
+        size_t consumed = execute_instruction(parsed.data.data(), parsed.size);
+        return consumed > 0;
     }
 
     /**
@@ -1004,43 +1185,36 @@ template <typename Field> struct FieldVM {
      */
     size_t run(const unsigned char* Data, size_t Size, bool reset_steps = true)
     {
-        if (Size < SETTINGS_SIZE) {
-            if (with_debug) {
-                std::cout << "[FieldVM] Not enough data for settings: Size=" << Size
-                          << ", SETTINGS_SIZE=" << SETTINGS_SIZE << std::endl;
-                std::cout << "[FieldVM] First bytes: ";
-                for (size_t i = 0; i < std::min(Size, static_cast<size_t>(16)); ++i) {
-                    std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(Data[i]) << " ";
-                }
-                std::cout << std::endl;
-            }
-            return 0; // Not enough data for settings
-        }
-
-        // Read settings from the beginning of the buffer
-        const VMSettings* settings_ptr = reinterpret_cast<const VMSettings*>(Data);
-        settings = *settings_ptr;
-
-        size_t size_left = Size - SETTINGS_SIZE;
-        const unsigned char* data_ptr = Data + SETTINGS_SIZE;
-
         if (reset_steps) {
             step_count = 0;
         }
 
         if (with_debug) {
-            std::cout << "Starting VM run with " << size_left << " bytes of data, max_steps: " << max_steps
+            std::cout << "Starting VM run with " << Size << " bytes of data, max_steps: " << max_steps << std::endl;
+        }
+
+        // First parse all instructions into a vector
+        auto [instructions, bytes_consumed] = parse_instructions(Data, Size, max_steps);
+
+        if (with_debug) {
+            std::cout << "Parsed " << instructions.size() << " instructions, consumed " << bytes_consumed << " bytes"
                       << std::endl;
         }
 
-        while (size_left > 0 && step_count < max_steps) {
-            size_t shift = this->execute_instruction(data_ptr, size_left);
-            size_left -= shift;
-            data_ptr += shift;
+        // Then execute the parsed instructions
+        for (const auto& instruction : instructions) {
+            if (step_count >= max_steps) {
+                break;
+            }
+
+            bool success = execute_parsed_instruction(instruction);
+            if (!success) {
+                break;
+            }
             step_count++;
         }
 
-        return Size - size_left; // Return the number of bytes consumed
+        return bytes_consumed; // Return the number of bytes consumed during parsing
     }
     bool check_internal_state() const
     {
