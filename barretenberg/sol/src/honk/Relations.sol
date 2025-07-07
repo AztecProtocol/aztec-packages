@@ -15,6 +15,8 @@ import {
 // Field arithmetic libraries
 import {MINUS_ONE, ONE, ZERO, MODULUS as P, Fr, FrLib} from "./Fr.sol";
 
+import {logFr} from "./Debug.sol";
+
 library RelationsLib {
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
 
@@ -66,6 +68,7 @@ library RelationsLib {
             Fr neg_half = Fr.wrap(NEG_HALF_MODULO_P);
 
             Fr accum = (q_arith - Fr.wrap(3)) * (wire(p, WIRE.Q_M) * wire(p, WIRE.W_R) * wire(p, WIRE.W_L)) * neg_half;
+            logFr("accum: ( q_arith -3 ) * qm * qr * wl * neg_half", q_arith);
             accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R))
                 + (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) + wire(p, WIRE.Q_C);
             accum = accum + (q_arith - ONE) * wire(p, WIRE.W_4_SHIFT);

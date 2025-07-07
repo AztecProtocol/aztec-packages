@@ -353,7 +353,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., $LOG_N - 1
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
+        Fr[] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,

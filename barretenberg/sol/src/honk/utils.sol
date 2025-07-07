@@ -28,6 +28,7 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
 
 // Fr utility
 
+
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
     require(proofSection.length == 0x20, "invalid number of bytes to construct Fr scalar");
     scalar = FrLib.fromBytes32(bytes32(proofSection));

@@ -81,11 +81,11 @@ entities = [
     "QR",
     "QO",
     "Q4",
+    "QLOOKUP",
     "QARITH",
     "QRANGE",
     "QELLIPTIC",
     "QAUX",
-    "QLOOKUP",
     "QPOSEIDON2_EXTERNAL",
     "QPOSEIDON2_INTERNAL",
     "SIGMA1",
@@ -295,7 +295,7 @@ def print_subrelation_intermediates(pointer: int):
     return pointer
 
 def print_batch_scalars(pointer: int):
-    BATCH_SIZE = 74
+    BATCH_SIZE = 70
     for i in range(0, BATCH_SIZE):
         print_fr(pointer, "BATCH_SCALAR_" + str(i) + "_LOC")
         pointer += 32

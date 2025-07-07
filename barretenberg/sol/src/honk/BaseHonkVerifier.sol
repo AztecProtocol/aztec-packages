@@ -202,6 +202,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             inv = inv * (roundChallenge - Fr.wrap(i));
             inv = FrLib.invert(inv);
             denominatorInverses[i] = inv;
+            logFr("bary denominator inverses", i, denominatorInverses[i]);
         }
 
         for (uint256 i = 0; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
@@ -239,12 +240,31 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 2] memory commitments;
 
+        logFr("pos inverted before inversion", (tp.shplonkZ - powers_of_evaluation_challenge[0]));
+        logFr("neg inverted before inversion", (tp.shplonkZ + powers_of_evaluation_challenge[0]));
         mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
         mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
+        logFr("mem.posInvertedDenominator", mem.posInvertedDenominator);
+        logFr("mem.negInvertedDenominator", mem.negInvertedDenominator);
+
+        // Test batch invert
+        // Fr[] memory test = new Fr[](2);
+        // test[0] = (tp.shplonkZ - powers_of_evaluation_challenge[0]);
+        // test[1] = (tp.shplonkZ + powers_of_evaluation_challenge[0]);
+
+        // test = FrLib.batchInvert(test);
+        // logFr("batch invert posInverted", test[0]);
+        // logFr("batch invert negInverted", test[1]);
+
+
+
 
         mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
         mem.shiftedScalar =
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
+
+        logFr("unshifted scalar", mem.unshiftedScalar);
+        logFr("shifted scalar", mem.shiftedScalar);
 
         scalars[0] = ONE;
         commitments[0] = convertProofPoint(proof.shplonkQ);
@@ -283,13 +303,18 @@ abstract contract BaseHonkVerifier is IVerifier {
             scalars[i] = mem.unshiftedScalar.neg() * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+            // logFr("batched eval", i, mem.batchedEvaluation);
+            logFr("batching cha", i, mem.batchingChallenge);
         }
         // g commitments are accumulated at r
         for (uint256 i = NUMBER_UNSHIFTED + 1; i <= NUMBER_OF_ENTITIES; ++i) {
             scalars[i] = mem.shiftedScalar.neg() * mem.batchingChallenge;
             mem.batchedEvaluation = mem.batchedEvaluation + (proof.sumcheckEvaluations[i - 1] * mem.batchingChallenge);
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+            logFr("batched eval", i, mem.batchedEvaluation);
         }
+        logFr("batched evaluation", mem.batchedEvaluation);
+        logFr("batchingChallenge", mem.batchingChallenge);
 
         commitments[1] = vk.qm;
         commitments[2] = vk.qc;
@@ -360,7 +385,7 @@ abstract contract BaseHonkVerifier is IVerifier {
          */
 
         // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., $LOG_N - 1
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
+        Fr[] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
@@ -377,29 +402,38 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
+        for (uint256 i = 0; i < $LOG_N - 1; ++i) {
+            // Update inverted denominators
+            // logFr("pos", i, (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]));
+            // logFr("pos inverted", i, (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert());
+            // logFr("neg", i, (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]));
+            // logFr("neg inverted", i, (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert());
+            mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+            mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+
+
+            // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
+            mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+            mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+            // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
+            scalars[NUMBER_OF_ENTITIES + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+            // logFr("scalars[num]", NUMBER_OF_ENTITIES + 1 + i, scalars[NUMBER_OF_ENTITIES + 1 + i]);
+
+            // Accumulate the const term contribution given by
+            // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
+            Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+            logFr("Gemini A Evaluations [i+1]", i+1, proof.geminiAEvaluations[i+1]);
+
+            logFr("Fold pos evals [i+1]", i+1, foldPosEvaluations[i+1]);
+            accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
+            mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
+            logFr("constant term accum", i, mem.constantTermAccumulator);
+            // Update the running power of v
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
+        }
+        logFr("constant term accum", mem.constantTermAccumulator);
+
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= ($LOG_N - 1);
-
-            if (!dummy_round) {
-                // Update inverted denominators
-                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
-                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
-
-                // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
-                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
-                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
-                // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
-                scalars[NUMBER_OF_ENTITIES + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
-
-                // Accumulate the const term contribution given by
-                // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
-                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
-                accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
-                mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
-                // Update the running power of v
-                mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
-            }
-
             commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
