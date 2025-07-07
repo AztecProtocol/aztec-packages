@@ -93,6 +93,10 @@ fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using
      */
 
     let mut all_bytes: [[u8; 32]; N] = std::mem::zeroed();
+    // We restrict N to be < 2^8, because of how we compute the domain separator
+    // from k below (where k <= N mist be 8 bits). In practice, it's extremely
+    // unlikely that an app will want to compute >= 256 ciphertexts.
+    static_assert(N < 256, "N too large");
     for k in 0..N {
         // We augment the domain separator with the loop index, so that we can
         // generate N lots of randomness.
