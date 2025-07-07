@@ -1,11 +1,9 @@
 use crate::{
-    abis::function_data::FunctionData,
+    abis::{function_data::FunctionData, transaction::tx_context::TxContext},
     address::AztecAddress,
-    constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH},
+    constants::GENERATOR_INDEX__TX_REQUEST,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize, ToField},
-    transaction::tx_context::TxContext,
-    utils::reader::Reader,
 };
 use std::meta::derive;
 
@@ -39,18 +37,24 @@ impl Hash for TxRequest {
 mod tests {
     use crate::{
         abis::{
-            function_data::FunctionData, function_selector::FunctionSelector, gas::Gas,
-            gas_fees::GasFees, gas_settings::GasSettings,
+            function_data::FunctionData,
+            function_selector::FunctionSelector,
+            gas::Gas,
+            gas_fees::GasFees,
+            gas_settings::GasSettings,
+            transaction::{tx_context::TxContext, tx_request::TxRequest},
         },
         address::AztecAddress,
+        constants::TX_REQUEST_LENGTH,
         traits::{Deserialize, Empty, FromField, Hash, Serialize},
-        transaction::{tx_context::TxContext, tx_request::TxRequest},
     };
 
     #[test]
     fn serialization_of_empty() {
         let request = TxRequest::empty();
-        let serialized = request.serialize();
+        // We use the TX_REQUEST_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; TX_REQUEST_LENGTH] = request.serialize();
         let deserialized = TxRequest::deserialize(serialized);
         assert(request.eq(deserialized));
     }

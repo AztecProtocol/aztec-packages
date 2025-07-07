@@ -14,11 +14,10 @@ pub mod merkle_tree;
 pub mod contract_instance;
 pub mod messaging;
 pub mod content_commitment;
-pub mod transaction;
+pub mod poseidon2;
 pub mod abis;
 
 pub mod hash;
-pub mod poseidon2;
 pub mod type_serialization;
 pub mod type_packing;
 pub mod tuple_serialization;

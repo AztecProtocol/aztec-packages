@@ -3,7 +3,7 @@ use crate::{
         block_header::BlockHeader, call_context::CallContext, log_hash::LogHash,
         note_hash::NoteHash, nullifier::Nullifier, private_call_request::PrivateCallRequest,
         private_log::PrivateLogData, public_call_request::PublicCallRequest,
-        read_request::ReadRequest, side_effect::Counted,
+        read_request::ReadRequest, side_effect::Counted, transaction::tx_context::TxContext,
         validation_requests::KeyValidationRequestAndGenerator,
     },
     constants::{
@@ -15,7 +15,6 @@ use crate::{
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
-    transaction::tx_context::TxContext,
     utils::arrays::ClaimedLengthArray,
 };
 use std::meta::derive;

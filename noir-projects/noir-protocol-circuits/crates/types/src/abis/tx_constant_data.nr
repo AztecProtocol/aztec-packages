@@ -1,7 +1,6 @@
 use crate::{
-    abis::block_header::BlockHeader,
+    abis::{block_header::BlockHeader, transaction::tx_context::TxContext},
     traits::{Deserialize, Empty, Serialize},
-    transaction::tx_context::TxContext,
 };
 use std::meta::derive;
 

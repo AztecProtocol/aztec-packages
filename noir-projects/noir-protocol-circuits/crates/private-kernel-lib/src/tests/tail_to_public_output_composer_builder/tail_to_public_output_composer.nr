@@ -1,11 +1,11 @@
 use crate::tests::tail_to_public_output_composer_builder::TailToPublicOutputComposerBuilder;
 use dep::types::{
-    abis::gas::Gas,
     constants::{
         AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
         DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_CONTRACT_CLASS_LOG,
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_PRIVATE_LOG,
     },
+    gas::Gas,
     tests::utils::{assert_array_eq, swap_items},
 };
 
