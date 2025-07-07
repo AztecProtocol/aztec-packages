@@ -106,7 +106,7 @@ mod tests {
             shared_mutable_values::SharedMutableValues,
         },
         tests::fixtures::public_data_tree::empty_public_data_tree,
-        traits::{Deserialize, Empty, FromField, Hash, Serialize},
+        traits::{Empty, FromField, Hash},
     };
     use super::{compute_with_hash_hash_storage_slot, validate_with_hash_hints};
 

@@ -3,8 +3,8 @@ use crate::{
     constants::{
         MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
     },
-    traits::{Deserialize, Empty, FromField, Serialize, ToField},
-    utils::{arrays::array_length, reader::Reader},
+    traits::{Deserialize, Empty, FromField, Serialize},
+    utils::arrays::array_length,
 };
 
 #[derive(Deserialize, Eq, Serialize)]
@@ -51,4 +51,30 @@ impl Empty for PublicCallRequestArrayLengths {
     fn empty() -> Self {
         PublicCallRequestArrayLengths { setup_calls: 0, app_logic_calls: 0, teardown_call: false }
     }
+}
+
+#[test]
+fn serialization_of_public_call_request() {
+    let item = PublicCallRequest {
+        msg_sender: AztecAddress::from_field(123),
+        contract_address: AztecAddress::from_field(456),
+        is_static_call: true,
+        calldata_hash: 789,
+    };
+    // We use the PUBLIC_CALL_REQUEST_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; PUBLIC_CALL_REQUEST_LENGTH] = item.serialize();
+    let deserialized = PublicCallRequest::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_public_call_request_array_lengths() {
+    let item =
+        PublicCallRequestArrayLengths { setup_calls: 2, app_logic_calls: 3, teardown_call: true };
+    // We use the NUM_PUBLIC_CALL_REQUEST_ARRAYS constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; NUM_PUBLIC_CALL_REQUEST_ARRAYS] = item.serialize();
+    let deserialized = PublicCallRequestArrayLengths::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

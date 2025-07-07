@@ -532,7 +532,9 @@ impl AvmProofData {
 #[test]
 fn serialization_of_empty_avm_circuit_public_inputs() {
     let item = AvmCircuitPublicInputs::empty();
-    let serialized = item.serialize();
+    // We use the AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH] = item.serialize();
     let deserialized = AvmCircuitPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
 }

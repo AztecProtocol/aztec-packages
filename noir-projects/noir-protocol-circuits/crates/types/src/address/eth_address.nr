@@ -1,7 +1,4 @@
-use crate::{
-    constants::ETH_ADDRESS_LENGTH,
-    traits::{Deserialize, Empty, Packable, Serialize, ToField},
-};
+use crate::traits::{Deserialize, Empty, Packable, Serialize, ToField};
 use std::meta::derive;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
@@ -50,12 +47,18 @@ impl EthAddress {
 }
 
 mod test {
-    use crate::{address::eth_address::EthAddress, traits::{Deserialize, Empty, Serialize}};
+    use crate::{
+        address::eth_address::EthAddress,
+        constants::ETH_ADDRESS_LENGTH,
+        traits::{Deserialize, Serialize},
+    };
 
     #[test]
     fn serialization_of_eth_address() {
         let item = EthAddress::from_field(1);
-        let serialized: [Field; 1] = item.serialize();
+        // We use the ETH_ADDRESS_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; ETH_ADDRESS_LENGTH] = item.serialize();
         let deserialized = EthAddress::deserialize(serialized);
         assert_eq(item, deserialized);
     }

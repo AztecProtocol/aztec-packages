@@ -1,9 +1,7 @@
 use crate::{
     abis::side_effect::{Ordered, Scoped},
     address::AztecAddress,
-    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
 

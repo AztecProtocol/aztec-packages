@@ -183,5 +183,9 @@ fn from_field_to_field() {
 #[test]
 fn serde() {
     let address = AztecAddress { inner: 37 };
-    assert_eq(Deserialize::deserialize(address.serialize()), address);
+    // We use the AZTEC_ADDRESS_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; AZTEC_ADDRESS_LENGTH] = address.serialize();
+    let deserialized = AztecAddress::deserialize(serialized);
+    assert_eq(address, deserialized);
 }

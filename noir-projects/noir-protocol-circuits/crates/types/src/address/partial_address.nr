@@ -66,7 +66,7 @@ impl PartialAddress {
 }
 
 mod test {
-    use crate::{address::partial_address::PartialAddress, traits::{Deserialize, Empty, Serialize}};
+    use crate::{address::partial_address::PartialAddress, traits::{Deserialize, Serialize}};
 
     #[test]
     fn serialization_of_partial_address() {

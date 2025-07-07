@@ -6,10 +6,7 @@ use bigcurve::{
 use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
-    constants::{
-        BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOCK_BLOB_PUBLIC_INPUTS, BLS12_FR_LIMBS,
-        BLS12_POINT_COMPRESSED_BYTES,
-    },
+    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLS12_FR_LIMBS, BLS12_POINT_COMPRESSED_BYTES},
     hash::{poseidon2_hash, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_splice, field::{byte_to_bits_be, field_from_bytes}, reader::Reader},
@@ -442,6 +439,7 @@ mod tests {
     };
     use bigint::{BigNum, BLS12_381_Fq as Q};
     use std::ops::{Add, Mul};
+    use types::constants::BLOCK_BLOB_PUBLIC_INPUTS;
     use types::traits::{Deserialize, Empty, Serialize};
 
     #[test]
@@ -543,7 +541,9 @@ mod tests {
     #[test]
     unconstrained fn serialization_of_empty() {
         let item = BlockBlobPublicInputs::empty();
-        let serialized = item.serialize();
+        // We use the BLOCK_BLOB_PUBLIC_INPUTS constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; BLOCK_BLOB_PUBLIC_INPUTS] = item.serialize();
         let deserialized = BlockBlobPublicInputs::deserialize(serialized);
         assert(item.eq(deserialized));
     }
