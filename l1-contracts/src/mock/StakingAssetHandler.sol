@@ -344,6 +344,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
     _rollup.deposit(_attester, withdrawer, true);
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
+
+    // Try to flush the entry queue, but don't let it revert the deposit
+    // solhint-disable-next-line no-empty-blocks
+    try _rollup.flushEntryQueue() {
+      // Flush succeeded, no action needed
+      // solhint-disable-next-line no-empty-blocks
+    } catch {
+      // Flush failed, but we don't want to revert the deposit
+      // The validator is still in the queue and can be flushed later
+    }
   }
 
   /**
