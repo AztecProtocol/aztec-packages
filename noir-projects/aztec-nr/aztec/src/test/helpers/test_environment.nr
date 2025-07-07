@@ -388,7 +388,7 @@ impl TestEnvironment {
         ReturnsHash::new(returns_hash).assert_empty();
     }
 
-    pub unconstrained fn call_public<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
         call_interface: PublicCallInterface<M, T>,
