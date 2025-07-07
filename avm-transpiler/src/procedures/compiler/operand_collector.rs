@@ -143,7 +143,7 @@ impl OperandCollector {
         if self.operand_index < self.parsed_opcode.operands.len() {
             return Err("Too many operands".to_string());
         }
-        if !self.extracted_tag & self.parsed_opcode.tag.is_some() {
+        if !self.extracted_tag && self.parsed_opcode.tag.is_some() {
             return Err("Extra tag".to_string());
         }
         Ok(OperandCollectionResult {
