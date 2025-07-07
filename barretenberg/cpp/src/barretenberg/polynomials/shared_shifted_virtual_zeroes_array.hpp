@@ -10,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include <atomic>
+#include <bits/types/FILE.h>
 #include <cstddef>
 #include <fcntl.h>
 #include <filesystem>
@@ -22,12 +23,25 @@ namespace bb {
 
 template <typename T> struct FileBackedMemory {
 
+    using Value = FileBackedMemory;
+
     static std::string generate_unique_filename()
     {
         static std::atomic<size_t> file_counter{ 0 };
         size_t id = file_counter.fetch_add(1);
         return "/tmp/poly-mmap-" + std::to_string(id);
     }
+
+    static std::shared_ptr<FileBackedMemory> allocate(size_t size) { return std::make_shared<FileBackedMemory>(size); }
+
+    FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
+    FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
+
+    FileBackedMemory(FileBackedMemory&& other) = delete;
+    FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
+
+    static T* get_data(const std::shared_ptr<FileBackedMemory> backing_memory) { return backing_memory->data(); }
+    T* data() { return memory; }
 
     // Create a new file-backed memory region
     FileBackedMemory(size_t size)
@@ -60,12 +74,6 @@ template <typename T> struct FileBackedMemory {
         // info("JONATHAN ", file_size, ' ', filename);
     }
 
-    FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
-    FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
-
-    FileBackedMemory(FileBackedMemory&& other) = delete;
-    FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
-
     ~FileBackedMemory()
     {
         if (file_size == 0) {
@@ -83,14 +91,27 @@ template <typename T> struct FileBackedMemory {
         }
     }
 
-    const T* data() const { return memory; }
-    T* data() { return memory; }
-
   private:
     size_t file_size;
     std::string filename;
     int fd;
     T* memory;
+};
+
+template <typename T> struct AlignedMemory {
+
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    using Value = T[];
+
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    static std::shared_ptr<T[]> allocate(size_t size)
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+        return std::static_pointer_cast<T[]>(get_mem_slab(sizeof(T) * size));
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    static T* get_data(const std::shared_ptr<T[]>& backing_memory) { return backing_memory.get(); }
 };
 
 /**
@@ -107,14 +128,14 @@ template <typename T> struct FileBackedMemory {
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T, typename BackingMemory = FileBackedMemory<T>> struct SharedShiftedVirtualZeroesArray {
+template <typename T, typename BackingMemory = AlignedMemory<T>> struct SharedShiftedVirtualZeroesArray {
 
     SharedShiftedVirtualZeroesArray() = default;
 
     SharedShiftedVirtualZeroesArray(size_t start,
                                     size_t end,
                                     size_t virtual_size,
-                                    std::shared_ptr<BackingMemory> backing_memory)
+                                    std::shared_ptr<typename BackingMemory::Value> backing_memory)
         : start_(start)
         , end_(end)
         , virtual_size_(virtual_size)
@@ -125,7 +146,7 @@ template <typename T, typename BackingMemory = FileBackedMemory<T>> struct Share
         : start_(start_index)
         , end_(size + start_index)
         , virtual_size_(virtual_size)
-        , backing_memory_(std::make_shared<BackingMemory>(size))
+        , backing_memory_(BackingMemory::allocate(size))
     {}
 
     /**
@@ -177,8 +198,8 @@ template <typename T, typename BackingMemory = FileBackedMemory<T>> struct Share
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_->data(); }
-    const T* data() const { return backing_memory_->data(); }
+    T* data() { return BackingMemory::get_data(backing_memory_); }
+    const T* data() const { return BackingMemory::get_data(backing_memory_); }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -207,18 +228,18 @@ template <typename T, typename BackingMemory = FileBackedMemory<T>> struct Share
 
     SharedShiftedVirtualZeroesArray clone(size_t right_expansion = 0, size_t left_expansion = 0) const
     {
-        // std::cout << "JONATHAN: clone " << right_expansion << ' ' << left_expansion << std::endl;
         size_t expanded_size = size() + right_expansion + left_expansion;
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        auto backing_clone = std::make_shared<BackingMemory>(expanded_size);
+        std::shared_ptr<typename BackingMemory::Value> backing_clone = BackingMemory::allocate(expanded_size);
         // zero any left extensions to the array
-        memset(static_cast<void*>(backing_clone->data()), 0, sizeof(T) * left_expansion);
+        memset(static_cast<void*>(BackingMemory::get_data(backing_clone)), 0, sizeof(T) * left_expansion);
         // copy our cloned array over
-        memcpy(static_cast<void*>(backing_clone->data() + left_expansion),
-               static_cast<const void*>(backing_memory_->data()),
+        memcpy(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion),
+               static_cast<const void*>(BackingMemory::get_data(backing_memory_)),
                sizeof(T) * size());
         // zero any right extensions to the array
-        memset(static_cast<void*>(backing_clone->data() + left_expansion + size()), 0, sizeof(T) * right_expansion);
+        memset(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion + size()),
+               0,
+               sizeof(T) * right_expansion);
         return SharedShiftedVirtualZeroesArray(
             start_ - left_expansion, end_ + right_expansion, virtual_size_, backing_clone);
     }
@@ -258,6 +279,6 @@ template <typename T, typename BackingMemory = FileBackedMemory<T>> struct Share
      * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
      * for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    std::shared_ptr<BackingMemory> backing_memory_;
+    std::shared_ptr<typename BackingMemory::Value> backing_memory_;
 };
 } // namespace bb
