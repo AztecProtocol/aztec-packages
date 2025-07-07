@@ -27,7 +27,7 @@ use crate::{
             bytes_to_fields::{bytes_from_fields, bytes_to_fields},
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
-        point::{get_sign_of_point, point_from_x_coord_and_sign, point_to_bytes},
+        point::{get_sign_of_point, point_from_x_coord_and_sign},
         random::get_random_bytes,
     },
 };
@@ -91,10 +91,7 @@ fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using
      */
 
     let mut all_bytes: [[u8; 32]; N] = std::mem::zeroed();
-
     for k in 0..N {
-        std::static_assert(N < 256, "N too large");
-
         // We augment the domain separator with the loop index, so that we can
         // generate N lots of randomness.
         let k_shift = (k as u16 << 8);
@@ -123,23 +120,6 @@ fn extract_many_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using
     all_bytes
 }
 
-// We'll keep this function around, because some users might need it if their
-// shared_secret is derived in a way which is not safe for usage with the
-// poseidon2 approach.
-fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256<let N: u32>(
-    shared_secret: Point,
-) -> [u8; 32] {
-    let shared_secret_bytes: [u8; 32] = point_to_bytes(shared_secret);
-
-    let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
-    for i in 0..shared_secret_bytes.len() {
-        shared_secret_bytes_with_separator[i] = shared_secret_bytes[i];
-    }
-    shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
-
-    sha256::digest(shared_secret_bytes_with_separator)
-}
-
 fn derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits<let N: u32>(
     many_random_256_bits: [[u8; 32]; N],
 ) -> [([u8; 16], [u8; 16]); N] {
@@ -157,19 +137,6 @@ fn derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits<let N: u32>(
     }
 
     many_pairs
-}
-
-// We'll keep this function around, because some users might need it if their
-// shared_secret is derived in a way which is not safe for usage with the
-// poseidon2 approach.
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
-    shared_secret: Point,
-) -> ([u8; 16], [u8; 16]) {
-    let random_256_bits: [u8; 32] = extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
-        shared_secret,
-    );
-
-    derive_aes_symmetric_key_and_iv_from_uniformly_random_256_bits([random_256_bits])[0]
 }
 
 pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe<let N: u32>(
@@ -225,7 +192,7 @@ impl LogEncryption for AES128 {
         let (sym_key_1, iv_1) = pairs[0];
         let (sym_key_2, iv_2) = pairs[1];
 
-        let ciphertext_bytes = aes128_encrypt(plaintext_bytes, iv_2, sym_key_2);
+        let ciphertext_bytes = aes128_encrypt(plaintext_bytes, iv_1, sym_key_1);
 
         // |full_pt| = |pt_length| + |pt|
         // |pt_aes_padding| = 16 - (|full_pt| % 16)
@@ -250,7 +217,7 @@ impl LogEncryption for AES128 {
         // Note: the aes128_encrypt builtin fn automatically appends bytes to the
         // input, according to pkcs#7; hence why the output `header_ciphertext_bytes` is 16
         // bytes larger than the input in this case.
-        let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv_1, sym_key_1);
+        let header_ciphertext_bytes = aes128_encrypt(header_plaintext, iv_2, sym_key_2);
         // I recall that converting a slice to an array incurs constraints, so I'll check the length this way instead:
         assert(header_ciphertext_bytes.len() == HEADER_CIPHERTEXT_SIZE_IN_BYTES);
 
@@ -355,10 +322,10 @@ impl LogEncryption for AES128 {
         let pairs = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<2>(
             ciphertext_shared_secret,
         );
-        // For the header:
+        // For the body:
         let (sym_key_1, iv_1) = pairs[0];
 
-        // For the body:
+        // For the header:
         let (sym_key_2, iv_2) = pairs[1];
 
         // Extract the header ciphertext
@@ -372,7 +339,7 @@ impl LogEncryption for AES128 {
             BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
         // Decrypt header
-        let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, iv_1, sym_key_1);
+        let header_plaintext = aes128_decrypt_oracle(header_ciphertext_bvec, iv_2, sym_key_2);
 
         // Extract ciphertext length from header (2 bytes, big-endian)
         let ciphertext_length =
@@ -386,7 +353,7 @@ impl LogEncryption for AES128 {
             BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
         // Decrypt main ciphertext and return it
-        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv_2, sym_key_2);
+        let plaintext_bytes = aes128_decrypt_oracle(ciphertext, iv_1, sym_key_1);
 
         // Each field of the original note log was serialized to 32 bytes so we convert the bytes back to fields.
         fields_from_bytes(plaintext_bytes)
