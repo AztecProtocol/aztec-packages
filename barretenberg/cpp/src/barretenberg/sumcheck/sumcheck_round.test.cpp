@@ -14,7 +14,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
 {
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Define three linear univariates of different sizes
     Univariate<FF, 3> univariate_1({ 1, 2, 3 });
@@ -26,7 +26,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
     auto tuple_of_tuples = std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
 
     // Use scale_univariate_accumulators to scale by challenge powers
-    RelationSeparator challenge = {};
+    SubrelationSeparators challenge = {};
     challenge[0] = 1;
     challenge[1] = 5;
     challenge[3] = 25;
@@ -66,7 +66,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     using Flavor = UltraFlavor;
     using Utils = RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Define two arrays of arbitrary elements
     std::array<FF, 1> evaluations_1 = { 4 };
@@ -76,7 +76,7 @@ TEST(SumcheckRound, TuplesOfEvaluationArrays)
     auto tuple_of_arrays = std::make_tuple(evaluations_1, evaluations_2);
 
     // Use scale_and_batch_elements to scale by challenge powers
-    RelationSeparator challenge = {};
+    SubrelationSeparators challenge = {};
     challenge[0] = 1;
     challenge[1] = 5;
     challenge[2] = 25;

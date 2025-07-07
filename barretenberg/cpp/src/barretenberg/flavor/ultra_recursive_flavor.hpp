@@ -102,7 +102,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS>;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());

@@ -235,11 +235,11 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkProver<Flavor>::generate_alphas_round()
 {
     PROFILE_THIS_NAME("OinkProver::generate_alphas_round");
     // Get the relation separation challenges for sumcheck/combiner computation
-    RelationSeparator alphas{ 1 };
+    SubrelationSeparators alphas{ 1 };
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {

@@ -100,14 +100,15 @@ void AvmProver::execute_relation_check_rounds()
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    Sumcheck sumcheck(key->circuit_size, transcript, alpha);
-
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
 
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, gate_challenges);
+
+    Sumcheck sumcheck(key->circuit_size, prover_polynomials, transcript, alpha, gate_challenges, relation_parameters);
+
+    sumcheck_output = sumcheck.prove();
 }
 
 void AvmProver::execute_pcs_rounds()

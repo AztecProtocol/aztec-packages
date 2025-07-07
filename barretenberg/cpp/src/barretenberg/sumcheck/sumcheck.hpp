@@ -130,7 +130,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     using ClaimedEvaluations = typename Flavor::AllValues;
     using ZKData = ZKSumcheckData<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     /**
@@ -148,10 +148,19 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     const size_t multivariate_n;
     // The number of variables
     const size_t multivariate_d;
+    // A reference to all prover multilinear polynomials.
+    ProverPolynomials& full_polynomials;
 
     std::shared_ptr<Transcript> transcript;
+    // Contains the core sumcheck methods such as `compute_univariate`.
     SumcheckProverRound<Flavor> round;
-    RelationSeparator alphas;
+    // An array of size NUM_SUBRELATIONS containing challenges or consecutive powers of a single challenge that separate
+    // linearly independent subrelation.
+    SubrelationSeparators alphas;
+    // pow_β(X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ ⋅ βₖ)
+    bb::GateSeparatorPolynomial<FF> gate_separators;
+    // Contains various challenges, such as `beta` and `gamma` used in the Grand Product argument.
+    bb::RelationParameters<FF> relation_parameters;
 
     std::vector<FF> multivariate_challenge;
 
@@ -173,39 +182,48 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     * TODO(#224)(Cody): might want to just do C-style multidimensional array? for guaranteed adjacency?
     */
     PartiallyEvaluatedMultivariates partially_evaluated_polynomials;
-    // prover instantiates sumcheck with circuit size and a prover transcript
-    SumcheckProver(size_t multivariate_n,
-                   const std::shared_ptr<Transcript>& transcript,
-                   RelationSeparator& relation_separator)
-        : multivariate_n(multivariate_n)
-        , multivariate_d(numeric::get_msb(multivariate_n))
-        , transcript(transcript)
-        , round(multivariate_n)
-        , alphas(std::move(relation_separator)){};
 
-    SumcheckProver(size_t multivariate_n, const std::shared_ptr<Transcript>& transcript, const FF& alpha)
+    // SumcheckProver constructor for the Flavors that generate NUM_SUBRELATIONS - 1 subrelation separator challenges.
+    SumcheckProver(size_t multivariate_n,
+                   ProverPolynomials& prover_polynomials,
+                   std::shared_ptr<Transcript> transcript,
+                   const SubrelationSeparators& relation_separator,
+                   const std::vector<FF>& gate_challenges,
+                   const RelationParameters<FF>& relation_parameters)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
-        , transcript(transcript)
+        , full_polynomials(prover_polynomials)
+        , transcript(std::move(transcript))
         , round(multivariate_n)
-        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS>(alpha)){};
+        , alphas(relation_separator)
+        , gate_separators(gate_challenges, multivariate_d)
+        , relation_parameters(relation_parameters){};
+
+    // SumcheckProver constructor for the Flavors that generate a single challeng `alpha` and use its powers as
+    // subrelation seperator challenges.
+    SumcheckProver(size_t multivariate_n,
+                   ProverPolynomials& prover_polynomials,
+                   std::shared_ptr<Transcript> transcript,
+                   const FF& alpha,
+                   const std::vector<FF>& gate_challenges,
+                   const RelationParameters<FF>& relation_parameters)
+        : multivariate_n(multivariate_n)
+        , multivariate_d(numeric::get_msb(multivariate_n))
+        , full_polynomials(prover_polynomials)
+        , transcript(std::move(transcript))
+        , round(multivariate_n)
+        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS>(alpha))
+        , gate_separators(gate_challenges, multivariate_d)
+        , relation_parameters(relation_parameters){};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
      * @details See Detailed description of \ref bb::SumcheckProver< Flavor > "Sumcheck Prover <Flavor>.
-     * @param full_polynomials Container for ProverPolynomials
-     * @param relation_parameters
-     * @param alpha Batching challenge for subrelations.
-     * @param gate_challenges
      * @return SumcheckOutput
      */
-    SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
-                                 const bb::RelationParameters<FF>& relation_parameters,
-                                 const std::vector<FF>& gate_challenges)
+    SumcheckOutput<Flavor> prove()
     {
-        bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
-
-        multivariate_challenge.reserve(multivariate_d);
+        multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
@@ -269,17 +287,10 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
      * @brief ZK-version of `prove` that runs Sumcheck with disabled rows and masking of Round Univariates.
      * The masking is ensured by adding random Libra univariates to the Sumcheck round univariates.
      *
-     * @param full_polynomials
-     * @param relation_parameters
-     * @param alpha
-     * @param gate_challenges
      * @param zk_sumcheck_data
      * @return SumcheckOutput<Flavor>
      */
-    SumcheckOutput<Flavor> prove(ProverPolynomials& full_polynomials,
-                                 const bb::RelationParameters<FF>& relation_parameters,
-                                 const std::vector<FF>& gate_challenges,
-                                 ZKData& zk_sumcheck_data)
+    SumcheckOutput<Flavor> prove(ZKData& zk_sumcheck_data)
         requires Flavor::HasZK
     {
         CommitmentKey ck;
@@ -294,7 +305,6 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
             }
         }
 
-        bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
         vinfo("starting sumcheck rounds...");
 
         multivariate_challenge.reserve(multivariate_d);
@@ -625,7 +635,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
     // compute full_honk_relation_purported_value
     using ClaimedLibraEvaluations = typename std::vector<FF>;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Commitment = typename Flavor::Commitment;
 
     /**
@@ -641,7 +651,9 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
-    RelationSeparator alphas;
+    // An array of size NUM_SUBRELATIONS containing challenges or consecutive powers of a single challenge that separate
+    // linearly independent subrelation.
+    SubrelationSeparators alphas;
     FF libra_evaluation{ 0 };
     FF libra_challenge;
     FF libra_total_sum;
@@ -652,14 +664,14 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
-                              RelationSeparator& relation_separator,
+                              SubrelationSeparators& relation_separator,
                               FF target_sum = 0)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
         , round(target_sum)
-        , alphas(std::move(relation_separator)){};
+        , alphas(relation_separator){};
 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript, const FF& alpha, FF target_sum = 0)
-        : transcript(transcript)
+        : transcript(std::move(transcript))
         , round(target_sum)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS>(alpha)){};
     /**

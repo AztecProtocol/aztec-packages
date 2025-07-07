@@ -47,7 +47,7 @@ template <typename Flavor> class SumcheckProverRound {
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = typename Flavor::SumcheckTupleOfTuplesOfUnivariates;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
     using FF = typename Flavor::FF;
@@ -166,7 +166,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                               const RelationSeparator& alphas)
+                                               const SubrelationSeparators& alphas)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -286,7 +286,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_hiding_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                       const bb::RelationParameters<FF>& relation_parameters,
                                                       const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                                      const RelationSeparator& alpha,
+                                                      const SubrelationSeparators& alpha,
                                                       const ZKData& zk_sumcheck_data,
                                                       const RowDisablingPolynomial<FF> row_disabling_polynomial,
                                                       const size_t round_idx)
@@ -313,7 +313,7 @@ template <typename Flavor> class SumcheckProverRound {
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        const RelationSeparator& alphas,
+        const SubrelationSeparators& alphas,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
@@ -360,7 +360,7 @@ template <typename Flavor> class SumcheckProverRound {
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
-                                                   const RelationSeparator& challenge,
+                                                   const SubrelationSeparators& challenge,
                                                    const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
         Utils::scale_univariates(univariate_accumulators, challenge);
@@ -519,7 +519,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
     using FF = typename Flavor::FF;
@@ -602,7 +602,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                             const RelationSeparator& alphas)
+                                             const SubrelationSeparators& alphas)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,

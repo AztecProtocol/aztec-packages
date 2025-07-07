@@ -24,7 +24,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using VKAndHash = typename Flavor::VKAndHash;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
     using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
@@ -37,7 +37,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
-    RelationSeparator alphas; // a challenge for each subrelation
+    SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator

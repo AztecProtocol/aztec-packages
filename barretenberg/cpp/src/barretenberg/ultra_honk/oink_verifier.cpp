@@ -151,10 +151,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_pro
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
 {
     // Get the relation separation challenges for sumcheck/combiner computation
-    RelationSeparator alphas{ 1 };
+    SubrelationSeparators alphas{ 1 };
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {

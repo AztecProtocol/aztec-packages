@@ -33,7 +33,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = UltraCircuitBuilder();
@@ -157,25 +157,30 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto circuit_size = decider_pk->proving_key.circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
-    RelationSeparator prover_alphas;
+    SubrelationSeparators prover_alphas;
     for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
         prover_alphas[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
 
-    decider_pk->alphas = prover_alphas;
-    SumcheckProver<Flavor> sumcheck_prover(circuit_size, prover_transcript, prover_alphas);
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     decider_pk->gate_challenges = prover_gate_challenges;
-    auto prover_output = sumcheck_prover.prove(
-        decider_pk->proving_key.polynomials, decider_pk->relation_parameters, decider_pk->gate_challenges);
+
+    SumcheckProver<Flavor> sumcheck_prover(circuit_size,
+                                           decider_pk->proving_key.polynomials,
+                                           prover_transcript,
+                                           prover_alphas,
+                                           prover_gate_challenges,
+                                           decider_pk->relation_parameters);
+
+    auto prover_output = sumcheck_prover.prove();
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    RelationSeparator verifier_alphas;
+    SubrelationSeparators verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }

@@ -23,7 +23,7 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -71,7 +71,7 @@ template <typename Flavor> class RelationUtils {
      * @param subrelation_separators Array of NUM_SUBRELATIONS challenges with the first entry equal to 1.
      * scaled)
      */
-    static void scale_univariates(auto& tuple, const RelationSeparator& subrelation_separators)
+    static void scale_univariates(auto& tuple, const SubrelationSeparators& subrelation_separators)
     {
         size_t idx = 0;
         auto scale_by_challenges = [&]<size_t, size_t>(auto& element) { element *= subrelation_separators[idx++]; };
@@ -209,7 +209,7 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static FF scale_and_batch_elements(auto& tuple, const RelationSeparator& challenges)
+    static FF scale_and_batch_elements(auto& tuple, const SubrelationSeparators& challenges)
     {
         FF result{ 0 };
         size_t idx = 0;

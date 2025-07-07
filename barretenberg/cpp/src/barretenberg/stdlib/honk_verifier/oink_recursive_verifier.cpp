@@ -117,7 +117,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
     // Get the subrelation separation challenges for sumcheck/combiner computation
-    RelationSeparator alphas{ 1 };
+    SubrelationSeparators alphas{ 1 };
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
