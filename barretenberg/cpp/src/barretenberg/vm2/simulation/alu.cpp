@@ -2,6 +2,7 @@
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -22,6 +23,21 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
     // TODO(MW): Apart from tags, how can the below fail and how to catch/assign the errors?
     MemoryValue c = a + b;
     events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
+    return c;
+}
+
+MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
+{
+    const FF diff = a.as_ff() - b.as_ff();
+    MemoryValue c = MemoryValue::from<uint1_t>(diff == 0 ? 1 : 0);
+
+    if (a.get_tag() != b.get_tag()) {
+        events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = AluError::TAG_ERROR });
+        debug("ALU operation failed: ", to_string(AluError::TAG_ERROR), " a: ", a.to_string(), ", b: ", b.to_string());
+        throw AluException();
+    }
+
+    events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .c = c });
     return c;
 }
 
