@@ -80,7 +80,7 @@ class AvmFlavor {
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
 
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS>;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 

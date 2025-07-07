@@ -41,7 +41,7 @@ class TranslatorRecursiveFlavor {
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
     static constexpr size_t NUM_SUBRELATIONS = TranslatorFlavor::NUM_SUBRELATIONS;
-    using SubrelationSeparators = std::array<FF, TranslatorFlavor::NUM_SUBRELATIONS>;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;

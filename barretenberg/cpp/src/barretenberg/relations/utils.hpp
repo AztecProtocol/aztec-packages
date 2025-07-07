@@ -74,7 +74,12 @@ template <typename Flavor> class RelationUtils {
     static void scale_univariates(auto& tuple, const SubrelationSeparators& subrelation_separators)
     {
         size_t idx = 0;
-        auto scale_by_challenges = [&]<size_t, size_t>(auto& element) { element *= subrelation_separators[idx++]; };
+        auto scale_by_challenges = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            // Don't need to scale first univariate
+            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
+                element *= subrelation_separators[idx++];
+            }
+        };
         apply_to_tuple_of_tuples(tuple, scale_by_challenges);
     }
 
@@ -209,16 +214,20 @@ template <typename Flavor> class RelationUtils {
      * scaled)
      * @param result Batched result
      */
-    static FF scale_and_batch_elements(auto& tuple, const SubrelationSeparators& challenges)
+    static FF scale_and_batch_elements(auto& tuple, const SubrelationSeparators& subrelation_separators)
     {
-        FF result{ 0 };
+        // Initialize result with the contribution from the first subrelation
+        FF result = std::get<0>(tuple)[0];
+
         size_t idx = 0;
-        auto scale_by_challenges_and_accumulate = [&](auto& element) {
-            for (auto& entry : element) {
-                result += entry * challenges[idx++];
+
+        auto scale_by_challenges_and_accumulate = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            if constexpr (!(outer_idx == 0 && inner_idx == 0)) {
+                // Accumulate scaled subrelation contribution
+                result += element * subrelation_separators[idx++];
             }
         };
-        apply_to_tuple_of_arrays(scale_by_challenges_and_accumulate, tuple);
+        apply_to_tuple_of_arrays_elements(scale_by_challenges_and_accumulate, tuple);
         return result;
     }
 

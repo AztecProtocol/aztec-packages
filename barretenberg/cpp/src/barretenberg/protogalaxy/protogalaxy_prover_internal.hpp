@@ -39,7 +39,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
     using UnivariateSubrelationSeparators =
-        std::array<Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS>;
+        std::array<Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
     // obtained by composing a relation with Lagrange polynomial-linear combination of NUM-many decider pks, with
@@ -107,24 +107,25 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @return FF The evaluation of the linearly-independent (i.e., 'per-row') subrelations
      */
     inline static FF process_subrelation_evaluations(const RelationEvaluations& evals,
-                                                     const std::array<FF, NUM_SUBRELATIONS>& challenges,
+                                                     const SubrelationSeparators& challenges,
                                                      FF& linearly_dependent_contribution)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1115): Iniitalize with first subrelation value to
-        // avoid Montgomery allocating 0 and doing a mul. This is about 60ns per row.
-        FF linearly_independent_contribution{ 0 };
+        // Initialize result with the contribution from the first subrelation
+        FF linearly_independent_contribution = std::get<0>(evals)[0];
         size_t idx = 0;
 
         auto scale_by_challenge_and_accumulate =
             [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-                using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-                const Element contribution = element * challenges[idx];
-                if (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
-                    linearly_independent_contribution += contribution;
-                } else {
-                    linearly_dependent_contribution += contribution;
+                if constexpr (!(relation_idx == 0 && subrelation_idx == 0)) {
+                    using Relation = typename std::tuple_element_t<relation_idx, Relations>;
+                    // Accumulate scaled subrelation contribution
+                    const Element contribution = element * challenges[idx++];
+                    if constexpr (subrelation_is_linearly_independent<Relation, subrelation_idx>()) {
+                        linearly_independent_contribution += contribution;
+                    } else {
+                        linearly_dependent_contribution += contribution;
+                    }
                 }
-                idx++;
             };
         RelationUtils::apply_to_tuple_of_arrays_elements(scale_by_challenge_and_accumulate, evals);
         return linearly_independent_contribution;
@@ -453,8 +454,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     {
         auto result =
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
-        // As `alphas[0] == 1`; we start from `alphas[1]`
-        size_t idx = 1;
+
+        size_t idx = 0;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             if constexpr (outer_idx == 0 && inner_idx == 0) {
                 return;

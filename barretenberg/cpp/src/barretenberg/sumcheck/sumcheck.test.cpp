@@ -245,8 +245,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        SubrelationSeparators prover_alpha;
-        for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
+        SubrelationSeparators prover_alpha{ 1 };
+        for (size_t idx = 1; idx < prover_alpha.size(); idx++) {
             prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }
 
@@ -273,8 +273,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        SubrelationSeparators verifier_alpha;
-        for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
+        SubrelationSeparators verifier_alpha{ 1 };
+        for (size_t idx = 1; idx < verifier_alpha.size(); idx++) {
             verifier_alpha[idx] =
                 verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
         }

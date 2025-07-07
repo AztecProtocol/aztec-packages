@@ -212,7 +212,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , full_polynomials(prover_polynomials)
         , transcript(std::move(transcript))
         , round(multivariate_n)
-        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS>(alpha))
+        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_separators(gate_challenges, multivariate_d)
         , relation_parameters(relation_parameters){};
     /**
@@ -673,7 +673,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript, const FF& alpha, FF target_sum = 0)
         : transcript(std::move(transcript))
         , round(target_sum)
-        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS>(alpha)){};
+        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)){};
     /**
      * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
      * final round, then use purported evaluations to generate purported full Honk relation value and check against
@@ -899,7 +899,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 template <typename FF, size_t N> std::array<FF, N> initialize_relation_separator(const FF& alpha)
 {
     std::array<FF, N> alphas;
-    alphas[0] = 1;
+    alphas[0] = alpha;
     for (size_t i = 1; i < N; ++i) {
         alphas[i] = alphas[i - 1] * alpha;
     }

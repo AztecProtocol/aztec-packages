@@ -24,7 +24,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, DeciderProvingKeys::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
     using UnivariateSubrelationSeparators =
-        std::array<Univariate<FF, DeciderProvingKeys::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS>;
+        std::array<Univariate<FF, DeciderProvingKeys::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
     using DeciderPK = DeciderProvingKeys::DeciderPK;
