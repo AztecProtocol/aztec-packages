@@ -17,11 +17,6 @@ using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 
-[[nodiscard("Pairing points should be accumulated")]] stdlib::recursion::PairingPoints<Builder>
-create_avm2_recursion_constraints(Builder& builder,
-                                  const RecursionConstraint& input,
-                                  bool has_valid_witness_assignments);
-
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintOutput<Builder>
 create_avm2_recursion_constraints_goblin(Builder& builder,
                                          const RecursionConstraint& input,
