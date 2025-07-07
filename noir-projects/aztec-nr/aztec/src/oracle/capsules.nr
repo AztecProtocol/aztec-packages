@@ -20,7 +20,7 @@ where
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 
-// TODO: Nuke this - it's a workaround for a weird Noir bug.
+// TODO(https://github.com/noir-lang/noir/issues/9130): Nuke this - it's a workaround for a weird Noir bug.
 pub unconstrained fn very_sad_load<let N: u32>(
     contract_address: AztecAddress,
     slot: Field,
