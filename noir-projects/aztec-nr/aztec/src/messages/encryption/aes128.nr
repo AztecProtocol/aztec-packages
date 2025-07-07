@@ -29,7 +29,7 @@ use crate::{
             bytes_to_fields::{bytes_from_fields, bytes_to_fields},
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
-        point::{get_sign_of_point, point_from_x_coord_and_sign, point_to_bytes},
+        point::{get_sign_of_point, point_from_x_coord_and_sign},
         random::get_random_bytes,
     },
 };
@@ -108,7 +108,6 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
 
     bytes
 }
-
 
 fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
     shared_secret: Point,
