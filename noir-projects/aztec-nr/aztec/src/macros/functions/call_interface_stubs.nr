@@ -1,6 +1,5 @@
 use crate::macros::utils::{
     add_to_field_array, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
-    size_in_fields,
 };
 use std::meta::{type_of, unquote};
 

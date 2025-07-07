@@ -83,7 +83,7 @@ impl Empty for u128 {
 
 impl<T, let N: u32> Empty for [T; N]
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     #[inline_always]
     fn empty() -> Self {
@@ -101,7 +101,7 @@ where
 
 impl<T> Empty for [T]
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     #[inline_always]
     fn empty() -> Self {
@@ -118,8 +118,8 @@ where
 }
 impl<A, B> Empty for (A, B)
 where
-    A: Empty + Eq,
-    B: Empty + Eq,
+    A: Empty,
+    B: Empty,
 {
     #[inline_always]
     fn empty() -> Self {

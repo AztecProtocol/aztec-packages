@@ -149,14 +149,15 @@ mod tests {
     use crate::abis::tx_effect::TxEffect;
     use dep::types::{
         abis::{
-            append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
-            side_effect::OrderedValue, sponge_blob::SpongeBlob, tree_snapshots::TreeSnapshots,
+            append_only_tree_snapshot::AppendOnlyTreeSnapshot, gas::Gas, gas_fees::GasFees,
+            gas_settings::GasSettings, nullifier_leaf_preimage::NullifierLeafPreimage,
+            public_data_write::PublicDataWrite, side_effect::OrderedValue, sponge_blob::SpongeBlob,
+            tree_snapshots::TreeSnapshots,
         },
         constants::{
             AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
+            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
             PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX,
@@ -168,10 +169,6 @@ mod tests {
         traits::{Empty, Hash, ToField},
         utils::field::field_from_bytes,
     };
-    use types::constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
-    use types::gas::Gas;
-    use types::gas_fees::GasFees;
-    use types::gas_settings::GasSettings;
 
     #[derive(Eq)]
     struct NullifierInsertion {
