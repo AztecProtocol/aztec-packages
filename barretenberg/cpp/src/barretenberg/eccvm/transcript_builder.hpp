@@ -18,7 +18,7 @@ class ECCVMTranscriptBuilder {
     using FF = grumpkin::fr;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
-    using VMOperation = typename bb::VMOperation<CycleGroup>;
+    using VMOperation = typename bb::ECCVMOperation;
     using Accumulator = typename std::vector<Element>;
 
     struct TranscriptRow {
