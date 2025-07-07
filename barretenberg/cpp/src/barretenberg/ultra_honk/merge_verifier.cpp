@@ -96,7 +96,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     FF minus_pow_kappa = minus_pow_kappa_minus_one * kappa;
 
     // Boolean keep track of t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
-    bool identity_checked = true;
+    bool degree_identity_checked = true;
 
     // Indices and opening vectors
     std::vector<std::vector<size_t>> indices;
@@ -106,11 +106,12 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     // Add opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF t_eval = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
-        FF T_prev_eval = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
-        FF T_eval = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
-
-        OpeningVector tmp_vector(kappa, { FF::one(), minus_pow_kappa, FF::neg_one() }, { t_eval, T_prev_eval, T_eval });
+        // Evaluation is hard-coded to zero as that is the target
+        // Note that it is not necessarily true that each polynomial evaluates to zero, but for our purposes we only
+        // need to ensure that the Shplonk verifier tests p_j(kappa) = 0. Setting all evaluations to zero is a hack to
+        // enforce that the Shplonk verifier performs this check.
+        OpeningVector tmp_vector(
+            kappa, { FF::one(), minus_pow_kappa, FF::neg_one() }, { FF::zero(), FF::zero(), FF::zero() });
         std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
         opening_vectors.emplace_back(tmp_vector);
         indices.emplace_back(tmp_idx);
@@ -135,7 +136,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         }
 
         // Check t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
-        identity_checked &= (t_eval_kappa_inv * minus_pow_kappa_minus_one + reversed_t_eval == 0);
+        degree_identity_checked &= (t_eval_kappa_inv * minus_pow_kappa_minus_one + reversed_t_eval == 0);
     }
 
     // Initialize Shplonk verifier
@@ -155,6 +156,6 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         T_commitments[idx] = commitments[idx + 2 * NUM_WIRES];
     }
 
-    return identity_checked && verified;
+    return degree_identity_checked && verified;
 }
 } // namespace bb

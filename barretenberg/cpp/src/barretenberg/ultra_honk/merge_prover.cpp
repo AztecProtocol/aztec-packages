@@ -54,8 +54,8 @@ MergeProver::MergeProof MergeProver::construct_proof()
     table_polynomials[T_prev_idx] = op_queue->construct_previous_ultra_ops_table_columns();      // T_prev
     table_polynomials[T_idx] = op_queue->construct_ultra_ops_table_columns();                    // T
 
-    const size_t current_table_size = table_polynomials[0][0].size();
-    const size_t current_subtable_size = table_polynomials[2][0].size();
+    const size_t current_table_size = table_polynomials[T_idx][0].size();
+    const size_t current_subtable_size = table_polynomials[t_current_idx][0].size();
 
     // Compute g_j(X) = X^{l-1} t_j(1/X)
     for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
@@ -71,7 +71,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Compute/get commitments [T_prev], [T], [reversed_t_current] and add to transcript
     std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
     for (size_t idx = 1; idx < 4; ++idx) {
-        std::string label = labels[idx];
+        std::string label = labels[idx - 1];
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             std::string suffix = std::to_string(wire_idx);
             Commitment cm = pcs_commitment_key.commit(table_polynomials[idx][wire_idx]);
@@ -94,15 +94,15 @@ MergeProver::MergeProof MergeProver::construct_proof()
         partially_computed_difference[idx] = tmp;
     }
 
-    // Compute evaluation t(\kappa), T_prev(\kappa), T(\kappa), and add to transcript
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = table_polynomials[t_current_idx][idx].evaluate(kappa);
-        transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
-        evaluation = table_polynomials[T_prev_idx][idx].evaluate(kappa);
-        transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
-        evaluation = table_polynomials[T_idx][idx].evaluate(kappa);
-        transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
-    }
+    // // Compute evaluation t(\kappa), T_prev(\kappa), T(\kappa), and add to transcript
+    // for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    //     FF evaluation = table_polynomials[t_current_idx][idx].evaluate(kappa);
+    //     transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
+    //     evaluation = table_polynomials[T_prev_idx][idx].evaluate(kappa);
+    //     transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
+    //     evaluation = table_polynomials[T_idx][idx].evaluate(kappa);
+    //     transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
+    // }
 
     // Add univariate opening claims for each polynomial p_j, g_j, t_j
     std::vector<OpeningClaim> opening_claims;

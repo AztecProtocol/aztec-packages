@@ -110,11 +110,11 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     // Add opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF t_eval = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
-        FF T_prev_eval = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
-        FF T_eval = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
-
-        OpeningVector tmp_vector(kappa, { FF(1), minus_pow_kappa, FF(-1) }, { t_eval, T_prev_eval, T_eval });
+        // Evaluation is hard-coded to zero as that is the target
+        // Note that it is not necessarily true that each polynomial evaluates to zero, but for our purposes we only
+        // need to ensure that the Shplonk verifier tests p_j(kappa) = 0. Setting all evaluations to zero is a hack to
+        // enforce that the Shplonk verifier performs this check.
+        OpeningVector tmp_vector(kappa, { FF(1), minus_pow_kappa, FF(-1) }, { FF(0), FF(0), FF(0) });
         std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
         opening_vectors.emplace_back(tmp_vector);
         indices.emplace_back(tmp_idx);
@@ -145,7 +145,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     // Initialize Shplonk verifier
     ShplonkVerifier verifier(commitments, transcript, NUM_CLAIMS);
 
-    // Get z_challenge and compute vanishing evals, we save one inversion in this way
+    // Get z_challenge and compute vanishing evals, we save 14 inversions in this way
     FF shplonk_z_challenge = verifier.get_z_challenge();
     std::array<FF, 2> inverse_vanishing_evals{ (shplonk_z_challenge - kappa).invert(),
                                                (shplonk_z_challenge - kappa_inv).invert() };
