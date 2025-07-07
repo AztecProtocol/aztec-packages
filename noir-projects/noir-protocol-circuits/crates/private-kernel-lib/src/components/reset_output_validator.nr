@@ -219,6 +219,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 self.hints.kept_nullifiers,
                 self.hints.kept_private_logs,
                 self.transient_data_index_hints,
+                self.hints.transient_or_propagated_note_hash_index_for_each_log,
                 self.output.validation_requests.split_counter.unwrap_unchecked(),
             );
         }
