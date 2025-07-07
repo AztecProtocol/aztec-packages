@@ -49,7 +49,15 @@ impl<T> CapsuleArray<T> {
     {
         assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
-        capsules::load(self.contract_address, self.slot_at(index)).unwrap()
+        // TODO: This is a workaround for a weird Noir bug. Uncomment the following line and remove the following lines.
+        // capsules::load(self.contract_address, self.slot_at(index)).unwrap()
+
+        let fields = capsules::very_sad_load::<(<T as Deserialize>::N)>(
+            self.contract_address,
+            self.slot_at(index),
+        )
+            .unwrap();
+        T::deserialize(fields)
     }
 
     /// Deletes the value stored in the array at `index`. Throws if the index is out of bounds.
