@@ -6,7 +6,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { ArchiverApi, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
@@ -73,6 +73,9 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   /** The world state synchronizer used in the node. */
   #worldStateSynchronizer: WorldStateSynchronizer;
 
+  /** The archiver used to get the latest L1 block information. */
+  #archiver: ArchiverApi;
+
   #log: Logger;
 
   #metrics: PoolInstrumentation<Tx>;
@@ -95,6 +98,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     store: AztecAsyncKVStore,
     archive: AztecAsyncKVStore,
     worldStateSynchronizer: WorldStateSynchronizer,
+    archiver: ArchiverApi,
     telemetry: TelemetryClient = getTelemetryClient(),
     config: TxPoolOptions = {},
     log = createLogger('p2p:tx_pool'),
@@ -126,6 +130,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     this.#store = store;
     this.#archive = archive;
     this.#worldStateSynchronizer = worldStateSynchronizer;
+    this.#archiver = archiver;
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.countTxs, () => store.estimateSize());
 
     // Initialize periodic eviction process
@@ -581,20 +586,93 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   }
 
   /**
-   * Performs periodic eviction of low priority transactions if the pool size exceeds the limit.
+   * Performs periodic eviction of transactions. First evicts invalid txs (expired timestamps),
+   * then evicts low priority txs if the pool size exceeds the limit.
    */
   async #periodicEviction(): Promise<void> {
+    try {
+      // First, evict transactions with expired timestamps using current L1 time
+      const numExpiredEvicted = await this.#evictExpiredTxs();
+
+      // Then, evict low priority txs if pool is still too full
+      const numLowPriorityEvicted = await this.#evictLowPriorityTxsIfNeeded();
+
+      if (numExpiredEvicted > 0 || numLowPriorityEvicted > 0) {
+        this.#log.debug('Completed periodic eviction', {
+          expiredEvicted: numExpiredEvicted,
+          lowPriorityEvicted: numLowPriorityEvicted,
+        });
+      }
+    } catch (error) {
+      this.#log.error('Error during periodic eviction', { error });
+    }
+  }
+
+  /**
+   * Evicts transactions that have expired based on current L1 timestamp.
+   * @returns The number of expired transactions evicted.
+   */
+  async #evictExpiredTxs(): Promise<number> {
+    try {
+      // Get the latest L1 block header to get current timestamp
+      const latestHeader = await this.#archiver.getBlockHeader('latest');
+      if (!latestHeader) {
+        this.#log.warn('Could not get latest block header for timestamp validation');
+        return 0;
+      }
+
+      const currentTimestamp = latestHeader.globalVariables.timestamp;
+      const txsToEvict: TxHash[] = [];
+
+      for await (const txHash of this.#pendingTxPriorityToHash.valuesAsync()) {
+        const tx = await this.getPendingTxByHash(txHash);
+        if (!tx) {
+          continue;
+        }
+
+        // Check if transaction has expired
+        const includeByTimestamp = tx.data.includeByTimestamp;
+        if (includeByTimestamp <= currentTimestamp) {
+          this.#log.verbose(
+            `Evicting expired tx ${txHash} from pool (includeByTimestamp: ${includeByTimestamp}, current timestamp: ${currentTimestamp})`,
+          );
+          txsToEvict.push(TxHash.fromString(txHash));
+        }
+      }
+
+      if (txsToEvict.length > 0) {
+        await this.deleteTxs(txsToEvict, true);
+      }
+
+      return txsToEvict.length;
+    } catch (error) {
+      this.#log.error('Error evicting expired transactions', { error });
+      return 0;
+    }
+  }
+
+  /**
+   * Evicts low priority transactions if the pool size exceeds the configured limit.
+   * @returns The number of low priority transactions evicted.
+   */
+  async #evictLowPriorityTxsIfNeeded(): Promise<number> {
     if (this.#maxTxPoolSize === undefined || this.#maxTxPoolSize === 0) {
-      return;
+      return 0;
     }
 
     const pendingTxsSize = (await this.#pendingTxSize.getAsync()) ?? 0;
     if (pendingTxsSize <= this.#maxTxPoolSize * this.txPoolOverflowFactor) {
-      return;
+      return 0;
     }
 
-    this.#log.debug('Running periodic eviction', { pendingTxsSize, maxSize: this.#maxTxPoolSize });
-    await this.evictLowPriorityTxs([]);
+    this.#log.debug('Pool size exceeded, evicting low priority txs', {
+      pendingTxsSize,
+      maxSize: this.#maxTxPoolSize,
+      overflowFactor: this.txPoolOverflowFactor,
+    });
+
+    const result = await this.evictLowPriorityTxs([]);
+    return result.numLowPriorityTxsEvicted;
   }
 
   /**
@@ -613,9 +691,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
   /**
    * Triggers immediate eviction if needed. Useful for testing or when immediate cleanup is required.
+   * @returns A promise that resolves when the eviction process completes
    */
-  public triggerEviction(): void {
-    this.#evictionProcess.trigger();
+  public triggerEviction(): Promise<void> {
+    return this.#evictionProcess.trigger();
   }
 
   /**

@@ -62,7 +62,7 @@ export async function createP2PClient<T extends P2PClientType>(
   const mempools: MemPools<T> = {
     txPool:
       deps.txPool ??
-      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+      new AztecKVTxPool(store, archive, worldStateSynchronizer, archiver, telemetry, {
         maxTxPoolSize: config.maxTxPoolSize,
         archivedTxLimit: config.archivedTxLimit,
       }),

@@ -4,10 +4,11 @@ import { getDefaultConfig } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ArchiverApi } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type TxHash } from '@aztec/stdlib/tx';
 import { ServerWorldStateSynchronizer, worldStateConfigMappings } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -165,7 +166,24 @@ describe('TxPool: Benchmarks', () => {
     });
     wsSync = new ServerWorldStateSynchronizer(ws, l2, getDefaultConfig(worldStateConfigMappings));
     await wsSync.start();
-    pool = new AztecKVTxPool(store, store, wsSync);
+
+    // Create mock archiver
+    const mockArchiver = mock<ArchiverApi>();
+    mockArchiver.getBlockHeader.mockImplementation(blockNumber => {
+      if (blockNumber === 'latest') {
+        return Promise.resolve(
+          BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({
+              blockNumber: 100,
+              timestamp: 1000n,
+            }),
+          }),
+        );
+      }
+      return Promise.resolve(undefined);
+    });
+
+    pool = new AztecKVTxPool(store, store, wsSync, mockArchiver);
   });
 
   afterEach(async () => {
