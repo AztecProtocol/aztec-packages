@@ -43,9 +43,9 @@ template <typename TestType> class stdlib_uint : public testing::Test {
         0U,
         1U,
         2U,
-        static_cast<uint_native>(uint64_t(1) << uint_native_width / 4),
-        static_cast<uint_native>(uint64_t(1) << uint_native_width / 2),
-        static_cast<uint_native>((uint64_t(1) << uint_native_width / 2) + 1),
+        static_cast<uint_native>(static_cast<uint64_t>(1) << uint_native_width / 4),
+        static_cast<uint_native>(static_cast<uint64_t>(1) << uint_native_width / 2),
+        static_cast<uint_native>((static_cast<uint64_t>(1) << uint_native_width / 2) + 1),
         uint_native_max
     };
 
@@ -152,8 +152,8 @@ template <typename TestType> class stdlib_uint : public testing::Test {
         Builder builder = Builder();
 
         for (size_t i = 1; i < 1024; i *= 2) {
-            uint_native a_expected = (uint_native)i;
-            uint_native b_expected = (uint_native)i;
+            uint_native a_expected = static_cast<uint_native>(i);
+            uint_native b_expected = static_cast<uint_native>(i);
 
             uint_ct a = witness_ct(&builder, a_expected);
             uint_ct b = witness_ct(&builder, b_expected);
@@ -279,7 +279,7 @@ template <typename TestType> class stdlib_uint : public testing::Test {
     {
         size_t n = 8;
         std::vector<uint_native> witnesses = get_several_random(3 * n);
-        uint_native expected[8];
+        std::array<uint_native, 8> expected;
         for (size_t i = 2; i < n; ++i) {
             expected[0] = witnesses[3 * i];
             expected[1] = witnesses[3 * i + 1];
@@ -291,7 +291,7 @@ template <typename TestType> class stdlib_uint : public testing::Test {
             expected[7] = expected[4] + expected[5];
         }
         Builder builder = Builder();
-        uint_ct result[8];
+        std::array<uint_ct, 8> result;
         for (size_t i = 2; i < n; ++i) {
             result[0] = uint_ct(&builder, witnesses[3 * i]);
             result[1] = (witness_ct(&builder, witnesses[3 * i + 1]));
