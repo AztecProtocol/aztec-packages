@@ -1,8 +1,23 @@
 FlushEntryQueueTest
 ├── given the queue has already been flushed this epoch
 │   └── it reverts
-└── given the queue has not been flushed this epoch
-    ├── it dequeues up to the configured flush size
+├── given the rollup has no validators
+│   ├── given the queue has fewer validators than the bootstrap validator set size
+│   │   └── it does nothing
+│   └── given the queue has at least the bootstrap validator set size
+│       ├── it dequeues the bootstrap flush size
+│       ├── it calls deposit for each dequeued validator
+│       ├── it emits a {Deposit} event for each successful deposit
+│       ├── it emits a {FailedDeposit} event for each failed deposit
+│       └── it refunds the withdrawer if the deposit fails
+├── given the rollup has less than the target validator set size
+│   ├── it dequeues the bootstrap flush size
+│   ├── it calls deposit for each dequeued validator
+│   ├── it emits a {Deposit} event for each successful deposit
+│   ├── it emits a {FailedDeposit} event for each failed deposit
+│   └── it refunds the withdrawer if the deposit fails
+└── given the rollup has the target validator set size
+    ├── it dequeues a minimum or proportional amount of validators
     ├── it calls deposit for each dequeued validator
     ├── it emits a {Deposit} event for each successful deposit
     ├── it emits a {FailedDeposit} event for each failed deposit

@@ -72,6 +72,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -157,11 +158,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
       .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
       _targetCommitteeSize
-    ).setEntryQueueFlushSizeMin(_validatorCount).setSlashingQuorum(VOTING_ROUND_SIZE)
+    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
       .setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
