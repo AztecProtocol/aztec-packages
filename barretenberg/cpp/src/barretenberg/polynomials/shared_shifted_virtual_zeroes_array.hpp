@@ -128,7 +128,7 @@ template <typename T> struct AlignedMemory {
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T, typename BackingMemory = AlignedMemory<T>> struct SharedShiftedVirtualZeroesArray {
+template <typename T, typename BackingMemory> struct SharedShiftedVirtualZeroesArray {
 
     SharedShiftedVirtualZeroesArray() = default;
 
