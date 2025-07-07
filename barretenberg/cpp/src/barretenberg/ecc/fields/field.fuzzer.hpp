@@ -10,6 +10,7 @@
 
 namespace bb {
 
+// This constant is used to limit the number of elements in the internal state of the VM.
 const size_t INTERNAL_STATE_SIZE = 32;
 
 // Settings structure to control which operations are enabled
@@ -45,6 +46,7 @@ static_assert(sizeof(VMSettings) == 4, "VMSettings must be exactly 4 bytes");
 
 const size_t SETTINGS_SIZE = sizeof(VMSettings);
 
+// This enum is used to represent the instructions that can be executed by the VM.
 enum class Instruction {
     SET_VALUE,
     ADD,
@@ -75,32 +77,73 @@ const size_t INSTRUCTION_HEADER_SIZE = 1;
 const size_t INDEX_SIZE = 1;
 
 static_assert(1 << (8 * INDEX_SIZE) > INTERNAL_STATE_SIZE, "INDEX_SIZE is too small");
+
+// The size of set value is the size of the instruction header, the index where the value is stored, and the value
+// itself.
 const size_t SET_VALUE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE + sizeof(numeric::uint256_t);
+// The size of add is the size of the instruction header, the index of the first operand, the index of the second
+// operand, and the index of the result.
 const size_t ADD_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
+// The size of add assign is the size of the instruction header, the index of the first operand, and the index of the
+// result.
 const size_t ADD_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of increment is the size of the instruction header, and the index of the operand.
 const size_t INCREMENT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
+// The size of mul is the size of the instruction header, the index of the first operand, the index of the second
+// operand, and the index of the result.
 const size_t MUL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
+// The size of mul assign is the size of the instruction header, the index of the first operand, and the index of the
+// result.
 const size_t MUL_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of sub is the size of the instruction header, the index of the first operand, the index of the second
+// operand, and the index of the result.
 const size_t SUB_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
+// The size of sub assign is the size of the instruction header, the index of the first operand, and the index of the
+// result.
 const size_t SUB_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of div is the size of the instruction header, the index of the first operand, the index of the second
+// operand, and the index of the result.
 const size_t DIV_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
+// The size of div assign is the size of the instruction header, the index of the first operand, and the index of the
+// result.
 const size_t DIV_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of inv is the size of the instruction header, the index of the operand, and the index of the result.
 const size_t INV_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of neg is the size of the instruction header, the index of the operand, and the index of the result.
 const size_t NEG_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of sqr is the size of the instruction header, the index of the operand, and the index of the result.
 const size_t SQR_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of sqr assign is the size of the instruction header, the index of the operand, and the index of the result.
 const size_t SQR_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
-const size_t POW_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2 + sizeof(uint64_t);
+// The size of pow is the size of the instruction header, the index of the base, the index of the exponent, and the
+// index of the result.
+const size_t POW_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3 + sizeof(uint64_t);
+// The size of sqrt is the size of the instruction header, the index of the operand, and the index of the result.
 const size_t SQRT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of is zero is the size of the instruction header, and the index of the operand.
 const size_t IS_ZERO_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
+// The size of equal is the size of the instruction header, the index of the first operand, and the index of the second
+// operand.
 const size_t EQUAL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of not equal is the size of the instruction header, the index of the first operand, and the index of the
+// second operand.
 const size_t NOT_EQUAL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of to montgomery is the size of the instruction header, the index of the operand, and the index of the
+// result.
 const size_t TO_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of from montgomery is the size of the instruction header, the index of the operand, and the index of the
+// result.
 const size_t FROM_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of reduce once is the size of the instruction header, the index of the operand, and the index of the result.
 const size_t REDUCE_ONCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
+// The size of self reduce is the size of the instruction header, and the index of the operand.
 const size_t SELF_REDUCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
-const size_t BATCH_INVERT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2 + sizeof(uint8_t);
+// The size of batch invert is the size of the instruction header, the index of the start of the batch and the number of
+// elements in the batch.
+const size_t BATCH_INVERT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE + sizeof(uint8_t);
 
 template <typename Field> struct FieldVM {
+    // If the modulus is large, then we need to use uint512_t for additions and subtractions.
     static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= 0x4000000000000000ULL);
 
     // Check if this field supports sqrt operations
@@ -114,17 +157,23 @@ template <typename Field> struct FieldVM {
             return true;
         }
     }();
+
+    // The internal state of the VM is an array of fields and uint256_ts. We use the uint256_ts as oracles for checking
+    // the correctness of field operations
     std::array<Field, INTERNAL_STATE_SIZE> field_internal_state;
     std::array<numeric::uint256_t, INTERNAL_STATE_SIZE> uint_internal_state;
+    // Whether to print debug information
     bool with_debug;
+    // The settings of the VM
     VMSettings settings;
+    // The maximum number of steps to execute
     size_t max_steps;
-    size_t step_count;
+    // The number of steps executed
+    size_t step_count{};
 
     FieldVM(bool with_debug = false, size_t max_steps = SIZE_MAX)
         : with_debug(with_debug)
         , max_steps(max_steps)
-        , step_count(0)
     {
         // Initialize with all operations enabled by default
         settings.enable_set_value = true;
@@ -159,8 +208,10 @@ template <typename Field> struct FieldVM {
         }
     }
 
+    // Execute a single VM instruction
     size_t execute_instruction(const unsigned char* data_ptr, size_t size_left)
     {
+        // Helper function to get one byte from the data pointer and wrap it around the internal state size
         auto get_index = [&](const unsigned char* data_ptr_index, size_t offset) -> size_t {
             return static_cast<size_t>(data_ptr_index[offset]) % INTERNAL_STATE_SIZE;
         };
@@ -185,6 +236,7 @@ template <typename Field> struct FieldVM {
             std::cout << "Executing instruction: " << instruction_name << " (" << static_cast<int>(instruction)
                       << ") at step: " << step_count << std::endl;
         }
+        // Get the uint256_t value from the data pointer
         auto get_value = [&](const unsigned char* data_ptr_value, size_t offset) -> numeric::uint256_t {
             std::array<uint64_t, 4> limbs;
             for (size_t i = 0; i < 4; i++) {
@@ -192,9 +244,11 @@ template <typename Field> struct FieldVM {
             }
             return numeric::uint256_t(limbs[0], limbs[1], limbs[2], limbs[3]);
         };
+        // Get the uint64_t value from the data pointer
         auto get_uint64 = [&](const unsigned char* data_ptr_value, size_t offset) -> uint64_t {
             return *reinterpret_cast<const uint64_t*>(data_ptr_value + offset);
         };
+        // Execute the instruction
         switch (instruction) {
         case Instruction::SET_VALUE:
             if (size_left < SET_VALUE_SIZE) {
@@ -203,7 +257,7 @@ template <typename Field> struct FieldVM {
             if (!settings.enable_set_value) {
                 return SET_VALUE_SIZE; // Skip disabled operation but return correct size
             }
-            // Read the value
+            // Read the value and set the field and uint256_t values
             {
                 size_t index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 auto value = get_value(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
@@ -221,17 +275,16 @@ template <typename Field> struct FieldVM {
             if (!settings.enable_add) {
                 return ADD_SIZE; // Skip disabled operation but return correct size
             }
-            // Read the two operands
             {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 size_t index3 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index3] = field_internal_state[index1] + field_internal_state[index2];
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index3] =
-                        ((uint512_t(uint_internal_state[index1]) + uint512_t(uint_internal_state[index2])) %
-                         uint512_t(Field::modulus))
-                            .lo;
+                    uint_internal_state[index3] = ((static_cast<uint512_t>(uint_internal_state[index1]) +
+                                                    static_cast<uint512_t>(uint_internal_state[index2])) %
+                                                   static_cast<uint512_t>(Field::modulus))
+                                                      .lo;
                 } else {
                     uint_internal_state[index3] =
                         (uint_internal_state[index1] + uint_internal_state[index2]) % Field::modulus;
@@ -261,10 +314,10 @@ template <typename Field> struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index1] += field_internal_state[index2];
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index1] =
-                        ((uint512_t(uint_internal_state[index1]) + uint512_t(uint_internal_state[index2])) %
-                         uint512_t(Field::modulus))
-                            .lo;
+                    uint_internal_state[index1] = ((static_cast<uint512_t>(uint_internal_state[index1]) +
+                                                    static_cast<uint512_t>(uint_internal_state[index2])) %
+                                                   static_cast<uint512_t>(Field::modulus))
+                                                      .lo;
                 } else {
                     uint_internal_state[index1] =
                         (uint_internal_state[index1] + uint_internal_state[index2]) % Field::modulus;
@@ -287,7 +340,9 @@ template <typename Field> struct FieldVM {
                 field_internal_state[index]++;
                 if constexpr (LARGE_MODULUS) {
                     uint_internal_state[index] =
-                        ((uint512_t(uint_internal_state[index]) + uint512_t(1)) % uint512_t(Field::modulus)).lo;
+                        ((static_cast<uint512_t>(uint_internal_state[index]) + static_cast<uint512_t>(1)) %
+                         static_cast<uint512_t>(Field::modulus))
+                            .lo;
                 } else {
                     uint_internal_state[index] = (uint_internal_state[index] + 1) % Field::modulus;
                 }
@@ -309,9 +364,10 @@ template <typename Field> struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 size_t index3 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index3] = field_internal_state[index1] * field_internal_state[index2];
-                uint_internal_state[index3] =
-                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index2])) % Field::modulus)
-                        .lo;
+                uint_internal_state[index3] = ((static_cast<uint512_t>(uint_internal_state[index1]) *
+                                                static_cast<uint512_t>(uint_internal_state[index2])) %
+                                               static_cast<uint512_t>(Field::modulus))
+                                                  .lo;
                 if (with_debug) {
                     info("MUL: index1: ",
                          index1,
@@ -336,9 +392,10 @@ template <typename Field> struct FieldVM {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index1] *= field_internal_state[index2];
-                uint_internal_state[index1] =
-                    ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index2])) % Field::modulus)
-                        .lo;
+                uint_internal_state[index1] = ((static_cast<uint512_t>(uint_internal_state[index1]) *
+                                                static_cast<uint512_t>(uint_internal_state[index2])) %
+                                               static_cast<uint512_t>(Field::modulus))
+                                                  .lo;
                 if (with_debug) {
                     info("MUL_ASSIGN: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index1]);
                 }
@@ -358,10 +415,11 @@ template <typename Field> struct FieldVM {
                 size_t index3 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index3] = field_internal_state[index1] - field_internal_state[index2];
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index3] = ((uint512_t(Field::modulus) + uint512_t(uint_internal_state[index1]) -
-                                                    uint512_t(uint_internal_state[index2])) %
-                                                   uint512_t(Field::modulus))
-                                                      .lo;
+                    uint_internal_state[index3] =
+                        ((static_cast<uint512_t>(Field::modulus) + static_cast<uint512_t>(uint_internal_state[index1]) -
+                          static_cast<uint512_t>(uint_internal_state[index2])) %
+                         static_cast<uint512_t>(Field::modulus))
+                            .lo;
                 } else {
                     uint_internal_state[index3] =
                         (Field::modulus + uint_internal_state[index1] - uint_internal_state[index2]) % Field::modulus;
@@ -391,10 +449,11 @@ template <typename Field> struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index1] -= field_internal_state[index2];
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index1] = ((uint512_t(Field::modulus) + uint512_t(uint_internal_state[index1]) -
-                                                    uint512_t(uint_internal_state[index2])) %
-                                                   uint512_t(Field::modulus))
-                                                      .lo;
+                    uint_internal_state[index1] =
+                        ((static_cast<uint512_t>(Field::modulus) + static_cast<uint512_t>(uint_internal_state[index1]) -
+                          static_cast<uint512_t>(uint_internal_state[index2])) %
+                         static_cast<uint512_t>(Field::modulus))
+                            .lo;
                 } else {
                     uint_internal_state[index1] =
                         (Field::modulus + uint_internal_state[index1] - uint_internal_state[index2]) % Field::modulus;
@@ -455,9 +514,9 @@ template <typename Field> struct FieldVM {
                     field_internal_state[index1] /= field_internal_state[index2];
                     // For uint256_t, we'll compute division using the field result
                     if (!((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index1])) *
-                           uint512_t(uint_internal_state[index2])) %
-                              uint512_t(Field::modulus) ==
-                          uint512_t(uint_internal_state[index1]))) {
+                           static_cast<uint512_t>(uint_internal_state[index2])) %
+                              static_cast<uint512_t>(Field::modulus) ==
+                          static_cast<uint512_t>(uint_internal_state[index1]))) {
                         // Deliberately set to different value
                         uint_internal_state[index1] = uint256_t(field_internal_state[index1]) + 1;
                     }
@@ -492,9 +551,9 @@ template <typename Field> struct FieldVM {
                     field_internal_state[index2] = field_internal_state[index1].invert();
                     // For uint256_t, we'll compute inversion using the field result
                     if (!((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
-                           uint512_t(uint_internal_state[index1])) %
-                              uint512_t(Field::modulus) ==
-                          uint512_t(1))) {
+                           static_cast<uint512_t>(uint_internal_state[index1])) %
+                              static_cast<uint512_t>(Field::modulus) ==
+                          static_cast<uint512_t>(1))) {
                         // Deliberately set to different value
                         uint_internal_state[index2] = uint256_t(field_internal_state[index2]) + 1;
                     } else {
@@ -526,10 +585,10 @@ template <typename Field> struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = -field_internal_state[index1];
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index2] =
-                        ((uint512_t(Field::modulus) - uint512_t(uint_internal_state[index1])) %
-                         uint512_t(Field::modulus))
-                            .lo;
+                    uint_internal_state[index2] = ((static_cast<uint512_t>(Field::modulus) -
+                                                    static_cast<uint512_t>(uint_internal_state[index1])) %
+                                                   static_cast<uint512_t>(Field::modulus))
+                                                      .lo;
                 } else {
                     uint_internal_state[index2] = (Field::modulus - uint_internal_state[index1]) % Field::modulus;
                 }
@@ -551,15 +610,15 @@ template <typename Field> struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = field_internal_state[index1].sqr();
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index2] =
-                        ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index1])) %
-                         uint512_t(Field::modulus))
-                            .lo;
+                    uint_internal_state[index2] = ((static_cast<uint512_t>(uint_internal_state[index1]) *
+                                                    static_cast<uint512_t>(uint_internal_state[index1])) %
+                                                   static_cast<uint512_t>(Field::modulus))
+                                                      .lo;
                 } else {
-                    uint_internal_state[index2] =
-                        ((uint512_t(uint_internal_state[index1]) * uint512_t(uint_internal_state[index1])) %
-                         Field::modulus)
-                            .lo;
+                    uint_internal_state[index2] = ((static_cast<uint512_t>(uint_internal_state[index1]) *
+                                                    static_cast<uint512_t>(uint_internal_state[index1])) %
+                                                   static_cast<uint512_t>(Field::modulus))
+                                                      .lo;
                 }
                 if (with_debug) {
                     info("SQR: index1: ", index1, " index2: ", index2, " value: ", field_internal_state[index2]);
@@ -578,15 +637,15 @@ template <typename Field> struct FieldVM {
                 size_t index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 field_internal_state[index].self_sqr();
                 if constexpr (LARGE_MODULUS) {
-                    uint_internal_state[index] =
-                        ((uint512_t(uint_internal_state[index]) * uint512_t(uint_internal_state[index])) %
-                         uint512_t(Field::modulus))
-                            .lo;
+                    uint_internal_state[index] = ((static_cast<uint512_t>(uint_internal_state[index]) *
+                                                   static_cast<uint512_t>(uint_internal_state[index])) %
+                                                  static_cast<uint512_t>(Field::modulus))
+                                                     .lo;
                 } else {
-                    uint_internal_state[index] =
-                        ((uint512_t(uint_internal_state[index]) * uint512_t(uint_internal_state[index])) %
-                         Field::modulus)
-                            .lo;
+                    uint_internal_state[index] = ((static_cast<uint512_t>(uint_internal_state[index]) *
+                                                   static_cast<uint512_t>(uint_internal_state[index])) %
+                                                  static_cast<uint512_t>(Field::modulus))
+                                                     .lo;
                 }
                 if (with_debug) {
                     info("SQR_ASSIGN: index: ", index, " value: ", field_internal_state[index]);
@@ -606,13 +665,13 @@ template <typename Field> struct FieldVM {
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 uint64_t exponent = get_uint64(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2);
                 field_internal_state[index2] = field_internal_state[index1].pow(exponent);
-                auto multiplicand = uint512_t(uint_internal_state[index1]);
-                auto current = uint512_t(1);
+                auto multiplicand = static_cast<uint512_t>(uint_internal_state[index1]);
+                auto current = static_cast<uint512_t>(1);
                 while (exponent > 0) {
                     if (exponent & 1) {
-                        current = (current * multiplicand) % uint512_t(Field::modulus);
+                        current = (current * multiplicand) % static_cast<uint512_t>(Field::modulus);
                     }
-                    multiplicand = (multiplicand * multiplicand) % uint512_t(Field::modulus);
+                    multiplicand = (multiplicand * multiplicand) % static_cast<uint512_t>(Field::modulus);
                     exponent >>= 1;
                 }
                 uint_internal_state[index2] = current.lo;
@@ -643,10 +702,11 @@ template <typename Field> struct FieldVM {
                     auto [found, root] = field_internal_state[index1].sqrt();
                     if (found) {
                         field_internal_state[index2] = root;
-                        assert((uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
-                                uint512_t(static_cast<numeric::uint256_t>(field_internal_state[index2]))) %
-                                   uint512_t(Field::modulus) ==
-                               uint512_t(uint_internal_state[index1]));
+                        assert(
+                            ((static_cast<uint512_t>(static_cast<numeric::uint256_t>(field_internal_state[index2])) *
+                              static_cast<uint512_t>(static_cast<numeric::uint256_t>(field_internal_state[index2]))) %
+                             static_cast<uint512_t>(Field::modulus)) ==
+                            static_cast<uint512_t>(uint_internal_state[index1]));
                         uint_internal_state[index2] = static_cast<numeric::uint256_t>(root);
                     }
                     if (with_debug) {
@@ -736,8 +796,9 @@ template <typename Field> struct FieldVM {
                 size_t index1 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t index2 = get_index(data_ptr, INSTRUCTION_HEADER_SIZE + INDEX_SIZE);
                 field_internal_state[index2] = field_internal_state[index1].to_montgomery_form();
-                uint_internal_state[index2] =
-                    ((uint512_t(uint_internal_state[index1]) << 256) % uint512_t(Field::modulus)).lo;
+                uint_internal_state[index2] = ((static_cast<uint512_t>(uint_internal_state[index1]) << 256) %
+                                               static_cast<uint512_t>(Field::modulus))
+                                                  .lo;
                 // Note: uint_internal_state doesn't track Montgomery form
                 if (with_debug) {
                     info("TO_MONTGOMERY: index1: ",
@@ -763,10 +824,10 @@ template <typename Field> struct FieldVM {
                 field_internal_state[index2] = field_internal_state[index1].from_montgomery_form();
                 if constexpr (LARGE_MODULUS) {
                     // For large modulus fields, use uint512_t to prevent overflow
-                    uint512_t value = uint512_t(uint_internal_state[index1]);
+                    auto value = static_cast<uint512_t>(uint_internal_state[index1]);
                     for (size_t i = 0; i < 256; i++) {
                         if (value & 1) {
-                            value += uint512_t(Field::modulus);
+                            value += static_cast<uint512_t>(Field::modulus);
                         }
                         value >>= 1;
                     }
@@ -838,8 +899,9 @@ template <typename Field> struct FieldVM {
                 size_t start_index = get_index(data_ptr, INSTRUCTION_HEADER_SIZE);
                 size_t count =
                     static_cast<size_t>(data_ptr[INSTRUCTION_HEADER_SIZE + INDEX_SIZE]) % (INTERNAL_STATE_SIZE / 2);
-                if (count == 0)
+                if (count == 0) {
                     count = 1; // Ensure at least one element
+                }
                 if (start_index + count > INTERNAL_STATE_SIZE) {
                     count = INTERNAL_STATE_SIZE - start_index;
                 }
@@ -859,8 +921,7 @@ template <typename Field> struct FieldVM {
                 // Perform individual inversions for comparison
                 std::vector<Field> individual_inverses;
                 std::vector<numeric::uint256_t> individual_uint_inverses;
-                for (size_t i = 0; i < valid_indices.size(); i++) {
-                    size_t idx = valid_indices[i];
+                for (size_t idx : valid_indices) {
                     if (!field_internal_state[idx].is_zero()) {
                         Field inv = field_internal_state[idx].invert();
                         individual_inverses.push_back(inv);
@@ -907,10 +968,10 @@ template <typename Field> struct FieldVM {
                         assert(product == Field::one());
 
                         // Verify uint arithmetic consistency
-                        uint512_t uint_product =
-                            (uint512_t(original_uint_elements[i]) * uint512_t(uint_internal_state[idx])) %
-                            uint512_t(Field::modulus);
-                        assert(uint_product == uint512_t(1));
+                        auto uint_product = (static_cast<uint512_t>(original_uint_elements[i]) *
+                                             static_cast<uint512_t>(uint_internal_state[idx])) %
+                                            static_cast<uint512_t>(Field::modulus);
+                        assert(uint_product == static_cast<uint512_t>(1));
                     } else {
                         // Zero elements should remain zero
                         assert(field_internal_state[idx] == Field::zero());
@@ -948,8 +1009,8 @@ template <typename Field> struct FieldVM {
                 std::cout << "[FieldVM] Not enough data for settings: Size=" << Size
                           << ", SETTINGS_SIZE=" << SETTINGS_SIZE << std::endl;
                 std::cout << "[FieldVM] First bytes: ";
-                for (size_t i = 0; i < std::min(Size, size_t(16)); ++i) {
-                    printf("%02x ", Data[i]);
+                for (size_t i = 0; i < std::min(Size, static_cast<size_t>(16)); ++i) {
+                    std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(Data[i]) << " ";
                 }
                 std::cout << std::endl;
             }
