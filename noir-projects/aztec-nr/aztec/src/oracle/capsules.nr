@@ -16,7 +16,7 @@ pub unconstrained fn load<T>(contract_address: AztecAddress, slot: Field) -> Opt
 where
     T: Deserialize,
 {
-    let serialized_option = load_oracle(contract_address, slot);
+    let serialized_option = load_oracle(contract_address, slot, <T as Deserialize>::N);
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 

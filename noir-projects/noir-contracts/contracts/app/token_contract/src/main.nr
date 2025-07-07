@@ -33,6 +33,9 @@ pub contract Token {
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
     use aztec::protocol_types::{address::AztecAddress, traits::ToField};
 
+    // TODO(benesjan): Nuke this
+    use aztec::protocol_types::traits::Serialize;
+
     // docs:start:import_authwit
     use aztec::authwit::auth::compute_authwit_nullifier;
     // docs:end:import_authwit
@@ -355,7 +358,7 @@ pub contract Token {
         context: PrivateContext,
         account: AztecAddress,
         remaining: u128,
-    ) -> PrivateCallInterface<25, u128, 1> {
+    ) -> PrivateCallInterface<25, u128> {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 
