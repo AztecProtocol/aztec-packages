@@ -31,7 +31,7 @@ mod test {
         abis::call_context::CallContext,
         address::AztecAddress,
         constants::CALL_CONTEXT_LENGTH,
-        traits::{Deserialize, Empty, Serialize},
+        traits::{Deserialize, Empty, FromField, Serialize},
     };
 
     #[test]

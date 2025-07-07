@@ -15,12 +15,12 @@ use protocol_types::{
 
 /// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
 /// of the event and then encrypting them for `recipient`.
-pub fn to_encrypted_private_event_message<Event, let N: u32>(
+pub fn to_encrypted_private_event_message<Event>(
     event: Event,
     recipient: AztecAddress,
 ) -> ([Field; PRIVATE_LOG_CIPHERTEXT_LEN], Field)
 where
-    Event: EventInterface + Serialize<N>,
+    Event: EventInterface + Serialize,
 {
     // In private events, we automatically inject randomness to prevent event commitment preimage attacks and event
     // commitment collisions (the commitments are included in the nullifier tree and duplicate nullifiers are by

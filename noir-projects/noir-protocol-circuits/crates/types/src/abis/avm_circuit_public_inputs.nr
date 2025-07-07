@@ -76,7 +76,7 @@ use crate::{
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
 use std::meta::derive;

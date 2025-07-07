@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
-use crate::traits::{Deserialize, FromField, Packable, Serialize, ToField};
+use crate::traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField};
 use std::meta::derive;
 
 #[derive(Deserialize, Eq, Packable, Serialize)]
@@ -16,6 +16,12 @@ impl ToField for ContractClassId {
 impl FromField for ContractClassId {
     fn from_field(value: Field) -> Self {
         Self { inner: value }
+    }
+}
+
+impl Empty for ContractClassId {
+    fn empty() -> Self {
+        Self { inner: 0 }
     }
 }
 

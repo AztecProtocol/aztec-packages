@@ -1,7 +1,8 @@
-use dep::protocol_types::{
-    abis::{block_header::BlockHeader, call_context::CallContext},
+use protocol_types::{
+    abis::{
+        block_header::BlockHeader, call_context::CallContext, transaction::tx_context::TxContext,
+    },
     traits::Empty,
-    transaction::tx_context::TxContext,
 };
 
 // PrivateContextInputs are expected to be provided to each private function
