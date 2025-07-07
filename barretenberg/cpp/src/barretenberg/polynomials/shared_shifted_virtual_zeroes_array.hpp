@@ -20,6 +20,79 @@
 
 namespace bb {
 
+template <typename T> struct FileBackedMemory {
+
+    static std::string generate_unique_filename()
+    {
+        static std::atomic<size_t> file_counter{ 0 };
+        size_t id = file_counter.fetch_add(1);
+        return "/tmp/poly-mmap-" + std::to_string(id);
+    }
+
+    // Create a new file-backed memory region
+    FileBackedMemory(size_t size)
+        : file_size(size * sizeof(T))
+        , filename(generate_unique_filename())
+    {
+        if (file_size == 0) {
+            return;
+        }
+
+        fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
+        // Create file
+        if (fd < 0) {
+            throw std::runtime_error("Failed to create backing file: " + filename);
+        }
+
+        // Set file size
+        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
+            throw std::runtime_error("Failed to set file size");
+        }
+
+        // Memory map the file
+        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (addr == MAP_FAILED) {
+            info(file_size, ' ', PROT_READ | PROT_WRITE, ' ', MAP_SHARED, ' ', fd, ' ', 0);
+            throw std::runtime_error("Failed to mmap file");
+        }
+
+        memory = static_cast<T*>(addr);
+        // info("JONATHAN ", file_size, ' ', filename);
+    }
+
+    FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
+    FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
+
+    FileBackedMemory(FileBackedMemory&& other) = delete;
+    FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
+
+    ~FileBackedMemory()
+    {
+        if (file_size == 0) {
+            return;
+        }
+        // std::cout << "JONATHAN ~FileBackedMemory " << this << std::endl;
+        if (memory != nullptr && file_size > 0) {
+            munmap(memory, file_size);
+        }
+        if (fd >= 0) {
+            close(fd);
+        }
+        if (!filename.empty()) {
+            std::filesystem::remove(filename);
+        }
+    }
+
+    const T* data() const { return memory; }
+    T* data() { return memory; }
+
+  private:
+    size_t file_size;
+    std::string filename;
+    int fd;
+    T* memory;
+};
+
 /**
  * @brief A shared pointer array template that represents a virtual array filled with zeros up to `virtual_size_`,
  * but with actual memory usage proportional to the region between `start_` and `end_`.
@@ -34,80 +107,14 @@ namespace bb {
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T> struct SharedShiftedVirtualZeroesArray {
-
-    struct MemoryResource {
-        // Create a new file-backed memory region
-        MemoryResource(size_t size, const std::string& filename)
-            : file_size(size * sizeof(T))
-            , filename(filename)
-        {
-            if (file_size == 0) {
-                return;
-            }
-
-            fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
-            // Create file
-            if (fd < 0) {
-                throw std::runtime_error("Failed to create backing file: " + filename);
-            }
-
-            // Set file size
-            if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-                throw std::runtime_error("Failed to set file size");
-            }
-
-            // Memory map the file
-            void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-            if (addr == MAP_FAILED) {
-                info(file_size, ' ', PROT_READ | PROT_WRITE, ' ', MAP_SHARED, ' ', fd, ' ', 0);
-                throw std::runtime_error("Failed to mmap file");
-            }
-
-            memory = static_cast<T*>(addr);
-            // info("JONATHAN ", file_size, ' ', filename);
-        }
-
-        MemoryResource(const MemoryResource&) = delete;            // delete copy constructor
-        MemoryResource& operator=(const MemoryResource&) = delete; // delete copy assignment
-
-        MemoryResource(MemoryResource&& other) = delete;
-        MemoryResource& operator=(const MemoryResource&&) = delete; // delete move assignment
-
-        ~MemoryResource()
-        {
-            if (file_size == 0) {
-                return;
-            }
-            // std::cout << "JONATHAN ~MemoryResource " << this << std::endl;
-            if (memory != nullptr && file_size > 0) {
-                munmap(memory, file_size);
-            }
-            if (fd >= 0) {
-                close(fd);
-            }
-            if (!filename.empty()) {
-                std::filesystem::remove(filename);
-            }
-        }
-
-        const T* data() const { return memory; }
-        T* data() { return memory; }
-
-      private:
-        size_t file_size;
-        std::string filename;
-        int fd;
-        T* memory;
-    };
+template <typename T, typename BackingMemory = FileBackedMemory<T>> struct SharedShiftedVirtualZeroesArray {
 
     SharedShiftedVirtualZeroesArray() = default;
 
     SharedShiftedVirtualZeroesArray(size_t start,
                                     size_t end,
                                     size_t virtual_size,
-                                    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-                                    std::shared_ptr<MemoryResource> backing_memory)
+                                    std::shared_ptr<BackingMemory> backing_memory)
         : start_(start)
         , end_(end)
         , virtual_size_(virtual_size)
@@ -118,7 +125,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
         : start_(start_index)
         , end_(size + start_index)
         , virtual_size_(virtual_size)
-        , backing_memory_(allocate_file_backing(size))
+        , backing_memory_(std::make_shared<BackingMemory>(size))
     {}
 
     /**
@@ -203,7 +210,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
         // std::cout << "JONATHAN: clone " << right_expansion << ' ' << left_expansion << std::endl;
         size_t expanded_size = size() + right_expansion + left_expansion;
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        std::shared_ptr<MemoryResource> backing_clone = allocate_file_backing(expanded_size);
+        auto backing_clone = std::make_shared<BackingMemory>(expanded_size);
         // zero any left extensions to the array
         memset(static_cast<void*>(backing_clone->data()), 0, sizeof(T) * left_expansion);
         // copy our cloned array over
@@ -214,18 +221,6 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
         memset(static_cast<void*>(backing_clone->data() + left_expansion + size()), 0, sizeof(T) * right_expansion);
         return SharedShiftedVirtualZeroesArray(
             start_ - left_expansion, end_ + right_expansion, virtual_size_, backing_clone);
-    }
-
-    static std::shared_ptr<MemoryResource> allocate_file_backing(size_t size)
-    {
-        // Generate unique filename
-        static std::atomic<size_t> file_counter{ 0 };
-        size_t id = file_counter.fetch_add(1);
-        std::string filename = "/tmp/poly-mmap-" + std::to_string(id);
-        // std::cout << "JONATHAN: allocate_file_backing " << filename << std::endl;
-
-        // Create file-backed memory using the shared memory manager
-        return std::make_shared<MemoryResource>(size, filename);
     }
 
     // MEMBERS:
@@ -263,6 +258,6 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * The memory is allocated for at least the range [start_, end_). It is shared across instances to allow
      * for efficient memory use when arrays are shifted or otherwise manipulated.
      */
-    std::shared_ptr<MemoryResource> backing_memory_;
+    std::shared_ptr<BackingMemory> backing_memory_;
 };
 } // namespace bb
