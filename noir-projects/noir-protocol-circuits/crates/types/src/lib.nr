@@ -13,6 +13,8 @@ pub mod contract_class_id;
 pub mod merkle_tree;
 pub mod contract_instance;
 pub mod messaging;
+pub mod content_commitment;
+pub mod transaction;
 pub mod abis;
 
 pub mod hash;
@@ -22,13 +24,7 @@ pub mod type_packing;
 pub mod tuple_serialization;
 
 pub mod shared_mutable;
-pub mod content_commitment;
-pub mod partial_state_reference;
-pub mod state_reference;
-pub mod block_header;
 pub mod proposed_block_header;
-
-pub mod transaction;
 
 pub(crate) mod tests;
 

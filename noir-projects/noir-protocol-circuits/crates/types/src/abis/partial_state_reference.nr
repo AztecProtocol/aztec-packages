@@ -23,8 +23,8 @@ impl Empty for PartialStateReference {
 
 mod test {
     use crate::{
+        abis::partial_state_reference::PartialStateReference,
         constants::PARTIAL_STATE_REFERENCE_LENGTH,
-        partial_state_reference::PartialStateReference,
         traits::{Deserialize, Empty, Serialize},
     };
 

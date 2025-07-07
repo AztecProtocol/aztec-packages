@@ -29,7 +29,9 @@ impl Empty for TxContext {
 #[test]
 fn serialization_of_empty() {
     let context = TxContext::empty();
-    let serialized = context.serialize();
+    // We use the TX_CONTEXT_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant.
+    let serialized: [Field; TX_CONTEXT_LENGTH] = context.serialize();
     let deserialized = TxContext::deserialize(serialized);
     assert(context.eq(deserialized));
 }

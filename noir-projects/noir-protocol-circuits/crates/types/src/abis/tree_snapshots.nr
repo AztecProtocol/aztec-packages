@@ -1,6 +1,8 @@
 use crate::{
-    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-    partial_state_reference::PartialStateReference,
+    abis::{
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        partial_state_reference::PartialStateReference,
+    },
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;

@@ -1,11 +1,12 @@
 use crate::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
+    abis::{
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables,
+        state_reference::StateReference,
+    },
     constants::{BLOCK_HEADER_LENGTH, GENERATOR_INDEX__BLOCK_HASH, GENESIS_BLOCK_HEADER_HASH},
     content_commitment::ContentCommitment,
     hash::poseidon2_hash_with_separator,
-    state_reference::StateReference,
     traits::{Deserialize, Empty, Hash, Serialize},
-    utils::arrays::subarray,
 };
 use std::meta::derive;
 
@@ -43,7 +44,9 @@ impl Hash for BlockHeader {
 #[test]
 fn serialization_of_empty() {
     let header = BlockHeader::empty();
-    let serialized = header.serialize();
+    // We use the BLOCK_HEADER_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant.
+    let serialized: [Field; BLOCK_HEADER_LENGTH] = header.serialize();
     let deserialized = BlockHeader::deserialize(serialized);
     assert(header.eq(deserialized));
 }
