@@ -35,104 +35,111 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 {
     transcript->load_proof(proof);
 
+    // clang-format off
+    /**
+     * Shplonk verification checks the following openings: p_j(kappa), g_j(kappa), t_j(1/kappa)
+     * The polynomials p_j(X) have the form: p_j(X) = t_j(X) - kappa^l T_{j,prev}(X) - T_j(X). Therefore, the verifier
+     * must compute the commitment to p_j starting from the commitments to t_j, T_{j,prev}, T_j. To avoid unnecessary
+     * ECC operations, we set up the Shplonk verifier as follows.
+     *
+     * ShplonkVerifier.commitments = {
+     *      [t_1], .., [t_4], [T_{1,prev}], .., [T_{4, prev}], [T_1], .., [T_4], [g_1], .., [g_4]
+     * }
+     *
+     * And then we open the claims by linearly combining the commitments:
+     *
+     * [t_1] [t_2] [t_3] [t_4] [T_{1,prev}] [T_{2,prev}] [T_{3,prev}] [T_{4 prev}] [T_1] [T_2] [T_3] [T_4] [g_1] [g_2] [g_3] [g_4] / evaluation_challenge
+     *
+     *   1     0     0     0     -kappa^l        0             0           0        -1     0     0     0     0     0     0     0            kappa
+     *   0     1     0     0         0        -kappa^l         0           0         0    -1     0     0     0     0     0     0            kappa
+     *   0     0     1     0         0           0         -kappa^l        0         0     0    -1     0     0     0     0     0            kappa
+     *   0     0     0     1         0           0             0       -kappa^l      0     0     0    -1     0     0     0     0            kappa
+     *   0     0     0     0         0           0             0           0         0     0     0     0     1     0     0     0            kappa
+     *   1     0     0     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
+     *   0     0     0     0         0           0             0           0         0     0     0     0     0     1     0     0            kappa
+     *   0     1     0     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
+     *   0     0     0     0         0           0             0           0         0     0     0     0     0     0     1     0            kappa
+     *   0     0     1     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
+     *   0     0     0     0         0           0             0           0         0     0     0     0     0     0     0     1            kappa
+     *   0     0     0     1         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
+     *
+     */
+    // clang-format on
+
+    static constexpr size_t NUM_CLAIMS = 3 * NUM_WIRES;
+
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
 
-    // Receive table column polynomial commitments [T_{j,prev}], [T_j], [inverted_t_j] j = 1,2,3,4
-    std::array<Commitment, NUM_WIRES> T_prev_commitments;
-    std::array<Commitment, NUM_WIRES> inverted_t_commitments;
+    // Commitments used by the Shplonk verifier
+    std::vector<Commitment> commitments;
+    commitments.reserve(4 * NUM_WIRES);
+
+    // [t_j]
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        std::string suffix = std::to_string(idx);
-        T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
-        T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
-        inverted_t_commitments[idx] =
-            transcript->template receive_from_prover<Commitment>("INVERTED_t_CURRENT_" + suffix);
+        commitments.emplace_back(t_commitments[idx]);
+    }
+
+    // Receive [T_{j,prev}], [T_j], [g_j]
+    std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
+    for (size_t idx = 0; idx < 3; ++idx) {
+        std::string label = labels[idx];
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            std::string suffix = std::to_string(wire_idx);
+            commitments.emplace_back(transcript->template receive_from_prover<Commitment>(label + suffix));
+        }
     }
 
     // Evaluation challenge
     FF kappa = transcript->template get_challenge<FF>("kappa");
-    FF minus_pow_kappa = -kappa.pow(subtable_size);
+    FF minus_pow_kappa_minus_one = -kappa.pow(subtable_size - 1);
     FF kappa_inv = kappa.invert();
-    FF minus_pow_kappa_minus_one = minus_pow_kappa * kappa_inv;
+    FF minus_pow_kappa = minus_pow_kappa_minus_one * kappa;
 
-    // Receive evaluations g_j(kappa), t_j(1/kappa), t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
-    std::array<FF, NUM_WIRES> inverted_t_evals;
-    std::array<FF, NUM_WIRES> t_evals_inv;
-    std::array<FF, NUM_WIRES> t_evals;
-    std::array<FF, NUM_WIRES> T_prev_evals;
-    std::array<FF, NUM_WIRES> T_evals;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        inverted_t_evals[idx] = transcript->template receive_from_prover<FF>("inverted_t_eval_" + std::to_string(idx));
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        t_evals_inv[idx] = transcript->template receive_from_prover<FF>("t_evals_inv_" + std::to_string(idx));
-    }
-
-    // Check t_j(1/kappa) = g_j(kappa) * kappa^{l-1}
+    // Boolean keep track of t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
     bool identity_checked = true;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        identity_checked &= (t_evals_inv[idx] * minus_pow_kappa_minus_one + inverted_t_evals[idx] == 0);
-    }
 
-    // Allocate commitment vector
-    std::vector<Commitment> verifier_commitments;
-    verifier_commitments.reserve(NUM_WIRES * 4);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        verifier_commitments.push_back(t_commitments[idx]);
-    }
-    verifier_commitments.insert(verifier_commitments.end(), T_prev_commitments.begin(), T_prev_commitments.end());
-    verifier_commitments.insert(verifier_commitments.end(), T_commitments.begin(), T_commitments.end());
-    verifier_commitments.insert(
-        verifier_commitments.end(), inverted_t_commitments.begin(), inverted_t_commitments.end());
-
-    // Prepare opening vectors
+    // Indices and opening vectors
+    std::vector<std::vector<size_t>> indices;
     std::vector<OpeningVector> opening_vectors;
-    opening_vectors.reserve(NUM_WIRES * 3);
+    indices.reserve(NUM_CLAIMS);
+    opening_vectors.reserve(NUM_CLAIMS);
+
     // Add opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        OpeningVector tmp(
-            kappa, { FF::one(), minus_pow_kappa, FF::neg_one() }, { t_evals[idx], T_prev_evals[idx], T_evals[idx] });
-        opening_vectors.emplace_back(tmp);
-    }
-    // Add opening claim for g_j(kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        OpeningVector tmp(kappa, { FF::one() }, { inverted_t_evals[idx] });
-        opening_vectors.emplace_back(tmp);
-    }
-    // Add opening claim for t_j(1/kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        OpeningVector tmp(kappa_inv, { FF::one() }, { t_evals_inv[idx] });
-        opening_vectors.emplace_back(tmp);
-    }
+        FF t_eval = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
+        FF T_prev_eval = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
+        FF T_eval = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
 
-    // Prepare indices
-    std::vector<std::vector<size_t>> indices;
-    // Add indices for opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        std::vector<size_t> tmp{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
-        indices.emplace_back(tmp);
+        OpeningVector tmp_vector(kappa, { FF::one(), minus_pow_kappa, FF::neg_one() }, { t_eval, T_prev_eval, T_eval });
+        std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
+        opening_vectors.emplace_back(tmp_vector);
+        indices.emplace_back(tmp_idx);
     }
-    // Add indices for opening claim for g_j(kappa)
+    // Add opening claim for g_j(kappa),  t_j(1/kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        std::vector<size_t> tmp{ idx + 3 * NUM_WIRES };
-        indices.emplace_back(tmp);
-    }
-    // Add indices for opening claim for t_j(1/kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        std::vector<size_t> tmp{ idx };
-        indices.emplace_back(tmp);
+        FF reversed_t_eval = transcript->template receive_from_prover<FF>("reversed_t_eval_" + std::to_string(idx));
+        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
+
+        {
+            OpeningVector tmp_vector(kappa, { FF::one() }, { reversed_t_eval });
+            std::vector<size_t> tmp_idx{ idx + 3 * NUM_WIRES };
+            opening_vectors.emplace_back(tmp_vector);
+            indices.emplace_back(tmp_idx);
+        }
+
+        {
+            OpeningVector tmp_vector(kappa_inv, { FF::one() }, { t_eval_kappa_inv });
+            std::vector<size_t> tmp_idx{ idx };
+            opening_vectors.emplace_back(tmp_vector);
+            indices.emplace_back(tmp_idx);
+        }
+
+        // Check t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
+        identity_checked &= (t_eval_kappa_inv * minus_pow_kappa_minus_one + reversed_t_eval == 0);
     }
 
     // Initialize Shplonk verifier
-    ShplonkVerifier verifier(verifier_commitments, transcript, 3 * NUM_WIRES);
+    ShplonkVerifier verifier(commitments, transcript, NUM_CLAIMS);
     verifier.reduce_verification_vector_claims_no_finalize(indices, opening_vectors);
 
     // Export batched claim
@@ -142,6 +149,12 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+
+    // Set T_commitments of the verifier
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        T_commitments[idx] = commitments[idx + 2 * NUM_WIRES];
+    }
+
     return identity_checked && verified;
 }
 } // namespace bb

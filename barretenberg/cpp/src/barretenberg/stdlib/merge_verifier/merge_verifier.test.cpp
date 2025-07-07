@@ -84,7 +84,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         VerifierCommitmentKey pcs_verification_key;
         auto verified_recursive =
             pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
-        EXPECT_EQ(verified_native, verified_recursive);
+        EXPECT_TRUE(verified_native);
         EXPECT_TRUE(verified_recursive);
 
         // Check 2: Ensure that the underlying native and recursive merge verification algorithms agree by ensuring
