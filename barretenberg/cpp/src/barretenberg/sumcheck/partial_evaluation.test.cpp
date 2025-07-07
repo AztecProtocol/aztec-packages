@@ -49,8 +49,8 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
     using SubrelationSeparators = Flavor::SubrelationSeparators;
 
     // values here are chosen to check another test
-    const size_t multivariate_d(2);
-    const size_t multivariate_n(1 << multivariate_d);
+    static constexpr size_t multivariate_d(2);
+    static constexpr size_t multivariate_n(1 << multivariate_d);
 
     FF v00 = 0;
     FF v10 = 1;
@@ -64,8 +64,10 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsSpecial)
     full_polynomials.q_m = f0;
     auto transcript = Transcript::prover_init_empty();
     SubrelationSeparators alpha{ 1 };
+    std::vector<FF> gate_challenges{ 1, 1 };
 
-    SumcheckProver<Flavor> sumcheck(multivariate_n, full_polynomials, transcript, alpha, {}, {});
+    SumcheckProver<Flavor, multivariate_d> sumcheck(
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
 
     FF round_challenge_0 = { 0x6c7301b49d85a46c, 0x44311531e39c64f6, 0xb13d66d8d6c1a24c, 0x04410c360230a295 };
     round_challenge_0.self_to_montgomery_form();
@@ -94,8 +96,8 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     using Transcript = Flavor::Transcript;
     using SubrelationSeparators = Flavor::SubrelationSeparators;
 
-    const size_t multivariate_d(2);
-    const size_t multivariate_n(1 << multivariate_d);
+    static constexpr size_t multivariate_d(2);
+    static constexpr size_t multivariate_n(1 << multivariate_d);
 
     FF v00 = FF::random_element();
     FF v10 = FF::random_element();
@@ -109,7 +111,10 @@ TYPED_TEST(PartialEvaluationTests, TwoRoundsGeneric)
     SubrelationSeparators alpha{ 1 };
     typename Flavor::ProverPolynomials full_polynomials;
     full_polynomials.q_m = f0;
-    SumcheckProver<Flavor> sumcheck(multivariate_n, full_polynomials, transcript, alpha, {}, {});
+    std::vector<FF> gate_challenges{ 1, 1 };
+
+    SumcheckProver<Flavor, multivariate_d> sumcheck(
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
 
     FF round_challenge_0 = FF::random_element();
     FF expected_lo = v00 * (FF(1) - round_challenge_0) + v10 * round_challenge_0;
@@ -158,8 +163,8 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
     using Transcript = Flavor::Transcript;
     using SubrelationSeparators = Flavor::SubrelationSeparators;
 
-    const size_t multivariate_d(3);
-    const size_t multivariate_n(1 << multivariate_d);
+    static constexpr size_t multivariate_d(3);
+    static constexpr size_t multivariate_n(1 << multivariate_d);
 
     FF v000 = 1;
     FF v100 = 2;
@@ -177,7 +182,11 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsSpecial)
     full_polynomials.q_m = f0;
     auto transcript = Transcript::prover_init_empty();
     SubrelationSeparators alpha{ 1 };
-    SumcheckProver<Flavor> sumcheck(multivariate_n, full_polynomials, transcript, alpha, {}, {});
+
+    std::vector<FF> gate_challenges{ 1, 1, 1 };
+
+    SumcheckProver<Flavor, multivariate_d> sumcheck(
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
 
     FF round_challenge_0 = 1;
     FF expected_q1 = v000 * (FF(1) - round_challenge_0) + v100 * round_challenge_0; // 2
@@ -216,8 +225,8 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
     using Transcript = Flavor::Transcript;
     using SubrelationSeparators = Flavor::SubrelationSeparators;
 
-    const size_t multivariate_d(3);
-    const size_t multivariate_n(1 << multivariate_d);
+    static constexpr size_t multivariate_d(3);
+    static constexpr size_t multivariate_n(1 << multivariate_d);
 
     FF v000 = FF::random_element();
     FF v100 = FF::random_element();
@@ -236,7 +245,10 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGeneric)
 
     auto transcript = Transcript::prover_init_empty();
     SubrelationSeparators alpha{ 1 };
-    SumcheckProver<Flavor> sumcheck(multivariate_n, full_polynomials, transcript, alpha, {}, {});
+    std::vector<FF> gate_challenges{ 1, 1, 1 };
+
+    SumcheckProver<Flavor, multivariate_d> sumcheck(
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
 
     FF round_challenge_0 = FF::random_element();
     FF expected_q1 = v000 * (FF(1) - round_challenge_0) + v100 * round_challenge_0;
@@ -275,8 +287,8 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     using Transcript = Flavor::Transcript;
     using SubrelationSeparators = Flavor::SubrelationSeparators;
 
-    const size_t multivariate_d(3);
-    const size_t multivariate_n(1 << multivariate_d);
+    static constexpr size_t multivariate_d(3);
+    static constexpr size_t multivariate_n(1 << multivariate_d);
     std::array<FF, 3> v000;
     std::array<FF, 3> v100;
     std::array<FF, 3> v010;
@@ -302,12 +314,16 @@ TYPED_TEST(PartialEvaluationTests, ThreeRoundsGenericMultiplePolys)
     f2.template copy_vector<FF>({ v000[2], v100[2], v010[2], v110[2], v001[2], v101[2], v011[2], v111[2] });
 
     typename Flavor::ProverPolynomials full_polynomials;
+    // Set the first 3 ProverPolynomials
     full_polynomials.q_m = f0;
-    full_polynomials.q_l = f1;
-    full_polynomials.q_r = f2;
+    full_polynomials.q_c = f1;
+    full_polynomials.q_l = f2;
     auto transcript = Transcript::prover_init_empty();
     SubrelationSeparators alpha{ 1 };
-    SumcheckProver<Flavor> sumcheck(multivariate_n, full_polynomials, transcript, alpha, {}, {});
+    std::vector<FF> gate_challenges{ 1, 1, 1 };
+
+    SumcheckProver<Flavor, multivariate_d> sumcheck(
+        multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {});
 
     std::array<FF, 3> expected_q1;
     std::array<FF, 3> expected_q2;
