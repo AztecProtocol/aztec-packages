@@ -109,7 +109,8 @@ uint8_t get_tag_bits(ValueTag tag)
     case ValueTag::U128:
         return 128;
     case ValueTag::FF:
-        return 254;
+        // Note: 0 is returned as a placeholder
+        return 0;
     }
 
     assert(false && "Invalid tag");

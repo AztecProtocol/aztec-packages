@@ -54,6 +54,25 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::LT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.lt(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluError& e) {
+        throw OpcodeExecutionException("Alu lt operation failed");
+    }
+}
+
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -482,6 +501,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
+        break;
+    case ExecutionOpCode::LT:
+        call_with_operands(&Execution::lt, context, resolved_operands);
         break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
