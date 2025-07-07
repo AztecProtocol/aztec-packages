@@ -37,11 +37,6 @@ namespace bb {
 template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
 
     struct MemoryResource {
-        size_t file_size;
-        std::string filename;
-        int fd;
-        T* data;
-
         // Create a new file-backed memory region
         MemoryResource(size_t file_size, const std::string& filename)
             : file_size(file_size)
@@ -64,28 +59,21 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
                 throw std::runtime_error("Failed to mmap file");
             }
 
-            data = static_cast<T*>(addr);
-            // std::cout << "JONATHAN: mmap " << addr << ' ' << file_size << std::endl;
+            memory = static_cast<T*>(addr);
+            info("JONATHAN ", this, memory, filename);
         }
 
         MemoryResource(const MemoryResource&) = delete;            // delete copy constructor
         MemoryResource& operator=(const MemoryResource&) = delete; // delete copy assignment
 
-        MemoryResource(MemoryResource&& other) noexcept
-            : file_size(other.file_size)
-            , filename(std::move(other.filename))
-            , fd(other.fd)
-            , data(other.data)
-        {
-            other.fd = -1;
-            other.data = nullptr;
-        }
+        MemoryResource(MemoryResource&& other) = delete;
+        MemoryResource& operator=(const MemoryResource&&) = delete; // delete move assignment
 
         ~MemoryResource()
         {
-            // std::cout << "JONATHAN: free " << filename << ' ' << static_cast<void*>(data) << std::endl;
-            if (data != nullptr && file_size > 0) {
-                munmap(data, file_size);
+            std::cout << "JONATHAN ~MemoryResource " << this << std::endl;
+            if (memory != nullptr && file_size > 0) {
+                munmap(memory, file_size);
             }
             if (fd >= 0) {
                 close(fd);
@@ -94,6 +82,15 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
                 std::filesystem::remove(filename);
             }
         }
+
+        const T* data() const { return memory; }
+        T* data() { return memory; }
+
+      private:
+        size_t file_size;
+        std::string filename;
+        int fd;
+        T* memory;
     };
 
     FileBackedSharedShiftedVirtualZeroesArray() = default;
@@ -165,8 +162,8 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_->data; }
-    const T* data() const { return backing_memory_->data; }
+    T* data() { return backing_memory_->data(); }
+    const T* data() const { return backing_memory_->data(); }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }
@@ -200,13 +197,13 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
         std::shared_ptr<MemoryResource> backing_clone = allocate_file_backing(expanded_size);
         // zero any left extensions to the array
-        memset(static_cast<void*>(backing_clone->data), 0, sizeof(T) * left_expansion);
+        memset(static_cast<void*>(backing_clone->data()), 0, sizeof(T) * left_expansion);
         // copy our cloned array over
-        memcpy(static_cast<void*>(backing_clone->data + left_expansion),
-               static_cast<const void*>(backing_memory_->data),
+        memcpy(static_cast<void*>(backing_clone->data() + left_expansion),
+               static_cast<const void*>(backing_memory_->data()),
                sizeof(T) * size());
         // zero any right extensions to the array
-        memset(static_cast<void*>(backing_clone->data + left_expansion + size()), 0, sizeof(T) * right_expansion);
+        memset(static_cast<void*>(backing_clone->data() + left_expansion + size()), 0, sizeof(T) * right_expansion);
         return FileBackedSharedShiftedVirtualZeroesArray(
             start_ - left_expansion, end_ + right_expansion, virtual_size_, backing_clone);
     }
