@@ -84,8 +84,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     /**
      * @brief Generate test data
      *
+     * @param zero_T_prev boolean to toggle whether T_prev = 0 or not
      */
-    static TestData generate_test_data()
+    static TestData generate_test_data(bool zero_T_prev = true)
     {
         TestData setup;
 
@@ -93,6 +94,11 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         InnerBuilder sample_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(sample_circuit);
+
+        if (!zero_T_prev) {
+            InnerBuilder sample_circuit_two{ op_queue };
+            GoblinMockCircuits::construct_simple_circuit(sample_circuit_two);
+        }
 
         RecursiveBuilder outer_circuit;
         setup.outer_circuit = outer_circuit;
@@ -159,9 +165,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
      * correctness rather than calling check_circuit since this functionality is incomplete for the Goblin
      * arithmetization
      */
-    static void test_recursive_merge_verification()
+    static void test_recursive_merge_verification(bool zero_T_prev)
     {
-        TestData setup = generate_test_data();
+        TestData setup = generate_test_data(zero_T_prev);
 
         // Check 1: Perform native merge verification then perform the pairing on the outputs of the recursive merge
         // verifier and check that both succeed.
@@ -235,7 +241,12 @@ TYPED_TEST_SUITE(RecursiveMergeVerifierTest, Builders);
 
 TYPED_TEST(RecursiveMergeVerifierTest, SingleRecursiveVerification)
 {
-    TestFixture::test_recursive_merge_verification();
+    TestFixture::test_recursive_merge_verification(/*zero_T_prev=*/true);
+};
+
+TYPED_TEST(RecursiveMergeVerifierTest, NonZeroTPrev)
+{
+    TestFixture::test_recursive_merge_verification(/*zero_T_prev=*/false);
 };
 
 TYPED_TEST(RecursiveMergeVerifierTest, DegreeCheckFailure)

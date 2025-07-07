@@ -57,10 +57,10 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
      *
      * [t_1] [t_2] [t_3] [t_4] [T_{1,prev}] [T_{2,prev}] [T_{3,prev}] [T_{4 prev}] [T_1] [T_2] [T_3] [T_4] [g_1] [g_2] [g_3] [g_4] / evaluation_challenge
      *
-     *   1     0     0     0     -kappa^l        0             0           0        -1     0     0     0     0     0     0     0            kappa
-     *   0     1     0     0         0        -kappa^l         0           0         0    -1     0     0     0     0     0     0            kappa
-     *   0     0     1     0         0           0         -kappa^l        0         0     0    -1     0     0     0     0     0            kappa
-     *   0     0     0     1         0           0             0       -kappa^l      0     0     0    -1     0     0     0     0            kappa
+     *   1     0     0     0      kappa^l        0             0           0        -1     0     0     0     0     0     0     0            kappa
+     *   0     1     0     0         0         kappa^l         0           0         0    -1     0     0     0     0     0     0            kappa
+     *   0     0     1     0         0           0          kappa^l        0         0     0    -1     0     0     0     0     0            kappa
+     *   0     0     0     1         0           0             0        kappa^l      0     0     0    -1     0     0     0     0            kappa
      *   0     0     0     0         0           0             0           0         0     0     0     0     1     0     0     0            kappa
      *   1     0     0     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
      *   0     0     0     0         0           0             0           0         0     0     0     0     0     1     0     0            kappa
@@ -100,7 +100,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     FF kappa = transcript->template get_challenge<FF>("kappa");
     FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
     FF kappa_inv = kappa.invert();
-    FF minus_pow_kappa = -pow_kappa_minus_one * kappa;
+    FF pow_kappa = pow_kappa_minus_one * kappa;
 
     // Indices and opening vectors
     std::vector<std::vector<size_t>> indices;
@@ -108,13 +108,13 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     indices.reserve(NUM_CLAIMS);
     opening_vectors.reserve(NUM_CLAIMS);
 
-    // Add opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Evaluation is hard-coded to zero as that is the target
         // Note that it is not necessarily true that each polynomial evaluates to zero, but for our purposes we only
         // need to ensure that the Shplonk verifier tests p_j(kappa) = 0. Setting all evaluations to zero is a hack to
         // enforce that the Shplonk verifier performs this check.
-        OpeningVector tmp_vector(kappa, { FF(1), minus_pow_kappa, FF(-1) }, { FF(0), FF(0), FF(0) });
+        OpeningVector tmp_vector(kappa, { FF(1), pow_kappa, FF(-1) }, { FF(0), FF(0), FF(0) });
         std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
         opening_vectors.emplace_back(tmp_vector);
         indices.emplace_back(tmp_idx);

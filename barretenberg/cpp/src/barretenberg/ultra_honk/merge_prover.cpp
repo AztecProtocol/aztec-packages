@@ -81,15 +81,15 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    auto minus_pow_kappa = -kappa.pow(current_subtable_size);
+    auto pow_kappa = kappa.pow(current_subtable_size);
     auto kappa_inv = kappa.invert();
 
-    // Compute p_j(X) = t_j(X) - kappa^l T_{j,prev}(X) - T(X)
+    // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T(X)
     std::array<Polynomial, NUM_WIRES> partially_computed_difference;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Polynomial tmp(current_table_size);
         tmp += table_polynomials[t_current_idx][idx];
-        tmp.add_scaled(table_polynomials[T_prev_idx][idx], minus_pow_kappa);
+        tmp.add_scaled(table_polynomials[T_prev_idx][idx], pow_kappa);
         tmp -= table_polynomials[T_idx][idx];
         partially_computed_difference[idx] = tmp;
     }

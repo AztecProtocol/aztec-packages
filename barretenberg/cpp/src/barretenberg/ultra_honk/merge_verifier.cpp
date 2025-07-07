@@ -50,10 +50,10 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
      *
      * [t_1] [t_2] [t_3] [t_4] [T_{1,prev}] [T_{2,prev}] [T_{3,prev}] [T_{4 prev}] [T_1] [T_2] [T_3] [T_4] [g_1] [g_2] [g_3] [g_4] / evaluation_challenge
      *
-     *   1     0     0     0     -kappa^l        0             0           0        -1     0     0     0     0     0     0     0            kappa
-     *   0     1     0     0         0        -kappa^l         0           0         0    -1     0     0     0     0     0     0            kappa
-     *   0     0     1     0         0           0         -kappa^l        0         0     0    -1     0     0     0     0     0            kappa
-     *   0     0     0     1         0           0             0       -kappa^l      0     0     0    -1     0     0     0     0            kappa
+     *   1     0     0     0      kappa^l        0             0           0        -1     0     0     0     0     0     0     0            kappa
+     *   0     1     0     0         0         kappa^l         0           0         0    -1     0     0     0     0     0     0            kappa
+     *   0     0     1     0         0           0          kappa^l        0         0     0    -1     0     0     0     0     0            kappa
+     *   0     0     0     1         0           0             0        kappa^l      0     0     0    -1     0     0     0     0            kappa
      *   0     0     0     0         0           0             0           0         0     0     0     0     1     0     0     0            kappa
      *   1     0     0     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
      *   0     0     0     0         0           0             0           0         0     0     0     0     0     1     0     0            kappa
@@ -91,9 +91,9 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     // Evaluation challenge
     FF kappa = transcript->template get_challenge<FF>("kappa");
-    FF minus_pow_kappa_minus_one = -kappa.pow(subtable_size - 1);
+    FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
     FF kappa_inv = kappa.invert();
-    FF minus_pow_kappa = minus_pow_kappa_minus_one * kappa;
+    FF pow_kappa = pow_kappa_minus_one * kappa;
 
     // Boolean keep track of t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
     bool degree_identity_checked = true;
@@ -104,14 +104,14 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     indices.reserve(NUM_CLAIMS);
     opening_vectors.reserve(NUM_CLAIMS);
 
-    // Add opening claim for t_j(kappa) - kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Evaluation is hard-coded to zero as that is the target
         // Note that it is not necessarily true that each polynomial evaluates to zero, but for our purposes we only
         // need to ensure that the Shplonk verifier tests p_j(kappa) = 0. Setting all evaluations to zero is a hack to
         // enforce that the Shplonk verifier performs this check.
         OpeningVector tmp_vector(
-            kappa, { FF::one(), minus_pow_kappa, FF::neg_one() }, { FF::zero(), FF::zero(), FF::zero() });
+            kappa, { FF::one(), pow_kappa, FF::neg_one() }, { FF::zero(), FF::zero(), FF::zero() });
         std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
         opening_vectors.emplace_back(tmp_vector);
         indices.emplace_back(tmp_idx);
@@ -136,7 +136,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         }
 
         // Check t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
-        degree_identity_checked &= (t_eval_kappa_inv * minus_pow_kappa_minus_one + reversed_t_eval == 0);
+        degree_identity_checked &= (t_eval_kappa_inv * pow_kappa_minus_one == reversed_t_eval);
     }
 
     // Initialize Shplonk verifier
@@ -151,7 +151,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
 
-    // Set T_commitments of the verifier
+    // Store T_commitments of the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         T_commitments[idx] = commitments[idx + 2 * NUM_WIRES];
     }
