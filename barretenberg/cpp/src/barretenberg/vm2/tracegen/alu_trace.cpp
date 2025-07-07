@@ -19,9 +19,6 @@ namespace {
 // TODO(MW): Rename to something useful! Helper fn to get operation specific values.
 std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event)
 {
-    // MW Note: Currently we only split FF cases for LT and is_ff is unchecked in add => no need to fill in the
-    // trace
-    auto is_ff = event.a.get_tag() == ValueTag::FF;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
@@ -30,7 +27,10 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  // I think the only situation in which a + b != c as fields is when c overflows the bit size
                  // if this in unclear, I can use > or actually check bit sizes:
                  { Column::alu_cf, event.a.as_ff() + event.b.as_ff() != event.c.as_ff() } };
-    case simulation::AluOperation::LT:
+    case simulation::AluOperation::LT: {
+        bool is_ff = event.a.get_tag() == ValueTag::FF;
+        FF abs_diff = static_cast<uint8_t>(event.c.as_ff()) == 1 ? event.b.as_ff() - event.a.as_ff() - 1
+                                                                 : event.a.as_ff() - event.b.as_ff();
         return {
             { Column::alu_sel_op_lt, 1 },
             { Column::alu_op_id,
@@ -38,8 +38,13 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_sel_ff_lt, is_ff },
             { Column::alu_tag_ff_diff_inv,
-              is_ff ? 0 : FF(static_cast<uint8_t>(event.a.get_tag()) - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+              is_ff
+                  ? 0
+                  : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { Column::alu_lt_abs_diff, is_ff ? 0 : abs_diff },
         };
+    }
+
     default:
         throw std::runtime_error("Unknown ALU operation");
         break;

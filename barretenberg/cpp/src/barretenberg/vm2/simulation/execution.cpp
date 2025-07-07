@@ -61,6 +61,9 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     MemoryValue a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
     try {
         MemoryValue c = alu.lt(a, b);
         memory.set(dst_addr, c);

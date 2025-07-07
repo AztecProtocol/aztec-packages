@@ -153,7 +153,7 @@ auto process_carry_add_trace(MemoryTag input_tag)
     return trace;
 }
 
-auto process_lt_trace(MemoryTag input_tag)
+TestTraceContainer process_lt_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
     RangeCheckTraceBuilder range_check_builder;

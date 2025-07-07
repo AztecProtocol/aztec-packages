@@ -70,7 +70,7 @@ CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_i
 // Will become e.g. sel_op_add * ia_tag + (comparison ops) * MEM_TAG_U1 + ....
 pol EXPECTED_C_TAG = sel_op_add * ia_tag + sel_op_lt * constants.MEM_TAG_U1;
 
-// No error handling here since the type of c is handled by the VM:
+// No error handling here since, as a memory write, the type of c is handled by the VM:
 #[C_TAG_CHECK]
 EXPECTED_C_TAG = ic_tag;
 

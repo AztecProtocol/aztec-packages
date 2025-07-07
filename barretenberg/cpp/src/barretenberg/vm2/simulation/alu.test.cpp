@@ -117,5 +117,26 @@ TEST(AvmSimulationAluTest, LTFF)
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::LT, .a = a, .b = b, .c = c }));
 }
 
+TEST(AvmSimulationAluTest, NegativeLTTag)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    Alu alu(range_check, field_gt, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint32_t>(1);
+    auto b = MemoryValue::from<uint64_t>(2);
+
+    EXPECT_THROW(alu.lt(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::LT,
+                                      .a = a,
+                                      .b = b,
+                                      .c = MemoryValue::from<uint1_t>(0),
+                                      .error = AluError::TAG_ERROR }));
+}
+
 } // namespace
 } // namespace bb::avm2::simulation
