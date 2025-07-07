@@ -399,11 +399,11 @@ impl Deserialize for () {
     }
 }
 
-impl<T, let M: u32, let O: u32> Serialize for BoundedVec<T, M>
+impl<T, let M: u32> Serialize for BoundedVec<T, M>
 where
     T: Serialize,
 {
-    let N: u32 = O * M + 1; // +1 for the length of the BoundedVec
+    let N: u32 = <T as Serialize>::N * M + 1; // +1 for the length of the BoundedVec
 
     #[inline_always]
     fn serialize(self) -> [Field; Self::N] {
@@ -414,14 +414,14 @@ where
         for i in 0..M {
             let serialized_item = storage[i].serialize();
 
-            for j in 0..O {
-                fields[i * O + j] = serialized_item[j];
+            for j in 0..<T as Serialize>::N {
+                fields[i * <T as Serialize>::N + j] = serialized_item[j];
             }
         }
 
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        fields[O * M] = self.len() as Field;
+        fields[<T as Serialize>::N * M] = self.len() as Field;
 
         fields
     }
