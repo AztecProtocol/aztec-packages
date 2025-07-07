@@ -68,6 +68,19 @@ template <typename T> struct FileBackedSharedShiftedVirtualZeroesArray {
             // std::cout << "JONATHAN: mmap " << addr << ' ' << file_size << std::endl;
         }
 
+        MemoryResource(const MemoryResource&) = delete;            // delete copy constructor
+        MemoryResource& operator=(const MemoryResource&) = delete; // delete copy assignment
+
+        MemoryResource(MemoryResource&& other) noexcept
+            : file_size(other.file_size)
+            , filename(std::move(other.filename))
+            , fd(other.fd)
+            , data(other.data)
+        {
+            other.fd = -1;
+            other.data = nullptr;
+        }
+
         ~MemoryResource()
         {
             // std::cout << "JONATHAN: free " << filename << ' ' << static_cast<void*>(data) << std::endl;

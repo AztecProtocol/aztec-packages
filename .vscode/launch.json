@@ -48,9 +48,8 @@
       "name": "Debug test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-low-memory/bin/polynomials_tests",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/polynomials_tests",
       "args": [],
-      "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
