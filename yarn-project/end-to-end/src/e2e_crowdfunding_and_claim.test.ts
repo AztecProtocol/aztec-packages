@@ -8,7 +8,7 @@ import {
   type UniqueNote,
   deriveKeys,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -140,7 +140,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       metadata: {
         stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
         // eslint-disable-next-line camelcase
-        maybe_nonce: uniqueNote.nonce,
+        maybe_note_nonce: uniqueNote.noteNonce,
       },
     };
   };
@@ -328,9 +328,9 @@ describe('e2e_crowdfunding_and_claim', () => {
     // This does not protect fully against impersonation as the contract could just call context.end_setup() and the below would pass.
     // => the private_init msg_sender assertion is required (#7190, #7404)
 
-    await expect(donorWallets[1].simulateTx(request, true, operatorWallet.getAddress())).rejects.toThrow(
-      'Circuit execution failed: Users cannot set msg_sender in first call',
-    );
+    await expect(
+      donorWallets[1].simulateTx(request, true, false, false, { msgSender: operatorWallet.getAddress() }),
+    ).rejects.toThrow('Circuit execution failed: Users cannot set msg_sender in first call');
   });
 
   it('cannot donate after a deadline', async () => {

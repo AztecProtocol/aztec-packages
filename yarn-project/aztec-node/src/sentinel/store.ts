@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { BufferReader, numToUInt8, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type {
@@ -5,8 +6,6 @@ import type {
   ValidatorStatusInSlot,
   ValidatorsEpochPerformance,
 } from '@aztec/stdlib/validators';
-
-import { isAddress } from 'viem';
 
 export class SentinelStore {
   public static readonly SCHEMA_VERSION = 2;
@@ -33,16 +32,13 @@ export class SentinelStore {
   public async updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     await this.store.transactionAsync(async () => {
       for (const [who, { missed, total }] of Object.entries(performance)) {
-        if (!isAddress(who)) {
-          continue;
-        }
-        await this.pushValidatorProvenPerformanceForEpoch({ who, missed, total, epoch });
+        await this.pushValidatorProvenPerformanceForEpoch({ who: EthAddress.fromString(who), missed, total, epoch });
       }
     });
   }
 
-  public async getProvenPerformance(who: `0x${string}`): Promise<{ missed: number; total: number; epoch: bigint }[]> {
-    const currentPerformanceBuffer = await this.provenMap.getAsync(who);
+  public async getProvenPerformance(who: EthAddress): Promise<{ missed: number; total: number; epoch: bigint }[]> {
+    const currentPerformanceBuffer = await this.provenMap.getAsync(who.toString());
     return currentPerformanceBuffer ? this.deserializePerformance(currentPerformanceBuffer) : [];
   }
 
@@ -52,7 +48,7 @@ export class SentinelStore {
     total,
     epoch,
   }: {
-    who: `0x${string}`;
+    who: EthAddress;
     missed: number;
     total: number;
     epoch: bigint;
@@ -72,27 +68,27 @@ export class SentinelStore {
     // keep the most recent `historyLength` entries.
     const performanceToKeep = currentPerformance.slice(-this.config.historyLength);
 
-    await this.provenMap.set(who, this.serializePerformance(performanceToKeep));
+    await this.provenMap.set(who.toString(), this.serializePerformance(performanceToKeep));
   }
 
   public async updateValidators(slot: bigint, statuses: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
     await this.store.transactionAsync(async () => {
       for (const [who, status] of Object.entries(statuses)) {
         if (status) {
-          await this.pushValidatorStatusForSlot(who as `0x${string}`, slot, status);
+          await this.pushValidatorStatusForSlot(EthAddress.fromString(who), slot, status);
         }
       }
     });
   }
 
   private async pushValidatorStatusForSlot(
-    who: `0x${string}`,
+    who: EthAddress,
     slot: bigint,
     status: 'block-mined' | 'block-proposed' | 'block-missed' | 'attestation-sent' | 'attestation-missed',
   ) {
     const currentHistory = (await this.getHistory(who)) ?? [];
     const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
-    await this.historyMap.set(who, this.serializeHistory(newHistory));
+    await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
   }
 
   public async getHistories(): Promise<Record<`0x${string}`, ValidatorStatusHistory>> {
@@ -103,8 +99,8 @@ export class SentinelStore {
     return histories;
   }
 
-  private async getHistory(address: `0x${string}`): Promise<ValidatorStatusHistory | undefined> {
-    const data = await this.historyMap.getAsync(address);
+  private async getHistory(address: EthAddress): Promise<ValidatorStatusHistory | undefined> {
+    const data = await this.historyMap.getAsync(address.toString());
     return data && this.deserializeHistory(data);
   }
 

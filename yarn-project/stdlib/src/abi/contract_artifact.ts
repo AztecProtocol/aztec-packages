@@ -40,7 +40,7 @@ export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
  * @param buffer - Buffer to deserialize.
  * @returns Deserialized artifact.
  */
-export function contractArtifactFromBuffer(buffer: Buffer): Promise<ContractArtifact> {
+export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
   return jsonParseWithSchema(buffer.toString('utf-8'), ContractArtifactSchema);
 }
 

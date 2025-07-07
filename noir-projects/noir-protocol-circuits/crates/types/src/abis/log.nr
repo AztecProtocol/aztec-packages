@@ -1,4 +1,4 @@
-use crate::{traits::{Deserialize, Empty, Serialize}, utils::{arrays::array_concat, reader::Reader}};
+use crate::{traits::{Deserialize, Empty, Serialize}, utils::reader::Reader};
 
 pub struct Log<let N: u32> {
     pub fields: [Field; N],
@@ -26,7 +26,7 @@ impl<let N: u32> Empty for Log<N> {
 
 impl<let N: u32> Serialize<N + 1> for Log<N> {
     fn serialize(self) -> [Field; N + 1] {
-        array_concat(self.fields, [self.length as Field])
+        self.fields.concat([self.length as Field])
     }
 }
 

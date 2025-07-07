@@ -22,7 +22,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     using FF = typename Flavor::FF;
 
     transcript->load_proof(proof);
-    transcript->enable_manifest(); // Enable manifest for the verifier.
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
 
@@ -47,7 +46,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
         // Extract the public inputs containing the IPA claim
         std::array<FF, IPA_CLAIM_SIZE> ipa_claim_limbs;
-        const uint32_t start_idx = verification_key->verification_key->ipa_claim_public_input_key.start_idx;
+        const uint32_t start_idx = verification_key->vk->ipa_claim_public_input_key.start_idx;
         for (size_t k = 0; k < IPA_CLAIM_SIZE; k++) {
             ipa_claim_limbs[k] = verification_key->public_inputs[start_idx + k];
         }
@@ -65,8 +64,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         ipa_claim.commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
 
         // verify the ipa_proof with this claim
-        ipa_transcript = std::make_shared<Transcript>(ipa_proof);
-        ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
+        ipa_transcript->load_proof(ipa_proof);
         bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
         if (!ipa_result) {
             return false;
@@ -87,7 +85,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     // Extract nested pairing points from the proof
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
     if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
-        const size_t limb_offset = verification_key->verification_key->pairing_inputs_public_input_key.start_idx;
+        const size_t limb_offset = verification_key->vk->pairing_inputs_public_input_key.start_idx;
         BB_ASSERT_GTE(verification_key->public_inputs.size(),
                       limb_offset + PAIRING_POINTS_SIZE,
                       "Not enough public inputs to extract pairing points");

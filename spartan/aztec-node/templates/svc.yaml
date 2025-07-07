@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "chart.fullname" . }}-node-svc
+  name: {{ include "chart.fullname" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   {{- with .Values.service.ingress.annotations }}
@@ -11,6 +11,7 @@ metadata:
 spec:
   type: ClusterIP
   ports:
+    {{- if .Values.service.p2p.enabled }}
     - port: {{ .Values.service.p2p.port }}
       targetPort: p2p-tcp
       protocol: TCP
@@ -19,13 +20,16 @@ spec:
       targetPort: p2p-udp
       protocol: UDP
       name: p2p-udp
+    {{- end }}
     - port: {{ .Values.service.httpPort }}
       targetPort: http-rpc
       protocol: TCP
       name: http-rpc
+    {{- if .Values.service.admin.enabled }}
     - port: {{ .Values.service.admin.port }}
       targetPort: admin
       protocol: TCP
       name: admin
+    {{- end }}
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}

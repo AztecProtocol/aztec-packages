@@ -3,7 +3,7 @@
     "contract": "src/core/Rollup.sol:Rollup",
     "deployment": {
       "gas": 0,
-      "size": 43024
+      "size": 43935
     },
     "functions": {
       "archive()": {
@@ -14,7 +14,7 @@
         "max": 4583
       },
       "getBlock(uint256)": {
-        "calls": 886,
+        "calls": 847,
         "min": 9208,
         "mean": 9208,
         "median": 9208,
@@ -50,17 +50,17 @@
       },
       "getFeeAssetPortal()": {
         "calls": 3104,
-        "min": 497,
-        "mean": 1497,
-        "median": 1497,
-        "max": 2497
+        "min": 453,
+        "mean": 1453,
+        "median": 1453,
+        "max": 2453
       },
       "getInbox()": {
         "calls": 6198,
-        "min": 2476,
-        "mean": 2476,
-        "median": 2476,
-        "max": 2476
+        "min": 2498,
+        "mean": 2498,
+        "median": 2498,
+        "max": 2498
       },
       "getL1FeesAt(uint256)": {
         "calls": 2,
@@ -71,10 +71,10 @@
       },
       "getManaBaseFeeAt(uint256,bool)": {
         "calls": 2325,
-        "min": 30582,
-        "mean": 32494,
-        "median": 30582,
-        "max": 36337
+        "min": 30538,
+        "mean": 32450,
+        "median": 30538,
+        "max": 36293
       },
       "getManaTarget()": {
         "calls": 2,
@@ -85,10 +85,10 @@
       },
       "getOutbox()": {
         "calls": 3875,
-        "min": 2474,
-        "mean": 2474,
-        "median": 2474,
-        "max": 2474
+        "min": 2452,
+        "mean": 2452,
+        "median": 2452,
+        "max": 2452
       },
       "getPendingBlockNumber()": {
         "calls": 1545,
@@ -99,10 +99,10 @@
       },
       "getProofSubmissionWindow()": {
         "calls": 4,
-        "min": 2493,
-        "mean": 2493,
-        "median": 2493,
-        "max": 2493
+        "min": 2404,
+        "mean": 2404,
+        "median": 2404,
+        "max": 2404
       },
       "getProvenBlockNumber()": {
         "calls": 6196,
@@ -127,10 +127,10 @@
       },
       "getSequencerRewards(address)": {
         "calls": 2,
-        "min": 2649,
-        "mean": 2649,
-        "median": 2649,
-        "max": 2649
+        "min": 2716,
+        "mean": 2716,
+        "median": 2716,
+        "max": 2716
       },
       "getTimestampForSlot(uint256)": {
         "calls": 2432,
@@ -148,17 +148,17 @@
       },
       "owner()": {
         "calls": 1552,
-        "min": 464,
-        "mean": 464,
-        "median": 464,
-        "max": 464
+        "min": 420,
+        "mean": 420,
+        "median": 420,
+        "max": 420
       },
-      "propose((bytes32,bytes,(int256),bytes,bytes32[]),(bool,uint8,bytes32,bytes32)[],bytes)": {
+      "propose((bytes32,bytes,(int256),bytes,bytes32[]),(address,(uint8,bytes32,bytes32))[],bytes)": {
         "calls": 2327,
-        "min": 152057,
-        "mean": 334744,
-        "median": 330093,
-        "max": 360753
+        "min": 180367,
+        "mean": 343443,
+        "median": 348542,
+        "max": 380636
       },
       "prune()": {
         "calls": 6,
@@ -169,17 +169,17 @@
       },
       "setProvingCostPerMana(uint256)": {
         "calls": 2,
-        "min": 28669,
-        "mean": 28669,
-        "median": 28669,
-        "max": 28669
+        "min": 28780,
+        "mean": 28780,
+        "median": 28780,
+        "max": 28780
       },
-      "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,uint256,bytes32,address),bytes32[],bytes,bytes))": {
-        "calls": 885,
-        "min": 59252,
-        "mean": 419060,
-        "median": 415459,
-        "max": 449558
+      "submitEpochRootProof((uint256,uint256,(bytes32,bytes32,address),bytes32[],bytes,bytes))": {
+        "calls": 846,
+        "min": 58871,
+        "mean": 417467,
+        "median": 414067,
+        "max": 448154
       }
     }
   },
@@ -244,7 +244,7 @@
     },
     "functions": {
       "getCanonicalRollup()": {
-        "calls": 2643,
+        "calls": 2526,
         "min": 1016,
         "mean": 3016,
         "median": 1016,
@@ -281,7 +281,7 @@
         "max": 238
       },
       "canonicalRollup()": {
-        "calls": 881,
+        "calls": 842,
         "min": 10158,
         "mean": 10158,
         "median": 10158,

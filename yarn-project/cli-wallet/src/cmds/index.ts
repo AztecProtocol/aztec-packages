@@ -1,3 +1,4 @@
+import { CopyCatAccountWallet } from '@aztec/accounts/copy-cat';
 import { getIdentities } from '@aztec/accounts/utils';
 import { createCompatibleClient } from '@aztec/aztec.js/rpc';
 import { TxHash } from '@aztec/aztec.js/tx_hash';
@@ -212,6 +213,12 @@ export function injectCommands(
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .option('--no-class-registration', "Don't register this contract class")
     .option('--no-public-deployment', "Don't emit this contract's public bytecode")
+    .addOption(
+      new Option(
+        '--timeout <number>',
+        'The amount of time in seconds to wait for the deployment to post to L2',
+      ).conflicts('wait'),
+    )
     .addOption(createVerboseOption());
 
   addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPathPromise, _options, command) => {
@@ -231,6 +238,7 @@ export function injectCommands(
       rpcUrl,
       from: parsedFromAddress,
       alias,
+      timeout,
       verbose,
     } = options;
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
@@ -254,6 +262,7 @@ export function injectCommands(
       universal,
       wait,
       await FeeOpts.fromCli(options, client, log, db),
+      timeout,
       verbose,
       debugLogger,
       log,
@@ -328,7 +337,7 @@ export function injectCommands(
       log,
     );
     if (db && sentTx) {
-      const txAlias = alias ? alias : `${functionName}-${sentTx.nonce.toString().slice(-4)}`;
+      const txAlias = alias ? alias : `${functionName}-${sentTx.txNonce.toString().slice(-4)}`;
       await db.storeTx(sentTx, log, txAlias);
     }
   });
@@ -364,7 +373,8 @@ export function injectCommands(
 
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-    const wallet = await account.getWallet();
+    const originalWallet = await account.getWallet();
+    const wallet = await CopyCatAccountWallet.create(client, originalWallet);
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
     const authWitnesses = cleanupAuthWitnesses(authWitness);
     await simulate(

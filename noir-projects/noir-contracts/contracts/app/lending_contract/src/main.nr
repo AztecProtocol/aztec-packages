@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Lending {
-    use dep::aztec::prelude::{AztecAddress, Map, PublicMutable};
+    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::{Map, PublicMutable}};
 
     use crate::asset::Asset;
     use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};
@@ -106,7 +106,7 @@ pub contract Lending {
     fn deposit_private(
         from: AztecAddress,
         amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
         secret: Field,
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
@@ -114,7 +114,7 @@ pub contract Lending {
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(collateral_asset)
-            .transfer_to_public(from, context.this_address(), amount, nonce)
+            .transfer_to_public(from, context.this_address(), amount, authwit_nonce)
             .call(&mut context);
         // docs:start:enqueue_public
         Lending::at(context.this_address())
@@ -126,13 +126,13 @@ pub contract Lending {
     #[public]
     fn deposit_public(
         amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
     ) {
         // docs:start:public_to_public_call
         let _ = Token::at(collateral_asset)
-            .transfer_in_public(context.msg_sender(), context.this_address(), amount, nonce)
+            .transfer_in_public(context.msg_sender(), context.this_address(), amount, authwit_nonce)
             .call(&mut context);
         // docs:end:public_to_public_call
         let _ = Lending::at(context.this_address())
@@ -244,7 +244,7 @@ pub contract Lending {
     fn repay_private(
         from: AztecAddress,
         amount: u128,
-        nonce: Field,
+        authwit_nonce: Field,
         secret: Field,
         on_behalf_of: Field,
         stable_coin: AztecAddress,
@@ -252,7 +252,7 @@ pub contract Lending {
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         // docs:start:private_call
-        let _ = Token::at(stable_coin).burn_private(from, amount, nonce).call(&mut context);
+        let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(&mut context);
         // docs:end:private_call
         let _ = Lending::at(context.this_address())
             ._repay(AztecAddress::from_field(on_behalf_of), amount, stable_coin)
@@ -260,10 +260,15 @@ pub contract Lending {
     }
 
     #[public]
-    fn repay_public(amount: u128, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
-        let _ = Token::at(stable_coin).burn_public(context.msg_sender(), amount, nonce).call(
-            &mut context,
-        );
+    fn repay_public(
+        amount: u128,
+        authwit_nonce: Field,
+        owner: AztecAddress,
+        stable_coin: AztecAddress,
+    ) {
+        let _ = Token::at(stable_coin)
+            .burn_public(context.msg_sender(), amount, authwit_nonce)
+            .call(&mut context);
         let _ = Lending::at(context.this_address())._repay(owner, amount, stable_coin).call(
             &mut context,
         );

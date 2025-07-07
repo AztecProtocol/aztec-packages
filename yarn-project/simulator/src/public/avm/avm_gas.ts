@@ -130,7 +130,7 @@ const DYNAMIC_GAS_COSTS = new Map<Opcode, Gas>([
   [Opcode.CALLDATACOPY, makeCost(c.AVM_CALLDATACOPY_DYN_L2_GAS, 0)],
   [Opcode.RETURNDATACOPY, makeCost(c.AVM_RETURNDATACOPY_DYN_L2_GAS, 0)],
   // TODO: Call and static call based on bytecode length
-  [Opcode.EMITUNENCRYPTEDLOG, makeCost(c.AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
+  [Opcode.EMITUNENCRYPTEDLOG, makeCost(0, c.AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS)],
   [Opcode.TORADIXBE, makeCost(c.AVM_TORADIXBE_DYN_L2_GAS, 0)],
   [Opcode.AND_8, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
   [Opcode.AND_16, makeCost(c.AVM_BITWISE_DYN_L2_GAS, 0)],
@@ -148,7 +148,9 @@ export function getBaseGasCost(opcode: Opcode): Gas {
 
 export function computeAddressingCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
   return makeCost(
-    indirectOperandsCount * c.AVM_ADDRESSING_INDIRECT_L2_GAS + relativeOperandsCount * c.AVM_ADDRESSING_RELATIVE_L2_GAS,
+    (relativeOperandsCount !== 0 ? c.AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS : 0) +
+      indirectOperandsCount * c.AVM_ADDRESSING_INDIRECT_L2_GAS +
+      relativeOperandsCount * c.AVM_ADDRESSING_RELATIVE_L2_GAS,
     0,
   );
 }

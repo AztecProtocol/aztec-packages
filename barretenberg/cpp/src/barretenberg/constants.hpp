@@ -37,7 +37,7 @@ static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
 // extra evaluations
 static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
 
-static constexpr uint32_t MERGE_PROOF_SIZE = 65; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE = 49; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
@@ -45,4 +45,9 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // The interleaving trick needed for Translator adds 2 extra claims to Gemini fold claims
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
 static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
+
+// When we branch a transcript, we want to clearly distinguish between what happened before and after the branching. We
+// increase the `round_index` of the original transcript by `BRANCHING_JUMP`, so that there is a gap of `BRANCHING_JUMP`
+// round indices between what happened before and after the branching. This constant is arbitrary.
+static constexpr std::size_t BRANCHING_JUMP = 5;
 } // namespace bb

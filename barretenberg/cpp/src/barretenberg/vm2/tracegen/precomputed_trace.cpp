@@ -4,11 +4,17 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
+#include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -153,19 +159,22 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     }
 }
 
-void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
     using C = Column;
     using bb::avm2::MemoryTag;
 
     // Column number corresponds to MemoryTag enum value.
-    const auto integral_tags = { MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
-                                 MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
+    // TODO(MW): Q: is there a better way to iterate over all values in an enum?
+    const auto tags = { MemoryTag::FF,  MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
+                        MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
 
-    for (const auto& tag : integral_tags) {
+    for (const auto& tag : tags) {
         trace.set(static_cast<uint32_t>(tag),
-                  { { { C::precomputed_sel_integral_tag, 1 },
-                      { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+                  { { { C::precomputed_sel_tag_parameters, 1 },
+                      { C::precomputed_tag_byte_length, get_tag_bytes(tag) },
+                      { C::precomputed_tag_max_bits, get_tag_bits(tag) },
+                      { C::precomputed_tag_max_value, get_tag_max_value(tag) } } });
     }
 }
 
@@ -221,43 +230,89 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
 {
     using C = Column;
 
+    constexpr size_t NUM_REGISTERS = 7;
+    constexpr std::array<Column, NUM_REGISTERS> MEM_OP_REG_COLUMNS = {
+        Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
+        Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
+        Column::precomputed_sel_mem_op_reg_4_, Column::precomputed_sel_mem_op_reg_5_,
+        Column::precomputed_sel_mem_op_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> RW_COLUMNS = {
+        Column::precomputed_rw_reg_0_, Column::precomputed_rw_reg_1_, Column::precomputed_rw_reg_2_,
+        Column::precomputed_rw_reg_3_, Column::precomputed_rw_reg_4_, Column::precomputed_rw_reg_5_,
+        Column::precomputed_rw_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> DO_TAG_CHECK_COLUMNS = {
+        Column::precomputed_sel_tag_check_reg_0_, Column::precomputed_sel_tag_check_reg_1_,
+        Column::precomputed_sel_tag_check_reg_2_, Column::precomputed_sel_tag_check_reg_3_,
+        Column::precomputed_sel_tag_check_reg_4_, Column::precomputed_sel_tag_check_reg_5_,
+        Column::precomputed_sel_tag_check_reg_6_,
+    };
+    constexpr std::array<Column, NUM_REGISTERS> EXPECTED_TAG_COLUMNS = {
+        Column::precomputed_expected_tag_reg_0_, Column::precomputed_expected_tag_reg_1_,
+        Column::precomputed_expected_tag_reg_2_, Column::precomputed_expected_tag_reg_3_,
+        Column::precomputed_expected_tag_reg_4_, Column::precomputed_expected_tag_reg_5_,
+        Column::precomputed_expected_tag_reg_6_,
+    };
+
+    constexpr size_t NUM_OPERANDS = 7;
+    constexpr std::array<Column, NUM_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
+        Column::precomputed_sel_op_is_address_0_, Column::precomputed_sel_op_is_address_1_,
+        Column::precomputed_sel_op_is_address_2_, Column::precomputed_sel_op_is_address_3_,
+        Column::precomputed_sel_op_is_address_4_, Column::precomputed_sel_op_is_address_5_,
+        Column::precomputed_sel_op_is_address_6_,
+    };
+
     for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
+        // Basic information.
+        trace.set(static_cast<uint32_t>(exec_opcode),
+                  { {
+                      { C::precomputed_sel_exec_spec, 1 },
+                      { C::precomputed_exec_opcode_opcode_gas, exec_instruction_spec.gas_cost.opcode_gas },
+                      { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
+                      { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
+                      { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },
+                  } });
+
+        // Register information.
+        const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+        for (size_t i = 0; i < NUM_REGISTERS; i++) {
+            trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
+            trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
+            trace.set(DO_TAG_CHECK_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      register_info.need_tag_check(i) ? 1 : 0);
+            trace.set(EXPECTED_TAG_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      static_cast<uint32_t>(register_info.expected_tag(i).value_or(static_cast<ValueTag>(0))));
+        }
+
+        // Whether an operand is an address
+        for (size_t i = 0; i < NUM_OPERANDS; i++) {
+            trace.set(SEL_OP_IS_ADDRESS_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      i < exec_instruction_spec.num_addresses ? 1 : 0);
+        }
+
+        // Gadget / Subtrace Selectors
         auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
         uint8_t alu_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0;
         uint8_t bitwise_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0;
         uint8_t poseidon_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0;
         uint8_t to_radix_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0;
         uint8_t ecc_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0;
-
-        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
-
+        uint8_t keccak_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0;
+        uint8_t data_copy_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::DATACOPY ? 1 : 0;
+        uint8_t execution_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION ? 1 : 0;
         trace.set(static_cast<uint32_t>(exec_opcode),
-                  { { { C::precomputed_sel_exec_spec, 1 },
-                      { C::precomputed_exec_opcode_opcode_gas, exec_instruction_spec.gas_cost.opcode_gas },
-                      { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
-                      { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
-                      { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },
-                      // Memory Access for registers
-                      { C::precomputed_mem_op_reg1, register_info.is_active(0) ? 1 : 0 },
-                      { C::precomputed_mem_op_reg2, register_info.is_active(1) ? 1 : 0 },
-                      { C::precomputed_mem_op_reg3, register_info.is_active(2) ? 1 : 0 },
-                      { C::precomputed_mem_op_reg4, register_info.is_active(3) ? 1 : 0 },
-                      { C::precomputed_mem_op_reg5, register_info.is_active(4) ? 1 : 0 },
-                      { C::precomputed_mem_op_reg6, register_info.is_active(5) ? 1 : 0 },
-                      { C::precomputed_mem_op_reg7, register_info.is_active(6) ? 1 : 0 },
-                      { C::precomputed_rw_1, register_info.is_write(0) ? 1 : 0 },
-                      { C::precomputed_rw_2, register_info.is_write(1) ? 1 : 0 },
-                      { C::precomputed_rw_3, register_info.is_write(2) ? 1 : 0 },
-                      { C::precomputed_rw_4, register_info.is_write(3) ? 1 : 0 },
-                      { C::precomputed_rw_5, register_info.is_write(4) ? 1 : 0 },
-                      { C::precomputed_rw_6, register_info.is_write(5) ? 1 : 0 },
-                      { C::precomputed_rw_7, register_info.is_write(6) ? 1 : 0 },
-                      // Gadget / Subtrace Selectors
-                      { C::precomputed_sel_dispatch_alu, alu_sel },
+                  { { { C::precomputed_sel_dispatch_alu, alu_sel },
                       { C::precomputed_sel_dispatch_bitwise, bitwise_sel },
                       { C::precomputed_sel_dispatch_poseidon_perm, poseidon_sel },
                       { C::precomputed_sel_dispatch_to_radix, to_radix_sel },
                       { C::precomputed_sel_dispatch_ecc, ecc_sel },
+                      { C::precomputed_sel_dispatch_data_copy, data_copy_sel },
+                      { C::precomputed_sel_dispatch_keccakf1600, keccak_sel },
+                      { C::precomputed_sel_dispatch_execution, execution_sel },
                       { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
     }
 }
@@ -321,6 +376,212 @@ void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
     for (uint32_t i = 0; i < num_rows; i++) {
         trace.set(C::precomputed_sel_addressing_gas, i, 1);
         trace.set(C::precomputed_addressing_gas, i, compute_addressing_gas(static_cast<uint16_t>(i)));
+    }
+}
+
+void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
+{
+    using C = Column;
+
+    // Non Revertible Nullifiers
+    auto nr_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NULLIFIER_INSERTION);
+    trace.set(0,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
+                      { C::precomputed_sel_non_revertible_append_nullifier, 1 },
+
+                      { C::precomputed_read_public_input_offset, nr_nullifiers.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, nr_nullifiers.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, nr_nullifiers.write_pi_offset },
+                  },
+              });
+    // Non Revertible Note Hash
+    auto nr_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_NOTE_INSERTION);
+    trace.set(1,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
+                      { C::precomputed_sel_non_revertible_append_note_hash, 1 },
+
+                      { C::precomputed_read_public_input_offset, nr_note_hash.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, nr_note_hash.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, nr_note_hash.write_pi_offset },
+                  },
+              });
+    // Non Revertible L2 to L1 Messages
+    auto nr_l2_to_l1_msgs = TxPhaseOffsetsTable::get_offsets(TransactionPhase::NR_L2_TO_L1_MESSAGE);
+    trace.set(2,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
+                      { C::precomputed_is_l2_l1_message_phase, 1 },
+
+                      { C::precomputed_read_public_input_offset, nr_l2_to_l1_msgs.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, nr_l2_to_l1_msgs.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, nr_l2_to_l1_msgs.write_pi_offset },
+                  },
+              });
+    // Setup
+    auto setup = TxPhaseOffsetsTable::get_offsets(TransactionPhase::SETUP);
+    trace.set(3,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
+                      { C::precomputed_is_public_call_request_phase, 1 },
+
+                      { C::precomputed_read_public_input_offset, setup.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, setup.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, setup.write_pi_offset },
+                  },
+              });
+    // Revertible Nullifiers
+    auto r_nullifiers = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NULLIFIER_INSERTION);
+    trace.set(4,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
+                      { C::precomputed_sel_revertible_append_nullifier, 1 },
+                      { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+
+                      { C::precomputed_read_public_input_offset, r_nullifiers.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, r_nullifiers.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, r_nullifiers.write_pi_offset },
+                  },
+              });
+    // Revertible Note Hash
+    auto r_note_hash = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_NOTE_INSERTION);
+    trace.set(5,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
+                      { C::precomputed_sel_revertible_append_note_hash, 1 },
+                      { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+
+                      { C::precomputed_read_public_input_offset, r_note_hash.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, r_note_hash.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, r_note_hash.write_pi_offset },
+                  },
+              });
+    // Revertible L2 to L1 Messages
+    auto r_l2_to_l1_msgs = TxPhaseOffsetsTable::get_offsets(TransactionPhase::R_L2_TO_L1_MESSAGE);
+    trace.set(6,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
+                      { C::precomputed_is_l2_l1_message_phase, 1 },
+                      { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+
+                      { C::precomputed_read_public_input_offset, r_l2_to_l1_msgs.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, r_l2_to_l1_msgs.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, r_l2_to_l1_msgs.write_pi_offset },
+                  },
+              });
+    // App Logic
+    auto app_logic = TxPhaseOffsetsTable::get_offsets(TransactionPhase::APP_LOGIC);
+    trace.set(7,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::APP_LOGIC) },
+                      { C::precomputed_is_public_call_request_phase, 1 },
+                      { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+
+                      { C::precomputed_read_public_input_offset, app_logic.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, app_logic.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, app_logic.write_pi_offset },
+                  },
+              });
+    // Teardown
+    auto teardown = TxPhaseOffsetsTable::get_offsets(TransactionPhase::TEARDOWN);
+    trace.set(8,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::TEARDOWN) },
+                      { C::precomputed_is_public_call_request_phase, 1 },
+                      { C::precomputed_is_revertible, 1 },
+                      { C::precomputed_next_phase_on_revert, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
+
+                      { C::precomputed_read_public_input_offset, teardown.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, teardown.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, teardown.write_pi_offset },
+                  },
+              });
+    // TODO: Complete Collect Gas Fee and Pad Tree phases
+    auto pay_gas = TxPhaseOffsetsTable::get_offsets(TransactionPhase::COLLECT_GAS_FEES);
+    trace.set(9,
+              {
+                  {
+                      { C::precomputed_sel_phase, 1 },
+                      { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
+                      { C::precomputed_sel_collect_fee, 1 },
+                      { C::precomputed_is_revertible, 0 },
+
+                      { C::precomputed_read_public_input_offset, pay_gas.read_pi_offset },
+                      { C::precomputed_read_public_input_length_offset, pay_gas.read_pi_length_offset },
+                      { C::precomputed_write_public_input_offset, pay_gas.write_pi_offset },
+                  },
+              });
+}
+
+void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 1;
+    for (const auto& round_constant : simulation::keccak_round_constants) {
+        trace.set(row,
+                  { {
+                      { C::precomputed_sel_keccak, 1 },
+                      { C::precomputed_keccak_round_constant, round_constant },
+                  } });
+        row++;
+    }
+}
+
+/**
+ * See `opcodes/get_env_var.pil` for an ascii version of this table.
+ */
+void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr uint32_t NUM_ROWS = 1 << 8;
+
+    // Start by flagging `invalid_envvar_enum` as 1 for all rows.
+    // "valid" rows will be reset manually to 0 below.
+    for (uint32_t i = 0; i < NUM_ROWS; i++) {
+        trace.set(C::precomputed_invalid_envvar_enum, i, 1);
+    }
+
+    for (uint8_t enum_value = 0; enum_value <= static_cast<uint8_t>(EnvironmentVariable::MAX); enum_value++) {
+        const auto& envvar_spec = GetEnvVarSpec::get_table(enum_value);
+        trace.set(static_cast<uint32_t>(enum_value),
+                  { {
+                      { C::precomputed_invalid_envvar_enum, 0 }, // Reset the invalid enum flag for valid rows
+                      { C::precomputed_sel_envvar_pi_lookup_col0, envvar_spec.envvar_pi_lookup_col0 },
+                      { C::precomputed_sel_envvar_pi_lookup_col1, envvar_spec.envvar_pi_lookup_col1 },
+                      { C::precomputed_envvar_pi_row_idx, envvar_spec.envvar_pi_row_idx },
+                      { C::precomputed_is_address, envvar_spec.is_address ? 1 : 0 },
+                      { C::precomputed_is_sender, envvar_spec.is_sender ? 1 : 0 },
+                      { C::precomputed_is_transactionfee, envvar_spec.is_transactionfee ? 1 : 0 },
+                      { C::precomputed_is_isstaticcall, envvar_spec.is_isstaticcall ? 1 : 0 },
+                      { C::precomputed_is_l2gasleft, envvar_spec.is_l2gasleft ? 1 : 0 },
+                      { C::precomputed_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
+                      { C::precomputed_out_tag, envvar_spec.out_tag },
+                  } });
     }
 }
 

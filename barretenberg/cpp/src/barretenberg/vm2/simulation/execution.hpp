@@ -14,10 +14,15 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/context_provider.hpp"
+#include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -36,32 +41,36 @@ class ExecutionInterface {
     virtual ~ExecutionInterface() = default;
     // Returns the top-level execution result. TODO: This should only be top level enqueud calls
     virtual ExecutionResult execute(std::unique_ptr<ContextInterface> context) = 0;
-
-    // This feels off, but we need access to the context provider at both the tx and execution level
-    // and threading it feels worse.
-    virtual ExecutionComponentsProviderInterface& get_provider() = 0;
 };
 
 // In charge of executing a single enqueued call.
 class Execution : public ExecutionInterface {
   public:
     Execution(AluInterface& alu,
+              DataCopyInterface& data_copy,
               ExecutionComponentsProviderInterface& execution_components,
+              ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
+              ExecutionIdManagerInterface& execution_id_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
-              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
+              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
+              KeccakF1600Interface& keccakf1600)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
+        , context_provider(context_provider)
+        , execution_id_manager(execution_id_manager)
+        , data_copy(data_copy)
+        , keccakf1600(keccakf1600)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
 
     ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
-    ExecutionComponentsProviderInterface& get_provider() override { return execution_components; };
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
@@ -70,10 +79,27 @@ class Execution : public ExecutionInterface {
               MemoryAddress l2_gas_offset,
               MemoryAddress da_gas_offset,
               MemoryAddress addr,
-              MemoryAddress cd_offset,
-              MemoryAddress cd_size);
+              MemoryAddress cd_size_offset,
+              MemoryAddress cd_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
+    void cd_copy(ContextInterface& context,
+                 MemoryAddress cd_size_offset,
+                 MemoryAddress cd_offset,
+                 MemoryAddress dst_addr);
+    void rd_copy(ContextInterface& context,
+                 MemoryAddress rd_size_offset,
+                 MemoryAddress rd_offset,
+                 MemoryAddress dst_addr);
+    void rd_size(ContextInterface& context, MemoryAddress dst_addr);
+    void internal_call(ContextInterface& context, uint32_t loc);
+    void internal_return(ContextInterface& context);
+    void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
+    void success_copy(ContextInterface& context, MemoryAddress dst_addr);
+
+  protected:
+    // Only here for testing. TODO(fcarreiro): try to improve.
+    virtual GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
@@ -92,19 +118,20 @@ class Execution : public ExecutionInterface {
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
-    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
-    void set_output(TaggedValue output) { this->output = std::move(output); }
+    void set_and_validate_inputs(ExecutionOpCode opcode, std::vector<TaggedValue> inputs);
+    void set_output(ExecutionOpCode opcode, TaggedValue output);
     const std::vector<TaggedValue>& get_inputs() const { return inputs; }
     const TaggedValue& get_output() const { return output; }
-
-    void init_gas_tracker(ContextInterface& context);
-    GasTrackerInterface& get_gas_tracker();
-    GasEvent finish_gas_tracker();
 
     ExecutionComponentsProviderInterface& execution_components;
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;
+    ContextProviderInterface& context_provider;
+    ExecutionIdManagerInterface& execution_id_manager;
+    DataCopyInterface& data_copy;
+    KeccakF1600Interface& keccakf1600;
+
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 

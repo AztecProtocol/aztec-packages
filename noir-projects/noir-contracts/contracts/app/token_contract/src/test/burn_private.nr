@@ -1,7 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 #[test]
 unconstrained fn burn_private_on_behalf_of_self() {
@@ -23,11 +24,7 @@ unconstrained fn burn_private_on_behalf_of_other() {
     // Burn on behalf of other
     let burn_call_interface =
         Token::at(token_contract_address).burn_private(owner, burn_amount, random());
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        burn_call_interface,
-    );
+    add_private_authwit_from_call_interface(owner, recipient, burn_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Burn tokens
@@ -45,7 +42,7 @@ unconstrained fn burn_private_failure_more_than_balance() {
     Token::at(token_contract_address).burn_private(owner, burn_amount, 0).call(&mut env.private());
 }
 
-#[test(should_fail_with = "invalid nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn burn_private_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
@@ -67,11 +64,7 @@ unconstrained fn burn_private_failure_on_behalf_of_other_more_than_balance() {
     // Burn on behalf of other
     let burn_call_interface =
         Token::at(token_contract_address).burn_private(owner, burn_amount, random());
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        burn_call_interface,
-    );
+    add_private_authwit_from_call_interface(owner, recipient, burn_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     burn_call_interface.call(&mut env.private());
@@ -100,7 +93,7 @@ unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller
     let burn_amount = mint_amount / (10 as u128);
     // Burn on behalf of other
     let burn_call_interface = Token::at(token_contract_address).burn_private(owner, burn_amount, 3);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(owner, owner, burn_call_interface);
+    add_private_authwit_from_call_interface(owner, owner, burn_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     burn_call_interface.call(&mut env.private());

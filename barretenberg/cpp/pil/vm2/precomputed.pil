@@ -33,11 +33,21 @@ pol constant power_of_2;
 pol constant sel_sha256_compression;
 pol constant sha256_compression_round_constant;
 
-// A mapping between a non-FF MemoryTag value and their respective byte lengths:
-// {U1: 1, U8: 1, U16: 2, ... , U128: 16}
+// A mapping between a MemoryTag value and their respective parameters:
+// {FF:0, U1: 1, U8: 1, U16: 2, ... , U128: 16}
+//      | tag | byte_length | max_bits |  max_value  |
+// FF   |  0  |      32     |    254   |   p - 1     |
+// u1   |  1  |      1      |    1     |   2^1 - 1   |
+// u8   |  2  |      1      |    8     |   2^8 - 1   |
+// u16  |  3  |      2      |    16    |   2^16 - 1  |
+// u32  |  4  |      4      |    32    |   2^32 - 1  |
+// u64  |  5  |      8      |    64    |   2^64 - 1  |
+// u128 |  6  |      16     |    128   |   2^128 - 1 |
 // The enum values of MemoryTag are present in column clk.
-pol constant sel_integral_tag; // Toggle row with clk == U1,U8,U16,...,U128
-pol constant integral_tag_length; // Columns for the byte length 1,1,2,...,16;
+pol constant sel_tag_parameters; // Toggle row with clk == FF,U1,U8,U16,...,U128
+pol constant tag_byte_length;
+pol constant tag_max_bits;
+pol constant tag_max_value;
 
 // Remark: A potential optimization may consist in using sel_bitwise instead of sel_integral_mem_tag.
 //         However, it would extend this lookup table with pairs such as (0,0), (7,0), (8,0) which is
@@ -98,32 +108,71 @@ pol constant p_decomposition_limb;
 
 // EXECUTION INSTRUCTION SPEC table
 // Maps an execution opcode value to useful information used during execution
-// - Gas Costs
-// - Opcode memory operations and destination registers
-pol constant sel_exec_spec;
 // exec_opcode is clk
+pol constant sel_exec_spec;
+// Gas Costs
 pol constant exec_opcode_opcode_gas;
 pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;
-// Memory Access + Register mappings
-pol constant mem_op_reg1, rw_1;
-pol constant mem_op_reg2, rw_2;
-pol constant mem_op_reg3, rw_3;
-pol constant mem_op_reg4, rw_4;
-pol constant mem_op_reg5, rw_5;
-pol constant mem_op_reg6, rw_6;
-pol constant mem_op_reg7, rw_7;
+// Registers: Memory Access
+pol constant sel_mem_op_reg[7];
+pol constant rw_reg[7];
+// Registers: Tag Check
+pol constant sel_tag_check_reg[7];
+pol constant expected_tag_reg[7];
 // Subtrace/Gadget Selector
+pol constant subtrace_operation_id;
 pol constant sel_dispatch_alu;
 pol constant sel_dispatch_bitwise;
 pol constant sel_dispatch_poseidon_perm;
 pol constant sel_dispatch_to_radix;
 pol constant sel_dispatch_ecc;
-    // Add more here
-pol constant subtrace_operation_id;
+pol constant sel_dispatch_keccakf1600;
+pol constant sel_dispatch_data_copy;
+pol constant sel_dispatch_execution;
+// Whether an operand is an address
+// NOTE: this could be encoded in bits in 1 column and reconstructed.
+pol constant sel_op_is_address[7];
 
 // Addressing gas
-pol constant sel_addressing_gas;
 // Indirect is clk
+pol constant sel_addressing_gas;
 pol constant addressing_gas;
+
+// Phase Table for Tx Trace
+pol constant sel_phase; // Selector for phase table
+pol constant phase_value; // { NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN}
+pol constant is_public_call_request_phase;
+pol constant is_l2_l1_message_phase;
+pol constant is_revertible;
+pol constant next_phase_on_revert;
+pol constant read_public_input_offset;
+pol constant read_public_input_length_offset;
+pol constant write_public_input_offset;
+pol constant sel_non_revertible_append_note_hash;
+pol constant sel_non_revertible_append_nullifier;
+pol constant sel_revertible_append_note_hash;
+pol constant sel_revertible_append_nullifier;
+pol constant sel_collect_fee;
+
+// Keccak round constants
+// Store the 24 round constants with indices ranging from 1 to 24.
+// Warning: Not a standard 0-based array!
+pol constant sel_keccak;
+pol constant keccak_round_constant;
+
+// GETENVVAR opcode precomputed columns
+// see opcodes/get_env_var.pil for ascii table
+pol constant invalid_envvar_enum;
+pol constant sel_envvar_pi_lookup_col0;
+pol constant sel_envvar_pi_lookup_col1;
+pol constant envvar_pi_row_idx;
+pol constant is_address;
+pol constant is_sender;
+pol constant is_transactionfee;
+pol constant is_feeperl2gas;
+pol constant is_isstaticcall;
+pol constant is_l2gasleft;
+pol constant is_dagasleft;
+pol constant out_tag;

@@ -85,7 +85,9 @@ template <typename Builder> class safe_uint_t {
     {
         witness_t<Builder> out(parent_context, value);
         parent_context->assert_equal_constant(out.witness_index, value, "create_constant_witness");
-        return safe_uint_t(value, uint256_t(value), IS_UNSAFE);
+        auto result = safe_uint_t(value, uint256_t(value), IS_UNSAFE);
+        result.set_free_witness_tag();
+        return result;
     }
 
     // We take advantage of the range constraint already being applied in the bool constructor and don't make a
@@ -209,6 +211,8 @@ template <typename Builder> class safe_uint_t {
     void set_origin_tag(OriginTag tag) const { value.set_origin_tag(tag); }
 
     OriginTag get_origin_tag() const { return value.get_origin_tag(); }
+    void set_free_witness_tag() { value.set_free_witness_tag(); }
+    void unset_free_witness_tag() { value.unset_free_witness_tag(); }
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, safe_uint_t<Builder> const& v)

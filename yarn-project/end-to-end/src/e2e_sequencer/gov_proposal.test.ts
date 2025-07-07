@@ -1,5 +1,5 @@
-import type { Logger, PXE, Wallet } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { EthAddress, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
   GovernanceProposerContract,
@@ -7,7 +7,6 @@ import {
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 import type { PXEService } from '@aztec/pxe/server';
@@ -28,12 +27,13 @@ describe('e2e_gov_proposal', () => {
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
   beforeEach(async () => {
-    const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
+    const privateKey = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}` as `0x${string}`;
+    const account = privateKeyToAccount(privateKey);
     const initialValidators = [
       {
         attester: EthAddress.fromString(account.address),
-        proposerEOA: EthAddress.fromString(account.address),
         withdrawer: EthAddress.fromString(account.address),
+        privateKey,
       },
     ];
     const { ethereumSlotDuration, aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
@@ -78,7 +78,7 @@ describe('e2e_gov_proposal', () => {
       const nextRoundBeginsAtSlot = (slot / roundDuration) * roundDuration + roundDuration;
       const nextRoundBeginsAtTimestamp = await rollup.getTimestampForSlot(nextRoundBeginsAtSlot);
       logger.info(`Warping to round ${round + 1n} at slot ${nextRoundBeginsAtSlot}`);
-      await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp));
+      await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp), { resetBlockInterval: true });
 
       // Now we submit a bunch of transactions to the PXE.
       // We know that this will last at least as long as the round duration,

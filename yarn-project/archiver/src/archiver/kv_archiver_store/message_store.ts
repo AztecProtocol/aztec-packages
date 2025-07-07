@@ -184,7 +184,7 @@ export class MessageStore {
     return msg ? deserializeInboxMessage(msg) : undefined;
   }
 
-  public async getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  public async getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     const messages: Fr[] = [];
 
     const [startIndex, endIndex] = InboxLeaf.indexRangeFromL2Block(blockNumber);
@@ -232,9 +232,9 @@ export class MessageStore {
     });
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: bigint): Promise<void> {
+  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
     this.#log.debug(`Deleting L1 to L2 messages up to target L2 block ${targetBlockNumber}`);
-    const startIndex = InboxLeaf.smallestIndexFromL2Block(targetBlockNumber + 1n);
+    const startIndex = InboxLeaf.smallestIndexFromL2Block(targetBlockNumber + 1);
     return this.removeL1ToL2Messages(startIndex);
   }
 

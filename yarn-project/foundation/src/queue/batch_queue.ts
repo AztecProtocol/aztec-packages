@@ -13,7 +13,7 @@ type Batch<T, K> = {
  * A queue that groups items into batches based on a group key.
  *
  * The batching algorithm is greedy, meaning that as long as consecutive items have the same group key then they will
- * be batvched together. As soon as an item with a different group key is encountered, the old batch is flushed to the
+ * be batched together. As soon as an item with a different group key is encountered, the old batch is flushed to the
  * queue and a new batch is started.
  *
  * A batch can also be flushed to the queue if:

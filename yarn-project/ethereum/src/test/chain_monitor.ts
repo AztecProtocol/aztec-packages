@@ -1,15 +1,25 @@
 import { InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
 import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { DateProvider } from '@aztec/foundation/timer';
 
 import { EventEmitter } from 'events';
 
 import type { ViemClient } from '../types.js';
 
+export type ChainMonitorEventMap = {
+  'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
+  'l2-block': [{ l2BlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  'l2-block-proven': [{ l2ProvenBlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
+};
+
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
-export class ChainMonitor extends EventEmitter {
+export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   private readonly l1Client: ViemClient;
   private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
+  private running: Set<Promise<void>> = new Set();
 
   /** Current L1 block number */
   public l1BlockNumber!: number;
@@ -26,7 +36,8 @@ export class ChainMonitor extends EventEmitter {
 
   constructor(
     private readonly rollup: RollupContract,
-    private logger = createLogger('aztecjs:utils:chain_monitor'),
+    private readonly dateProvider: DateProvider = new DateProvider(),
+    private readonly logger = createLogger('aztecjs:utils:chain_monitor'),
     private readonly intervalMs = 200,
   ) {
     super();
@@ -41,11 +52,16 @@ export class ChainMonitor extends EventEmitter {
     return this;
   }
 
-  stop() {
-    this.removeAllListeners();
-    if (this.handle) {
-      clearInterval(this.handle!);
-      this.handle = undefined;
+  async stop() {
+    try {
+      this.removeAllListeners();
+      if (this.handle) {
+        clearInterval(this.handle!);
+        this.handle = undefined;
+      }
+      await Promise.allSettled([...this.running]);
+    } catch (err) {
+      this.logger.error('Error stopping chain monitor', err);
     }
   }
 
@@ -57,10 +73,18 @@ export class ChainMonitor extends EventEmitter {
     return this.inbox;
   }
 
-  private safeRun() {
-    void this.run().catch(error => {
-      this.logger.error('Error in chain monitor loop', error);
-    });
+  protected safeRun() {
+    const running = promiseWithResolvers<void>();
+    this.running.add(running.promise);
+
+    void this.run()
+      .catch(error => {
+        this.logger.error('Error in chain monitor loop', error);
+      })
+      .finally(() => {
+        running.resolve();
+        this.running.delete(running.promise);
+      });
   }
 
   async run(force = false) {
@@ -107,10 +131,14 @@ export class ChainMonitor extends EventEmitter {
       this.emit('l2-messages', { totalL2Messages: newTotalL2Messages, l1BlockNumber: newL1BlockNumber });
     }
 
+    const [l2SlotNumber, l2Epoch] = await Promise.all([this.rollup.getSlotNumber(), this.rollup.getCurrentEpoch()]);
+
     this.logger.info(msg, {
+      currentTimestamp: this.dateProvider.nowInSeconds(),
       l1Timestamp: timestamp,
       l1BlockNumber: this.l1BlockNumber,
-      l2SlotNumber: await this.rollup.getSlotNumber(),
+      l2SlotNumber,
+      l2Epoch,
       l2BlockNumber: this.l2BlockNumber,
       l2ProvenBlockNumber: this.l2ProvenBlockNumber,
       totalL2Messages: this.totalL2Messages,

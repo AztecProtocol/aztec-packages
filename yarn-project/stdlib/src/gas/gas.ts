@@ -28,6 +28,10 @@ export class Gas {
       .transform(Gas.from);
   }
 
+  getSize() {
+    return 4 /* daGas */ + 4 /* l2Gas */;
+  }
+
   clone(): Gas {
     return new Gas(this.daGas, this.l2Gas);
   }
@@ -88,7 +92,7 @@ export class Gas {
 
   computeFee(gasFees: GasFees) {
     return GasDimensions.reduce(
-      (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),
+      (acc, dimension) => acc.add(new Fr(gasFees.get(dimension)).mul(new Fr(this.get(dimension)))),
       Fr.ZERO,
     );
   }

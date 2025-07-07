@@ -17,6 +17,7 @@ import type {
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { join } from 'path';
 
@@ -29,7 +30,9 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 2;
+export const ARCHIVER_DB_VERSION = 3;
+export const MAX_FUNCTION_SIGNATURES = 1000;
+export const MAX_FUNCTION_NAME_LEN = 256;
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -42,6 +45,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
+
   private functionNames = new Map<string, string>();
 
   #log = createLogger('archiver:data-store');
@@ -67,9 +71,11 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   public async getContract(
     address: AztecAddress,
-    blockNumber?: number,
+    maybeTimestamp?: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
+    const [header] = await this.getBlockHeaders(await this.getBlockNumber(), 1);
+    const timestamp = maybeTimestamp ?? header!.globalVariables.timestamp;
+    return this.getContractInstance(address, timestamp);
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -81,18 +87,18 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.close();
   }
 
-  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
-  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
-  //        the node api cleanup process.
   getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  async registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     for (const sig of signatures) {
+      if (this.functionNames.size > MAX_FUNCTION_SIGNATURES) {
+        return;
+      }
       try {
         const selector = await FunctionSelector.fromSignature(sig);
-        this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
+        this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')).slice(0, MAX_FUNCTION_NAME_LEN));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
@@ -107,8 +113,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#contractClassStore.getContractClassIds();
   }
 
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
-    return this.#contractInstanceStore.getContractInstance(address, blockNumber);
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
+    return this.#contractInstanceStore.getContractInstance(address, timestamp);
   }
 
   getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
@@ -155,23 +161,20 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
   }
 
-  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], blockNumber: number): Promise<boolean> {
+  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
     return (
       await Promise.all(
         data.map((update, logIndex) =>
-          this.#contractInstanceStore.addContractInstanceUpdate(update, blockNumber, logIndex),
+          this.#contractInstanceStore.addContractInstanceUpdate(update, timestamp, logIndex),
         ),
       )
     ).every(Boolean);
   }
-  async deleteContractInstanceUpdates(
-    data: ContractInstanceUpdateWithAddress[],
-    blockNumber: number,
-  ): Promise<boolean> {
+  async deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
     return (
       await Promise.all(
         data.map((update, logIndex) =>
-          this.#contractInstanceStore.deleteContractInstanceUpdate(update, blockNumber, logIndex),
+          this.#contractInstanceStore.deleteContractInstanceUpdate(update, timestamp, logIndex),
         ),
       )
     ).every(Boolean);
@@ -284,7 +287,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     return this.#messageStore.getL1ToL2Messages(blockNumber);
   }
 
@@ -301,12 +304,13 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - How many logs to return per tag. Default returns everything
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getLogsByTags(tags);
+      return this.#logStore.getLogsByTags(tags, logsPerTag);
     } catch (err) {
       return Promise.reject(err);
     }
@@ -380,8 +384,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.estimateSize();
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void> {
-    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(BigInt(targetBlockNumber));
+  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
   }
 
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {

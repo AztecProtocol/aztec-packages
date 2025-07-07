@@ -7,7 +7,6 @@ import {
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
-  type GlobalVariables,
   type Logger,
   type PXE,
   TxStatus,
@@ -15,20 +14,18 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import type { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { SequencerClient } from '@aztec/sequencer-client';
+import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { type PublicContractsDB, PublicProcessorFactory, TelemetryPublicTxSimulator } from '@aztec/simulator/server';
+import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
+import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -47,11 +44,8 @@ describe('e2e_block_building', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
-  let dateProvider: TestDateProvider | undefined;
   let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
-
-  const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -71,7 +65,6 @@ describe('e2e_block_building', () => {
         aztecNodeAdmin: maybeAztecNodeAdmin,
         wallets: [owner, minter],
         sequencer: sequencerClient,
-        dateProvider,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
@@ -82,8 +75,64 @@ describe('e2e_block_building', () => {
       aztecNodeAdmin = maybeAztecNodeAdmin!;
     });
 
-    afterEach(() => aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 }));
+    beforeEach(async () => {
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    });
+
+    afterEach(async () => {
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+      // Clean up any mocks
+      jest.restoreAllMocks();
+    });
+
     afterAll(() => teardown());
+
+    it('processes txs until hitting timetable', async () => {
+      // We send enough txs so they are spread across multiple blocks, but not
+      // so many so that we don't end up hitting a reorg or timing out the tx wait().
+      const TX_COUNT = 16;
+
+      const ownerAddress = owner.getCompleteAddress().address;
+      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
+      logger.info(`Deployed stateful test contract at ${contract.address}`);
+
+      // We have to set minTxsPerBlock to 1 or we could end with dangling txs.
+      // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
+      // block too late into the slot, and start processing when the deadline has already passed.
+      logger.info(`Updating aztec node config`);
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
+
+      // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
+      const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
+      interceptTxProcessorSimulate(
+        aztecNode as AztecNodeService,
+        async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
+          await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
+          return originalSimulate(tx);
+        },
+      );
+
+      // We also cheat the sequencer's timetable so it allocates little time to processing.
+      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
+      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
+      // to pick up and validate the txs, so we may need to bump it to work on CI.
+      jest
+        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
+        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
+
+      // Flood the mempool with TX_COUNT simultaneous txs
+      const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
+      const provenTxs = await asyncMap(methods, method => method.prove());
+      logger.info(`Sending ${TX_COUNT} txs to the node`);
+      const txs = await Promise.all(provenTxs.map(tx => tx.send()));
+      logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
+
+      // Await txs to be mined and assert they are mined across multiple different blocks.
+      const receipts = await Promise.all(txs.map(tx => tx.wait()));
+      const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
+      logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
+      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(1);
+    });
 
     it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
@@ -187,47 +236,6 @@ describe('e2e_block_building', () => {
 
       await Promise.all(sentTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Txs sent`);
-    });
-
-    it('processes txs until hitting timetable', async () => {
-      // We send enough txs so they are spread across multiple blocks, but not
-      // so many so that we don't end up hitting a reorg or timing out the tx wait().
-      const TX_COUNT = 16;
-
-      const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
-      logger.info(`Deployed stateful test contract at ${contract.address}`);
-
-      // We have to set minTxsPerBlock to 1 or we could end with dangling txs.
-      // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
-      // block too late into the slot, and start processing when the deadline has already passed.
-      logger.info(`Updating aztec node config`);
-      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
-
-      // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
-      const archiver = (aztecNode as AztecNodeService).getContractDataSource();
-      sequencer.sequencer.publicProcessorFactory = new TestPublicProcessorFactory(archiver, dateProvider!);
-
-      // We also cheat the sequencer's timetable so it allocates little time to processing.
-      // This will leave the sequencer with just a few seconds to build the block, so it shouldn't
-      // be able to squeeze in more than a few txs in each. This is sensitive to the time it takes
-      // to pick up and validate the txs, so we may need to bump it to work on CI.
-      jest
-        .spyOn(sequencer.sequencer.timetable, 'getBlockProposalExecTimeEnd')
-        .mockImplementation((secondsIntoSlot: number) => secondsIntoSlot + 1);
-
-      // Flood the mempool with TX_COUNT simultaneous txs
-      const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove());
-      logger.info(`Sending ${TX_COUNT} txs to the node`);
-      const txs = await Promise.all(provenTxs.map(tx => tx.send()));
-      logger.info(`All ${TX_COUNT} txs have been sent`, { txs: await Promise.all(txs.map(tx => tx.getTxHash())) });
-
-      // Await txs to be mined and assert they are mined across multiple different blocks.
-      const receipts = await Promise.all(txs.map(tx => tx.wait()));
-      const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
-      logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
-      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThan(1);
     });
 
     it.skip('can call public function from different tx in same block as deployed', async () => {
@@ -563,8 +571,11 @@ describe('e2e_block_building', () => {
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
       logger.info('Advancing past the proof submission window');
-      await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(aztecProofSubmissionWindow + 1);
+      await cheatCodes.rollup.advanceToEpoch(
+        getProofSubmissionDeadlineEpoch(0n, {
+          proofSubmissionEpochs: 1,
+        }),
+      );
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
@@ -599,6 +610,24 @@ describe('e2e_block_building', () => {
       expect(tx3.blockNumber).toBeGreaterThanOrEqual(newTx1Receipt.blockNumber! + 1);
     });
   });
+
+  const interceptTxProcessorSimulate = (
+    node: AztecNodeService,
+    stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
+  ) => {
+    const blockBuilder: BlockBuilder = (node as any).sequencer.sequencer.blockBuilder;
+    const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
+    jest
+      .spyOn(blockBuilder, 'makeBlockBuilderDeps')
+      .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
+        logger.warn('Creating mocked public tx simulator');
+        const deps = await originalCreateDeps(...args);
+        const simulator: PublicTxSimulator = (deps.processor as any).publicTxSimulator;
+        const originalSimulate = simulator.simulate.bind(simulator);
+        jest.spyOn(simulator, 'simulate').mockImplementation((tx: Tx) => stub(tx, originalSimulate));
+        return deps;
+      });
+  };
 });
 
 async function sendAndWait(calls: ContractFunctionInteraction[]) {
@@ -609,24 +638,4 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
       // Only then we wait.
       .map(p => p.wait()),
   );
-}
-
-const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
-
-class TestPublicTxSimulator extends TelemetryPublicTxSimulator {
-  public override async simulate(tx: Tx) {
-    await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
-    return super.simulate(tx);
-  }
-}
-class TestPublicProcessorFactory extends PublicProcessorFactory {
-  protected override createPublicTxSimulator(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
-    globalVariables: GlobalVariables,
-    doMerkleOperations: boolean,
-    skipFeeEnforcement: boolean,
-  ) {
-    return new TestPublicTxSimulator(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
-  }
 }

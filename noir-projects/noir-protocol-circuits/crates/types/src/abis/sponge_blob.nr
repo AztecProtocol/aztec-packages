@@ -91,7 +91,7 @@ impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
                 cache: [fields[0], fields[1], fields[2]],
                 state: [fields[3], fields[4], fields[5], fields[6]],
                 cache_size: fields[7] as u32,
-                squeeze_mode: fields[8] as bool,
+                squeeze_mode: fields[8] != 0,
             },
             fields: fields[9] as u32,
             expected_fields: fields[10] as u32,
@@ -113,8 +113,6 @@ fn serialization_of_empty() {
     assert(item.eq(deserialized));
 }
 
-use crate::utils::arrays::array_concat;
-
 #[test]
 unconstrained fn absorb() {
     // This tests that absorbing two arrays separately then squeezing matches an ordinary hash
@@ -128,7 +126,7 @@ unconstrained fn absorb() {
     let input_4 = [4, 5, 6, 7];
     spongeblob.absorb(input_4, input_4.len());
     // ...and create a normal poseidon2 hash of the same input
-    let input: [Field; 7] = array_concat(input_3, input_4);
+    let input: [Field; 7] = input_3.concat(input_4);
     let expected = Poseidon2Sponge::hash(input, input.len());
     assert(spongeblob.squeeze() == expected);
 }

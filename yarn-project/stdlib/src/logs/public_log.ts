@@ -50,6 +50,10 @@ export class PublicLog {
     return this.fields.slice(0, this.emittedLength);
   }
 
+  getEmittedFieldsWithoutTag() {
+    return this.fields.slice(1, this.emittedLength);
+  }
+
   toBlobFields(): Fr[] {
     return [new Fr(this.emittedLength), this.contractAddress.toField()].concat(this.getEmittedFields());
   }

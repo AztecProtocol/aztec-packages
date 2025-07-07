@@ -48,7 +48,7 @@ cast call <RollupAddress> "getAttesters()" --rpc-url
 Run
 
 ```bash
-cast call <RollupAddress> "getAttesterView(address)" <ValidatorAddress>
+cast call <RollupAddress> "getInfo(address)" <ValidatorAddress>
 ```
 
 This will return in order: 1) the validator's balance 2) their `withdrawer` address 3) their `proposer` address and 4) their current status.

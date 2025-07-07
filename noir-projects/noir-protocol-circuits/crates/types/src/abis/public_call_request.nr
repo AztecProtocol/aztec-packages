@@ -3,7 +3,7 @@ use crate::{
     constants::{
         MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
     },
-    traits::{Deserialize, Empty, FromField, is_empty, Serialize, ToField},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::{arrays::array_length, reader::Reader},
 };
 
@@ -56,7 +56,7 @@ impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
         let request = PublicCallRequest {
             msg_sender: AztecAddress::from_field(reader.read()),
             contract_address: AztecAddress::from_field(reader.read()),
-            is_static_call: reader.read() as bool,
+            is_static_call: reader.read_bool(),
             calldata_hash: reader.read(),
         };
         reader.finish();
@@ -79,7 +79,7 @@ impl PublicCallRequestArrayLengths {
         PublicCallRequestArrayLengths {
             setup_calls: array_length(setup_call_requests),
             app_logic_calls: array_length(app_logic_call_requests),
-            teardown_call: !is_empty(teardown_call_request),
+            teardown_call: !teardown_call_request.is_empty(),
         }
     }
 }
@@ -119,7 +119,7 @@ impl Deserialize<NUM_PUBLIC_CALL_REQUEST_ARRAYS> for PublicCallRequestArrayLengt
         let item = PublicCallRequestArrayLengths {
             setup_calls: reader.read_u32(),
             app_logic_calls: reader.read_u32(),
-            teardown_call: reader.read() as bool,
+            teardown_call: reader.read_bool(),
         };
 
         reader.finish();

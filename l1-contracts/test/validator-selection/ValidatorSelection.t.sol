@@ -4,15 +4,18 @@
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {
+  Signature, CommitteeAttestation, SignatureLib
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   ProposeArgs,
   OracleInput,
@@ -22,10 +25,11 @@ import {
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {IPayload} from "@aztec/core/slashing/Slasher.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
+import {GSE} from "@aztec/governance/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -38,9 +42,23 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
  */
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   using MessageHashUtils for bytes32;
-  using EpochLib for Epoch;
 
-  function testInitialCommitteeMatch() public setup(4) progressEpochs(2) {
+  // Test Block Flags
+  struct TestFlags {
+    bool provideEmptyAttestations;
+    bool invalidProposer;
+    bool proposerNotProvided;
+    bool invalidCommitteeCommitment;
+  }
+
+  TestFlags NO_FLAGS = TestFlags({
+    provideEmptyAttestations: true,
+    invalidProposer: false,
+    proposerNotProvided: false,
+    invalidCommitteeCommitment: false
+  });
+
+  function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 2);
@@ -60,10 +78,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     // The proposer is not necessarily an attester, we have to map it back. We can do this here
     // because we created a 1:1 link. In practice, there could be multiple attesters for the same proposer
     address proposer = rollup.getCurrentProposer();
-    assertTrue(_seenCommittee[proposerToAttester[proposer]]);
+    assertTrue(_seenCommittee[proposer]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -75,15 +93,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
-    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
+    rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -106,7 +124,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
-  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpochs(2) {
+  function testStableCommittee(uint8 _timeToJump) public setup(4, 4) progressEpochs(2) {
     Epoch epoch = rollup.getCurrentEpoch();
 
     uint256 preSize = rollup.getActiveAttesterCount();
@@ -122,9 +140,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
-    rollup.deposit(address(0xdead), address(0xdead), address(0xdead), true);
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
+    rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.flushEntryQueue();
 
     assertEq(rollup.getCurrentEpoch(), epoch);
     address[] memory committee = rollup.getCurrentEpochCommittee();
@@ -135,15 +154,31 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
+  // NOTE: this must be run with --isolate as transient storage gets thrashed when working out the proposer.
+  // This also changes the committee which is calculated within each call.
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14275): clear out transient storage used by the sample lib - we cannot afford to have a malicious proposer
+  // change the committee committment to something unpredictable.
+
+  /// forge-config: default.isolate = true
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
-    setup(100)
+    setup(100, 48)
     progressEpochs(2)
   {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
-    _testBlock("mixed_block_1", _insufficientSigs, committeeSize, false);
+    _testBlock(
+      "mixed_block_1",
+      _insufficientSigs,
+      committeeSize,
+      TestFlags({
+        provideEmptyAttestations: true,
+        invalidProposer: false,
+        proposerNotProvided: false,
+        invalidCommitteeCommitment: false
+      })
+    );
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -152,19 +187,19 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testHappyPath() public setup(4) progressEpochs(2) {
-    _testBlock("mixed_block_1", false, 3, false);
-    _testBlock("mixed_block_2", false, 3, false);
+  function testHappyPath() public setup(4, 4) progressEpochs(2) {
+    _testBlock("mixed_block_1", false, 3, NO_FLAGS);
+    _testBlock("mixed_block_2", false, 3, NO_FLAGS);
   }
 
-  function testNukeFromOrbit() public setup(4) progressEpochs(2) {
+  function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalised.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
-    _testBlock("mixed_block_1", false, 3, false);
-    _testBlock("mixed_block_2", false, 3, false);
+    _testBlock("mixed_block_1", false, 3, NO_FLAGS);
+    _testBlock("mixed_block_2", false, 3, NO_FLAGS);
 
     address[] memory attesters = rollup.getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
@@ -172,7 +207,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
-    uint96 slashAmount = 10e18;
+    uint96 slashAmount = 90e18;
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
@@ -185,42 +220,90 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     slasher.slash(slashPayload);
 
     // Make sure that the slash was successful,
-    // Meaning that validators are now LIVING and have lost the slash amount
+    // Meaning that validators are now ZOMBIE and have lost the slash amount
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount, "Invalid stake");
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status after");
+      assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status after");
     }
   }
 
-  function testInvalidProposer() public setup(4) progressEpochs(2) {
-    _testBlock("mixed_block_1", true, 3, true);
+  function testRelayedForProposer() public setup(4, 4) progressEpochs(2) {
+    // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
+    _testBlock(
+      "mixed_block_1",
+      false,
+      4,
+      TestFlags({
+        invalidProposer: true,
+        provideEmptyAttestations: false,
+        proposerNotProvided: false,
+        invalidCommitteeCommitment: false
+      })
+    );
   }
 
-  function testInsufficientSigs() public setup(4) progressEpochs(2) {
-    _testBlock("mixed_block_1", true, 2, false);
+  function testProposerNotProvided() public setup(4, 4) progressEpochs(2) {
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: false,
+        provideEmptyAttestations: true,
+        proposerNotProvided: true,
+        invalidCommitteeCommitment: false
+      })
+    );
   }
 
-  function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
-    rollup.getGSE().addRollup(address(0xdead));
+  function testInvalidCommitteeCommitment() public setup(4, 4) progressEpochs(2) {
+    _testBlock(
+      "mixed_block_1",
+      true,
+      3,
+      TestFlags({
+        invalidProposer: false,
+        provideEmptyAttestations: true,
+        proposerNotProvided: false,
+        invalidCommitteeCommitment: true
+      })
+    );
+  }
+
+  function testInsufficientSigsMove() public setup(4, 4) progressEpochs(2) {
+    GSE gse = rollup.getGSE();
+    address caller = gse.owner();
+    vm.prank(caller);
+    gse.addRollup(address(0xdead));
     assertEq(rollup.getCurrentEpochCommittee().length, 4);
-    _testBlock("mixed_block_1", true, 0, false);
+    _testBlock(
+      "mixed_block_1",
+      true,
+      0,
+      TestFlags({
+        provideEmptyAttestations: false,
+        invalidProposer: false,
+        proposerNotProvided: false,
+        invalidCommitteeCommitment: false
+      })
+    );
   }
 
   function _testBlock(
     string memory _name,
     bool _expectRevert,
     uint256 _signatureCount,
-    bool _invalidProposer
+    TestFlags memory _flags
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    bytes memory header = full.block.header;
+    ProposedHeader memory header = full.block.header;
 
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.timestamp));
+    vm.warp(max(block.timestamp, Timestamp.unwrap(full.block.header.timestamp)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -229,21 +312,19 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
-    bytes32[] memory txHashes = new bytes32[](0);
-
     {
-      uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      uint128 manaBaseFee =
+        SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.block.blockNumber);
-      header = DecoderBase.updateHeaderInboxRoot(header, inHash);
-      header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
+      header.contentCommitment.inHash = inHash;
+      header.gasFees.feePerL2Gas = manaBaseFee;
     }
 
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      stateReference: new bytes(0),
-      oracleInput: OracleInput(0),
-      txHashes: txHashes
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0)
     });
 
     skipBlobCheck(address(rollup));
@@ -252,19 +333,28 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
-      Signature[] memory signatures = new Signature[](_signatureCount);
-
-      ProposePayload memory proposePayload = ProposePayload({
+      // Pad out with empty (missing signature) attestations to make the committee commitment match
+      ree.provideEmptyAttestations = _flags.provideEmptyAttestations || !_expectRevert;
+      ree.attestationsCount = ree.provideEmptyAttestations ? validators.length : _signatureCount;
+      ree.proposePayload = ProposePayload({
         archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
-        headerHash: HeaderLib.hash(header),
-        txHashes: args.txHashes
+        headerHash: ProposedHeaderLib.hash(header)
       });
 
-      bytes32 digest = ProposeLib.digest(proposePayload);
+      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](ree.attestationsCount);
+
+      bytes32 digest = ProposeLib.digest(ree.proposePayload);
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], digest);
+        attestations[i] = createAttestation(validators[i], digest);
+      }
+
+      // We must include empty attestations to make the committee commitment match
+      if (ree.provideEmptyAttestations) {
+        for (uint256 i = _signatureCount; i < validators.length; i++) {
+          attestations[i] = createEmptyAttestation(validators[i]);
+        }
       }
 
       if (_expectRevert) {
@@ -272,17 +362,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         if (_signatureCount < ree.needed) {
           vm.expectRevert(
             abi.encodeWithSelector(
-              Errors.ValidatorSelection__InsufficientAttestationsProvided.selector,
+              Errors.ValidatorSelection__InsufficientAttestations.selector,
               ree.needed,
               _signatureCount
             )
           );
         }
-        // @todo Handle SignatureLib__InvalidSignature case
-        // @todo Handle ValidatorSelection__InsufficientAttestations case
       }
 
-      if (_expectRevert && _invalidProposer) {
+      if (_expectRevert && _flags.invalidProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -293,17 +381,70 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         ree.shouldRevert = true;
       }
 
+      // Set all attestations, including the propser's addr to 0
+      if (_flags.proposerNotProvided) {
+        bytes32 correctCommitteeCommitment = keccak256(abi.encode(validators));
+        address[] memory incorrectCommittee = new address[](validators.length);
+        uint256 invalidAttesterKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
+        address invalidAttester = vm.addr(invalidAttesterKey);
+        attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
+        for (uint256 i = 0; i < attestations.length; ++i) {
+          attestations[i] = createAttestation(invalidAttester, digest);
+          incorrectCommittee[i] = attestations[i].addr;
+        }
+        bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+            incorrectCommitteeCommitment,
+            correctCommitteeCommitment
+          )
+        );
+      }
+
+      if (_flags.invalidCommitteeCommitment) {
+        bytes32 correctCommitteeCommitment = keccak256(abi.encode(validators));
+
+        // Change the last element in the committee to a random address
+        address[] memory incorrectCommittee = validators;
+        uint256 invalidAttesterKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
+        address invalidAttester = vm.addr(invalidAttesterKey);
+        attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
+
+        incorrectCommittee[validators.length - 2] = invalidAttester;
+        attestations[validators.length - 2] = createAttestation(invalidAttester, digest);
+
+        bytes32 incorrectCommitteeCommitment = keccak256(abi.encode(incorrectCommittee));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+            incorrectCommitteeCommitment,
+            correctCommitteeCommitment
+          )
+        );
+      }
+
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.blobInputs);
-    } else {
-      Signature[] memory signatures = new Signature[](0);
+      rollup.propose(args, SignatureLib.packAttestations(attestations), full.block.blobCommitments);
 
+      if (ree.shouldRevert) {
+        return;
+      }
+    } else {
+      CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
       if (_expectRevert) {
-        vm.expectRevert(Errors.Staking__InvalidProposer.selector);
+        vm.expectRevert(
+          abi.encodeWithSelector(
+            0x4e487b71, // Panic(uint256) selector
+            0x32 // Array out-of-bounds access panic code
+          )
+        );
         ree.shouldRevert = true;
       }
-      rollup.propose(args, signatures, full.block.blobInputs);
+      rollup.propose(args, SignatureLib.packAttestations(attestations), full.block.blobCommitments);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -341,7 +482,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
     if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {
@@ -361,5 +502,28 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
       );
     }
+  }
+
+  function createAttestation(address _signer, bytes32 _digest)
+    internal
+    view
+    returns (CommitteeAttestation memory)
+  {
+    uint256 privateKey = attesterPrivateKeys[_signer];
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+    Signature memory signature = Signature({v: v, r: r, s: s});
+    return CommitteeAttestation({addr: _signer, signature: signature});
+  }
+
+  function createEmptyAttestation(address _signer)
+    internal
+    pure
+    returns (CommitteeAttestation memory)
+  {
+    Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
+    return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
 }

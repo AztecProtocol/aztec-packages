@@ -1,10 +1,11 @@
 use dep::aztec::macros::aztec;
 
+/// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
     use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::prelude::{PrivateMutable, PublicMutable};
+    use aztec::state_vars::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{
         constants::DEPLOYER_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
@@ -44,14 +45,14 @@ contract Updatable {
     }
 
     #[private]
-    fn set_update_delay(new_delay: u32) {
+    fn set_update_delay(new_delay: u64) {
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).set_update_delay(new_delay).enqueue(
             &mut context,
         );
     }
 
     #[public]
-    fn get_update_delay() -> u32 {
+    fn get_update_delay() -> u64 {
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
     }
 

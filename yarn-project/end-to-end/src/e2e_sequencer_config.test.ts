@@ -24,7 +24,8 @@ describe('e2e_sequencer_config', () => {
   });
 
   describe('Sequencer config', () => {
-    const manaTarget = 21e18;
+    // Sane targets < 64 bits.
+    const manaTarget = 21e10;
     beforeAll(async () => {
       const initialFundedAccounts = await getInitialTestAccounts();
       ({ teardown, sequencer, pxe, logger } = await setup(1, {
@@ -51,7 +52,7 @@ describe('e2e_sequencer_config', () => {
     });
 
     it('respects maxL2BlockGas', async () => {
-      await sequencer!.updateSequencerConfig({
+      sequencer!.updateSequencerConfig({
         maxTxsPerBlock: 1,
         minTxsPerBlock: 0,
       });
@@ -73,7 +74,7 @@ describe('e2e_sequencer_config', () => {
       });
 
       // Set the maxL2BlockGas to the total mana used
-      await sequencer!.updateSequencerConfig({
+      sequencer!.updateSequencerConfig({
         maxL2BlockGas: Number(totalManaUsed),
       });
 
@@ -86,7 +87,7 @@ describe('e2e_sequencer_config', () => {
       expect(receipt2.status).toBe('success');
 
       // Set the maxL2BlockGas to the total mana used - 1
-      await sequencer!.updateSequencerConfig({
+      sequencer!.updateSequencerConfig({
         maxL2BlockGas: Number(totalManaUsed) - 1,
       });
 

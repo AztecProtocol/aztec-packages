@@ -5,7 +5,7 @@ import { beforeEach } from '@jest/globals';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint1, Uint32 } from '../avm_memory_types.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { EcAdd } from './ec_add.js';
 
 describe('EC Instructions', () => {

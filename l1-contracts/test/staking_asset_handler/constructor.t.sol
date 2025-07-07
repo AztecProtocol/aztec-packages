@@ -12,9 +12,26 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract ConstructorTest is StakingAssetHandlerBase {
   function test_WhenDepositsPerMintIs0() external {
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
+      owner: address(this),
+      stakingAsset: address(0),
+      registry: registry,
+      withdrawer: address(0),
+      mintInterval: 0,
+      depositsPerMint: 0,
+      depositMerkleRoot: 0,
+      zkPassportVerifier: zkPassportVerifier,
+      unhinged: new address[](0),
+      scope: CORRECT_SCOPE,
+      subscope: CORRECT_SUBSCOPE,
+      skipBindCheck: false,
+      skipMerkleCheck: false
+    });
+
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.CannotMintZeroAmount.selector));
-    new StakingAssetHandler(address(this), address(0), registry, address(0), 0, 0, new address[](0));
+    new StakingAssetHandler(stakingAssetHandlerArgs);
   }
 
   function test_WhenDepositsPerMintIsNot0(
@@ -23,7 +40,12 @@ contract ConstructorTest is StakingAssetHandlerBase {
     address _withdrawer,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
-    uint256 _unhingedCount
+    bytes32 _depositMerkleRoot,
+    uint256 _unhingedCount,
+    string memory _scope,
+    string memory _subscope,
+    bool _skipBindCheck,
+    bool _skipMerkleCheck
   ) external {
     vm.assume(_owner != address(0));
 
@@ -59,10 +81,28 @@ contract ConstructorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.UnhingedAdded(_owner);
 
+    vm.expectEmit(true, true, true, true);
+    emit IStakingAssetHandler.DepositMerkleRootUpdated(_depositMerkleRoot);
+
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
+      owner: _owner,
+      stakingAsset: _stakingAsset,
+      registry: registry,
+      withdrawer: _withdrawer,
+      mintInterval: _mintInterval,
+      depositsPerMint: _depositsPerMint,
+      depositMerkleRoot: _depositMerkleRoot,
+      zkPassportVerifier: zkPassportVerifier,
+      unhinged: unhinged,
+      scope: _scope,
+      subscope: _subscope,
+      skipBindCheck: _skipBindCheck,
+      skipMerkleCheck: _skipMerkleCheck
+    });
+
     vm.prank(_owner);
-    stakingAssetHandler = new StakingAssetHandler(
-      _owner, _stakingAsset, registry, _withdrawer, _mintInterval, _depositsPerMint, unhinged
-    );
+    stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
     assertEq(stakingAssetHandler.owner(), _owner);
     assertEq(address(stakingAssetHandler.STAKING_ASSET()), _stakingAsset);
     assertEq(address(stakingAssetHandler.getRollup()), address(registry.getCanonicalRollup()));

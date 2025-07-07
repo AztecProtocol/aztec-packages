@@ -8,7 +8,7 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { PeerId } from '@libp2p/interface';
 
 import type { PeerScoring } from '../../peer-manager/peer_scoring.js';
-import type { ReqRespSubProtocol, ReqRespSubProtocolRateLimits } from '../interface.js';
+import type { ProtocolRateLimitQuota, ReqRespSubProtocol, ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 
 // Check for disconnected peers every 10 minutes
@@ -177,16 +177,18 @@ export class SubProtocolRateLimiter {
  */
 export class RequestResponseRateLimiter {
   private subProtocolRateLimiters: Map<ReqRespSubProtocol, SubProtocolRateLimiter>;
+  private rateLimits: ReqRespSubProtocolRateLimits;
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
   constructor(
     private peerScoring: PeerScoring,
-    rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS,
+    rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
   ) {
     this.subProtocolRateLimiters = new Map();
 
-    for (const [subProtocol, protocolLimits] of Object.entries(rateLimits)) {
+    this.rateLimits = { ...DEFAULT_RATE_LIMITS, ...rateLimits };
+    for (const [subProtocol, protocolLimits] of Object.entries(this.rateLimits)) {
       this.subProtocolRateLimiters.set(
         subProtocol as ReqRespSubProtocol,
         new SubProtocolRateLimiter(
@@ -227,5 +229,9 @@ export class RequestResponseRateLimiter {
    */
   stop() {
     clearInterval(this.cleanupInterval);
+  }
+
+  getRateLimits(protocol: ReqRespSubProtocol): ProtocolRateLimitQuota {
+    return this.rateLimits[protocol];
   }
 }

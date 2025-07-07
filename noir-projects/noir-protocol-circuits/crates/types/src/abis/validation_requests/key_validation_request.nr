@@ -27,7 +27,7 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
         Self {
-            pk_m: Point { x: fields[0], y: fields[1], is_infinite: fields[2] as bool },
+            pk_m: Point { x: fields[0], y: fields[1], is_infinite: fields[2] != 0 },
             sk_app: fields[3],
         }
     }

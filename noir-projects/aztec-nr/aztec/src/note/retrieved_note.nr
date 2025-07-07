@@ -1,9 +1,5 @@
 use crate::{note::note_metadata::NoteMetadata, utils::array::subarray::subarray};
-use protocol_types::{
-    address::AztecAddress,
-    traits::{FromField, Packable, Serialize, ToField},
-    utils::arrays::array_concat,
-};
+use protocol_types::{address::AztecAddress, traits::{FromField, Packable, Serialize, ToField}};
 
 // Number of fields a RetrievedNote adds to the packed or serialized representation of a note
 // +1 for the contract address
@@ -24,10 +20,9 @@ where
     NOTE: Serialize<N>,
 {
     fn serialize(self) -> [Field; N + RETRIEVED_NOTE_OVERHEAD] {
-        array_concat(
-            array_concat(self.note.serialize(), [self.contract_address.to_field()]),
-            self.metadata.serialize(),
-        )
+        self.note.serialize().concat([self.contract_address.to_field()]).concat(self
+            .metadata
+            .serialize())
     }
 }
 
@@ -40,8 +35,8 @@ where
     NOTE: Packable<N>,
 {
     let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
-    let nonce = packed_retrieved_note[1];
-    let nonzero_note_hash_counter = packed_retrieved_note[2] as bool;
+    let note_nonce = packed_retrieved_note[1];
+    let nonzero_note_hash_counter = (packed_retrieved_note[2] as u1) != 0;
 
     let packed_note = subarray(packed_retrieved_note, RETRIEVED_NOTE_OVERHEAD);
     let note = NOTE::unpack(packed_note);
@@ -49,6 +44,6 @@ where
     RetrievedNote {
         note,
         contract_address,
-        metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, nonce),
+        metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce),
     }
 }

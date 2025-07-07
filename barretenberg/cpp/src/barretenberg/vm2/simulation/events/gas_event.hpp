@@ -13,66 +13,21 @@
 
 namespace bb::avm2::simulation {
 
-enum class GasPhase {
-    BASE,
-    DYNAMIC,
-};
-
-enum class GasDimension {
-    L2,
-    DA,
-};
-
-inline std::string to_string(GasPhase e)
-{
-    switch (e) {
-    case GasPhase::BASE:
-        return "BASE_GAS";
-    case GasPhase::DYNAMIC:
-        return "DYNAMIC_GAS";
-    }
-
-    // Only to please the compiler.
-    return "UNKNOWN_GAS_PHASE";
-}
-
-inline std::string to_string(GasDimension e)
-{
-    switch (e) {
-    case GasDimension::L2:
-        return "L2";
-    case GasDimension::DA:
-        return "DA";
-    }
-
-    // Only to please the compiler.
-    return "UNKNOWN_GAS_DIMENSION";
-}
-
 struct OutOfGasException : public std::runtime_error {
-    explicit OutOfGasException(GasPhase phase, GasDimension dimension)
-        : std::runtime_error("Out of gas: " + to_string(phase) + " " + to_string(dimension))
-        , phase(phase)
-        , dimension(dimension)
+    explicit OutOfGasException(const std::string& message)
+        : std::runtime_error(message)
     {}
-    GasPhase phase;
-    GasDimension dimension;
 };
 
 struct GasEvent {
-    uint32_t opcode_gas = 0;
     uint32_t addressing_gas = 0;
-    Gas base_gas = { 0, 0 };
-
     Gas dynamic_gas_factor = { 0, 0 };
-    Gas dynamic_gas = { 0, 0 };
-    Gas dynamic_gas_used = { 0, 0 };
 
-    bool oog_base_l2 = false;
-    bool oog_base_da = false;
+    uint64_t limit_used_l2_comparison_witness;
+    uint64_t limit_used_da_comparison_witness;
 
-    bool oog_dynamic_l2 = false;
-    bool oog_dynamic_da = false;
+    bool oog_l2 = false;
+    bool oog_da = false;
 
     bool operator==(const GasEvent& other) const = default;
 };

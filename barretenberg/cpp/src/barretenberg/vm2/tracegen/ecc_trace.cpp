@@ -8,9 +8,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -59,6 +57,8 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         bool result_is_infinity = infinity_predicate && (!p.is_infinity() && !q.is_infinity());
         result_is_infinity = result_is_infinity || (p.is_infinity() && q.is_infinity());
 
+        bool use_computed_result = !infinity_predicate && (!p.is_infinity() && !q.is_infinity());
+
         assert(result_is_infinity == result.is_infinity() && "Inconsistent infinity result assumption");
 
         FF lambda = compute_lambda(double_predicate, add_predicate, result_is_infinity, p, q);
@@ -78,6 +78,9 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
                       { C::ecc_r_x, result.x() },
                       { C::ecc_r_y, result.y() },
                       { C::ecc_r_is_inf, result.is_infinity() },
+
+                      // Temporary result boolean to decrease relation degree
+                      { C::ecc_use_computed_result, use_computed_result },
 
                       // Check coordinates to detect edge cases (double, add and infinity)
                       { C::ecc_x_match, x_match },
@@ -158,12 +161,10 @@ void EccTraceBuilder::process_scalar_mul(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> EccTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_settings>>());
-}
+const InteractionDefinition EccTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_scalar_mul_double_settings, InteractionType::LookupGeneric>()
+        .add<lookup_scalar_mul_add_settings, InteractionType::LookupGeneric>()
+        .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

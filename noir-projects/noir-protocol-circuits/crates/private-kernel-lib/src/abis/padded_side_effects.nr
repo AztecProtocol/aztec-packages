@@ -4,7 +4,9 @@ use dep::types::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct PaddedSideEffects {
+    // [0, 0, 0, 0, 0 | p, p, p, p, 0, 0, 0] <-- empty until padding, then empty thereafter
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],

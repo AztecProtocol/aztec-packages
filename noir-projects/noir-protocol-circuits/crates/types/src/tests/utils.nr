@@ -1,12 +1,12 @@
-use crate::{traits::{Empty, is_empty}, utils::arrays::validate_array};
+use crate::{traits::{Deserialize, Empty}, utils::arrays::validate_array};
 
-pub fn assert_array_eq<T, let N: u32, let S: u32>(array: [T; N], expected: [T; S])
+pub fn assert_array_eq<T, let N: u32, let M: u32>(array: [T; N], expected: [T; M])
 where
-    T: Empty + Eq,
+    T: Empty,
 {
-    assert(expected.all(|elem: T| !is_empty(elem)), "cannot expect empty element in the result");
-    assert_eq(validate_array(array), S, "mismatch array lengths");
-    for i in 0..S {
+    assert(expected.all(|elem: T| !elem.is_empty()), "cannot expect empty element in the result");
+    assert_eq(validate_array(array), M, "mismatch array lengths");
+    for i in 0..M {
         assert_eq(array[i], expected[i], "mismatch array elements");
     }
 }
@@ -25,4 +25,15 @@ pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M]
         output[i] = items[i];
     }
     output
+}
+
+pub fn make_fixture<T, let N: u32>(seed: Field) -> T
+where
+    T: Deserialize<N>,
+{
+    let mut fields = [0; N];
+    for i in 0..N {
+        fields[i] = seed + i as Field;
+    }
+    T::deserialize(fields)
 }

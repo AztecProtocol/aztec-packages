@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
@@ -113,7 +114,12 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
+      const allBlobs = (
+        await Promise.all(this.blocks.map(async block => await Blob.getBlobsPerBlock(block.body.toBlobFields())))
+      ).flat();
+
+      const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
+      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);
       await this.prover.startTubeCircuits(this.txs);
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
@@ -158,11 +164,18 @@ export class EpochProvingJob implements Traceable {
       const executionTime = timer.ms();
 
       this.progressState('awaiting-prover');
-      const { publicInputs, proof } = await this.prover.finaliseEpoch();
+      const { publicInputs, proof, batchedBlobInputs } = await this.prover.finaliseEpoch();
       this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.progressState('publishing-proof');
-      const success = await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
+      const success = await this.publisher.submitEpochProof({
+        fromBlock,
+        toBlock,
+        epochNumber,
+        publicInputs,
+        proof,
+        batchedBlobInputs,
+      });
       if (!success) {
         throw new Error('Failed to submit epoch proof to L1');
       }

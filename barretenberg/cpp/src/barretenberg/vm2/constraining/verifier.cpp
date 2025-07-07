@@ -14,11 +14,13 @@ AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
     : key(std::move(other.key))
+    , transcript(std::move(other.transcript))
 {}
 
 AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 {
     key = other.key;
+    transcript = other.transcript;
     commitments.clear();
     return *this;
 }
@@ -51,7 +53,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ key };
 

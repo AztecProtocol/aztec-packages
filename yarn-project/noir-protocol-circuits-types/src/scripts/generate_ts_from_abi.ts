@@ -22,7 +22,9 @@ const circuits = [
   'rollup_block_root_single_tx',
   'rollup_block_merge',
   'rollup_block_root_empty',
+  'rollup_block_root_padding',
   'rollup_root',
+  'ts_types',
 ];
 
 const main = async () => {
@@ -51,12 +53,6 @@ const main = async () => {
   );
 
   code += `
-    // Types added manually.
-    export type LogHash = {
-      value: Field;
-      length: u32;
-    }
-
     export * from '../artifacts/types.js';
   `;
   await fs.writeFile('./src/types/index.ts', code);
