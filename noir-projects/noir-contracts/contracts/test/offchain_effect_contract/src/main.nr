@@ -32,7 +32,7 @@ contract OffchainEffect {
 
         fn serialize(self) -> [Field; Self::N] {
             let mut fields = [0; Self::N];
-            
+
             // Copy data array fields
             for i in 0..5 {
                 fields[i] = self.data[i];
