@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/promise';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -76,6 +77,12 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
 
   #metrics: PoolInstrumentation<Tx>;
 
+  /** Running promise for periodic eviction of low priority transactions */
+  #evictionProcess: RunningPromise;
+
+  /** Interval in milliseconds for periodic eviction (default: 60 seconds) */
+  #evictionIntervalMs: number = 60000;
+
   /**
    * Class constructor for KV TxPool. Initiates our transaction pool as an AztecMap.
    * @param store - A KV store for live txs in the pool.
@@ -95,6 +102,12 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     super();
 
     this.#log = log;
+
+    // Set eviction interval from config before creating the RunningPromise
+    if (typeof config.evictionIntervalMs === 'number') {
+      this.#evictionIntervalMs = config.evictionIntervalMs;
+    }
+
     this.updateConfig(config);
 
     this.#txs = store.openMap('txs');
@@ -114,6 +127,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     this.#archive = archive;
     this.#worldStateSynchronizer = worldStateSynchronizer;
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.countTxs, () => store.estimateSize());
+
+    // Initialize periodic eviction process
+    this.#evictionProcess = new RunningPromise(() => this.#periodicEviction(), this.#log, this.#evictionIntervalMs);
+    this.#evictionProcess.start();
   }
 
   private countTxs: PoolStatsCallback = async () => {
@@ -313,7 +330,6 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
       );
 
       await this.#pendingTxSize.set(pendingTxSize);
-      await this.evictLowPriorityTxs(hashesAndStats.map(({ txHash }) => txHash));
     });
 
     if (addedTxs.length > 0) {
@@ -382,7 +398,12 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     return vals.map(x => TxHash.fromString(x));
   }
 
-  public updateConfig({ maxTxPoolSize, txPoolOverflowFactor, archivedTxLimit }: TxPoolOptions): void {
+  public updateConfig({
+    maxTxPoolSize,
+    txPoolOverflowFactor,
+    archivedTxLimit,
+    evictionIntervalMs,
+  }: TxPoolOptions): void {
     if (typeof maxTxPoolSize === 'number') {
       assert(maxTxPoolSize >= 0, 'maxTxPoolSize must be greater or equal to 0');
       this.#maxTxPoolSize = maxTxPoolSize;
@@ -403,6 +424,10 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     if (typeof archivedTxLimit === 'number') {
       assert(archivedTxLimit >= 0, 'archivedTxLimit must be greater or equal to 0');
       this.#archivedTxLimit = archivedTxLimit;
+    }
+
+    if (typeof evictionIntervalMs === 'number') {
+      this.setEvictionInterval(evictionIntervalMs);
     }
   }
 
@@ -553,6 +578,51 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
       numLowPriorityTxsEvicted: txsToEvict.length,
       numNewTxsEvicted,
     };
+  }
+
+  /**
+   * Performs periodic eviction of low priority transactions if the pool size exceeds the limit.
+   */
+  async #periodicEviction(): Promise<void> {
+    if (this.#maxTxPoolSize === undefined || this.#maxTxPoolSize === 0) {
+      return;
+    }
+
+    const pendingTxsSize = (await this.#pendingTxSize.getAsync()) ?? 0;
+    if (pendingTxsSize <= this.#maxTxPoolSize * this.txPoolOverflowFactor) {
+      return;
+    }
+
+    this.#log.debug('Running periodic eviction', { pendingTxsSize, maxSize: this.#maxTxPoolSize });
+    await this.evictLowPriorityTxs([]);
+  }
+
+  /**
+   * Updates the eviction interval. This will update the polling interval of the running promise.
+   * @param intervalMs - The new interval in milliseconds
+   */
+  public setEvictionInterval(intervalMs: number): void {
+    if (intervalMs <= 0) {
+      throw new Error('Eviction interval must be greater than 0');
+    }
+
+    this.#evictionIntervalMs = intervalMs;
+    this.#evictionProcess.setPollingIntervalMS(intervalMs);
+    this.#log.info('Updated eviction interval', { intervalMs });
+  }
+
+  /**
+   * Triggers immediate eviction if needed. Useful for testing or when immediate cleanup is required.
+   */
+  public triggerEviction(): void {
+    this.#evictionProcess.trigger();
+  }
+
+  /**
+   * Cleanup method to stop the eviction process. Should be called when the pool is being destroyed.
+   */
+  public async stop(): Promise<void> {
+    await this.#evictionProcess.stop();
   }
 
   /**

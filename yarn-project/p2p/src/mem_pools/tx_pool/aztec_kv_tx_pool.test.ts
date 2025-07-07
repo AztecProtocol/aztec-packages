@@ -49,7 +49,10 @@ describe('KV TX pool', () => {
     txPool.mockArchiveCache.getArchiveIndices.mockImplementation(() => Promise.resolve([BigInt(1)]));
   });
 
-  afterEach(checkPendingTxConsistency);
+  afterEach(async () => {
+    await checkPendingTxConsistency();
+    await txPool?.stop();
+  });
 
   describeTxPool(() => txPool);
 

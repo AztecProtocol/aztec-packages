@@ -5,6 +5,7 @@ export type TxPoolOptions = {
   maxTxPoolSize?: number;
   txPoolOverflowFactor?: number;
   archivedTxLimit?: number;
+  evictionIntervalMs?: number;
 };
 
 export type TxPoolEvents = {
@@ -118,4 +119,9 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
    * @param txHashes - Hashes of the transactions to mark as non-evictible.
    */
   markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void>;
+
+  /**
+   * Stops the tx pool and cleans up resources.
+   */
+  stop(): Promise<void>;
 }
