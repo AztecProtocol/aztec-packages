@@ -11,7 +11,6 @@
 #include <array>
 
 namespace bb::stdlib {
-template <typename Builder> class bit_array;
 
 /**
  * @brief KECCAAAAAAAAAAK

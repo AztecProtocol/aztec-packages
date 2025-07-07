@@ -123,39 +123,23 @@ struct ActiveRegionData {
 };
 
 /**
- * @brief Base proving key class.
- *
- * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with polynomial data type and span handle type.
- * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
- * from the other template paramter.
+ * @brief Dyadic trace size and public inputs metadata; Common between prover and verifier keys
  */
-template <typename FF, typename CommitmentKey_> class ProvingKey_ {
-  public:
-    size_t circuit_size;
-    PublicComponentKey pairing_inputs_public_input_key;
-    bb::EvaluationDomain<FF> evaluation_domain;
-    CommitmentKey_ commitment_key;
-    size_t num_public_inputs;
-    size_t log_circuit_size;
-
-    // Offset off the public inputs from the start of the execution trace
+struct MetaData {
+    size_t dyadic_size = 0; // power-of-2 size of the execution trace
+    size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
+    PublicComponentKey pairing_inputs_public_input_key;
+    PublicComponentKey ipa_claim_public_input_key;
+    DatabusPropagationData databus_propagation_data;
+};
 
-    // The number of public inputs has to be the same for all instances because they are
-    // folded element by element.
-    std::vector<FF> public_inputs;
-
-    ActiveRegionData active_region_data; // specifies active regions of execution trace
-
-    ProvingKey_() = default;
-    ProvingKey_(const size_t dyadic_circuit_size,
-                const size_t num_public_inputs = 0,
-                CommitmentKey_ commitment_key = CommitmentKey_())
-        : circuit_size(dyadic_circuit_size)
-        , evaluation_domain(bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size))
-        , commitment_key(commitment_key)
-        , num_public_inputs(num_public_inputs)
-        , log_circuit_size(numeric::get_msb(dyadic_circuit_size)){};
+/**
+ * @brief The precomputed data needed to compute a Honk VK
+ */
+template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct PrecomputedData_ {
+    RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials; // polys whose commitments comprise the VK
+    MetaData metadata;                                          // execution trace metadata
 };
 
 /**
@@ -169,9 +153,9 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 template <typename PrecomputedCommitments> class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
-    uint64_t circuit_size;
-    uint64_t log_circuit_size;
-    uint64_t num_public_inputs;
+    uint64_t circuit_size = 0;
+    uint64_t log_circuit_size = 0;
+    uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
     PublicComponentKey pairing_inputs_public_input_key;
 
@@ -448,14 +432,14 @@ class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
+class ECCVMRecursiveFlavor;
+class TranslatorRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
-template <typename BuilderType> class TranslatorRecursiveFlavor_;
-template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
 namespace avm2 {
 

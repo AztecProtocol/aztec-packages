@@ -10,7 +10,12 @@ on:
   schedule:
     # Run every morning at 8 AM UTC
     - cron: "0 8 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'The git reference to update to'
+        required: false
+        type: string
 
 jobs:
   mirror_repo:
@@ -39,13 +44,17 @@ jobs:
           CURRENT_NOIR_REF=$(noir/scripts/sync.sh read-noir-repo-ref)
           echo "CURRENT_NOIR_REF=$CURRENT_NOIR_REF" >> $GITHUB_ENV
           # Get the latest nightly tag we can point to in Noir
-          LATEST_NOIR_NIGHTLY=$(noir/scripts/sync.sh latest-nightly)
+          if [[ "${{ github.event.inputs.ref }}" != "" ]]; then
+            LATEST_NOIR_NIGHTLY="${{ github.event.inputs.ref }}"
+          else
+            LATEST_NOIR_NIGHTLY=$(noir/scripts/sync.sh latest-nightly)
+          fi
           echo "LATEST_NOIR_NIGHTLY=$LATEST_NOIR_NIGHTLY" >> $GITHUB_ENV
 
       # Set PR body to be the concatenation of every message that happened in Noir since the last sync.
       - name: Generate PR body
         run: |
-          # clone noir repo for manipulations, we use aztec bot token for writeability
+          # clone noir repo for manipulations, we use aztec bot token for write-ability
           git clone https://x-access-token:${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}@github.com/noir-lang/noir.git noir-repo
 
           set -xue # print commands
