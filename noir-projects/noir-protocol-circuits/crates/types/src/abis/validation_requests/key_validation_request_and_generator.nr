@@ -4,9 +4,7 @@ use crate::{
         scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
     },
     address::AztecAddress,
-    constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
 use std::meta::derive;
 
@@ -33,18 +31,24 @@ impl KeyValidationRequestAndGenerator {
 
 mod test {
     use crate::{
-        abis::validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator,
+        abis::validation_requests::{
+            key_validation_request::KeyValidationRequest,
+            key_validation_request_and_generator::KeyValidationRequestAndGenerator,
+        },
         constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-        traits::{Deserialize, Empty, Serialize},
+        point::Point,
+        traits::{Deserialize, Serialize},
     };
 
     #[test]
-    fn serialization_of_empty_key_validation_request_and_generator() {
-        let item = KeyValidationRequestAndGenerator::empty();
-        // We use the KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH constant to ensure that there is a match
-        // between the derived trait implementation and the constant.
-        let serialized: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] = item.serialize();
+    fn serialization_of_key_validation_request_and_generator() {
+        let non_empty_item = KeyValidationRequestAndGenerator {
+            request: KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 },
+            sk_app_generator: 789,
+        };
+        let serialized: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] =
+            non_empty_item.serialize();
         let deserialized = KeyValidationRequestAndGenerator::deserialize(serialized);
-        assert_eq(item, deserialized);
+        assert_eq(non_empty_item, deserialized);
     }
 }

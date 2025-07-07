@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::GENERATOR_INDEX__TX_REQUEST,
     hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Hash, Serialize, ToField},
+    traits::{Deserialize, Empty, Hash, Serialize},
 };
 use std::meta::derive;
 
