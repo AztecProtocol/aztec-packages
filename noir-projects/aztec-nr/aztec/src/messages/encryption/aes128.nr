@@ -29,16 +29,63 @@ use crate::{
             bytes_to_fields::{bytes_from_fields, bytes_to_fields},
             fields_to_bytes::{fields_from_bytes, fields_to_bytes},
         },
-        point::{get_sign_of_point, point_from_x_coord_and_sign, point_to_bytes},
+        point::{get_sign_of_point, point_from_x_coord_and_sign},
         random::get_random_bytes,
     },
 };
 
 use std::aes128::aes128_encrypt;
 
-fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2(
+/** Computes a close-to-uniformly-random 256 bits from a given ECDH shared_secret.
+ * This function is only known to be safe if shared_secret is computed by combining a 
+ * random ephemeral key with an address point. See big comment within the body of the function.
+ */
+fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
 ) -> [u8; 32] {
+    /*
+     * Unsafe because of https://eprint.iacr.org/2010/264.pdf Page 13, Lemma 2 (and the * two paragraphs below it).
+     *
+     * If you call this function, you need to be careful and aware of how the arg
+     * `shared_secret` has been derived.
+     *
+     * The paper says that the way you derive aes keys and IVs should be fine with poseidon2
+     * (modelled as a RO), as long as you _don't_ use Poseidon2 as a PRG to generate the * two exponents x & y which multiply to the shared secret S:
+     *
+     * S = [x*y]*G.
+     *
+     * (Otherwise, you would have to "key" poseidon2, i.e. generate a uniformly string K
+     * which can be public and compute Hash(x) as poseidon(K,x)).
+     * In that lemma, k would be 2*254=508, and m would be the number of points on the * grumpkin curve (which is close to r according to the Hasse bound).
+     *
+     * Our shared secret S is [esk * address_sk] * G, and the question is: * Can we compute hash(S) using poseidon2 instead of sha256?
+     *
+     * Well, esk is random and not generated with poseidon2, so that's good.
+     * What about address_sk?
+     * Well, address_sk = poseidon2(stuff) + ivsk, so there was some
+     * discussion about whether address_sk is independent of poseidon2.
+     * Given that ivsk is random and independent of poseidon2, the address_sk is also
+     * independent of poseidon2.
+     *
+     * Tl;dr: we believe it's safe to hash S = [esk * address_sk] * G using poseidon2,
+     * in order to derive a symmetric key.
+     *
+     * If you're calling this function for a differently-derived `shared_secret`, be
+     * careful.
+     *
+     */
+
+    /* The output of this function needs to be 32 random bytes.
+     * A single field won't give us 32 bytes of entropy.
+     * So we compute two "random" fields, by poseidon-hashing with two different
+     * generators.
+     * We then extract the last 16 (big endian) bytes of each "random" field.
+     * Note: we use to_be_bytes because it's slightly more efficient. But we have to
+     * be careful not to take bytes from the "big end", because the "big" byte is
+     * not uniformly random over the byte: it only has < 6 bits of randomness, because
+     * it's the big end of a 254-bit field element.
+     */
+
     let rand1: Field = poseidon2_hash_with_separator(
         [shared_secret.x, shared_secret.y],
         GENERATOR_INDEX__SYMMETRIC_KEY,
@@ -47,29 +94,19 @@ fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_pose
         [shared_secret.x, shared_secret.y],
         GENERATOR_INDEX__SYMMETRIC_KEY_2,
     );
-    let rand1_bytes: [u8; 16] = rand1.to_le_bytes();
-    let rand2_bytes: [u8; 16] = rand2.to_le_bytes();
+
+    let rand1_bytes: [u8; 32] = rand1.to_be_bytes();
+    let rand2_bytes: [u8; 32] = rand2.to_be_bytes();
+
     let mut bytes: [u8; 32] = [0; 32];
     for i in 0..16 {
-        bytes[i] = rand1_bytes[i];
-        bytes[i + 1] = rand2_bytes[i];
+        // We take bytes from the "little end" of the be-bytes arrays:
+        let j = 32 - i - 1;
+        bytes[i] = rand1_bytes[j];
+        bytes[16 + i] = rand2_bytes[j];
     }
+
     bytes
-}
-
-// TODO(#10537): Consider nuking this function.
-fn extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256(
-    shared_secret: Point,
-) -> [u8; 32] {
-    let shared_secret_bytes: [u8; 32] = point_to_bytes(shared_secret);
-
-    let mut shared_secret_bytes_with_separator: [u8; 33] = std::mem::zeroed();
-    for i in 0..shared_secret_bytes.len() {
-        shared_secret_bytes_with_separator[i] = shared_secret_bytes[i];
-    }
-    shared_secret_bytes_with_separator[32] = GENERATOR_INDEX__SYMMETRIC_KEY;
-
-    sha256::digest(shared_secret_bytes_with_separator)
 }
 
 fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
@@ -86,23 +123,12 @@ fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
     (sym_key, iv)
 }
 
-// TODO(#10537): Consider nuking this function.
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
     shared_secret: Point,
 ) -> ([u8; 16], [u8; 16]) {
     derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
         shared_secret,
-        extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_sha256,
-    )
-}
-
-// TODO(#10537): This function is currently unused. Consider using it instead of the sha256 one.
-pub fn derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2(
-    shared_secret: Point,
-) -> ([u8; 16], [u8; 16]) {
-    derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret(
-        shared_secret,
-        extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2,
+        extract_close_to_uniformly_random_256_bits_from_ecdh_shared_secret_using_poseidon2_unsafe,
     )
 }
 
@@ -128,7 +154,6 @@ impl LogEncryption for AES128 {
         // (not to be confused with the tagging shared secret)
         let ciphertext_shared_secret =
             derive_ecdh_shared_secret_using_aztec_address(eph_sk, recipient);
-
         // TODO: also use this shared secret for deriving note randomness.
 
         // *****************************************************************************
@@ -141,7 +166,10 @@ impl LogEncryption for AES128 {
         // Encrypt the plaintext
         // *****************************************************************************
 
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+        // It is safe to call the `unsafe` function here, because we know the `shared_secret`
+        // was derived using an AztecAddress (the recipient). See the block comment
+        // at the start of this unsafe target function for more info.
+        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
             ciphertext_shared_secret,
         );
 
@@ -162,21 +190,19 @@ impl LogEncryption for AES128 {
         // *****************************************************************************
 
         // Header contains only the length of the ciphertext stored in 2 bytes.
-        // TODO: consider nuking the header altogether and just have a fixed-size ciphertext by padding the plaintext.
-        // This would be more costly constraint-wise but cheaper DA-wise.
         let mut header_plaintext: [u8; 2] = [0 as u8; 2];
         let ciphertext_bytes_length = ciphertext_bytes.len();
         header_plaintext[0] = (ciphertext_bytes_length >> 8) as u8;
         header_plaintext[1] = ciphertext_bytes_length as u8;
 
-        // TODO: this is insecure and wasteful:
+        // TODO(#14010): this is insecure and wasteful:
         // "Insecure", because the esk shouldn't be used twice (once for the header,
         // and again for the proper ciphertext) (at least, I never got the
         // "go ahead" that this would be safe, unfortunately).
         // "Wasteful", because the exact same computation is happening further down.
         // I'm leaving that 2nd computation where it is, because this 1st computation
         // will be imminently deleted, when the header logic is deleted.
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
             ciphertext_shared_secret,
         );
 
@@ -284,7 +310,7 @@ impl LogEncryption for AES128 {
 
         // Derive shared secret and symmetric key
         let ciphertext_shared_secret = get_shared_secret(recipient, eph_pk);
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe(
             ciphertext_shared_secret,
         );
 
