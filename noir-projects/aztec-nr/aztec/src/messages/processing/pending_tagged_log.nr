@@ -1,9 +1,5 @@
 use super::message_context::MessageContext;
-use protocol_types::{
-    address::AztecAddress,
-    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-    traits::{Deserialize, Serialize},
-};
+use protocol_types::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::{Deserialize, Serialize}};
 
 /// A private log that was tagged for `recipient` and has not yet been processed, plus information related to the
 /// transaction in which it was emitted.

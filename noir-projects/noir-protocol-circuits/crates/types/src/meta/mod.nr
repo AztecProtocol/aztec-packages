@@ -432,7 +432,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     // The following will give us [<type_of_struct_member_1 as Serialize>::N, <type_of_struct_member_2 as Serialize>::N, ...]
     let components_of_definition_of_n = params.map(|(_, param_type, _): (Quoted, Type, Quoted)| {
         quote {
-            <$param_type as Serialize>::N
+            <$param_type as $crate::traits::Serialize>::N
         }
     });
 
@@ -442,8 +442,8 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let array_of_quotes_serializing_each_struct_member = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
-                let serialized_member = self.$param_name.serialize();
-                let serialized_member_len = <$param_type as Serialize>::N;
+                let serialized_member = $crate::traits::Serialize::serialize(self.$param_name);
+                let serialized_member_len = <$param_type as $crate::traits::Serialize>::N;
                 for i in 0..serialized_member_len {
                     result[i + offset] = serialized_member[i];
                 }
@@ -455,7 +455,7 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         array_of_quotes_serializing_each_struct_member.join(quote {});
 
     quote {
-        impl Serialize for $typ {
+        impl $crate::traits::Serialize for $typ {
             let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]

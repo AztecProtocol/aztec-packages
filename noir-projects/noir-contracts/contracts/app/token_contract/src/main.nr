@@ -33,9 +33,6 @@ pub contract Token {
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
     use aztec::protocol_types::{address::AztecAddress, traits::ToField};
 
-    // TODO(benesjan): Nuke this
-    use aztec::protocol_types::traits::Serialize;
-
     // docs:start:import_authwit
     use aztec::authwit::auth::compute_authwit_nullifier;
     // docs:end:import_authwit
