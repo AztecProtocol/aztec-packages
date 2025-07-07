@@ -27,7 +27,7 @@ template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
     BB_ASSERT_LTE(start_index + size, virtual_size);
-    coefficients_ = SharedShiftedVirtualZeroesArray<Fr>(size, virtual_size, start_index);
+    coefficients_ = SharedShiftedVirtualZeroesArray<Fr, BackingMemory<Fr>>(size, virtual_size, start_index);
 }
 
 /**
