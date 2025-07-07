@@ -94,16 +94,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
         partially_computed_difference[idx] = tmp;
     }
 
-    // // Compute evaluation t(\kappa), T_prev(\kappa), T(\kappa), and add to transcript
-    // for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-    //     FF evaluation = table_polynomials[t_current_idx][idx].evaluate(kappa);
-    //     transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
-    //     evaluation = table_polynomials[T_prev_idx][idx].evaluate(kappa);
-    //     transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
-    //     evaluation = table_polynomials[T_idx][idx].evaluate(kappa);
-    //     transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
-    // }
-
     // Add univariate opening claims for each polynomial p_j, g_j, t_j
     std::vector<OpeningClaim> opening_claims;
     // Set opening claims p(\kappa)
