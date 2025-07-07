@@ -210,6 +210,8 @@ spec:
             value: {{ .Values.aztec.slash.invalidBlockPenalty | quote }}
           - name: SLASH_INVALID_BLOCK_MAX_PENALTY
             value: {{ .Values.aztec.slash.invalidBlockMaxPenalty | quote }}
+          - name: SENTINEL_ENABLED
+            value: "{{ .Values.validator.sentinelEnabled }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

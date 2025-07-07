@@ -31,6 +31,7 @@ telemetry:
 
 validator:
   storageSize: "100Gi"
+  sentinelEnabled: true
   replicas: 4
   keysPerNode: 12
   validator:
