@@ -2,10 +2,7 @@
 
 set -euo pipefail
 
-# This script expects two tokens:
-# - GH_TOKEN: Should be set to AZTEC_BOT_GITHUB_TOKEN for all operations
-# - GITHUB_TOKEN_FOR_PR_CREATION: Should be set to default GITHUB_TOKEN for PR creation only
-# This ensures aztecbot privileges are used for everything except PR creation
+# This script uses AZTEC_BOT_GITHUB_TOKEN for all operations including PR creation
 
 # Colors for output
 RED='\033[0;31m'
@@ -17,35 +14,36 @@ function log_error {
 
 set -x
 
-# Usage: recreate-branch.sh <merge-train-branch> <base-branch>
-if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 <merge-train-branch> <base-branch>"
-  echo "Example: $0 merge-train/docs next"
+# Usage: recreate-branch.sh <merge-train-branch> <base-branch> <merge-commit> <head-commit>
+if [[ $# -ne 4 ]]; then
+  echo "Usage: $0 <merge-train-branch> <base-branch> <merge-commit> <head-commit>"
+  echo "Example: $0 merge-train/docs next abc123 def456"
   exit 1
 fi
 
 MT="$1"           # merge-train/* branch that was just merged
 BASE="$2"         # base branch (usually next)
 MERGE_COMMIT="$3" # the commit in the base branch containing our squashed changes
+HEAD_COMMIT="$4"  # the head commit SHA of the merged PR
 
-# Ensure required tokens are set
-if [[ -z "${GITHUB_TOKEN_FOR_PR_CREATION:-}" ]]; then
-  log_error "GITHUB_TOKEN_FOR_PR_CREATION is not set. This token is required for PR creation."
+# Ensure required token is set
+if [[ -z "${GH_TOKEN:-}" ]]; then
+  log_error "GH_TOKEN is not set. This should be set to AZTEC_BOT_GITHUB_TOKEN."
   exit 1
 fi
 
 # Fetch latest state
 git fetch origin "$MT" || exit 1
 git fetch origin "$BASE" || exit 1
-SHA=$(git rev-parse "origin/$MT")  # save old head
+SHA="$HEAD_COMMIT"  # use the head commit SHA that was passed in
 
 # Rebuild merge-train branch
 git checkout -B "$MT" "origin/$BASE"
 git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 git push -f origin "$MT"
 
-# Create new PR using the default token (not aztecbot)
-GH_TOKEN="${GITHUB_TOKEN_FOR_PR_CREATION}" gh pr create --base "$BASE" --head "$MT" \
+# Create new PR using AZTEC_BOT_GITHUB_TOKEN
+gh pr create --base "$BASE" --head "$MT" \
   --title "feat: $MT" \
   --body "$(echo -e "See [merge-train-readme.md](https://github.com/${GITHUB_REPOSITORY}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train with no commits.")"
 
