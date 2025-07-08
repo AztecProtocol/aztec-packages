@@ -35,7 +35,7 @@ template <typename Flavor>
 Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std::vector<FF>& points,
                                                                        const std::vector<FF>& challenges)
 {
-    auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
+    auto coefficients = SharedShiftedVirtualZeroesArray<FF, BackingMemory<FF>>{
         .start_ = 0,
         .end_ = points.size(),
         .virtual_size_ =

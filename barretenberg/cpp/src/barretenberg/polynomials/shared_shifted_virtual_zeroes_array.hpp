@@ -9,86 +9,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
-#include <atomic>
-#include <bits/types/FILE.h>
 #include <cstddef>
-#include <fcntl.h>
-#include <filesystem>
-#include <memory>
-#include <string>
-#include <sys/mman.h>
-#include <unistd.h>
-
-template <typename T> struct FileBackedMemory {
-
-    using Value = FileBackedMemory;
-
-    static std::string generate_unique_filename() {}
-
-    static std::shared_ptr<Value> allocate(size_t size) { return std::shared_ptr<Value>(new FileBackedMemory(size)); }
-
-    FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
-    FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
-
-    FileBackedMemory(FileBackedMemory&& other) = delete;            // delete move constructor
-    FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
-
-    static T* get_data(const std::shared_ptr<Value> backing_memory) { return backing_memory->memory; }
-
-    ~FileBackedMemory()
-    {
-        if (file_size == 0) {
-            return;
-        }
-        if (memory != nullptr && file_size > 0) {
-            munmap(memory, file_size);
-        }
-        if (fd >= 0) {
-            close(fd);
-        }
-        if (!filename.empty()) {
-            std::filesystem::remove(filename);
-        }
-    }
-
-  private:
-    // Create a new file-backed memory region
-    FileBackedMemory(size_t size)
-        : file_size(size * sizeof(T))
-    {
-        if (file_size == 0) {
-            return;
-        }
-
-        static std::atomic<size_t> file_counter{ 0 };
-        size_t id = file_counter.fetch_add(1);
-        filename = "/tmp/poly-mmap-" + std::to_string(id);
-
-        fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
-        // Create file
-        if (fd < 0) {
-            throw std::runtime_error("Failed to create backing file: " + filename);
-        }
-
-        // Set file size
-        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            throw std::runtime_error("Failed to set file size");
-        }
-
-        // Memory map the file
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (addr == MAP_FAILED) {
-            throw std::runtime_error("Failed to mmap file");
-        }
-
-        memory = static_cast<T*>(addr);
-    }
-
-    size_t file_size;
-    std::string filename;
-    int fd;
-    T* memory;
-};
 
 template <typename T> struct AlignedMemory {
 
@@ -102,6 +23,13 @@ template <typename T> struct AlignedMemory {
 
     static T* get_data(const std::shared_ptr<Value>& backing_memory) { return backing_memory.get(); }
 };
+
+#ifdef BB_SLOW_LOW_MEMORY
+#include "barretenberg/polynomials/file_backed_memory.hpp"
+template <typename Fr> using BackingMemory = FileBackedMemory<Fr>;
+#else
+template <typename Fr> using BackingMemory = AlignedMemory<Fr>;
+#endif
 
 /**
  * @brief A shared pointer array template that represents a virtual array filled with zeros up to `virtual_size_`,
