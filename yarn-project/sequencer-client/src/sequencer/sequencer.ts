@@ -356,7 +356,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Double check we are good for proposing at the next block before we start operations.
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
-    // const proposerPrivateKey = //this.validatorClient.
+
     const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
     if (canProposeCheck === undefined) {
       this.log.warn(
