@@ -51,6 +51,35 @@ impl TestEnvironment {
         Self {}
     }
 
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    ///
+    /// Creates a `PublicContext`, which allows using aztec-nr features as if inside a public contract function. Useful
+    /// for low-level testing of public state variables and utilities.
+    ///
+    /// Receives a function which is called with the created `PublicContext`. Any value returned by said function is
+    /// bubbled up to the caller of `public_context`. Do *NOT* return or use the `PublicContext` value in any way
+    /// outside of the passed function, since it will become invalid once `public_context` returns.
+    ///
+    /// A new block is automatically mined once `public_context` returns, containing all of the side-effects caused by
+    /// its execution (e.g. public storage writes).
+    ///
+    /// ---
+    /// Sample usage:
+    /// ```noir
+    /// env.public_context(|context| {
+    ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
+    ///   state_var.write(some_value);
+    ///   assert_eq(state_var.read(), some_value);
+    /// });
+    /// ```
+    ///
+    /// ---
+    /// Advanced usage with returns:
+    /// ```noir
+    /// let read_value = env.public_context(|context| {
+    ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
+    ///   state_var.read()
+    /// });
     pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
         cheatcodes::set_public_txe_context();
 
@@ -58,13 +87,23 @@ impl TestEnvironment {
         let ret_value = f(&mut context);
 
         // merge calls below into 'exit public txe context' -> this mines a block
-        cheatcodes::oracle_advance_timestamp_by(36);
+        cheatcodes::advance_timestamp_by(36);
         cheatcodes::advance_blocks_by(1);
         cheatcodes::set_top_level_txe_context();
 
         ret_value
     }
 
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    ///
+    /// Creates a `PrivateContext`, which allows using aztec-nr features as if inside a private contract function.
+    /// Useful for low-level testing of public state variables and utilities.
+    ///
+    /// Receives a function which is called with the created `PrivateContext`. Any value returned by said function is
+    /// bubbled up to the caller of `private_context`. Do *NOT* return or use the `PrivateContext` value in any way
+    /// outside of the passed function, since it will become invalid once `private_context` returns.
+    ///
+    /// The historical block is set to the latest block.
     pub unconstrained fn private_context<Env, T>(
         &mut self,
         f: fn[Env](&mut PrivateContext) -> T,
@@ -83,6 +122,7 @@ impl TestEnvironment {
         ret_value
     }
 
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
         cheatcodes::set_utility_txe_context();
         let context = self.utility();
