@@ -116,7 +116,7 @@ export class DummyP2PService implements P2PService {
     return Promise.resolve();
   }
 
-  handleAuthFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+  handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
     return Promise.resolve(StatusMessage.random());
   }
 }
@@ -206,7 +206,7 @@ export class DummyPeerManager implements PeerManagerInterface {
   public goodbyeReceived(_peerId: PeerId, _reason: GoodByeReason): void {}
   public penalizePeer(_peerId: PeerId, _penalty: PeerErrorSeverity): void {}
   public addPreferredPeer(_peerId: PeerId): void {}
-  public handleAuthFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+  public handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
     return Promise.resolve(StatusMessage.random());
   }
 }

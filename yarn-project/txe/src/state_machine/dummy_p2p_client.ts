@@ -184,7 +184,7 @@ export class DummyP2P implements P2P {
   ): Promise<void> {
     throw new Error('DummyP2P does not implement "addReqRespSubProtocol".');
   }
-  handleAuthFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
-    throw new Error('DummyP2P does not implement "handleAuthFromPeer".');
+  handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+    throw new Error('DummyP2P does not implement "handleAuthRequestFromPeer".');
   }
 }
