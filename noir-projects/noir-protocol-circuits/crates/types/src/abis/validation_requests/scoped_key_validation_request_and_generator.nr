@@ -31,3 +31,29 @@ impl Empty for ScopedKeyValidationRequestAndGenerator {
         }
     }
 }
+
+mod test {
+    use crate::{
+        abis::validation_requests::{
+            key_validation_request_and_generator::KeyValidationRequestAndGenerator,
+            scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
+        },
+        address::AztecAddress,
+        constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+        traits::{Deserialize, Empty, FromField, Serialize},
+    };
+
+    #[test]
+    fn test_scoped_key_validation_request_and_generator_serialization() {
+        let item = ScopedKeyValidationRequestAndGenerator {
+            request: KeyValidationRequestAndGenerator::empty(),
+            contract_address: AztecAddress::from_field(123),
+        };
+        // We use the SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant
+        let serialized: [Field; SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] =
+            item.serialize();
+        let deserialized = ScopedKeyValidationRequestAndGenerator::deserialize(serialized);
+        assert(item.eq(deserialized));
+    }
+}

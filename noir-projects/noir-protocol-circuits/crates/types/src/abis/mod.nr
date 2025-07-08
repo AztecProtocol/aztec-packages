@@ -1,3 +1,4 @@
+// The modules here are in a specific order that makes derivation of serde traits work.
 pub mod append_only_tree_snapshot;
 pub mod tree_snapshots;
 

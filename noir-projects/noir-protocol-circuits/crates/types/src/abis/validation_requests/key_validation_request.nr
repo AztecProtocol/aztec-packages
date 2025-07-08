@@ -12,3 +12,22 @@ impl Empty for KeyValidationRequest {
         KeyValidationRequest { pk_m: Point::empty(), sk_app: 0 }
     }
 }
+
+mod test {
+    use crate::{
+        abis::validation_requests::key_validation_request::KeyValidationRequest,
+        constants::KEY_VALIDATION_REQUEST_LENGTH,
+        point::Point,
+        traits::{Deserialize, Serialize},
+    };
+
+    #[test]
+    fn serialization_of_key_validation_request() {
+        let item = KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 };
+        // We use the KEY_VALIDATION_REQUEST_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; KEY_VALIDATION_REQUEST_LENGTH] = item.serialize();
+        let deserialized = KeyValidationRequest::deserialize(serialized);
+        assert_eq(item, deserialized);
+    }
+}
