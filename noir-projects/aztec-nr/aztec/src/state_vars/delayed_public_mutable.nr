@@ -172,7 +172,7 @@ where
         // `WithHash`.
         // Wrapping in `WithHash` makes for more costly writes but it also makes private proofs much simpler because
         // they only need to produce a historical proof for the hash, which results in a single inclusion proof (as
-        // opposed to 4 in the best case scenario in which T is a single field). Private shared mutable reads are
+        // opposed to 4 in the best case scenario in which T is a single field). Private delayed public mutable reads are
         // assumed to be much more frequent than public writes, so this tradeoff makes sense.
         let values = WithHash::new(DelayedPublicMutableValues::new(value_change, delay_change));
 

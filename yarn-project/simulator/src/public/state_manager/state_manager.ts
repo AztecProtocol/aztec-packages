@@ -380,9 +380,9 @@ export class PublicPersistableStateManager {
       // * if expectedId == 0 then currentClassId should be original contract class id
       // * if expectedId != 0 then currentClassId should be expectedId
       //
-      // However, we will also be checking the hash of the shared mutable values.
+      // However, we will also be checking the hash of the delayed public mutable values.
       // This is a bit of a leak of information, since the circuit will use it to prove
-      // one public read insted of N of the shared mutable values.
+      // one public read insted of N of the delayed public mutable values.
       const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
         await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
       const readDeployerStorage = async (storageSlot: Fr) =>
@@ -412,7 +412,7 @@ export class PublicPersistableStateManager {
       const computedHash = await poseidon2Hash(preImage);
       assert(
         hash.equals(computedHash),
-        `Shared mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
+        `Delayed public mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
       );
 
       // We now check that, depending on the current block, the current class id is correct.

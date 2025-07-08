@@ -29,7 +29,7 @@ describe('DelayedPublicMutableValues', () => {
     expect(values).toEqual(DelayedPublicMutableValues.fromFields(values.toFields()));
   });
 
-  it('packed shared mutable values match Noir', () => {
+  it('packed delayed public mutable values match Noir', () => {
     const values = new DelayedPublicMutableValues(
       new ScheduledValueChange([new Fr(1), new Fr(2)], [new Fr(3), new Fr(4)], 50n),
       new ScheduledDelayChange(1n, 50n, 2n),

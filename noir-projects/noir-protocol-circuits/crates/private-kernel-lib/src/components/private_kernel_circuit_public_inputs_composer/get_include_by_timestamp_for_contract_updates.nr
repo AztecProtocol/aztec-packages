@@ -8,7 +8,7 @@ use dep::types::{
     traits::Packable,
 };
 
-/// Computes the include_by_timestamp value for contract updates based on the shared mutable values stored inside
+/// Computes the include_by_timestamp value for contract updates based on the delayed public mutable values stored inside
 /// the `private_call`. The timestamp is set to the time horizon value of the given `DelayedPublicMutable`.
 /// See documentation of the `get_time_horizon` function in
 /// `noir-projects/noir-protocol-circuits/crates/types/src/delayed_public_mutable/scheduled_value_change.nr` for more details

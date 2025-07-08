@@ -66,7 +66,7 @@ pub fn validate_contract_address(
     let delayed_public_mutable_values: DelayedPublicMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
         Packable::unpack(hints.updated_class_id_delayed_public_mutable_values);
 
-    // A time horizon for this shared mutable should be set separately when generating/validating kernel output.
+    // A time horizon for this delayed public mutable should be set separately when generating/validating kernel output.
     // This is a confusingly-named function.
     validate_with_hash_hints(
         private_call_data.public_inputs.historical_header,

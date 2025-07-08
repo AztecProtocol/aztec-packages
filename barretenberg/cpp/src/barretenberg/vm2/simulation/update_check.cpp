@@ -25,10 +25,10 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     // Compute the public data tree slots
     FF delayed_public_mutable_slot = poseidon2.hash({ UPDATED_CLASS_IDS_SLOT, address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
-    // Read the hash from the tree. We do a trick with shared mutables (updates are shared mutables) where we store in
-    // one public data tree slot the hash of the whole structure. This is nice because in circuits you can receive the
-    // preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain the hash read
-    // but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
+    // Read the hash from the tree. We do a trick with delayed public mutables (updates are delayed public mutables)
+    // where we store in one public data tree slot the hash of the whole structure. This is nice because in circuits you
+    // can receive the preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain
+    // the hash read but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
     FF hash = merkle_db.storage_read(DEPLOYER_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot);
 
     uint256_t update_preimage_metadata = 0;
@@ -36,7 +36,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     FF update_preimage_post_class_id = 0;
 
     if (hash == 0) {
-        // If the shared mutable has never been written, then the contract was never updated. We short circuit early.
+        // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
+        // early.
         if (instance.original_class_id != instance.current_class_id) {
             throw std::runtime_error("Current class id does not match expected class id");
         }

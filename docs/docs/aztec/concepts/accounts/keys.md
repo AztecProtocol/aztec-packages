@@ -84,7 +84,7 @@ This is a snippet of our Schnorr Account contract implementation, which uses Sch
 
 ### Storing signing keys
 
-Since signatures are fully abstracted, how the public key is stored in the contract is abstracted as well and left to the developer of the account contract. Among a few common approaches are storing the key in a private note, in an immutable private note, using shared mutable state, reusing other in-protocol keys, or a separate keystore. Below, we elaborate on these approaches.
+Since signatures are fully abstracted, how the public key is stored in the contract is abstracted as well and left to the developer of the account contract. Among a few common approaches are storing the key in a private note, in an immutable private note, using delayed public mutable state, reusing other in-protocol keys, or a separate keystore. Below, we elaborate on these approaches.
 
 #### Using a private note​
 
