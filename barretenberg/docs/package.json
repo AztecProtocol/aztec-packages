@@ -5,7 +5,8 @@
   "scripts": {
     "docs": "docusaurus start --host ${HOST:-localhost}",
     "dev": "HOST=0.0.0.0 ENV=dev yarn run docs",
-    "build": "docusaurus build",
+    "build": "yarn build:doxygen && docusaurus build",
+    "build:doxygen": "./scripts/doxygen_docs.sh",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

@@ -10,6 +10,7 @@ import type * as Preset from "@docusaurus/preset-classic";
 const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const versions = require("./versions.json");
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -53,7 +54,7 @@ const config: Config = {
           routeBasePath: "/",
           remarkPlugins: [math],
           rehypePlugins: [
-            [ 
+            [
               katex,
               {
                 throwOnError: true,

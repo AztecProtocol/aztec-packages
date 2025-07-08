@@ -101,28 +101,14 @@ This will generate a `Prover.toml` you can fill with the values you want to prov
 
 ```bash
 nargo execute <witness-name>
-bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak
+bb prove -b ./target/<circuit-name>.json -w ./target/<witness-name> -o ./target --oracle_hash keccak --output_format bytes_and_fields
 ```
 
-:::tip[Public inputs]
-Barretenberg attaches the public inputs to the proof, which in this case it's not very useful. If you're up for some JS, `bb.js` has [a method for it](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/ts/src/proof/index.ts), but in the CLI you can use this ugly snippet for now:
+Why `bytes_and_fields?
 
-```bash
-PROOF_HEX=$(cat ./target/proof | od -An -v -t x1 | tr -d $' \n' | sed 's/^.\{8\}//')
+By default, barretenberg appends the public inputs to the proof, which may or may not be useful. You'll find that it is definitely not useful on a Solidity verifier, as the public inputs will often be provided by the contract.
 
-NUM_PUBLIC_INPUTS=2
-HEX_PUBLIC_INPUTS=${PROOF_HEX:192:$((32 * $NUM_PUBLIC_INPUTS * 2))}
-SPLIT_HEX_PUBLIC_INPUTS=$(sed -e 's/.\{64\}/0x&,/g' <<<$HEX_PUBLIC_INPUTS)
-
-PROOF_WITHOUT_PUBLIC_INPUTS="${PROOF_HEX:0:192}${PROOF_HEX:$((192 + $NUM_PUBLIC_INPUTS * 32 * 2))}"
-
-echo 0x$PROOF_WITHOUT_PUBLIC_INPUTS
-echo [$SPLIT_HEX_PUBLIC_INPUTS]
-```
-
-You can pass the proof and public inputs from above to the `verify` function in Remix.
-
-:::
+The flag `--output_format bytes_and_fields` makes `bb` output a `proof` file with _just_ the proof, and the `public_inputs_fields.json` file with _just_ the public inputs.
 
 A programmatic example of how the `verify` function is called can be seen in the example zk voting application [here](https://github.com/noir-lang/noir-examples/blob/33e598c257e2402ea3a6b68dd4c5ad492bce1b0a/foundry-voting/src/zkVote.sol#L35):
 

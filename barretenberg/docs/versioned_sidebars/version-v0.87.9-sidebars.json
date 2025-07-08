@@ -1,18 +1,12 @@
 {
   "sidebar": [
-    {
-      "type": "doc",
-      "id": "index"
-    },
+    { "type": "doc", "id": "index" },
     {
       "type": "html",
       "value": "<div class=\"divider\"></div>",
       "defaultStyle": true
     },
-    {
-      "type": "doc",
-      "id": "getting_started"
-    },
+    { "type": "doc", "id": "getting_started" },
     {
       "type": "category",
       "label": "How To Guides",
