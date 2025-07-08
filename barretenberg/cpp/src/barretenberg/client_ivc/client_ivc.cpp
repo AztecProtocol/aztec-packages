@@ -143,6 +143,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): move is_kernel flag out of
     // databus_propagation_data or remove it altogether
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
+        KernelIO kernel_input;
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
 
         // Perform databus consistency checks
@@ -198,6 +199,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     points_accumulator.set_public();
 
     // Set the databus return data commitments to be propagated via the public inputs
+    KernelIO kernel_output;
     kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
     kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
 
@@ -347,6 +349,9 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         builder.add_public_variable(fold_proof[i]);
     }
 
+    info("Hiding circuit: total public inputs size: ", honk_vk->num_public_inputs);
+    info("Hiding circuit: num public inputs: ", num_public_inputs);
+
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
@@ -373,6 +378,10 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         recursive_verifier_accumulator->public_inputs,
         recursive_verifier_accumulator->vk_and_hash->vk->pairing_inputs_public_input_key);
     points_accumulator.aggregate(nested_pairing_points);
+
+    info("Pub inputs size: ", recursive_verifier_accumulator->public_inputs.size());
+    info("Pairing points start idx: ",
+         recursive_verifier_accumulator->vk_and_hash->vk->pairing_inputs_public_input_key.start_idx);
 
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
