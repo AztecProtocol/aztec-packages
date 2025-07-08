@@ -24,7 +24,7 @@ fi
 MT="$1"           # merge-train/* branch that was just merged
 BASE="$2"         # base branch (usually next)
 MERGE_COMMIT="$3" # the commit in the base branch containing our squashed changes
-HEAD_COMMIT="$4"  # the head commit SHA of the merged PR
+HEAD_COMMIT="$4"  # the head commit SHA of the pre-merge PR
 
 # Ensure required token is set
 if [[ -z "${GH_TOKEN:-}" ]]; then
@@ -35,7 +35,6 @@ fi
 # Fetch latest state
 git fetch origin "$MT" || exit 1
 git fetch origin "$BASE" || exit 1
-SHA="$HEAD_COMMIT"  # use the head commit SHA that was passed in
 
 # Rebuild merge-train branch
 git checkout -B "$MT" "origin/$BASE"
@@ -71,7 +70,7 @@ for PR_DATA in $PR_LIST; do
   fi
 
   # Try to merge with the old SHA
-  if git merge -q "$SHA" && git merge -q -X ours "origin/$BASE"; then
+  if git merge -q "$HEAD_COMMIT" && git merge -q -X ours "origin/$BASE"; then
     if git push origin "$BR" 2>/dev/null; then
         echo "✓ PR #$PR_NUM merged successfully"
     else
