@@ -35,7 +35,7 @@ jobs:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: CI Full Override
+      - name: CI Merge Queue Override (grind on PR)
         if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
         run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
 
