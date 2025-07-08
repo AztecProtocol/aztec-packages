@@ -270,11 +270,7 @@ class AvmFlavor {
          *
          * @return std::vector<FF>
          */
-        std::vector<fr> to_field_elements() const override
-        {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
-        }
+        std::vector<fr> to_field_elements() const override;
 
         /**
          * @brief Adds the verification key hash to the transcript and returns the hash.
