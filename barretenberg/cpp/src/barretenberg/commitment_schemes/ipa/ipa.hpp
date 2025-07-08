@@ -349,7 +349,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         auto pippenger_size = 2 * log_poly_length;
         std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Fr> round_challenges_inv(log_poly_length);
         // the group elements that will participate in our MSM.
         std::vector<Commitment> msm_elements(pippenger_size);
         // the scalars that will participate in our MSM.
@@ -369,7 +368,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             msm_elements[2 * i + 1] = element_R;
         }
 
-        std::copy(round_challenges.begin(), round_challenges.end(), round_challenges_inv.begin());
+        std::vector<Fr> round_challenges_inv = round_challenges;
         Fr::batch_invert(round_challenges_inv);
 
         // populate msm_scalars.
