@@ -509,6 +509,30 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
+    { ExecutionOpCode::DEBUGLOG,
+      { .num_addresses = 4,
+        .gas_cost = { .opcode_gas = AVM_DEBUGLOG_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        // We don't set the right inputs for debuglog because we make it a noop.
+        .register_info = RegisterInfo() } },
+    // Bitwise
+    { ExecutionOpCode::AND,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_AND_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::OR,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_OR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::XOR,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_XOR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
 };
 
 } // namespace bb::avm2
