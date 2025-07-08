@@ -1,7 +1,7 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -20,7 +20,7 @@ import { getClassRegistryContract } from '../contract/protocol_contracts.js';
 import type { Wallet } from '../wallet/index.js';
 
 /**
- * Sets up a call to broadcast a private function's bytecode via the ClassRegisterer contract.
+ * Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract.
  * Note that this is not required for users to call the function, but is rather a convenience to make
  * this code publicly available so dapps or wallets do not need to redistribute it.
  * @param wallet - Wallet to send the transaction.
@@ -79,7 +79,7 @@ export async function broadcastPrivateFunction(
       capsules: [
         new Capsule(
           ProtocolContractAddress.ContractClassRegistry,
-          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          new Fr(CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT),
           bytecode,
         ),
       ],
@@ -87,7 +87,7 @@ export async function broadcastPrivateFunction(
 }
 
 /**
- * Sets up a call to broadcast a utility function's bytecode via the ClassRegisterer contract.
+ * Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract.
  * Note that this is not required for users to call the function, but is rather a convenience to make
  * this code publicly available so dapps or wallets do not need to redistribute it.
  * @param wallet - Wallet to send the transaction.
@@ -140,7 +140,7 @@ export async function broadcastUtilityFunction(
       capsules: [
         new Capsule(
           ProtocolContractAddress.ContractClassRegistry,
-          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          new Fr(CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT),
           bytecode,
         ),
       ],

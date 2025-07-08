@@ -33,10 +33,10 @@ describe('e2e_deploy_contract deploy method', () => {
 
   afterAll(() => t.teardown());
 
-  it('refused to deploy a contract instance whose contract class is not yet registered', async () => {
+  it('refused to initialize a contract instance whose contract class is not yet published', async () => {
     const owner = wallet.getAddress();
     const opts = { skipClassPublication: true };
-    logger.debug(`Trying to deploy contract instance without registering its contract class`);
+    logger.debug(`Trying to initialize a contract instance without publishing its contract class`);
     await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
       /Cannot find the leaf for nullifier/,
     );

@@ -1,4 +1,7 @@
-import { MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT } from '@aztec/constants';
+import {
+  CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ContractArtifact, bufferAsFields } from '@aztec/stdlib/abi';
@@ -23,7 +26,7 @@ export async function publishContractClass(
     capsules: [
       new Capsule(
         ProtocolContractAddress.ContractClassRegistry,
-        new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+        new Fr(CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT),
         encodedBytecode,
       ),
     ],

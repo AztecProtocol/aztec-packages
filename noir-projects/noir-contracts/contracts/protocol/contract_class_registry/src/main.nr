@@ -8,9 +8,10 @@ pub contract ContractClassRegistry {
         abis::log_hash::LogHash,
         constants::{
             ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-            FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+            CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT, FUNCTION_TREE_HEIGHT,
+            MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
             MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
-            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+            MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
         },
         contract_class_id::ContractClassId,
         hash::poseidon2_hash,
@@ -49,7 +50,7 @@ pub contract ContractClassRegistry {
         let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
-                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
                 .unwrap()
         };
@@ -106,7 +107,7 @@ pub contract ContractClassRegistry {
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
-                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
                 .unwrap()
         };
@@ -152,7 +153,7 @@ pub contract ContractClassRegistry {
         let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
-                REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
             )
                 .unwrap()
         };

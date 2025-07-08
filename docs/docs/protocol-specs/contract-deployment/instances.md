@@ -94,7 +94,7 @@ The Deployment Nullifier is defined as the address of the contract being deploye
 
 A new contract instance can be _Publicly Deployed_ by calling a `deploy` function in a canonical `ContractInstanceRegistry` contract. This function receives the arguments for a `ContractInstance` struct as described [above](#contractinstance-structure):
 
-- Validates the referenced `contract_class_id` exists. This can be done via either a call to the `ClassRegisterer` contract, or by directly reading the corresponding nullifier.
+- Validates the referenced `contract_class_id` exists. This can be done via either a call to the `ClassRegistry` contract, or by directly reading the corresponding nullifier.
 - Set `deployer` to zero or `msg_sender` depending on whether the `universal_deploy` flag is set.
 - Computes the resulting `new_contract_address`.
 - Emits the resulting address as the Deployment Nullifier to signal the public deployment, so callers can prove that the contract has or has not been publicly deployed.
@@ -112,7 +112,7 @@ fn deploy (
   public_keys_hash: Field,
   universal_deploy?: boolean,
 )
-  let contract_class_registry: Contract = ContractClassRegistry::at(CONTRACT_CLASS_REGISTERER_ADDRESS);
+  let contract_class_registry: Contract = ContractClassRegistry::at(CONTRACT_CLASS_REGISTRY_ADDRESS);
 
   assert(nullifier_exists(silo(contract_class_id, contract_class_registry.address)));
 

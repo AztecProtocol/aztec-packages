@@ -66,7 +66,7 @@ export async function getNodeInfo(
     log(` FeeAssetHandler Address: ${info.l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(` StakingAssetHandler Address: ${info.l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`L2 Contract Addresses:`);
-    log(` Class Registerer: ${info.protocolContractAddresses.classRegistry.toString()}`);
+    log(` Class Registry: ${info.protocolContractAddresses.classRegistry.toString()}`);
     log(` Fee Juice: ${info.protocolContractAddresses.feeJuice.toString()}`);
     log(` Instance Deployer: ${info.protocolContractAddresses.instanceRegistry.toString()}`);
     log(` MultiCall: ${info.protocolContractAddresses.multiCallEntrypoint.toString()}`);

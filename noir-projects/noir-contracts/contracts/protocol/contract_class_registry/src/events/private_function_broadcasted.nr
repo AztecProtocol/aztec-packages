@@ -47,7 +47,7 @@ impl ClassPrivateFunctionBroadcasted {
             0; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
                 + CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS
         ];
-        // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
+        // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegistry.
         packed[0] = CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE;
         packed[1] = self.contract_class_id.to_field();
         packed[2] = self.artifact_metadata_hash;

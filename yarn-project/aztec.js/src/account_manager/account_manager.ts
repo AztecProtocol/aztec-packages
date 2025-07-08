@@ -150,7 +150,8 @@ export class AccountManager {
     const artifact = await this.accountContract.getContractArtifact();
 
     if (!(await this.hasInitializer())) {
-      // TODO: there should be a path which enables an account contract's class & instance to be published,
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/15576):
+      // there should be a path which enables an account contract's class & instance to be published,
       // even if the account contract doesn't have an initializer function. This should not throw.
       throw new Error(`Account contract ${artifact.name} does not have an initializer function to call.`);
     }

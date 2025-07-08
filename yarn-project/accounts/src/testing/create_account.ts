@@ -49,7 +49,7 @@ export async function deployFundedSchnorrAccount(
   account: DeployAccountData,
   opts: WaitOpts & {
     /**
-     * Whether or not to skip registering contract class.
+     * Whether or not to skip publishing the contract class.
      */
     skipClassPublication?: boolean;
   } = { interval: 0.1, skipClassPublication: false },
@@ -86,7 +86,7 @@ export async function deployFundedSchnorrAccounts(
   accounts: DeployAccountData[],
   opts: WaitOpts & {
     /**
-     * Whether or not to skip registering contract class.
+     * Whether or not to skip publishing the contract class.
      */
     skipClassPublication?: boolean;
   } = { interval: 0.1, skipClassPublication: false },
@@ -101,7 +101,7 @@ export async function deployFundedSchnorrAccounts(
         accounts[i],
         {
           ...opts,
-          skipClassPublication: i !== 0 || opts.skipClassPublication, // Register the contract class at most once.
+          skipClassPublication: i !== 0 || opts.skipClassPublication, // Publish the contract class at most once.
         },
         waitForProvenOptions,
       ),
