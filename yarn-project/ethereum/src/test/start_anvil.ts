@@ -11,9 +11,11 @@ export async function startAnvil(
   opts: {
     port?: number;
     l1BlockTime?: number;
+    captureMethodCalls?: boolean;
   } = {},
-): Promise<{ anvil: Anvil; rpcUrl: string; stop: () => Promise<void> }> {
+): Promise<{ anvil: Anvil; methodCalls?: string[]; rpcUrl: string; stop: () => Promise<void> }> {
   const anvilBinary = resolve(dirname(fileURLToPath(import.meta.url)), '../../', 'scripts/anvil_kill_wrapper.sh');
+  const methodCalls = opts.captureMethodCalls ? ([] as string[]) : undefined;
 
   let port: number | undefined;
 
@@ -31,13 +33,13 @@ export async function startAnvil(
 
       // Listen to the anvil output to get the port.
       const removeHandler = anvil.on('message', (message: string) => {
+        methodCalls?.push(...(message.match(/eth_[^\s]+/g) || []));
         if (port === undefined && message.includes('Listening on')) {
           port = parseInt(message.match(/Listening on ([^:]+):(\d+)/)![2]);
         }
       });
       await anvil.start();
       removeHandler();
-
       return anvil;
     },
     'Start anvil',
@@ -50,5 +52,5 @@ export async function startAnvil(
 
   // Monkeypatch the anvil instance to include the actually assigned port
   // Object.defineProperty(anvil, 'port', { value: port, writable: false });
-  return { anvil, stop: () => anvil.stop(), rpcUrl: `http://127.0.0.1:${port}` };
+  return { anvil, methodCalls, stop: () => anvil.stop(), rpcUrl: `http://127.0.0.1:${port}` };
 }
