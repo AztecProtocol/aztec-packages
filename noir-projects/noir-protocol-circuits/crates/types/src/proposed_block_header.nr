@@ -1,7 +1,7 @@
 use crate::{
     abis::gas_fees::GasFees,
     address::{AztecAddress, EthAddress},
-    constants::PROPOSED_BLOCK_HEADER_LENGTH_BYTES,
+    constants::{PROPOSED_BLOCK_HEADER_LENGTH, PROPOSED_BLOCK_HEADER_LENGTH_BYTES},
     content_commitment::ContentCommitment,
     hash::sha256_to_field,
     traits::{Deserialize, Empty, Hash, Serialize, ToField},
@@ -97,11 +97,22 @@ impl Hash for ProposedBlockHeader {
 }
 
 #[test]
-fn serialization_of_empty() {
-    let header = ProposedBlockHeader::empty();
-    let serialized = header.serialize();
+fn serde() {
+    let item = ProposedBlockHeader {
+        last_archive_root: 123,
+        content_commitment: ContentCommitment::empty(),
+        slot_number: 1234,
+        timestamp: 5678,
+        coinbase: EthAddress::empty(),
+        fee_recipient: AztecAddress::empty(),
+        gas_fees: GasFees { fee_per_da_gas: 100, fee_per_l2_gas: 200 },
+        total_mana_used: 151617,
+    };
+    // We use the PROPOSED_BLOCK_HEADER_LENGTH constant to ensure that there is a match between the derived trait
+    // implementation and the constant.
+    let serialized: [Field; PROPOSED_BLOCK_HEADER_LENGTH] = item.serialize();
     let deserialized = ProposedBlockHeader::deserialize(serialized);
-    assert(header.eq(deserialized));
+    assert(item.eq(deserialized));
 }
 
 #[test]
