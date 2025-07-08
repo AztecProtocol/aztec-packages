@@ -8,10 +8,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-function log_info {
-  echo -e "${GREEN}[INFO]${NC} $*"
-}
-
 function log_warn {
   echo -e "${YELLOW}[WARN]${NC} $*"
 }
@@ -40,18 +36,18 @@ function get_pr_merge_commits {
 function cancel_ci_runs {
   local commit_sha="$1"
   local workflow_file="${2:-ci3.yml}"
-  
-  log_info "Looking for runs to cancel for commit $commit_sha"
-  
+
+  echo "Looking for runs to cancel for commit $commit_sha"
+
   local runs=$(gh run list --commit "$commit_sha" --workflow "$workflow_file" --status in_progress --json databaseId --jq '.[].databaseId')
-  
+
   if [[ -n "$runs" ]]; then
     for run_id in $runs; do
-        log_info "Cancelling run $run_id"
+        echo "Cancelling run $run_id"
         gh run cancel "$run_id" || log_warn "Failed to cancel run $run_id"
     done
   else
-    log_info "No active runs found for commit $commit_sha"
+    echo "No active runs found for commit $commit_sha"
   fi
 }
 
@@ -59,14 +55,14 @@ function cancel_ci_runs {
 
 function enable_auto_merge {
   local pr_number="$1"
-  
+
   local reviews=$(gh pr view "$pr_number" --json reviews --jq '.reviews[] | select(.state == "APPROVED")')
   if [[ -z "$reviews" ]]; then
-    log_info "Approving PR #$pr_number"
+    echo "Approving PR #$pr_number"
     gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
   fi
-  
-  log_info "Enabling auto-merge for PR #$pr_number"
+
+  echo "Enabling auto-merge for PR #$pr_number"
   gh pr merge "$pr_number" --auto --merge
 }
 
@@ -78,7 +74,7 @@ function branch_exists {
 function get_meaningful_commits {
   local base="$1"
   local head="$2"
-  
+
   git log --oneline --no-merges --reverse "${base}..${head}" \
     --pretty=format:"%s" | grep -v "^\[empty\]" || true
 }
