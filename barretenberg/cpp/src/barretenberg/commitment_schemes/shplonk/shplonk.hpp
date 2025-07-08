@@ -381,7 +381,7 @@ template <typename Curve> class ShplonkVerifier_ {
 
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
         scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
-        for (size_t idx = 0; idx < num_claims; idx++) {
+        for (size_t idx = 0; idx < num_claims - 2; idx++) {
             pows_of_nu.emplace_back(pows_of_nu.back() * pows_of_nu[1]);
         }
 
