@@ -383,15 +383,3 @@ TEST_F(ECCVMTranscriptTests, ChallengeGenerationTest)
     ASSERT_NE(b, 0) << "Challenge b is 0";
     ASSERT_NE(c, 0) << "Challenge c is 0";
 }
-
-// TEST_F(ECCVMTranscriptTests, ProofLengthTest)
-// {
-//     // Construct a simple circuit
-//     auto builder = this->generate_trace(&engine);
-
-//     // Automatically generate a transcript manifest in the prover by constructing a proof
-//     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-//     ECCVMProver prover(builder, prover_transcript);
-//     ECCVMProof proof = prover.construct_proof();
-//     EXPECT_EQ(proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
-// }
