@@ -1,5 +1,6 @@
 use crate::{abis::side_effect::Ordered, traits::{Deserialize, Empty, Serialize}};
 
+#[derive(Deserialize, Eq, Serialize)]
 pub(crate) struct TestValue {
     pub(crate) value: Field,
     pub(crate) counter: u32,
@@ -11,34 +12,13 @@ impl Empty for TestValue {
     }
 }
 
-impl Eq for TestValue {
-    fn eq(self, other: Self) -> bool {
-        (self.value == other.value) & (self.counter == other.counter)
-    }
-}
-
 impl Ordered for TestValue {
     fn counter(self) -> u32 {
         self.counter
     }
 }
 
-impl Serialize for TestValue {
-    let N: u32 = 2;
-
-    fn serialize(self) -> [Field; Self::N] {
-        [self.value, self.counter as Field]
-    }
-}
-
-impl Deserialize for TestValue {
-    let N: u32 = 2;
-
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        Self { value: fields[0], counter: fields[1] as u32 }
-    }
-}
-
+#[derive(Eq)]
 pub(crate) struct TestTwoValues {
     pub(crate) value_1: Field,
     pub(crate) value_2: Field,
@@ -51,20 +31,13 @@ impl Empty for TestTwoValues {
     }
 }
 
-impl Eq for TestTwoValues {
-    fn eq(self, other: Self) -> bool {
-        (self.value_1 == other.value_1)
-            & (self.value_2 == other.value_2)
-            & (self.counter == other.counter)
-    }
-}
-
 impl Ordered for TestTwoValues {
     fn counter(self) -> u32 {
         self.counter
     }
 }
 
+#[derive(Eq)]
 pub(crate) struct TestCombinedValue {
     pub(crate) value: Field,
 }
@@ -72,12 +45,6 @@ pub(crate) struct TestCombinedValue {
 impl Empty for TestCombinedValue {
     fn empty() -> Self {
         TestCombinedValue { value: 0 }
-    }
-}
-
-impl Eq for TestCombinedValue {
-    fn eq(self, other: Self) -> bool {
-        (self.value == other.value)
     }
 }
 

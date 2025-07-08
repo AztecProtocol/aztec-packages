@@ -435,14 +435,17 @@ where
 /// deserializing return values from function calls in Noir. Since the same function could be called from TypeScript
 /// (TS), in which case the TS deserialization would get used, we need to have a match between the 2.
 ///
-/// # Type Parameters
+/// # Associated Constants
 /// * `N` - The length of the input Field array, known at compile time
 ///
 /// # Example
 /// ```
-/// impl<let N: u32> Deserialize<N> for str<N> {
-///     fn deserialize(fields: [Field; N]) -> Self {
-///         str<N>::from(fields.map(|value| value as u8))
+/// impl<let M: u32> Deserialize for str<M> {
+///     let N: u32 = M;
+///
+///     #[inline_always]
+///     fn deserialize(fields: [Field; Self::N]) -> Self {
+///         str::<Self::N>::from(fields.map(|value| value as u8))
 ///     }
 /// }
 /// ```

@@ -154,7 +154,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn test_public_keys_serialization() {
+    unconstrained fn serde() {
         let keys = PublicKeys {
             npk_m: NpkM { inner: Point { x: 1, y: 2, is_infinite: false } },
             ivpk_m: IvpkM { inner: Point { x: 3, y: 4, is_infinite: false } },
@@ -162,16 +162,10 @@ mod test {
             tpk_m: TpkM { inner: Point { x: 7, y: 8, is_infinite: false } },
         };
 
+        // We use the PUBLIC_KEYS_LENGTH constant to ensure that there is a match between the derived trait
         let serialized: [Field; POINT_LENGTH * 4] = keys.serialize();
         let deserialized = PublicKeys::deserialize(serialized);
 
-        assert_eq(keys.npk_m.inner.x, deserialized.npk_m.inner.x);
-        assert_eq(keys.npk_m.inner.y, deserialized.npk_m.inner.y);
-        assert_eq(keys.ivpk_m.inner.x, deserialized.ivpk_m.inner.x);
-        assert_eq(keys.ivpk_m.inner.y, deserialized.ivpk_m.inner.y);
-        assert_eq(keys.ovpk_m.inner.x, deserialized.ovpk_m.inner.x);
-        assert_eq(keys.ovpk_m.inner.y, deserialized.ovpk_m.inner.y);
-        assert_eq(keys.tpk_m.inner.x, deserialized.tpk_m.inner.x);
-        assert_eq(keys.tpk_m.inner.y, deserialized.tpk_m.inner.y);
+        assert_eq(keys, deserialized);
     }
 }
