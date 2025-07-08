@@ -53,6 +53,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
     vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
     vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
+    // Check that the vk hash matches the hash of the verification key
     decider_vk->vk_and_hash->hash.assert_equal(vkey_hash);
 
     size_t num_public_inputs =
