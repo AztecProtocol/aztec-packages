@@ -219,8 +219,9 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto native_ipa_proof = goblin_rec_verifier_output.ipa_proof.get_value();
     native_ipa_transcript->load_proof(native_ipa_proof);
 
-    EXPECT_FALSE(
-        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
+    EXPECT_DEATH(
+        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript),
+        ".*IPA verification fails.*");
 }
 
 /**
