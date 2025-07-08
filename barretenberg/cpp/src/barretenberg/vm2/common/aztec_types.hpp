@@ -299,7 +299,6 @@ struct TreeStates {
     TreeState nullifierTree;
     TreeState l1ToL2MessageTree;
     TreeState publicDataTree;
-    TreeState writtenPublicDataSlotsTree;
 
     bool operator==(const TreeStates& other) const = default;
 };

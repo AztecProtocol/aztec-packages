@@ -39,7 +39,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     FF shared_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF shared_mutable_hash_slot = shared_mutable_slot + UPDATES_SHARED_MUTABLE_VALUES_LEN;
 
-    InternalTreeSnapshots trees = {};
+    TreeSnapshots trees = {};
     trees.publicDataTree.root = 42;
 
     NiceMock<MockPoseidon2> poseidon2;
@@ -177,7 +177,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 
     FF update_hash = poseidon2::hash(update_preimage);
 
-    InternalTreeSnapshots trees = {};
+    TreeSnapshots trees = {};
     trees.publicDataTree.root = 42;
 
     NiceMock<MockPoseidon2> poseidon2;
@@ -258,7 +258,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     FF shared_mutable_leaf_slot =
         poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, shared_mutable_hash_slot });
 
-    InternalTreeSnapshots trees(TreeSnapshots{}, AppendOnlyTreeSnapshot{ 0, 0 });
+    TreeSnapshots trees = {};
 
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockHighLevelMerkleDB> merkle_db;

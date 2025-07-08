@@ -6,6 +6,7 @@
 
 namespace bb::avm2::simulation {
 
+// Implements the methods expected by indexed_leaf.hpp
 struct WrittenPublicDataSlotLeafValue {
     FF slot;
 
@@ -13,42 +14,31 @@ struct WrittenPublicDataSlotLeafValue {
         : slot(slot)
     {}
 
-    static bool is_updateable() { return true; }
+    static bool is_updateable();
 
-    bool operator==(WrittenPublicDataSlotLeafValue const& other) const { return slot == other.slot; }
+    bool operator==(WrittenPublicDataSlotLeafValue const& other) const;
 
-    friend std::ostream& operator<<(std::ostream& os, const WrittenPublicDataSlotLeafValue& v)
-    {
-        os << "slot = " << v.slot;
-        return os;
-    }
+    friend std::ostream& operator<<(std::ostream& os, const WrittenPublicDataSlotLeafValue& v);
 
-    fr get_key() const { return slot; }
+    fr get_key() const;
 
-    bool is_empty() const { return slot.is_zero(); }
+    bool is_empty() const;
 
-    std::vector<fr> get_hash_inputs(fr nextKey, fr nextIndex) const
-    {
-        return std::vector<fr>({ slot, nextKey, nextIndex });
-    }
+    std::vector<fr> get_hash_inputs(fr nextKey, fr nextIndex) const;
 
-    operator uint256_t() const { return get_key(); }
+    operator uint256_t() const;
 
-    static WrittenPublicDataSlotLeafValue empty() { return { fr::zero() }; }
+    static WrittenPublicDataSlotLeafValue empty();
 
-    static WrittenPublicDataSlotLeafValue padding(index_t i) { return { i }; }
+    static WrittenPublicDataSlotLeafValue padding(index_t i);
 
-    static std::string name() { return "WrittenPublicDataSlotLeafValue"; };
+    static std::string name();
 };
 
 using WrittenPublicDataSlotsTree = IndexedMemoryTree<WrittenPublicDataSlotLeafValue, Poseidon2HashPolicy>;
 
 using WrittenPublicDataSlotsTreeLeafPreimage = IndexedLeaf<WrittenPublicDataSlotLeafValue>;
 
-inline WrittenPublicDataSlotsTree build_public_data_slots_tree()
-{
-    return WrittenPublicDataSlotsTree(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-                                      AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE);
-}
+WrittenPublicDataSlotsTree build_public_data_slots_tree();
 
 } // namespace bb::avm2::simulation

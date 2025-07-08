@@ -373,6 +373,15 @@ void ExecutionTraceBuilder::process(
                       // Context - gas.
                       { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
                       { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      // Context - tree states
+                      { C::execution_prev_written_public_data_slots_tree_root,
+                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
+                      { C::execution_prev_written_public_data_slots_tree_size,
+                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                      { C::execution_written_public_data_slots_tree_root,
+                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
+                      { C::execution_written_public_data_slots_tree_size,
+                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
                       // Other.
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                       // Helpers for identifying parent context

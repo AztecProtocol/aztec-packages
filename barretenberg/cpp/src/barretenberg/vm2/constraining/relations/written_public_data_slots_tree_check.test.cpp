@@ -35,6 +35,7 @@ using ::testing::TestWithParam;
 
 using testing::TestMemoryTree;
 
+using simulation::build_public_data_slots_tree;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -47,6 +48,7 @@ using simulation::Poseidon2PermutationEvent;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 using simulation::WrittenPublicDataSlotLeafValue;
+using simulation::WrittenPublicDataSlotsTree;
 using simulation::WrittenPublicDataSlotsTreeCheck;
 using simulation::WrittenPublicDataSlotsTreeCheckEvent;
 using simulation::WrittenPublicDataSlotsTreeLeafPreimage;
@@ -71,33 +73,31 @@ struct TestParams {
     FF slot;
     AztecAddress contract_address;
     bool exists;
-    WrittenPublicDataSlotsTreeLeafPreimage low_leaf;
+    std::vector<WrittenPublicDataSlotLeafValue> pre_existing_leaves;
 };
 
 std::vector<TestParams> positive_read_tests = {
     // Exists = true, leaf pointers to infinity
-    TestParams{ .slot = 42,
-                .contract_address = 27,
-                .exists = true,
-                .low_leaf = WrittenPublicDataSlotsTreeLeafPreimage(
-                    WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42)), 0, 0) },
+    TestParams{
+        .slot = 42,
+        .contract_address = 27,
+        .exists = true,
+        .pre_existing_leaves = { { WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42)) } } },
     // Exists = true, leaf points to higher value
     TestParams{ .slot = 42,
                 .contract_address = 27,
                 .exists = true,
-                .low_leaf = WrittenPublicDataSlotsTreeLeafPreimage(
-                    WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42)), 28, 50) },
+                .pre_existing_leaves = { { WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42)),
+                                           WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42) +
+                                                                          FF(1)) } } },
     // Exists = false, low leaf points to infinity
-    TestParams{ .slot = 42,
-                .contract_address = 27,
-                .exists = false,
-                .low_leaf = WrittenPublicDataSlotsTreeLeafPreimage(WrittenPublicDataSlotLeafValue(10), 0, 0) },
+    TestParams{ .slot = 42, .contract_address = 27, .exists = false, .pre_existing_leaves = { {} } },
     // Exists = false, low leaf points to higher value
-    TestParams{ .slot = 42,
-                .contract_address = 27,
-                .exists = false,
-                .low_leaf = WrittenPublicDataSlotsTreeLeafPreimage(
-                    WrittenPublicDataSlotLeafValue(10), 28, unconstrained_compute_leaf_slot(27, 42) + 1) }
+    TestParams{
+        .slot = 42,
+        .contract_address = 27,
+        .exists = false,
+        .pre_existing_leaves = { { WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42) + FF(1)) } } }
 };
 
 class WrittenPublicDataSlotsReadPositiveTests : public TestWithParam<TestParams> {};
@@ -119,8 +119,6 @@ TEST_P(WrittenPublicDataSlotsReadPositiveTests, Positive)
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, written_public_data_slots_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
@@ -129,23 +127,13 @@ TEST_P(WrittenPublicDataSlotsReadPositiveTests, Positive)
     FieldGreaterThanTraceBuilder field_gt_builder;
     WrittenPublicDataSlotsTreeCheckTraceBuilder written_public_data_slots_tree_check_builder;
 
-    FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
-    uint64_t leaf_index = 30;
-    std::vector<FF> sibling_path;
-    sibling_path.reserve(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT);
-    for (size_t i = 0; i < AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT; ++i) {
-        sibling_path.emplace_back(i);
-    }
-    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
+    initial_state.insert_indexed_leaves(param.pre_existing_leaves);
 
-    written_public_data_slots_tree_check_simulator.assert_read(
-        param.slot,
-        param.contract_address,
-        param.exists,
-        param.low_leaf,
-        leaf_index,
-        sibling_path,
-        AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 37 });
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check_simulator(
+        poseidon2, merkle_check, field_gt, initial_state, written_public_data_slots_tree_check_event_emitter);
+
+    written_public_data_slots_tree_check_simulator.contains(param.contract_address, param.slot);
 
     written_public_data_slots_tree_check_builder.process(
         written_public_data_slots_tree_check_event_emitter.dump_events(), trace);
@@ -178,8 +166,6 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, written_public_data_slots_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
@@ -190,37 +176,13 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
 
     FF slot = 100;
     AztecAddress contract_address = 27;
-    FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
-    FF low_slot = 40;
-    TestMemoryTree<Poseidon2HashPolicy> written_public_data_slots_tree(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
-                                                                       AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT);
 
-    WrittenPublicDataSlotsTreeLeafPreimage low_leaf =
-        WrittenPublicDataSlotsTreeLeafPreimage(WrittenPublicDataSlotLeafValue(low_slot), 10, leaf_slot + 1);
-    FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
-    uint64_t low_leaf_index = 1;
-    written_public_data_slots_tree.update_element(low_leaf_index, low_leaf_hash);
+    WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
 
-    AppendOnlyTreeSnapshot prev_snapshot =
-        AppendOnlyTreeSnapshot{ .root = written_public_data_slots_tree.root(), .nextAvailableLeafIndex = 37 };
-    std::vector<FF> low_leaf_sibling_path = written_public_data_slots_tree.get_sibling_path(low_leaf_index);
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check_simulator(
+        poseidon2, merkle_check, field_gt, initial_state, written_public_data_slots_tree_check_event_emitter);
 
-    WrittenPublicDataSlotsTreeLeafPreimage updated_low_leaf = low_leaf;
-    updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
-    updated_low_leaf.nextKey = leaf_slot;
-    FF updated_low_leaf_hash = RawPoseidon2::hash(updated_low_leaf.get_hash_inputs());
-    written_public_data_slots_tree.update_element(low_leaf_index, updated_low_leaf_hash);
-
-    std::vector<FF> insertion_sibling_path =
-        written_public_data_slots_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
-
-    WrittenPublicDataSlotsTreeLeafPreimage new_leaf = WrittenPublicDataSlotsTreeLeafPreimage(
-        WrittenPublicDataSlotLeafValue(leaf_slot), low_leaf.nextIndex, low_leaf.nextKey);
-    FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
-    written_public_data_slots_tree.update_element(prev_snapshot.nextAvailableLeafIndex, new_leaf_hash);
-
-    written_public_data_slots_tree_check_simulator.upsert(
-        slot, contract_address, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    written_public_data_slots_tree_check_simulator.insert(contract_address, slot);
 
     written_public_data_slots_tree_check_builder.process(
         written_public_data_slots_tree_check_event_emitter.dump_events(), trace);
@@ -254,8 +216,6 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_event_emitter;
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, written_public_data_slots_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
@@ -264,23 +224,13 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
     FieldGreaterThanTraceBuilder field_gt_builder;
     WrittenPublicDataSlotsTreeCheckTraceBuilder written_public_data_slots_tree_check_builder;
 
-    FF low_leaf_hash = poseidon2.hash(low_leaf.get_hash_inputs());
-    uint64_t leaf_index = 30;
-    std::vector<FF> sibling_path;
-    sibling_path.reserve(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT);
-    for (size_t i = 0; i < AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT; ++i) {
-        sibling_path.emplace_back(i);
-    }
-    FF root = unconstrained_root_from_path(low_leaf_hash, leaf_index, sibling_path);
+    WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
+    initial_state.insert_indexed_leaves({ { WrittenPublicDataSlotLeafValue(leaf_slot) } });
 
-    written_public_data_slots_tree_check_simulator.upsert(
-        slot,
-        contract_address,
-        low_leaf,
-        leaf_index,
-        sibling_path,
-        AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 37 },
-        /* insertion_sibling_path */ std::vector<FF>());
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check_simulator(
+        poseidon2, merkle_check, field_gt, initial_state, written_public_data_slots_tree_check_event_emitter);
+
+    written_public_data_slots_tree_check_simulator.insert(contract_address, slot);
 
     written_public_data_slots_tree_check_builder.process(
         written_public_data_slots_tree_check_event_emitter.dump_events(), trace);

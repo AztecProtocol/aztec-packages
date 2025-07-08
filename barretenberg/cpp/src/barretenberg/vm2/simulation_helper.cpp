@@ -119,8 +119,11 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
-        poseidon2, merkle_check, field_gt, written_public_data_slots_tree_check_emitter);
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
+                                                                         merkle_check,
+                                                                         field_gt,
+                                                                         build_public_data_slots_tree(),
+                                                                         written_public_data_slots_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
@@ -168,6 +171,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      memory_provider,
                                      calldata_hashing_provider,
                                      internal_call_stack_manager_provider,
+                                     written_public_data_slots_tree_check,
                                      hints.tx.globalVariables);
     DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
 

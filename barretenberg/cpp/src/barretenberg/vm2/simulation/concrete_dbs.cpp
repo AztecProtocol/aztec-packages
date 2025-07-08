@@ -42,12 +42,12 @@ TreeStates MerkleDB::get_tree_state() const
 {
     // No event generated.
     TreeSnapshots tree_snapshots = raw_merkle_db.get_tree_roots();
-    return { .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = note_hash_counter },
-             .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = nullifier_counter },
-             .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree, .counter = l2_to_l1_msg_counter },
-             .publicDataTree = { .tree = tree_snapshots.publicDataTree, .counter = written_public_data_slots.size() },
-             .writtenPublicDataSlotsTree = { .tree = written_public_data_slots.snapshot(),
-                                             .counter = written_public_data_slots.size() } };
+    return {
+        .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = note_hash_counter },
+        .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = nullifier_counter },
+        .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree, .counter = l2_to_l1_msg_counter },
+        .publicDataTree = { .tree = tree_snapshots.publicDataTree, .counter = written_public_data_slots.size() },
+    };
 }
 
 FF MerkleDB::storage_read(const AztecAddress& contract_address, const FF& slot) const

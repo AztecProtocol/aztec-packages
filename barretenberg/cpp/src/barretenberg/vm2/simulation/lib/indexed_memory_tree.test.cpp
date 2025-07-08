@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/simulation/lib/indexed_memory_tree.hpp"
 
-#include "gmock/gmock.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
