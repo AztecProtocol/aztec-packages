@@ -1,3 +1,15 @@
+/**
+ * @file field.fuzzer.hpp
+ * @brief Field arithmetic fuzzer for testing cryptographic field operations
+ *
+ * @details This header provides a virtual machine for fuzzing field arithmetic operations
+ * across different elliptic curve fields. The VM supports various field operations including
+ * addition, multiplication, division, inversion, and more complex operations like batch
+ * inversion and Montgomery form conversions.
+ *
+ * @author Barretenberg Team
+ * @date 2024
+ */
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
@@ -12,144 +24,138 @@
 
 namespace bb {
 
-// This constant is used to limit the number of elements in the internal state of the VM.
+/**
+ * @brief Constant defining the number of elements in the VM's internal state
+ */
 const size_t INTERNAL_STATE_SIZE = 32;
 
-// Settings structure to control which operations are enabled
+/**
+ * @brief Settings structure to control which operations are enabled in the VM
+ *
+ * @details This structure uses bit fields to efficiently control which field operations
+ * are enabled during fuzzing. Each bit corresponds to a specific operation type.
+ */
 struct VMSettings {
-    bool enable_set_value : 1;
-    bool enable_add : 1;
-    bool enable_add_assign : 1;
-    bool enable_increment : 1;
-    bool enable_mul : 1;
-    bool enable_mul_assign : 1;
-    bool enable_sub : 1;
-    bool enable_sub_assign : 1;
-    bool enable_div : 1;
-    bool enable_div_assign : 1;
-    bool enable_inv : 1;
-    bool enable_neg : 1;
-    bool enable_sqr : 1;
-    bool enable_sqr_assign : 1;
-    bool enable_pow : 1;
-    bool enable_sqrt : 1;
-    bool enable_is_zero : 1;
-    bool enable_equal : 1;
-    bool enable_not_equal : 1;
-    bool enable_to_montgomery : 1;
-    bool enable_from_montgomery : 1;
-    bool enable_reduce_once : 1;
-    bool enable_self_reduce : 1;
-    bool enable_batch_invert : 1;
-    uint8_t reserved : 8; // Reserved for future use
+    bool enable_set_value : 1;       ///< Enable SET_VALUE operations
+    bool enable_add : 1;             ///< Enable ADD operations
+    bool enable_add_assign : 1;      ///< Enable ADD_ASSIGN operations
+    bool enable_increment : 1;       ///< Enable INCREMENT operations
+    bool enable_mul : 1;             ///< Enable MUL operations
+    bool enable_mul_assign : 1;      ///< Enable MUL_ASSIGN operations
+    bool enable_sub : 1;             ///< Enable SUB operations
+    bool enable_sub_assign : 1;      ///< Enable SUB_ASSIGN operations
+    bool enable_div : 1;             ///< Enable DIV operations
+    bool enable_div_assign : 1;      ///< Enable DIV_ASSIGN operations
+    bool enable_inv : 1;             ///< Enable INV operations
+    bool enable_neg : 1;             ///< Enable NEG operations
+    bool enable_sqr : 1;             ///< Enable SQR operations
+    bool enable_sqr_assign : 1;      ///< Enable SQR_ASSIGN operations
+    bool enable_pow : 1;             ///< Enable POW operations
+    bool enable_sqrt : 1;            ///< Enable SQRT operations
+    bool enable_is_zero : 1;         ///< Enable IS_ZERO operations
+    bool enable_equal : 1;           ///< Enable EQUAL operations
+    bool enable_not_equal : 1;       ///< Enable NOT_EQUAL operations
+    bool enable_to_montgomery : 1;   ///< Enable TO_MONTGOMERY operations
+    bool enable_from_montgomery : 1; ///< Enable FROM_MONTGOMERY operations
+    bool enable_reduce_once : 1;     ///< Enable REDUCE_ONCE operations
+    bool enable_self_reduce : 1;     ///< Enable SELF_REDUCE operations
+    bool enable_batch_invert : 1;    ///< Enable BATCH_INVERT operations
+    uint8_t reserved : 8;            ///< Reserved for future use
 };
 
 static_assert(sizeof(VMSettings) == 4, "VMSettings must be exactly 4 bytes");
 
 const size_t SETTINGS_SIZE = sizeof(VMSettings);
 
-// This enum is used to represent the instructions that can be executed by the VM.
+/**
+ * @brief Enumeration of VM instructions that can be executed
+ *
+ * @details Each instruction corresponds to a specific field arithmetic operation.
+ * The VM parses these instructions from input data and executes them sequentially.
+ */
 enum class Instruction {
-    SET_VALUE,
-    ADD,
-    ADD_ASSIGN,
-    INCREMENT,
-    MUL,
-    MUL_ASSIGN,
-    SUB,
-    SUB_ASSIGN,
-    DIV,
-    DIV_ASSIGN,
-    INV,
-    NEG,
-    SQR,
-    SQR_ASSIGN,
-    POW,
-    SQRT,
-    IS_ZERO,
-    EQUAL,
-    NOT_EQUAL,
-    TO_MONTGOMERY,
-    FROM_MONTGOMERY,
-    REDUCE_ONCE,
-    SELF_REDUCE,
-    BATCH_INVERT,
+    SET_VALUE,       ///< Set a field element to a specific value
+    ADD,             ///< Add two field elements
+    ADD_ASSIGN,      ///< Add-assign operation
+    INCREMENT,       ///< Increment a field element by 1
+    MUL,             ///< Multiply two field elements
+    MUL_ASSIGN,      ///< Multiply-assign operation
+    SUB,             ///< Subtract two field elements
+    SUB_ASSIGN,      ///< Subtract-assign operation
+    DIV,             ///< Divide two field elements
+    DIV_ASSIGN,      ///< Divide-assign operation
+    INV,             ///< Invert a field element
+    NEG,             ///< Negate a field element
+    SQR,             ///< Square a field element
+    SQR_ASSIGN,      ///< Square-assign operation
+    POW,             ///< Raise a field element to a power
+    SQRT,            ///< Compute square root of a field element
+    IS_ZERO,         ///< Check if a field element is zero
+    EQUAL,           ///< Check if two field elements are equal
+    NOT_EQUAL,       ///< Check if two field elements are not equal
+    TO_MONTGOMERY,   ///< Convert to Montgomery form
+    FROM_MONTGOMERY, ///< Convert from Montgomery form
+    REDUCE_ONCE,     ///< Reduce a field element once
+    SELF_REDUCE,     ///< Self-reduce a field element
+    BATCH_INVERT,    ///< Batch invert multiple field elements
 };
-const size_t INSTRUCTION_HEADER_SIZE = 1;
-const size_t INDEX_SIZE = 1;
+
+const size_t INSTRUCTION_HEADER_SIZE = 1; ///< Size of instruction header in bytes
+const size_t INDEX_SIZE = 1;              ///< Size of index field in bytes
 
 static_assert(1 << (8 * INDEX_SIZE) > INTERNAL_STATE_SIZE, "INDEX_SIZE is too small");
 
-// The size of set value is the size of the instruction header, the index where the value is stored, and the value
-// itself.
-const size_t SET_VALUE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE + sizeof(numeric::uint256_t);
-// The size of add is the size of the instruction header, the index of the first operand, the index of the second
-// operand, and the index of the result.
-const size_t ADD_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
-// The size of add assign is the size of the instruction header, the index of the first operand, and the index of the
-// result.
-const size_t ADD_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of increment is the size of the instruction header, and the index of the operand.
-const size_t INCREMENT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
-// The size of mul is the size of the instruction header, the index of the first operand, the index of the second
-// operand, and the index of the result.
-const size_t MUL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
-// The size of mul assign is the size of the instruction header, the index of the first operand, and the index of the
-// result.
-const size_t MUL_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of sub is the size of the instruction header, the index of the first operand, the index of the second
-// operand, and the index of the result.
-const size_t SUB_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
-// The size of sub assign is the size of the instruction header, the index of the first operand, and the index of the
-// result.
-const size_t SUB_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of div is the size of the instruction header, the index of the first operand, the index of the second
-// operand, and the index of the result.
-const size_t DIV_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;
-// The size of div assign is the size of the instruction header, the index of the first operand, and the index of the
-// result.
-const size_t DIV_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of inv is the size of the instruction header, the index of the operand, and the index of the result.
-const size_t INV_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of neg is the size of the instruction header, the index of the operand, and the index of the result.
-const size_t NEG_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of sqr is the size of the instruction header, the index of the operand, and the index of the result.
-const size_t SQR_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of sqr assign is the size of the instruction header, the index of the operand, and the index of the result.
-const size_t SQR_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
-// The size of pow is the size of the instruction header, the index of the base, the index of the exponent, and the
-// index of the result.
-const size_t POW_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3 + sizeof(uint64_t);
-// The size of sqrt is the size of the instruction header, the index of the operand, and the index of the result.
-const size_t SQRT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of is zero is the size of the instruction header, and the index of the operand.
-const size_t IS_ZERO_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
-// The size of equal is the size of the instruction header, the index of the first operand, and the index of the second
-// operand.
-const size_t EQUAL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of not equal is the size of the instruction header, the index of the first operand, and the index of the
-// second operand.
-const size_t NOT_EQUAL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of to montgomery is the size of the instruction header, the index of the operand, and the index of the
-// result.
-const size_t TO_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of from montgomery is the size of the instruction header, the index of the operand, and the index of the
-// result.
-const size_t FROM_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of reduce once is the size of the instruction header, the index of the operand, and the index of the result.
-const size_t REDUCE_ONCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;
-// The size of self reduce is the size of the instruction header, and the index of the operand.
-const size_t SELF_REDUCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;
-// The size of batch invert is the size of the instruction header, the index of the start of the batch and the number of
-// elements in the batch.
-const size_t BATCH_INVERT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE + sizeof(uint8_t);
+// Instruction size constants
+const size_t SET_VALUE_SIZE =
+    INSTRUCTION_HEADER_SIZE + INDEX_SIZE + sizeof(numeric::uint256_t);               ///< Size of SET_VALUE instruction
+const size_t ADD_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;                    ///< Size of ADD instruction
+const size_t ADD_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;             ///< Size of ADD_ASSIGN instruction
+const size_t INCREMENT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;                  ///< Size of INCREMENT instruction
+const size_t MUL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;                    ///< Size of MUL instruction
+const size_t MUL_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;             ///< Size of MUL_ASSIGN instruction
+const size_t SUB_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;                    ///< Size of SUB instruction
+const size_t SUB_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;             ///< Size of SUB_ASSIGN instruction
+const size_t DIV_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3;                    ///< Size of DIV instruction
+const size_t DIV_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;             ///< Size of DIV_ASSIGN instruction
+const size_t INV_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;                    ///< Size of INV instruction
+const size_t NEG_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;                    ///< Size of NEG instruction
+const size_t SQR_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;                    ///< Size of SQR instruction
+const size_t SQR_ASSIGN_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;                 ///< Size of SQR_ASSIGN instruction
+const size_t POW_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 3 + sizeof(uint64_t); ///< Size of POW instruction
+const size_t SQRT_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;                   ///< Size of SQRT instruction
+const size_t IS_ZERO_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;                    ///< Size of IS_ZERO instruction
+const size_t EQUAL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;                  ///< Size of EQUAL instruction
+const size_t NOT_EQUAL_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;              ///< Size of NOT_EQUAL instruction
+const size_t TO_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;   ///< Size of TO_MONTGOMERY instruction
+const size_t FROM_MONTGOMERY_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2; ///< Size of FROM_MONTGOMERY instruction
+const size_t REDUCE_ONCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE * 2;     ///< Size of REDUCE_ONCE instruction
+const size_t SELF_REDUCE_SIZE = INSTRUCTION_HEADER_SIZE + INDEX_SIZE;         ///< Size of SELF_REDUCE instruction
+const size_t BATCH_INVERT_SIZE =
+    INSTRUCTION_HEADER_SIZE + INDEX_SIZE + sizeof(uint8_t); ///< Size of BATCH_INVERT instruction
 
+/**
+ * @brief Virtual machine for field arithmetic operations
+ *
+ * @tparam Field The field type to operate on
+ *
+ * @details This template class implements a virtual machine that can execute
+ * field arithmetic operations. It maintains both field elements and uint256_t
+ * representations for verification purposes. The VM supports various field
+ * operations and includes comprehensive error checking and debugging capabilities.
+ */
 template <typename Field> struct FieldVM {
-    // If the modulus is large, then we need to use uint512_t for additions and subtractions.
+    /**
+     * @brief Flag indicating if the field has a large modulus requiring uint512_t for arithmetic
+     *
+     * @details Fields with moduli >= 2^254 require uint512_t for safe addition/subtraction
+     */
     static constexpr bool LARGE_MODULUS = (Field::modulus.data[3] >= 0x4000000000000000ULL);
 
-    // Check if this field supports sqrt operations
-    // Fields with very small 2-adicity (like secp256r1) have issues with Tonelli-Shanks
+    /**
+     * @brief Flag indicating if the field supports square root operations
+     *
+     * @details Fields with very small 2-adicity (like secp256r1) have issues with Tonelli-Shanks
+     */
     static constexpr bool SUPPORTS_SQRT = []() {
         if constexpr (requires { Field::primitive_root_log_size(); }) {
             // For fields that define primitive_root_log_size, check if it's large enough
@@ -160,19 +166,48 @@ template <typename Field> struct FieldVM {
         }
     }();
 
-    // The internal state of the VM is an array of fields and uint256_ts. We use the uint256_ts as oracles for checking
-    // the correctness of field operations
+    /**
+     * @brief Internal state array of field elements
+     *
+     * @details Used for actual field arithmetic operations
+     */
     std::array<Field, INTERNAL_STATE_SIZE> field_internal_state;
+
+    /**
+     * @brief Internal state array of uint256_t values
+     *
+     * @details Used as oracles for checking the correctness of field operations
+     */
     std::array<numeric::uint256_t, INTERNAL_STATE_SIZE> uint_internal_state;
-    // Whether to print debug information
+
+    /**
+     * @brief Flag to enable debug output
+     */
     bool with_debug;
-    // The settings of the VM
+
+    /**
+     * @brief VM settings controlling which operations are enabled
+     */
     VMSettings settings;
-    // The maximum number of steps to execute
+
+    /**
+     * @brief Maximum number of steps the VM can execute
+     */
     size_t max_steps;
-    // The number of steps executed
+
+    /**
+     * @brief Number of steps executed so far
+     */
     size_t step_count{};
 
+    /**
+     * @brief Constructor for FieldVM
+     *
+     * @param with_debug Whether to enable debug output
+     * @param max_steps Maximum number of steps to execute
+     *
+     * @details Initializes the VM with default settings and zero-initialized state
+     */
     FieldVM(bool with_debug = false, size_t max_steps = SIZE_MAX)
         : with_debug(with_debug)
         , max_steps(max_steps)
@@ -210,17 +245,34 @@ template <typename Field> struct FieldVM {
         }
     }
 
-    // Execute a single VM instruction
+    /**
+     * @brief Execute a single VM instruction
+     *
+     * @param data_ptr Pointer to the instruction data
+     * @param size_left Remaining data size
+     * @return size_t Number of bytes consumed by the instruction, or size_left if not enough data
+     *
+     * @details This method parses and executes a single VM instruction. It handles
+     * all supported field operations and maintains consistency between field and uint256_t
+     * representations. The method returns the number of bytes consumed, or the remaining
+     * size if insufficient data is available.
+     */
     size_t execute_instruction(const unsigned char* data_ptr, size_t size_left)
     {
-        // Helper function to get one byte from the data pointer and wrap it around the internal state size
+        /**
+         * @brief Helper function to get an index from data with wraparound
+         *
+         * @param data_ptr_index Pointer to the data containing the index
+         * @param offset Offset into the data
+         * @return size_t The index value wrapped around INTERNAL_STATE_SIZE
+         */
         auto get_index = [&](const unsigned char* data_ptr_index, size_t offset) -> size_t {
             return static_cast<size_t>(data_ptr_index[offset]) % INTERNAL_STATE_SIZE;
         };
 
         // Read the instruction and map it to a valid instruction by taking modulo
-        constexpr size_t NUM_INSTRUCTIONS = static_cast<size_t>(Instruction::BATCH_INVERT) + 1; // Total number of
-                                                                                                // instructions
+        constexpr size_t NUM_INSTRUCTIONS =
+            static_cast<size_t>(Instruction::BATCH_INVERT) + 1; ///< Total number of instructions
         uint8_t original_instruction = *data_ptr;
         Instruction instruction = static_cast<Instruction>(original_instruction % NUM_INSTRUCTIONS);
         if (with_debug) {
@@ -241,7 +293,14 @@ template <typename Field> struct FieldVM {
             std::cout << "Executing instruction: " << instruction_name << " (" << static_cast<int>(instruction)
                       << ") at step: " << step_count << std::endl;
         }
-        // Get the uint256_t value from the data pointer
+
+        /**
+         * @brief Helper function to get a uint256_t value from data
+         *
+         * @param data_ptr_value Pointer to the data containing the value
+         * @param offset Offset into the data
+         * @return numeric::uint256_t The uint256_t value read from data
+         */
         auto get_value = [&](const unsigned char* data_ptr_value, size_t offset) -> numeric::uint256_t {
             std::array<uint64_t, 4> limbs;
             for (size_t i = 0; i < 4; i++) {
@@ -249,7 +308,14 @@ template <typename Field> struct FieldVM {
             }
             return numeric::uint256_t(limbs[0], limbs[1], limbs[2], limbs[3]);
         };
-        // Get the uint64_t value from the data pointer
+
+        /**
+         * @brief Helper function to get a uint64_t value from data
+         *
+         * @param data_ptr_value Pointer to the data containing the value
+         * @param offset Offset into the data
+         * @return uint64_t The uint64_t value read from data
+         */
         auto get_uint64 = [&](const unsigned char* data_ptr_value, size_t offset) -> uint64_t {
             return *reinterpret_cast<const uint64_t*>(data_ptr_value + offset);
         };
@@ -997,19 +1063,29 @@ template <typename Field> struct FieldVM {
         }
     }
 
-    // Structure to hold parsed instruction data
+    /**
+     * @brief Structure to hold parsed instruction data
+     *
+     * @details This structure contains the parsed instruction type and associated data
+     * for efficient instruction execution without repeated parsing.
+     */
     struct ParsedInstruction {
-        Instruction instruction;
-        std::vector<uint8_t> data;
-        size_t size;
+        Instruction instruction;   ///< The instruction type
+        std::vector<uint8_t> data; ///< The instruction data
+        size_t size;               ///< The size of the instruction data
     };
 
     /**
      * @brief Parse instructions from data buffer into a vector
+     *
      * @param Data Pointer to the data buffer
      * @param Size Size of the data buffer
      * @param max_steps Maximum number of instructions to parse
      * @return std::pair<std::vector<ParsedInstruction>, size_t> Vector of parsed instructions and bytes consumed
+     *
+     * @details This method parses the input data into a sequence of instructions.
+     * It handles settings parsing and instruction size calculation. The method returns
+     * both the parsed instructions and the number of bytes consumed during parsing.
      */
     std::pair<std::vector<ParsedInstruction>, size_t> parse_instructions(const unsigned char* Data,
                                                                          size_t Size,
@@ -1035,8 +1111,8 @@ template <typename Field> struct FieldVM {
             size_t instruction_size = 0;
 
             // Map the instruction to a valid instruction by taking modulo
-            constexpr size_t NUM_INSTRUCTIONS = static_cast<size_t>(Instruction::BATCH_INVERT) + 1; // Total number of
-                                                                                                    // instructions
+            constexpr size_t NUM_INSTRUCTIONS =
+                static_cast<size_t>(Instruction::BATCH_INVERT) + 1; ///< Total number of instructions
             uint8_t original_instruction = Data[data_offset];
             instruction = static_cast<Instruction>(original_instruction % NUM_INSTRUCTIONS);
 
@@ -1147,8 +1223,12 @@ template <typename Field> struct FieldVM {
 
     /**
      * @brief Execute a parsed instruction
+     *
      * @param parsed The parsed instruction to execute
-     * @return true if execution should continue, false if should stop
+     * @return bool True if execution should continue, false if should stop
+     *
+     * @details This method executes a previously parsed instruction. It provides
+     * debug output if enabled and returns whether execution should continue.
      */
     bool execute_parsed_instruction(const ParsedInstruction& parsed)
     {
@@ -1177,11 +1257,16 @@ template <typename Field> struct FieldVM {
     }
 
     /**
-     * @brief Run the VM
+     * @brief Run the VM on input data
+     *
      * @param Data The data to run the VM on
      * @param Size The size of the data
      * @param reset_steps Whether to reset the step counter (default: true)
      * @return size_t The number of bytes consumed, or 0 if not enough data for settings
+     *
+     * @details This method is the main entry point for VM execution. It parses
+     * all instructions from the input data and executes them sequentially. The method
+     * handles step counting, debug output, and returns the number of bytes consumed.
      */
     size_t run(const unsigned char* Data, size_t Size, bool reset_steps = true)
     {
@@ -1216,6 +1301,16 @@ template <typename Field> struct FieldVM {
 
         return bytes_consumed; // Return the number of bytes consumed during parsing
     }
+
+    /**
+     * @brief Check internal state consistency between field and uint256_t representations
+     *
+     * @return bool True if all state elements are consistent, false otherwise
+     *
+     * @details This method verifies that the field_internal_state and uint_internal_state
+     * arrays are consistent with each other. Any discrepancy indicates a potential bug
+     * in the field arithmetic implementation.
+     */
     bool check_internal_state() const
     {
         for (size_t i = 0; i < INTERNAL_STATE_SIZE; i++) {
@@ -1232,7 +1327,11 @@ template <typename Field> struct FieldVM {
 
     /**
      * @brief Export the final uint state as a vector of uint256_t values
+     *
      * @return std::vector<numeric::uint256_t> The final uint state
+     *
+     * @details This method creates a copy of the uint_internal_state array
+     * for external use, typically for state transfer between VM phases.
      */
     std::vector<numeric::uint256_t> export_uint_state() const
     {
@@ -1246,18 +1345,21 @@ template <typename Field> struct FieldVM {
 
     /**
      * @brief Get the number of steps executed
+     *
      * @return size_t The number of steps executed
      */
     size_t get_step_count() const { return step_count; }
 
     /**
      * @brief Check if the VM was stopped due to reaching max steps
+     *
      * @return bool True if the VM was stopped due to max steps
      */
     bool was_stopped_by_max_steps() const { return step_count >= max_steps; }
 
     /**
      * @brief Set a new step limit for the VM
+     *
      * @param new_max_steps The new maximum number of steps
      */
     void set_max_steps(size_t new_max_steps) { max_steps = new_max_steps; }
@@ -1269,20 +1371,26 @@ template <typename Field> struct FieldVM {
 
     /**
      * @brief Get the current step limit
+     *
      * @return size_t The current maximum number of steps
      */
     size_t get_max_steps() const { return max_steps; }
 
     /**
      * @brief Check if there are remaining steps available
+     *
      * @return bool True if more steps can be executed
      */
     bool has_remaining_steps() const { return step_count < max_steps; }
 
     /**
      * @brief Reduce a uint256_t value to the field's modulus
+     *
      * @param value The value to reduce
      * @return numeric::uint256_t The reduced value
+     *
+     * @details This method handles modulus reduction for both large and small modulus fields.
+     * For large modulus fields, it uses uint512_t to prevent overflow.
      */
     static numeric::uint256_t reduce_to_modulus(const numeric::uint256_t& value)
     {
@@ -1295,8 +1403,12 @@ template <typename Field> struct FieldVM {
 
     /**
      * @brief Verify that the initial state is correctly loaded
+     *
      * @param state The state vector to verify against
      * @return bool True if the state is correctly loaded
+     *
+     * @details This method verifies that the imported state matches the current
+     * internal state after proper modulus reduction and field conversion.
      */
     bool verify_initial_state(const std::vector<numeric::uint256_t>& state) const
     {

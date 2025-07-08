@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `multi_field.fuzzer.cpp` is created to detect bugs in the native field implementations
+The `multi_field.fuzzer.cpp` is created to detect bugs in the native field implementations. In a nutshell, it starts a series of VMs executing arbitrary field operation with a particular field type. After execution of each VM we check that internal state is correct according to an oracle internal state, where the same operations are implemented on top of unsigned integers.
 
 ## Supported Field Types
 
@@ -17,30 +17,6 @@ The fuzzer tests the following field types:
 - **Secp256r1**:
   - `fq` (base field)
   - `fr` (scalar field)
-
-## Input Format
-
-The fuzzer expects input data in a specific format:
-
-```
-[Phase Header][Instruction Data][Phase Header][Instruction Data]...
-```
-
-### Phase Header Structure
-```cpp
-struct VMPhaseHeader {
-    uint8_t field_type; // Field type (0-5)
-    uint8_t steps;      // Number of steps (0-63)
-};
-```
-
-### Field Type Mapping
-- `0`: BN254_FQ
-- `1`: BN254_FR  
-- `2`: SECP256K1_FQ
-- `3`: SECP256K1_FR
-- `4`: SECP256R1_FQ
-- `5`: SECP256R1_FR
 
 ## Execution Flow
 
