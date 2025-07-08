@@ -3,16 +3,22 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/gas.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::ExecutionTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -252,6 +258,28 @@ TEST(GasConstrainingTest, NoCheckNoOOG)
                   { C::execution_sel_out_of_gas, 1 },
               } });
     EXPECT_THROW(check_relation<gas>(trace), std::runtime_error);
+}
+
+TEST(GasConstrainingTest, DynGasFactorBitwise)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    TestTraceContainer trace({
+        {
+            { C::execution_sel, 1 },
+            { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(ValueTag::U16) },
+            { C::execution_sel_bitwise, 1 },
+            { C::execution_dynamic_l2_gas_factor, get_tag_bytes(ValueTag::U16) },
+        },
+    });
+
+    precomputed_builder.process_tag_parameters(trace);
+    precomputed_builder.process_misc(trace, 7); // Need at least clk values from 0-6 for the lookup
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace);
+
+    trace.set(C::execution_dynamic_l2_gas_factor, 0, 100); // Set to some random value that can't be looked up
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<tracegen::ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace)),
+        "Failed.*EXECUTION_DYN_L2_FACTOR_BITWISE. Could not find tuple in destination.");
 }
 
 } // namespace

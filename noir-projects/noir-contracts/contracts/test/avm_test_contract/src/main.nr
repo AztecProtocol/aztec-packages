@@ -200,6 +200,13 @@ pub contract AvmTest {
         }
     }
 
+    #[public]
+    fn bitwise_ops(x: u32, y: u32) -> u32 {
+        let mut result = x & y;
+        result = result | x;
+        result ^ y
+    }
+
     /************************************************************************
      * Misc
      ************************************************************************/
@@ -643,6 +650,9 @@ pub contract AvmTest {
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
     ) {
+        dep::aztec::oracle::debug_log::debug_log("biwise_ops");
+        let num = get_block_number();
+        let _ = bitwise_ops(num, num);
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");

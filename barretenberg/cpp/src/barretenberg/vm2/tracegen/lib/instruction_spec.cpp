@@ -25,10 +25,13 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::LT, { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT } },
     { ExecutionOpCode::LTE,
       { .subtrace_selector = SubtraceSel::ALU, .subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LTE } },
-    // Bitwise
-    { ExecutionOpCode::AND, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 0 } },
-    { ExecutionOpCode::OR, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 1 } },
-    { ExecutionOpCode::XOR, { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = 2 } },
+    // Bitwise - note the bitwise subtrace operation id need to match the op id values in the bitwise precomputed table
+    { ExecutionOpCode::AND,
+      { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_AND_OP_ID } },
+    { ExecutionOpCode::OR,
+      { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_OR_OP_ID } },
+    { ExecutionOpCode::XOR,
+      { .subtrace_selector = SubtraceSel::BITWISE, .subtrace_operation_id = AVM_BITWISE_XOR_OP_ID } },
     // Toradixbe
     { ExecutionOpCode::TORADIXBE, { .subtrace_selector = SubtraceSel::TORADIXBE, .subtrace_operation_id = 0 } },
     // ECC
