@@ -54,6 +54,14 @@ function cancel_ci_runs {
   fi
 }
 
+function get_meaningful_commits {
+  local base="$1"
+  local head="$2"
+
+  git log --oneline --no-merges --reverse "${base}..${head}" \
+    --pretty=format:"%s" | grep -v "^\[empty\]" || true
+}
+
 # Usage: merge-next.sh <train-branch>
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <train-branch>"
@@ -81,7 +89,19 @@ fi
 
 # Fetch and checkout the merge-train branch
 git fetch origin "$TRAIN_BRANCH" || exit 1
+git fetch origin next || exit 1
 git checkout "$TRAIN_BRANCH" || exit 1
+
+# Check if there are meaningful commits in next that aren't in the train branch
+meaningful_commits=$(get_meaningful_commits "$TRAIN_BRANCH" "origin/next")
+
+if [[ -z "$meaningful_commits" ]]; then
+  echo "No meaningful commits found in next that aren't already in $TRAIN_BRANCH, skipping merge"
+  exit 0
+fi
+
+echo "Found meaningful commits to merge:"
+echo "$meaningful_commits"
 
 # Attempt to merge next
 if git merge "origin/next" --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH"; then
