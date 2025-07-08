@@ -5,6 +5,7 @@
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
@@ -27,6 +28,13 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  // I think the only situation in which a + b != c as fields is when c overflows the bit size
                  // if this in unclear, I can use > or actually check bit sizes:
                  { Column::alu_cf, event.a.as_ff() + event.b.as_ff() != event.c.as_ff() } };
+    case simulation::AluOperation::EQ: {
+        const FF diff = event.a.as_ff() - event.b.as_ff();
+        return { { Column::alu_sel_op_eq, 1 },
+                 { Column::alu_op_id,
+                   static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::EQ).subtrace_operation_id) },
+                 { Column::alu_helper1, diff == 0 ? 0 : diff.invert() } };
+    }
     case simulation::AluOperation::LT: {
         bool is_ff = event.a.get_tag() == ValueTag::FF;
         FF abs_diff = static_cast<uint8_t>(event.c.as_ff()) == 1 ? event.b.as_ff() - event.a.as_ff() - 1
