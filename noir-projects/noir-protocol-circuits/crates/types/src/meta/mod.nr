@@ -439,7 +439,11 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
         })
         .join(quote {+});
 
-    let array_of_quotes_serializing_each_struct_member = params
+    // Generates serialization code for each struct member that:
+    // 1. Serializes the member
+    // 2. Copies serialized fields into result array at correct offset
+    // 3. Updates offset for next member
+    let serialization_of_struct_members = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
                 let serialized_member = $crate::traits::Serialize::serialize(self.$param_name);
@@ -449,10 +453,8 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
                 }
                 offset += serialized_member_len;
             }
-        });
-
-    let serialization_of_struct_members =
-        array_of_quotes_serializing_each_struct_member.join(quote {});
+        })
+        .join(quote {});
 
     quote {
         impl $crate::traits::Serialize for $typ {
