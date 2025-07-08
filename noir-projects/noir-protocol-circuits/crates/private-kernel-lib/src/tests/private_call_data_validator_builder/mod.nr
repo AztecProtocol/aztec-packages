@@ -17,7 +17,7 @@ use dep::types::{
         note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData, transaction::tx_request::TxRequest,
     },
-    tests::fixture_builder::FixtureBuilder
+    tests::fixture_builder::FixtureBuilder,
 };
 
 pub struct PrivateCallDataValidatorBuilder {
