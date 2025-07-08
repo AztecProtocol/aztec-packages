@@ -1,0 +1,6 @@
+[package]
+name = "ecdsa_regression"
+type = "bin"
+authors = [""]
+
+[dependencies]
