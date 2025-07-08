@@ -12,10 +12,7 @@ import { extractProposalIdFromLogs } from './governance.js';
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
 
-  constructor(
-    public readonly client: ViemClient,
-    address: Hex,
-  ) {
+  constructor(public readonly client: ViemClient, address: Hex) {
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 
@@ -66,9 +63,13 @@ export class GovernanceProposerContract implements IEmpireBase {
     };
   }
 
-  public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
+  public async createVoteRequestWithSignature(
+    payload: Hex,
+    wallet: ExtendedViemWalletClient,
+    signer: (msg: Hex) => Promise<Hex>,
+  ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(wallet.account.address);
-    const signature = await signVoteWithSig(wallet, payload, nonce, this.address.toString(), wallet.chain.id);
+    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), wallet.chain.id);
     return {
       to: this.address.toString(),
       data: encodeVoteWithSignature(payload, signature),

@@ -41,6 +41,7 @@ const ethereumSlotDuration = 2;
 
 describe('SlasherClient', () => {
   let anvil: Anvil;
+  let anvilMethodCalls: string[] | undefined;
   let rpcUrl: string;
   let slasherPrivateKey: PrivateKeyAccount;
   let testHarnessPrivateKey: PrivateKeyAccount;
@@ -67,7 +68,7 @@ describe('SlasherClient', () => {
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
 
-    ({ anvil, rpcUrl } = await startAnvil());
+    ({ anvil, rpcUrl, methodCalls: anvilMethodCalls } = await startAnvil({ captureMethodCalls: true }));
 
     // Need separate clients for slasher and test harness to avoid nonce conflicts.
     slasherL1Client = createExtendedL1Client([rpcUrl], slasherPrivateKey, foundry);
@@ -142,6 +143,8 @@ describe('SlasherClient', () => {
   });
 
   afterEach(async () => {
+    // Make sure we do not ask anvil to sign, this should be handled by the wallet client
+    expect(anvilMethodCalls).not.toContain('eth_signTypedData_v4');
     await slasherClient.stop();
     await anvil.stop().catch(logger.error);
   });
@@ -212,7 +215,11 @@ describe('SlasherClient', () => {
         logger.info(`Leader votes: ${leaderVotes}`);
 
         // Have the slasher sign the vote request
-        const voteRequest = await slashingProposer.createVoteRequestWithSignature(payload!.toString(), slasherL1Client);
+        const voteRequest = await slashingProposer.createVoteRequestWithSignature(
+          payload!.toString(),
+          slasherL1Client,
+          msg => slasherPrivateKey.sign({ hash: msg }),
+        );
 
         // Have the test harness send the vote request to avoid nonce conflicts
         await testHarnessL1Client.sendTransaction(voteRequest).catch(ignoreExpectedErrors);

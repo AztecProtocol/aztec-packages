@@ -9,6 +9,10 @@ aztec:
   realProofs: true
   testAccounts: true
   sponsoredFPC: true
+  slash:
+    pruneEnabled: true
+    inactivityEnabled: true
+    invalidBlockEnabled: true
 
 images:
   aztec:
@@ -19,6 +23,7 @@ telemetry:
 
 validator:
   storageSize: "100Gi"
+  sentinelEnabled: true
   replicas: 4
   keysPerNode: 12
   validator:
