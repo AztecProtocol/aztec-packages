@@ -36,7 +36,7 @@ TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
  * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_to_transcript.
+ * hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
@@ -65,10 +65,9 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Solidity verifier does not fiat shamir the full
     // verification key. This will be fixed in a followup PR.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor>) {
-        // Third method of hashing: using add_to_transcript.
+        // Third method of hashing: using add_hash_to_transcript.
         typename Flavor::Transcript transcript_2;
-        vk.add_to_transcript("", transcript_2);
-        fr vkey_hash_3 = transcript_2.template get_challenge<fr>("vk_hash");
+        fr vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);
         EXPECT_EQ(vkey_hash_2, vkey_hash_3);
     }
 }
