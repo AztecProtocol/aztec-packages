@@ -427,8 +427,8 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
-namespace avm2 {
 
+namespace avm2 {
 class AvmRecursiveFlavor;
 }
 

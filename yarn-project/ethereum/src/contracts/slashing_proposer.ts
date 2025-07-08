@@ -27,10 +27,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
   private readonly logger = createLogger('SlashingProposerContract');
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
-  constructor(
-    public readonly client: ViemClient,
-    address: Hex,
-  ) {
+  constructor(public readonly client: ViemClient, address: Hex) {
     super();
     this.proposer = getContract({ address, abi: SlashingProposerAbi, client });
   }
@@ -186,7 +183,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${
+        error ?? 'Unknown error'
+      }`;
       throw new Error(errorMessage);
     }
     return response;
