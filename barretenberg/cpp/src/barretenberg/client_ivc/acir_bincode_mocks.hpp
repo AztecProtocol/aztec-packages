@@ -86,9 +86,9 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
         .verification_key = vk_inputs,
         .proof = {},
         .public_inputs = {},
-        // NOTE: If this starts failing after key hash becomes required need to pass as witness! (possibly after the VK,
-        // adding +1 to witness index below)
-        .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Witness{ Acir::Witness{ 0 } } }, BIT_COUNT },
+        .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Witness{
+                                             Acir::Witness{ static_cast<uint32_t>(vk_size) } } },
+                                         BIT_COUNT },
         .proof_type = is_init_kernel ? acir_format::PROOF_TYPE::OINK : acir_format::PROOF_TYPE::PG
     };
 
@@ -96,7 +96,7 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
     black_box_call.value = recursion;
 
     circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
-    circuit.current_witness_index = static_cast<uint32_t>(vk_inputs.size());
+    circuit.current_witness_index = static_cast<uint32_t>(vk_inputs.size() + 1);
     circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
 
     // Create the program with the circuit
@@ -120,6 +120,16 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
         ss << app_vk_fields[i];
         kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
     }
+    std::stringstream ss;
+    fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
+    // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
+    static constexpr size_t LO_BITS = fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+    auto converted = static_cast<uint256_t>(challenge);
+    uint256_t lo = converted.slice(0, LO_BITS);
+    ss << lo;
+    kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(app_vk_fields.size()) }] =
+        ss.str();
+
     return kernel_witness.bincodeSerialize();
 }
 
