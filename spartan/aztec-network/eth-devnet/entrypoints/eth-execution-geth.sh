@@ -1,7 +1,12 @@
 #!/bin/bash
 
+# Initialize geth with genesis if not already done
+if [ ! -f "/data/geth/chaindata/CURRENT" ]; then
+  geth init --datadir=/data /genesis/genesis.json
+fi
+
 geth \
-  --datadir=/data \
+  --datadir="~/geth-data" \
   --authrpc.addr=0.0.0.0 \
   --authrpc.port=${ENGINE_PORT:-8551} \
   --authrpc.jwtsecret=/genesis/jwt-secret.hex \
@@ -19,5 +24,4 @@ geth \
   --maxpeers 0 \
   --nodiscover \
   --ipcdisable \
-  --verbosity 3 # \
-#${GETH_EXTRA_ARGS:-}
+  --verbosity 3
