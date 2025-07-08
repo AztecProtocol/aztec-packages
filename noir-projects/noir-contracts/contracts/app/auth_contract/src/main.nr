@@ -51,22 +51,10 @@ pub contract Auth {
 
     #[public]
     #[view]
-    fn get_scheduled_authorized() -> AztecAddress {
+    fn get_scheduled_authorized() -> (AztecAddress, u64) {
         // docs:start:shared_mutable_get_scheduled_public
-        let (scheduled_value, _timestamp_of_change): (AztecAddress, u64) =
-            storage.authorized.get_scheduled_value();
+        storage.authorized.get_scheduled_value()
         // docs:end:shared_mutable_get_scheduled_public
-        scheduled_value
-    }
-
-    // TODO(benesjan): Didn't return the timestamp of change directly from `get_scheduled_authorized` as there is some
-    // issue with tuple serialization and it does not compile. Will fix in a followup PR.
-    #[public]
-    #[view]
-    fn get_scheduled_authorized_timestamp() -> u64 {
-        let (_scheduled_value, timestamp_of_change): (_, u64) =
-            storage.authorized.get_scheduled_value();
-        timestamp_of_change
     }
 
     #[public]
