@@ -10,17 +10,9 @@ aztec:
   testAccounts: true
   sponsoredFPC: true
   slash:
-    payloadTtlSeconds: "27648"
     pruneEnabled: true
-    prunePenalty: "17000000000000000000"
-    pruneMaxPenalty: "17000000000000000000"
     inactivityEnabled: true
-    inactivityCreateTargetPercentage: 1
-    inactivitySignalTargetPercentage: 1
-    inactivityCreatePenalty: "17000000000000000000"
     invalidBlockEnabled: true
-    invalidBlockPenalty: "100000000000000000000"
-    invalidBlockMaxPenalty: "100000000000000000000"
 
 images:
   aztec:

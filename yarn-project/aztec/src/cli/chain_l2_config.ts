@@ -65,6 +65,7 @@ export type L2ChainConfig = {
   slashInactivityCreateTargetPercentage: number;
   slashInactivitySignalTargetPercentage: number;
   slashInactivityCreatePenalty: bigint;
+  slashInactivityMaxPenalty: bigint;
   slashInvalidBlockEnabled: boolean;
   slashInvalidBlockPenalty: bigint;
   slashInvalidBlockMaxPenalty: bigint;
@@ -120,6 +121,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashInactivityCreateTargetPercentage: 0,
   slashInactivitySignalTargetPercentage: 0,
   slashInactivityCreatePenalty: 0n,
+  slashInactivityMaxPenalty: 0n,
   slashInvalidBlockEnabled: false,
   slashPayloadTtlSeconds: 0,
   slashPruneEnabled: false,
@@ -186,6 +188,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashInactivityCreateTargetPercentage: 1,
   slashInactivitySignalTargetPercentage: 1,
   slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
+  slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.depositAmount / 100n),
   slashInvalidBlockEnabled: true,
   slashInvalidBlockPenalty: DefaultL1ContractsConfig.depositAmount,
   slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.depositAmount,
@@ -307,6 +310,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE', config.slashInactivityCreateTargetPercentage.toString());
   enrichVar('SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE', config.slashInactivitySignalTargetPercentage.toString());
   enrichVar('SLASH_INACTIVITY_CREATE_PENALTY', config.slashInactivityCreatePenalty.toString());
+  enrichVar('SLASH_INACTIVITY_MAX_PENALTY', config.slashInactivityMaxPenalty.toString());
   enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashInvalidBlockEnabled.toString());
   enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashInvalidBlockPenalty.toString());
   enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashInvalidBlockMaxPenalty.toString());

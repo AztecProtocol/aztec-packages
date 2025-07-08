@@ -215,7 +215,11 @@ describe('SlasherClient', () => {
         logger.info(`Leader votes: ${leaderVotes}`);
 
         // Have the slasher sign the vote request
-        const voteRequest = await slashingProposer.createVoteRequestWithSignature(payload!.toString(), slasherL1Client);
+        const voteRequest = await slashingProposer.createVoteRequestWithSignature(
+          payload!.toString(),
+          slasherL1Client,
+          msg => slasherPrivateKey.sign({ hash: msg }),
+        );
 
         // Have the test harness send the vote request to avoid nonce conflicts
         await testHarnessL1Client.sendTransaction(voteRequest).catch(ignoreExpectedErrors);

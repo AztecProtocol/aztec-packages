@@ -406,6 +406,7 @@ export class SequencerPublisher {
     voteType: VoteType,
     payload: EthAddress,
     base: IEmpireBase,
+    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (this.myLastVotes[voteType] >= slotNumber) {
       return false;
@@ -425,7 +426,7 @@ export class SequencerPublisher {
 
     const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
 
-    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client);
+    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client, signer);
     this.log.debug(`Created ${action} request with signature`, {
       request,
       round,
@@ -476,13 +477,18 @@ export class SequencerPublisher {
    * @param voteType - The type of vote to cast.
    * @returns True if the vote was successfully enqueued, false otherwise.
    */
-  public async enqueueCastVote(slotNumber: bigint, timestamp: bigint, voteType: VoteType): Promise<boolean> {
+  public async enqueueCastVote(
+    slotNumber: bigint,
+    timestamp: bigint,
+    voteType: VoteType,
+    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+  ): Promise<boolean> {
     const voteConfig = await this.getVoteConfig(slotNumber, voteType);
     if (!voteConfig) {
       return false;
     }
     const { payload, base } = voteConfig;
-    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base);
+    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base, signer);
   }
 
   /**
