@@ -220,12 +220,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (proving_key->proving_key.circuit_size > bn254_commitment_key.dyadic_size) {
+    if (proving_key->dyadic_size() > bn254_commitment_key.dyadic_size) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->proving_key.circuit_size);
+        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->dyadic_size());
         goblin.commitment_key = bn254_commitment_key;
     }
-    proving_key->proving_key.commitment_key = bn254_commitment_key;
+    proving_key->commitment_key = bn254_commitment_key;
 
     vinfo("getting honk vk... precomputed?: ", precomputed_vk);
     // Update the accumulator trace usage based on the present circuit
@@ -234,11 +234,12 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Set the verification key from precomputed if available, else compute it
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+        honk_vk =
+            precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->get_precomputed());
     }
     // mock_vk is used in benchmarks to avoid any VK construction.
     if (mock_vk) {
-        honk_vk->set_metadata(proving_key->proving_key);
+        honk_vk->set_metadata(proving_key->get_metadata());
         vinfo("set honk vk metadata");
     }
 
@@ -371,7 +372,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     points_accumulator.set_public();
 
     auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
+    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->get_precomputed());
 
     return decider_pk;
 }
@@ -387,7 +388,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
     // key during proving. Precompute instead.
-    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->proving_key);
+    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
     HonkProof proof = prover.construct_proof();
@@ -446,7 +447,7 @@ bool ClientIVC::verify(const Proof& proof) const
 HonkProof ClientIVC::decider_prove() const
 {
     vinfo("prove decider...");
-    fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
+    fold_output.accumulator->commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
     decider_prover.construct_proof();
     return decider_prover.export_proof();

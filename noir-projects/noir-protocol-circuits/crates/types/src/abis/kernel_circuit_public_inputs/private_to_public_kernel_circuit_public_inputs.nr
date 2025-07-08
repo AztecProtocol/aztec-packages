@@ -2,7 +2,6 @@ use crate::{
     abis::{
         accumulated_data::PrivateToPublicAccumulatedData, gas::Gas,
         public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
-        validation_requests::RollupValidationRequests,
     },
     address::AztecAddress,
     constants::{
@@ -15,24 +14,24 @@ use crate::{
 
 pub struct PrivateToPublicKernelCircuitPublicInputs {
     pub constants: TxConstantData,
-    pub rollup_validation_requests: RollupValidationRequests,
     pub non_revertible_accumulated_data: PrivateToPublicAccumulatedData,
     pub revertible_accumulated_data: PrivateToPublicAccumulatedData,
     pub public_teardown_call_request: PublicCallRequest,
     pub gas_used: Gas,
     pub fee_payer: AztecAddress,
+    pub include_by_timestamp: u64,
 }
 
 impl Empty for PrivateToPublicKernelCircuitPublicInputs {
     fn empty() -> Self {
         PrivateToPublicKernelCircuitPublicInputs {
             constants: TxConstantData::empty(),
-            rollup_validation_requests: RollupValidationRequests::empty(),
             non_revertible_accumulated_data: PrivateToPublicAccumulatedData::empty(),
             revertible_accumulated_data: PrivateToPublicAccumulatedData::empty(),
             public_teardown_call_request: PublicCallRequest::empty(),
             gas_used: Gas::empty(),
             fee_payer: AztecAddress::empty(),
+            include_by_timestamp: 0,
         }
     }
 }
@@ -40,12 +39,12 @@ impl Empty for PrivateToPublicKernelCircuitPublicInputs {
 impl Eq for PrivateToPublicKernelCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
         (self.constants == other.constants)
-            & (self.rollup_validation_requests == other.rollup_validation_requests)
             & (self.non_revertible_accumulated_data == other.non_revertible_accumulated_data)
             & (self.revertible_accumulated_data == other.revertible_accumulated_data)
             & (self.public_teardown_call_request == other.public_teardown_call_request)
             & (self.gas_used == other.gas_used)
             & (self.fee_payer == other.fee_payer)
+            & (self.include_by_timestamp == other.include_by_timestamp)
     }
 }
 
@@ -55,12 +54,12 @@ impl Serialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Privat
             BoundedVec::new();
 
         fields.extend_from_array(self.constants.serialize());
-        fields.extend_from_array(self.rollup_validation_requests.serialize());
         fields.extend_from_array(self.non_revertible_accumulated_data.serialize());
         fields.extend_from_array(self.revertible_accumulated_data.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
         fields.extend_from_array(self.gas_used.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
+        fields.push(self.include_by_timestamp as Field);
 
         assert_eq(fields.len(), PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -82,7 +81,6 @@ impl Deserialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Priv
 
         let item = PrivateToPublicKernelCircuitPublicInputs {
             constants: reader.read_struct(TxConstantData::deserialize),
-            rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
             non_revertible_accumulated_data: reader.read_struct(
                 PrivateToPublicAccumulatedData::deserialize,
             ),
@@ -92,6 +90,7 @@ impl Deserialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for Priv
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             gas_used: reader.read_struct(Gas::deserialize),
             fee_payer: reader.read_struct(AztecAddress::deserialize),
+            include_by_timestamp: reader.read_u64(),
         };
         reader.finish();
         item

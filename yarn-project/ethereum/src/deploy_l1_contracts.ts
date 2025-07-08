@@ -1,3 +1,4 @@
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -69,11 +70,13 @@ import { foundry } from 'viem/chains';
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
 import {
-  DefaultEntryQueueConfig,
-  DefaultRewardBoostConfig,
-  DefaultRewardConfig,
   type L1ContractsConfig,
+  getEntryQueueConfig,
+  getGovernanceConfiguration,
+  getRewardBoostConfig,
+  getRewardConfig,
 } from './config.js';
+import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -89,6 +92,8 @@ import type { ExtendedViemWalletClient } from './types.js';
 import { ZK_PASSPORT_SCOPE, ZK_PASSPORT_SUB_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+const networkName = getActiveNetworkName();
 
 export type Operator = {
   attester: EthAddress;
@@ -325,6 +330,7 @@ export const deploySharedContracts = async (
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
     gseAddress.toString(),
+    getGovernanceConfiguration(networkName),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
@@ -633,7 +639,7 @@ export const deployRollup = async (
   }
 
   const rewardConfig = {
-    ...DefaultRewardConfig,
+    ...getRewardConfig(networkName),
     rewardDistributor: addresses.rewardDistributorAddress.toString(),
   };
 
@@ -647,8 +653,8 @@ export const deployRollup = async (
     manaTarget: args.manaTarget,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
-    rewardBoostConfig: DefaultRewardBoostConfig,
-    stakingQueueConfig: DefaultEntryQueueConfig,
+    rewardBoostConfig: getRewardBoostConfig(networkName),
+    stakingQueueConfig: getEntryQueueConfig(networkName),
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -981,6 +987,9 @@ export const deployL1Contracts = async (
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
 ): Promise<DeployL1ContractsReturnType> => {
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
+
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
 
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s

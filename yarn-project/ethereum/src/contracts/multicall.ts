@@ -119,6 +119,12 @@ export class Multicall3 {
 }
 
 export async function deployMulticall3(l1Client: ExtendedViemWalletClient, logger: Logger) {
+  const existing = await l1Client.getCode({ address: MULTI_CALL_3_ADDRESS });
+  if (existing && existing !== '0x') {
+    logger.verbose('Multicall3 already deployed', { address: MULTI_CALL_3_ADDRESS });
+    return;
+  }
+
   const deployer = '0x05f32b3cc3888453ff71b01135b34ff8e41263f2';
   const sendEth = await l1Client.sendTransaction({ to: deployer, value: 10n ** 17n });
   logger.info('Sent 0.1 ETH to deployer', { deployer, value: 10n ** 17n });
