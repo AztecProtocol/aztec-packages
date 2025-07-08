@@ -265,9 +265,32 @@ class AvmFlavor {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
-        std::vector<FF> to_field_elements() const;
-        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const;
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<fr> to_field_elements() const override
+        {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
+        }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         * @returns The hash of the verification key
+         */
+        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
+        }
     };
 
     // Used by sumcheck.

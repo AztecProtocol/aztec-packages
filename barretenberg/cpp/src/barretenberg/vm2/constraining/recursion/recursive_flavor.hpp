@@ -104,8 +104,12 @@ class AvmRecursiveFlavor {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
-        std::vector<FF> to_field_elements() const override;
-        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override;
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not implemented yet!");
+        }
     };
 
     using WitnessCommitments = NativeFlavor::WitnessEntities<Commitment>;
