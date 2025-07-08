@@ -130,25 +130,6 @@ template <typename T> struct AlignedMemory {
  */
 template <typename T, typename BackingMemory> struct SharedShiftedVirtualZeroesArray {
 
-    SharedShiftedVirtualZeroesArray() = default;
-
-    SharedShiftedVirtualZeroesArray(size_t start,
-                                    size_t end,
-                                    size_t virtual_size,
-                                    std::shared_ptr<typename BackingMemory::Value> backing_memory)
-        : start_(start)
-        , end_(end)
-        , virtual_size_(virtual_size)
-        , backing_memory_(backing_memory)
-    {}
-
-    SharedShiftedVirtualZeroesArray(size_t size, size_t virtual_size, size_t start_index)
-        : start_(start_index)
-        , end_(size + start_index)
-        , virtual_size_(virtual_size)
-        , backing_memory_(BackingMemory::allocate(size))
-    {}
-
     /**
      * @brief Sets the value at the specified index.
      *

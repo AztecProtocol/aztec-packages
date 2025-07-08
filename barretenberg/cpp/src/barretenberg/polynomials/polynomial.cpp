@@ -10,6 +10,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fcntl.h>
@@ -27,7 +28,12 @@ template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
     BB_ASSERT_LTE(start_index + size, virtual_size);
-    coefficients_ = SharedShiftedVirtualZeroesArray<Fr, BackingMemory<Fr>>(size, virtual_size, start_index);
+    coefficients_ = SharedShiftedVirtualZeroesArray<Fr, BackingMemory<Fr>>{
+        start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
+        size + start_index, /* end index, actual memory used is (end - start) */
+        virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
+        BackingMemory<Fr>::allocate(size)
+    };
 }
 
 /**
