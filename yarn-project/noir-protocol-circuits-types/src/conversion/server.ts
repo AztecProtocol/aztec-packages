@@ -36,7 +36,6 @@ import {
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupKernelCircuitPublicInputs,
-  RollupValidationRequests,
 } from '@aztec/stdlib/kernel';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { RecursiveProof } from '@aztec/stdlib/proofs';
@@ -109,7 +108,6 @@ import type {
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicTubeData as PublicTubeDataNoir,
-  RollupValidationRequests as RollupValidationRequestsNoir,
   RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
@@ -124,6 +122,7 @@ import {
   mapAppendOnlyTreeSnapshotToNoir,
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
+  mapBigIntFromNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
   mapFieldArrayToNoir,
@@ -137,8 +136,6 @@ import {
   mapGlobalVariablesToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapIncludeByTimestampFromNoir,
-  mapIncludeByTimestampToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -158,6 +155,7 @@ import {
   mapTupleFromNoir,
   mapTxContextFromNoir,
   mapTxContextToNoir,
+  mapU64ToNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
@@ -575,12 +573,12 @@ export function mapPrivateToPublicKernelCircuitPublicInputsToNoir(
 ): PrivateToPublicKernelCircuitPublicInputsNoir {
   return {
     constants: mapTxConstantDataToNoir(inputs.constants),
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     non_revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.nonRevertibleAccumulatedData),
     revertible_accumulated_data: mapPrivateToPublicAccumulatedDataToNoir(inputs.revertibleAccumulatedData),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -588,11 +586,11 @@ export function mapPrivateToRollupKernelCircuitPublicInputsToNoir(
   inputs: PrivateToRollupKernelCircuitPublicInputs,
 ): PrivateToRollupKernelCircuitPublicInputsNoir {
   return {
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapTxConstantDataToNoir(inputs.constants),
     end: mapPrivateToRollupAccumulatedDataToNoir(inputs.end),
     gas_used: mapGasToNoir(inputs.gasUsed),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    include_by_timestamp: mapU64ToNoir(inputs.includeByTimestamp),
   };
 }
 
@@ -960,20 +958,6 @@ export function mapBlockMergeRollupInputsToNoir(mergeRollupInputs: BlockMergeRol
   };
 }
 
-export function mapRollupValidationRequestsToNoir(
-  rollupValidationRequests: RollupValidationRequests,
-): RollupValidationRequestsNoir {
-  return {
-    include_by_timestamp: mapIncludeByTimestampToNoir(rollupValidationRequests.includeByTimestamp),
-  };
-}
-
-export function mapRollupValidationRequestsFromNoir(
-  rollupValidationRequests: RollupValidationRequestsNoir,
-): RollupValidationRequests {
-  return new RollupValidationRequests(mapIncludeByTimestampFromNoir(rollupValidationRequests.include_by_timestamp));
-}
-
 export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
   return RevertCode.fromField(mapFieldFromNoir(revertCode));
 }
@@ -987,9 +971,9 @@ export function mapPrivateToRollupKernelCircuitPublicInputsFromNoir(
 ) {
   return new PrivateToRollupKernelCircuitPublicInputs(
     mapTxConstantDataFromNoir(inputs.constants),
-    mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapPrivateToRollupAccumulatedDataFromNoir(inputs.end),
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapBigIntFromNoir(inputs.include_by_timestamp),
   );
 }

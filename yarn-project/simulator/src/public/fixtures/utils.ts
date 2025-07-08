@@ -19,7 +19,6 @@ import {
   PartialPrivateTailPublicInputsForPublic,
   PartialPrivateTailPublicInputsForRollup,
   PrivateKernelTailCircuitPublicInputs,
-  RollupValidationRequests,
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
@@ -117,12 +116,13 @@ export function createTxForPublicCalls(
   const header = BlockHeader.empty();
   header.globalVariables = globals;
   const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
+  const includeByTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    RollupValidationRequests.empty(),
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
+    includeByTimestamp,
     forPublic,
   );
 
@@ -145,12 +145,13 @@ export function createTxForPrivateOnly(feePayer = AztecAddress.zero(), gasUsedBy
   const gasSettings = new GasSettings(gasLimits, Gas.empty(), maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
   const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+  const includeByTimestamp = 0n; // Not used in the simulator.
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    RollupValidationRequests.empty(),
     /*gasUsed=*/ gasUsedByPrivate,
     feePayer,
+    includeByTimestamp,
     /*forPublic=*/ undefined,
     forRollup,
   );

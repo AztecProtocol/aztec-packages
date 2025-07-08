@@ -163,26 +163,30 @@ export class EthCheatCodes {
    * Enable interval mining at the given interval (block time)
    * @param seconds - The interval to use between blocks
    */
-  public async setIntervalMining(seconds: number): Promise<void> {
+  public async setIntervalMining(seconds: number, opts: { silent?: boolean } = {}): Promise<void> {
     try {
       await this.rpcCall('anvil_setIntervalMining', [seconds]);
     } catch (err) {
       throw new Error(`Error setting interval mining: ${err}`);
     }
-    this.logger.warn(`Set L1 interval mining to ${seconds} seconds`);
+    if (!opts.silent) {
+      this.logger.warn(`Set L1 interval mining to ${seconds} seconds`);
+    }
   }
 
   /**
    * Set the automine status of the underlying anvil chain
    * @param automine - The automine status to set
    */
-  public async setAutomine(automine: boolean): Promise<void> {
+  public async setAutomine(automine: boolean, opts: { silent?: boolean } = {}): Promise<void> {
     try {
       await this.rpcCall('anvil_setAutomine', [automine]);
     } catch (err) {
       throw new Error(`Error setting automine: ${err}`);
     }
-    this.logger.warn(`Set L1 automine to ${automine}`);
+    if (!opts.silent) {
+      this.logger.warn(`Set L1 automine to ${automine}`);
+    }
   }
 
   /**
@@ -227,7 +231,7 @@ export class EthCheatCodes {
       if (opts.resetBlockInterval) {
         blockInterval = await this.getIntervalMining();
         if (blockInterval !== null) {
-          await this.setIntervalMining(0);
+          await this.setIntervalMining(0, { silent: true });
         }
       }
       // Set the timestamp of the next block to be mined
@@ -241,7 +245,7 @@ export class EthCheatCodes {
     } finally {
       // Restore interval mining so the next block is mined in `blockInterval` seconds from this one
       if (opts.resetBlockInterval && blockInterval !== null && blockInterval > 0) {
-        await this.setIntervalMining(blockInterval);
+        await this.setIntervalMining(blockInterval, { silent: true });
       }
     }
     if (!opts.silent) {
@@ -422,11 +426,11 @@ export class EthCheatCodes {
     const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
     try {
       if (blockInterval !== null) {
-        await this.setIntervalMining(0);
+        await this.setIntervalMining(0, { silent: true });
       }
 
       if (wasAutoMining) {
-        await this.setAutomine(false);
+        await this.setAutomine(false, { silent: true });
       }
 
       await fn();
@@ -434,7 +438,7 @@ export class EthCheatCodes {
       try {
         // restore automine if necessary
         if (wasAutoMining) {
-          await this.setAutomine(true);
+          await this.setAutomine(true, { silent: true });
         }
       } catch (err) {
         this.logger.warn(`Failed to reenable automining: ${err}`);
@@ -443,7 +447,7 @@ export class EthCheatCodes {
       try {
         // restore automine if necessary
         if (blockInterval !== null) {
-          await this.setIntervalMining(blockInterval);
+          await this.setIntervalMining(blockInterval, { silent: true });
         }
       } catch (err) {
         this.logger.warn(`Failed to reenable interval mining: ${err}`);

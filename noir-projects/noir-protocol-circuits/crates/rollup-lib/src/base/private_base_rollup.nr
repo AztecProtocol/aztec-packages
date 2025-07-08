@@ -1055,11 +1055,11 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with = "kernel include_by_timestamp is smaller than timestamp")]
+    #[test(should_fail_with = "tx include_by_timestamp is smaller than block timestamp")]
     unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.timestamp = 42;
-        builder.tube_data.set_include_by_timestamp(5);
+        builder.tube_data.include_by_timestamp = 5;
         builder.fails();
     }
 
@@ -1067,7 +1067,7 @@ mod tests {
     unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.timestamp = 42;
-        builder.tube_data.set_include_by_timestamp(42);
+        builder.tube_data.include_by_timestamp = 42;
         builder.succeeds();
     }
 
@@ -1075,7 +1075,7 @@ mod tests {
     unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.timestamp = 42;
-        builder.tube_data.set_include_by_timestamp(4294967295);
+        builder.tube_data.include_by_timestamp = 4294967295;
         builder.succeeds();
     }
 

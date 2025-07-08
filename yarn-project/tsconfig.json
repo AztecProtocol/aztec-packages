@@ -30,7 +30,6 @@
     { "path": "aztec-node/tsconfig.json" },
     { "path": "validator-client/tsconfig.json" },
     { "path": "bb-prover/tsconfig.json" },
-    { "path": "noir-bb-bench/tsconfig.json" },
     { "path": "bot/tsconfig.json" },
     { "path": "constants/tsconfig.json" },
     { "path": "blob-lib/tsconfig.json" },

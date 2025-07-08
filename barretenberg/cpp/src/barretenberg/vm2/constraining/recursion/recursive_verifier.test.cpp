@@ -19,7 +19,7 @@ namespace bb::avm2::constraining {
 
 class AvmRecursiveTests : public ::testing::Test {
   public:
-    using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
+    using RecursiveFlavor = AvmRecursiveFlavor;
     using InnerProver = AvmProvingHelper;
     using InnerVerifier = AvmVerifier;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
@@ -43,7 +43,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
         InnerProver prover;
         const auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = prover.create_verification_key(vk_data);
+        const auto verification_key = InnerProver::create_verification_key(vk_data);
         InnerVerifier verifier(verification_key);
 
         const auto public_inputs_cols = public_inputs.to_columns();
@@ -134,14 +134,14 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->get_precomputed());
         OuterProver ultra_prover(ultra_instance, verification_key);
         return ultra_prover.construct_proof();
     }();
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
-    auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+    auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->get_precomputed());
     OuterVerifier ultra_verifier(ultra_verification_key);
     EXPECT_TRUE(ultra_verifier.verify_proof(outer_proof)) << "outer/recursion proof verification failed";
 }
@@ -157,7 +157,8 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
+    using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
+    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
@@ -216,17 +217,19 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+        auto verification_key =
+            std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
         UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
-    auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+    auto outer_verification_key =
+        std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
-    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
+    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->ipa_proof));
 }
 
 } // namespace bb::avm2::constraining

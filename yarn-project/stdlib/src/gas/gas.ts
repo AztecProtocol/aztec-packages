@@ -28,6 +28,10 @@ export class Gas {
       .transform(Gas.from);
   }
 
+  getSize() {
+    return 4 /* daGas */ + 4 /* l2Gas */;
+  }
+
   clone(): Gas {
     return new Gas(this.daGas, this.l2Gas);
   }

@@ -4,15 +4,14 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "../../circuit_builders/circuit_builders.hpp"
+#include "../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
 using namespace bb;
 
 namespace bb::stdlib {
 
-template <typename Builder, typename Native>
-bool_t<Builder> uint_plookup<Builder, Native>::operator>(const uint_plookup& other) const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator>(const uint& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
 
@@ -40,26 +39,22 @@ bool_t<Builder> uint_plookup<Builder, Native>::operator>(const uint_plookup& oth
     return result;
 }
 
-template <typename Builder, typename Native>
-bool_t<Builder> uint_plookup<Builder, Native>::operator<(const uint_plookup& other) const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator<(const uint& other) const
 {
     return other > *this;
 }
 
-template <typename Builder, typename Native>
-bool_t<Builder> uint_plookup<Builder, Native>::operator>=(const uint_plookup& other) const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator>=(const uint& other) const
 {
     return (!(other > *this)).normalize();
 }
 
-template <typename Builder, typename Native>
-bool_t<Builder> uint_plookup<Builder, Native>::operator<=(const uint_plookup& other) const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator<=(const uint& other) const
 {
     return (!(*this > other)).normalize();
 }
 
-template <typename Builder, typename Native>
-bool_t<Builder> uint_plookup<Builder, Native>::operator==(const uint_plookup& other) const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator==(const uint& other) const
 {
     // casting to a field type will ensure that lhs / rhs are both normalized
     const field_t<Builder> lhs = static_cast<field_t<Builder>>(*this);
@@ -68,23 +63,22 @@ bool_t<Builder> uint_plookup<Builder, Native>::operator==(const uint_plookup& ot
     return (lhs == rhs).normalize();
 }
 
-template <typename Builder, typename Native>
-bool_t<Builder> uint_plookup<Builder, Native>::operator!=(const uint_plookup& other) const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator!=(const uint& other) const
 {
     return (!(*this == other)).normalize();
 }
 
-template <typename Builder, typename Native> bool_t<Builder> uint_plookup<Builder, Native>::operator!() const
+template <typename Builder, typename Native> bool_t<Builder> uint<Builder, Native>::operator!() const
 {
     return (field_t<Builder>(*this).is_zero()).normalize();
 }
 
-template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint64_t>;
+template class uint<bb::UltraCircuitBuilder, uint8_t>;
+template class uint<bb::MegaCircuitBuilder, uint8_t>;
+template class uint<bb::UltraCircuitBuilder, uint16_t>;
+template class uint<bb::MegaCircuitBuilder, uint16_t>;
+template class uint<bb::UltraCircuitBuilder, uint32_t>;
+template class uint<bb::MegaCircuitBuilder, uint32_t>;
+template class uint<bb::UltraCircuitBuilder, uint64_t>;
+template class uint<bb::MegaCircuitBuilder, uint64_t>;
 } // namespace bb::stdlib

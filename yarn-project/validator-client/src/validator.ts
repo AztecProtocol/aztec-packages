@@ -80,7 +80,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private previousProposal?: BlockProposal;
 
   private myAddresses: EthAddress[];
-  private lastEpoch: bigint | undefined;
+  private lastEpochForCommitteeUpdateLoop: bigint | undefined;
   private epochCacheUpdateLoop: RunningPromise;
 
   private blockProposalValidator: BlockProposalValidator;
@@ -119,12 +119,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private async handleEpochCommitteeUpdate() {
     try {
-      const { committee, epoch } = await this.epochCache.getCommittee('now');
+      const { committee, epoch } = await this.epochCache.getCommittee('next');
       if (!committee) {
         this.log.trace(`No committee found for slot`);
         return;
       }
-      if (epoch !== this.lastEpoch) {
+      if (epoch !== this.lastEpochForCommitteeUpdateLoop) {
         const me = this.myAddresses;
         const committeeSet = new Set(committee.map(v => v.toString()));
         const inCommittee = me.filter(a => committeeSet.has(a.toString()));
@@ -137,7 +137,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
             `Validators ${me.map(a => a.toString()).join(', ')} are not on the validator committee for epoch ${epoch}`,
           );
         }
-        this.lastEpoch = epoch;
+        this.lastEpochForCommitteeUpdateLoop = epoch;
       }
     } catch (err) {
       this.log.error(`Error updating epoch committee`, err);
@@ -183,6 +183,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.getAddresses();
   }
 
+  public signWithAddress(addr: EthAddress, msg: Buffer32) {
+    return this.keyStore.signWithAddress(addr, msg);
+  }
+
   public configureSlashing(
     config: Partial<
       Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>
@@ -200,7 +204,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const myAddresses = this.keyStore.getAddresses();
 
-    const inCommittee = await this.epochCache.filterInCommittee(myAddresses);
+    const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
     if (inCommittee.length > 0) {
       this.log.info(
         `Started validator with addresses in current validator committee: ${inCommittee.map(a => a.toString()).join(', ')}`,
@@ -223,12 +227,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
-    const slotNumber = proposal.slotNumber.toNumber();
+    const slotNumber = proposal.slotNumber.toBigInt();
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
     // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.keyStore.getAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
@@ -514,7 +518,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const proposalId = proposal.archive.toString();
     // adds attestations for all of my addresses locally
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
     await this.doAttestToProposal(proposal, inCommittee);
 
     const myAddresses = this.keyStore.getAddresses();

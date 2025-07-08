@@ -31,12 +31,9 @@ unconstrained fn main() {
         Auth::at(auth_contract_address).set_authorized(to_authorize).call(&mut env.public());
         env.advance_block_by(1);
 
-        let scheduled_authorized =
+        let (scheduled_authorized, timestamp_of_change) =
             Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
         assert_eq(scheduled_authorized, to_authorize);
-        let timestamp_of_change = Auth::at(auth_contract_address)
-            .get_scheduled_authorized_timestamp()
-            .view(&mut env.public());
         assert_eq(timestamp_of_change, expected_timestamp_of_first_change);
     };
     admin_sets_authorized();
@@ -107,12 +104,9 @@ unconstrained fn main() {
         Auth::at(auth_contract_address).set_authorized(other).call(&mut env.public());
         env.advance_block_by(1);
 
-        let scheduled_authorized =
+        let (scheduled_authorized, timestamp_of_change) =
             Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
         assert_eq(scheduled_authorized, other);
-        let timestamp_of_change = Auth::at(auth_contract_address)
-            .get_scheduled_authorized_timestamp()
-            .view(&mut env.public());
         assert_eq(timestamp_of_change, expected_timestamp_of_second_change);
 
         // We have not yet crossed the timestamp of change, so the authorized address is still set to `to_authorize`

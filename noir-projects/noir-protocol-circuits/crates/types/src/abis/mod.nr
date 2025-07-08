@@ -29,8 +29,6 @@ pub mod public_data_write;
 pub mod accumulated_data;
 pub mod validation_requests;
 
-pub mod include_by_timestamp;
-
 pub mod private_kernel;
 pub mod kernel_circuit_public_inputs;
 pub mod private_kernel_data;

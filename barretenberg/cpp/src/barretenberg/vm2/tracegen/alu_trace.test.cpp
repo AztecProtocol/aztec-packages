@@ -34,24 +34,24 @@ TEST(AluTraceGenTest, TraceGenerationBasicAddU32)
         },
         trace);
 
-    EXPECT_THAT(
-        trace.as_rows(),
-        ElementsAre(
-            // Only one row.
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
-                  ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
-                  ROW_FIELD_EQ(alu_ia, 1),
-                  ROW_FIELD_EQ(alu_ib, 2),
-                  ROW_FIELD_EQ(alu_ic, 3),
-                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U32)),
-                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U32)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U32)),
-                  ROW_FIELD_EQ(alu_cf, 0),
-                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U32)),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // Only one row.
+                    AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                          ROW_FIELD_EQ(alu_sel, 1),
+                          ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                          ROW_FIELD_EQ(alu_ia, 1),
+                          ROW_FIELD_EQ(alu_ib, 2),
+                          ROW_FIELD_EQ(alu_ic, 3),
+                          ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U32)),
+                          ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U32)),
+                          ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U32)),
+                          ROW_FIELD_EQ(alu_cf, 0),
+                          ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U32)),
+                          ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U32)),
+                          ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                          ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                          ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddU1)
@@ -72,37 +72,37 @@ TEST(AluTraceGenTest, TraceGenerationAddU1)
         },
         trace);
 
-    EXPECT_THAT(
-        trace.as_rows(),
-        ElementsAre(
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
-                  ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
-                  ROW_FIELD_EQ(alu_ia, 1),
-                  ROW_FIELD_EQ(alu_ib, 0),
-                  ROW_FIELD_EQ(alu_ic, 1),
-                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U1)),
-                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U1)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
-                  ROW_FIELD_EQ(alu_cf, 0),
-                  ROW_FIELD_EQ(alu_max_value, 1),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
-                  ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
-                  ROW_FIELD_EQ(alu_ia, 1),
-                  ROW_FIELD_EQ(alu_ib, 1),
-                  ROW_FIELD_EQ(alu_ic, 0),
-                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U1)),
-                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U1)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
-                  ROW_FIELD_EQ(alu_cf, 1),
-                  ROW_FIELD_EQ(alu_max_value, 1),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                                  ROW_FIELD_EQ(alu_ia, 1),
+                                  ROW_FIELD_EQ(alu_ib, 0),
+                                  ROW_FIELD_EQ(alu_ic, 1),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_cf, 0),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+                            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                                  ROW_FIELD_EQ(alu_ia, 1),
+                                  ROW_FIELD_EQ(alu_ib, 1),
+                                  ROW_FIELD_EQ(alu_ic, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_cf, 1),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddU128)
@@ -125,37 +125,37 @@ TEST(AluTraceGenTest, TraceGenerationAddU128)
         },
         trace);
 
-    EXPECT_THAT(
-        trace.as_rows(),
-        ElementsAre(
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
-                  ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
-                  ROW_FIELD_EQ(alu_ia, 1),
-                  ROW_FIELD_EQ(alu_ib, 2),
-                  ROW_FIELD_EQ(alu_ic, 3),
-                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_cf, 0),
-                  ROW_FIELD_EQ(alu_max_value, u128_max),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
-                  ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
-                  ROW_FIELD_EQ(alu_ia, u128_max),
-                  ROW_FIELD_EQ(alu_ib, 4),
-                  ROW_FIELD_EQ(alu_ic, 3),
-                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_cf, 1),
-                  ROW_FIELD_EQ(alu_max_value, u128_max),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
-                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                                  ROW_FIELD_EQ(alu_ia, 1),
+                                  ROW_FIELD_EQ(alu_ib, 2),
+                                  ROW_FIELD_EQ(alu_ic, 3),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_cf, 0),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_max_value, u128_max),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+                            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                                  ROW_FIELD_EQ(alu_ia, u128_max),
+                                  ROW_FIELD_EQ(alu_ib, 4),
+                                  ROW_FIELD_EQ(alu_ic, 3),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_cf, 1),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                                  ROW_FIELD_EQ(alu_max_value, u128_max),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddTagError)
@@ -179,35 +179,158 @@ TEST(AluTraceGenTest, TraceGenerationAddTagError)
 
     EXPECT_THAT(
         trace.as_rows(),
+        ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                          ROW_FIELD_EQ(alu_sel, 1),
+                          ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                          ROW_FIELD_EQ(alu_ia, 1),
+                          ROW_FIELD_EQ(alu_ib, 2),
+                          ROW_FIELD_EQ(alu_ic, 3),
+                          ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U64)),
+                          ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_cf, 0),
+                          ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                          ROW_FIELD_EQ(alu_sel_tag_err, 1),
+                          ROW_FIELD_EQ(
+                              alu_ab_tags_diff_inv,
+                              FF(static_cast<uint8_t>(ValueTag::U128) - static_cast<uint8_t>(ValueTag::U64)).invert())),
+                    AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+                          ROW_FIELD_EQ(alu_sel, 1),
+                          ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_ADD),
+                          ROW_FIELD_EQ(alu_ia, 1),
+                          ROW_FIELD_EQ(alu_ib, 2),
+                          ROW_FIELD_EQ(alu_ic, 3),
+                          ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U64)),
+                          ROW_FIELD_EQ(alu_cf, 0),
+                          ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U128)),
+                          ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                          ROW_FIELD_EQ(alu_sel_tag_err,
+                                       0)) // Incorrect c tag does not create a tag error (see C_TAG_CHECK)
+                    ));
+}
+
+TEST(AluTraceGenTest, TraceGenerationLTU128)
+{
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    uint128_t u128_max = static_cast<uint128_t>(get_tag_max_value(ValueTag::U128));
+    builder.process(
+        {
+            { .operation = AluOperation::LT,
+              .a = MemoryValue::from<uint128_t>(1),
+              .b = MemoryValue::from<uint128_t>(2),
+              .c = MemoryValue::from<uint1_t>(1) },
+            { .operation = AluOperation::LT,
+              .a = MemoryValue::from<uint128_t>(u128_max),
+              .b = MemoryValue::from<uint128_t>(4),
+              .c = MemoryValue::from<uint1_t>(0) },
+        },
+        trace);
+
+    EXPECT_THAT(
+        trace.as_rows(),
         ElementsAre(
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
+            AllOf(ROW_FIELD_EQ(alu_sel_op_lt, 1),
                   ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
+                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LT),
                   ROW_FIELD_EQ(alu_ia, 1),
                   ROW_FIELD_EQ(alu_ib, 2),
-                  ROW_FIELD_EQ(alu_ic, 3),
-                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U64)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_cf, 0),
-                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 1),
-                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 1)), // = inv(a_tag - b_tag) = inv(1) = 1
-            AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
-                  ROW_FIELD_EQ(alu_sel, 1),
-                  ROW_FIELD_EQ(alu_op_id,
-                               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id)),
-                  ROW_FIELD_EQ(alu_ia, 1),
-                  ROW_FIELD_EQ(alu_ib, 2),
-                  ROW_FIELD_EQ(alu_ic, 3),
+                  ROW_FIELD_EQ(alu_ic, 1),
                   ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
                   ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U64)),
+                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
                   ROW_FIELD_EQ(alu_cf, 0),
-                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::U128)),
-                  ROW_FIELD_EQ(alu_sel_tag_err, 0)) // Incorrect c tag does not create a tag error (see C_TAG_CHECK)
-            ));
+                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_max_value, u128_max),
+                  ROW_FIELD_EQ(alu_lt_abs_diff, 0),
+                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                  ROW_FIELD_EQ(alu_sel_ff_lt, 0),
+                  ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                               FF(static_cast<uint8_t>(ValueTag::U128) - static_cast<uint8_t>(ValueTag::FF)).invert()),
+                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+            AllOf(ROW_FIELD_EQ(alu_sel_op_lt, 1),
+                  ROW_FIELD_EQ(alu_sel, 1),
+                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LT),
+                  ROW_FIELD_EQ(alu_ia, u128_max),
+                  ROW_FIELD_EQ(alu_ib, 4),
+                  ROW_FIELD_EQ(alu_ic, 0),
+                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                  ROW_FIELD_EQ(alu_cf, 0),
+                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_max_value, u128_max),
+                  ROW_FIELD_EQ(alu_lt_abs_diff, u128_max - 4),
+                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                  ROW_FIELD_EQ(alu_sel_ff_lt, 0),
+                  ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                               FF(static_cast<uint8_t>(ValueTag::U128) - static_cast<uint8_t>(ValueTag::FF)).invert()),
+                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+}
+
+TEST(AluTraceGenTest, TraceGenerationLTFF)
+{
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    builder.process(
+        {
+            { .operation = AluOperation::LT,
+              .a = MemoryValue::from<FF>(1),
+              .b = MemoryValue::from<FF>(2),
+              .c = MemoryValue::from<uint1_t>(1) },
+            { .operation = AluOperation::LT,
+              .a = MemoryValue::from<FF>(FF::modulus - 3),
+              .b = MemoryValue::from<FF>(4),
+              .c = MemoryValue::from<uint1_t>(0) },
+        },
+        trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_lt, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LT),
+                                  ROW_FIELD_EQ(alu_ia, 1),
+                                  ROW_FIELD_EQ(alu_ib, 2),
+                                  ROW_FIELD_EQ(alu_ic, 1),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_cf, 0),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_lt_abs_diff, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_ff_lt, 1),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+                            AllOf(ROW_FIELD_EQ(alu_sel_op_lt, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LT),
+                                  ROW_FIELD_EQ(alu_ia, FF::modulus - 3),
+                                  ROW_FIELD_EQ(alu_ib, 4),
+                                  ROW_FIELD_EQ(alu_ic, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_cf, 0),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_lt_abs_diff, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_ff_lt, 1),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 } // namespace
 } // namespace bb::avm2::tracegen

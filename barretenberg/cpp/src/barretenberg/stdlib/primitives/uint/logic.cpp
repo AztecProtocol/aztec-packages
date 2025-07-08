@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "../../circuit_builders/circuit_builders.hpp"
+#include "../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
 using namespace bb;
@@ -14,37 +14,36 @@ namespace bb::stdlib {
 using namespace bb::plookup;
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator&(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator&(const uint& other) const
 {
     return logic_operator(other, LogicOp::AND);
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator^(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator^(const uint& other) const
 {
     return logic_operator(other, LogicOp::XOR);
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator|(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator|(const uint& other) const
 {
     return (*this + other) - (*this & other);
 }
 
-template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator~() const
+template <typename Builder, typename Native> uint<Builder, Native> uint<Builder, Native>::operator~() const
 {
-    return uint_plookup(context, MASK) - *this;
+    return uint(context, MASK) - *this;
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator>>(const size_t shift) const
+uint<Builder, Native> uint<Builder, Native>::operator>>(const size_t shift) const
 {
     if (shift >= width) {
-        return uint_plookup(context, 0);
+        return uint(context, 0);
     }
     if (is_constant()) {
-        return uint_plookup(context, (additive_constant >> shift) & MASK);
+        return uint(context, (additive_constant >> shift) & MASK);
     }
 
     if (witness_status != WitnessStatus::OK) {
@@ -93,20 +92,20 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator>>(const si
     }
 
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
-    uint_plookup result(context);
+    uint result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
     return result;
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator<<(const size_t shift) const
+uint<Builder, Native> uint<Builder, Native>::operator<<(const size_t shift) const
 {
     if (shift >= width) {
-        return uint_plookup(context, 0);
+        return uint(context, 0);
     }
     if (is_constant()) {
-        return uint_plookup(context, (additive_constant << shift) & MASK);
+        return uint(context, (additive_constant << shift) & MASK);
     }
 
     if (witness_status != WitnessStatus::OK) {
@@ -164,14 +163,14 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator<<(const si
     }
 
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
-    uint_plookup result(context);
+    uint result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
     return result;
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::ror(const size_t target_rotation) const
+uint<Builder, Native> uint<Builder, Native>::ror(const size_t target_rotation) const
 {
     const size_t rotation = target_rotation & (width - 1);
 
@@ -182,7 +181,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::ror(const size_t ta
     };
 
     if (is_constant()) {
-        return uint_plookup(context, rotate(additive_constant, rotation));
+        return uint(context, rotate(additive_constant, rotation));
     }
 
     if (witness_status != WitnessStatus::OK) {
@@ -240,21 +239,20 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::ror(const size_t ta
     sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) * field_t<Builder>(coefficient));
 
     uint32_t result_index = field_t<Builder>::accumulate(sublimbs).get_witness_index();
-    uint_plookup result(context);
+    uint result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
     return result;
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::rol(const size_t target_rotation) const
+uint<Builder, Native> uint<Builder, Native>::rol(const size_t target_rotation) const
 {
     return ror(width - (target_rotation & (width - 1)));
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(const uint_plookup& other,
-                                                                            const LogicOp op_type) const
+uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, const LogicOp op_type) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
 
@@ -278,7 +276,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
     }
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Builder, Native>(ctx, out);
+        return uint<Builder, Native>(ctx, out);
     }
 
     ReadData<field_t<Builder>> lookup;
@@ -289,7 +287,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
         lookup = plookup_read<Builder>::get_lookup_accumulators(
             MultiTableId::UINT32_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
     }
-    uint_plookup<Builder, Native> result(ctx);
+    uint<Builder, Native> result(ctx);
     // result.accumulators.resize(num_accumulators());
     field_t<Builder> scaling_factor(context, bb::fr(1ULL << bits_per_limb));
 
@@ -331,13 +329,13 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(cons
     return result;
 }
 
-template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint64_t>;
+template class uint<bb::UltraCircuitBuilder, uint8_t>;
+template class uint<bb::MegaCircuitBuilder, uint8_t>;
+template class uint<bb::UltraCircuitBuilder, uint16_t>;
+template class uint<bb::MegaCircuitBuilder, uint16_t>;
+template class uint<bb::UltraCircuitBuilder, uint32_t>;
+template class uint<bb::MegaCircuitBuilder, uint32_t>;
+template class uint<bb::UltraCircuitBuilder, uint64_t>;
+template class uint<bb::MegaCircuitBuilder, uint64_t>;
 
 } // namespace bb::stdlib

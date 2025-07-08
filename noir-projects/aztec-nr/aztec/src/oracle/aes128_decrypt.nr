@@ -17,7 +17,7 @@ pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
 
 mod test {
     use crate::{
-        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
+        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe,
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use super::aes128_decrypt_oracle;
@@ -32,9 +32,9 @@ mod test {
     unconstrained fn aes_encrypt_then_decrypt() {
         let ciphertext_shared_secret = point_from_x_coord(1);
 
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
             ciphertext_shared_secret,
-        );
+        )[0];
 
         let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -85,9 +85,9 @@ mod test {
         // decryption has failed.
         let ciphertext_shared_secret = point_from_x_coord(1);
 
-        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256(
+        let (sym_key, iv) = derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_poseidon2_unsafe::<1>(
             ciphertext_shared_secret,
-        );
+        )[0];
 
         let mac_preimage = 0x42;
         let mac = Poseidon2::hash([mac_preimage], 1);

@@ -5,7 +5,6 @@ mod validate_min_revertible_side_effect_counter;
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        note_hash::ScopedNoteHash,
         private_call_request::PrivateCallRequest,
         private_kernel::private_call_data::PrivateCallData,
         public_call_request::PublicCallRequest,
@@ -18,7 +17,7 @@ use dep::types::{
     },
     traits::FromField,
     transaction::tx_request::TxRequest,
-    utils::arrays::{ClaimedLengthArray, find_index_hint},
+    utils::arrays::ClaimedLengthArray,
 };
 use validate_contract_address::validate_contract_address;
 use validate_min_revertible_side_effect_counter::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
@@ -99,11 +98,7 @@ impl PrivateCallDataValidator {
 
     /// Validate properties of the PrivateCallData, which are "common" to both
     /// the Init and Inner circuits.
-    pub fn validate_common<let N: u32>(
-        self,
-        accumulated_note_hashes: ClaimedLengthArray<ScopedNoteHash, N>,
-        protocol_contract_tree_root: Field,
-    ) {
+    pub fn validate_common(self, protocol_contract_tree_root: Field) {
         // Validate that the vk exists within the called contract address:
         validate_contract_address(self.data, protocol_contract_tree_root);
 
@@ -113,7 +108,6 @@ impl PrivateCallDataValidator {
         self.validate_public_call_requests();
 
         self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
-        self.validate_that_logs_of_notes_actually_point_to_notes(accumulated_note_hashes);
         self.validate_log_lengths();
     }
 
@@ -377,40 +371,6 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.public_call_requests,
         );
-    }
-
-    // TODO: maybe we can do this just once in the reset circuit, before siloing, when the contract address is set to 0.
-    fn validate_that_logs_of_notes_actually_point_to_notes<let N: u32>(
-        self,
-        accumulated_note_hashes: ClaimedLengthArray<ScopedNoteHash, N>,
-    ) {
-        let logs = self.data.public_inputs.private_logs;
-        let contract_address = self.data.public_inputs.call_context.contract_address;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            if log.note_hash_counter != 0 {
-                // Safety: the index is constrained by the checks below.
-                let note_index = unsafe {
-                    find_index_hint(
-                        accumulated_note_hashes.array,
-                        |n: ScopedNoteHash| n.counter() == log.note_hash_counter,
-                    )
-                };
-                assert(note_index.is_some(), "could not find note hash linked to note log");
-                let note_index = note_index.unwrap_unchecked();
-                let note_hash = accumulated_note_hashes.array[note_index];
-                assert_eq(
-                    log.note_hash_counter,
-                    note_hash.counter(),
-                    "could not find note hash linked to note log",
-                );
-                assert_eq(
-                    contract_address,
-                    note_hash.contract_address,
-                    "could not link a note log to a note hash in another contract",
-                );
-            }
-        }
     }
 
     fn validate_log_lengths(self) {

@@ -35,6 +35,7 @@ import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -74,6 +75,7 @@ export type SubsystemsContext = {
   proverNode?: ProverNode;
   watcher: AnvilTestWatcher;
   cheatCodes: CheatCodes;
+  sequencer: SequencerClient;
   dateProvider: TestDateProvider;
   blobSink: BlobSinkServer;
   initialFundedAccounts: InitialAccountData[];
@@ -472,6 +474,7 @@ async function setupFromFresh(
     anvil,
     aztecNode,
     pxe,
+    sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
     deployL1ContractsValues,
@@ -590,6 +593,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     anvil,
     aztecNode,
     pxe,
+    sequencer: aztecNode.getSequencer()!,
     acvmConfig,
     bbConfig,
     proverNode,

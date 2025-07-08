@@ -26,9 +26,9 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
         TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
         auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
         if (large) {
-            EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
+            EXPECT_EQ(proving_key->log_dyadic_size(), 19);
         } else {
-            EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
+            EXPECT_EQ(proving_key->log_dyadic_size(), 18);
         };
     };
     run_test(true);
@@ -45,7 +45,7 @@ TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
     GoblinMockCircuits::PairingPoints::add_default_to_public_inputs(app_circuit);
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
-    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
+    EXPECT_EQ(proving_key->log_dyadic_size(), 18);
 }
 
 TEST_F(MegaMockCircuitsPinning, AztecStructuredCircuitSize)
@@ -55,5 +55,5 @@ TEST_F(MegaMockCircuitsPinning, AztecStructuredCircuitSize)
     GoblinMockCircuits::PairingPoints::add_default_to_public_inputs(app_circuit);
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
-    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
+    EXPECT_EQ(proving_key->log_dyadic_size(), 18);
 }
