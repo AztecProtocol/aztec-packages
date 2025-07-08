@@ -87,6 +87,9 @@ impl TestEnvironment {
         let ret_value = f(&mut context);
 
         // merge calls below into 'exit public txe context' -> this mines a block
+        // 36 is the slot duration - for some reason we need to advance by at least this much in order to get a block to
+        // get mined. note that this may cause the block we just mined to not have the timestamp we thought it did - we
+        // need to test this.
         cheatcodes::advance_timestamp_by(36);
         cheatcodes::advance_blocks_by(1);
         cheatcodes::set_top_level_txe_context();
