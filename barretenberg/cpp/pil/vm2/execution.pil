@@ -275,6 +275,13 @@ sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error)
 // NOTE: Gas is constrained in gas.pil.
 // The "output we want is" sel_out_of_gas from gas.pil.
 
+// For bitwise, the tag determines the dynamic_l2_gas_factor
+#[DYN_L2_FACTOR_BITWISE]
+sel_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
+in
+precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+
+
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
  **************************************************************************************************/

@@ -86,10 +86,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 127;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2277;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2239;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2652;
+    static constexpr size_t NUM_ALL_ENTITIES = 2614;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -180,6 +180,7 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_deployment_nullifier_read_relation<FF_>,
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
+        lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_calldata_hashing_cd_hash_relation<FF_>,
         lookup_calldata_hashing_cd_hash_end_relation<FF_>,
@@ -196,6 +197,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
+        lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
