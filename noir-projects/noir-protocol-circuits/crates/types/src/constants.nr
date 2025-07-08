@@ -1043,6 +1043,8 @@ pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
+// AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)
+// +1 due to the tree prefill
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
     0x2870b93163d4fd6ada360fe48ee1e8e8e69308af34cdfaeffacbbe5929e2466d;
@@ -1076,7 +1078,8 @@ pub global GRUMPKIN_ONE_Y: Field = 176316838811849753701652558875517816157483885
 
 mod test {
     use crate::constants::{
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     };
 
     #[test]
@@ -1095,4 +1098,13 @@ mod test {
             std::embedded_curve_ops::EmbeddedCurvePoint::generator().y,
         );
     }
+
+    #[test]
+    unconstrained fn test_avm_written_public_data_slots_tree_height() {
+        assert_eq(
+            (1 << (AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT as u8)),
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1,
+        );
+    }
+
 }

@@ -5,6 +5,39 @@ include "../poseidon2_hash.pil";
 include "../constants_gen.pil";
 include "../precomputed.pil";
 
+// This gadget is used to track the public data slots that have been written in the TX.
+// It's a transient indexed tree that starts empty (with a prefill) on every transaction,
+// and it's discarded at the end of the transaction execution.
+// The leaves only contain the leaf slot (not the value) and the indexed tree pointers.
+//
+// Read usage:
+// sel {
+//     contract_address,
+//     slot,
+//     exists,
+//     written_slots_root
+// } in written_public_data_slots_tree_check.sel {
+//     written_public_data_slots_tree_check.address,
+//     written_public_data_slots_tree_check.slot,
+//     written_public_data_slots_tree_check.exists,
+//     written_public_data_slots_tree_check.root
+// };
+//
+// Write usage:
+// sel {
+//     contract_address,
+//     slot,
+//     sel,
+//     prev_written_slots_root,
+//     next_written_slots_root
+// } in written_public_data_slots_tree_check.sel {
+//     written_public_data_slots_tree_check.address,
+//     written_public_data_slots_tree_check.slot,
+//     written_public_data_slots_tree_check.write,
+//     written_public_data_slots_tree_check.root,
+//     written_public_data_slots_tree_check.write_root
+// };
+
 namespace written_public_data_slots_tree_check;
     pol commit sel;
     sel * (1 - sel) = 0;
