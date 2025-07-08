@@ -249,15 +249,13 @@ template <typename Field> struct FieldVM {
      * @brief Execute a single VM instruction
      *
      * @param data_ptr Pointer to the instruction data
-     * @param size_left Remaining data size
-     * @return size_t Number of bytes consumed by the instruction, or size_left if not enough data
+     * @return size_t Number of bytes consumed by the instruction
      *
      * @details This method parses and executes a single VM instruction. It handles
      * all supported field operations and maintains consistency between field and uint256_t
-     * representations. The method returns the number of bytes consumed, or the remaining
-     * size if insufficient data is available.
+     * representations. The method returns the number of bytes consumed.
      */
-    size_t execute_instruction(const unsigned char* data_ptr, size_t size_left)
+    size_t execute_instruction(const unsigned char* data_ptr)
     {
         /**
          * @brief Helper function to get an index from data with wraparound
@@ -322,9 +320,6 @@ template <typename Field> struct FieldVM {
         // Execute the instruction
         switch (instruction) {
         case Instruction::SET_VALUE:
-            if (size_left < SET_VALUE_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_set_value) {
                 return SET_VALUE_SIZE; // Skip disabled operation but return correct size
             }
@@ -340,9 +335,6 @@ template <typename Field> struct FieldVM {
             }
             return SET_VALUE_SIZE;
         case Instruction::ADD:
-            if (size_left < ADD_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_add) {
                 return ADD_SIZE; // Skip disabled operation but return correct size
             }
@@ -373,9 +365,6 @@ template <typename Field> struct FieldVM {
             }
             return ADD_SIZE;
         case Instruction::ADD_ASSIGN:
-            if (size_left < ADD_ASSIGN_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_add_assign) {
                 return ADD_ASSIGN_SIZE; // Skip disabled operation but return correct size
             }
@@ -399,9 +388,6 @@ template <typename Field> struct FieldVM {
             }
             return ADD_ASSIGN_SIZE;
         case Instruction::INCREMENT:
-            if (size_left < INCREMENT_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_increment) {
                 return INCREMENT_SIZE; // Skip disabled operation but return correct size
             }
@@ -423,9 +409,6 @@ template <typename Field> struct FieldVM {
             }
             return INCREMENT_SIZE;
         case Instruction::MUL:
-            if (size_left < MUL_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_mul) {
                 return MUL_SIZE; // Skip disabled operation but return correct size
             }
@@ -452,9 +435,6 @@ template <typename Field> struct FieldVM {
             }
             return MUL_SIZE;
         case Instruction::MUL_ASSIGN:
-            if (size_left < MUL_ASSIGN_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_mul_assign) {
                 return MUL_ASSIGN_SIZE; // Skip disabled operation but return correct size
             }
@@ -473,9 +453,6 @@ template <typename Field> struct FieldVM {
             }
             return MUL_ASSIGN_SIZE;
         case Instruction::SUB:
-            if (size_left < SUB_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_sub) {
                 return SUB_SIZE; // Skip disabled operation but return correct size
             }
@@ -508,9 +485,6 @@ template <typename Field> struct FieldVM {
             }
             return SUB_SIZE;
         case Instruction::SUB_ASSIGN:
-            if (size_left < SUB_ASSIGN_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_sub_assign) {
                 return SUB_ASSIGN_SIZE; // Skip disabled operation but return correct size
             }
@@ -535,9 +509,6 @@ template <typename Field> struct FieldVM {
             }
             return SUB_ASSIGN_SIZE;
         case Instruction::DIV:
-            if (size_left < DIV_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_div) {
                 return DIV_SIZE; // Skip disabled operation but return correct size
             }
@@ -569,9 +540,6 @@ template <typename Field> struct FieldVM {
             }
             return DIV_SIZE;
         case Instruction::DIV_ASSIGN:
-            if (size_left < DIV_ASSIGN_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_div_assign) {
                 return DIV_ASSIGN_SIZE; // Skip disabled operation but return correct size
             }
@@ -606,9 +574,6 @@ template <typename Field> struct FieldVM {
             }
             return DIV_ASSIGN_SIZE;
         case Instruction::INV:
-            if (size_left < INV_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_inv) {
                 return INV_SIZE; // Skip disabled operation but return correct size
             }
@@ -644,9 +609,6 @@ template <typename Field> struct FieldVM {
             }
             return INV_SIZE;
         case Instruction::NEG:
-            if (size_left < NEG_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_neg) {
                 return NEG_SIZE; // Skip disabled operation but return correct size
             }
@@ -669,9 +631,6 @@ template <typename Field> struct FieldVM {
             }
             return NEG_SIZE;
         case Instruction::SQR:
-            if (size_left < SQR_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_sqr) {
                 return SQR_SIZE; // Skip disabled operation but return correct size
             }
@@ -697,9 +656,6 @@ template <typename Field> struct FieldVM {
             }
             return SQR_SIZE;
         case Instruction::SQR_ASSIGN:
-            if (size_left < SQR_ASSIGN_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_sqr_assign) {
                 return SQR_ASSIGN_SIZE; // Skip disabled operation but return correct size
             }
@@ -724,9 +680,6 @@ template <typename Field> struct FieldVM {
             }
             return SQR_ASSIGN_SIZE;
         case Instruction::POW:
-            if (size_left < POW_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_pow) {
                 return POW_SIZE; // Skip disabled operation but return correct size
             }
@@ -759,9 +712,6 @@ template <typename Field> struct FieldVM {
             }
             return POW_SIZE;
         case Instruction::SQRT:
-            if (size_left < SQRT_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_sqrt || !SUPPORTS_SQRT) {
                 return SQRT_SIZE; // Skip disabled/unsupported operation but return correct size
             }
@@ -794,9 +744,6 @@ template <typename Field> struct FieldVM {
             }
             return SQRT_SIZE;
         case Instruction::IS_ZERO:
-            if (size_left < IS_ZERO_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_is_zero) {
                 return IS_ZERO_SIZE; // Skip disabled operation but return correct size
             }
@@ -810,9 +757,6 @@ template <typename Field> struct FieldVM {
             }
             return IS_ZERO_SIZE;
         case Instruction::EQUAL:
-            if (size_left < EQUAL_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_equal) {
                 return EQUAL_SIZE; // Skip disabled operation but return correct size
             }
@@ -833,9 +777,6 @@ template <typename Field> struct FieldVM {
             }
             return EQUAL_SIZE;
         case Instruction::NOT_EQUAL:
-            if (size_left < NOT_EQUAL_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_not_equal) {
                 return NOT_EQUAL_SIZE; // Skip disabled operation but return correct size
             }
@@ -856,9 +797,6 @@ template <typename Field> struct FieldVM {
             }
             return NOT_EQUAL_SIZE;
         case Instruction::TO_MONTGOMERY:
-            if (size_left < TO_MONTGOMERY_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_to_montgomery) {
                 return TO_MONTGOMERY_SIZE; // Skip disabled operation but return correct size
             }
@@ -882,9 +820,6 @@ template <typename Field> struct FieldVM {
             }
             return TO_MONTGOMERY_SIZE;
         case Instruction::FROM_MONTGOMERY:
-            if (size_left < FROM_MONTGOMERY_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_from_montgomery) {
                 return FROM_MONTGOMERY_SIZE; // Skip disabled operation but return correct size
             }
@@ -924,9 +859,6 @@ template <typename Field> struct FieldVM {
             }
             return FROM_MONTGOMERY_SIZE;
         case Instruction::REDUCE_ONCE:
-            if (size_left < REDUCE_ONCE_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_reduce_once) {
                 return REDUCE_ONCE_SIZE; // Skip disabled operation but return correct size
             }
@@ -943,9 +875,6 @@ template <typename Field> struct FieldVM {
             }
             return REDUCE_ONCE_SIZE;
         case Instruction::SELF_REDUCE:
-            if (size_left < SELF_REDUCE_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_self_reduce) {
                 return SELF_REDUCE_SIZE; // Skip disabled operation but return correct size
             }
@@ -959,9 +888,6 @@ template <typename Field> struct FieldVM {
             }
             return SELF_REDUCE_SIZE;
         case Instruction::BATCH_INVERT:
-            if (size_left < BATCH_INVERT_SIZE) {
-                return size_left;
-            }
             if (!settings.enable_batch_invert) {
                 return BATCH_INVERT_SIZE; // Skip disabled operation but return correct size
             }
@@ -1252,7 +1178,7 @@ template <typename Field> struct FieldVM {
         }
 
         // Execute the instruction using the existing logic
-        size_t consumed = execute_instruction(parsed.data.data(), parsed.size);
+        size_t consumed = execute_instruction(parsed.data.data());
         return consumed > 0;
     }
 
