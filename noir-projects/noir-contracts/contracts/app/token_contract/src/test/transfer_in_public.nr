@@ -1,7 +1,6 @@
 use crate::test::utils;
 use crate::Token;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{oracle::random::random, test::helpers::authwit::add_public_authwit_from_call_interface};
 
 #[test]
 unconstrained fn public_transfer() {
@@ -43,7 +42,7 @@ unconstrained fn public_transfer_on_behalf_of_other() {
     let transfer_amount = mint_amount / (10 as u128);
     let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
+    add_public_authwit_from_call_interface(
         owner,
         recipient,
         public_transfer_in_private_call_interface,
@@ -70,7 +69,7 @@ unconstrained fn public_transfer_failure_more_than_balance() {
     public_transfer_call_interface.call(&mut env.public());
 }
 
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, recipient, mint_amount) =
@@ -83,11 +82,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
         transfer_amount,
         random(),
     );
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        owner,
-        recipient,
-        public_transfer_call_interface,
-    );
+    add_public_authwit_from_call_interface(owner, recipient, public_transfer_call_interface);
     // Try to transfer tokens
     public_transfer_call_interface.call(&mut env.public());
 }
@@ -115,7 +110,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
     // docs:start:public_authwit
     let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
+    add_public_authwit_from_call_interface(
         owner,
         recipient,
         public_transfer_in_private_call_interface,
@@ -135,11 +130,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_wrong_caller() {
     let transfer_amount = mint_amount / (10 as u128);
     let public_transfer_in_private_call_interface =
         Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        owner,
-        owner,
-        public_transfer_in_private_call_interface,
-    );
+    add_public_authwit_from_call_interface(owner, owner, public_transfer_in_private_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens

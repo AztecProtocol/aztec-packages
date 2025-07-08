@@ -21,7 +21,6 @@ use dep::protocol_types::{
         function_selector::FunctionSelector,
         gas_settings::GasSettings,
         log_hash::LogHash,
-        max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
@@ -36,18 +35,19 @@ use dep::protocol_types::{
     block_header::BlockHeader,
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_ENQUEUED_CALLS_PER_CALL,
-        MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_CALL,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
+        MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Empty, Hash, ToField},
-    utils::arrays::array_concat,
+    utils::arrays::ClaimedLengthArray,
 };
 
 // When finished, one can call .finish() to convert back to the abi
+#[derive(Eq)]
 pub struct PrivateContext {
     // docs:start:private-context
     pub inputs: PrivateContextInputs,
@@ -59,7 +59,7 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: u64,
 
     pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
@@ -88,6 +88,8 @@ pub struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
+        let max_allowed_include_by_timestamp =
+            inputs.historical_header.global_variables.timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -95,7 +97,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: max_allowed_include_by_timestamp,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),
@@ -187,22 +189,28 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            max_block_number: self.max_block_number,
-            note_hash_read_requests: self.note_hash_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
-            key_validation_requests_and_generators: self
-                .key_validation_requests_and_generators
-                .storage(),
-            note_hashes: self.note_hashes.storage(),
-            nullifiers: self.nullifiers.storage(),
-            private_call_requests: self.private_call_requests.storage(),
-            public_call_requests: self.public_call_requests.storage(),
+            include_by_timestamp: self.include_by_timestamp,
+            note_hash_read_requests: ClaimedLengthArray::from_bounded_vec(
+                self.note_hash_read_requests,
+            ),
+            nullifier_read_requests: ClaimedLengthArray::from_bounded_vec(
+                self.nullifier_read_requests,
+            ),
+            key_validation_requests_and_generators: ClaimedLengthArray::from_bounded_vec(
+                self.key_validation_requests_and_generators,
+            ),
+            note_hashes: ClaimedLengthArray::from_bounded_vec(self.note_hashes),
+            nullifiers: ClaimedLengthArray::from_bounded_vec(self.nullifiers),
+            private_call_requests: ClaimedLengthArray::from_bounded_vec(self.private_call_requests),
+            public_call_requests: ClaimedLengthArray::from_bounded_vec(self.public_call_requests),
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
+            l2_to_l1_msgs: ClaimedLengthArray::from_bounded_vec(self.l2_to_l1_msgs),
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
-            private_logs: self.private_logs.storage(),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
+            private_logs: ClaimedLengthArray::from_bounded_vec(self.private_logs),
+            contract_class_logs_hashes: ClaimedLengthArray::from_bounded_vec(
+                self.contract_class_logs_hashes,
+            ),
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context,
         }
@@ -225,11 +233,10 @@ impl PrivateContext {
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
-    // docs:start:max-block-number
-    pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
-        // docs:end:max-block-number
-        self.max_block_number =
-            MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
+    // docs:start:include-by-timestamp
+    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
+        // docs:end:include-by-timestamp
+        self.include_by_timestamp = std::cmp::min(self.include_by_timestamp, include_by_timestamp);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -443,7 +450,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
@@ -455,7 +462,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
@@ -512,7 +519,7 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
     ) {
-        let calldata = array_concat([function_selector.to_field()], args);
+        let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
         self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)
@@ -559,7 +566,7 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),

@@ -67,12 +67,19 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
 
     MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
     MOCK_METHOD(TreeStates, get_tree_state, (), (const, override));
-    MOCK_METHOD(FF, storage_read, (const FF& key), (const, override));
-    MOCK_METHOD(void, storage_write, (const FF& key, const FF& value), (override));
-    MOCK_METHOD(bool, nullifier_exists, (const FF& nullifier), (const, override));
-    MOCK_METHOD(void, nullifier_write, (const FF& nullifier), (override));
-    MOCK_METHOD(void, note_hash_write, (const FF& note_hash), (override));
-    MOCK_METHOD(bool, note_hash_exists, (const FF& note_hash), (const, override));
+    MOCK_METHOD(FF, storage_read, (const AztecAddress& contract_address, const FF& slot), (const, override));
+    MOCK_METHOD(void,
+                storage_write,
+                (const AztecAddress& contract_address, const FF& slot, const FF& value, bool is_protocol_write),
+                (override));
+    MOCK_METHOD(bool, nullifier_exists, (const AztecAddress& contract_address, const FF& nullifier), (const, override));
+    MOCK_METHOD(bool, siloed_nullifier_exists, (const FF& nullifier), (const, override));
+    MOCK_METHOD(bool, nullifier_write, (const AztecAddress& contract_address, const FF& nullifier), (override));
+    MOCK_METHOD(bool, siloed_nullifier_write, (const FF& nullifier), (override));
+    MOCK_METHOD(FF, note_hash_read, (index_t leaf_index), (const, override));
+    MOCK_METHOD(void, note_hash_write, (const AztecAddress& contract_address, const FF& note_hash), (override));
+    MOCK_METHOD(void, siloed_note_hash_write, (const FF& note_hash), (override));
+    MOCK_METHOD(void, unique_note_hash_write, (const FF& note_hash), (override));
 
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));

@@ -1,3 +1,4 @@
+use dep::protocol_types::meta::derive_serialize;
 use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
@@ -44,6 +45,10 @@ pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
 
 pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
+}
+
+pub(crate) comptime fn fn_has_authorize_once(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("authorize_once")
 }
 
 /// Takes a function body as a collection of expressions, and alters it by prepending and appending quoted values.
@@ -176,7 +181,17 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"str<{str_len}>".quoted_contents()
     } else if typ.as_array().is_some() {
         let (element_type, array_len) = typ.as_array().unwrap();
-        let array_len = array_len.as_constant().unwrap();
+        let array_len = if array_len.as_constant().is_some() {
+            let const_len = array_len.as_constant().unwrap();
+            f"{const_len}".quoted_contents()
+        } else {
+            // If array length is not a constant, chances are it's a numeric generic
+            // This will make the signature of a type like Struct<N> be the same regardless
+            // of the value of N, but at least this fn will not crash. It is up to the caller
+            // to decide whether this is acceptable.
+            f"{array_len}".quoted_contents()
+        };
+
         let element_typ_quote = signature_of_type(element_type);
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_data_type().is_some() {
@@ -194,7 +209,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
     }
 }
 
-pub(crate) trait AsStrQuote {
+pub trait AsStrQuote {
     fn as_str_quote(self) -> (Self, u32);
 }
 
@@ -240,8 +255,11 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     unquote!(computation_quote)
 }
 
-pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
-    // The event selector is computed from the type signature of the struct in the event, similar to how one might type
+pub(crate) comptime fn compute_struct_selector(
+    s: TypeDefinition,
+    from_signature_fn: Quoted,
+) -> Field {
+    // The struct selector is computed from the type signature, similar to how one might type
     // the constructor function. For example, given:
     //
     // struct Foo {
@@ -250,7 +268,7 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     // }
     //
     // The signature will be "Foo(Field,AztecAddress)".
-    let event_name = s.name();
+    let struct_name = s.name();
     let args_signatures = s
         .fields_as_written()
         .map(|(_, typ, _)| {
@@ -259,11 +277,11 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
             signature_of_type(typ)
         })
         .join(quote {,});
-    let signature_quote = quote { $event_name($args_signatures) };
+    let signature_quote = quote { $struct_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::traits::ToField::to_field(protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote))
+        protocol_types::traits::ToField::to_field($from_signature_fn($signature_str_quote))
     };
     unquote!(computation_quote)
 }
@@ -275,8 +293,9 @@ pub(crate) comptime fn get_storage_size(typ: Type) -> u32 {
     // it may not be a constant (e.g. N + 1). We then bind it to the implementation of the Storage trait.
     let storage_size = std::meta::typ::fresh_type_variable();
     assert(
-        typ.implements(quote { crate::state_vars::Storage<$storage_size> }.as_trait_constraint()),
-        f"Attempted to fetch storage size, but {typ} does not implement the Storage trait",
+        typ.implements(quote { crate::state_vars::HasStorageSlot<$storage_size> }
+            .as_trait_constraint()),
+        f"Attempted to fetch storage size, but {typ} does not implement the HasStorageSlot trait",
     );
 
     storage_size.as_constant().unwrap()
@@ -388,4 +407,26 @@ comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
         }
         size
     })
+}
+
+/// Generates a quote that implements `Serialize` for a given struct `s`.
+/// If the struct already implements `Serialize`, we return an empty quote.
+pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
+    // We try to get the serialized length of the struct. If it does not implement `Serialize`, we get Option::none()
+    let serialized_len_typ = std::meta::typ::fresh_type_variable();
+    // We don't care about the result of the implements check. We just want to get the serialized length.
+    let _ = s.as_type().implements(
+        quote { crate::protocol_types::traits::Serialize<$serialized_len_typ> }.as_trait_constraint(),
+    );
+    let maybe_serialized_length = serialized_len_typ.as_constant();
+
+    if maybe_serialized_length.is_some() {
+        // We got some serialized length meaning that the struct implements `Serialize`. For this reason we return
+        // an empty quote for the implementation.
+        quote {}
+    } else {
+        // We didn't manage to get the serialized length which means the struct doesn't implement `Serialize`
+        // so we derive it.
+        derive_serialize(s)
+    }
 }

@@ -17,23 +17,20 @@
 
 namespace bb::avm2 {
 
-template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
-    Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_verification_key)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
+                                           const std::shared_ptr<NativeVerificationKey>& native_verification_key)
     : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
     , builder(builder)
 {}
 
-template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
+AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
     : key(vkey)
     , builder(builder)
 {}
 
 // Evaluate the given public input column over the multivariate challenge points
-template <typename Flavor>
-Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std::vector<FF>& points,
-                                                                       const std::vector<FF>& challenges)
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
+                                                                            const std::vector<FF>& challenges)
 {
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
@@ -49,11 +46,10 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
     return generic_evaluate_mle<FF>(challenges, coefficients);
 }
 
-template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
-    StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
+    StdlibProof stdlib_proof(builder, proof);
 
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_vec_nt.size());
@@ -72,22 +68,20 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 // TODO(#14234)[Unconditional PIs validation]: rename stdlib_proof_with_pi_flag to stdlib_proof
-template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
+AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
+    const stdlib::Proof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
-    using Transcript = typename Flavor::Transcript;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using stdlib::bool_t;
 
     // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
-    StdlibProof<Builder> stdlib_proof = stdlib_proof_with_pi_flag;
+    StdlibProof stdlib_proof = stdlib_proof_with_pi_flag;
     bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
     stdlib_proof.erase(stdlib_proof.begin());
 
@@ -95,7 +89,7 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript->load_proof(stdlib_proof);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
@@ -168,10 +162,5 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     return pairing_points;
 }
-
-// TODO: Once Goblinized version is mature, we can remove this one and we only to template
-// with MegaCircuitBuilder and therefore we can remove the templat in AvmRecursiveVerifier_.
-template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
-template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb::avm2

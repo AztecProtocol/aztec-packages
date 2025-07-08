@@ -18,14 +18,14 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
     stats?: ProvingStats,
   ) {
-    super(wallet, txProvingResult.toTx(), txProvingResult.getOffchainMessages(), stats);
+    super(wallet, txProvingResult.toTx(), txProvingResult.getOffchainEffects(), stats);
   }
 
   /**
    * Sends the transaction to the network via the provided wallet.
    */
   public override send(): DeploySentTx<TContract> {
-    const sendTx = () => this.wallet.sendTx(this.getPlainDataTx());
+    const sendTx = () => this.wallet.sendTx(this);
 
     return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, this.instanceGetter);
   }

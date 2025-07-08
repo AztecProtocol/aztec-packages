@@ -12,8 +12,8 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
+import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
@@ -30,6 +30,7 @@ import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
@@ -41,8 +42,10 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { EventValidationRequest } from './event_validation_request.js';
-import { NoteValidationRequest } from './note_validation_request.js';
+import { EventValidationRequest } from './noir-structs/event_validation_request.js';
+import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
+import { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 import type { ProxiedNode } from './proxied_node.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
@@ -219,21 +222,34 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Retrieve the databases view of the Block Header object.
-   * This structure is fed into the circuits simulator and is used to prove against certain historical roots.
-   *
-   * @returns A Promise that resolves to a BlockHeader object.
+   * Retrieve the latest block header synchronized by the PXE.
+   * @dev This structure is fed into the circuits simulator and is used to prove against certain historical roots.
+   * @returns The BlockHeader object.
+   * TODO: I think this naming is bad as it's not the latest block header synched by the node, but the latest block
+   * header synchronized by the PXE. Would rename this to something like getSynchronizedBlockHeader().
    */
   getBlockHeader(): Promise<BlockHeader> {
     return this.syncDataProvider.getBlockHeader();
   }
 
   /**
-   * Fetches the current block number.
+   * Fetches the latest block number synchronized by the node.
    * @returns The block number.
    */
   public async getBlockNumber(): Promise<number> {
     return await this.aztecNode.getBlockNumber();
+  }
+
+  /**
+   * Fetches the timestamp of the latest block synchronized by the node.
+   * @returns The timestamp.
+   */
+  public async getTimestamp(): Promise<UInt64> {
+    const latestBlockHeader = await this.aztecNode.getBlockHeader();
+    if (!latestBlockHeader) {
+      throw new Error('Latest block header not found when getting timestamp');
+    }
+    return latestBlockHeader.globalVariables.timestamp;
   }
 
   /**
@@ -640,8 +656,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     await Promise.all([...noteDeliveries, ...eventDeliveries]);
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
   }
 
   async deliverNote(
@@ -703,7 +719,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       siloedNullifier,
       txHash,
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
       uniqueNoteHashTreeIndexInBlock?.data,
       recipient,
     );
@@ -728,6 +744,62 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         nullifier: siloedNullifier.toString(),
       });
     }
+  }
+
+  public async bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ) {
+    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
+    const logRetrievalRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
+    ).map(LogRetrievalRequest.fromFields);
+
+    const maybeLogRetrievalResponses = await Promise.all(
+      logRetrievalRequests.map(async request => {
+        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
+        const [publicLog, privateLog] = await Promise.all([
+          this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
+          this.getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag)),
+        ]);
+
+        if (publicLog !== null) {
+          if (privateLog !== null) {
+            throw new Error(
+              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
+            );
+          }
+
+          return new LogRetrievalResponse(
+            publicLog.logPayload,
+            publicLog.txHash,
+            publicLog.uniqueNoteHashesInTx,
+            publicLog.firstNullifierInTx,
+          );
+        } else if (privateLog !== null) {
+          return new LogRetrievalResponse(
+            privateLog.logPayload,
+            privateLog.txHash,
+            privateLog.uniqueNoteHashesInTx,
+            privateLog.firstNullifierInTx,
+          );
+        } else {
+          null;
+        }
+      }),
+    );
+
+    // Requests are cleared once we're done.
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+
+    // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
+    await this.capsuleDataProvider.setCapsuleArray(
+      contractAddress,
+      logRetrievalResponsesArrayBaseSlot,
+      maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
+    );
   }
 
   async deliverEvent(
@@ -767,7 +839,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+  // TODO(#14555): delete this function and implement this behavior in the node instead
+  async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
@@ -800,7 +873,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  public async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+  // TODO(#14555): delete this function and implement this behavior in the node instead
+  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
     const logs = await this.#getPrivateLogsByTags([siloedTag]);
     const logsForTag = logs[0];
 
@@ -851,11 +925,24 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       }
 
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
-        syncedBlockNumber,
-        MerkleTreeId.NULLIFIER_TREE,
-        nullifiersToCheck,
+      const nullifierBatches = nullifiersToCheck.reduce(
+        (acc, nullifier) => {
+          if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+            acc[acc.length - 1].push(nullifier);
+          } else {
+            acc.push([nullifier]);
+          }
+          return acc;
+        },
+        [[]] as Fr[][],
       );
+      const nullifierIndexes = (
+        await Promise.all(
+          nullifierBatches.map(batch =>
+            this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+          ),
+        )
+      ).flat();
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {

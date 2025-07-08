@@ -1,5 +1,5 @@
-use dep::authwit::auth_witness;
 use dep::aztec::{
+    oracle::auth_witness,
     protocol_types::{address::PartialAddress, public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys}},
     utils::array,
 };

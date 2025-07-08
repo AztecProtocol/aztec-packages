@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
+import { Fr, type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
@@ -40,7 +40,7 @@ describe('e2e_p2p_reex', () => {
         enforceTimeTable: true,
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
-        aztecProofSubmissionWindow: 640,
+        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       },
     });
 
@@ -123,10 +123,10 @@ describe('e2e_p2p_reex', () => {
       jest.spyOn((node as any).p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
         // We remove one of the transactions, therefore the block root will be different!
         const proposal = args[0] as BlockProposal;
-        const { txHashes } = proposal.payload;
+        const txHashes = proposal.txHashes;
 
         // We need to mutate the proposal, so we cast to any
-        (proposal.payload as any).txHashes = txHashes.slice(0, txHashes.length - 1);
+        (proposal as any).txHashes = txHashes.slice(0, txHashes.length - 1);
 
         // We sign over the proposal using the node's signing key
         // Abusing javascript to access the nodes signing key
@@ -135,6 +135,7 @@ describe('e2e_p2p_reex', () => {
           proposal.blockNumber,
           proposal.payload,
           await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
+          proposal.txHashes,
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
@@ -193,7 +194,7 @@ describe('e2e_p2p_reex', () => {
     };
 
     it.each([
-      ['ReExStateMismatchError', new ReExStateMismatchError().message, interceptBroadcastProposal],
+      ['ReExStateMismatchError', new ReExStateMismatchError(Fr.ZERO, Fr.ZERO).message, interceptBroadcastProposal],
       ['ReExTimeoutError', new ReExTimeoutError().message, interceptTxProcessorWithTimeout],
       ['ReExFailedTxsError', new ReExFailedTxsError(1).message, interceptTxProcessorWithFailure],
     ])(

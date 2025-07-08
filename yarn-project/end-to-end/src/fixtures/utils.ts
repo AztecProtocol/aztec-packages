@@ -9,6 +9,7 @@ import {
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
+  AccountManager,
   type AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
@@ -21,26 +22,28 @@ import {
   createLogger,
   createPXEClient,
   makeFetch,
+  sleep,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  ForwarderContract,
   NULL_KEY,
   type Operator,
   createExtendedL1Client,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -54,7 +57,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import { type ProverNode, type ProverNodeConfig, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import {
   type PXEService,
   type PXEServiceConfig,
@@ -65,7 +68,11 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
-import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import {
+  type ContractInstanceWithAddress,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
+} from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
@@ -367,7 +374,7 @@ export async function setup(
 
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
-    config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
+    config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
@@ -413,21 +420,21 @@ export async function setup(
     }
 
     if (opts.l1StartTime) {
-      await ethCheatCodes.warp(opts.l1StartTime);
+      await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
 
     let publisherPrivKey = undefined;
     let publisherHdAccount = undefined;
 
-    if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+    if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+      config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
     }
 
     if (PXE_URL) {
@@ -449,6 +456,9 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(true);
     }
+
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
+    await deployMulticall3(l1Client, logger);
 
     const deployL1ContractsValues =
       opts.deployL1ContractsValues ??
@@ -499,7 +509,7 @@ export async function setup(
     if (opts.l2StartTime) {
       // This should only be used in synching test or when you need to have a stable
       // timestamp for the first l2 block.
-      await ethCheatCodes.warp(opts.l2StartTime);
+      await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
 
     const dateProvider = new TestDateProvider();
@@ -558,6 +568,20 @@ export async function setup(
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
+    // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
+    // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
+    // For account deployments, we set minTxsPerBlock=1 and deploy accounts sequentially for guaranteed success.
+    // If no accounts need deployment, we await an empty block to confirm network progression. After either path
+    // completes, we restore the original minTxsPerBlock setting. The deployment and waiting for empty block is
+    // handled by the if-else branches on line 632.
+    // For more details on why the tx would be dropped see `validate_include_by_timestamp` function in
+    // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    const originalMinTxsPerBlock = config.minTxsPerBlock;
+    if (originalMinTxsPerBlock === undefined) {
+      throw new Error('minTxsPerBlock is undefined in e2e test setup');
+    }
+    config.minTxsPerBlock = numberOfAccounts === 0 ? 0 : 1;
+
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
@@ -565,11 +589,15 @@ export async function setup(
       { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
-    const sequencer = aztecNode.getSequencer();
+    const sequencerClient = aztecNode.getSequencer();
 
-    if (sequencer) {
-      const publisher = (sequencer as TestSequencerClient).sequencer.publisher;
-      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
+    if (sequencerClient) {
+      const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(
+        publisher.l1TxUtils,
+        dateProvider,
+        config.ethereumSlotDuration,
+      );
     }
 
     let proverNode: ProverNode | undefined = undefined;
@@ -600,9 +628,27 @@ export async function setup(
       // We need to advance to epoch 2 such that the committee is set up.
       logger.info(`Advancing to epoch 2`);
       await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+      await cheatCodes.rollup.setupEpoch();
+      await cheatCodes.rollup.debugRollup();
     }
 
-    const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+    // Below we continue with what we described in the long comment on line 571.
+    let accountManagers: AccountManager[] = [];
+    if (numberOfAccounts === 0) {
+      logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
+      while ((await pxe.getBlockNumber()) === 0) {
+        await sleep(2000);
+      }
+    } else {
+      logger.info(
+        `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
+      );
+      accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+    }
+
+    // Now we restore the original minTxsPerBlock setting.
+    sequencerClient!.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+
     const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
       // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.
@@ -649,7 +695,7 @@ export async function setup(
       prefilledPublicData,
       proverNode,
       pxe,
-      sequencer,
+      sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
       wallet: wallets[0],
@@ -780,10 +826,21 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
+export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
+  return Promise.resolve(
+    getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+    }),
+  );
+}
+
+/**
+ * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * but by conventions its address is computed with a salt of 0.
+ * @returns The address of the sponsored FPC contract
+ */
 export async function getSponsoredFPCAddress() {
-  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
-    salt: new Fr(SPONSORED_FPC_SALT),
-  });
+  const sponsoredFPCInstance = await getSponsoredFPCInstance();
   return sponsoredFPCInstance.address;
 }
 
@@ -798,6 +855,14 @@ export async function setupSponsoredFPC(pxe: PXE) {
   await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
+}
+
+/**
+ * Registers the SponsoredFPC in this PXE instance
+ * @param pxe - The pxe client
+ */
+export async function registerSponsoredFPC(pxe: PXE): Promise<void> {
+  await pxe.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
@@ -815,13 +880,14 @@ export function createAndSyncProverNode(
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   proverNodeConfig: Partial<ProverNodeConfig> & Pick<DataStoreConfig, 'dataDirectory'>,
-  aztecNode: AztecNode,
+  aztecNode: AztecNode | undefined,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
+  proverNodeDeps: ProverNodeDeps = {},
 ) {
   return withLogNameSuffix('prover-node', async () => {
     // Disable stopping the aztec node as the prover coordination test will kill it otherwise
     // This is only required when stopping the prover node for testing
-    const aztecNodeTxProvider = {
+    const aztecNodeTxProvider = aztecNode && {
       getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
       getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
       stop: () => Promise.resolve(),
@@ -836,16 +902,17 @@ export function createAndSyncProverNode(
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {
       ...aztecNodeConfig,
-      proverCoordinationNodeUrls: [],
+      txCollectionNodeRpcUrls: [],
       realProofs: false,
       proverAgentCount: 2,
-      publisherPrivateKey: proverNodePrivateKey,
+      publisherPrivateKey: new SecretValue(proverNodePrivateKey),
       proverNodeMaxPendingJobs: 10,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 200,
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 10,
+      txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       ...proverNodeConfig,
     };
@@ -854,7 +921,7 @@ export function createAndSyncProverNode(
 
     const proverNode = await createProverNode(
       proverConfig,
-      { aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
+      { ...proverNodeDeps, aztecNodeTxProvider, archiver: archiver as Archiver, l1TxUtils },
       { prefilledPublicData },
     );
     getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.client.account!.address });
@@ -870,14 +937,4 @@ function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0
   const l1TxUtils = new DelayedTxUtils(l1Client, log, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
-}
-
-export async function createForwarderContract(
-  aztecNodeConfig: AztecNodeConfig,
-  privateKey: `0x${string}`,
-  rollupAddress: Hex,
-) {
-  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-  const forwarderContract = await ForwarderContract.create(l1Client, createLogger('forwarder'), rollupAddress);
-  return forwarderContract;
 }

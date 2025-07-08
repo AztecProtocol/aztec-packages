@@ -24,6 +24,7 @@ import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
@@ -75,7 +76,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
         address(rollup),
         initialTime,
         TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION
+        TestConstants.AZTEC_EPOCH_DURATION,
+        TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
       );
       vm.warp(initialTime);
     }
@@ -86,8 +88,11 @@ contract ValidatorSelectionTestBase is DecoderBase {
       initialValidators[i - 1] = createDepositArgs(i);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setEntryQueueFlushSizeMin(
-      _validatorCount
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+
+    RollupBuilder builder = new RollupBuilder(address(this)).setStakingQueueConfig(
+      stakingQueueConfig
     ).setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize);
     builder.deploy();
 

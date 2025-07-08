@@ -1,6 +1,9 @@
-import { elapsed } from '@aztec/aztec.js';
+import { MerkleTreeId, elapsed } from '@aztec/aztec.js';
+import { pick } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightBlockFactory } from '@aztec/prover-client/block-factory';
@@ -22,7 +25,6 @@ import type {
   PublicProcessorValidator,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -32,9 +34,9 @@ const log = createLogger('block-builder');
 
 export async function buildBlock(
   pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+  l1ToL2Messages: Fr[],
   newGlobalVariables: GlobalVariables,
   opts: PublicProcessorLimits = {},
-  l1ToL2MessageSource: L1ToL2MessageSource,
   worldStateFork: MerkleTreeWriteOperations,
   processor: PublicProcessor,
   validator: PublicProcessorValidator,
@@ -45,9 +47,9 @@ export async function buildBlock(
   const blockBuildingTimer = new Timer();
   const blockNumber = newGlobalVariables.blockNumber;
   const slot = newGlobalVariables.slotNumber.toBigInt();
-  log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
-  const l1ToL2Messages = await l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
   const msgCount = l1ToL2Messages.length;
+  const stateReference = await worldStateFork.getStateReference();
+  const archiveTree = await worldStateFork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
   log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
     slot,
@@ -55,6 +57,8 @@ export async function buildBlock(
     now: new Date(dateProvider.now()),
     blockNumber,
     msgCount,
+    initialStateReference: stateReference.toInspect(),
+    initialArchiveRoot: bufferToHex(archiveTree.root),
     opts,
   });
   const blockFactory = new LightweightBlockFactory(worldStateFork, telemetryClient);
@@ -87,25 +91,27 @@ export async function buildBlock(
 
 type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList'>;
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
 
 export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   constructor(
     private config: FullNodeBlockBuilderConfig,
-    private l1ToL2MessageSource: L1ToL2MessageSource,
     private worldState: WorldStateSynchronizer,
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
-  public getConfig() {
-    return {
-      l1GenesisTime: this.config.l1GenesisTime,
-      slotDuration: this.config.slotDuration,
-      l1ChainId: this.config.l1ChainId,
-      rollupVersion: this.config.rollupVersion,
-    };
+  public getConfig(): FullNodeBlockBuilderConfig {
+    return pick(
+      this.config,
+      'l1GenesisTime',
+      'slotDuration',
+      'l1ChainId',
+      'rollupVersion',
+      'txPublicSetupAllowList',
+      'fakeProcessingDelayPerTxMs',
+    );
   }
 
   public updateConfig(config: FullNodeBlockBuilderConfig) {
@@ -134,7 +140,10 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
+      undefined,
+      this.config,
     );
+
     const validator = createValidatorForBlockBuilding(
       fork,
       this.contractDataSource,
@@ -160,6 +169,7 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
 
   async buildBlock(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+    l1ToL2Messages: Fr[],
     globalVariables: GlobalVariables,
     opts: PublicProcessorLimits,
     suppliedFork?: MerkleTreeWriteOperations,
@@ -173,9 +183,9 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, fork);
       const res = await buildBlock(
         pendingTxs,
+        l1ToL2Messages,
         globalVariables,
         opts,
-        this.l1ToL2MessageSource,
         fork,
         processor,
         validator,

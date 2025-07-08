@@ -1,8 +1,5 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        tx_effect::TxEffect,
-    },
+    abis::{base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect},
     base::{
         components::{
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
@@ -23,7 +20,7 @@ use dep::types::{
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
+        NOTE_HASH_SUBTREE_HEIGHT,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -33,8 +30,6 @@ use dep::types::{
     partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
-
-global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -53,7 +48,7 @@ pub struct PrivateBaseRollupInputs {
 impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        tube_data_validator.validate_proof_and_vk();
         tube_data_validator.validate_with_block_constant_data(
             self.constants,
             self.archive_root_membership_witness,
@@ -129,7 +124,6 @@ impl PrivateBaseRollupInputs {
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
         BaseOrMergeRollupPublicInputs {
-            rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
             constants: self.constants,
             start: self.start,
@@ -172,7 +166,11 @@ impl PrivateBaseRollupInputs {
         read_hint.validate(self.start.public_data_tree.root);
 
         let balance = read_hint.value;
-        assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
+        assert_eq(
+            read_hint.leaf_slot,
+            leaf_slot,
+            "Wrong leaf slot for Fee Juice balance read hint",
+        );
         assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
         let value = compute_public_data_tree_value(balance - tx_fee);
@@ -219,9 +217,9 @@ mod tests {
             MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
             NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT,
-            PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX,
+            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOGS_PREFIX, PRIVATE_TUBE_VK_INDEX,
+            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
@@ -234,11 +232,12 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::get_sorted_tuple::get_sorted_tuple,
             field::{field_from_bytes, full_field_less_than},
         },
     };
 
+    #[derive(Eq)]
     struct NullifierInsertion {
         existing_index: u32,
         value: Field,
@@ -307,7 +306,8 @@ mod tests {
 
     impl PrivateBaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX).use_last_archive();
+            let mut tube_data =
+                FixtureBuilder::new().in_vk_tree(PRIVATE_TUBE_VK_INDEX).use_last_archive();
 
             let mut constants = BlockConstantData::empty();
             constants.global_variables.chain_id = fixtures::CHAIN_ID;
@@ -401,8 +401,7 @@ mod tests {
                 .map(|leaf_preimage: PublicDataTreeLeafPreimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 });
-            res.public_data_writes = array_concat(
-                all_public_data_update_requests,
+            res.public_data_writes = all_public_data_update_requests.concat(
                 [
                     PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
                         - PRE_EXISTING_PUBLIC_DATA_LEAVES
@@ -493,7 +492,7 @@ mod tests {
         // Exists separately to allow us to append correct log preimages and hashes
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+                log_fields.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
             self.contract_class_log_fields.push(padded_log_fields);
 
             let log_hash = compute_contract_class_log_hash(padded_log_fields);
@@ -824,10 +823,15 @@ mod tests {
         //   - Public data write prefix
         //   - 1 public data write (2 fields)
         tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                0,
+                tx_effects.len() as u8,
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -837,7 +841,7 @@ mod tests {
         // Transaction fee.
         let transaction_fee = builder.compute_transaction_fee();
         tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+            [TX_FEE_PREFIX, 0].concat(transaction_fee.to_be_bytes::<29>()),
             true,
         );
 
@@ -903,10 +907,8 @@ mod tests {
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
-        reconstructed_tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
-            true,
-        );
+        reconstructed_tx_effects[2] =
+            field_from_bytes([TX_FEE_PREFIX, 0].concat(tx_fee.to_be_bytes::<29>()), true);
         // notes
         let mut offset = 3;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
@@ -982,10 +984,15 @@ mod tests {
         // revert code = 0
         let length_bytes = (offset as Field).to_be_bytes::<2>();
         reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                length_bytes[0],
+                length_bytes[1],
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -1048,27 +1055,27 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with = "kernel max_block_number is smaller than block number")]
-    unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
+    #[test(should_fail_with = "tx include_by_timestamp is smaller than block timestamp")]
+    unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(5);
+        builder.constants.global_variables.timestamp = 42;
+        builder.tube_data.include_by_timestamp = 5;
         builder.fails();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_equal_max_block_number() {
+    unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(42);
+        builder.constants.global_variables.timestamp = 42;
+        builder.tube_data.include_by_timestamp = 42;
         builder.succeeds();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_larger_max_block_number() {
+    unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(4294967295);
+        builder.constants.global_variables.timestamp = 42;
+        builder.tube_data.include_by_timestamp = 4294967295;
         builder.succeeds();
     }
 

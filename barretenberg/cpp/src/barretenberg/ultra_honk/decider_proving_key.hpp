@@ -6,19 +6,19 @@
 
 #pragma once
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include <chrono>
 
@@ -54,7 +54,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
-    FF target_sum;
+    FF target_sum{ 0 };
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
     size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
 
@@ -93,7 +93,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
             if (block.size() > 0) {
-                final_active_wire_idx = block.trace_offset + block.size() - 1;
+                final_active_wire_idx = block.trace_offset() + block.size() - 1;
             }
         }
 
@@ -133,7 +133,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, proving_key, is_structured);
+        Trace::populate(circuit, proving_key);
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");

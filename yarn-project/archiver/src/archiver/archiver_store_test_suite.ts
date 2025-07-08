@@ -12,7 +12,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, L2Block, wrapInBlock } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, L2BlockHash, wrapInBlock } from '@aztec/stdlib/block';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -27,7 +27,7 @@ import {
   makeUtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { makeInboxMessage, makeInboxMessages } from '../test/mock_structs.js';
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
@@ -56,11 +56,13 @@ export function describeArchiverDataStore(
       [5, 2, () => blocks.slice(4, 6)],
     ];
 
+    const makeBlockHash = (blockNumber: number) => `0x${blockNumber.toString(16).padStart(64, '0')}`;
+
     const makePublished = (block: L2Block, l1BlockNumber: number): PublishedL2Block => ({
       block: block,
       l1: {
         blockNumber: BigInt(l1BlockNumber),
-        blockHash: `0x${l1BlockNumber}`,
+        blockHash: makeBlockHash(l1BlockNumber),
         timestamp: BigInt(l1BlockNumber * 1000),
       },
       attestations: times(3, CommitteeAttestation.random),
@@ -273,10 +275,10 @@ export function describeArchiverDataStore(
         () => ({ data: blocks[1].block.body.txEffects[0], block: blocks[1].block, txIndexInBlock: 0 }),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
         const { data, block, txIndexInBlock } = getExpectedTx();
-        const expectedTx = {
+        const expectedTx: IndexedTxEffect = {
           data,
           l2BlockNumber: block.number,
-          l2BlockHash: (await block.hash()).toString(),
+          l2BlockHash: L2BlockHash.fromField(await block.hash()),
           txIndexInBlock,
         };
         const actualTx = await store.getTxEffect(data.txHash);
@@ -516,6 +518,7 @@ export function describeArchiverDataStore(
     describe('contractInstances', () => {
       let contractInstance: ContractInstanceWithAddress;
       const blockNum = 10;
+      const timestamp = 3600n;
 
       beforeEach(async () => {
         const classId = Fr.random();
@@ -528,18 +531,18 @@ export function describeArchiverDataStore(
       });
 
       it('returns previously stored contract instances', async () => {
-        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toMatchObject(
+        await expect(store.getContractInstance(contractInstance.address, timestamp)).resolves.toMatchObject(
           contractInstance,
         );
       });
 
       it('returns undefined if contract instance is not found', async () => {
-        await expect(store.getContractInstance(await AztecAddress.random(), blockNum)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(await AztecAddress.random(), timestamp)).resolves.toBeUndefined();
       });
 
       it('returns undefined if previously stored contract instances was deleted', async () => {
         await store.deleteContractInstances([contractInstance], blockNum);
-        await expect(store.getContractInstance(contractInstance.address, blockNum)).resolves.toBeUndefined();
+        await expect(store.getContractInstance(contractInstance.address, timestamp)).resolves.toBeUndefined();
       });
     });
 
@@ -547,7 +550,7 @@ export function describeArchiverDataStore(
       let contractInstance: ContractInstanceWithAddress;
       let classId: Fr;
       let nextClassId: Fr;
-      const blockOfChange = 10;
+      const timestampOfChange = 3600n;
 
       beforeEach(async () => {
         classId = Fr.random();
@@ -563,28 +566,28 @@ export function describeArchiverDataStore(
             {
               prevContractClassId: classId,
               newContractClassId: nextClassId,
-              blockOfChange,
+              timestampOfChange,
               address: contractInstance.address,
             },
           ],
-          blockOfChange - 1,
+          timestampOfChange - 1n,
         );
       });
 
       it('gets the correct current class id for a contract not updated yet', async () => {
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange - 1n);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(classId);
       });
 
       it('gets the correct current class id for a contract that has just been updated', async () => {
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
 
       it('gets the correct current class id for a contract that was updated in the past', async () => {
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1n);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
@@ -601,7 +604,7 @@ export function describeArchiverDataStore(
         };
         await store.addContractInstances([otherContractInstance], 1);
 
-        const fetchedInstance = await store.getContractInstance(otherContractInstance.address, blockOfChange + 1);
+        const fetchedInstance = await store.getContractInstance(otherContractInstance.address, timestampOfChange + 1n);
         expect(fetchedInstance?.originalContractClassId).toEqual(otherClassId);
         expect(fetchedInstance?.currentContractClassId).toEqual(otherClassId);
       });
@@ -623,14 +626,14 @@ export function describeArchiverDataStore(
             {
               prevContractClassId: otherClassId,
               newContractClassId: otherNextClassId,
-              blockOfChange,
+              timestampOfChange,
               address: otherContractInstance.address,
             },
           ],
-          blockOfChange - 1,
+          timestampOfChange - 1n,
         );
 
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1n);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
@@ -757,7 +760,11 @@ export function describeArchiverDataStore(
         return {
           block: block,
           attestations: times(3, CommitteeAttestation.random),
-          l1: { blockNumber: BigInt(blockNumber), blockHash: `0x${blockNumber}`, timestamp: BigInt(blockNumber) },
+          l1: {
+            blockNumber: BigInt(blockNumber),
+            blockHash: makeBlockHash(blockNumber),
+            timestamp: BigInt(blockNumber),
+          },
         };
       };
 
@@ -873,7 +880,7 @@ export function describeArchiverDataStore(
       beforeEach(async () => {
         blocks = await timesParallel(numBlocks, async (index: number) => ({
           block: await L2Block.random(index + 1, txsPerBlock, numPublicFunctionCalls, numPublicLogs),
-          l1: { blockNumber: BigInt(index), blockHash: `0x${index}`, timestamp: BigInt(index) },
+          l1: { blockNumber: BigInt(index), blockHash: makeBlockHash(index), timestamp: BigInt(index) },
           attestations: times(3, CommitteeAttestation.random),
         }));
 

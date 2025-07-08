@@ -14,12 +14,18 @@ import {
   type PXE,
   createLogger,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
-import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { CheatCodes } from '@aztec/aztec/testing';
+import {
+  BBCircuitVerifier,
+  type ClientProtocolCircuitVerifier,
+  QueuedIVCVerifier,
+  TestCircuitVerifier,
+} from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { SecretValue } from '@aztec/foundation/config';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
@@ -192,7 +198,8 @@ export class FullProverTest {
         throw new Error(`Test must be run with BB native configuration`);
       }
 
-      this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
+      const verifier = await BBCircuitVerifier.new(bbConfig);
+      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
 
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({
@@ -284,18 +291,19 @@ export class FullProverTest {
     this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
-      proverCoordinationNodeUrls: [],
+      txCollectionNodeRpcUrls: [],
       dataDirectory: undefined,
       proverId: this.proverAddress.toField(),
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
+      publisherPrivateKey: new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const),
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
+      txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();

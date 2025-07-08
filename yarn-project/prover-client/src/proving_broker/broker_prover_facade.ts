@@ -32,6 +32,7 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   RootRollupInputs,
@@ -482,6 +483,22 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, input, epochNumber),
+      ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP,
       input,
       epochNumber,
       signal,

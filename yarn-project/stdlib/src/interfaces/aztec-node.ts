@@ -220,7 +220,7 @@ export interface AztecNode
   getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
-   * Fetches the current block number.
+   * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
@@ -407,7 +407,7 @@ export interface AztecNode
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
    * made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid
-   * due to e.g. the max_block_number property.
+   * due to e.g. the include_by_timestamp property.
    * @param tx - The transaction to validate for correctness.
    * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    * @param skipFeeEnforcement - True if the validation of the fee should be skipped. Useful when the simulation is for estimating fee (Optional)

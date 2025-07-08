@@ -3,17 +3,18 @@
 pragma solidity >=0.8.27;
 
 import {
-  RollupStore,
-  IRollupCore,
-  BlockLog,
-  BlockHeaderValidationFlags
+  RollupStore, IRollupCore, BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
+import {TempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {FeeHeader} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {
-  SignatureDomainSeparator, CommitteeAttestation
+  SignatureDomainSeparator, CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
@@ -28,7 +29,6 @@ struct ProposeArgs {
   StateReference stateReference;
   OracleInput oracleInput;
   ProposedHeader header;
-  bytes32[] txHashes;
 }
 
 struct ProposePayload {
@@ -36,7 +36,6 @@ struct ProposePayload {
   StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
-  bytes32[] txHashes;
 }
 
 struct InterimProposeValues {
@@ -57,9 +56,8 @@ struct InterimProposeValues {
  */
 struct ValidateHeaderArgs {
   ProposedHeader header;
-  CommitteeAttestation[] attestations;
+  CommitteeAttestations attestations;
   bytes32 digest;
-  Timestamp currentTime;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
   BlockHeaderValidationFlags flags;
@@ -69,6 +67,8 @@ library ProposeLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
+  using CompressedTimeMath for CompressedSlot;
+  using ChainTipsLib for CompressedChainTips;
 
   /**
    * @notice  Publishes the body and propose the block
@@ -84,7 +84,7 @@ library ProposeLib {
    */
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
@@ -118,11 +118,9 @@ library ProposeLib {
             archive: _args.archive,
             stateReference: _args.stateReference,
             oracleInput: _args.oracleInput,
-            headerHash: v.headerHash,
-            txHashes: _args.txHashes
+            headerHash: v.headerHash
           })
         ),
-        currentTime: Timestamp.wrap(block.timestamp),
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
@@ -130,30 +128,33 @@ library ProposeLib {
     );
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
+    uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1;
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
       currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
     bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
-      rollupStore.blocks[blockNumber - 1].blobCommitmentsHash,
-      v.blobCommitments,
-      isFirstBlockOfEpoch
+      STFLib.getBlobCommitmentsHash(blockNumber - 1), v.blobCommitments, isFirstBlockOfEpoch
     );
 
-    rollupStore.blocks[blockNumber] = BlockLog({
-      archive: _args.archive,
-      headerHash: v.headerHash,
-      blobCommitmentsHash: blobCommitmentsHash,
-      slotNumber: header.slotNumber
-    });
-
-    FeeLib.writeFeeHeader(
+    FeeHeader memory feeHeader = FeeLib.computeFeeHeader(
       blockNumber,
       _args.oracleInput.feeAssetPriceModifier,
       header.totalManaUsed,
       components.congestionCost,
       components.proverCost
+    );
+
+    rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(blockNumber);
+    rollupStore.archives[blockNumber] = _args.archive;
+    STFLib.setTempBlockLog(
+      blockNumber,
+      TempBlockLog({
+        headerHash: v.headerHash,
+        blobCommitmentsHash: blobCommitmentsHash,
+        slotNumber: header.slotNumber,
+        feeHeader: feeHeader
+      })
     );
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
@@ -173,21 +174,22 @@ library ProposeLib {
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
+    Timestamp currentTime = Timestamp.wrap(block.timestamp);
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_args.currentTime);
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
 
-    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
+    bytes32 tipArchive = rollupStore.archives[pendingBlockNumber];
     require(
       tipArchive == _args.header.lastArchiveRoot,
       Errors.Rollup__InvalidArchive(tipArchive, _args.header.lastArchiveRoot)
     );
 
     Slot slot = _args.header.slotNumber;
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    Slot lastSlot = STFLib.getSlotNumber(pendingBlockNumber);
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    Slot currentSlot = _args.currentTime.slotFromTimestamp();
+    Slot currentSlot = currentTime.slotFromTimestamp();
     require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
@@ -196,9 +198,7 @@ library ProposeLib {
       Errors.Rollup__InvalidTimestamp(timestamp, _args.header.timestamp)
     );
 
-    require(
-      timestamp <= _args.currentTime, Errors.Rollup__TimestampInFuture(_args.currentTime, timestamp)
-    );
+    require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
 
     require(
       _args.flags.ignoreDA

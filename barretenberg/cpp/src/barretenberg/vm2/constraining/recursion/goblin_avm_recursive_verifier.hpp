@@ -1,12 +1,12 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
@@ -83,7 +83,7 @@ class AvmGoblinRecursiveVerifier {
      * @return RecursiveAvmGoblinOutput {ipa_proof, ipa_claim, points_accumulator}
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput verify_proof(
-        const StdlibProof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
+        const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
         InnerProverOutput inner_output =
@@ -106,13 +106,13 @@ class AvmGoblinRecursiveVerifier {
      * @return RecursiveAvmGoblinOutput
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] RecursiveAvmGoblinOutput
-    construct_outer_recursive_verification_circuit(const StdlibProof<UltraBuilder>& stdlib_proof,
+    construct_outer_recursive_verification_circuit(const stdlib::Proof<UltraBuilder>& stdlib_proof,
                                                    const std::vector<std::vector<UltraFF>>& public_inputs,
                                                    const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
         using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
-        using MegaRecursiveVerificationKey = MegaRecursiveFlavor::VerificationKey;
+        using MegaRecursiveVKAndHash = MegaRecursiveFlavor::VKAndHash;
         using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
@@ -130,15 +130,15 @@ class AvmGoblinRecursiveVerifier {
         // All verifier components share a single transcript
         auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
-        auto mega_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, inner_output.mega_vk);
-        MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk, transcript);
-        StdlibProof<UltraBuilder> mega_proof =
-            bb::convert_native_proof_to_stdlib(&ultra_builder, inner_output.mega_proof);
+        auto mega_vk_and_hash = std::make_shared<MegaRecursiveVKAndHash>(ultra_builder, inner_output.mega_vk);
+        MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk_and_hash, transcript);
+        stdlib::Proof<UltraBuilder> mega_proof(ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
-        GoblinRecursiveVerifierOutput goblin_verifier_output = goblin_verifier.verify(inner_output.goblin_proof);
+        GoblinRecursiveVerifierOutput goblin_verifier_output = goblin_verifier.verify(
+            inner_output.goblin_proof, mega_verifier.key->witness_commitments.get_ecc_op_wires());
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
@@ -150,7 +150,7 @@ class AvmGoblinRecursiveVerifier {
         return RecursiveAvmGoblinOutput{
             .points_accumulator = goblin_verifier_output.points_accumulator,
             .ipa_claim = goblin_verifier_output.opening_claim,
-            .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
+            .ipa_proof = goblin_verifier_output.ipa_proof,
         };
     }
 
@@ -162,14 +162,11 @@ class AvmGoblinRecursiveVerifier {
      * @return InnerCircuitOutput proof and verification key for Mega + Goblin; {\pi_M, \pi_G}, {VK_M, VK_G}
      */
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
-        const StdlibProof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
+        const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
-        using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
-        using AvmRecursiveVerifier = AvmRecursiveVerifier_<AvmRecursiveFlavor>;
         using ECCVMVK = Goblin::ECCVMVerificationKey;
         using TranslatorVK = Goblin::TranslatorVerificationKey;
-        using MegaProver = UltraProver_<MegaFlavor>;
         using MegaVerificationKey = MegaFlavor::VerificationKey;
         using FF = AvmRecursiveFlavor::FF;
 
@@ -191,7 +188,7 @@ class AvmGoblinRecursiveVerifier {
         };
 
         // Convert the AVM proof, public inputs, and VK to stdlib Mega representations and add them to the hash buffer.
-        std::vector<FF> mega_stdlib_proof = convert_stdlib_ultra_to_stdlib_mega(stdlib_proof);
+        stdlib::Proof<MegaBuilder> mega_stdlib_proof = convert_stdlib_ultra_to_stdlib_mega(stdlib_proof);
         std::vector<std::vector<FF>> mega_public_inputs;
         mega_public_inputs.reserve(public_inputs.size());
         for (const std::vector<UltraFF>& input_vec : public_inputs) {

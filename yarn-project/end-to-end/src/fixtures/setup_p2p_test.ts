@@ -3,8 +3,11 @@
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { SentTx } from '@aztec/aztec.js';
+import { SecretValue } from '@aztec/foundation/config';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
+import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import type { PXEService } from '@aztec/pxe/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
@@ -12,7 +15,7 @@ import getPort from 'get-port';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
-import { getPrivateKeyFromIndex } from './utils.js';
+import { createAndSyncProverNode, getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 // Setup snapshots will create a node with index 0, and run extra bootstrap with
@@ -100,6 +103,42 @@ export async function createNode(
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
 }
 
+export async function createProverNode(
+  config: AztecNodeConfig,
+  tcpPort: number,
+  bootstrapNode: string | undefined,
+  addressIndex: number,
+  proverNodeDeps: ProverNodeDeps & Required<Pick<ProverNodeDeps, 'dateProvider'>>,
+  prefilledPublicData?: PublicDataTreeLeaf[],
+  dataDirectory?: string,
+  metricsPort?: number,
+  loggerIdStorage?: AsyncLocalStorage<string>,
+) {
+  const createProverNode = async () => {
+    const proverNodePrivateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!;
+    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
+
+    const proverConfig: Partial<ProverNodeConfig> = {
+      p2pIp: `127.0.0.1`,
+      p2pPort: tcpPort ?? (await getPort()),
+      p2pEnabled: true,
+      peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
+      blockCheckIntervalMS: 1000,
+      bootstrapNodes: bootstrapNode ? [bootstrapNode] : [],
+    };
+    const aztecNodeRpcTxProvider = undefined;
+    return await createAndSyncProverNode(
+      bufferToHex(proverNodePrivateKey),
+      config,
+      { ...proverConfig, dataDirectory },
+      aztecNodeRpcTxProvider,
+      prefilledPublicData,
+      { ...proverNodeDeps, telemetry },
+    );
+  };
+  return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createProverNode) : createProverNode();
+}
+
 export async function createValidatorConfig(
   config: AztecNodeConfig,
   bootstrapNodeEnr?: string,
@@ -113,8 +152,8 @@ export async function createValidatorConfig(
     ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
   )!.toString('hex')}`;
 
-  config.validatorPrivateKeys = [attesterPrivateKey];
-  config.publisherPrivateKey = attesterPrivateKey;
+  config.validatorPrivateKeys = new SecretValue([attesterPrivateKey]);
+  config.publisherPrivateKey = new SecretValue(attesterPrivateKey);
 
   const nodeConfig: AztecNodeConfig = {
     ...config,

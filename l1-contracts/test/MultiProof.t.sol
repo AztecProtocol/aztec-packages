@@ -19,8 +19,9 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {RewardBooster, ActivityScore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {BoostedHelper} from "./boosted_rewards/BoostRewardHelper.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -38,6 +39,7 @@ contract MultiProofTest is RollupBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   RewardDistributor internal rewardDistributor;
+  RewardBooster internal rewardBooster;
 
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
@@ -46,7 +48,10 @@ contract MultiProofTest is RollupBase {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -71,6 +76,12 @@ contract MultiProofTest is RollupBase {
     testERC20 = builder.getConfig().testERC20;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
+
+    rewardBooster = RewardBooster(address(rollup.getRewardConfig().booster));
+
+    // Deploy the test helper such that we can easily update storage and replace the implementation
+    BoostedHelper boostedHelper = new BoostedHelper(rollup, rewardBooster.getConfig());
+    vm.etch(address(rewardBooster), address(boostedHelper).code);
 
     _;
   }
@@ -169,19 +180,15 @@ contract MultiProofTest is RollupBase {
       uint256 bobRewards = rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob);
       assertGt(bobRewards, 0, "Bob rewards is zero");
 
+      Epoch deadline = TimeLib.toDeadlineEpoch(epochs[0]);
+
       vm.expectRevert(
-        abi.encodeWithSelector(
-          Errors.Rollup__NotPastDeadline.selector, TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW, 2
-        )
+        abi.encodeWithSelector(Errors.Rollup__NotPastDeadline.selector, deadline, Epoch.wrap(0))
       );
       vm.prank(bob);
       rollup.claimProverRewards(bob, epochs);
 
-      vm.warp(
-        Timestamp.unwrap(
-          rollup.getTimestampForSlot(Slot.wrap(TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW + 1))
-        )
-      );
+      vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(deadline.toSlots())));
       vm.prank(bob);
       uint256 bobRewardsClaimed = rollup.claimProverRewards(bob, epochs);
 
@@ -210,18 +217,16 @@ contract MultiProofTest is RollupBase {
 
     assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
 
-    ActivityScore memory activityScore = rollup.getActivityScore(alice);
+    ActivityScore memory activityScore = rewardBooster.getActivityScore(alice);
 
     assertEq(
       rollup.getSharesFor(alice), rollup.getSharesFor(bob), "Alice shares not equal to bob shares"
     );
 
-    uint256 maxActivityScore = TestConstants.getRollupConfigInput().rewardConfig.maxScore;
-    uint256 maxShares = TestConstants.getRollupConfigInput().rewardConfig.k;
+    uint256 maxActivityScore = TestConstants.getRewardBoostConfig().maxScore;
+    uint256 maxShares = TestConstants.getRewardBoostConfig().k;
 
-    stdstore.clear();
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getActivityScore(address)").depth(1)
-      .with_key(alice).checked_write(maxActivityScore);
+    BoostedHelper(address(rewardBooster)).setActivityScore(alice, maxActivityScore);
 
     assertGt(
       rollup.getSharesFor(alice),
@@ -229,7 +234,7 @@ contract MultiProofTest is RollupBase {
       "Alice shares not greater than bob shares"
     );
 
-    activityScore = rollup.getActivityScore(alice);
+    activityScore = rewardBooster.getActivityScore(alice);
     assertEq(activityScore.value, maxActivityScore, "Activity score not set");
     assertEq(rollup.getSharesFor(alice), maxShares, "Alice shares not set");
 

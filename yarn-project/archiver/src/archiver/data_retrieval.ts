@@ -3,7 +3,7 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
   ViemClient,
-  ViemCommitteeAttestation,
+  ViemCommitteeAttestations,
   ViemHeader,
   ViemPublicClient,
   ViemStateReference,
@@ -13,7 +13,7 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -26,6 +26,7 @@ import {
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
+  multicall3Abi,
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
@@ -111,7 +112,7 @@ export async function retrieveBlocksFromRollup(
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
 
-  let rollupConstants: { chainId: Fr; version: Fr } | undefined;
+  let rollupConstants: { chainId: Fr; version: Fr; targetCommitteeSize: number } | undefined;
 
   do {
     if (searchStartBlock > searchEndBlock) {
@@ -137,8 +138,16 @@ export async function retrieveBlocksFromRollup(
     );
 
     if (rollupConstants === undefined) {
-      const [chainId, version] = await Promise.all([publicClient.getChainId(), rollup.read.getVersion()]);
-      rollupConstants = { chainId: new Fr(chainId), version: new Fr(version) };
+      const [chainId, version, targetCommitteeSize] = await Promise.all([
+        publicClient.getChainId(),
+        rollup.read.getVersion(),
+        rollup.read.getTargetCommitteeSize(),
+      ]);
+      rollupConstants = {
+        chainId: new Fr(chainId),
+        version: new Fr(version),
+        targetCommitteeSize: Number(targetCommitteeSize),
+      };
     }
 
     const newBlocks = await processL2BlockProposedLogs(
@@ -169,7 +178,7 @@ async function processL2BlockProposedLogs(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
-  { chainId, version }: { chainId: Fr; version: Fr },
+  { chainId, version, targetCommitteeSize }: { chainId: Fr; version: Fr; targetCommitteeSize: number },
   logger: Logger,
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
@@ -188,6 +197,7 @@ async function processL2BlockProposedLogs(
         blobHashes,
         l2BlockNumber,
         rollup.address,
+        targetCommitteeSize,
         logger,
       );
 
@@ -221,37 +231,36 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
 }
 
 /**
- * Extracts the first 'propose' method calldata from a forwarder transaction's data.
- * @param forwarderData - The forwarder transaction input data
+ * Extracts the first 'propose' method calldata from a multicall3 transaction's data.
+ * @param multicall3Data - The multicall3 transaction input data
  * @param rollupAddress - The address of the rollup contract
  * @returns The calldata for the first 'propose' method call to the rollup contract
  */
-function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): Hex {
-  // TODO(#11451): custom forwarders
-  const { functionName: forwarderFunctionName, args: forwarderArgs } = decodeFunctionData({
-    abi: ForwarderAbi,
-    data: forwarderData,
+function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): Hex {
+  const { functionName: multicall3FunctionName, args: multicall3Args } = decodeFunctionData({
+    abi: multicall3Abi,
+    data: multicall3Data,
   });
 
-  if (forwarderFunctionName !== 'forward') {
-    throw new Error(`Unexpected forwarder method called ${forwarderFunctionName}`);
+  if (multicall3FunctionName !== 'aggregate3') {
+    throw new Error(`Unexpected multicall3 method called ${multicall3FunctionName}`);
   }
 
-  if (forwarderArgs.length !== 2) {
-    throw new Error(`Unexpected number of arguments for forwarder`);
+  if (multicall3Args.length !== 1) {
+    throw new Error(`Unexpected number of arguments for multicall3`);
   }
 
-  const [to, data] = forwarderArgs;
+  const [calls] = multicall3Args;
 
   // Find all rollup calls
   const rollupAddressLower = rollupAddress.toLowerCase();
 
-  for (let i = 0; i < to.length; i++) {
-    const addr = to[i];
+  for (let i = 0; i < calls.length; i++) {
+    const addr = calls[i].target;
     if (addr.toLowerCase() !== rollupAddressLower) {
       continue;
     }
-    const callData = data[i];
+    const callData = calls[i].callData;
 
     try {
       const { functionName: rollupFunctionName } = decodeFunctionData({
@@ -268,7 +277,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
     }
   }
 
-  throw new Error(`Rollup address not found in forwarder args`);
+  throw new Error(`Rollup address not found in multicall3 args`);
 }
 
 /**
@@ -287,6 +296,7 @@ async function getBlockFromRollupTx(
   blobHashes: Buffer[], // TODO(md): buffer32?
   l2BlockNumber: number,
   rollupAddress: Hex,
+  targetCommitteeSize: number,
   logger: Logger,
 ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
@@ -311,7 +321,7 @@ async function getBlockFromRollupTx(
       header: ViemHeader;
       txHashes: readonly Hex[];
     },
-    ViemCommitteeAttestation[],
+    ViemCommitteeAttestations,
     Hex,
   ];
 
@@ -348,7 +358,7 @@ async function getBlockFromRollupTx(
     stateReference,
     header,
     body,
-    attestations: attestations.map(CommitteeAttestation.fromViem),
+    attestations: CommitteeAttestation.fromPacked(attestations, targetCommitteeSize),
   };
 }
 

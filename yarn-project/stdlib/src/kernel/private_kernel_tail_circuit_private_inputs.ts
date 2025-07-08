@@ -1,8 +1,8 @@
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import type { UInt64 } from '../types/shared.js';
 import { PaddedSideEffectAmounts } from './padded_side_effects.js';
 import { PrivateKernelData } from './private_kernel_data.js';
-import { countAccumulatedItems } from './utils/order_and_comparison.js';
 
 /**
  * Input to the private kernel circuit - tail call.
@@ -17,11 +17,15 @@ export class PrivateKernelTailCircuitPrivateInputs {
      * The number of the padded side effects.
      */
     public paddedSideEffectAmounts: PaddedSideEffectAmounts,
+    /**
+     * The timestamp by which the transaction must be included in a block.
+     */
+    public includeByTimestampUpperBound: UInt64,
   ) {}
 
   isForPublic() {
     return (
-      countAccumulatedItems(this.previousKernel.publicInputs.end.publicCallRequests) > 0 ||
+      this.previousKernel.publicInputs.end.publicCallRequests.claimedLength > 0 ||
       !this.previousKernel.publicInputs.publicTeardownCallRequest.isEmpty()
     );
   }
@@ -31,7 +35,11 @@ export class PrivateKernelTailCircuitPrivateInputs {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.paddedSideEffectAmounts);
+    return serializeToBuffer(
+      this.previousKernel,
+      this.paddedSideEffectAmounts,
+      bigintToUInt64BE(this.includeByTimestampUpperBound),
+    );
   }
 
   /**
@@ -44,6 +52,7 @@ export class PrivateKernelTailCircuitPrivateInputs {
     return new PrivateKernelTailCircuitPrivateInputs(
       reader.readObject(PrivateKernelData),
       reader.readObject(PaddedSideEffectAmounts),
+      reader.readUInt64(),
     );
   }
 }

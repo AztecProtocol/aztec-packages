@@ -36,7 +36,7 @@ contract MinimalDelegationTest is GSEBase {
 
   function setUp() public override {
     super.setUp();
-    canonical = gse.CANONICAL_MAGIC_ADDRESS();
+    canonical = gse.getCanonicalMagicAddress();
     depositAmount = ROLLUP.getDepositAmount();
 
     vm.label(canonical, "canonical");
@@ -122,7 +122,7 @@ contract MinimalDelegationTest is GSEBase {
     assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), depositAmount * 3);
 
     if (_overwriteDelay) {
-      stdstore.target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
+      stdstore.enable_packed_slots().target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
     }
 
     vm.prank(WITHDRAWER);
@@ -259,11 +259,7 @@ contract MinimalDelegationTest is GSEBase {
   ) internal view {
     assertEq(gse.getVotingPowerAt(canonical, _ts), _canonical, "voting power canonical");
     assertEq(gse.getVotingPowerAt(_instance, _ts), _specific, "voting power specific");
-    assertEq(
-      gse.getEffectiveVotingPowerAt(_instance, _ts),
-      _specific + _canonical,
-      "effective voting power"
-    );
+    assertEq(_instance, gse.getCanonicalAt(_ts), "instance != canonical");
   }
 
   function _checkInstanceNonCanonical(address _instance, uint256 _specific, Timestamp _ts)
@@ -271,6 +267,6 @@ contract MinimalDelegationTest is GSEBase {
     view
   {
     assertEq(gse.getVotingPowerAt(_instance, _ts), _specific, "voting power specific");
-    assertEq(gse.getEffectiveVotingPowerAt(_instance, _ts), _specific, "effective voting power");
+    assertNotEq(_instance, gse.getCanonicalAt(_ts), "instance == canonical");
   }
 }

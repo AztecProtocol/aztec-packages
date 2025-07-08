@@ -5,9 +5,10 @@ import { L2Block, type L2BlockSourceEventEmitter, L2BlockSourceEvents } from '@a
 import type {
   BuildBlockResult,
   IFullNodeBlockBuilder,
-  ITxCollector,
+  ITxProvider,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -21,8 +22,9 @@ import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 describe('EpochPruneWatcher', () => {
   let watcher: EpochPruneWatcher;
   let l2BlockSource: L2BlockSourceEventEmitter;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
-  let txCollector: MockProxy<ITxCollector>;
+  let txProvider: MockProxy<Pick<ITxProvider, 'getAvailableTxs'>>;
   let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
   const penalty = BigInt(1000000000000000000n);
@@ -30,13 +32,23 @@ describe('EpochPruneWatcher', () => {
 
   beforeEach(async () => {
     l2BlockSource = new MockL2BlockSource() as unknown as L2BlockSourceEventEmitter;
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     epochCache = mock<EpochCache>();
-    txCollector = mock<ITxCollector>();
+    txProvider = mock<Pick<ITxProvider, 'getAvailableTxs'>>();
     blockBuilder = mock<IFullNodeBlockBuilder>();
     fork = mock<MerkleTreeWriteOperations>();
     blockBuilder.getFork.mockResolvedValue(fork);
 
-    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, txCollector, blockBuilder, penalty, maxPenalty);
+    watcher = new EpochPruneWatcher(
+      l2BlockSource,
+      l1ToL2MessageSource,
+      epochCache,
+      txProvider,
+      blockBuilder,
+      penalty,
+      maxPenalty,
+    );
     await watcher.start();
   });
 
@@ -51,7 +63,7 @@ describe('EpochPruneWatcher', () => {
       1, // block number
       4, // txs per block
     );
-    txCollector.collectTransactions.mockResolvedValue({ txs: [], missing: [block.body.txEffects[0].txHash] });
+    txProvider.getAvailableTxs.mockResolvedValue({ txs: [], missingTxs: [block.body.txEffects[0].txHash] });
 
     const committee: Hex[] = [
       '0x0000000000000000000000000000000000000abc',
@@ -132,8 +144,8 @@ describe('EpochPruneWatcher', () => {
       1, // block number
       4, // txs per block
     );
-    const tx = Tx.random();
-    txCollector.collectTransactions.mockResolvedValue({ txs: [tx] });
+    const tx = await Tx.random().toTxWithHash();
+    txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
     blockBuilder.buildBlock.mockResolvedValue({
       block: block,
       failedTxs: [],
@@ -172,7 +184,7 @@ describe('EpochPruneWatcher', () => {
       },
     ]);
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], block.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], block.header.globalVariables, {}, fork);
   });
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
@@ -186,8 +198,8 @@ describe('EpochPruneWatcher', () => {
       2, // block number
       1, // txs per block
     );
-    const tx = Tx.random();
-    txCollector.collectTransactions.mockResolvedValue({ txs: [tx] });
+    const tx = await Tx.random().toTxWithHash();
+    txProvider.getAvailableTxs.mockResolvedValue({ txs: [tx], missingTxs: [] });
     blockBuilder.buildBlock.mockResolvedValue({
       block: blockFromBuilder,
       failedTxs: [],
@@ -215,7 +227,7 @@ describe('EpochPruneWatcher', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], blockFromL1.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], blockFromL1.header.globalVariables, {}, fork);
   });
 });
 

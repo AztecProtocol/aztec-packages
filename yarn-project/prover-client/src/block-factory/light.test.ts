@@ -9,13 +9,12 @@ import {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  TUBE_VK_INDEX,
 } from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { ProtocolCircuitVkIndexes, ProtocolCircuitVks, TubeVk } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type { ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import { ProtocolCircuitVkIndexes, ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import type { ProtocolCircuitName } from '@aztec/noir-protocol-circuits-types/types';
 import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -83,7 +82,7 @@ describe('LightBlockBuilder', () => {
   let feePayerBalance: Fr;
   const expectedTxFee = new Fr(0x2200);
 
-  const getVkData = (artifact: ProtocolArtifact) => {
+  const getVkData = (artifact: ProtocolCircuitName) => {
     const vkIndex = ProtocolCircuitVkIndexes[artifact];
     return new VkData(ProtocolCircuitVks[artifact], vkIndex, getVKSiblingPath(vkIndex));
   };
@@ -294,9 +293,7 @@ describe('LightBlockBuilder', () => {
     const rollupOutputs = [];
     const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      const vkIndex = TUBE_VK_INDEX;
-      const vkPath = getVKSiblingPath(vkIndex);
-      const vkData = new VkData(TubeVk, vkIndex, vkPath);
+      const vkData = getVkData('PrivateTube');
       const tubeData = new PrivateTubeData(
         tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
         emptyRollupProof,
@@ -414,7 +411,6 @@ describe('LightBlockBuilder', () => {
       const inputs = EmptyBlockRootRollupInputs.from({
         data,
         constants,
-        isPadding: false,
       });
       return (await simulator.getEmptyBlockRootRollupProof(inputs)).inputs;
     } else if (previousRollupData.length === 1) {

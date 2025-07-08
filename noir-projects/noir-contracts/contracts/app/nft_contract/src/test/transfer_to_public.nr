@@ -1,7 +1,9 @@
 use crate::NFT;
 use crate::test::utils;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{
+    oracle::random::random,
+    test::helpers::{authwit::add_private_authwit_from_call_interface, cheatcodes},
+};
 
 #[test]
 unconstrained fn transfer_to_public() {
@@ -38,11 +40,7 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
 
     let transfer_to_public_call_interface =
         NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        sender,
-        recipient,
-        transfer_to_public_call_interface,
-    );
+    add_private_authwit_from_call_interface(sender, recipient, transfer_to_public_call_interface);
     // Impersonate recipient
     env.impersonate(recipient);
     // transfer_to_public the NFT
@@ -64,7 +62,7 @@ unconstrained fn transfer_to_public_failure_not_an_owner() {
     );
 }
 
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_to_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, user, _, token_id) =
@@ -82,11 +80,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
 
     let transfer_to_public_call_interface =
         NFT::at(nft_contract_address).transfer_to_public(sender, recipient, token_id, 0);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        sender,
-        sender,
-        transfer_to_public_call_interface,
-    );
+    add_private_authwit_from_call_interface(sender, sender, transfer_to_public_call_interface);
     // Impersonate recipient
     env.impersonate(recipient);
     // transfer_to_public the NFT

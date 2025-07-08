@@ -5,8 +5,8 @@
 // =====================
 
 #include "merge_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 
 namespace bb {
 
@@ -25,20 +25,21 @@ MergeVerifier::MergeVerifier(MergeSettings settings, const std::shared_ptr<Trans
  *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
  * @tparam Flavor
+ * @param t_commitments The commitments to t_j read from the transcript by the PG verifier with which the Merge verifier
+ * shares a transcript
  * @return bool Verification result
  */
-bool MergeVerifier::verify_proof(const HonkProof& proof)
+bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
 {
     transcript->load_proof(proof);
 
     const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
+    info("Shift size: ", shift_size);
 
-    // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
-    std::array<Commitment, NUM_WIRES> t_commitments;
+    // Receive table column polynomial commitments [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         std::string suffix = std::to_string(idx);
-        t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
         T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
     }
@@ -69,10 +70,18 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
         } else {
             FF t_shifted_eval = t_evals[idx] * kappa.pow(shift_size);
             current_check = T_evals[idx] == T_prev_evals[idx] + t_shifted_eval;
-            info("here");
+            info("current check for idx ",
+                 idx,
+                 ": ",
+                 current_check,
+                 " first ",
+                 T_evals[idx],
+                 "second  ",
+                 t_shifted_eval + T_prev_evals[idx]);
         }
         identity_checked = identity_checked && current_check;
     }
+    info("Identity check result: ", identity_checked);
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
 

@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
@@ -15,14 +16,16 @@ interface IStakingCore {
   event WithdrawInitiated(address indexed attester, address indexed recipient, uint256 amount);
   event WithdrawFinalised(address indexed attester, address indexed recipient, uint256 amount);
   event Slashed(address indexed attester, uint256 amount);
+  event StakingQueueConfigUpdated(StakingQueueConfig config);
 
   function setSlasher(address _slasher) external;
   function deposit(address _attester, address _withdrawer, bool _onCanonical) external;
   function flushEntryQueue() external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finaliseWithdraw(address _attester) external;
-  function slash(address _attester, uint256 _amount) external;
+  function slash(address _attester, uint256 _amount) external returns (bool);
   function vote(uint256 _proposalId) external;
+  function updateStakingQueueConfig(StakingQueueConfig memory _config) external;
 
   function getEntryQueueFlushSize() external view returns (uint256);
   function getActiveAttesterCount() external view returns (uint256);
@@ -41,4 +44,5 @@ interface IStaking is IStakingCore {
   function getAttesterView(address _attester) external view returns (AttesterView memory);
   function getStatus(address _attester) external view returns (Status);
   function getNextFlushableEpoch() external view returns (Epoch);
+  function getEntryQueueLength() external view returns (uint256);
 }

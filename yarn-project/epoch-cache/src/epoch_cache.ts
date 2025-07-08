@@ -17,7 +17,7 @@ import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } fr
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
-type EpochAndSlot = {
+export type EpochAndSlot = {
   epoch: bigint;
   slot: bigint;
   ts: bigint;
@@ -29,9 +29,12 @@ export type EpochCommitteeInfo = {
   epoch: bigint;
 };
 
+export type SlotTag = 'now' | 'next' | bigint;
+
 export interface EpochCacheInterface {
-  getCommittee(slot: 'now' | 'next' | bigint | undefined): Promise<EpochCommitteeInfo>;
+  getCommittee(slot: SlotTag | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
@@ -40,7 +43,8 @@ export interface EpochCacheInterface {
     currentSlot: bigint;
     nextSlot: bigint;
   }>;
-  isInCommittee(validator: EthAddress): Promise<boolean>;
+  isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean>;
+  filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]>;
 }
 
 /**
@@ -89,18 +93,20 @@ export class EpochCache implements EpochCacheInterface {
     });
 
     const rollup = new RollupContract(publicClient, rollupAddress.toString());
-    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber] = await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getCurrentEpochCommittee(),
-      rollup.getCurrentSampleSeed(),
-      rollup.getEpochNumber(),
-    ] as const);
+    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber, proofSubmissionEpochs] =
+      await Promise.all([
+        rollup.getL1StartBlock(),
+        rollup.getL1GenesisTime(),
+        rollup.getCurrentEpochCommittee(),
+        rollup.getCurrentSampleSeed(),
+        rollup.getEpochNumber(),
+        rollup.getProofSubmissionEpochs(),
+      ] as const);
 
     const l1RollupConstants: L1RollupConstants = {
       l1StartBlock,
       l1GenesisTime,
-      proofSubmissionWindow: config.aztecProofSubmissionWindow,
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
       slotDuration: config.aztecSlotDuration,
       epochDuration: config.aztecEpochDuration,
       ethereumSlotDuration: config.ethereumSlotDuration,
@@ -160,7 +166,7 @@ export class EpochCache implements EpochCacheInterface {
    * @param nextSlot - If true, get the validator set for the next slot.
    * @returns The current validator set.
    */
-  public async getCommittee(slot: 'now' | 'next' | bigint = 'now'): Promise<EpochCommitteeInfo> {
+  public async getCommittee(slot: SlotTag = 'now'): Promise<EpochCommitteeInfo> {
     const { epoch, ts } = this.getEpochAndTimestamp(slot);
 
     if (this.cache.has(epoch)) {
@@ -182,7 +188,7 @@ export class EpochCache implements EpochCacheInterface {
     return epochData;
   }
 
-  private getEpochAndTimestamp(slot: 'now' | 'next' | bigint = 'now') {
+  private getEpochAndTimestamp(slot: SlotTag = 'now') {
     if (slot === 'now') {
       return this.getEpochAndSlotNow();
     } else if (slot === 'next') {
@@ -274,19 +280,18 @@ export class EpochCache implements EpochCacheInterface {
     return committee[Number(proposerIndex)];
   }
 
-  /**
-   * Check if a validator is in the current epoch's committee
-   */
-  async isInCommittee(validator: EthAddress): Promise<boolean> {
-    const { committee } = await this.getCommittee();
+  /** Check if a validator is in the given slot's committee */
+  async isInCommittee(slot: SlotTag, validator: EthAddress): Promise<boolean> {
+    const { committee } = await this.getCommittee(slot);
     if (!committee) {
       return false;
     }
     return committee.some(v => v.equals(validator));
   }
 
-  async filterInCommittee(validators: EthAddress[]): Promise<EthAddress[]> {
-    const { committee } = await this.getCommittee();
+  /** From the set of given addresses, return all that are on the committee for the given slot */
+  async filterInCommittee(slot: SlotTag, validators: EthAddress[]): Promise<EthAddress[]> {
+    const { committee } = await this.getCommittee(slot);
     if (!committee) {
       return [];
     }

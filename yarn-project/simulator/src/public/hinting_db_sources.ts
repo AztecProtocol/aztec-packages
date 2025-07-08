@@ -34,10 +34,12 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   type SequentialInsertionResult,
+  type TreeHeights,
   getTreeName,
   merkleTreeIds,
 } from '@aztec/stdlib/trees';
 import { TreeSnapshots } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 
@@ -57,9 +59,9 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
 
   public async getContractInstance(
     address: AztecAddress,
-    blockNumber: number,
+    timestamp: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.db.getContractInstance(address, blockNumber);
+    const instance = await this.db.getContractInstance(address, timestamp);
     if (instance) {
       // We don't need to hint the block number because it doesn't change.
       this.hints.contractInstances.push(
@@ -142,8 +144,11 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   ) {}
 
   // Getters.
-  public async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
-    const path = await this.db.getSiblingPath<N>(treeId, index);
+  public async getSiblingPath<ID extends MerkleTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<SiblingPath<TreeHeights[ID]>> {
+    const path = await this.db.getSiblingPath(treeId, index);
     const key = await this.getHintKey(treeId);
     this.hints.getSiblingPathHints.push(new AvmGetSiblingPathHint(key, treeId, index, path.toFields()));
     return Promise.resolve(path);
@@ -411,10 +416,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     );
   }
 
-  private async appendLeafInternal<ID extends MerkleTreeId, N extends number>(
+  private async appendLeafInternal<ID extends MerkleTreeId>(
     treeId: ID,
     leaf: MerkleTreeLeafType<ID>,
-  ): Promise<SiblingPath<N>> {
+  ): Promise<SiblingPath<TreeHeights[ID]>> {
     // Use sequentialInsert for PublicDataTree and NullifierTree.
     assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
 
@@ -428,7 +433,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, [leaf as Fr]));
 
-    return await this.getSiblingPath<N>(treeId, BigInt(beforeState.nextAvailableLeafIndex));
+    return await this.getSiblingPath(treeId, BigInt(beforeState.nextAvailableLeafIndex));
   }
 
   // Non-hinted required methods from MerkleTreeWriteOperations interface
@@ -471,11 +476,11 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return await this.db.findLeafIndices(treeId, values);
   }
 
-  public async findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+  public findSiblingPaths<ID extends MerkleTreeId>(
     treeId: ID,
     values: MerkleTreeLeafType<ID>[],
-  ): Promise<({ path: SiblingPath<N>; index: bigint } | undefined)[]> {
-    return await this.db.findSiblingPaths(treeId, values);
+  ): Promise<({ path: SiblingPath<TreeHeights[ID]>; index: bigint } | undefined)[]> {
+    return this.db.findSiblingPaths(treeId, values);
   }
 
   public async findLeafIndicesAfter<ID extends MerkleTreeId>(

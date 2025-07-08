@@ -1,5 +1,5 @@
-mod validate_sorted_siloed_note_hashes;
-mod validate_sorted_siloed_nullifiers;
+mod validate_sorted_siloed_unique_padded_note_hashes;
+mod validate_sorted_siloed_padded_nullifiers;
 
 use crate::{
     abis::PaddedSideEffects,
@@ -63,25 +63,25 @@ impl ResetOutputValidatorBuilder {
                  TRANSIENT_DATA_SQUASHING_HINTS_LEN
             ];
 
-            ResetOutputValidatorBuilder {
-                output,
-                previous_kernel,
-                note_hash_read_request_hints_builder,
-                nullifier_read_request_hints_builder,
-                key_validation_hints,
-                transient_data_index_hints,
-                pending_note_hash_read_amount: 0,
-                settled_note_hash_read_amount: 0,
-                pending_nullifier_read_amount: 0,
-                settled_nullifier_read_amount: 0,
-                key_validation_amount: 0,
-                transient_data_squashing_amount: 0,
-                note_hash_siloing_amount: 0,
-                nullifier_siloing_amount: 0,
-                private_log_siloing_amount: 0,
-                padded_side_effects: PaddedSideEffects::empty(),
-            }
+        ResetOutputValidatorBuilder {
+            output,
+            previous_kernel,
+            note_hash_read_request_hints_builder,
+            nullifier_read_request_hints_builder,
+            key_validation_hints,
+            transient_data_index_hints,
+            pending_note_hash_read_amount: 0,
+            settled_note_hash_read_amount: 0,
+            pending_nullifier_read_amount: 0,
+            settled_nullifier_read_amount: 0,
+            key_validation_amount: 0,
+            transient_data_squashing_amount: 0,
+            note_hash_siloing_amount: 0,
+            nullifier_siloing_amount: 0,
+            private_log_siloing_amount: 0,
+            padded_side_effects: PaddedSideEffects::empty(),
         }
+    }
 
     pub fn get_validation_request_processor(
         self,

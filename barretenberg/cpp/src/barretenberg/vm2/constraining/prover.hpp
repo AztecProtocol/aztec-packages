@@ -55,9 +55,6 @@ class AvmProver {
     SumcheckOutput<Flavor> sumcheck_output;
 
     PCSCommitmentKey commitment_key;
-
-  protected:
-    HonkProof proof;
 };
 
 } // namespace bb::avm2

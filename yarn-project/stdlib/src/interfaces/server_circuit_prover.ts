@@ -15,6 +15,7 @@ import type { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
 import type { BlockRootOrBlockMergePublicInputs } from '../rollup/block_root_or_block_merge_public_inputs.js';
 import type { BlockRootRollupInputs, SingleTxBlockRootRollupInputs } from '../rollup/block_root_rollup.js';
 import type { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import type { PaddingBlockRootRollupInputs } from '../rollup/index.js';
 import type { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import type { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import type { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
@@ -121,6 +122,14 @@ export interface ServerCircuitProver {
     PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
 
+  getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
+
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
@@ -155,6 +164,15 @@ export interface ServerCircuitProver {
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
 }
 
+export type IVCProofVerificationResult = {
+  // The result of verification
+  valid: boolean;
+  // The duration of the verification in milliseconds
+  durationMs: number;
+  // The total duration, including proof serialisation and file-system cleanup
+  totalDurationMs: number;
+};
+
 /**
  * A verifier used by nodes to check tx proofs are valid.
  */
@@ -164,7 +182,7 @@ export interface ClientProtocolCircuitVerifier {
    * @param tx - The tx to verify the proof of
    * @returns True if the proof is valid, false otherwise
    */
-  verifyProof(tx: Tx): Promise<boolean>;
+  verifyProof(tx: Tx): Promise<IVCProofVerificationResult>;
 
   /**
    * Stop the verifier.

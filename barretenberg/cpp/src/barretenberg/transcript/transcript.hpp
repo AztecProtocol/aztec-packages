@@ -166,15 +166,7 @@ template <typename TranscriptParams> class BaseTranscript {
     // Indicates whether the transcript is receiving data from the prover
     bool reception_phase = true;
 
-    BaseTranscript() = default;
-
-    /**
-     * @brief Construct a new Base Transcript object for Verifier using proof_data
-     *
-     * @param proof_data
-     */
-    explicit BaseTranscript(const Proof& proof_data)
-        : proof_data(proof_data.begin(), proof_data.end())
+    BaseTranscript()
     {
         // If we are in circuit, we need to get a unique index for the transcript
         if constexpr (in_circuit) {
@@ -248,6 +240,8 @@ template <typename TranscriptParams> class BaseTranscript {
     };
 
   protected:
+    Proof proof_data; // Contains the raw data sent by the prover.
+
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
@@ -300,12 +294,12 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
   public:
-    // Contains the raw data sent by the prover.
-    Proof proof_data;
-
     /**
      * @brief Return the proof data starting at proof_start
-     * @details This is useful for when two different provers share a transcript.
+     * @details This function returns the elements of the transcript in the interval [proof_start : proof_start +
+     * num_frs_written] and then updates proof_start. It is useful for when two provers share a transcript, as calling
+     * export_proof at the end of each provers' code returns the slices T_1, T_2 of the transcript that must be loaded
+     * by the verifiers via load_proof.
      */
     std::vector<Fr> export_proof()
     {
@@ -320,6 +314,13 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
+
+    /**
+     * @brief Return the size of proof_data
+     *
+     * @return size_t
+     */
+    size_t size_proof_data() { return proof_data.size(); }
 
     /**
      * @brief Enables the manifest
@@ -567,7 +568,8 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
-        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
+        auto verifier_transcript = std::make_shared<BaseTranscript>();
+        verifier_transcript->load_proof(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
         return verifier_transcript;
     };
@@ -591,26 +593,65 @@ template <typename TranscriptParams> class BaseTranscript {
         }
         manifest.print();
     }
+
+    /**
+     * @brief Branch a transcript to perform verifier-only computations
+     * @details This function takes the current state of a transcript and creates a new transcript that starts from that
+     * state. In this way, computations that are not part of the prover's transcript (e.g., computations that can be
+     * used to perform calculations more efficiently) will not affect the verifier's transcript.
+     *
+     * If `transcript = (.., previous_challenge)`, then for soundness it is enough that `branched_transcript =
+     * (previous_challenge, ...)` However, there are a few implementation details we need to take into account:
+     *  1. `branched_transcript` will interact with witnesses that come from `transcript`. To prevent the tool that
+     *      detects FS bugs from raising an error, we must ensure that `branched_transcript.transcript_index =
+     *      transcript.transcript_index`.
+     *  2. To aid debugging, we set `branched_transcript.round_index = transcript.round_index`, so that it is clear that
+     *      `branched_transcript` builds on the current state of `transcript`.
+     *  3. To aid debugging, we increase `transcript.round_index` by `BRANCHING_JUMP`, so that there is a gap between
+     *      what happens before and after the transcript is branched.
+     *  4. To ensure soundness:
+     *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
+     *      b. We enforce ASSERT(current_round_data.empty())
+     *
+     * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
+     * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
+     * round in `transcript` is not finished yet). There seems to be no reason why the branching cannot happen after the
+     * round is concluded, so we choose this implementation.
+     *
+     * The relation between the transcript and the branched transcript is the following:
+     *
+     *   round_index      transcript      branched_transcript
+     *        0               *
+     *        1               |
+     *        |               |
+     *        |               |
+     *        n               * ================= *
+     *        |                                   |
+     *        |                                   |
+     *        |                                   |
+     * n+BRANCHING_JUMP       *                   |
+     *       n+6              |                   |
+     *        |               |                   |
+     *       ...             ...                 ...
+     *
+     *
+     * @return BaseTranscript
+     */
+    BaseTranscript branch_transcript()
+    {
+        ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
+
+        BaseTranscript branched_transcript;
+
+        // Need to fetch_sub because the constructor automatically increases unique_transcript_index by 1
+        branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
+        branched_transcript.round_index = round_index;
+        branched_transcript.add_to_hash_buffer("init", previous_challenge);
+        round_index += BRANCHING_JUMP;
+
+        return branched_transcript;
+    }
 };
-
-template <typename Builder>
-static bb::StdlibProof<Builder> convert_native_proof_to_stdlib(Builder* builder, const HonkProof& proof)
-{
-    bb::StdlibProof<Builder> result;
-    for (const auto& element : proof) {
-        result.push_back(bb::stdlib::witness_t<Builder>(builder, element));
-    }
-    return result;
-}
-
-template <typename Builder> static bb::HonkProof convert_stdlib_proof_to_native(const StdlibProof<Builder>& proof)
-{
-    bb::HonkProof result;
-    for (const auto& element : proof) {
-        result.push_back(element.get_value());
-    }
-    return result;
-}
 
 using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
 

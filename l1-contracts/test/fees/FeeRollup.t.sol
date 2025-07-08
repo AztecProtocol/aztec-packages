@@ -9,7 +9,10 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib, Signature, CommitteeAttestation
+  SignatureLib,
+  Signature,
+  CommitteeAttestation,
+  CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -77,7 +80,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     ProposedHeader header;
     bytes body;
     bytes blobInputs;
-    bytes32[] txHashes;
     CommitteeAttestation[] attestations;
   }
 
@@ -105,9 +107,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30).setTargetCommitteeSize(
-      0
-    );
+      .setMintFeeAmount(1e30).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -137,7 +137,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // to prove, but we don't need to prove anything here.
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
-    bytes32[] memory txHashes = new bytes32[](0);
     CommitteeAttestation[] memory attestations = new CommitteeAttestation[](0);
 
     bytes memory body = full.block.body;
@@ -179,7 +178,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       header: header,
       body: body,
       blobInputs: full.block.blobCommitments,
-      txHashes: txHashes,
       attestations: attestations
     });
   }
@@ -202,10 +200,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
-            }),
-            txHashes: b.txHashes
+            })
           }),
-          b.attestations,
+          SignatureLib.packAttestations(b.attestations),
           b.blobInputs
         );
         nextSlot = nextSlot + Slot.wrap(1);
@@ -234,9 +231,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
 
     // If we assume that everything is proven, we will see what the fee would be if we did not prune.
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     ManaBaseFeeComponents memory componentsNoPrune =
       rollup.getManaBaseFeeComponentsAt(Timestamp.wrap(timeOfPrune), true);
@@ -298,10 +294,9 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
             stateReference: EMPTY_STATE_REFERENCE,
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
-            }),
-            txHashes: b.txHashes
+            })
           }),
-          b.attestations,
+          SignatureLib.packAttestations(b.attestations),
           b.blobInputs
         );
 

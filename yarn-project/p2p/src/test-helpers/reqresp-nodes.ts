@@ -1,12 +1,17 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ClientProtocolCircuitVerifier,
+  IVCProofVerificationResult,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
@@ -121,7 +126,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
     p2pEnabled: true,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
+    peerIdPrivateKey: new SecretValue(Buffer.from(peerId.privateKey!).toString('hex')),
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
@@ -255,16 +260,16 @@ export class AlwaysTrueCircuitVerifier implements ClientProtocolCircuitVerifier 
   stop(): Promise<void> {
     return Promise.resolve();
   }
-  verifyProof(_tx: Tx): Promise<boolean> {
-    return Promise.resolve(true);
+  verifyProof(_tx: Tx): Promise<IVCProofVerificationResult> {
+    return Promise.resolve({ valid: true, durationMs: 0, totalDurationMs: 0 });
   }
 }
 export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier {
   stop(): Promise<void> {
     return Promise.resolve();
   }
-  verifyProof(_tx: Tx): Promise<boolean> {
-    return Promise.resolve(false);
+  verifyProof(_tx: Tx): Promise<IVCProofVerificationResult> {
+    return Promise.resolve({ valid: false, durationMs: 0, totalDurationMs: 0 });
   }
 }
 
@@ -274,7 +279,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     l1ChainId: chainConfig.l1ChainId,
     p2pIp: '127.0.0.1',
     p2pPort: port,
-    peerIdPrivateKey: privateKey,
+    peerIdPrivateKey: new SecretValue(privateKey),
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],

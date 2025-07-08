@@ -6,6 +6,9 @@ unconstrained fn get_contract_address_oracle() -> AztecAddress {}
 #[oracle(getBlockNumber)]
 unconstrained fn get_block_number_oracle() -> u32 {}
 
+#[oracle(getTimestamp)]
+unconstrained fn get_timestamp_oracle() -> u64 {}
+
 #[oracle(getChainId)]
 unconstrained fn get_chain_id_oracle() -> Field {}
 
@@ -18,6 +21,10 @@ pub unconstrained fn get_contract_address() -> AztecAddress {
 
 pub unconstrained fn get_block_number() -> u32 {
     get_block_number_oracle()
+}
+
+pub unconstrained fn get_timestamp() -> u64 {
+    get_timestamp_oracle()
 }
 
 pub unconstrained fn get_chain_id() -> Field {

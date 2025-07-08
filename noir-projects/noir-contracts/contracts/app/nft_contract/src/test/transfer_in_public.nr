@@ -1,7 +1,6 @@
 use crate::NFT;
 use crate::test::utils;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{oracle::random::random, test::helpers::authwit::add_public_authwit_from_call_interface};
 
 #[test]
 unconstrained fn transfer_in_public() {
@@ -42,7 +41,7 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
 
     let transfer_in_public_from_call_interface =
         NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
+    add_public_authwit_from_call_interface(
         sender,
         recipient,
         transfer_in_public_from_call_interface,
@@ -56,7 +55,7 @@ unconstrained fn transfer_in_public_on_behalf_of_other() {
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
 
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
     // The authwit check is in the beginning so we don't need to waste time on minting the NFT and transferring
@@ -107,11 +106,7 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_wrong_caller() {
         utils::setup_and_mint(/* with_account_contracts */ true);
     let transfer_in_public_from_call_interface =
         NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1);
-    authwit_cheatcodes::add_public_authwit_from_call_interface(
-        sender,
-        sender,
-        transfer_in_public_from_call_interface,
-    );
+    add_public_authwit_from_call_interface(sender, sender, transfer_in_public_from_call_interface);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens

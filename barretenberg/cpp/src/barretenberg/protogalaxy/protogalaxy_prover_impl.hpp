@@ -21,8 +21,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(
-        key, vk->verification_key, transcript, domain_separator + '_');
+    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
@@ -209,6 +208,6 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> Proto
     update_target_sum_and_fold(keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
     vinfo("folded");
 
-    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = std::move(transcript->proof_data) };
+    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = transcript->export_proof() };
 }
 } // namespace bb

@@ -32,6 +32,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
 
     /**
      * @brief Construct and a verify a Honk proof
@@ -71,6 +72,22 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         return verified;
     }
 
+    RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> construct_subtable_commitments_from_op_queue(
+        auto& op_queue,
+        const MergeProver& merge_prover,
+        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES>& t_commitments_val)
+    {
+        std::array<typename Flavor::Polynomial, Flavor::NUM_WIRES> t_current =
+            op_queue->construct_current_ultra_ops_subtable_columns();
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
+            t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+        }
+
+        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments(t_commitments_val);
+
+        return t_commitments;
+    }
+
     /**
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
@@ -80,7 +97,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         MergeProver merge_prover{ op_queue, settings };
         MergeVerifier merge_verifier{ settings };
         auto merge_proof = merge_prover.construct_proof();
-        bool verified = merge_verifier.verify_proof(merge_proof);
+        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments_val;
+
+        bool verified = merge_verifier.verify_proof(
+            merge_proof, this->construct_subtable_commitments_from_op_queue(op_queue, merge_prover, t_commitments_val));
 
         return verified;
     }
@@ -110,27 +130,6 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
-}
-
-/**
- * @brief Check that size of a ultra honk proof matches the corresponding constant
- * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
- * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
- * - ultra_transcript.test.cpp
- * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
- * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
- */
-TYPED_TEST(MegaHonkTests, MegaVKSizeCheck)
-{
-    using Flavor = TypeParam;
-
-    auto builder = typename Flavor::CircuitBuilder{};
-    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
-
-    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
-    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }
 
 /**
@@ -296,7 +295,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
 {
     using Flavor = TypeParam;
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
-    auto op_queue = std::make_shared<bb::ECCOpQueue>(MergeSettings::APPEND);
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 1;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
@@ -357,7 +356,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+        auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
         EXPECT_TRUE(merge_verified);
     }
 }

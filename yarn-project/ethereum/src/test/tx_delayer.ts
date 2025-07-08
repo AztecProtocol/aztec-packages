@@ -1,6 +1,7 @@
 import { omit } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import type { DateProvider } from '@aztec/foundation/timer';
 
 import { inspect } from 'util';
 import {
@@ -71,13 +72,24 @@ export interface Delayer {
   pauseNextTxUntilTimestamp(l1Timestamp: number | bigint | undefined): void;
   /** Delays the next tx to be sent indefinitely. */
   cancelNextTx(): void;
+  /**
+   * Sets max inclusion time into slot. If more than this many seconds have passed
+   * since the last L1 block was mined, then any tx will not be mined in the current
+   * L1 slot but will be deferred for the next one.
+   */
+  setMaxInclusionTimeIntoSlot(seconds: number | bigint | undefined): void;
 }
 
 class DelayerImpl implements Delayer {
-  constructor(opts: { ethereumSlotDuration: bigint | number }) {
+  private logger = createLogger('ethereum:tx_delayer');
+  constructor(
+    public dateProvider: DateProvider,
+    opts: { ethereumSlotDuration: bigint | number },
+  ) {
     this.ethereumSlotDuration = BigInt(opts.ethereumSlotDuration);
   }
 
+  public maxInclusionTimeIntoSlot: number | undefined = undefined;
   public ethereumSlotDuration: bigint;
   public nextWait: { l1Timestamp: bigint } | { l1BlockNumber: bigint } | { indefinitely: true } | undefined = undefined;
   public sentTxHashes: Hex[] = [];
@@ -102,6 +114,10 @@ class DelayerImpl implements Delayer {
   cancelNextTx() {
     this.nextWait = { indefinitely: true };
   }
+
+  setMaxInclusionTimeIntoSlot(seconds: number | undefined) {
+    this.maxInclusionTimeIntoSlot = seconds;
+  }
 }
 
 /**
@@ -111,13 +127,14 @@ class DelayerImpl implements Delayer {
  */
 export function withDelayer<T extends ViemClient>(
   client: T,
+  dateProvider: DateProvider,
   opts: { ethereumSlotDuration: bigint | number },
 ): { client: T; delayer: Delayer } {
   if (!isExtendedClient(client)) {
     throw new Error('withDelayer has to be instantiated with a wallet viem client.');
   }
   const logger = createLogger('ethereum:tx_delayer');
-  const delayer = new DelayerImpl(opts);
+  const delayer = new DelayerImpl(dateProvider, opts);
 
   const extended = client
     // Tweak sendRawTransaction so it uses the delay defined in the delayer.
@@ -126,13 +143,19 @@ export function withDelayer<T extends ViemClient>(
     // but we do not use them in our codebase at all.
     .extend(client => ({
       async sendRawTransaction(...args) {
+        let wait: Promise<unknown> | undefined;
+        let txHash: Hex | undefined;
+
+        const { serializedTransaction } = args[0];
+        const publicClient = client as unknown as PublicClient;
+
         if (delayer.nextWait !== undefined) {
+          // Check if we have been instructed to delay the next tx.
           const waitUntil = delayer.nextWait;
           delayer.nextWait = undefined;
 
           // Compute the tx hash manually so we emulate sendRawTransaction response
-          const { serializedTransaction } = args[0];
-          const txHash = computeTxHash(serializedTransaction);
+          txHash = computeTxHash(serializedTransaction);
 
           // Cancel tx outright if instructed
           if ('indefinitely' in waitUntil && waitUntil.indefinitely) {
@@ -141,8 +164,8 @@ export function withDelayer<T extends ViemClient>(
             return Promise.resolve(txHash);
           }
 
-          const publicClient = client as unknown as PublicClient;
-          const wait =
+          // Or wait until the desired block number or timestamp
+          wait =
             'l1BlockNumber' in waitUntil
               ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
               : 'l1Timestamp' in waitUntil
@@ -153,7 +176,31 @@ export function withDelayer<T extends ViemClient>(
             argsLen: args.length,
             ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
           });
+        } else if (delayer.maxInclusionTimeIntoSlot !== undefined) {
+          // Check if we need to delay txs sent too close to the end of the slot.
+          const currentBlock = await publicClient.getBlock({ includeTransactions: false });
+          const { timestamp: lastBlockTimestamp, number } = currentBlock;
+          const now = delayer.dateProvider.nowInSeconds();
 
+          txHash = computeTxHash(serializedTransaction);
+          const logData = {
+            ...omit(parseTransaction(serializedTransaction), 'data', 'sidecars'),
+            lastBlockTimestamp,
+            now,
+            maxInclusionTimeIntoSlot: delayer.maxInclusionTimeIntoSlot,
+          };
+
+          if (now - Number(lastBlockTimestamp) > delayer.maxInclusionTimeIntoSlot) {
+            // If the last block was mined more than `maxInclusionTimeIntoSlot` seconds ago, then we cannot include
+            // any txs in the current slot, so we delay the tx until the next slot.
+            logger.info(`Delaying inclusion of tx ${txHash} until the next slot since it was sent too late`, logData);
+            wait = waitUntilBlock(publicClient, number + 1n, logger);
+          } else {
+            logger.debug(`Immediately sending tx ${txHash} as it was received early enough in the slot`, logData);
+          }
+        }
+
+        if (wait !== undefined) {
           // Do not await here so we can return the tx hash immediately as if it had been sent on the spot.
           // Instead, delay it so it lands on the desired block number or timestamp, assuming anvil will
           // mine it immediately.
@@ -166,12 +213,11 @@ export function withDelayer<T extends ViemClient>(
                   computedTxHash: txHash,
                 });
               }
-              logger.info(`Sent previously delayed tx ${clientTxHash} to land on ${inspect(waitUntil)}`);
+              logger.info(`Sent previously delayed tx ${clientTxHash}`);
               delayer.sentTxHashes.push(clientTxHash);
             })
             .catch(err => logger.error(`Error sending tx after delay`, err));
-
-          return Promise.resolve(txHash);
+          return Promise.resolve(txHash!);
         } else {
           const txHash = await client.sendRawTransaction(...args);
           logger.verbose(`Sent tx immediately ${txHash}`);

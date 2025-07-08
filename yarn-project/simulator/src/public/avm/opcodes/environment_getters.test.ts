@@ -6,7 +6,7 @@ import { randomInt } from 'crypto';
 
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
-import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
@@ -64,9 +64,9 @@ describe('Environment getters', () => {
     [EnvironmentVariable.VERSION, version.toField()],
     [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
-    [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
-    [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
-    [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0)],
+    [EnvironmentVariable.BASEFEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
+    [EnvironmentVariable.BASEFEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
+    [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0), TypeTag.UINT1],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {
       const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, envVar);
@@ -83,5 +83,27 @@ describe('Environment getters', () => {
     const invalidEnum = 255;
     const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, invalidEnum);
     await expect(instruction.execute(context)).rejects.toThrow(`Invalid GETENVVAR var enum ${invalidEnum}`);
+  });
+
+  describe('Gas left environment variables', () => {
+    it('Should read L2GASLEFT correctly', async () => {
+      const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, EnvironmentVariable.L2GASLEFT);
+
+      await instruction.execute(context);
+
+      expect(context.machineState.memory.getTag(0)).toBe(TypeTag.UINT32);
+      const actual = context.machineState.memory.get(0).toFr();
+      expect(actual).toEqual(new Fr(context.machineState.l2GasLeft));
+    });
+
+    it('Should read DAGASLEFT correctly', async () => {
+      const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, EnvironmentVariable.DAGASLEFT);
+
+      await instruction.execute(context);
+
+      expect(context.machineState.memory.getTag(0)).toBe(TypeTag.UINT32);
+      const actual = context.machineState.memory.get(0).toFr();
+      expect(actual).toEqual(new Fr(context.machineState.daGasLeft));
+    });
   });
 });

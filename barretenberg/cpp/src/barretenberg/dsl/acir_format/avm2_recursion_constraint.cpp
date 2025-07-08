@@ -11,9 +11,9 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
@@ -143,53 +143,6 @@ void create_dummy_vkey_and_proof(Builder& builder,
 }
 
 } // namespace
-
-/**
- * @brief Add constraints required to recursively verify an AVM2 proof
- *
- * @param builder
- * @param input
- * @param input_points_accumulator_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
- * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
- */
-PairingPoints create_avm2_recursion_constraints(Builder& builder,
-                                                const RecursionConstraint& input,
-                                                bool has_valid_witness_assignments)
-{
-    using Flavor = avm2::AvmRecursiveFlavor_<Builder>;
-    using RecursiveVerificationKey = Flavor::VerificationKey;
-    using RecursiveVerifier = avm2::AvmRecursiveVerifier_<Flavor>;
-
-    BB_ASSERT_EQ(input.proof_type, AVM);
-
-    auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
-        std::vector<field_ct> result;
-        result.reserve(input.size());
-        for (const auto& idx : input) {
-            result.emplace_back(field_ct::from_witness_index(&builder, idx));
-        }
-        return result;
-    };
-
-    // Construct in-circuit representation of the verification key, proof and public inputs
-    const auto key_fields = fields_from_witnesses(input.key);
-    const auto proof_fields = fields_from_witnesses(input.proof);
-    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
-
-    // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
-    if (!has_valid_witness_assignments) {
-        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
-    }
-
-    // Recursively verify the proof
-    auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
-    RecursiveVerifier verifier(builder, vkey);
-
-    PairingPoints output_points_accumulator =
-        verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
-
-    return output_points_accumulator;
-}
 
 /**
  * @brief Add constraints associated with recursive verification of an AVM2 proof using Goblin

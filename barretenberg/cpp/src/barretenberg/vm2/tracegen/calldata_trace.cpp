@@ -3,8 +3,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using bb::crypto::Poseidon2;
 
@@ -26,7 +25,7 @@ void CalldataTraceBuilder::process_retrieval(
                           { C::calldata_sel, 1 },
                           { C::calldata_context_id, context_id },
                           { C::calldata_value, calldata[i] },
-                          { C::calldata_index, i + 1 },
+                          { C::calldata_index, i },
                           { C::calldata_latch, (i == calldata.size() - 1) ? 1 : 0 },
 
                       } });
@@ -76,11 +75,9 @@ void CalldataTraceBuilder::process_hashing(
     }
 }
 
-std::vector<std::unique_ptr<class InteractionBuilderInterface>> CalldataTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_calldata_hashing_cd_hash_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_calldata_hashing_cd_hash_end_settings>>());
-}
+const InteractionDefinition CalldataTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_calldata_hashing_cd_hash_settings, InteractionType::LookupSequential>()
+        .add<lookup_calldata_hashing_cd_hash_end_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

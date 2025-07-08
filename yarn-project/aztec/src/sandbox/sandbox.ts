@@ -2,7 +2,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -10,9 +9,12 @@ import {
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
@@ -34,6 +36,7 @@ import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
+import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -82,6 +85,8 @@ export async function deployContractsToL1(
     },
   );
 
+  await deployMulticall3(l1Contracts.l1Client, logger);
+
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
@@ -116,13 +121,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
+  if (!aztecNodeConfig.publisherPrivateKey.getValue() || aztecNodeConfig.publisherPrivateKey.getValue() === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    aztecNodeConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
-  if (!aztecNodeConfig.validatorPrivateKeys?.length) {
+  if (!aztecNodeConfig.validatorPrivateKeys.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKeys = [`0x${Buffer.from(privKey!).toString('hex')}`];
+    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
 
   const initialAccounts = await (async () => {

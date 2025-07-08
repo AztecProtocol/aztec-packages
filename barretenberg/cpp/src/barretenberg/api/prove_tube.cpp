@@ -16,6 +16,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
+    using StdlibProof = ClientIVCRecursiveVerifier::StdlibProof;
 
     std::string proof_path = output_path + "/proof";
 
@@ -37,12 +38,13 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 
-    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
+    StdlibProof stdlib_proof(*builder, proof);
+    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
-    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+    builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
     BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
@@ -88,7 +90,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     Verifier tube_verifier(tube_verification_key, ipa_verification_key);
 
     // Break up the tube proof into the honk portion and the ipa portion

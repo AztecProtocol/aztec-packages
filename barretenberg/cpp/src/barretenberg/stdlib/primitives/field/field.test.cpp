@@ -189,7 +189,54 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool_ct b_false = bool_ct(one * field_ct(0));
         EXPECT_FALSE(b_false.get_value());
     }
+    static void test_conditional_assign()
+    {
+        Builder builder = Builder();
+        // Populate test inputs
+        std::array<field_ct, 5> lhs_in{ engine.get_random_uint256(),
+                                        engine.get_random_uint256(),
+                                        witness_ct(&builder, engine.get_random_uint256()),
+                                        engine.get_random_uint256(),
+                                        witness_ct(&builder, engine.get_random_uint256()) };
 
+        std::array<field_ct, 5> rhs_in{
+            engine.get_random_uint256(),                       // lhs, rhs = const
+            witness_ct(&builder, engine.get_random_uint256()), // one side is a witness
+            witness_ct(&builder, engine.get_random_uint256()), // both witnesses
+            lhs_in[3],                                         // equal constants
+            lhs_in[4]                                          // equal witnesses
+        };
+
+        auto check_conditional_assign =
+            [](auto& builder, bool_ct& predicate, field_ct& lhs, field_ct& rhs, bool same_elt) {
+                size_t num_gates_before = builder.get_estimated_num_finalized_gates();
+                field_ct result = field_ct::conditional_assign(predicate, lhs, rhs);
+                EXPECT_TRUE(result.get_value() == (predicate.get_value() ? lhs.get_value() : rhs.get_value()));
+
+                size_t expected_num_gates = 0;
+                // If predicate is constant, no need to constrain the result of the operation
+                if (!predicate.is_constant()) {
+                    // If the witness index and constants of lhs and lhs do coincide, no gates are added
+                    if (!same_elt) {
+                        // If lhs or rhs is a constant field element, `lhs - rhs` does not create an extra gate
+                        expected_num_gates += 1 + static_cast<size_t>(!rhs.is_constant() && !lhs.is_constant());
+                    }
+                }
+
+                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == expected_num_gates);
+            };
+        // Populate predicate array, ensure that both constant and witness predicates are present
+        std::array<bool_ct, 4> predicates{
+            bool_ct(true), bool_ct(false), bool_ct(witness_ct(&builder, true)), bool_ct(witness_ct(&builder, false))
+        };
+
+        for (auto& predicate : predicates) {
+            for (size_t i = 0; i < 4; i++) {
+                check_conditional_assign(builder, predicate, lhs_in[i], rhs_in[i], i > 2);
+            }
+        }
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
     /**
      * @brief Test that conditional assign doesn't produce a new witness if lhs and rhs are constant
      *
@@ -534,11 +581,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct b = 3;
         field_ct c = 7;
-        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in this
-        // case requires 3 constraints
-        // 1) ensure r is bool;
-        // 2) (a - b) * I + r - 1 = 0;
-        // 3) -I * r + r = 0
+        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in
+        // this case requires 3 constraints 1) ensure r is bool; 2) (a - b) * I + r - 1 = 0; 3) -I * r + r = 0
         bool_ct r = (a * c) == (b * c + c);
         auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 3UL);
@@ -607,7 +651,44 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void madd()
+    static void test_assert_is_not_zero()
+    {
+        Builder builder = Builder();
+        size_t num_gates_before = builder.get_estimated_num_finalized_gates();
+        field_ct a(engine.get_random_uint256());
+        if (a.get_value() == 0) {
+            a += 1;
+        }
+        a.assert_is_not_zero();
+        // a is a constant, so no gates should be added
+        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 0);
+        a = witness_ct(&builder, 17);
+        a.assert_is_not_zero();
+        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 1);
+        // Ensure a is not normalized anymore
+        a *= 2;
+        a += 4;
+        a.assert_is_not_zero();
+        EXPECT_TRUE(CircuitChecker::check(builder));
+        { // a is a non-normalized witness with value 0
+            a -= field_ct(a.get_value());
+            a.assert_is_not_zero();
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+        { // a is a normalized witness with value 0
+            a = witness_ct(&builder, 0);
+            a.assert_is_not_zero();
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+        { // a is a const 0
+            a = field_ct(0);
+#ifndef NDEBUG
+            EXPECT_DEATH(a.assert_is_not_zero(), "assert_is_not_zero");
+#endif
+        }
+    }
+
+    static void test_madd()
     {
         Builder builder = Builder();
 
@@ -688,7 +769,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
         }
     }
-    static void two_bit_table()
+    static void test_two_bit_table()
     {
         Builder builder = Builder();
         field_ct a(witness_ct(&builder, fr::random_element()));
@@ -783,7 +864,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
-    static void three_bit_table()
+    static void test_three_bit_table()
     {
         Builder builder = Builder();
         field_ct a(witness_ct(&builder, fr::random_element()));
@@ -985,14 +1066,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         uint64_t exponent_val = engine.get_random_uint32();
         exponent_val += (uint64_t(1) << 32);
 
-        field_ct base = witness_ct(&builder, base_val);
+        [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_NE(result.get_value(), expected);
-        EXPECT_EQ(builder.failed(), true);
-        EXPECT_EQ(builder.err(), "field_t::pow exponent accumulator incorrect");
+#ifndef NDEBUG
+        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+#endif
 
         exponent = field_ct(exponent_val);
 #ifndef NDEBUG
@@ -1328,39 +1406,77 @@ using CircuitTypes = testing::Types<bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
 
-TYPED_TEST(stdlib_field, test_constructor_from_witness)
+TYPED_TEST(stdlib_field, test_accumulate)
 {
-    TestFixture::test_constructor_from_witness();
+    TestFixture::test_accumulate();
 }
-
 TYPED_TEST(stdlib_field, test_add)
 {
     TestFixture::test_add();
 }
-TYPED_TEST(stdlib_field, test_create_range_constraint)
+TYPED_TEST(stdlib_field, test_add_mul_with_constants)
 {
-    TestFixture::create_range_constraint();
+    TestFixture::test_add_mul_with_constants();
 }
-TYPED_TEST(stdlib_field, test_conditional_assign_regression)
+TYPED_TEST(stdlib_field, test_add_two)
 {
-    TestFixture::test_conditional_assign_regression();
-}
-TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
-{
-    TestFixture::test_multiplicative_constant_regression();
+    TestFixture::test_add_two();
 }
 TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
 }
+TYPED_TEST(stdlib_field, test_assert_is_in_set)
+{
+    TestFixture::test_assert_is_in_set();
+}
+TYPED_TEST(stdlib_field, test_assert_is_in_set_fails)
+{
+    TestFixture::test_assert_is_in_set_fails();
+}
+TYPED_TEST(stdlib_field, test_assert_is_zero)
+{
+    TestFixture::test_assert_is_zero();
+}
+TYPED_TEST(stdlib_field, test_assert_is_not_zero)
+{
+    TestFixture::test_assert_is_not_zero();
+}
 TYPED_TEST(stdlib_field, test_bool_conversion)
 {
     TestFixture::test_bool_conversion();
 }
-
 TYPED_TEST(stdlib_field, test_bool_conversion_regression)
 {
     TestFixture::test_bool_conversion_regression();
+}
+TYPED_TEST(stdlib_field, test_conditional_assign)
+{
+    TestFixture::test_conditional_assign();
+}
+TYPED_TEST(stdlib_field, test_conditional_assign_regression)
+{
+    TestFixture::test_conditional_assign_regression();
+}
+TYPED_TEST(stdlib_field, test_conditional_negate)
+{
+    TestFixture::test_conditional_negate();
+}
+TYPED_TEST(stdlib_field, test_constructor_from_witness)
+{
+    TestFixture::test_constructor_from_witness();
+}
+TYPED_TEST(stdlib_field, test_copy_as_new_witness)
+{
+    TestFixture::test_copy_as_new_witness();
+}
+TYPED_TEST(stdlib_field, test_create_range_constraint)
+{
+    TestFixture::create_range_constraint();
+}
+TYPED_TEST(stdlib_field, test_decompose_into_bits)
+{
+    TestFixture::test_decompose_into_bits();
 }
 TYPED_TEST(stdlib_field, test_div)
 {
@@ -1369,26 +1485,6 @@ TYPED_TEST(stdlib_field, test_div)
 TYPED_TEST(stdlib_field, test_div_edge_cases)
 {
     TestFixture::test_div_edge_cases();
-}
-TYPED_TEST(stdlib_field, test_invert)
-{
-    TestFixture::test_invert();
-}
-TYPED_TEST(stdlib_field, test_postfix_increment)
-{
-    TestFixture::test_postfix_increment();
-}
-TYPED_TEST(stdlib_field, test_prefix_increment)
-{
-    TestFixture::test_prefix_increment();
-}
-TYPED_TEST(stdlib_field, test_field_fibbonaci)
-{
-    TestFixture::test_field_fibbonaci();
-}
-TYPED_TEST(stdlib_field, test_field_pythagorean)
-{
-    TestFixture::test_field_pythagorean();
 }
 TYPED_TEST(stdlib_field, test_equality)
 {
@@ -1402,25 +1498,61 @@ TYPED_TEST(stdlib_field, test_equality_with_constants)
 {
     TestFixture::test_equality_with_constants();
 }
-TYPED_TEST(stdlib_field, test_larger_circuit)
+TYPED_TEST(stdlib_field, test_field_fibbonaci)
 {
-    TestFixture::test_larger_circuit();
+    TestFixture::test_field_fibbonaci();
 }
-TYPED_TEST(stdlib_field, test_is_zero)
+TYPED_TEST(stdlib_field, test_field_pythagorean)
 {
-    TestFixture::test_is_zero();
+    TestFixture::test_field_pythagorean();
 }
 TYPED_TEST(stdlib_field, test_fix_witness)
 {
     TestFixture::test_fix_witness();
 }
-TYPED_TEST(stdlib_field, madd)
+TYPED_TEST(stdlib_field, test_invert)
 {
-    TestFixture::madd();
+    TestFixture::test_invert();
 }
-TYPED_TEST(stdlib_field, two_bit_table)
+TYPED_TEST(stdlib_field, test_is_zero)
 {
-    TestFixture::two_bit_table();
+    TestFixture::test_is_zero();
+}
+TYPED_TEST(stdlib_field, test_larger_circuit)
+{
+    TestFixture::test_larger_circuit();
+}
+TYPED_TEST(stdlib_field, test_madd)
+{
+    TestFixture::test_madd();
+}
+TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
+{
+    TestFixture::test_multiplicative_constant_regression();
+}
+TYPED_TEST(stdlib_field, test_origin_tag_consistency)
+{
+    TestFixture::test_origin_tag_consistency();
+}
+TYPED_TEST(stdlib_field, test_postfix_increment)
+{
+    TestFixture::test_postfix_increment();
+}
+TYPED_TEST(stdlib_field, test_pow)
+{
+    TestFixture::test_pow();
+}
+TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
+{
+    TestFixture::test_pow_exponent_out_of_range();
+}
+TYPED_TEST(stdlib_field, test_prefix_increment)
+{
+    TestFixture::test_prefix_increment();
+}
+TYPED_TEST(stdlib_field, test_ranged_less_than)
+{
+    TestFixture::test_ranged_less_than();
 }
 TYPED_TEST(stdlib_field, test_slice)
 {
@@ -1434,64 +1566,11 @@ TYPED_TEST(stdlib_field, test_slice_random)
 {
     TestFixture::test_slice_random();
 }
-TYPED_TEST(stdlib_field, three_bit_table)
+TYPED_TEST(stdlib_field, test_three_bit_table)
 {
-    TestFixture::three_bit_table();
+    TestFixture::test_three_bit_table();
 }
-TYPED_TEST(stdlib_field, test_decompose_into_bits)
+TYPED_TEST(stdlib_field, test_two_bit_table)
 {
-    TestFixture::test_decompose_into_bits();
-}
-TYPED_TEST(stdlib_field, test_assert_is_in_set)
-{
-    TestFixture::test_assert_is_in_set();
-}
-TYPED_TEST(stdlib_field, test_assert_is_in_set_fails)
-{
-    TestFixture::test_assert_is_in_set_fails();
-}
-TYPED_TEST(stdlib_field, test_pow)
-{
-    TestFixture::test_pow();
-}
-TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
-{
-    TestFixture::test_pow_exponent_out_of_range();
-}
-TYPED_TEST(stdlib_field, test_copy_as_new_witness)
-{
-    TestFixture::test_copy_as_new_witness();
-}
-TYPED_TEST(stdlib_field, test_ranged_less_than)
-{
-    TestFixture::test_ranged_less_than();
-}
-
-TYPED_TEST(stdlib_field, test_origin_tag_consistency)
-{
-    TestFixture::test_origin_tag_consistency();
-}
-
-TYPED_TEST(stdlib_field, test_add_two)
-{
-    TestFixture::test_add_two();
-}
-
-TYPED_TEST(stdlib_field, test_add_mul_with_constants)
-{
-    TestFixture::test_add_mul_with_constants();
-}
-
-TYPED_TEST(stdlib_field, test_assert_is_zero)
-{
-    TestFixture::test_assert_is_zero();
-}
-TYPED_TEST(stdlib_field, test_accumulate)
-{
-    TestFixture::test_accumulate();
-}
-
-TYPED_TEST(stdlib_field, test_conditional_negate)
-{
-    TestFixture::test_conditional_negate();
+    TestFixture::test_two_bit_table();
 }

@@ -62,15 +62,38 @@ function test_cmds {
   # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
-    echo "$hash:TIMEOUT=20m ./spartan/bootstrap.sh test-kind-transfer"
+    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
+    echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer"
+    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-1tps"
+    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-4epochs"
+
+    # These tests get their own namespaces otherwise they'd interfere with the other tests
+    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-upgrade-rollup-version"
+    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-cli-upgrade"
+
     # TODO(#12791) re-enable
-    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-proving"
-    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-prod-deployment"
-    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-kind-1tps"
-    # echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
+  fi
+}
+
+function start_env {
+  if [ "$CI_NIGHTLY" -eq 1 ]; then
+    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
+    export MONITOR_DEPLOYMENT=false
+    export WAIT_FOR_DEPLOYMENT=false
+    export CLUSTER_NAME=aztec-gke-private
+    export ZONE=us-west1-a
+    echo "Installing test network in namespace $NIGHTLY_NS"
+    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
+  fi
+}
+
+function stop_env {
+  if [ "$CI_NIGHTLY" -eq 1 ]; then
+    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
+    echo "Uninstalling test network in namespace $NIGHTLY_NS"
+    ./scripts/cleanup_k8s.sh "$NIGHTLY_NS" "$NIGHTLY_NS"
   fi
 }
 
@@ -119,45 +142,45 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|build)
+  test|test_cmds|gke|build|start_env|stop_env)
     $cmd
     ;;
   "test-kind-smoke")
     OVERRIDES="telemetry.enabled=false,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/smoke.test.ts 1-validators.yaml smoke${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/smoke.test.ts 1-validators.yaml smoke${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/4epochs.test.ts ci.yaml four-epochs${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs-sepolia")
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false SEPOLIA_RUN=true \
-      ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
     ;;
   "test-kind-proving")
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-1tps")
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
-    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
+      ./scripts/test_k8s.sh kind src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/upgrade_rollup_version.test.ts ci.yaml upgrade-rollup-version${NAME_POSTFIX:-}
     ;;
   "test-prod-deployment")
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
@@ -165,7 +188,34 @@ case "$cmd" in
   "test-cli-upgrade")
     OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
+      ./scripts/test_k8s.sh kind src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
+    ;;
+  "test-gke-transfer")
+    # TODO(#12163) reenable bot once not conflicting with transfer
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml  \
+      ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epoch.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
+    ;;
+  "test-gke-1tps")
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
+      ./scripts/test_k8s.sh gke src/spartan/1tps.test.ts ci-1tps.yaml ${NAMESPACE:-"one-tps${NAME_POSTFIX:-}"}
+    ;;
+  "test-gke-4epochs")
+    # TODO(#12163) reenable bot once not conflicting with transfer
+    OVERRIDES="bot.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_k8s.sh gke src/spartan/4epochs.test.ts ci-1tps.yaml ${NAMESPACE:-"four-epochs${NAME_POSTFIX:-}"}
+    ;;
+  "test-gke-upgrade-rollup-version")
+    OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_k8s.sh gke src/spartan/upgrade_rollup_version.test.ts ci.yaml ${NAMESPACE:-"upgrade-rollup-version${NAME_POSTFIX:-}"}
+    ;;
+  "test-gke-cli-upgrade")
+    OVERRIDES="telemetry.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_k8s.sh gke src/spartan/upgrade_via_cli.test.ts 1-validators.yaml ${NAMESPACE:-"upgrade-via-cli${NAME_POSTFIX:-}"}
     ;;
   *)
     echo "Unknown command: $cmd"

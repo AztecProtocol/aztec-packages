@@ -54,17 +54,14 @@ namespace execution;
     // =============================
     // === Error Handling ====
     // =============================
+    // Since we are already in the execution trace, we'll re-use the main execution error column from the "dispatch opcode" temporality group
     // Throw an error if we try to pop from an empty stack
-    // In circuit that corresponds to calling internal_return while internal_call_id == 0
-    pol commit internal_ret_err; // Error flag
-    pol commit internal_call_id_inv;
-
-    pol CALL_ID_ZERO_CHECK = internal_call_id * (internal_ret_err * (1 - internal_call_id_inv) + internal_call_id_inv) - 1 + internal_ret_err;
-
+    // In circuit that corresponds to calling internal_return while internal_call_return_id == 0
+    pol commit internal_call_return_id_inv;
     // Guard the zero check with sel_internal_return so we dont compute the inverses when we dont need to
-    // Enable once error handling is done
-    // #[INTERNAL_RET_ERROR]
-    // sel_internal_return * CALL_ID_ZERO_CHECK = 0;
+    // If we do an internal_return, we raise opcode = 1 iff internal_call_return_id = 0
+    #[INTERNAL_RET_ERROR]
+    sel_internal_return * (internal_call_return_id * (sel_opcode_error * (1 - internal_call_return_id_inv) + internal_call_return_id_inv) - 1 + sel_opcode_error) = 0;
 
     // =============================
     // === Pushing to Call Stack ===

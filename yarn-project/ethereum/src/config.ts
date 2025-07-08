@@ -1,10 +1,12 @@
 import {
   type ConfigMappingsType,
+  type NetworkNames,
   bigintConfigHelper,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
 
@@ -24,8 +26,8 @@ export type L1ContractsConfig = {
   aztecEpochDuration: number;
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
-  /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
-  aztecProofSubmissionWindow: number;
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
   depositAmount: bigint;
   /** The minimum stake for a validator. */
@@ -49,7 +51,7 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
-  aztecProofSubmissionWindow: 64, // you have a full epoch to submit a proof after the epoch to prove ends
+  aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   depositAmount: BigInt(100e18),
   minimumStake: BigInt(50e18),
   slashingQuorum: 6,
@@ -60,11 +62,64 @@ export const DefaultL1ContractsConfig = {
   provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
 
+const LocalGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n * 30n,
+    lockAmount: 1n * 10n ** 24n,
+  },
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 1n * 10n ** 17n,
+  voteDifferential: 4n * 10n ** 16n,
+  minimumVotes: 400n * 10n ** 18n,
+};
+
+const TestnetGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n,
+    lockAmount: DefaultL1ContractsConfig.depositAmount * 100n,
+  },
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n * 60n * 24n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 3n * 10n ** 17n,
+  voteDifferential: 4n * 10n ** 16n,
+  minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
+};
+
+export const getGovernanceConfiguration = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetGovernanceConfiguration;
+  }
+  return LocalGovernanceConfiguration;
+};
+
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
-export const DefaultRewardConfig = {
+const LocalRewardConfig = {
   sequencerBps: 5000,
+  rewardDistributor: EthAddress.ZERO.toString(),
+  booster: EthAddress.ZERO.toString(),
+};
+
+const TestnetRewardConfig = {
+  sequencerBps: 5000,
+  rewardDistributor: EthAddress.ZERO.toString(),
+  booster: EthAddress.ZERO.toString(),
+};
+
+export const getRewardConfig = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetRewardConfig;
+  }
+  return LocalRewardConfig;
+};
+
+const LocalRewardBoostConfig = {
   increment: 200000,
   maxScore: 5000000,
   a: 5000,
@@ -72,10 +127,41 @@ export const DefaultRewardConfig = {
   minimum: 100000,
 };
 
+const TestnetRewardBoostConfig = {
+  increment: 125000,
+  maxScore: 15000000,
+  a: 1000,
+  k: 1000000,
+  minimum: 100000,
+};
+
+export const getRewardBoostConfig = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetRewardBoostConfig;
+  }
+  return LocalRewardBoostConfig;
+};
+
 // Similar to the above, no need for environment variables for this.
-export const DefaultEntryQueueConfig = {
-  flushSizeMin: 48,
-  flushSizeQuotient: 2,
+const LocalEntryQueueConfig = {
+  bootstrapValidatorSetSize: 0,
+  bootstrapFlushSize: 0,
+  normalFlushSizeMin: 48,
+  normalFlushSizeQuotient: 2,
+};
+
+const TestnetEntryQueueConfig = {
+  bootstrapValidatorSetSize: 750,
+  bootstrapFlushSize: 75,
+  normalFlushSizeMin: 1,
+  normalFlushSizeQuotient: 2475,
+};
+
+export const getEntryQueueConfig = (networkName: NetworkNames) => {
+  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+    return TestnetEntryQueueConfig;
+  }
+  return LocalEntryQueueConfig;
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -99,11 +185,10 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  aztecProofSubmissionWindow: {
-    env: 'AZTEC_PROOF_SUBMISSION_WINDOW',
-    description:
-      'The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionWindow),
+  aztecProofSubmissionEpochs: {
+    env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
+    description: 'The number of epochs after an epoch ends that proofs are still accepted.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionEpochs),
   },
   depositAmount: {
     env: 'AZTEC_DEPOSIT_AMOUNT',

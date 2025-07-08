@@ -10,6 +10,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -43,6 +44,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
@@ -76,9 +78,10 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
-        StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
-        stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
+        StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
+        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
+        stdlib_verifier_transcript->load_proof(stdlib_proof);
+        [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
         // Execute Verifier protocol without the need for vk prior the final check
         const auto commitments_to_witnesses = [&builder](const auto& commitments) {
@@ -133,8 +136,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-        auto vk = std::make_shared<VerifierCommitmentKey<NativeCurve>>();
-        EXPECT_EQ(vk->pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
+        VerifierCommitmentKey<NativeCurve> vk;
+        EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
         // Return finalised number of gates;
         return builder.num_gates;

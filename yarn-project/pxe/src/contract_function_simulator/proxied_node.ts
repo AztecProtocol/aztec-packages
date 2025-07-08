@@ -3,7 +3,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { NodeStats } from '@aztec/stdlib/tx';
 
 /*
- * Proxy for an AztecNode that tracks the time taken for each RPC call.
+ * Proxy generator for an AztecNode that tracks the time taken for each RPC call.
  */
 export type ProxiedNode = AztecNode & { getStats(): NodeStats };
 

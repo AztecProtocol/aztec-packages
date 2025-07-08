@@ -12,6 +12,8 @@ import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {console} from "forge-std/console.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 
 contract MoveTest is StakingBase {
   GSE internal gse;
@@ -25,8 +27,11 @@ contract MoveTest is StakingBase {
     // on either rollup.
     n = 101;
 
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = n;
+
     RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1)
-      .setSlashingRoundSize(1).setEntryQueueFlushSizeMin(n);
+      .setSlashingRoundSize(1).setStakingQueueConfig(stakingQueueConfig);
     builder.deploy();
 
     registry = builder.getConfig().registry;
@@ -47,10 +52,13 @@ contract MoveTest is StakingBase {
     // This test "moves" the staking set for "canonical" as a new rollup is made canonical
     gse = staking.getGSE();
 
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = n;
+
     RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
       .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(
       false
-    ).setEntryQueueFlushSizeMin(n).deploy();
+    ).setStakingQueueConfig(stakingQueueConfig).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
