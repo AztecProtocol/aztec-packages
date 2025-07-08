@@ -147,21 +147,20 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
 }
 
 /**
- * @brief A test of the Goblinized AVM recursive verifier.
- * @details Constructs a simple AVM circuit for which a proof is verified using the Goblinized AVM recursive verifier. A
- * proof is constructed and verified for the outer (Ultra) circuit produced by this algorithm. See the documentation in
- * AvmGoblinRecursiveVerifier for details of the recursive verification algorithm.
+ * @brief A test of the "vanilla" Ultra-arithmetized AVM recursive verifier.
  *
  */
-TEST_F(AvmRecursiveTests, GoblinRecursion)
+TEST_F(AvmRecursiveTests, StandardRecursion)
 {
-    // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
-    using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
-    using UltraFF = UltraRollupRecursiveFlavor::FF;
-    using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
+    using OuterProver = UltraProver;
+    using OuterVerifier = UltraVerifier;
+    using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
+
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP();
+    }
 
     NativeProofResult proof_result;
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
@@ -169,45 +168,65 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     auto [proof, verification_key, public_inputs_cols] = proof_result;
     proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
 
-    // Construct stdlib representations of the proof, public inputs and verification key
+    // Create the outer verifier, to verify the proof
     OuterBuilder outer_circuit;
-    stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
 
-    std::vector<std::vector<UltraFF>> public_inputs_ct;
-    public_inputs_ct.reserve(public_inputs_cols.size());
-    for (const auto& vec : public_inputs_cols) {
-        std::vector<UltraFF> vec_ct;
-        vec_ct.reserve(vec.size());
-        for (const auto& val : vec) {
-            vec_ct.push_back(UltraFF::from_witness(&outer_circuit, val));
+    // Scoped to free memory of RecursiveVerifier.
+    {
+        RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
+
+        auto pairing_points = recursive_verifier.verify_proof(proof, public_inputs_cols);
+
+        NativeVerifierCommitmentKey pcs_vkey{};
+        bool pairing_points_valid =
+            pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+
+        // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
+        // be aggregated with others.
+        ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
+
+        // Check that no failure flag was raised in the recursive verifier circuit
+        ASSERT_FALSE(outer_circuit.failed()) << outer_circuit.err();
+
+        // Check that the circuit is valid.
+        bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
+        ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
+
+        auto avm_transcript = AvmFlavor::Transcript();
+        avm_transcript.load_proof(proof);
+        auto manifest = avm_transcript.get_manifest();
+        auto recursive_manifest = recursive_verifier.transcript->get_manifest();
+
+        // We sanity check that the recursive manifest matches its counterpart one.
+        ASSERT_EQ(manifest.size(), recursive_manifest.size());
+        for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_manifest[i], manifest[i]);
         }
-        public_inputs_ct.push_back(vec_ct);
+
+        // We sanity check that the recursive verifier key (precomputed columns) matches its counterpart one.
+        for (const auto [key_el, rec_key_el] :
+             zip_view(verification_key->get_all(), recursive_verifier.key->get_all())) {
+            EXPECT_EQ(key_el, rec_key_el.get_value());
+        }
+
+        // Sanity checks on circuit_size and num_public_inputs match.
+        EXPECT_EQ(verification_key->circuit_size,
+                  static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
+        EXPECT_EQ(verification_key->num_public_inputs,
+                  static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
     }
 
-    auto key_fields_native = verification_key->to_field_elements();
-    std::vector<UltraFF> outer_key_fields;
-    for (const auto& f : key_fields_native) {
-        UltraFF val = UltraFF::from_witness(&outer_circuit, f);
-        outer_key_fields.push_back(val);
-    }
+    // Make a proof of the verification of an AVM proof
+    const size_t srs_size = 1 << 24; // Current outer_circuit size is 9.6 millions
+    auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
+        outer_circuit, TraceSettings{}, bb::CommitmentKey<curve::BN254>(srs_size));
 
-    // Construct the AVM recursive verifier and verify the proof
-    // Scoped to free memory of AvmRecursiveVerifier.
-    auto verifier_output = [&]() {
-        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
+    // Scoped to free memory of OuterProver.
+    auto outer_proof = [&]() {
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->get_precomputed());
+        OuterProver ultra_prover(ultra_instance, verification_key);
+        return ultra_prover.construct_proof();
     }();
-
-    verifier_output.points_accumulator.set_public();
-    verifier_output.ipa_claim.set_public();
-    outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
-
-    // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
-    NativeVerifierCommitmentKey pcs_vkey{};
-    bool agg_output_valid = pcs_vkey.pairing_check(verifier_output.points_accumulator.P0.get_value(),
-                                                   verifier_output.points_accumulator.P1.get_value());
-    ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
-    ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
