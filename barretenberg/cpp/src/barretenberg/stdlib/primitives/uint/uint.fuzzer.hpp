@@ -23,7 +23,7 @@ bool circuit_should_fail = false;
 FastRandom VarianceRNG(0);
 
 // Enable this definition, when you want to find out the instructions that caused a failure
-// #define SHOW_INFORMATION 1
+// #define FUZZING_SHOW_INFORMATION 1
 
 #define OPERATION_TYPE_SIZE 1
 
@@ -96,7 +96,7 @@ template <typename Builder> class UintFuzzBase {
         struct BitArgs {
             uint8_t in;
             uint8_t out;
-            uint64_t bit;
+            uint8_t bit;
         };
         union ArgumentContents {
             uint32_t randomseed;
@@ -123,7 +123,7 @@ template <typename Builder> class UintFuzzBase {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
             uint8_t in1, in2, out;
-            uint32_t bit;
+            uint8_t bit;
             // Depending on instruction
             switch (instruction_opcode) {
             case OPCODE::CONSTANT:
@@ -151,7 +151,7 @@ template <typename Builder> class UintFuzzBase {
             case OPCODE::ROR:
                 in1 = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
-                bit = static_cast<uint32_t>(rng.next() & 0xffffffff);
+                bit = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode, .arguments.bitArgs = { .in = in1, .out = out, .bit = bit } };
             case OPCODE::NOT:
             case OPCODE::SET:
@@ -191,14 +191,8 @@ template <typename Builder> class UintFuzzBase {
     if (rng.next() & 1) {                                                                                              \
         variable = rng.next() & 0xffff;                                                                                \
     }
-#define PUT_RANDOM_EIGHT_BYTES_IF_LUCKY(variable)                                                                      \
-    if (rng.next() & 1) {                                                                                              \
-        variable = rng.next() & 0xffffffff;                                                                            \
-        variable <<= 32;                                                                                               \
-        variable += rng.next() & 0xffffffff;                                                                           \
-    }
             // Depending on instruction type...
-            switch (instruction.id) {
+        switch (instruction.id) {
             case OPCODE::CONSTANT:
                 break;
             case OPCODE::ADD:
@@ -221,7 +215,7 @@ template <typename Builder> class UintFuzzBase {
             case OPCODE::ROR:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.in)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.out)
-                PUT_RANDOM_EIGHT_BYTES_IF_LUCKY(instruction.arguments.bitArgs.bit)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.bitArgs.bit)
             case OPCODE::NOT:
             case OPCODE::SET:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in)
@@ -291,7 +285,7 @@ template <typename Builder> class UintFuzzBase {
                           opcode == Instruction::OPCODE::ROR) {
                 return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
                                     .arguments.bitArgs = {
-                                        .in = *Data, .out = *(Data + 1), .bit = *((uint64_t*)(Data + 2)) } };
+                                        .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
             }
             if constexpr (opcode == Instruction::OPCODE::NOT || opcode == Instruction::OPCODE::SET) {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
@@ -339,7 +333,7 @@ template <typename Builder> class UintFuzzBase {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.bitArgs.in;
                 *(Data + 2) = instruction.arguments.bitArgs.out;
-                *((uint64_t*)(Data + 3)) = instruction.arguments.bitArgs.bit;
+                *(Data + 3) = instruction.arguments.bitArgs.bit;
             }
             if constexpr (instruction_opcode == Instruction::OPCODE::NOT ||
                           instruction_opcode == Instruction::OPCODE::SET) {
@@ -865,7 +859,7 @@ template <typename Builder> class UintFuzzBase {
                                          this->uint.v32.ror(bits),
                                          this->uint.v64.ror(bits)));
         }
-        ExecutionHandler not_(void) const
+        ExecutionHandler not_() const
         {
             return ExecutionHandler(Reference(~this->ref.v8, ~this->ref.v16, ~this->ref.v32, ~this->ref.v64),
                                     Uint(~this->uint.v8, ~this->uint.v16, ~this->uint.v32, ~this->uint.v64));
@@ -1192,7 +1186,7 @@ template <typename Builder> class UintFuzzBase {
             }
             size_t first_index = instruction.arguments.bitArgs.in % stack.size();
             size_t output_index = instruction.arguments.bitArgs.out;
-            const uint64_t bit = instruction.arguments.bitArgs.bit;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
             ExecutionHandler result;
             result = stack[first_index].get_bit(builder, bit);
             // If the output index is larger than the number of elements in stack, append
@@ -1221,7 +1215,7 @@ template <typename Builder> class UintFuzzBase {
             }
             size_t first_index = instruction.arguments.bitArgs.in % stack.size();
             size_t output_index = instruction.arguments.bitArgs.out;
-            const uint64_t bit = instruction.arguments.bitArgs.bit;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
             ExecutionHandler result;
             result = stack[first_index].shl(bit);
             // If the output index is larger than the number of elements in stack, append
@@ -1250,7 +1244,7 @@ template <typename Builder> class UintFuzzBase {
             }
             size_t first_index = instruction.arguments.bitArgs.in % stack.size();
             size_t output_index = instruction.arguments.bitArgs.out;
-            const uint64_t bit = instruction.arguments.bitArgs.bit;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
             ExecutionHandler result;
             result = stack[first_index].shr(bit);
             // If the output index is larger than the number of elements in stack, append
@@ -1279,7 +1273,7 @@ template <typename Builder> class UintFuzzBase {
             }
             size_t first_index = instruction.arguments.bitArgs.in % stack.size();
             size_t output_index = instruction.arguments.bitArgs.out;
-            const uint64_t bit = instruction.arguments.bitArgs.bit;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
             ExecutionHandler result;
             result = stack[first_index].rol(bit);
             // If the output index is larger than the number of elements in stack, append
@@ -1308,7 +1302,7 @@ template <typename Builder> class UintFuzzBase {
             }
             size_t first_index = instruction.arguments.bitArgs.in % stack.size();
             size_t output_index = instruction.arguments.bitArgs.out;
-            const uint64_t bit = instruction.arguments.bitArgs.bit;
+            const uint8_t bit = instruction.arguments.bitArgs.bit;
             ExecutionHandler result;
             result = stack[first_index].ror(bit);
             // If the output index is larger than the number of elements in stack, append
