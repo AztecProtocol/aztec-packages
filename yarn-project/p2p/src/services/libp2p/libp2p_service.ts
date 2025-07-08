@@ -69,6 +69,7 @@ import {
   type ReqRespInterface,
   ReqRespSubProtocol,
   type SubProtocolMap,
+  ValidationError,
 } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
@@ -810,19 +811,26 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         responseTx.map(async tx => {
           if (!requested.has((await tx.getTxHash()).toString())) {
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-            throw new Error(`Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`);
+            throw new ValidationError(
+              `Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`,
+            );
           }
 
           const { result } = await proofValidator.validateTx(tx);
           if (result === 'invalid') {
             this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-            throw new Error(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
+            throw new ValidationError(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
           }
         }),
       );
       return true;
     } catch (e: any) {
-      this.logger.warn(`Failed to validate requested txs from peer ${peerId.toString()}`, e);
+      if (e instanceof ValidationError) {
+        this.logger.debug(`Failed to validate requested txs from peer ${peerId.toString()}, reason ${e.message}`);
+      } else {
+        this.logger.warn(`Error during validation of requested txs`, e);
+      }
+
       return false;
     }
   }

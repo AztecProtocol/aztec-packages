@@ -94,6 +94,14 @@ export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.BLOCK]: noopValidator,
 };
 
+/*
+ * Helper class to sub-protocol validation error*/
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 /**
  * Sub protocol map determines the request and response types for each
  * Req Resp protocol
