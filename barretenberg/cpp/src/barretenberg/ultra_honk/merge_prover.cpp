@@ -32,16 +32,15 @@ std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>,
     table_polynomials[T_PREV_IDX] = op_queue->construct_previous_ultra_ops_table_columns();      // T_prev
     table_polynomials[T_IDX] = op_queue->construct_ultra_ops_table_columns();                    // T
 
-    const size_t current_subtable_size = table_polynomials[T_CURRENT_IDX][0].size();
-
     // Compute g_j(X) = X^{l-1} t_j(1/X)
     for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
         table_polynomials[REVERSED_T_IDX][wire_idx] = table_polynomials[T_CURRENT_IDX][wire_idx].reverse();
     }
 
+    const size_t current_subtable_size = table_polynomials[T_CURRENT_IDX][0].size();
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
 
-    // Compute/get commitments [T_prev], [T], [reversed_t_current], and add to transcript
+    // Compute commitments [T_prev], [T], [reversed_t_current], and add to transcript
     std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
     for (size_t idx = 1; idx < 4; ++idx) {
         std::string label = labels[idx - 1];

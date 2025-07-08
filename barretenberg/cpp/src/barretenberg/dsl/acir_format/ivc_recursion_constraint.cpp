@@ -272,7 +272,7 @@ Goblin::MergeProof create_dummy_merge_proof()
     proof.emplace_back(mock_val);
 
     // There are 12 entities in the merge protocol (4 columns x 3 components: T_{prev,j}, T_j, g_j(X) = X^{l-1} t_j(X))
-    // and 8 evalations (4 columns x 2 components: g_j(kappa), t_j(1/kappa)) current transcript evaluated at 1/kappa)
+    // and 8 evalations (4 columns x 2 components: g_j(kappa), t_j(1/kappa))
     const size_t NUM_TRANSCRIPT_ENTITIES = 12;
     const size_t NUM_TRANSCRIPT_EVALUATIONS = 8;
 

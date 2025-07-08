@@ -391,7 +391,7 @@ template <typename Curve> class ShplonkVerifier_ {
     }
 
     /**
-     * @brief Get the z challenge object
+     * @brief Get the z challenge
      *
      * @return Fr
      */
