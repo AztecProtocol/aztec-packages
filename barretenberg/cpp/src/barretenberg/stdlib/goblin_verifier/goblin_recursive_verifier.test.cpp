@@ -221,7 +221,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     EXPECT_DEATH(
         IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript),
-        ".*");
+        ".*IPA verification fails.*");
 }
 
 /**

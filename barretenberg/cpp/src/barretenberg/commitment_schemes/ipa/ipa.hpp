@@ -412,7 +412,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G₀
         Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
+        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
 
         // Step 9.
         // Receive a₀ from the prover

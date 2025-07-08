@@ -303,7 +303,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*");
+        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
@@ -312,7 +312,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.mega_proof = civc_proof_2.mega_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*");
+        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
@@ -321,7 +321,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*");
+        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
