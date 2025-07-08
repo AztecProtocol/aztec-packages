@@ -298,7 +298,7 @@ ethereum:
   args: ""
   execution:
     client: "reth"
-    externalHosts: ""
+    externalHosts:
     service:
       port: 8545
       targetPort: 8545
