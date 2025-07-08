@@ -1,5 +1,4 @@
 import { GeneratorIndex } from '@aztec/constants';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
