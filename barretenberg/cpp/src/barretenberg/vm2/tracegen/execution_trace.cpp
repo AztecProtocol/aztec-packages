@@ -203,6 +203,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_success_copy;
     case ExecutionOpCode::RETURNDATASIZE:
         return C::execution_sel_returndata_size;
+    case ExecutionOpCode::DEBUGLOG:
+        return C::execution_sel_debug_log;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -704,16 +706,18 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 
     // Execution Trace opcodes - separating for clarity
     if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
-        trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
+        trace.set(get_execution_opcode_selector(exec_opcode), row, 1);
     }
 }
 
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
 {
+    bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
               { {
                   { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
+                  { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
                   { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
@@ -723,9 +727,6 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, T
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
-
-    bool oog = gas_event.oog_l2 || gas_event.oog_da;
-    trace.set(C::execution_sel_out_of_gas, row, oog ? 1 : 0);
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
@@ -1019,6 +1020,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()

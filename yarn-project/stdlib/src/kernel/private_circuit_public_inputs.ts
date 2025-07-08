@@ -12,7 +12,13 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  bigintToUInt64BE,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
@@ -22,8 +28,8 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { CountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { TxContext } from '../tx/tx_context.js';
+import type { UInt64 } from '../types/shared.js';
 import {
   ClaimedLengthArray,
   ClaimedLengthArrayFromBuffer,
@@ -62,7 +68,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The highest timestamp of a block in which the transaction can still be included.
      */
-    public includeByTimestamp: IncludeByTimestamp,
+    public includeByTimestamp: UInt64,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -154,7 +160,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readBoolean(),
-      reader.readObject(IncludeByTimestamp),
+      reader.readUInt64(),
       reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromBuffer(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
@@ -183,7 +189,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readBoolean(),
-      reader.readObject(IncludeByTimestamp),
+      reader.readU64(),
       reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)),
       reader.readObject(ClaimedLengthArrayFromFields(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL)),
       reader.readObject(
@@ -215,7 +221,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       false,
-      IncludeByTimestamp.empty(),
+      0n,
       ClaimedLengthArray.empty(ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL),
       ClaimedLengthArray.empty(KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL),
@@ -241,7 +247,7 @@ export class PrivateCircuitPublicInputs {
       this.returnsHash.isZero() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      this.includeByTimestamp.isEmpty() &&
+      !this.includeByTimestamp &&
       this.noteHashReadRequests.isEmpty() &&
       this.nullifierReadRequests.isEmpty() &&
       this.keyValidationRequestsAndGenerators.isEmpty() &&
@@ -296,7 +302,31 @@ export class PrivateCircuitPublicInputs {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
+    // TODO(#15525): Use the line below once UInt64 can be serialized correctly.
+    // return serializeToBuffer(...PrivateCircuitPublicInputs.getFields(this));
+    return serializeToBuffer([
+      this.callContext,
+      this.argsHash,
+      this.returnsHash,
+      this.minRevertibleSideEffectCounter,
+      this.isFeePayer,
+      bigintToUInt64BE(this.includeByTimestamp),
+      this.noteHashReadRequests,
+      this.nullifierReadRequests,
+      this.keyValidationRequestsAndGenerators,
+      this.noteHashes,
+      this.nullifiers,
+      this.privateCallRequests,
+      this.publicCallRequests,
+      this.publicTeardownCallRequest,
+      this.l2ToL1Msgs,
+      this.privateLogs,
+      this.contractClassLogsHashes,
+      this.startSideEffectCounter,
+      this.endSideEffectCounter,
+      this.historicalHeader,
+      this.txContext,
+    ]);
   }
 
   /**

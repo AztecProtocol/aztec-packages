@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
@@ -128,6 +129,7 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
+pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
     0x0e40440ea6abb9b58877d3aea6628cc6b14b6bc2148ce2be6f46db23360a6aba;
@@ -251,7 +253,6 @@ pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global INCLUDE_BY_TIMESTAMP_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
@@ -303,7 +304,6 @@ pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender 
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
 pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
     PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
-pub global ROLLUP_VALIDATION_REQUESTS_LENGTH: u32 = INCLUDE_BY_TIMESTAMP_LENGTH;
 pub global STATE_REFERENCE_LENGTH: u32 =
     APPEND_ONLY_TREE_SNAPSHOT_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH;
 pub global TREE_SNAPSHOTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH * 4;
@@ -340,8 +340,11 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENG
     + 16 /* gas_fees.fee_per_da_gas */
     + 16 /* gas_fees.fee_per_l2_gas */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
-    + 4
-    + INCLUDE_BY_TIMESTAMP_LENGTH
+    + 1 /* args_hash */
+    + 1 /* returns_hash */
+    + 1 /* min_revertible_side_effect_counter */
+    + 1 /* is_fee_payer */
+    + 1 /* include_by_timestamp */
     // The `(... + 1)` is because these arrays include a `length` field.
     + (READ_REQUEST_LENGTH * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
     + (READ_REQUEST_LENGTH * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
@@ -352,7 +355,8 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_CALL + 1)
     + PUBLIC_CALL_REQUEST_LENGTH
     + (COUNTED_L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL + 1)
-    + 2 /* start and end side effect counters */
+    + 1 /* start_side_effect_counter */
+    + 1 /* end_side_effect_counter */
     + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL + 1)
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL + 1)
     + BLOCK_HEADER_LENGTH
@@ -366,12 +370,11 @@ pub global IPA_CLAIM_SIZE: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
-pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_LENGTH
+pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = 2 /* split_counter: 1 for the value, 1 for the option flag */
     // The `(... + 1)` is because these arrays include a `length` field.
     + (SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_TX + 1)
     + (SCOPED_READ_REQUEST_LEN * MAX_NULLIFIER_READ_REQUESTS_PER_TX + 1)
-    + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX + 1)
-    + 2;
+    + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX + 1);
 
 pub global PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -424,18 +427,18 @@ pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
-    + ROLLUP_VALIDATION_REQUESTS_LENGTH
     + PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH /* non_revertible_accumulated_data */
     + PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH /* revertible_accumulated_data */
     + PUBLIC_CALL_REQUEST_LENGTH /* public_teardown_call_request */
     + GAS_LENGTH /* gas_used */
-    + AZTEC_ADDRESS_LENGTH /* fee_payer */;
+    + AZTEC_ADDRESS_LENGTH /* fee_payer */
+    + 1 /* include_by_timestamp */;
 
-pub global PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_LENGTH
+pub global PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
     + PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH
-    + TX_CONSTANT_DATA_LENGTH
     + GAS_LENGTH /* gas_used */
-    + AZTEC_ADDRESS_LENGTH;
+    + AZTEC_ADDRESS_LENGTH /* fee_payer */
+    + 1 /* include_by_timestamp */;
 
 pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
@@ -631,6 +634,7 @@ pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
 pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
 pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
 pub global AVM_EXEC_OP_ID_RETURNDATASIZE: u32 = 2 * AVM_EXEC_OP_ID_SUCCESSCOPY;
+pub global AVM_EXEC_OP_ID_DEBUGLOG: u32 = 2 * AVM_EXEC_OP_ID_RETURNDATASIZE;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.
@@ -1044,8 +1048,11 @@ pub global TWO_POW_64: Field = 18446744073709551616;
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
 pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;
 
-// 24 hours
-pub global DEFAULT_UPDATE_DELAY: u64 = 86400;
+// The default update delay used when a contract does not explicitly specify one.
+// Note: This value should match MAX_INCLUDE_BY_TIMESTAMP_DURATION, because if no custom update delay is set during tx
+// execution, the `include_by_timestamp` for the contract updates will be computed using this value. And it should not
+// differ from the maximum allowed duration.
+pub global DEFAULT_UPDATE_DELAY: u64 = MAX_INCLUDE_BY_TIMESTAMP_DURATION;
 // 10 minutes
 pub global MINIMUM_UPDATE_DELAY: u64 = 600;
 
