@@ -52,6 +52,12 @@ images:
   lighthouse:
     image: sigp/lighthouse:v6.0.1
     pullPolicy: IfNotPresent
+  geth:
+    image: ethereum/client-go:v1.15.5
+    pullPolicy: IfNotPresent
+  nethermind:
+    image: nethermind/nethermind:v1.32.2
+    pullPolicy: IfNotPresent
 
 aztec:
   bootstrapENRs: ""
@@ -277,6 +283,7 @@ bot:
   resources: {}
 
 ethereum:
+  client: "reth"
   acceleratedTestDeployments: false
   genesisBasePath: "out"
   replicas: 1

@@ -200,6 +200,7 @@
     "namespacing",
     "napi",
     "Nargo",
+    "nethermind",
     "nixpkgs",
     "nodebuffer",
     "noinitcheck",
@@ -379,5 +380,9 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous", "offence", "offences"]
+  "flagWords": [
+    "anonymous",
+    "offence",
+    "offences"
+  ]
 }

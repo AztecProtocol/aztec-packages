@@ -26,7 +26,15 @@ spec:
       {{- end }}
       containers:
         - name: ethereum
-          image: "{{ .Values.images.reth.image }}"
+          # image: "{{ .Values.images.reth.image }}"
+          image: |
+            {{- if eq .Values.ethereum.executionClient "geth" }}
+              {{ .Values.images.geth.image }}
+            {{- else if eq .Values.ethereum.executionClient "nethermind" }}
+              {{ .Values.images.nethermind.image }}
+            {{- else }}
+              {{ .Values.images.reth.image }}
+            {{- end }}
           imagePullPolicy: {{ .Values.images.reth.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
