@@ -2,6 +2,12 @@
 
 set -euo pipefail
 
+# Ensure required token is set
+if [[ -z "${MERGE_TRAIN_GITHUB_TOKEN:-}" ]]; then
+  echo "Error: MERGE_TRAIN_GITHUB_TOKEN is not set. This token is required for PR approval."
+  exit 1
+fi
+
 # Function to check if a PR has auto-merge enabled
 function pr_has_auto_merge {
   local pr_number="$1"
@@ -16,7 +22,8 @@ function enable_auto_merge {
   local reviews=$(gh pr view "$pr_number" --json reviews --jq '.reviews[] | select(.state == "APPROVED")')
   if [[ -z "$reviews" ]]; then
     echo "Approving PR #$pr_number"
-    gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
+    # Use MERGE_TRAIN_GITHUB_TOKEN specifically for approval
+    GH_TOKEN="${MERGE_TRAIN_GITHUB_TOKEN}" gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
   fi
 
   echo "Enabling auto-merge for PR #$pr_number"

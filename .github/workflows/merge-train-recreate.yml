@@ -50,9 +50,8 @@ jobs:
             BASE_COMMIT_SHA="${{ github.event.pull_request.merge_commit_sha }}"
           fi
 
-          # Use aztecbot token for most operations, separate one to create PRs
+          # Use aztecbot token for all operations including PR creation
           GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
-          GITHUB_TOKEN_FOR_PR_CREATION=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
           ./scripts/merge-train/recreate-branch.sh \
             "$MERGE_TRAIN_BRANCH" \
             "$BASE_BRANCH" \
