@@ -7,13 +7,15 @@ set -euo pipefail
 # - GITHUB_TOKEN_FOR_PR_CREATION: Should be set to default GITHUB_TOKEN for PR creation only
 # This ensures aztecbot privileges are used for everything except PR creation
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/merge-train-lib.sh"
+# Colors for output
+RED='\033[0;31m'
+NC='\033[0m'
+
+function log_error {
+  echo -e "${RED}[ERROR]${NC} $*"
+}
 
 set -x
-
-# Methods used from merge-train-lib.sh:
-# - echo, log_error: Logging functions
 
 # Usage: recreate-branch.sh <merge-train-branch> <base-branch>
 if [[ $# -ne 2 ]]; then

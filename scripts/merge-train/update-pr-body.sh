@@ -2,11 +2,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/merge-train-lib.sh"
+# Function to get meaningful commits (non-merge, non-empty)
+function get_meaningful_commits {
+  local base="$1"
+  local head="$2"
 
-# Methods used from merge-train-lib.sh:
-# - get_meaningful_commits: Get non-merge, non-empty commits
+  git log --oneline --no-merges --reverse "${base}..${head}" \
+    --pretty=format:"%s" | grep -v "^\[empty\]" || true
+}
 
 # Usage: update-pr-body.sh <branch-name>
 if [[ $# -ne 1 ]]; then
@@ -47,7 +50,9 @@ fi
 # Update PR body
 new_body="See [merge-train-readme.md](https://github.com/${GITHUB_REPOSITORY}/blob/next/.github/workflows/merge-train-readme.md).
 
-$formatted_commits"
+BEGIN_COMMIT_OVERRIDE
+$formatted_commits
+END_COMMIT_OVERRIDE"
 
 gh pr edit "$pr_number" --body "$new_body"
 
