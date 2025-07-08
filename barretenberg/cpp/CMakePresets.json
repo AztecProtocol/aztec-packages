@@ -617,7 +617,7 @@
     {
       "name": "op-count-time",
       "inherits": "default",
-    "configurePreset": "op-count-time"
+      "configurePreset": "op-count-time"
     },
     {
       "name": "op-count",
