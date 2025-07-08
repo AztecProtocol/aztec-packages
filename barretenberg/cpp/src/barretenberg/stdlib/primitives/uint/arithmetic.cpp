@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "../../circuit_builders/circuit_builders.hpp"
+#include "../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
 using namespace bb;
@@ -12,7 +12,7 @@ using namespace bb;
 namespace bb::stdlib {
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator+(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
 {
 
     ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
@@ -20,7 +20,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator+(const uin
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Builder, Native>(context, (additive_constant + other.additive_constant) & MASK);
+        return uint<Builder, Native>(context, (additive_constant + other.additive_constant) & MASK);
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
@@ -45,7 +45,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator+(const uin
 
     ctx->create_balanced_add_gate(gate);
 
-    uint_plookup<Builder, Native> result(ctx);
+    uint<Builder, Native> result(ctx);
     result.witness_index = gate.c;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
 
@@ -53,7 +53,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator+(const uin
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator-(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 {
 
     ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
@@ -62,7 +62,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator-(const uin
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Builder, Native>(context, (additive_constant - other.additive_constant) & MASK);
+        return uint<Builder, Native>(context, (additive_constant - other.additive_constant) & MASK);
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
@@ -91,7 +91,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator-(const uin
 
     ctx->create_balanced_add_gate(gate);
 
-    uint_plookup<Builder, Native> result(ctx);
+    uint<Builder, Native> result(ctx);
     result.witness_index = gate.c;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
 
@@ -99,12 +99,12 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator-(const uin
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator*(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator*(const uint& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Builder, Native>(context, (additive_constant * other.additive_constant) & MASK);
+        return uint<Builder, Native>(context, (additive_constant * other.additive_constant) & MASK);
     }
     if (is_constant() && !other.is_constant()) {
         return other * (*this);
@@ -137,7 +137,7 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator*(const uin
     // discard the high bits
     ctx->decompose_into_default_range(gate.d, width);
 
-    uint_plookup<Builder, Native> result(ctx);
+    uint<Builder, Native> result(ctx);
     result.accumulators = constrain_accumulators(ctx, gate.c);
     result.witness_index = gate.c;
     result.witness_status = WitnessStatus::OK;
@@ -146,20 +146,19 @@ uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator*(const uin
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator/(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator/(const uint& other) const
 {
     return divmod(other).first;
 }
 
 template <typename Builder, typename Native>
-uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator%(const uint_plookup& other) const
+uint<Builder, Native> uint<Builder, Native>::operator%(const uint& other) const
 {
     return divmod(other).second;
 }
 
 template <typename Builder, typename Native>
-std::pair<uint_plookup<Builder, Native>, uint_plookup<Builder, Native>> uint_plookup<Builder, Native>::divmod(
-    const uint_plookup& other) const
+std::pair<uint<Builder, Native>, uint<Builder, Native>> uint<Builder, Native>::divmod(const uint& other) const
 {
     /**
      *  divmod: returns (a / b) and (a % b)
@@ -194,12 +193,12 @@ std::pair<uint_plookup<Builder, Native>, uint_plookup<Builder, Native>> uint_plo
     }
 
     if (is_constant() && other.is_constant()) {
-        const uint_plookup<Builder, Native> remainder(ctx, additive_constant % other.additive_constant);
-        const uint_plookup<Builder, Native> quotient(ctx, additive_constant / other.additive_constant);
+        const uint<Builder, Native> remainder(ctx, additive_constant % other.additive_constant);
+        const uint<Builder, Native> quotient(ctx, additive_constant / other.additive_constant);
         return std::make_pair(quotient, remainder);
     } else if (witness_index == other.witness_index) {
-        const uint_plookup<Builder, Native> remainder(context, 0);
-        const uint_plookup<Builder, Native> quotient(context, 1);
+        const uint<Builder, Native> remainder(context, 0);
+        const uint<Builder, Native> quotient(context, 1);
         return std::make_pair(quotient, remainder);
     }
 
@@ -246,25 +245,25 @@ std::pair<uint_plookup<Builder, Native>, uint_plookup<Builder, Native>> uint_plo
 
     // validate delta is in the correct range
     ctx->decompose_into_default_range(delta_idx, width);
-    uint_plookup<Builder, Native> quotient(ctx);
+    uint<Builder, Native> quotient(ctx);
     quotient.witness_index = quotient_idx;
     quotient.accumulators = constrain_accumulators(ctx, quotient.witness_index);
     quotient.witness_status = WitnessStatus::OK;
 
-    uint_plookup<Builder, Native> remainder(ctx);
+    uint<Builder, Native> remainder(ctx);
     remainder.witness_index = remainder_idx;
     remainder.accumulators = constrain_accumulators(ctx, remainder.witness_index);
     remainder.witness_status = WitnessStatus::OK;
 
     return std::make_pair(quotient, remainder);
 }
-template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint8_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint16_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint32_t>;
-template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
-template class uint_plookup<bb::MegaCircuitBuilder, uint64_t>;
+template class uint<bb::UltraCircuitBuilder, uint8_t>;
+template class uint<bb::MegaCircuitBuilder, uint8_t>;
+template class uint<bb::UltraCircuitBuilder, uint16_t>;
+template class uint<bb::MegaCircuitBuilder, uint16_t>;
+template class uint<bb::UltraCircuitBuilder, uint32_t>;
+template class uint<bb::MegaCircuitBuilder, uint32_t>;
+template class uint<bb::UltraCircuitBuilder, uint64_t>;
+template class uint<bb::MegaCircuitBuilder, uint64_t>;
 
 } // namespace bb::stdlib
