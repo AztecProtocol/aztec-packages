@@ -35,6 +35,9 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   // Only keep track of the last N slashable epochs
   private maxSlashableEpochs = 100;
 
+  // Store bound function reference for proper listener removal
+  private boundHandlePruneL2Blocks = this.handlePruneL2Blocks.bind(this);
+
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1ToL2MessageSource: L1ToL2MessageSource,
@@ -49,12 +52,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   }
 
   public start() {
-    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
+    this.l2BlockSource.on(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 
   public stop() {
-    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.handlePruneL2Blocks.bind(this));
+    this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
   }
 

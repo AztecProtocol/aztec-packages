@@ -188,6 +188,32 @@ spec:
             - name: BLOB_SINK_URL
               value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
           {{- end }}
+            - name: SLASH_PAYLOAD_TTL_SECONDS
+              value: {{ .Values.aztec.slash.payloadTtlSeconds | quote }}
+            - name: SLASH_PRUNE_ENABLED
+              value: {{ .Values.aztec.slash.pruneEnabled | quote }}
+            - name: SLASH_PRUNE_PENALTY
+              value: {{ .Values.aztec.slash.prunePenalty | quote }}
+            - name: SLASH_PRUNE_MAX_PENALTY
+              value: {{ .Values.aztec.slash.pruneMaxPenalty | quote }}
+            - name: SLASH_INACTIVITY_ENABLED
+              value: {{ .Values.aztec.slash.inactivityEnabled | quote }}
+            - name: SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE
+              value: {{ .Values.aztec.slash.inactivityCreateTargetPercentage | quote }}
+            - name: SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE
+              value: {{ .Values.aztec.slash.inactivitySignalTargetPercentage | quote }}
+            - name: SLASH_INACTIVITY_CREATE_PENALTY
+              value: {{ .Values.aztec.slash.inactivityCreatePenalty | quote }}
+            - name: SLASH_INACTIVITY_MAX_PENALTY
+              value: {{ .Values.aztec.slash.inactivityMaxPenalty | quote }}
+            - name: SLASH_INVALID_BLOCK_ENABLED
+              value: {{ .Values.aztec.slash.invalidBlockEnabled | quote }}
+            - name: SLASH_INVALID_BLOCK_PENALTY
+              value: {{ .Values.aztec.slash.invalidBlockPenalty | quote }}
+            - name: SLASH_INVALID_BLOCK_MAX_PENALTY
+              value: {{ .Values.aztec.slash.invalidBlockMaxPenalty | quote }}
+            - name: SENTINEL_ENABLED
+              value: "{{ .Values.validator.sentinelEnabled }}"
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

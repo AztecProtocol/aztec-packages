@@ -66,10 +66,7 @@ import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export class ContractFunctionSimulator {
   private log: Logger;
 
-  constructor(
-    private executionDataProvider: ExecutionDataProvider,
-    private simulator: CircuitSimulator,
-  ) {
+  constructor(private executionDataProvider: ExecutionDataProvider, private simulator: CircuitSimulator) {
     this.log = createLogger('simulator');
   }
 

@@ -17,10 +17,7 @@ export class SentinelStore {
   // e.g. { validator: [{ epoch: 1, missed: 1, total: 10 }, { epoch: 2, missed: 3, total: 7 }, ...] }
   private readonly provenMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
-  constructor(
-    private store: AztecAsyncKVStore,
-    private config: { historyLength: number },
-  ) {
+  constructor(private store: AztecAsyncKVStore, private config: { historyLength: number }) {
     this.historyMap = store.openMap('sentinel-validator-status');
     this.provenMap = store.openMap('sentinel-validator-proven');
   }
@@ -86,9 +83,11 @@ export class SentinelStore {
     slot: bigint,
     status: 'block-mined' | 'block-proposed' | 'block-missed' | 'attestation-sent' | 'attestation-missed',
   ) {
-    const currentHistory = (await this.getHistory(who)) ?? [];
-    const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
-    await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
+    await this.store.transactionAsync(async () => {
+      const currentHistory = (await this.getHistory(who)) ?? [];
+      const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
+      await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
+    });
   }
 
   public async getHistories(): Promise<Record<`0x${string}`, ValidatorStatusHistory>> {

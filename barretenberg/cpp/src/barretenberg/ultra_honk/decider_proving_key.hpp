@@ -90,7 +90,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
-                       CommitmentKey commitment_key = CommitmentKey())
+                       const CommitmentKey& commitment_key = CommitmentKey())
         : is_structured(trace_settings.structure.has_value())
         , commitment_key(commitment_key)
     {
