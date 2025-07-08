@@ -349,9 +349,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
         builder.add_public_variable(fold_proof[i]);
     }
 
-    info("Hiding circuit: total public inputs size: ", honk_vk->num_public_inputs);
-    info("Hiding circuit: num public inputs: ", num_public_inputs);
-
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
         std::make_shared<RecursiveDeciderVerificationKey>(&builder, verifier_accumulator);
@@ -387,10 +384,6 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     PairingPoints goblin_pairing_points = goblin.recursively_verify_merge(
         builder, tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
     points_accumulator.aggregate(goblin_pairing_points);
-
-    info("Pub inputs size: ", recursive_verifier_accumulator->public_inputs.size());
-    info("Pairing points start idx: ",
-         recursive_verifier_accumulator->vk_and_hash->vk->pairing_inputs_public_input_key.start_idx);
 
     // Perform recursive decider verification
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
