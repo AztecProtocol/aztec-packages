@@ -8,7 +8,7 @@ class SpecialPublicInputsTests : public testing::Test {
     static void SetUpTestSuite() {}
 };
 
-// Define a concrete test fixture using a specific Builder type, e.g., DummyBuilder
+// Demonstrates the basic functionality of the KernelIO class for propagating public inputs between circuits
 TEST_F(SpecialPublicInputsTests, Basic)
 {
     using Builder = KernelIO::Builder;
@@ -54,7 +54,7 @@ TEST_F(SpecialPublicInputsTests, Basic)
         }
 
         KernelIO kernel_input;
-        kernel_input.reconstruct_from_public(stdlib_public_inputs, /*start_idx=*/0);
+        kernel_input.reconstruct_from_public(stdlib_public_inputs);
 
         // Ensure the reconstructed data matches the original values
         EXPECT_EQ(kernel_input.kernel_return_data.get_value(), kernel_return_data_val);

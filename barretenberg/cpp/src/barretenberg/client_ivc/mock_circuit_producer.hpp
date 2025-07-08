@@ -194,8 +194,6 @@ class ClientIVCMockCircuitProducer {
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-        // TODO(khashayar): ideally the kernel circuits do not have public inputs (other than the fixed set of public
-        // inputs) we could use the is_kernel flag to not add public inputs to the kernel circuits
         while (circuit.get_num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
         }

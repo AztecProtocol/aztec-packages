@@ -223,8 +223,8 @@ class ClientIVC {
 
     VerificationKey get_vk() const;
 
-    // the input/outputs for consistency checks in the consistency checks (databus, pairing point accumulator, merge)
-    // TODO(khashayar): at the moment only databus propagations are done through this type. We should add the others.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1269): complete integration of kernel io mechanism
+    // Input/outputs utilized for consistency checks in the kernel circuits
     KernelIO kernel_input;
     KernelIO kernel_output;
 };

@@ -140,6 +140,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     pairing_points.aggregate(nested_pairing_points);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): move is_kernel flag out of
+    // databus_propagation_data or remove it altogether
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
 

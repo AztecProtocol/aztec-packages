@@ -65,7 +65,7 @@ template <typename Builder> class databus {
 };
 
 /**
- * @brief Class for managing propagation of databus return data commitments for consistency checks
+ * @brief Class for managing propagation of databus return data commitments used in consistency checks
  * @details The databus consistency checks establish the transfer of data between two circuits (i-1 and i) in a third
  * circuit (i+1) via commitment equality checks of the form [R_{i-1}] = [C_i], where R and C represent return data and
  * calldata, respectively. In practice, circuit (i+1) is given access to [R_{i-1}] via the public inputs of
@@ -76,9 +76,12 @@ template <typename Builder> class databus {
  * public inputs. If one of either the app or kernel return data does not exist, it is populated with a default
  * value that will satisfy the consistency check on the next cycle. For example, the first kernel has no previous
  * kernel to verify and thus neither receives a previous kernel return data commitment nor a calldata input
- * corresponding to a previous kernel. The commitment to the "empty" calldata will take a default value and thus we
- * set the same value for the missing return data so that the consistency check will be satisfied in the next kernel.
+ * corresponding to a previous kernel. The "empty" calldata will be populated with a default value, resulting in a
+ * default commitment value. We set the same value for the missing return data herein so that the commitments agree
+ * and the corresponding consistency check will be satisfied in the kernel in which it's performed.
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): scrutinize the use of a default value for
+ * consistency of default databus commitments.
  * @tparam Builder
  */
 template <class Builder> class DataBusDepot {
