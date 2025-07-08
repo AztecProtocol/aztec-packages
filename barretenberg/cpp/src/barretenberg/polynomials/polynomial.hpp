@@ -20,12 +20,6 @@
 #include <ranges>
 namespace bb {
 
-#ifdef BB_SLOW_LOW_MEMORY
-template <typename Fr> using BackingMemory = FileBackedMemory<Fr>;
-#else
-template <typename Fr> using BackingMemory = AlignedMemory<Fr>;
-#endif
-
 /* Span class with a start index offset.
  * We conceptually have a span like a_0 + a_1 x ... a_n x^n and then multiply by x^start_index.
  * This allows more efficient representation than a fully defined span for 'islands' of zeroes. */

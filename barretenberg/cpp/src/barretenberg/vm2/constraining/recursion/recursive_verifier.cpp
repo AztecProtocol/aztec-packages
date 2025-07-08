@@ -32,7 +32,7 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
-    auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
+    auto coefficients = SharedShiftedVirtualZeroesArray<FF, BackingMemory<FF>>{
         .start_ = 0,
         .end_ = points.size(),
         .virtual_size_ =
