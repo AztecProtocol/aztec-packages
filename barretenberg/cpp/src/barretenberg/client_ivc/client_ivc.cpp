@@ -142,10 +142,15 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
+
+        // Perform databus consistency checks
         kernel_input.kernel_return_data.assert_equal(decider_vk->witness_commitments.calldata);
         kernel_input.app_return_data.assert_equal(decider_vk->witness_commitments.secondary_calldata);
+
+        // Set the kernel return data commitment to be propagated via the public inputs
         bus_depot.set_kernel_return_data_commitment(decider_vk->witness_commitments.return_data);
     } else {
+        // Set the app return data commitment to be propagated via the public inputs
         bus_depot.set_app_return_data_commitment(decider_vk->witness_commitments.return_data);
     }
 
@@ -190,6 +195,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Propagate the pairing points accumulator via the public inputs
     points_accumulator.set_public();
 
+    // Set the databus return data commitments to be propagated via the public inputs
     kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
     kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
 
