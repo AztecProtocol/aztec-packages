@@ -34,6 +34,8 @@ using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::RangeCheckTraceBuilder;
 
+constexpr uint8_t NUM_OF_TAGS = static_cast<uint8_t>(MemoryTag::MAX) + 1;
+
 // The below test values do not carry:
 const std::unordered_map<MemoryTag, std::array<FF, 6>> TEST_VALUES = {
     { MemoryTag::FF,
@@ -110,7 +112,7 @@ auto process_basic_add_trace(MemoryTag input_tag)
         },
     });
     // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
 }
@@ -148,7 +150,7 @@ auto process_carry_add_trace(MemoryTag input_tag)
         },
     });
     // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
 }
@@ -199,7 +201,7 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     range_check_builder.process(
         { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(max_bits) } }, trace);
     // Build just enough clk rows for the lookup
-    precomputed_builder.process_misc(trace, static_cast<uint8_t>(tag) + 1);
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
 }
@@ -577,194 +579,140 @@ TEST(AluConstrainingTest, NegativeLTWrongTagCMismatch)
 
 // EQ TESTS
 
-auto process_eq_trace(const MemoryValue& test_a, const MemoryValue& test_b, bool equality = true)
+// Generic structure for three-operand opcodes
+struct ThreeOperandTestParams {
+    MemoryValue a;
+    MemoryValue b;
+    MemoryValue c;
+};
+
+auto process_eq_trace(const ThreeOperandTestParams& params, bool error = false)
 {
     PrecomputedTraceBuilder precomputed_builder;
 
     TestTraceContainer trace;
     AluTraceBuilder builder;
-
-    auto mem_c = MemoryValue::from<uint1_t>(equality ? 1 : 0);
-
-    builder.process(
-        {
-            { .operation = simulation::AluOperation::EQ, .a = test_a, .b = test_b, .c = mem_c },
-        },
-        trace);
-
-    precomputed_builder.process_misc(trace, static_cast<uint8_t>(test_a.get_tag()) + 1);
-    precomputed_builder.process_tag_parameters(trace);
-    return trace;
-}
-
-auto process_eq_trace_different_tags(const MemoryValue& test_a, const MemoryValue& test_b, bool equality = true)
-{
-    PrecomputedTraceBuilder precomputed_builder;
-
-    TestTraceContainer trace;
-    AluTraceBuilder builder;
-
-    auto mem_c = MemoryValue::from<uint1_t>(equality ? 1 : 0);
 
     builder.process(
         {
             { .operation = simulation::AluOperation::EQ,
-              .a = test_a,
-              .b = test_b,
-              .c = mem_c,
-              .error = simulation::AluError::TAG_ERROR },
+              .a = params.a,
+              .b = params.b,
+              .c = params.c,
+              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
         },
         trace);
 
-    precomputed_builder.process_misc(
-        trace, std::max(static_cast<uint8_t>(test_a.get_tag()), static_cast<uint8_t>(test_b.get_tag())) + 1);
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
 }
 
-// Base class for EQ tests with common setup
-class AluConstrainingEQTestBase {
-  protected:
-    MemoryValue test_a;
-    MemoryValue test_b;
-};
+// Parametrized test for EQ operations with same values and tags
+class EQSameValuesAndTagsTest : public ::testing::TestWithParam<MemoryValue> {};
 
-// Parametrized test for EQ operations with same value tags
-class AluConstrainingEQTest : public ::testing::TestWithParam<MemoryValue>, public AluConstrainingEQTestBase {
-  protected:
-    void SetUp() override
-    {
-        test_a = GetParam();
-        test_b = test_a;
-    }
-};
-
-TEST_P(AluConstrainingEQTest, SameTags)
+TEST_P(EQSameValuesAndTagsTest, Basic)
 {
-    auto trace = process_eq_trace(test_a, test_b, true);
+    const MemoryValue& param = GetParam();
+    auto trace = process_eq_trace(ThreeOperandTestParams{ .a = param, .b = param, .c = MemoryValue::from<uint1_t>(1) });
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
 
 // Test parameters: MemoryValue a
 INSTANTIATE_TEST_SUITE_P(AluConstrainingTest,
-                         AluConstrainingEQTest,
+                         EQSameValuesAndTagsTest,
                          ::testing::Values(MemoryValue::from<uint1_t>(1),
                                            MemoryValue::from<uint8_t>(42),
                                            MemoryValue::from<uint16_t>(12345),
                                            MemoryValue::from<uint32_t>(123456789),
                                            MemoryValue::from<uint64_t>(1234567890123456789ULL),
-                                           MemoryValue::from<uint128_t>(123456789),
-                                           MemoryValue::from<FF>(42)));
+                                           MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 23423429816234ULL),
+                                           MemoryValue::from<FF>(FF(uint256_t(1) << 255) + 123423429816234ULL)));
 
-// Parametrized test for EQ operations with different value tags (inequality case)
-struct EQTestParams {
-    MemoryValue a;
-    MemoryValue b;
-};
+class EQInequalityTest : public ::testing::TestWithParam<ThreeOperandTestParams> {};
 
-class AluConstrainingEQInequalityTest : public ::testing::TestWithParam<EQTestParams>,
-                                        public AluConstrainingEQTestBase {
-  protected:
-    void SetUp() override
-    {
-        auto params = GetParam();
-        test_a = params.a;
-        test_b = params.b;
-    }
-};
-
-TEST_P(AluConstrainingEQInequalityTest, SameTags)
+TEST_P(EQInequalityTest, Basic)
 {
-    auto trace = process_eq_trace(test_a, test_b, false);
+    auto trace = process_eq_trace(GetParam());
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
+
+const std::vector<ThreeOperandTestParams> EQ_INEQUALITY_TEST_PARAMS = {
+    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint1_t>(0), .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint8_t>(24), .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint16_t>(12345),
+      .b = MemoryValue::from<uint16_t>(54321),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint32_t>(123456789),
+      .b = MemoryValue::from<uint32_t>(987654321),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
+      .b = MemoryValue::from<uint64_t>(9876543210987654321ULL),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 23423429816234ULL),
+      .b = MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 9876543210987654321ULL),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<FF>(FF::modulus - 3),
+      .b = MemoryValue::from<FF>(FF::modulus - 1),
+      .c = MemoryValue::from<uint1_t>(0) }
+};
 
 // Test parameters for inequality: (MemoryValue a, MemoryValue b) - values are different
-INSTANTIATE_TEST_SUITE_P(
-    AluConstrainingTest,
-    AluConstrainingEQInequalityTest,
-    ::testing::Values(
-        EQTestParams{ .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint1_t>(0) },
-        EQTestParams{ .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint8_t>(24) },
-        EQTestParams{ .a = MemoryValue::from<uint16_t>(12345), .b = MemoryValue::from<uint16_t>(54321) },
-        EQTestParams{ .a = MemoryValue::from<uint32_t>(123456789), .b = MemoryValue::from<uint32_t>(987654321) },
-        EQTestParams{ .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-                      .b = MemoryValue::from<uint64_t>(9876543210987654321ULL) },
-        EQTestParams{ .a = MemoryValue::from<uint128_t>(123456789), .b = MemoryValue::from<uint128_t>(987654321) },
-        EQTestParams{ .a = MemoryValue::from<FF>(FF::modulus - 3), .b = MemoryValue::from<FF>(FF::modulus - 1) }));
+INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, EQInequalityTest, ::testing::ValuesIn(EQ_INEQUALITY_TEST_PARAMS));
 
 // Parametrized test for EQ operations with different value tags (tag error case)
-class AluConstrainingEQTagError : public ::testing::TestWithParam<EQTestParams>, public AluConstrainingEQTestBase {
-  protected:
-    void SetUp() override
-    {
-        auto params = GetParam();
-        test_a = params.a;
-        test_b = params.b;
-    }
-};
+class EQTagErrorTest : public ::testing::TestWithParam<ThreeOperandTestParams> {};
 
-TEST_P(AluConstrainingEQTagError, DifferentTags)
+TEST_P(EQTagErrorTest, Basic)
 {
-    auto trace = process_eq_trace_different_tags(test_a, test_b, true);
+    auto trace = process_eq_trace(GetParam(), true);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
+
+const std::vector<ThreeOperandTestParams> EQ_TAG_ERROR_TEST_PARAMS = {
+    // Equality case
+    { .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint16_t>(42), .c = MemoryValue::from<uint1_t>(1) },
+    { .a = MemoryValue::from<uint32_t>(123456789),
+      .b = MemoryValue::from<uint64_t>(123456789),
+      .c = MemoryValue::from<uint1_t>(1) },
+    { .a = MemoryValue::from<uint128_t>(123456789),
+      .b = MemoryValue::from<FF>(123456789),
+      .c = MemoryValue::from<uint1_t>(1) },
+    { .a = MemoryValue::from<FF>(42), .b = MemoryValue::from<uint8_t>(42), .c = MemoryValue::from<uint1_t>(1) },
+    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint8_t>(1), .c = MemoryValue::from<uint1_t>(1) },
+    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
+      .b = MemoryValue::from<uint128_t>(1234567890123456789ULL),
+      .c = MemoryValue::from<uint1_t>(1) },
+    // Inequality case
+    { .a = MemoryValue::from<uint8_t>(42),
+      .b = MemoryValue::from<uint16_t>(12345),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint32_t>(123456789),
+      .b = MemoryValue::from<uint64_t>(9876543210987654321ULL),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint128_t>(123456789),
+      .b = MemoryValue::from<FF>(FF::modulus - 42),
+      .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<FF>(42), .b = MemoryValue::from<uint8_t>(200), .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint8_t>(255), .c = MemoryValue::from<uint1_t>(0) },
+    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
+      .b = MemoryValue::from<uint128_t>(9876543210987654321ULL),
+      .c = MemoryValue::from<uint1_t>(0) }
+};
 
 // Test parameters for tag error: (MemoryValue a, MemoryValue b) - different tags
-INSTANTIATE_TEST_SUITE_P(
-    AluConstrainingTest,
-    AluConstrainingEQTagError,
-    ::testing::Values(
-        EQTestParams{ .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint16_t>(42) },
-        EQTestParams{ .a = MemoryValue::from<uint32_t>(123456789), .b = MemoryValue::from<uint64_t>(123456789) },
-        EQTestParams{ .a = MemoryValue::from<uint128_t>(123456789), .b = MemoryValue::from<FF>(123456789) },
-        EQTestParams{ .a = MemoryValue::from<FF>(42), .b = MemoryValue::from<uint8_t>(42) },
-        EQTestParams{ .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint8_t>(1) },
-        EQTestParams{ .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-                      .b = MemoryValue::from<uint128_t>(1234567890123456789ULL) }));
-
-// Parametrized test for EQ operations with different values and different tags
-class AluConstrainingEQDifferentValuesAndTags : public ::testing::TestWithParam<EQTestParams>,
-                                                public AluConstrainingEQTestBase {
-  protected:
-    void SetUp() override
-    {
-        auto params = GetParam();
-        test_a = params.a;
-        test_b = params.b;
-    }
-};
-
-TEST_P(AluConstrainingEQDifferentValuesAndTags, DifferentValuesAndTags)
-{
-    auto trace = process_eq_trace_different_tags(test_a, test_b, false);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_relation<alu>(trace);
-}
-
-// Test parameters for different values and different tags: (MemoryValue a, MemoryValue b)
-INSTANTIATE_TEST_SUITE_P(
-    AluConstrainingTest,
-    AluConstrainingEQDifferentValuesAndTags,
-    ::testing::Values(EQTestParams{ .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint16_t>(12345) },
-                      EQTestParams{ .a = MemoryValue::from<uint32_t>(123456789),
-                                    .b = MemoryValue::from<uint64_t>(9876543210987654321ULL) },
-                      EQTestParams{ .a = MemoryValue::from<uint128_t>(123456789),
-                                    .b = MemoryValue::from<FF>(FF::modulus - 42) },
-                      EQTestParams{ .a = MemoryValue::from<FF>(42), .b = MemoryValue::from<uint8_t>(200) },
-                      EQTestParams{ .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint8_t>(255) },
-                      EQTestParams{ .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-                                    .b = MemoryValue::from<uint128_t>(9876543210987654321ULL) }));
+INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, EQTagErrorTest, ::testing::ValuesIn(EQ_TAG_ERROR_TEST_PARAMS));
 
 // Negative tests for EQ operations
 TEST(AluConstrainingTest, NegativeEQWrongOpId)
 {
     auto test_a = MemoryValue::from<uint8_t>(42);
     auto test_b = MemoryValue::from<uint8_t>(42);
-    auto trace = process_eq_trace(test_a, test_b, true);
+    auto trace =
+        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
     check_relation<alu>(trace);
     trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_ADD);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "OP_ID_CHECK");
@@ -774,7 +722,8 @@ TEST(AluConstrainingTest, NegativeEQWrongResult)
 {
     auto test_a = MemoryValue::from<uint8_t>(42);
     auto test_b = MemoryValue::from<uint8_t>(42);
-    auto trace = process_eq_trace(test_a, test_b, true);
+    auto trace =
+        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, 0); // Wrong result
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
@@ -784,7 +733,8 @@ TEST(AluConstrainingTest, NegativeEQWrongHelper1)
 {
     auto test_a = MemoryValue::from<uint8_t>(42);
     auto test_b = MemoryValue::from<uint8_t>(24);
-    auto trace = process_eq_trace(test_a, test_b, false);
+    auto trace =
+        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(0) });
     check_relation<alu>(trace);
     trace.set(Column::alu_helper1, 0, 1111); // Wrong helper1 for inequality
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
@@ -794,7 +744,8 @@ TEST(AluConstrainingTest, NegativeEQWrongTagCMismatch)
 {
     auto test_a = MemoryValue::from<uint16_t>(12345);
     auto test_b = MemoryValue::from<uint16_t>(12345);
-    auto trace = process_eq_trace(test_a, test_b, true);
+    auto trace =
+        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
     check_relation<alu>(trace);
     trace.set(Column::alu_ic_tag, 0, static_cast<uint8_t>(bb::avm2::MemoryTag::U16) - 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
@@ -804,7 +755,8 @@ TEST(AluConstrainingTest, NegativeEQWrongTagABMismatch)
 {
     auto test_a = MemoryValue::from<uint16_t>(12345);
     auto test_b = MemoryValue::from<uint64_t>(12345);
-    auto trace = process_eq_trace_different_tags(test_a, test_b, true);
+    auto trace =
+        process_eq_trace(ThreeOperandTestParams{ .a = test_a, .b = test_b, .c = MemoryValue::from<uint1_t>(1) });
     trace.set(Column::alu_sel_tag_err, 0, 0); // Remove tag error flag
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
     // Correctly using the error, but injecting the wrong inverse will fail:
@@ -813,6 +765,5 @@ TEST(AluConstrainingTest, NegativeEQWrongTagABMismatch)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
 
-// ----------------
 } // namespace
 } // namespace bb::avm2::constraining
