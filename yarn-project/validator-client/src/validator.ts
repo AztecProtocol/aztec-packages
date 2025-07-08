@@ -183,6 +183,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.getAddresses();
   }
 
+  public signWithAddress(addr: EthAddress, msg: Buffer32) {
+    return this.keyStore.signWithAddress(addr, msg);
+  }
+
   public configureSlashing(
     config: Partial<
       Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>
