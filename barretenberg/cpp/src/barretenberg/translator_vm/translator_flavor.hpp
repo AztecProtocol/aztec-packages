@@ -41,6 +41,7 @@ class TranslatorFlavor {
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
     using RelationSeparator = FF;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -701,15 +702,16 @@ class TranslatorFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+        size_t log_circuit_size = CONST_TRANSLATOR_LOG_N;
 
-        ProvingKey(CommitmentKey commitment_key = CommitmentKey())
-            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key = CommitmentKey();
+
+        ProvingKey(const CommitmentKey& commitment_key = CommitmentKey())
+            : commitment_key(commitment_key)
         {}
     };
 
@@ -721,7 +723,7 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
@@ -740,8 +742,8 @@ class TranslatorFlavor {
         {
             this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
@@ -774,6 +776,22 @@ class TranslatorFlavor {
             }
 
             return elements;
+        }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         * @returns The hash of the verification key
+         */
+        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
@@ -956,7 +974,5 @@ class TranslatorFlavor {
         }
     }; // namespace bb
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = NativeTranscript;
 };
 } // namespace bb

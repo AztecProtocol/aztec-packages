@@ -124,6 +124,10 @@ class ECCVMRecursiveFlavor {
                 commitment = Commitment::from_witness(builder, native_commitment);
             }
         }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
+        std::vector<BF> to_field_elements() const override;
+        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override;
     };
 
     /**

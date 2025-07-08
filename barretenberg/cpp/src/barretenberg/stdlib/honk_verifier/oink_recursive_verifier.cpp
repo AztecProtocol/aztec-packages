@@ -50,8 +50,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    decider_vk->vk_and_hash->vk->add_to_transcript(domain_separator, *transcript);
-    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
+    FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
     vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
     vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
 

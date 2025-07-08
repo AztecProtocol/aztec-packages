@@ -228,39 +228,44 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         }
 
         /**
-         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
-         * implementation to include the databus propagation data.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
          *
          * @param domain_separator
          * @param transcript
+         * @returns The hash of the verification key
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript) override
+        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
             CircuitBuilder* builder = this->circuit_size.context;
             pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx", pairing_points_start_idx);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      pairing_points_start_idx);
             FF app_return_data_commitment_start_idx(
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
             app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_hash_buffer(domain_separator + "vk_app_return_data_commitment_start_idx",
-                                          app_return_data_commitment_start_idx);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_app_return_data_commitment_start_idx",
+                                                      app_return_data_commitment_start_idx);
             FF kernel_return_data_commitment_start_idx(
                 this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
             kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_hash_buffer(domain_separator + "vk_kernel_return_data_commitment_start_idx",
-                                          kernel_return_data_commitment_start_idx);
-            FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
-            databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_hash_buffer(domain_separator + "vk_is_kernel", databus_is_kernel_start_idx);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_kernel_return_data_commitment_start_idx",
+                                                      kernel_return_data_commitment_start_idx);
+            FF databus_is_kernel(this->databus_propagation_data.is_kernel);
+            databus_is_kernel.convert_constant_to_fixed_witness(builder);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_is_kernel", databus_is_kernel);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         /**

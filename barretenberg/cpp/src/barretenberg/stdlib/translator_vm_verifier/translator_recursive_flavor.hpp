@@ -122,6 +122,10 @@ class TranslatorRecursiveFlavor {
                 comm = Commitment::from_witness(builder, native_comm);
             }
         }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
+        std::vector<FF> to_field_elements() const override;
+        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override;
     };
 
     /**

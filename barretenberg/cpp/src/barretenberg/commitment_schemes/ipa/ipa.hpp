@@ -349,12 +349,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         auto pippenger_size = 2 * log_poly_length;
         std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Fr> round_challenges_inv(log_poly_length);
+        // the group elements that will participate in our MSM.
         std::vector<Commitment> msm_elements(pippenger_size);
+        // the scalars that will participate in our MSM.
         std::vector<Fr> msm_scalars(pippenger_size);
 
         // Step 4.
-        // Receive all L_i and R_i and prepare for MSM
+        // Receive all L_i and R_i and populate msm_elements.
         for (size_t i = 0; i < log_poly_length; i++) {
             std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
@@ -363,15 +364,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
-            round_challenges_inv[i] = round_challenges[i].invert();
-            if (i < log_poly_length) {
+            msm_elements[2 * i] = element_L;
+            msm_elements[2 * i + 1] = element_R;
+        }
 
-                msm_elements[2 * i] = element_L;
-                msm_elements[2 * i + 1] = element_R;
-                msm_scalars[2 * i] = round_challenges_inv[i];
-                msm_scalars[2 * i + 1] = round_challenges[i];
-            }
+        std::vector<Fr> round_challenges_inv = round_challenges;
+        Fr::batch_invert(round_challenges_inv);
+
+        // populate msm_scalars.
+        for (size_t i = 0; i < log_poly_length; i++) {
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
         // Step 5.

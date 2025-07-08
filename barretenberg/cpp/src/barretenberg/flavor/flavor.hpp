@@ -123,39 +123,23 @@ struct ActiveRegionData {
 };
 
 /**
- * @brief Base proving key class.
- *
- * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with polynomial data type and span handle type.
- * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
- * from the other template paramter.
+ * @brief Dyadic trace size and public inputs metadata; Common between prover and verifier keys
  */
-template <typename FF, typename CommitmentKey_> class ProvingKey_ {
-  public:
-    size_t circuit_size;
-    PublicComponentKey pairing_inputs_public_input_key;
-    bb::EvaluationDomain<FF> evaluation_domain;
-    CommitmentKey_ commitment_key;
-    size_t num_public_inputs;
-    size_t log_circuit_size;
-
-    // Offset off the public inputs from the start of the execution trace
+struct MetaData {
+    size_t dyadic_size = 0; // power-of-2 size of the execution trace
+    size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
+    PublicComponentKey pairing_inputs_public_input_key;
+    PublicComponentKey ipa_claim_public_input_key;
+    DatabusPropagationData databus_propagation_data;
+};
 
-    // The number of public inputs has to be the same for all instances because they are
-    // folded element by element.
-    std::vector<FF> public_inputs;
-
-    ActiveRegionData active_region_data; // specifies active regions of execution trace
-
-    ProvingKey_() = default;
-    ProvingKey_(const size_t dyadic_circuit_size,
-                const size_t num_public_inputs = 0,
-                CommitmentKey_ commitment_key = CommitmentKey_())
-        : circuit_size(dyadic_circuit_size)
-        , evaluation_domain(bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size))
-        , commitment_key(commitment_key)
-        , num_public_inputs(num_public_inputs)
-        , log_circuit_size(numeric::get_msb(dyadic_circuit_size)){};
+/**
+ * @brief The precomputed data needed to compute a Honk VK
+ */
+template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct PrecomputedData_ {
+    RefArray<Polynomial, NUM_PRECOMPUTED_ENTITIES> polynomials; // polys whose commitments comprise the VK
+    MetaData metadata;                                          // execution trace metadata
 };
 
 /**
@@ -166,12 +150,13 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
-template <typename PrecomputedCommitments> class NativeVerificationKey_ : public PrecomputedCommitments {
+template <typename PrecomputedCommitments, typename Transcript>
+class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
-    uint64_t circuit_size;
-    uint64_t log_circuit_size;
-    uint64_t num_public_inputs;
+    uint64_t circuit_size = 0;
+    uint64_t log_circuit_size = 0;
+    uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
     PublicComponentKey pairing_inputs_public_input_key;
 
@@ -207,6 +192,20 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
         uint256_t lo = converted.slice(0, LO_BITS);
         return lo;
     }
+
+    /**
+     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
+     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
+     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
+     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
+     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
+     *
+     * @param domain_separator
+     * @param transcript
+     * @returns The hash of the verification key
+     */
+    virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const = 0;
 };
 
 /**
@@ -244,30 +243,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<FF> to_field_elements() const
-    {
-        using namespace bb::stdlib::field_conversion;
-
-        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
-            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-        };
-
-        std::vector<FF> elements;
-
-        serialize_to_field_buffer(this->circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-        pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        serialize_to_field_buffer(pairing_points_start_idx, elements);
-
-        for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
-        }
-
-        return elements;
-    }
+    virtual std::vector<FF> to_field_elements() const = 0;
 
     /**
      * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
@@ -284,26 +260,20 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
         return scalar.lo;
     }
+
     /**
-     * @brief Adds the verification key witnesses directly to the transcript.
-     * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
-     * submitting that, we want to submit the values directly to the transcript.
+     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
+     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
+     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
+     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
+     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
      *
      * @param domain_separator
      * @param transcript
+     * @returns The hash of the verification key
      */
-    virtual void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
-    {
-        transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-        transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-        FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-        pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx", pairing_points_start_idx);
-        for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
-        }
-    }
+    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const = 0;
 };
 
 template <typename FF, typename VerificationKey> class VKAndHash_ {
