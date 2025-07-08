@@ -46,7 +46,7 @@ mod test {
     };
 
     #[test]
-    fn serialization_of_empty() {
+    fn serde() {
         let instance = ContractInstance {
             salt: 6,
             deployer: AztecAddress::from_field(12),

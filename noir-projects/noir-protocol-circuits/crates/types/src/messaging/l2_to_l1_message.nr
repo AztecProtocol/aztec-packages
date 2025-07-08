@@ -39,3 +39,22 @@ impl Scoped<Counted<L2ToL1Message>> {
         self.inner.inner.scope(self.contract_address)
     }
 }
+
+mod tests {
+    use crate::{
+        address::EthAddress,
+        constants::L2_TO_L1_MESSAGE_LENGTH,
+        messaging::l2_to_l1_message::L2ToL1Message,
+        traits::{Deserialize, Serialize},
+    };
+
+    #[test]
+    fn serde() {
+        let message = L2ToL1Message { recipient: EthAddress::from_field(123), content: 456 };
+        // We use the L2_TO_L1_MESSAGE_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; L2_TO_L1_MESSAGE_LENGTH] = message.serialize();
+        let deserialized = L2ToL1Message::deserialize(serialized);
+        assert(message.eq(deserialized));
+    }
+}
