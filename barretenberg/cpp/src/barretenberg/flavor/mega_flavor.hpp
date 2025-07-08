@@ -413,27 +413,7 @@ class MegaFlavor {
         }
     };
 
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
-      public:
-        using Base = ProvingKey_<FF, CommitmentKey>;
-
-        ProvingKey() = default;
-        ProvingKey(const size_t circuit_size,
-                   const size_t num_public_inputs,
-                   CommitmentKey commitment_key = CommitmentKey())
-            : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        // Data pertaining to transfer of databus return data via public inputs
-        DatabusPropagationData databus_propagation_data;
-    };
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
@@ -464,27 +444,25 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(const ProvingKey& proving_key)
+        void set_metadata(const MetaData& metadata)
         {
-            this->circuit_size = proving_key.circuit_size;
+            this->circuit_size = metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
+            this->num_public_inputs = metadata.num_public_inputs;
+            this->pub_inputs_offset = metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
 
             // Databus commitment propagation data
-            this->databus_propagation_data = proving_key.databus_propagation_data;
+            this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
-        VerificationKey(ProvingKey& proving_key)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            set_metadata(proving_key);
-            auto& ck = proving_key.commitment_key;
-            if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
-                ck = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = ck.commit(polynomial);
+            set_metadata(precomputed.metadata);
+
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 
