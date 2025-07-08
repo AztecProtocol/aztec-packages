@@ -26,7 +26,7 @@ describe('e2e_blacklist_token_contract access control', () => {
       .send()
       .wait();
 
-    await t.mineBlocks(); // This gets us past the block of change
+    await t.crossTimestampOfChange();
 
     expect(await t.asset.methods.get_roles(t.admin.getAddress()).simulate()).toEqual(adminMinterRole.toNoirStruct());
   });
@@ -39,7 +39,7 @@ describe('e2e_blacklist_token_contract access control', () => {
       .send()
       .wait();
 
-    await t.mineBlocks(); // This gets us past the block of change
+    await t.crossTimestampOfChange();
 
     expect(await t.asset.methods.get_roles(t.other.getAddress()).simulate()).toEqual(adminRole.toNoirStruct());
   });
@@ -48,7 +48,7 @@ describe('e2e_blacklist_token_contract access control', () => {
     const noRole = new Role();
     await t.asset.withWallet(t.admin).methods.update_roles(t.other.getAddress(), noRole.toNoirStruct()).send().wait();
 
-    await t.mineBlocks(); // This gets us past the block of change
+    await t.crossTimestampOfChange();
 
     expect(await t.asset.methods.get_roles(t.other.getAddress()).simulate()).toEqual(noRole.toNoirStruct());
   });
@@ -61,7 +61,7 @@ describe('e2e_blacklist_token_contract access control', () => {
       .send()
       .wait();
 
-    await t.mineBlocks(); // This gets us past the block of change
+    await t.crossTimestampOfChange();
 
     expect(await t.asset.methods.get_roles(t.blacklisted.getAddress()).simulate()).toEqual(
       blacklistRole.toNoirStruct(),
