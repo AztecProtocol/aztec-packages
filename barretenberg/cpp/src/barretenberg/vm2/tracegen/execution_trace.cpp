@@ -203,6 +203,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_success_copy;
     case ExecutionOpCode::RETURNDATASIZE:
         return C::execution_sel_returndata_size;
+    case ExecutionOpCode::DEBUGLOG:
+        return C::execution_sel_debug_log;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -704,7 +706,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 
     // Execution Trace opcodes - separating for clarity
     if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
-        trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
+        trace.set(get_execution_opcode_selector(exec_opcode), row, 1);
     }
 }
 

@@ -19,7 +19,7 @@ namespace bb::avm2::constraining {
 
 class AvmRecursiveTests : public ::testing::Test {
   public:
-    using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
+    using RecursiveFlavor = AvmRecursiveFlavor;
     using InnerProver = AvmProvingHelper;
     using InnerVerifier = AvmVerifier;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
@@ -43,7 +43,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
         InnerProver prover;
         const auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = prover.create_verification_key(vk_data);
+        const auto verification_key = InnerProver::create_verification_key(vk_data);
         InnerVerifier verifier(verification_key);
 
         const auto public_inputs_cols = public_inputs.to_columns();
@@ -157,7 +157,8 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
+    using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
+    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;

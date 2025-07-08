@@ -82,6 +82,20 @@ aztec:
   ## The number of extra accounts to prefund
   extraAccounts: 10
 
+  slash:
+    payloadTtlSeconds: "86400"
+    pruneEnabled: false
+    prunePenalty: "1"
+    pruneMaxPenalty: "100"
+    inactivityEnabled: false
+    inactivityCreateTargetPercentage: 0.9
+    inactivitySignalTargetPercentage: 0.6
+    inactivityCreatePenalty: "1"
+    inactivityMaxPenalty: "100"
+    invalidBlockEnabled: false
+    invalidBlockPenalty: "1"
+    invalidBlockMaxPenalty: "100"
+
 bootNode:
   enabled: true
   peerIdPrivateKey: ""
@@ -153,6 +167,7 @@ fullNode:
   sentinelEnabled: false
 
 validator:
+  sentinelEnabled: false
   # If true, the validator will use its peers to serve as the boot node.
   # This cannot be used when the network first starts up.
   # But it must be used if the boot node is killed, and the validator is restarted.

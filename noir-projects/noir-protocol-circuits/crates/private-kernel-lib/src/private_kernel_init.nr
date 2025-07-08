@@ -65,6 +65,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         private_call_data_validator.verify_proof(true /* is_first_app */);
 
+        private_call_data_validator.validate_common(self.protocol_contract_tree_root);
+
         private_call_data_validator.validate_as_first_call();
 
         private_call_data_validator.validate_against_tx_request(self.tx_request);
@@ -74,14 +76,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Note: the 0th nullifier is computed within here from the txRequest.
         // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
-
-        // Q: why is the output needed for this validation?
-        // A: it's used in log validation.
-        // Q: Should that log validation instead happen within the Output Validator steps below?
-        private_call_data_validator.validate_common(
-            output.end.note_hashes,
-            self.protocol_contract_tree_root,
-        );
 
         // Validate output.
         if dep::types::validate::should_validate_output() {

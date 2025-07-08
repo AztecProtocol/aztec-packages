@@ -8,6 +8,11 @@ use dep::types::{
     utils::arrays::ClaimedLengthArray,
 };
 
+fn is_note_hash_for_log(note_hash: ScopedNoteHash, log: Scoped<PrivateLogData>) -> bool {
+    (note_hash.counter() == log.inner.note_hash_counter)
+        & (note_hash.contract_address == log.contract_address)
+}
+
 /// Delineates the indices of transient note_hashes and their nullifiers
 pub struct TransientDataIndexHint {
     pub nullifier_index: u32,
@@ -158,15 +163,13 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             transient_or_propagated_note_hash_index_for_each_log[i];
 
         let is_note_log = log.inner.note_hash_counter != 0;
+        let expected_kept_note_hash =
+            expected_kept_note_hashes.array[hinted_note_hash_index_for_this_log];
         // Logs with 0 note_hash_counter must be propagated, since they do not relate to any note,
         // and therefore cannot ever be squashed.
         // Logs linked to a _propagated_ note hash will also be propagated. In this case, the log's note_hash_counter points to a note hash in expected_kept_note_hashes.
         // TODO: it's quite complicated that the index hint could possibly point to an index in one of two arrays.
-        let is_propagated = !is_note_log
-            | (
-                expected_kept_note_hashes.array[hinted_note_hash_index_for_this_log].counter()
-                    == log.inner.note_hash_counter
-            );
+        let is_propagated = !is_note_log | is_note_hash_for_log(expected_kept_note_hash, log);
 
         // This is only used if is_propagated is true. But it's cheaper to declare it outside of the if statement.
         let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
@@ -195,6 +198,12 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             // checked when the hint was used to squash the note hash.
 
             assert_eq(
+                log.contract_address,
+                transient_note_hash.contract_address,
+                "Contract address of the hinted transient note hash does not match log",
+            );
+
+            assert_eq(
                 // Consider disallowing squashing of a non-revertible log and a revertible note hash (and vice versa)
                 //    - (I'm not sure why an app would do this, and you could argue it's the app's fault...
                 //       If you were to argue it's the app's fault, we could at least put an _unconstrained_
@@ -203,7 +212,6 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
                 transient_note_hash.counter(),
                 "Value of the hinted transient note hash does not match log",
             );
-            // TODO(#15137): Check the contract address here. (Currently it's checked in init and inner.)
         }
     }
 
@@ -1045,6 +1053,16 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         builder.expected_kept_logs.array[0].inner.counter += 1;
+
+        builder.verify();
+    }
+
+    #[test(should_fail_with = "Contract address of the hinted transient note hash does not match log")]
+    fn fails_mismatch_log_contract_address() {
+        let mut builder = TestDataBuilder::new();
+
+        // Change the contract address of the log linked to a transient note hash.
+        builder.logs.array[0].contract_address.inner += 1;
 
         builder.verify();
     }

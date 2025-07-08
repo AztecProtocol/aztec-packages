@@ -5,7 +5,6 @@ import {
   detectResourcesSync,
   envDetectorSync,
   osDetectorSync,
-  processDetectorSync,
   serviceInstanceIdDetectorSync,
 } from '@opentelemetry/resources';
 import { SEMRESATTRS_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
@@ -18,7 +17,10 @@ export function getOtelResource(): IResource {
       aztecNetworkDetectorSync,
       osDetectorSync,
       envDetectorSync,
-      processDetectorSync,
+      // this detector is disabled because:
+      // 1. our software runs in a docker container, a lot of the attributes detected would be identical across different machines (e.g. all run node v22, executing the same script, running PID 1, etc)
+      // 2. it catures process.argv which could contain sensitive values in plain text (e.g. validator private keys)
+      // processDetectorSync,
       serviceInstanceIdDetectorSync,
     ],
   });

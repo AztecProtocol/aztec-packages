@@ -227,7 +227,15 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       await retryUntil(
         async () => {
-          const currentProposer = await rollup.getCurrentProposer();
+          const ignoreExpectedErrors = (err: Error) => {
+            const permissibleErrors = ['ValidatorSelection__InsufficientCommitteeSize', '0x98673597'];
+            if (permissibleErrors.some(error => err.message.includes(error))) {
+              return undefined;
+            }
+            t.logger.error('Error:', err);
+            throw err;
+          };
+          const currentProposer = await rollup.getCurrentProposer().catch(ignoreExpectedErrors);
           t.logger.verbose(`Current proposer is ${currentProposer}`);
           const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
           const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);

@@ -86,9 +86,11 @@ export class SentinelStore {
     slot: bigint,
     status: 'block-mined' | 'block-proposed' | 'block-missed' | 'attestation-sent' | 'attestation-missed',
   ) {
-    const currentHistory = (await this.getHistory(who)) ?? [];
-    const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
-    await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
+    await this.store.transactionAsync(async () => {
+      const currentHistory = (await this.getHistory(who)) ?? [];
+      const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
+      await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
+    });
   }
 
   public async getHistories(): Promise<Record<`0x${string}`, ValidatorStatusHistory>> {

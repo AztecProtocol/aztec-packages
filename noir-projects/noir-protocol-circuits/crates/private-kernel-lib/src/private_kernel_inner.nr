@@ -61,17 +61,15 @@ impl PrivateKernelInnerCircuitPrivateInputs {
                 - 1];
 
     private_call_data_validator.verify_proof(false /* is_first_app */);
+    private_call_data_validator.validate_common(
+        self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
+    );
     private_call_data_validator.validate_against_call_request(call_request);
     private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
 
     // Generate output.
     // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
     let output = unsafe { self.generate_output() };
-
-    private_call_data_validator.validate_common(
-        output.end.note_hashes,
-        self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
-    );
 
     // Validate output.
     if dep::types::validate::should_validate_output() {
