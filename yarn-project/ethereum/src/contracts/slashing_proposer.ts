@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
 
@@ -23,12 +24,10 @@ export class ProposalAlreadyExecutedError extends Error {
 }
 
 export class SlashingProposerContract extends EventEmitter implements IEmpireBase {
+  private readonly logger = createLogger('SlashingProposerContract');
   private readonly proposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
 
-  constructor(
-    public readonly client: ViemClient,
-    address: Hex,
-  ) {
+  constructor(public readonly client: ViemClient, address: Hex) {
     super();
     this.proposer = getContract({ address, abi: SlashingProposerAbi, client });
   }
@@ -71,9 +70,13 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     };
   }
 
-  public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
+  public async createVoteRequestWithSignature(
+    payload: Hex,
+    wallet: ExtendedViemWalletClient,
+    signer: (msg: Hex) => Promise<Hex>,
+  ): Promise<L1TxRequest> {
     const nonce = await this.getNonce(wallet.account.address);
-    const signature = await signVoteWithSig(wallet, payload, nonce, this.address.toString(), wallet.chain.id);
+    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), wallet.chain.id);
     return {
       to: this.address.toString(),
       data: encodeVoteWithSignature(payload, signature),
@@ -113,16 +116,26 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     );
   }
 
-  public waitForRound(round: bigint, pollingIntervalSeconds: number = 1) {
+  /**
+   * Wait for a round to be reached.
+   *
+   * @param round - The round to wait for.
+   * @param pollingIntervalSeconds - The interval in seconds to poll for the round.
+   * @returns True if the round was reached, false otherwise.
+   */
+  public waitForRound(round: bigint, pollingIntervalSeconds: number = 1): Promise<boolean> {
     return retryUntil(
       async () => {
-        const currentRound = await this.proposer.read.getCurrentRound();
-        return currentRound >= round;
+        const currentRound = await this.proposer.read.getCurrentRound().catch(e => {
+          this.logger.error('Error getting current round', e);
+          return undefined;
+        });
+        return currentRound !== undefined && currentRound >= round;
       },
       `Waiting for round ${round} to be reached`,
       0, // no timeout
       pollingIntervalSeconds,
-    );
+    ).catch(() => false);
   }
 
   public async executeRound(
@@ -170,7 +183,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${
+        error ?? 'Unknown error'
+      }`;
       throw new Error(errorMessage);
     }
     return response;

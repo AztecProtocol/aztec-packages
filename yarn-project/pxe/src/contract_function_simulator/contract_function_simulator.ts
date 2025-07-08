@@ -37,7 +37,6 @@ import {
   PrivateToPublicAccumulatedData,
   PrivateToRollupAccumulatedData,
   PublicCallRequest,
-  RollupValidationRequests,
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog } from '@aztec/stdlib/logs';
@@ -67,10 +66,7 @@ import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export class ContractFunctionSimulator {
   private log: Logger;
 
-  constructor(
-    private executionDataProvider: ExecutionDataProvider,
-    private simulator: CircuitSimulator,
-  ) {
+  constructor(private executionDataProvider: ExecutionDataProvider, private simulator: CircuitSimulator) {
     this.log = createLogger('simulator');
   }
 
@@ -445,9 +441,9 @@ export async function generateSimulatedProvingResult(
 
   const publicInputs = new PrivateKernelTailCircuitPublicInputs(
     constantData,
-    RollupValidationRequests.empty(),
     /*gasUsed=*/ new Gas(0, 0),
     /*feePayer=*/ AztecAddress.zero(),
+    /*includeByTimestamp=*/ 0n,
     hasPublicCalls ? inputsForPublic : undefined,
     !hasPublicCalls ? inputsForRollup : undefined,
   );
