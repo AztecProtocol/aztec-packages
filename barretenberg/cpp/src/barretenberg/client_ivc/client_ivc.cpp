@@ -134,12 +134,13 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     PairingPoints pairing_points = goblin.recursively_verify_merge(
         circuit, decider_vk->witness_commitments.get_ecc_op_wires(), accumulation_recursive_transcript);
 
-    PairingPoints nested_pairing_points; // Pairing points carried in public inputs of proof just recursively verified
+    PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): move is_kernel flag out of
     // databus_propagation_data or remove it altogether
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
-        KernelIO kernel_input; // WORKTODO: should this actually be called kernel output?
+        // Reconstruct the input from the previous kernel from its public inputs
+        KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
         nested_pairing_points = kernel_input.pairing_inputs;
 
@@ -150,9 +151,11 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         // Set the kernel return data commitment to be propagated via the public inputs
         bus_depot.set_kernel_return_data_commitment(decider_vk->witness_commitments.return_data);
     } else {
-        AppIO app_input;
+        // Reconstruct the input from the previous app from its public inputs
+        AppIO app_input; // pairing points
         app_input.reconstruct_from_public(decider_vk->public_inputs);
         nested_pairing_points = app_input.pairing_inputs;
+
         // Set the app return data commitment to be propagated via the public inputs
         bus_depot.set_app_return_data_commitment(decider_vk->witness_commitments.return_data);
     }
