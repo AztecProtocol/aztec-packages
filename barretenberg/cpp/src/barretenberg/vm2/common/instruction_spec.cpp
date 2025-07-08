@@ -509,6 +509,11 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
+    { ExecutionOpCode::DEBUGLOG,
+      { .num_addresses = 4,
+        .gas_cost = { .opcode_gas = AVM_DEBUGLOG_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        // We don't set the right inputs for debuglog because we make it a noop.
+        .register_info = RegisterInfo() } },
 };
 
 } // namespace bb::avm2

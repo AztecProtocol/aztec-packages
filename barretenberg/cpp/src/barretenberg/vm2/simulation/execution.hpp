@@ -97,6 +97,12 @@ class Execution : public ExecutionInterface {
     void internal_return(ContextInterface& context);
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
     void success_copy(ContextInterface& context, MemoryAddress dst_addr);
+    void debug_log(ContextInterface& context,
+                   MemoryAddress message_offset,
+                   MemoryAddress fields_offset,
+                   MemoryAddress fields_size_offset,
+                   uint16_t message_size,
+                   bool is_debug_logging_enabled = debug_logging);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
