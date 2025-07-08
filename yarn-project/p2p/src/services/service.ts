@@ -80,7 +80,7 @@ export interface P2PService {
     validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void>;
 
-  handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
+  handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 }
 
 /**

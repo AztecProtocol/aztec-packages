@@ -57,8 +57,8 @@ export class PeerManager implements PeerManagerInterface {
   private privatePeers: Set<string> = new Set();
   private privatePeersInitialized: boolean = false;
   private preferredPeers: Set<string> = new Set();
-  private authenticatedPeers: Map<string, EthAddress> = new Map();
-  private authenticatedValidatorAddresses: Map<string, PeerId> = new Map();
+  private authenticatedPeerIdToValidatorAddress: Map<string, EthAddress> = new Map();
+  private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -195,7 +195,7 @@ export class PeerManager implements PeerManagerInterface {
     }
 
     // We are configured to only allow validators, but this doesn't apply to trusted, private peers or preferred peers
-    if (this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId) || this.isPreferredPeer(peerId)) {
+    if (this.isProtectedPeer(peerId)) {
       void this.exchangeStatusHandshake(peerId);
       return;
     }
@@ -211,13 +211,13 @@ export class PeerManager implements PeerManagerInterface {
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
     this.logger.verbose(`Disconnected from peer ${peerId.toString()}`);
-    const validatorAddress = this.authenticatedPeers.get(peerId.toString());
+    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerId.toString());
     if (validatorAddress !== undefined) {
       this.logger.info(
         `Removing authentication for validator ${validatorAddress} at peer id ${peerId.toString()} due to disconnection`,
       );
-      this.authenticatedValidatorAddresses.delete(validatorAddress.toString());
-      this.authenticatedPeers.delete(peerId.toString());
+      this.authenticatedValidatorAddressToPeerId.delete(validatorAddress.toString());
+      this.authenticatedPeerIdToValidatorAddress.delete(peerId.toString());
     }
   }
 
@@ -369,7 +369,7 @@ export class PeerManager implements PeerManagerInterface {
       this.privatePeers.has(peerIdAsString) ||
       this.trustedPeers.has(peerIdAsString) ||
       this.preferredPeers.has(peerIdAsString) ||
-      this.authenticatedPeers.has(peerIdAsString)
+      this.authenticatedPeerIdToValidatorAddress.has(peerIdAsString)
     );
   }
   /**
@@ -758,8 +758,9 @@ export class PeerManager implements PeerManagerInterface {
       const ourStatus = await this.createStatusMessage();
       const authRequest = new AuthRequest(ourStatus, Fr.random());
 
-      //Note: Technically we don't have to send our status to peer as well, but we do.
-      //It will be easier to update protocol in the future this way if need be.
+      // Note: Technically we don't have to send our status to peer as well, but we do.
+      // It will be easier to update protocol in the future this way if need be.
+      // We also need to send the challenge at least, so that the peer can sign it.
       this.logger.debug(`Initiating auth handshake with peer ${peerId}`);
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
@@ -803,7 +804,7 @@ export class PeerManager implements PeerManagerInterface {
       const peerIdString = peerId.toString();
 
       // Check to see that this validator address isn't already allocated to a different peer
-      const peerForAddress = this.authenticatedValidatorAddresses.get(sender.toString());
+      const peerForAddress = this.authenticatedValidatorAddressToPeerId.get(sender.toString());
       if (peerForAddress !== undefined && peerForAddress.toString() !== peerIdString) {
         this.logger.warn(
           `Received auth for validator ${sender.toString()} from peer ${peerIdString}, but this validator is already authenticated to peer ${peerForAddress.toString()}`,
@@ -811,8 +812,8 @@ export class PeerManager implements PeerManagerInterface {
         return;
       }
 
-      this.authenticatedPeers.set(peerIdString, sender);
-      this.authenticatedValidatorAddresses.set(sender.toString(), peerId);
+      this.authenticatedPeerIdToValidatorAddress.set(peerIdString, sender);
+      this.authenticatedValidatorAddressToPeerId.set(sender.toString(), peerId);
       this.logger.info(
         `Successfully completed auth handshake with peer ${peerId}, validator address ${sender.toString()}`,
         logData,
@@ -844,10 +845,20 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   private shouldTrustWithIdentity(peerId: PeerId): boolean {
-    return this.isPreferredPeer(peerId) || this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
+    return this.isProtectedPeer(peerId);
   }
 
-  public async handleAuthFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+  /**
+   * Performs auth request verification from peer. An auth request is valid if requested by an authorized peer (a peer we trust).
+   *
+   * @param: _authRequest - Auth request (unused)
+   * @param: peerId - The ID of the peer that requested the auth handshake
+   *
+   * @returns: StatusMessage if peer is trusted
+   *
+   * @throws: If peer is unauthorized
+   * */
+  public async handleAuthRequestFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
     if (!this.shouldTrustWithIdentity(peerId)) {
       this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
       throw new Error('Unauthorised');
@@ -862,7 +873,7 @@ export class PeerManager implements PeerManagerInterface {
 
     const peersToDelete: Set<string> = new Set();
     const addressesToDelete: Set<string> = new Set();
-    for (const [peer, address] of this.authenticatedPeers.entries()) {
+    for (const [peer, address] of this.authenticatedPeerIdToValidatorAddress.entries()) {
       const addressString = address.toString();
       if (!validatorSet.has(addressString)) {
         peersToDelete.add(peer);
@@ -874,10 +885,10 @@ export class PeerManager implements PeerManagerInterface {
     }
 
     for (const peer of peersToDelete) {
-      this.authenticatedPeers.delete(peer);
+      this.authenticatedPeerIdToValidatorAddress.delete(peer);
     }
     for (const address of addressesToDelete) {
-      this.authenticatedValidatorAddresses.delete(address);
+      this.authenticatedValidatorAddressToPeerId.delete(address);
     }
   }
 }

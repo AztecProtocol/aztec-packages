@@ -1080,8 +1080,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return this.node.services.pubsub.score.score(peerId.toString());
   }
 
-  public handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
-    return this.peerManager.handleAuthFromPeer(authRequest, peerId);
+  public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.peerManager.handleAuthRequestFromPeer(authRequest, peerId);
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

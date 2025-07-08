@@ -944,8 +944,8 @@ describe('PeerManager', () => {
 
       // We should return a valid status message as this is a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
-      await expect(newPeerManager.handleAuthFromPeer(authRequest, peerId)).resolves.not.toThrow();
-      const statusMessage = await newPeerManager.handleAuthFromPeer(authRequest, peerId);
+      await expect(newPeerManager.handleAuthRequestFromPeer(authRequest, peerId)).resolves.not.toThrow();
+      const statusMessage = await newPeerManager.handleAuthRequestFromPeer(authRequest, peerId);
       expect(statusMessage.compressedComponentsVersion).toEqual(protocolVersion);
       expect(statusMessage.latestBlockHash).toEqual(blockHash);
     });
@@ -976,7 +976,7 @@ describe('PeerManager', () => {
 
       // Should reject as this is not a preferred peer
       const authRequest = new AuthRequest(mockStatusMessage(), Fr.random());
-      await expect(newPeerManager.handleAuthFromPeer(authRequest, someOtherPeer)).rejects.toThrow();
+      await expect(newPeerManager.handleAuthRequestFromPeer(authRequest, someOtherPeer)).rejects.toThrow();
     });
 
     it('should not request auth from private peer', async () => {

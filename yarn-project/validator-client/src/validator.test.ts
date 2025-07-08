@@ -50,7 +50,7 @@ describe('ValidatorClient', () => {
   beforeEach(() => {
     p2pClient = mock<P2P>();
     p2pClient.getAttestationsForSlot.mockImplementation(() => Promise.resolve([]));
-    p2pClient.handleAuthFromPeer.mockResolvedValue(StatusMessage.random());
+    p2pClient.handleAuthRequestFromPeer.mockResolvedValue(StatusMessage.random());
     blockBuilder = mock<IFullNodeBlockBuilder>();
     blockBuilder.getConfig.mockReturnValue({
       l1GenesisTime: 1n,
@@ -429,7 +429,7 @@ describe('ValidatorClient', () => {
     };
 
     it('should return empty buffer if auth request is not from a peer we trust with our identity', async () => {
-      p2pClient.handleAuthFromPeer.mockRejectedValueOnce('Unauthorised');
+      p2pClient.handleAuthRequestFromPeer.mockRejectedValueOnce('Unauthorised');
       const peerId = await createSecp256k1PeerId();
       const msg = AuthRequest.random().toBuffer();
       const res = await callHandler(validatorClient, peerId, msg);
@@ -450,7 +450,7 @@ describe('ValidatorClient', () => {
     it('should return serialised auth response if we are responding to auth request', async () => {
       // Set up our auth peer handler
       const ourStatus = StatusMessage.random();
-      p2pClient.handleAuthFromPeer.mockResolvedValueOnce(ourStatus);
+      p2pClient.handleAuthRequestFromPeer.mockResolvedValueOnce(ourStatus);
       // Make sure our addresses are registered
       epochCache.getRegisteredValidators.mockResolvedValueOnce(validatorClient.getValidatorAddresses());
       const peerId = await createSecp256k1PeerId();
@@ -470,7 +470,7 @@ describe('ValidatorClient', () => {
     it('should sign with the first registered address', async () => {
       // Set up our auth peer handler
       const ourStatus = StatusMessage.random();
-      p2pClient.handleAuthFromPeer.mockResolvedValueOnce(ourStatus);
+      p2pClient.handleAuthRequestFromPeer.mockResolvedValueOnce(ourStatus);
       // Make sure our addresses are registered
       const registeredAddress = validatorClient.getValidatorAddresses()[1];
       const validatorPrivateKey = config.validatorPrivateKeys.getValue()[1];

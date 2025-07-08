@@ -566,7 +566,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private async handleAuthRequest(peer: PeerId, msg: Buffer): Promise<Buffer> {
     const authRequest = AuthRequest.fromBuffer(msg);
-    const statusMessage = await this.p2pClient.handleAuthFromPeer(authRequest, peer).catch(_ => undefined);
+    const statusMessage = await this.p2pClient.handleAuthRequestFromPeer(authRequest, peer).catch(_ => undefined);
     if (statusMessage === undefined) {
       return Buffer.alloc(0);
     }

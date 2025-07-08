@@ -875,7 +875,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.txPool.markTxsAsNonEvictable(txHashes);
   }
 
-  public handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
-    return this.p2pService.handleAuthFromPeer(authRequest, peerId);
+  public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.p2pService.handleAuthRequestFromPeer(authRequest, peerId);
   }
 }
