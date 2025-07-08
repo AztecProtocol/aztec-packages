@@ -224,7 +224,8 @@ pub comptime fn generate_deserialize_from_fields(
     (result, consumed_counter)
 }
 
-// TODO(benesjan): The main usecase of this function is gone (it's no longer used in derive_serialize). Should it be removed or simplified?
+// Note: The main usecase of this function is gone (it's no longer used in derive_serialize) so there is most likely
+// a potential to significantly simplify this.
 /// Generates code that serializes a type into an array of fields. Also generates auxiliary variables if necessary
 /// for serialization. If `should_pack` is true, we check if the type implements the `Packable` trait and pack it
 /// if it does.
@@ -429,15 +430,14 @@ pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
 
-    // The following will give us [<type_of_struct_member_1 as Serialize>::N, <type_of_struct_member_2 as Serialize>::N, ...]
-    let components_of_definition_of_n = params.map(|(_, param_type, _): (Quoted, Type, Quoted)| {
-        quote {
+    // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
             <$param_type as $crate::traits::Serialize>::N
         }
-    });
-
-    // The following will give us <type_of_struct_member_1 as Serialize>::N + <type_of_struct_member_2 as Serialize>::N + ...
-    let right_hand_side_of_definition_of_n = components_of_definition_of_n.join(quote {+});
+        })
+        .join(quote {+});
 
     let array_of_quotes_serializing_each_struct_member = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
@@ -475,17 +475,18 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
     let params = nested_struct.0.fields(nested_struct.1);
-    // The following will give us [<type_of_struct_member_1 as Deserialize>::N, <type_of_struct_member_2 as Deserialize>::N, ...]
-    let components_of_definition_of_n = params.map(|(_, param_type, _): (Quoted, Type, Quoted)| {
-        quote {
-            <$param_type as Deserialize>::N
-        }
-    });
 
     // The following will give us <type_of_struct_member_1 as Deserialize>::N + <type_of_struct_member_2 as Deserialize>::N + ...
-    let serialized_len = components_of_definition_of_n.join(quote {+});
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+            <$param_type as $crate::traits::Deserialize>::N
+        }
+        })
+        .join(quote {+});
 
-    let array_of_quotes_deserializing_each_struct_member = params
+    // This generates deserialization code for each struct member that and concatenates them together.
+    let deserialization_of_struct_members = params
         .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
             quote {
                 let mut member_fields = [0; <$param_type as Deserialize>::N];
@@ -495,10 +496,8 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
                 let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
                 offset += <$param_type as Deserialize>::N;
             }
-        });
-
-    let deserialization_of_struct_members =
-        array_of_quotes_deserializing_each_struct_member.join(quote {});
+        })
+        .join(quote {});
 
     // We join the struct member names with a comma to be used in the `Self { ... }` syntax
     // This will give us e.g. `a, b, c` for a struct with three fields named `a`, `b`, and `c`.
@@ -507,13 +506,15 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
         .join(quote {,});
 
     quote {
-        impl Deserialize for $typ {
-            let N: u32 = $serialized_len;
+        impl $crate::traits::Deserialize for $typ {
+            let N: u32 = $right_hand_side_of_definition_of_n;
 
             #[inline_always]
             fn deserialize(serialized: [Field; Self::N]) -> Self {
                 let mut offset = 0;
+
                 $deserialization_of_struct_members
+
                 Self { $struct_members }
             }
         }
