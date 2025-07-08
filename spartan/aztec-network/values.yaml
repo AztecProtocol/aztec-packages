@@ -283,7 +283,6 @@ bot:
   resources: {}
 
 ethereum:
-  client: "reth"
   acceleratedTestDeployments: false
   genesisBasePath: "out"
   replicas: 1
@@ -298,6 +297,7 @@ ethereum:
     spotEnabled: false
   args: ""
   execution:
+    client: "reth"
     externalHosts: ""
     service:
       port: 8545

@@ -15,7 +15,8 @@ images:
     pullPolicy: Always
 
 ethereum:
-  executionClient: "geth"
+  execution:
+    client: "geth"
 
 telemetry:
   enabled: true

@@ -28,9 +28,9 @@ spec:
         - name: ethereum
           # image: "{{ .Values.images.reth.image }}"
           image: |
-            {{- if eq .Values.ethereum.executionClient "geth" }}
+            {{- if eq .Values.ethereum.execution.client "geth" }}
               {{ .Values.images.geth.image }}
-            {{- else if eq .Values.ethereum.executionClient "nethermind" }}
+            {{- else if eq .Values.ethereum.execution.client "nethermind" }}
               {{ .Values.images.nethermind.image }}
             {{- else }}
               {{ .Values.images.reth.image }}
@@ -39,7 +39,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
-              exec /entrypoints/eth-execution.sh
+              exec /entrypoints/eth-execution.sh {{ .Values.ethereum.execution.client }}
           env:
             - name: K8S_MODE
               value: "true"
