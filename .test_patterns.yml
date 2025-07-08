@@ -186,6 +186,11 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/a1d8b4d360d6d658
+  - regex: "src/e2e_epochs/epochs_first_slot.test.ts"
+    error_regex: "expect\\(received\\).toContain\\(expected\\)"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
