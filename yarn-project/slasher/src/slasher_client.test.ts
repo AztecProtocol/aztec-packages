@@ -218,7 +218,7 @@ describe('SlasherClient', () => {
         const voteRequest = await slashingProposer.createVoteRequestWithSignature(
           payload!.toString(),
           slasherL1Client,
-          msg => testHarnessPrivateKey.sign({ hash: msg }),
+          msg => slasherPrivateKey.sign({ hash: msg }),
         );
 
         // Have the test harness send the vote request to avoid nonce conflicts
