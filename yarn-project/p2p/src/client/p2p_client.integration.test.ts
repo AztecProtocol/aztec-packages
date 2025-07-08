@@ -289,9 +289,11 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'request batch of txs from another peer',
+    'request batches of txs from another peer',
     async () => {
-      const txBatchSize = 8;
+      const txToRequestCount = 8;
+      const txBatchSize = 1;
+
       // We want to create a set of nodes and request transaction from them
       clients = (
         await makeAndStartTestP2PClients(3, {
@@ -310,7 +312,7 @@ describe('p2p client integration', () => {
       logger.info(`Finished waiting for clients to connect`);
 
       // Perform a get tx request from client 1
-      const txs = await Promise.all(times(txBatchSize, () => mockTx()));
+      const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
       const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
       // Mock the tx pool to return the tx we are looking for
@@ -330,9 +332,7 @@ describe('p2p client integration', () => {
       });
 
       const request = chunkTxHashesRequest(txHashes, txBatchSize);
-      // We have created txs equal to the number of hashes, so we expect the request
-      // length to be just 1, since we are creating only one batch
-      expect(request).toHaveLength(1);
+      expect(request).toHaveLength(Math.ceil(txToRequestCount / txBatchSize));
 
       expect(sendBatchSpy).toHaveBeenCalledWith(
         ReqRespSubProtocol.TX,
@@ -343,8 +343,7 @@ describe('p2p client integration', () => {
         expect.anything(), // maxRetryAttempts
       );
 
-      // since we have only 1 batch we send only 1 request
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(1);
+      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(request.length);
 
       await shutdown(clients);
     },
@@ -354,7 +353,9 @@ describe('p2p client integration', () => {
   it(
     'request batches of txs from another peers',
     async () => {
-      const txBatchSize = 8;
+      const txToRequestCount = 8;
+      const txBatchSize = 1;
+
       // We want to create a set of nodes and request transaction from them
       clients = (
         await makeAndStartTestP2PClients(3, {
@@ -373,7 +374,7 @@ describe('p2p client integration', () => {
       logger.info(`Finished waiting for clients to connect`);
 
       // Perform a get tx request from client 1
-      const txs = await Promise.all(times(txBatchSize + 2, () => mockTx()));
+      const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
       const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
       // Mock the tx pool to return every other tx we are looking for
@@ -397,12 +398,8 @@ describe('p2p client integration', () => {
       });
 
       const request = chunkTxHashesRequest(txHashes, txBatchSize);
-      // We have created txs equal to the number of hashes + 1, so we expect the request
-      // length to be 2, since we are creating only 2 batches,
-      // 1 with the size of txBatchSize and the other with the size of 1
-      expect(request).toHaveLength(2);
+      expect(request).toHaveLength(Math.ceil(txToRequestCount / txBatchSize));
       expect(request[0]).toHaveLength(txBatchSize);
-      expect(request[1]).toHaveLength(txs.length - txBatchSize);
 
       expect(sendBatchSpy).toHaveBeenCalledWith(
         ReqRespSubProtocol.TX,
@@ -413,8 +410,7 @@ describe('p2p client integration', () => {
         expect.anything(), // maxRetryAttempts
       );
 
-      // since we have only 1 batch we send only 1 request
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(2);
+      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(request.length);
 
       await shutdown(clients);
     },

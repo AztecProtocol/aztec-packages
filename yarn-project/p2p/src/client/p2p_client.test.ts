@@ -166,10 +166,8 @@ describe('P2P Client', () => {
     const addTxsSpy = jest.spyOn(txPool, 'addTxs');
 
     // We query for all 3 txs
-    const query = new TxHashArray(
-      ...(await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()])),
-    );
-    const results = await client.requestTxsByHash(query, undefined);
+    const txHashes = await Promise.all([mockTx1.getTxHash(), mockTx2.getTxHash(), mockTx3.getTxHash()]);
+    const results = await client.requestTxsByHash(txHashes, undefined);
 
     // We should receive the found transactions
     expect(results).toEqual([mockTx1, mockTx3]);
@@ -177,7 +175,7 @@ describe('P2P Client', () => {
     // P2P should have been called with the 3 tx hashes
     expect(p2pService.sendBatchRequest).toHaveBeenCalledWith(
       ReqRespSubProtocol.TX,
-      [query],
+      txHashes.map(hash => new TxHashArray(...[hash])),
       undefined,
       expect.anything(),
       expect.anything(),
