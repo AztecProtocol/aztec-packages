@@ -336,7 +336,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
-
         transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
         transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
         transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
@@ -410,13 +409,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G₀
         Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        // BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
-        // Using BB_ASSERT_EQ caused the test `ClientIVCTests.WrongProofComponentFailure` to fail,
-        // insomuch as `EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));` throws an
-        // error rather than returning false.
-        if (!(G_zero == G_zero_sent)){
-            return false;
-        }
+        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
+
         // Step 9.
         // Receive a₀ from the prover
         auto a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
@@ -447,7 +441,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
-
         transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
         transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
         transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);

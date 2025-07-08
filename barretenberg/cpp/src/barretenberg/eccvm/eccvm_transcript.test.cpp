@@ -221,9 +221,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t round = 0;
-        // transcript->template add_to_hash_buffer("IPA:commitment", commitment);
-        // transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
-        // transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+
         manifest_expected.add_entry(round, "IPA:commitment", frs_per_G);
         manifest_expected.add_entry(round, "IPA:challenge", frs_per_Fr);
         manifest_expected.add_entry(round, "IPA:evaluation", frs_per_Fr);

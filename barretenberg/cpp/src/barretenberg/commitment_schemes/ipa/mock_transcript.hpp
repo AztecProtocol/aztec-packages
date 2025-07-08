@@ -88,7 +88,6 @@ class MockTranscript {
     {
         // GCC breaks explicit specialization, so I have to do this
         if constexpr (std::is_same_v<bb::curve::Grumpkin::AffineElement, T>) {
-
             hash_buffer_group_elements.push_back(element);
         } else {
             hash_buffer_field_elements.push_back(static_cast<uint256_t>(element));

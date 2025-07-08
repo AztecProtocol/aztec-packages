@@ -10,7 +10,7 @@
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 using namespace bb;
 
@@ -303,7 +303,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*");
     }
 
     {
@@ -312,7 +312,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.mega_proof = civc_proof_2.mega_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*");
     }
 
     {
@@ -321,7 +321,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
 
         tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+        EXPECT_DEATH(ClientIVC::verify(tampered_proof, civc_vk_1), ".*");
     }
 
     {
