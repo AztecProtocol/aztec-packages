@@ -138,5 +138,64 @@ TEST(AvmSimulationAluTest, NegativeLTTag)
                                       .error = AluError::TAG_ERROR }));
 }
 
+TEST(AvmSimulationAluTest, EQEquality)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    Alu alu(range_check, field_gt, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint128_t>(123456789);
+    auto b = MemoryValue::from<uint128_t>(123456789);
+
+    auto c = alu.eq(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint1_t>(1));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = std::nullopt }));
+}
+
+TEST(AvmSimulationAluTest, EQInequality)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    Alu alu(range_check, field_gt, alu_event_emitter);
+
+    auto a = MemoryValue::from<FF>(123456789);
+    auto b = MemoryValue::from<FF>(123456788);
+
+    auto c = alu.eq(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from<uint1_t>(0));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = std::nullopt }));
+}
+
+TEST(AvmSimulationAluTest, EQTagError)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    Alu alu(range_check, field_gt, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint1_t>(1);
+    auto b = MemoryValue::from<uint8_t>(1);
+
+    EXPECT_THROW(alu.eq(a, b), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::EQ,
+                                      .a = a,
+                                      .b = b,
+                                      .c = MemoryValue::from<uint1_t>(1),
+                                      .error = AluError::TAG_ERROR }));
+}
+
 } // namespace
 } // namespace bb::avm2::simulation

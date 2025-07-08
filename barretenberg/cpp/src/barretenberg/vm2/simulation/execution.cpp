@@ -53,8 +53,27 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         MemoryValue c = alu.add(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
+    }
+}
+
+void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EQ;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.eq(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu eq operation failed");
     }
 }
 
@@ -72,7 +91,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         MemoryValue c = alu.lt(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu lt operation failed");
     }
 }
@@ -615,6 +634,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
+        break;
+    case ExecutionOpCode::EQ:
+        call_with_operands(&Execution::eq, context, resolved_operands);
         break;
     case ExecutionOpCode::LT:
         call_with_operands(&Execution::lt, context, resolved_operands);
