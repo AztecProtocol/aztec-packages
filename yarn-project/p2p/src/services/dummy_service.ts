@@ -7,10 +7,12 @@ import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
 import type { PeerManagerInterface } from './peer-manager/interface.js';
+import { type AuthRequest, StatusMessage } from './reqresp/index.js';
 import type {
   ReqRespInterface,
   ReqRespResponse,
   ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
   ReqRespSubProtocolHandlers,
   ReqRespSubProtocolValidators,
   SubProtocolMap,
@@ -105,6 +107,18 @@ export class DummyP2PService implements P2PService {
   validate(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
+
+  addReqRespSubProtocol(
+    _subProtocol: ReqRespSubProtocol,
+    _handler: ReqRespSubProtocolHandler,
+    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+
+  handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+    return Promise.resolve(StatusMessage.random());
+  }
 }
 
 /**
@@ -184,11 +198,17 @@ export class DummyPeerManager implements PeerManagerInterface {
   public stop(): Promise<void> {
     return Promise.resolve();
   }
-  public heartbeat(): void {}
+  public heartbeat(): Promise<void> {
+    return Promise.resolve();
+  }
   public addTrustedPeer(_peerId: PeerId): void {}
   public addPrivatePeer(_peerId: PeerId): void {}
   public goodbyeReceived(_peerId: PeerId, _reason: GoodByeReason): void {}
   public penalizePeer(_peerId: PeerId, _penalty: PeerErrorSeverity): void {}
+  public addPreferredPeer(_peerId: PeerId): void {}
+  public handleAuthRequestFromPeer(_authRequest: AuthRequest, _peerId: PeerId): Promise<StatusMessage> {
+    return Promise.resolve(StatusMessage.random());
+  }
 }
 
 export class DummyReqResp implements ReqRespInterface {
@@ -224,5 +244,13 @@ export class DummyReqResp implements ReqRespInterface {
     _dialTimeout?: number,
   ): Promise<ReqRespResponse> {
     return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from([]) });
+  }
+
+  addSubProtocol(
+    _subProtocol: ReqRespSubProtocol,
+    _handler: ReqRespSubProtocolHandler,
+    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return Promise.resolve();
   }
 }
