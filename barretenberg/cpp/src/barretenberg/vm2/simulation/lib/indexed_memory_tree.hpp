@@ -55,9 +55,9 @@ IndexedMemoryTree<LeafType, HashingPolicy>::IndexedMemoryTree(size_t depth, size
     for (size_t i = 0; i < default_leaves.size(); ++i) {
         // If it's the last leaf, point to infinity (next_index = 0 and next_key = 0)
         index_t next_index = i == (default_leaves.size() - 1) ? 0 : i + 1;
-        FF next_key = i == (default_leaves.size() - 1) ? 0 : default_leaves[i + 1].get_key();
+        FF next_key = i == (default_leaves.size() - 1) ? 0 : default_leaves.at(i + 1).get_key();
 
-        IndexedLeaf<LeafType> initial_leaf(default_leaves[i], next_index, next_key);
+        IndexedLeaf<LeafType> initial_leaf(default_leaves.at(i), next_index, next_key);
 
         append_leaf(initial_leaf);
 
@@ -74,7 +74,7 @@ GetLowIndexedLeafResponse IndexedMemoryTree<LeafType, HashingPolicy>::get_low_in
     size_t low_index = 0;
     // Linear search for the low indexed leaf.
     for (size_t i = 0; i < leaves.size(); ++i) {
-        uint256_t leaf_key_integer = static_cast<uint256_t>(leaves[i].leaf.get_key());
+        uint256_t leaf_key_integer = static_cast<uint256_t>(leaves.at(i).leaf.get_key());
         if (leaf_key_integer == key_integer) {
             return GetLowIndexedLeafResponse(true, i);
         }
