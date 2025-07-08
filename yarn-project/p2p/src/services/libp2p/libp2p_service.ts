@@ -637,6 +637,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       source: source.toString(),
       txHash: txHashString,
     });
+
+    if (this.config.dropTransactions && Math.random() < this.config.dropTransactionsProbability) {
+      this.logger.debug(`Intentionally dropping tx ${txHashString} (probability rule)`);
+      return;
+    }
+
     await this.mempools.txPool.addTxs([tx]);
   }
 

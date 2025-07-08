@@ -141,6 +141,12 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
+
+  /** True to simulate discarding transactions. - For testing purposes only*/
+  dropTransactions: boolean;
+
+  /** The probability that a transaction is discarded. - For testing purposes only */
+  dropTransactionsProbability: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -357,6 +363,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
+  dropTransactions: {
+    env: 'P2P_DROP_TX',
+    description: 'True to simulate discarding transactions. - For testing purposes only',
+    ...booleanConfigHelper(false),
+  },
+  dropTransactionsProbability: {
+    env: 'P2P_DROP_TX_CHANCE',
+    description: 'The probability that a transaction is discarded. - For testing purposes only',
+    ...floatConfigHelper(0),
+  },
 };
 
 /**
