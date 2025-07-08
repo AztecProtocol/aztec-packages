@@ -4,6 +4,7 @@ use crate::{
 };
 use std::meta::derive;
 
+// Constants used throughout the executions of both private and public.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct TxConstantData {
     pub historical_header: BlockHeader,

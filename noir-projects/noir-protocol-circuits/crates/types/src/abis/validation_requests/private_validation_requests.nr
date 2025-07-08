@@ -7,12 +7,12 @@ use crate::{
         MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     },
-    traits::{Deserialize, Empty, Serialize},
+    traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
 use std::meta::derive;
 
-#[derive(Deserialize, Eq, Serialize)]
+#[derive(Eq)]
 pub struct PrivateValidationRequests {
     pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,

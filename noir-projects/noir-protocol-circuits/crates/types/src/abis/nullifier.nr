@@ -1,8 +1,9 @@
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
     address::AztecAddress,
+    constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
     hash::compute_siloed_nullifier,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, FromField, Serialize},
 };
 use std::meta::derive;
 
@@ -117,4 +118,29 @@ impl ScopedNullifier {
         // Hide the actual counter and note hash when exposing it to the public kernel.
         Nullifier { value: self.nullifier.value, counter: 0, note_hash: 0 }
     }
+}
+
+#[test]
+fn test_nullifier_serialization() {
+    let item = Nullifier { value: 123, counter: 456, note_hash: 789 };
+
+    // We use the NULLIFIER_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant
+    let serialized: [Field; NULLIFIER_LENGTH] = item.serialize();
+    let deserialized = Nullifier::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn test_scoped_nullifier_serialization() {
+    let item = ScopedNullifier {
+        nullifier: Nullifier { value: 123, counter: 456, note_hash: 789 },
+        contract_address: AztecAddress::from_field(321),
+    };
+
+    // We use the SCOPED_NULLIFIER_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant
+    let serialized: [Field; SCOPED_NULLIFIER_LENGTH] = item.serialize();
+    let deserialized = ScopedNullifier::deserialize(serialized);
+    assert(item.eq(deserialized));
 }

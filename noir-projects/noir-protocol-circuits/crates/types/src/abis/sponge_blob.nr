@@ -1,5 +1,5 @@
 use crate::{
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, TWO_POW_64},
+    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH, TWO_POW_64},
     hash::poseidon2_absorb_chunks_existing_sponge,
     poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
@@ -64,6 +64,17 @@ impl Empty for SpongeBlob {
     fn empty() -> Self {
         Self { sponge: Poseidon2Sponge::new(0), fields: 0, expected_fields: 0 }
     }
+}
+
+#[test]
+fn test_sponge_blob_serialization() {
+    let item = SpongeBlob { sponge: Poseidon2Sponge::new(123), fields: 456, expected_fields: 789 };
+
+    // We use the SPONGE_BLOB_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant
+    let serialized: [Field; SPONGE_BLOB_LENGTH] = item.serialize();
+    let deserialized = SpongeBlob::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
 
 #[test]

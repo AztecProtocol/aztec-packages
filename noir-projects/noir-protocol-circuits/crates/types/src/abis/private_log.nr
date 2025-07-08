@@ -1,7 +1,7 @@
 use crate::{
     abis::{log::Log, side_effect::{Ordered, scoped::Scoped}},
     address::AztecAddress,
-    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    constants::{PRIVATE_LOG_DATA_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS},
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
@@ -44,4 +44,15 @@ impl Scoped<PrivateLogData> {
     pub fn expose_to_public(self) -> PrivateLog {
         self.inner.log
     }
+}
+
+#[test]
+fn test_private_log_data_serialization() {
+    let item = PrivateLogData { log: PrivateLog::empty(), note_hash_counter: 123, counter: 456 };
+
+    // We use the PRIVATE_LOG_DATA_LENGTH constant to ensure that there is a match
+    // between the derived trait implementation and the constant
+    let serialized: [Field; PRIVATE_LOG_DATA_LENGTH] = item.serialize();
+    let deserialized = PrivateLogData::deserialize(serialized);
+    assert(item.eq(deserialized));
 }
