@@ -83,17 +83,18 @@ aztec:
   extraAccounts: 10
 
   slash:
-    payloadTtlSeconds: "27648"
+    payloadTtlSeconds: "86400"
     pruneEnabled: false
-    prunePenalty: "17000000000000000000"
-    pruneMaxPenalty: "17000000000000000000"
+    prunePenalty: "1"
+    pruneMaxPenalty: "100"
     inactivityEnabled: false
-    inactivityCreateTargetPercentage: 1
-    inactivitySignalTargetPercentage: 1
-    inactivityCreatePenalty: "17000000000000000000"
+    inactivityCreateTargetPercentage: 0.9
+    inactivitySignalTargetPercentage: 0.6
+    inactivityCreatePenalty: "1"
+    inactivityMaxPenalty: "100"
     invalidBlockEnabled: false
-    invalidBlockPenalty: "100000000000000000000"
-    invalidBlockMaxPenalty: "100000000000000000000"
+    invalidBlockPenalty: "1"
+    invalidBlockMaxPenalty: "100"
 
 bootNode:
   enabled: true
