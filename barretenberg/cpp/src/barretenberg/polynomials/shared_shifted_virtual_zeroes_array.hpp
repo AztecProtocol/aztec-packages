@@ -25,32 +25,30 @@ template <typename T> struct FileBackedMemory {
 
     using Value = FileBackedMemory;
 
-    static std::string generate_unique_filename()
-    {
-        static std::atomic<size_t> file_counter{ 0 };
-        size_t id = file_counter.fetch_add(1);
-        return "/tmp/poly-mmap-" + std::to_string(id);
-    }
+    static std::string generate_unique_filename() {}
 
-    static std::shared_ptr<FileBackedMemory> allocate(size_t size) { return std::make_shared<FileBackedMemory>(size); }
+    static std::shared_ptr<Value> allocate(size_t size) { return std::make_shared<FileBackedMemory>(size); }
 
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
     FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
 
-    FileBackedMemory(FileBackedMemory&& other) = delete;
+    FileBackedMemory(FileBackedMemory&& other) = delete;            // delete move constructor
     FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
 
-    static T* get_data(const std::shared_ptr<FileBackedMemory> backing_memory) { return backing_memory->data(); }
-    T* data() { return memory; }
+    static T* get_data(const std::shared_ptr<Value> backing_memory) { return backing_memory->data(); }
 
+  private:
     // Create a new file-backed memory region
     FileBackedMemory(size_t size)
         : file_size(size * sizeof(T))
-        , filename(generate_unique_filename())
     {
         if (file_size == 0) {
             return;
         }
+
+        static std::atomic<size_t> file_counter{ 0 };
+        size_t id = file_counter.fetch_add(1);
+        filename = "/tmp/poly-mmap-" + std::to_string(id);
 
         fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         // Create file
@@ -66,12 +64,10 @@ template <typename T> struct FileBackedMemory {
         // Memory map the file
         void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
-            info(file_size, ' ', PROT_READ | PROT_WRITE, ' ', MAP_SHARED, ' ', fd, ' ', 0);
             throw std::runtime_error("Failed to mmap file");
         }
 
         memory = static_cast<T*>(addr);
-        // info("JONATHAN ", file_size, ' ', filename);
     }
 
     ~FileBackedMemory()
@@ -79,7 +75,6 @@ template <typename T> struct FileBackedMemory {
         if (file_size == 0) {
             return;
         }
-        // std::cout << "JONATHAN ~FileBackedMemory " << this << std::endl;
         if (memory != nullptr && file_size > 0) {
             munmap(memory, file_size);
         }
@@ -91,7 +86,6 @@ template <typename T> struct FileBackedMemory {
         }
     }
 
-  private:
     size_t file_size;
     std::string filename;
     int fd;
@@ -103,15 +97,12 @@ template <typename T> struct AlignedMemory {
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     using Value = T[];
 
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    static std::shared_ptr<T[]> allocate(size_t size)
+    static std::shared_ptr<Value> allocate(size_t size)
     {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        return std::static_pointer_cast<T[]>(get_mem_slab(sizeof(T) * size));
+        return std::static_pointer_cast<Value>(get_mem_slab(sizeof(T) * size));
     }
 
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    static T* get_data(const std::shared_ptr<T[]>& backing_memory) { return backing_memory.get(); }
+    static T* get_data(const std::shared_ptr<Value>& backing_memory) { return backing_memory.get(); }
 };
 
 /**
