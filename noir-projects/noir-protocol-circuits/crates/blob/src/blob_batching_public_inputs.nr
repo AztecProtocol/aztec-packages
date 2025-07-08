@@ -151,8 +151,8 @@ impl Empty for BlobAccumulationInputs {
 *    and the blob's commitment (c_i).
 *
 * TODO(#14646): Compress F and Q values to reduce number of public inputs (BLOB_ACCUMULATOR_PUBLIC_INPUTS)
-* TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs. Not done here as F doesn't implement it
-* and orphan rule prevents me from implementing it here.
+* TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs instead of having manual implementations.
+* Not done here as F doesn't implement serde and orphan rule prevents me from implementing it here.
 */
 pub struct BlobAccumulatorPublicInputs {
     pub blob_commitments_hash_acc: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
@@ -283,8 +283,8 @@ impl Eq for BlobAccumulatorPublicInputs {
     }
 }
 
-// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs. Not done here as F doesn't implement it
-// and orphan rule prevents me from implementing it here.
+// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs instead of having manual implementations.
+// Not done here as F doesn't implement serde and orphan rule prevents me from implementing it here.
 impl Serialize for BlobAccumulatorPublicInputs {
     let N: u32 = BLOB_ACCUMULATOR_PUBLIC_INPUTS;
 
