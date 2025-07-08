@@ -369,15 +369,15 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
 
-    // Perform recursive verification of the last merge proof
-    PairingPoints points_accumulator = goblin.recursively_verify_merge(
-        builder, folding_verifier.keys_to_fold[1]->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
-
     // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
-    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
-        recursive_verifier_accumulator->public_inputs,
-        recursive_verifier_accumulator->vk_and_hash->vk->pairing_inputs_public_input_key);
-    points_accumulator.aggregate(nested_pairing_points);
+    PairingPoints points_accumulator = PublicPairingPoints::reconstruct(
+        folding_verifier.keys_to_fold[1]->public_inputs,
+        folding_verifier.keys_to_fold[1]->vk_and_hash->vk->pairing_inputs_public_input_key);
+
+    // Perform recursive verification of the last merge proof
+    PairingPoints goblin_pairing_points = goblin.recursively_verify_merge(
+        builder, folding_verifier.keys_to_fold[1]->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
+    points_accumulator.aggregate(goblin_pairing_points);
 
     info("Pub inputs size: ", recursive_verifier_accumulator->public_inputs.size());
     info("Pairing points start idx: ",
