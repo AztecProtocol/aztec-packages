@@ -380,9 +380,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous",
-    "offence",
-    "offences"
-  ]
+  "flagWords": ["anonymous", "offence", "offences"]
 }
