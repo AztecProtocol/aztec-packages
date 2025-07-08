@@ -8,6 +8,7 @@ import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } fro
 import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
+import { chunkTxHashesRequest } from '../reqresp/protocols/tx.js';
 import type { TxCollectionConfig } from './config.js';
 import type { FastTxCollection } from './fast_tx_collection.js';
 import type { MissingTxInfo } from './tx_collection.js';
@@ -149,18 +150,20 @@ export class SlowTxCollection {
     const timeoutMs = this.config.txCollectionSlowReqRespTimeoutMs;
     const maxPeers = boundInclusive(Math.ceil(missingTxs.length / 3), 4, 16);
     const maxRetryAttempts = 3;
-
     // Send a batch request via reqresp for the missing txs
     await this.txCollectionSink.collect(
-      txHashes =>
-        this.reqResp.sendBatchRequest(
+      async txHashes => {
+        const txs = await this.reqResp.sendBatchRequest<ReqRespSubProtocol.TX>(
           ReqRespSubProtocol.TX,
-          txHashes,
+          chunkTxHashesRequest(txHashes),
           pinnedPeer,
           timeoutMs,
           maxPeers,
           maxRetryAttempts,
-        ),
+        );
+
+        return txs.flat();
+      },
       missingTxs.map(([txHash]) => TxHash.fromString(txHash)),
       { description: 'slow reqresp', timeoutMs, method: 'slow-req-resp' },
     );
