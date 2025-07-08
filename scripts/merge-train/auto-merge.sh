@@ -2,12 +2,26 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/merge-train-lib.sh"
+# Function to check if a PR has auto-merge enabled
+function pr_has_auto_merge {
+  local pr_number="$1"
+  local result=$(gh pr view "$pr_number" --json autoMergeRequest --jq '.autoMergeRequest')
+  [[ -n "$result" ]]
+}
 
-# Methods used from merge-train-lib.sh:
-# - pr_has_auto_merge: Check if a PR has auto-merge enabled
-# - enable_auto_merge: Enable auto-merge for a PR (includes approval if needed)
+# Function to enable auto-merge for a PR (includes approval if needed)
+function enable_auto_merge {
+  local pr_number="$1"
+
+  local reviews=$(gh pr view "$pr_number" --json reviews --jq '.reviews[] | select(.state == "APPROVED")')
+  if [[ -z "$reviews" ]]; then
+    echo "Approving PR #$pr_number"
+    gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
+  fi
+
+  echo "Enabling auto-merge for PR #$pr_number"
+  gh pr merge "$pr_number" --auto --merge
+}
 
 # Constants
 INACTIVITY_HOURS="${INACTIVITY_HOURS:-4}"
