@@ -122,16 +122,16 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
-          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
-            exec ./ci.sh nightly
-          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
-            exec ./ci.sh release
           elif [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh full
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then
             exec ./ci.sh docs
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
             exec ./ci.sh barretenberg
+          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
+            exec ./ci.sh nightly
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            exec ./ci.sh release
           else
             exec ./ci.sh fast
           fi
