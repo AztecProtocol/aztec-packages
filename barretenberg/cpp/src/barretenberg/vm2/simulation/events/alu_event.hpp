@@ -36,8 +36,8 @@ inline std::string to_string(AluError e)
 
 class AluException : public std::runtime_error {
   public:
-    explicit AluException()
-        : std::runtime_error("ALU operation failed")
+    explicit AluException(const std::string& message)
+        : std::runtime_error("ALU Exception: " + message)
     {}
 };
 

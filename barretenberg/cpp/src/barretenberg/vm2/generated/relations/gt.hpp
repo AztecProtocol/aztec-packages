@@ -15,7 +15,6 @@ template <typename FF_> class gtImpl {
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4 };
 
-<<<<<<< HEAD
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
@@ -23,8 +22,6 @@ template <typename FF_> class gtImpl {
         return (in.get(C::gt_sel)).is_zero();
     }
 
-=======
->>>>>>> a05a63cbeb (feat: integrate gt circuit logic)
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
