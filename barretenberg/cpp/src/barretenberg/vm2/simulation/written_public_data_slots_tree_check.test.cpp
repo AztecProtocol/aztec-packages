@@ -168,7 +168,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, ReadNotExistsLowPointsToAnotherLea
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 }
 
-TEST(AvmSimulationWrittenPublicDataSlotsTree, UpsertExists)
+TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertExists)
 {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
@@ -216,7 +216,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, UpsertExists)
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 }
 
-TEST(AvmSimulationWrittenPublicDataSlotsTree, UpsertAppend)
+TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertAppend)
 {
     StrictMock<MockPoseidon2> poseidon2;
     StrictMock<MockMerkleCheck> merkle_check;
@@ -287,6 +287,59 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, UpsertAppend)
                                                           } };
 
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
+}
+
+TEST(AvmSimulationWrittenPublicDataSlotsTree, CheckpointBehavior)
+{
+    StrictMock<MockPoseidon2> poseidon2;
+    StrictMock<MockMerkleCheck> merkle_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+
+    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> event_emitter;
+
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
+        return RawPoseidon2::hash(input);
+    });
+    EXPECT_CALL(merkle_check, write(_, _, _, _, _))
+        .WillRepeatedly(
+            [](FF current_leaf, FF new_leaf, uint64_t leaf_index, std::span<const FF> sibling_path, FF prev_root) {
+                EXPECT_EQ(unconstrained_root_from_path(current_leaf, leaf_index, sibling_path), prev_root);
+                return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
+            });
+    EXPECT_CALL(merkle_check, assert_membership(_, _, _, _))
+        .WillRepeatedly([](FF current_leaf, uint64_t leaf_index, std::span<const FF> sibling_path, FF prev_root) {
+            EXPECT_EQ(unconstrained_root_from_path(current_leaf, leaf_index, sibling_path), prev_root);
+        });
+    EXPECT_CALL(field_gt, ff_gt(_, _)).WillRepeatedly(Return(true));
+
+    WrittenPublicDataSlotsTree initial_state = build_public_data_slots_tree();
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(
+        poseidon2, merkle_check, field_gt, initial_state, event_emitter);
+
+    EXPECT_EQ(written_public_data_slots_tree_check.size(), 0);
+    written_public_data_slots_tree_check.create_checkpoint();
+
+    written_public_data_slots_tree_check.insert(AztecAddress(1), 1);
+    EXPECT_TRUE(written_public_data_slots_tree_check.contains(AztecAddress(1), 1));
+    EXPECT_EQ(written_public_data_slots_tree_check.size(), 1);
+
+    // Commit the checkpoint
+    written_public_data_slots_tree_check.commit_checkpoint();
+    EXPECT_TRUE(written_public_data_slots_tree_check.contains(AztecAddress(1), 1));
+    EXPECT_EQ(written_public_data_slots_tree_check.size(), 1);
+
+    // Create another checkpoint
+    written_public_data_slots_tree_check.create_checkpoint();
+
+    // Insert another slot
+    written_public_data_slots_tree_check.insert(AztecAddress(2), 2);
+    EXPECT_TRUE(written_public_data_slots_tree_check.contains(AztecAddress(2), 2));
+    EXPECT_EQ(written_public_data_slots_tree_check.size(), 2);
+
+    // Revert the checkpoint
+    written_public_data_slots_tree_check.revert_checkpoint();
+    EXPECT_TRUE(written_public_data_slots_tree_check.contains(AztecAddress(1), 1));
+    EXPECT_EQ(written_public_data_slots_tree_check.size(), 1);
 }
 
 } // namespace
