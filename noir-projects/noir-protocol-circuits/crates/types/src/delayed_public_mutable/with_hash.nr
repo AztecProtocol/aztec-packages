@@ -99,12 +99,12 @@ mod tests {
             hash::compute_public_data_tree_index,
             public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         },
-        merkle_tree::membership::MembershipWitness,
-        shared_mutable::{
+        delayed_public_mutable::{
+            delayed_public_mutable_values::DelayedPublicMutableValues,
             scheduled_delay_change::ScheduledDelayChange,
             scheduled_value_change::ScheduledValueChange,
-            shared_mutable_values::SharedMutableValues,
         },
+        merkle_tree::membership::MembershipWitness,
         tests::fixtures::public_data_tree::empty_public_data_tree,
         traits::{Empty, FromField, Hash},
     };
@@ -135,7 +135,7 @@ mod tests {
             next_index: 0,
         };
 
-        let with_hash_hint = SharedMutableValues::<ContractClassId, 0>::new(
+        let with_hash_hint = DelayedPublicMutableValues::<ContractClassId, 0>::new(
             ScheduledValueChange::empty(),
             ScheduledDelayChange::empty(),
         );
@@ -155,12 +155,12 @@ mod tests {
         let with_hash_storage_slot = 27;
         let contract_address = AztecAddress::from_field(42);
 
-        let hash_storage_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, 100>, _>(
+        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>, _>(
             with_hash_storage_slot,
         );
         let hash_leaf_slot = compute_public_data_tree_index(contract_address, hash_storage_slot);
 
-        let with_hash_hint = SharedMutableValues::new(
+        let with_hash_hint = DelayedPublicMutableValues::new(
             ScheduledValueChange::new(
                 ContractClassId::from_field(0),
                 ContractClassId::from_field(96),
@@ -218,7 +218,7 @@ mod tests {
             BlockHeader::empty(),
             27,
             AztecAddress::from_field(42),
-            SharedMutableValues::<ContractClassId, 0>::new(
+            DelayedPublicMutableValues::<ContractClassId, 0>::new(
                 ScheduledValueChange::empty(),
                 ScheduledDelayChange::empty(),
             ),
@@ -254,7 +254,7 @@ mod tests {
             historical_header,
             with_hash_storage_slot,
             contract_address,
-            SharedMutableValues::<ContractClassId, 0>::new(
+            DelayedPublicMutableValues::<ContractClassId, 0>::new(
                 ScheduledValueChange::empty(),
                 ScheduledDelayChange::empty(),
             ),
@@ -288,7 +288,7 @@ mod tests {
             next_index: 0,
         };
         // Expected to be empty, it's not
-        let value_hint = SharedMutableValues::<ContractClassId, 0>::new(
+        let value_hint = DelayedPublicMutableValues::<ContractClassId, 0>::new(
             ScheduledValueChange::new(
                 ContractClassId::from_field(0),
                 ContractClassId::from_field(96),
@@ -312,12 +312,12 @@ mod tests {
         let with_hash_storage_slot = 27;
         let contract_address = AztecAddress::from_field(42);
 
-        let hash_storage_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, 100>, _>(
+        let hash_storage_slot = compute_with_hash_hash_storage_slot::<DelayedPublicMutableValues<ContractClassId, 100>, _>(
             with_hash_storage_slot,
         );
         let hash_leaf_slot = compute_public_data_tree_index(contract_address, hash_storage_slot);
 
-        let value_hint = SharedMutableValues::new(
+        let value_hint = DelayedPublicMutableValues::new(
             ScheduledValueChange::new(
                 ContractClassId::from_field(0),
                 ContractClassId::from_field(96),

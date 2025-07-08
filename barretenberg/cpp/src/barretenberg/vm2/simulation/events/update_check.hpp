@@ -21,7 +21,7 @@ struct UpdateCheckEvent {
     FF update_preimage_post_class_id;
 
     // Read
-    FF shared_mutable_slot;
+    FF delayed_public_mutable_slot;
 
     bool operator==(const UpdateCheckEvent& other) const = default;
 };
