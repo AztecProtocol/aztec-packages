@@ -164,12 +164,9 @@ class AvmGoblinRecursiveVerifier {
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const stdlib::Proof<UltraBuilder>& stdlib_proof, const std::vector<std::vector<UltraFF>>& public_inputs) const
     {
-        using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
-        using AvmRecursiveVerifier = AvmRecursiveVerifier_<AvmRecursiveFlavor>;
         using ECCVMVK = Goblin::ECCVMVerificationKey;
         using TranslatorVK = Goblin::TranslatorVerificationKey;
-        using MegaProver = UltraProver_<MegaFlavor>;
         using MegaVerificationKey = MegaFlavor::VerificationKey;
         using FF = AvmRecursiveFlavor::FF;
 

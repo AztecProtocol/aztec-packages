@@ -7,10 +7,8 @@
 
 namespace bb::avm2 {
 
-// TODO: Ultimately we will not need to template with Flavor as
-// we will only support RecursiveFlavor with MegaCircuitBuilder.
-// We will simply add in the body: using Flavor = ....
-template <typename Flavor> class AvmRecursiveVerifier_ {
+class AvmRecursiveVerifier {
+    using Flavor = AvmRecursiveFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Curve = typename Flavor::Curve;
@@ -26,9 +24,9 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using StdlibProof = stdlib::Proof<Builder>;
 
   public:
-    explicit AvmRecursiveVerifier_(Builder& builder,
-                                   const std::shared_ptr<NativeVerificationKey>& native_verification_key);
-    explicit AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
+    explicit AvmRecursiveVerifier(Builder& builder,
+                                  const std::shared_ptr<NativeVerificationKey>& native_verification_key);
+    explicit AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
