@@ -127,6 +127,10 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "Received: 49999999999999999999n"
+    owners:
+      - *mitch
+  - regex: "e2e_p2p/validators_sentinel"
     error_regex: "Expected: >= 2"
     owners:
       - *palla
