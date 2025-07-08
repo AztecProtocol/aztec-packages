@@ -121,12 +121,7 @@ inline std::vector<uint8_t> create_kernel_witness(const std::vector<bb::fr>& app
         kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
     }
     std::stringstream ss;
-    fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
-    // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-    static constexpr size_t LO_BITS = fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-    auto converted = static_cast<uint256_t>(challenge);
-    uint256_t lo = converted.slice(0, LO_BITS);
-    ss << lo;
+    ss << crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(app_vk_fields);
     kernel_witness.stack.back().witness.value[Witnesses::Witness{ static_cast<uint32_t>(app_vk_fields.size()) }] =
         ss.str();
 
