@@ -388,7 +388,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
     std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
     // key during proving. Precompute instead.
-    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
+    auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
     HonkProof proof = prover.construct_proof();
