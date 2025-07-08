@@ -110,7 +110,9 @@ describe('e2e_deploy_contract deploy method', () => {
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipInstancePublication: true, skipClassPublication: true };
-    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
+    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(
+      'No transactions are needed to publish or initialize contract NoConstructor',
+    );
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {
