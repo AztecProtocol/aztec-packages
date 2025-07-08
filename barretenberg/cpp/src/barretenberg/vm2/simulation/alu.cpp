@@ -12,7 +12,12 @@ namespace bb::avm2::simulation {
 MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
 {
     if (a.get_tag() != b.get_tag()) {
-        debug("ALU operation failed: ", to_string(AluError::TAG_ERROR), " a: ", a.to_string(), ", b: ", b.to_string());
+        debug("ALU (ADD opcode) operation failed: ",
+              to_string(AluError::TAG_ERROR),
+              " a: ",
+              a.to_string(),
+              ", b: ",
+              b.to_string());
         events.emit({ .operation = AluOperation::ADD,
                       .a = a,
                       .b = b,
@@ -33,7 +38,12 @@ MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
     // Brillig semantic enforces that tags match for EQ.
     if (a.get_tag() != b.get_tag()) {
         events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = AluError::TAG_ERROR });
-        debug("ALU operation failed: ", to_string(AluError::TAG_ERROR), " a: ", a.to_string(), ", b: ", b.to_string());
+        debug("ALU (EQ opcode) operation failed: ",
+              to_string(AluError::TAG_ERROR),
+              " a: ",
+              a.to_string(),
+              ", b: ",
+              b.to_string());
         throw AluException();
     }
 
@@ -45,7 +55,7 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for LT.
     if (a.get_tag() != b.get_tag()) {
-        debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
+        debug("ALU (LT opcode) operation failed: ", to_string(AluError::TAG_ERROR));
         events.emit({ .operation = AluOperation::LT,
                       .a = a,
                       .b = b,

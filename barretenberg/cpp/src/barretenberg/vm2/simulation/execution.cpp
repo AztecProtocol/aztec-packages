@@ -53,7 +53,7 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         MemoryValue c = alu.add(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
     }
 }
@@ -72,7 +72,7 @@ void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         MemoryValue c = alu.eq(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu eq operation failed");
     }
 }
@@ -91,7 +91,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         MemoryValue c = alu.lt(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu lt operation failed");
     }
 }
