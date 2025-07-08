@@ -13,7 +13,7 @@ import {
 } from 'viem';
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
 

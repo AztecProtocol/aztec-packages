@@ -5,7 +5,7 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFunctionData, getContract } from 'viem';
 
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';
 
