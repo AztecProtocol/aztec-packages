@@ -13,6 +13,83 @@ namespace bb {
 MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript){};
 
+std::vector<typename MergeVerifier::Commitment> MergeVerifier::preamble_round(
+    const RefArray<Commitment, NUM_WIRES>& t_commitments)
+{
+    // Commitments used by the Shplonk verifier
+    std::vector<Commitment> table_commitments;
+    table_commitments.reserve(NUM_MERGE_COMMITMENTS);
+
+    // [t_j]
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        table_commitments.emplace_back(t_commitments[idx]);
+    }
+
+    // Receive [T_{j,prev}], [T_j], [g_j]
+    std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
+    for (size_t idx = 0; idx < 3; ++idx) {
+        std::string label = labels[idx];
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            std::string suffix = std::to_string(wire_idx);
+            table_commitments.emplace_back(transcript->template receive_from_prover<Commitment>(label + suffix));
+        }
+    }
+    return table_commitments;
+}
+
+std::pair<std::vector<std::vector<size_t>>, std::vector<typename MergeVerifier::OpeningVector>> MergeVerifier::
+    construct_opening_claims_and_perform_degree_check(const uint32_t& subtable_size, bool& degree_identity_verified)
+{
+    // Evaluation challenge
+    FF kappa = transcript->template get_challenge<FF>("kappa");
+    FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
+    FF kappa_inv = kappa.invert();
+    FF pow_kappa = pow_kappa_minus_one * kappa;
+
+    // Indices and opening vectors
+    std::vector<std::vector<size_t>> indices;
+    std::vector<OpeningVector> opening_vectors;
+    indices.reserve(NUM_MERGE_CLAIMS);
+    opening_vectors.reserve(NUM_MERGE_CLAIMS);
+
+    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        // Evaluation is hard-coded to zero as that is the target
+        // Note that it is not necessarily true that each polynomial evaluates to zero, but for our purposes we only
+        // need to ensure that the Shplonk verifier tests p_j(kappa) = 0. Setting all evaluations to zero is a hack to
+        // enforce that the Shplonk verifier performs this check.
+        OpeningVector tmp_vector(
+            kappa, { FF::one(), pow_kappa, FF::neg_one() }, { FF::zero(), FF::zero(), FF::zero() });
+        std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
+        opening_vectors.emplace_back(tmp_vector);
+        indices.emplace_back(tmp_idx);
+    }
+    // Add opening claim for g_j(kappa),  t_j(1/kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF reversed_t_eval = transcript->template receive_from_prover<FF>("reversed_t_eval_" + std::to_string(idx));
+        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
+
+        {
+            OpeningVector tmp_vector(kappa, { FF::one() }, { reversed_t_eval });
+            std::vector<size_t> tmp_idx{ idx + 3 * NUM_WIRES };
+            opening_vectors.emplace_back(tmp_vector);
+            indices.emplace_back(tmp_idx);
+        }
+
+        {
+            OpeningVector tmp_vector(kappa_inv, { FF::one() }, { t_eval_kappa_inv });
+            std::vector<size_t> tmp_idx{ idx };
+            opening_vectors.emplace_back(tmp_vector);
+            indices.emplace_back(tmp_idx);
+        }
+
+        // Check t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
+        degree_identity_verified &= (t_eval_kappa_inv * pow_kappa_minus_one == reversed_t_eval);
+    }
+
+    return std::make_pair(indices, opening_vectors);
+};
+
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
  * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
@@ -66,81 +143,18 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
      */
     // clang-format on
 
-    static constexpr size_t NUM_CLAIMS = 3 * NUM_WIRES;
-
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
 
-    // Commitments used by the Shplonk verifier
-    std::vector<Commitment> commitments;
-    commitments.reserve(4 * NUM_WIRES);
-
-    // [t_j]
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        commitments.emplace_back(t_commitments[idx]);
-    }
-
-    // Receive [T_{j,prev}], [T_j], [g_j]
-    std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
-    for (size_t idx = 0; idx < 3; ++idx) {
-        std::string label = labels[idx];
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            std::string suffix = std::to_string(wire_idx);
-            commitments.emplace_back(transcript->template receive_from_prover<Commitment>(label + suffix));
-        }
-    }
-
-    // Evaluation challenge
-    FF kappa = transcript->template get_challenge<FF>("kappa");
-    FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
-    FF kappa_inv = kappa.invert();
-    FF pow_kappa = pow_kappa_minus_one * kappa;
+    auto table_commitments = preamble_round(t_commitments);
 
     // Boolean keeping track of t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
-    bool degree_identity_checked = true;
+    bool degree_identity_verified = true;
 
-    // Indices and opening vectors
-    std::vector<std::vector<size_t>> indices;
-    std::vector<OpeningVector> opening_vectors;
-    indices.reserve(NUM_CLAIMS);
-    opening_vectors.reserve(NUM_CLAIMS);
-
-    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Evaluation is hard-coded to zero as that is the target
-        // Note that it is not necessarily true that each polynomial evaluates to zero, but for our purposes we only
-        // need to ensure that the Shplonk verifier tests p_j(kappa) = 0. Setting all evaluations to zero is a hack to
-        // enforce that the Shplonk verifier performs this check.
-        OpeningVector tmp_vector(
-            kappa, { FF::one(), pow_kappa, FF::neg_one() }, { FF::zero(), FF::zero(), FF::zero() });
-        std::vector<size_t> tmp_idx{ idx, idx + NUM_WIRES, idx + 2 * NUM_WIRES };
-        opening_vectors.emplace_back(tmp_vector);
-        indices.emplace_back(tmp_idx);
-    }
-    // Add opening claim for g_j(kappa),  t_j(1/kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF reversed_t_eval = transcript->template receive_from_prover<FF>("reversed_t_eval_" + std::to_string(idx));
-        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
-
-        {
-            OpeningVector tmp_vector(kappa, { FF::one() }, { reversed_t_eval });
-            std::vector<size_t> tmp_idx{ idx + 3 * NUM_WIRES };
-            opening_vectors.emplace_back(tmp_vector);
-            indices.emplace_back(tmp_idx);
-        }
-
-        {
-            OpeningVector tmp_vector(kappa_inv, { FF::one() }, { t_eval_kappa_inv });
-            std::vector<size_t> tmp_idx{ idx };
-            opening_vectors.emplace_back(tmp_vector);
-            indices.emplace_back(tmp_idx);
-        }
-
-        // Check t_j(1/kappa) * kappa^{l-1} = g_j(kappa)
-        degree_identity_checked &= (t_eval_kappa_inv * pow_kappa_minus_one == reversed_t_eval);
-    }
+    auto [indices, opening_vectors] =
+        construct_opening_claims_and_perform_degree_check(subtable_size, degree_identity_verified);
 
     // Initialize Shplonk verifier
-    ShplonkVerifier verifier(commitments, transcript, NUM_CLAIMS);
+    ShplonkVerifier verifier(table_commitments, transcript, NUM_MERGE_CLAIMS);
     verifier.reduce_verification_vector_claims_no_finalize(indices, opening_vectors);
 
     // Export batched claim
@@ -153,9 +167,9 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     // Store T_commitments of the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_commitments[idx] = commitments[idx + 2 * NUM_WIRES];
+        T_commitments[idx] = table_commitments[idx + 2 * NUM_WIRES];
     }
 
-    return degree_identity_checked && verified;
+    return degree_identity_verified && verified;
 }
 } // namespace bb
