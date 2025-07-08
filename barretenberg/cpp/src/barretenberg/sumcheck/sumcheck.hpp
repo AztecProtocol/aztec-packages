@@ -154,8 +154,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     std::shared_ptr<Transcript> transcript;
     // Contains the core sumcheck methods such as `compute_univariate`.
     SumcheckProverRound<Flavor> round;
-    // An array of size NUM_SUBRELATIONS containing challenges or consecutive powers of a single challenge that separate
-    // linearly independent subrelation.
+    // An array of size NUM_SUBRELATIONS-1 containing challenges or consecutive powers of a single challenge that
+    // separate linearly independent subrelation.
     SubrelationSeparators alphas;
     // pow_β(X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ ⋅ βₖ)
     bb::GateSeparatorPolynomial<FF> gate_separators;
@@ -651,8 +651,8 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
 
     std::shared_ptr<Transcript> transcript;
     SumcheckVerifierRound<Flavor> round;
-    // An array of size NUM_SUBRELATIONS containing challenges or consecutive powers of a single challenge that separate
-    // linearly independent subrelation.
+    // An array of size NUM_SUBRELATIONS-1 containing challenges or consecutive powers of a single challenge that
+    // separate linearly independent subrelation.
     SubrelationSeparators alphas;
     FF libra_evaluation{ 0 };
     FF libra_challenge;

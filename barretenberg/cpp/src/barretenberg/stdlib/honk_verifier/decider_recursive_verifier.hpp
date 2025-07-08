@@ -6,8 +6,6 @@
 
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
