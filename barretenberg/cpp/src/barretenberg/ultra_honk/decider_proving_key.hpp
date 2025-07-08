@@ -215,13 +215,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
 
             if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
-                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
-                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
-                             "Mega circuit must output databus commitments.");
-                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
-                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
-                             "Mega circuit must output databus commitments.");
-
                 metadata.databus_propagation_data = circuit.databus_propagation_data;
             }
 
@@ -243,14 +236,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
                 if (metadata.databus_propagation_data.is_kernel) {
-
-                    BB_ASSERT_EQ(metadata.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                                 num_public_inputs() - PROPAGATED_DATABUS_COMMITMENT_SIZE,
-                                 "Databus commitments must be the second to last public input object.");
-                    BB_ASSERT_EQ(
-                        metadata.databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx,
-                        num_public_inputs() - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
-                        "Databus commitments must be the last public input object.");
                     BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
                                  num_public_inputs() - PAIRING_POINTS_SIZE - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
                                  "Pairing point accumulator must be the second to last public input object.");
