@@ -65,7 +65,6 @@ class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
     MockHighLevelMerkleDB();
     ~MockHighLevelMerkleDB() override;
 
-    MOCK_METHOD(TreeSnapshots, get_tree_roots, (), (const, override));
     MOCK_METHOD(TreeStates, get_tree_state, (), (const, override));
     MOCK_METHOD(FF, storage_read, (const AztecAddress& contract_address, const FF& slot), (const, override));
     MOCK_METHOD(void,

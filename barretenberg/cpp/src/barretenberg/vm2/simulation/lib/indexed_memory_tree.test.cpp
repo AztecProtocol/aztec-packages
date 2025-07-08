@@ -2,7 +2,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <iostream>
 
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 

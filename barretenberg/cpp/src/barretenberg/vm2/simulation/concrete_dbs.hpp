@@ -56,7 +56,6 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     {}
 
     // Unconstrained.
-    TreeSnapshots get_tree_roots() const override;
     TreeStates get_tree_state() const override;
     void create_checkpoint() override;
     void commit_checkpoint() override;
