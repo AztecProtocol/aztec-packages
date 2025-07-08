@@ -167,7 +167,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
      */
     static void test_pertubator_polynomial()
     {
-        using RelationSeparator = typename Flavor::RelationSeparator;
+        using SubrelationSeparators = typename Flavor::SubrelationSeparators;
         const size_t log_size(3);
         const size_t size(1 << log_size);
         // Construct fully random prover polynomials
@@ -177,7 +177,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         }
 
         auto relation_parameters = bb::RelationParameters<FF>::get_random();
-        RelationSeparator alphas;
+        SubrelationSeparators alphas;
         for (auto& alpha : alphas) {
             alpha = FF::random_element();
         }

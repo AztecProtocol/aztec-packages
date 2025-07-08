@@ -29,7 +29,7 @@ void compute_row_evaluations(State& state) noexcept
 {
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
     using Polys = Flavor::ProverPolynomials;
-    using Alphas = Flavor::RelationSeparator;
+    using Alphas = Flavor::SubrelationSeparators;
     using Params = RelationParameters<FF>;
 
     const size_t dyadic_size = 1 << state.range(0);

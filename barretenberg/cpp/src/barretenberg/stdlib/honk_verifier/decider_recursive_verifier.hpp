@@ -6,8 +6,6 @@
 
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
@@ -24,7 +22,6 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;

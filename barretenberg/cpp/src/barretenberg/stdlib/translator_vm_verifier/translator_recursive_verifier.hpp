@@ -28,7 +28,6 @@ class TranslatorRecursiveVerifier {
     using VerificationKey = Flavor::VerificationKey;
     using NativeVerificationKey = Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
-    using RelationSeparator = Flavor::RelationSeparator;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using TranslationEvaluations = TranslationEvaluations_<BF>;
     using Transcript = Flavor::Transcript;
