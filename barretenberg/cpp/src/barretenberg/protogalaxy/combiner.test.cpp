@@ -40,7 +40,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const DeciderPKs& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
-        const UnivariateRelationSeparator& alphas)
+        const UnivariateSubrelationSeparators& alphas)
     {
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
         return compute_combiner_no_optimistic_skipping(
@@ -62,7 +62,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const DeciderPKs& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
-        const UnivariateRelationSeparator& alphas,
+        const UnivariateSubrelationSeparators& alphas,
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators)
     {
         PROFILE_THIS();
@@ -209,7 +209,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
@@ -244,7 +244,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -349,7 +349,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, UNIVARIATE_LENGTH>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
 
@@ -435,7 +435,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
