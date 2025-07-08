@@ -19,8 +19,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-namespace bb {
-
 template <typename T> struct FileBackedMemory {
 
     using Value = FileBackedMemory;
@@ -99,7 +97,7 @@ template <typename T> struct AlignedMemory {
 
     static std::shared_ptr<Value> allocate(size_t size)
     {
-        return std::static_pointer_cast<Value>(get_mem_slab(sizeof(T) * size));
+        return std::static_pointer_cast<Value>(bb::get_mem_slab(sizeof(T) * size));
     }
 
     static T* get_data(const std::shared_ptr<Value>& backing_memory) { return backing_memory.get(); }
@@ -235,4 +233,3 @@ template <typename T, typename BackingMemory> struct SharedShiftedVirtualZeroesA
      */
     std::shared_ptr<typename BackingMemory::Value> backing_memory_;
 };
-} // namespace bb
