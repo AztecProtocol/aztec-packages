@@ -44,8 +44,7 @@
       ],
     },
     {
-      // Debug CIVC using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
-      "name": "Debug test",
+      "name": "Debug Polynomials Tests",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/polynomials_tests",
