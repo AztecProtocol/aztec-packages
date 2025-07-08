@@ -17,7 +17,10 @@ export class SentinelStore {
   // e.g. { validator: [{ epoch: 1, missed: 1, total: 10 }, { epoch: 2, missed: 3, total: 7 }, ...] }
   private readonly provenMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
-  constructor(private store: AztecAsyncKVStore, private config: { historyLength: number }) {
+  constructor(
+    private store: AztecAsyncKVStore,
+    private config: { historyLength: number },
+  ) {
     this.historyMap = store.openMap('sentinel-validator-status');
     this.provenMap = store.openMap('sentinel-validator-proven');
   }

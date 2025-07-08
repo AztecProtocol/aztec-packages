@@ -424,7 +424,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
@@ -503,30 +503,36 @@ class MegaFlavor {
         }
 
         /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
          *
          * @param domain_separator
          * @param transcript
+         * @returns The hash of the verification key
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                          this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_hash_buffer(
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      this->pairing_inputs_public_input_key.start_idx);
+            transcript.add_to_independent_hash_buffer(
                 domain_separator + "vk_app_return_data_commitment_start_idx",
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(
+            transcript.add_to_independent_hash_buffer(
                 domain_separator + "vk_kernel_return_data_commitment_start_idx",
                 this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(domain_separator + "vk_is_kernel", this->databus_propagation_data.is_kernel);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_is_kernel",
+                                                      this->databus_propagation_data.is_kernel);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
