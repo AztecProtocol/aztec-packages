@@ -312,6 +312,7 @@ pol commit sel_return;
 pol commit sel_revert;
 pol commit sel_success_copy;
 pol commit sel_returndata_size;
+pol commit sel_debug_log; // unused but we are forced to have it
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execution * (
@@ -327,7 +328,8 @@ sel_execution * (
    sel_return * constants.AVM_EXEC_OP_ID_RETURN +
    sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
    sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
-   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE
+   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
+   sel_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG
    - subtrace_operation_id
 ) = 0;
 
@@ -345,6 +347,7 @@ sel_return * (1 - sel_return) = 0;
 sel_revert * (1 - sel_revert) = 0;
 sel_success_copy * (1 - sel_success_copy) = 0;
 sel_returndata_size * (1 - sel_returndata_size) = 0;
+sel_debug_log * (1 - sel_debug_log) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
