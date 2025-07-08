@@ -207,24 +207,6 @@ template <typename T, typename BackingMemory> struct SharedShiftedVirtualZeroesA
         return data()[index - start_];
     }
 
-    SharedShiftedVirtualZeroesArray clone(size_t right_expansion = 0, size_t left_expansion = 0) const
-    {
-        size_t expanded_size = size() + right_expansion + left_expansion;
-        std::shared_ptr<typename BackingMemory::Value> backing_clone = BackingMemory::allocate(expanded_size);
-        // zero any left extensions to the array
-        memset(static_cast<void*>(BackingMemory::get_data(backing_clone)), 0, sizeof(T) * left_expansion);
-        // copy our cloned array over
-        memcpy(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion),
-               static_cast<const void*>(BackingMemory::get_data(backing_memory_)),
-               sizeof(T) * size());
-        // zero any right extensions to the array
-        memset(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion + size()),
-               0,
-               sizeof(T) * right_expansion);
-        return SharedShiftedVirtualZeroesArray(
-            start_ - left_expansion, end_ + right_expansion, virtual_size_, backing_clone);
-    }
-
     // MEMBERS:
     /**
      * @brief The starting index of the memory-backed range.

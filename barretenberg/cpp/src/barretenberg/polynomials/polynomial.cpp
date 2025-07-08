@@ -24,6 +24,29 @@
 
 namespace bb {
 
+// Note: This function is pretty gnarly, but we try to make it the only function that deals
+// with copying polynomials. It should be scrutinized thusly.
+template <typename Fr, typename BackingMemory>
+SharedShiftedVirtualZeroesArray<Fr, BackingMemory> _clone(
+    const SharedShiftedVirtualZeroesArray<Fr, BackingMemory>& array,
+    size_t right_expansion = 0,
+    size_t left_expansion = 0)
+{
+    size_t expanded_size = array.size() + right_expansion + left_expansion;
+    std::shared_ptr<typename BackingMemory::Value> backing_clone = BackingMemory::allocate(expanded_size);
+    // zero any left extensions to the array
+    memset(static_cast<void*>(BackingMemory::get_data(backing_clone)), 0, sizeof(Fr) * left_expansion);
+    // copy our cloned array over
+    memcpy(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion),
+           static_cast<const void*>(array.data()),
+           sizeof(Fr) * array.size());
+    // zero any right extensions to the array
+    memset(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion + array.size()),
+           0,
+           sizeof(Fr) * right_expansion);
+    return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
+}
+
 template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
@@ -87,7 +110,7 @@ Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other)
 template <typename Fr> Polynomial<Fr>::Polynomial(const Polynomial<Fr>& other, const size_t target_size)
 {
     BB_ASSERT_LTE(other.size(), target_size);
-    coefficients_ = other.coefficients_.clone(target_size - other.size());
+    coefficients_ = _clone(other.coefficients_, target_size - other.size());
 }
 
 // interpolation constructor
@@ -118,7 +141,7 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator=(const Polynomia
     if (this == &other) {
         return *this;
     }
-    coefficients_ = other.coefficients_.clone();
+    coefficients_ = _clone(other.coefficients_);
     return *this;
 }
 
@@ -292,7 +315,7 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
     }
     Polynomial result = *this;
     // Make new_start_index..new_end_index usable
-    result.coefficients_ = coefficients_.clone(new_end_index - end_index(), start_index() - new_start_index);
+    result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);
     return result;
 }
 
@@ -306,7 +329,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
     Polynomial result = *this;
     // Make 0..virtual_size usable
-    result.coefficients_ = coefficients_.clone(virtual_size() - end_index(), start_index());
+    result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;
 }
 
