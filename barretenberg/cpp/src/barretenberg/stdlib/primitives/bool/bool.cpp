@@ -12,65 +12,75 @@ using namespace bb;
 
 namespace bb::stdlib {
 
+/**
+ * @brief Construct a constant `bool_t` object from a `bool` value
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool value)
-    : context(nullptr)
-    , witness_bool(value)
-    , witness_inverted(false)
-    , witness_index(IS_CONSTANT)
+    : witness_bool(value)
 {}
 
+/**
+ * @brief Construct a constant `bool_t` object with a given Builder argument, its value is `false`.
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context)
     : context(parent_context)
-{
-    witness_bool = false;
-    witness_inverted = false;
-    witness_index = IS_CONSTANT;
-}
+{}
 
+/**
+ * @brief Construct a `bool_t` object from a witness, note that the value stored at `witness_index` is constrained to be
+ * 0 or 1.
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(const witness_t<Builder>& value)
     : context(value.context)
 {
-    ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()));
+    ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()),
+           "bool_t: witness value is not 0 or 1");
     witness_index = value.witness_index;
+    // Constrain x := other.witness by the relation x^2 = x
     context->create_bool_gate(witness_index);
     witness_bool = (value.witness == bb::fr::one());
     witness_inverted = false;
     set_free_witness_tag();
 }
-
+/**
+ * @brief Construct a constant `bool_t` object from a `bool` value with a given Builder argument.
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context, const bool value)
     : context(parent_context)
-{
-    context = parent_context;
-    witness_index = IS_CONSTANT;
-    witness_bool = value;
-    witness_inverted = false;
-}
+    , witness_bool(value)
+{}
 
+/**
+ * @brief Copy constructor
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool_t<Builder>& other)
     : context(other.context)
-{
-    witness_index = other.witness_index;
-    witness_bool = other.witness_bool;
-    witness_inverted = other.witness_inverted;
-    tag = other.tag;
-}
+    , witness_bool(other.witness_bool)
+    , witness_inverted(other.witness_inverted)
+    , witness_index(other.witness_index)
+    , tag(other.tag)
+{}
 
+/**
+ * @brief Move constructor
+ */
 template <typename Builder>
 bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     : context(other.context)
-{
-    witness_index = other.witness_index;
-    witness_bool = other.witness_bool;
-    witness_inverted = other.witness_inverted;
-    tag = other.tag;
-}
+    , witness_bool(other.witness_bool)
+    , witness_inverted(other.witness_inverted)
+    , witness_index(other.witness_index)
+    , tag(other.tag)
+{}
 
+/**
+ * @brief Assigns a native `bool` to `bool_t` object.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool other)
 {
     context = nullptr;
@@ -80,6 +90,9 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     return *this;
 }
 
+/**
+ * @brief Assigns a `bool_t` to a `bool_t` object.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool_t& other)
 {
     context = other.context;
@@ -90,6 +103,9 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bo
     return *this;
 }
 
+/**
+ * @brief Assigns a `bool_t` to a `bool_t` object.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&& other)
 {
     context = other.context;
@@ -99,31 +115,37 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
     tag = other.tag;
     return *this;
 }
-
+/**
+ * @brief Assigns a `witness_t` to a `bool_t`. As above,  he value stored at `witness_index` is constrained to be
+ * 0 or 1.
+ */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
 {
     ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()));
     context = other.context;
-    witness_bool = (other.witness == bb::fr::zero()) ? false : true;
+    witness_bool = other.witness == bb::fr::one();
     witness_index = other.witness_index;
     witness_inverted = false;
+    // Constrain x := other.witness by the relation x^2 = x
     context->create_bool_gate(witness_index);
     set_free_witness_tag();
     return *this;
 }
 
+/**
+ * @brief Implements AND in circuit
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const bool_t& other) const
 {
-    bool_t<Builder> result(context == nullptr ? other.context : context);
+    bool_t<Builder> result(context ? context : other.context);
     bool left = witness_inverted ^ witness_bool;
     bool right = other.witness_inverted ^ other.witness_bool;
+    result.witness_bool = left && right;
 
-    ASSERT(result.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
-    if (witness_index != IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        result.witness_bool = left & right;
+    ASSERT(result.context || (is_constant() && other.is_constant()));
+    if (!is_constant() && !other.is_constant()) {
         bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
         result.witness_index = context->add_variable(value);
-        result.witness_inverted = false;
 
         /**
          * A bool can be represented by a witness value `w` and an 'inverted' flag `i`
@@ -149,260 +171,209 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
          *    + w_b.(i_a.(1 - 2.i_b))                       -> q_2 coefficient
          *    + i_a.i_b                                     -> q_c coefficient
          *
+         * Note that since the value of the product above is always boolean, we don't need to add an explicit range
+         * constraint for `result`.
          **/
 
-        int i_a(witness_inverted);
-        int i_b(other.witness_inverted);
+        int i_a(static_cast<int>(witness_inverted));
+        int i_b(static_cast<int>(other.witness_inverted));
 
-        fr qm(1 - 2 * i_b - 2 * i_a + 4 * i_a * i_b);
-        fr q1(i_b * (1 - 2 * i_a));
-        fr q2(i_a * (1 - 2 * i_b));
-        fr q3(-1);
-        fr qc(i_a * i_b);
-        context->create_poly_gate({
-            witness_index,
-            other.witness_index,
-            result.witness_index,
-            qm,
-            q1,
-            q2,
-            q3,
-            qc,
-        });
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        if (other.witness_bool ^ other.witness_inverted) {
-            result = bool_t<Builder>(*this);
-        } else {
-            result.witness_bool = false;
-            result.witness_inverted = false;
-            result.witness_index = IS_CONSTANT;
-        }
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        if (witness_bool ^ witness_inverted) {
-            result = bool_t<Builder>(other);
-        } else {
-            result.witness_bool = false;
-            result.witness_inverted = false;
-            result.witness_index = IS_CONSTANT;
-        }
-    } else {
-        result.witness_bool = left & right;
-        result.witness_index = IS_CONSTANT;
-        result.witness_inverted = false;
+        fr q_m{ 1 - 2 * i_b - 2 * i_a + 4 * i_a * i_b };
+        fr q_l{ i_b * (1 - 2 * i_a) };
+        fr q_r{ i_a * (1 - 2 * i_b) };
+        fr q_o{ -1 };
+        fr q_c{ i_a * i_b };
+
+        context->create_poly_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+    } else if (!is_constant() && other.is_constant()) {
+        ASSERT(!other.witness_inverted);
+        // If rhs is a constant true, the output is determined by the lhs. Otherwise the output is a constant
+        // `false`.
+        result = other.witness_bool ? *this : other;
+
+    } else if (is_constant() && !other.is_constant()) {
+        ASSERT(!witness_inverted);
+        // If lhs is a constant true, the output is determined by the rhs. Otherwise the output is a constant
+        // `false`.
+        result = witness_bool ? other : *this;
     }
+
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
+/**
+ * @brief Implements OR in circuit
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const bool_t& other) const
 {
-    bool_t<Builder> result(context == nullptr ? other.context : context);
+    bool_t<Builder> result(context ? context : other.context);
 
-    ASSERT(result.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    ASSERT(result.context || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) | (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
-    result.witness_inverted = false;
-    if ((other.witness_index != IS_CONSTANT) && (witness_index != IS_CONSTANT)) {
+    if (!is_constant() && !other.is_constant()) {
         result.witness_index = context->add_variable(value);
-        // result = A + B - AB, where A,B are the "real" values of the variables. But according to whether
-        // witness_inverted flag is true, we need to invert the input. Hence, we look at four cases, and compute the
-        // relevent coefficients of the selector q_1,q_2,q_m,q_c in each case
-        bb::fr multiplicative_coefficient;
-        bb::fr left_coefficient;
-        bb::fr right_coefficient;
-        bb::fr constant_coefficient;
-        // a inverted: (1-a) + b - (1-a)b = 1-a+ab
-        // ==> q_1=-1,q_2=0,q_m=1,q_c=1
-        if (witness_inverted && !other.witness_inverted) {
-            multiplicative_coefficient = bb::fr::one();
-            left_coefficient = bb::fr::neg_one();
-            right_coefficient = bb::fr::zero();
-            constant_coefficient = bb::fr::one();
-        }
-        // b inverted: a + (1-b) - a(1-b) = 1-b+ab
-        // ==> q_1=0,q_2=-1,q_m=1,q_c=1
-        else if (!witness_inverted && other.witness_inverted) {
-            multiplicative_coefficient = bb::fr::one();
-            left_coefficient = bb::fr::zero();
-            right_coefficient = bb::fr::neg_one();
-            constant_coefficient = bb::fr::one();
-        }
-        // Both inverted: (1 - a) + (1 - b) - (1 - a)(1 - b) = 2 - a - b - (1 -a -b +ab) = 1 - ab
-        // ==> q_m=-1,q_1=0,q_2=0,q_c=1
-        else if (witness_inverted && other.witness_inverted) {
-            multiplicative_coefficient = bb::fr::neg_one();
-            left_coefficient = bb::fr::zero();
-            right_coefficient = bb::fr::zero();
-            constant_coefficient = bb::fr::one();
-        }
-        // No inversions: a + b - ab ==> q_m=-1,q_1=1,q_2=1,q_c=0
-        else {
-            multiplicative_coefficient = bb::fr::neg_one();
-            left_coefficient = bb::fr::one();
-            right_coefficient = bb::fr::one();
-            constant_coefficient = bb::fr::zero();
-        }
-        context->create_poly_gate({ witness_index,
-                                    other.witness_index,
-                                    result.witness_index,
-                                    multiplicative_coefficient,
-                                    left_coefficient,
-                                    right_coefficient,
-                                    bb::fr::neg_one(),
-                                    constant_coefficient });
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
-        if (other.witness_bool ^ other.witness_inverted) {
-            result.witness_index = IS_CONSTANT;
-            result.witness_bool = true;
-            result.witness_inverted = false;
-        } else {
-            result = bool_t<Builder>(*this);
-        }
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        if (witness_bool ^ witness_inverted) {
-            result.witness_index = IS_CONSTANT;
-            result.witness_bool = true;
-            result.witness_inverted = false;
-        } else {
-            result = bool_t<Builder>(other);
-        }
-    } else {
-        result.witness_inverted = false;
-        result.witness_index = IS_CONSTANT;
+        // Let
+        //      a := lhs = *this;
+        //      b := rhs = other;
+        // The result is given by
+        //      a + b - a * b =  [-(1 - 2*i_a) * (1 - 2*i_b)] * w_a w_b +
+        //                        [(1 - 2 * i_a) * (1 - i_b)] * w_a
+        //                        [(1 - 2 * i_b) * (1 - i_a)] * w_b
+        //                            [i_a + i_b - i_a * i_b] * 1
+        const int rhs_inverted = static_cast<int>(other.witness_inverted);
+        const int lhs_inverted = static_cast<int>(witness_inverted);
+
+        bb::fr q_m{ -(1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted) };
+        bb::fr q_l{ (1 - 2 * lhs_inverted) * (1 - rhs_inverted) };
+        bb::fr q_r{ (1 - lhs_inverted) * (1 - 2 * rhs_inverted) };
+        bb::fr q_o{ bb::fr::neg_one() };
+        bb::fr q_c{ rhs_inverted + lhs_inverted - rhs_inverted * lhs_inverted };
+
+        // Let r := a | b;
+        // Constrain
+        //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
+        context->create_poly_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+    } else if (!is_constant() && other.is_constant()) {
+        ASSERT(other.witness_inverted == false);
+
+        // If we are computing a | b and b is a constant `true`, the result is a constant `true` that does not
+        // depend on `a`.
+        result = other.witness_bool ? other : *this;
+
+    } else if (is_constant() && !other.is_constant()) {
+        // If we are computing a | b and `a` is a constant `true`, the result is a constant `true` that does not
+        // depend on `b`.
+        ASSERT(witness_inverted == false);
+        result = witness_bool ? *this : other;
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
 
+/**
+ * @brief Implements XOR in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const bool_t& other) const
 {
     bool_t<Builder> result(context == nullptr ? other.context : context);
 
-    ASSERT(result.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    ASSERT(result.context || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) ^ (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
-    result.witness_inverted = false;
 
-    if ((other.witness_index != IS_CONSTANT) && (witness_index != IS_CONSTANT)) {
+    if (!is_constant() && !other.is_constant()) {
         result.witness_index = context->add_variable(value);
-        // norm a, norm b: a + b - 2ab
-        // inv  a, norm b: (1 - a) + b - 2(1 - a)b = 1 - a - b + 2ab
-        // norm a, inv  b: a + (1 - b) - 2(a)(1 - b) = 1 - a - b + 2ab
-        // inv  a, inv  b: (1 - a) + (1 - b) - 2(1 - a)(1 - b) = a + b - 2ab
-        bb::fr multiplicative_coefficient;
-        bb::fr left_coefficient;
-        bb::fr right_coefficient;
-        bb::fr constant_coefficient;
-        if ((witness_inverted && other.witness_inverted) || (!witness_inverted && !other.witness_inverted)) {
-            multiplicative_coefficient = (bb::fr::neg_one() + bb::fr::neg_one());
-            left_coefficient = bb::fr::one();
-            right_coefficient = bb::fr::one();
-            constant_coefficient = bb::fr::zero();
-        } else {
-            multiplicative_coefficient = bb::fr::one() + bb::fr::one();
-            left_coefficient = bb::fr::neg_one();
-            right_coefficient = bb::fr::neg_one();
-            constant_coefficient = bb::fr::one();
-        }
-        context->create_poly_gate({ witness_index,
-                                    other.witness_index,
-                                    result.witness_index,
-                                    multiplicative_coefficient,
-                                    left_coefficient,
-                                    right_coefficient,
-                                    bb::fr::neg_one(),
-                                    constant_coefficient });
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+        // Let
+        //      a := lhs = *this;
+        //      b := rhs = other;
+        // The result is given by
+        //      a + b - 2 * a * b =    [-2 *(1 - 2*i_a) * (1 - 2*i_b)] * w_a w_b +
+        //                          [(1 - 2 * i_a) * (1 - 2 * i_b)] * w_a
+        //                          [(1 - 2 * i_b) * (1 - 2 * i_a)] * w_b
+        //                              [i_a + i_b - 2 * i_a * i_b] * 1]
+        const int rhs_inverted = static_cast<int>(other.witness_inverted);
+        const int lhs_inverted = static_cast<int>(witness_inverted);
+        // Compute the value that's being used in several selectors
+        const int aux_prod = (1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted);
+
+        bb::fr q_m{ -2 * aux_prod };
+        bb::fr q_l{ aux_prod };
+        bb::fr q_r{ aux_prod };
+        bb::fr q_o{ bb::fr::neg_one() };
+        bb::fr q_c{ lhs_inverted + rhs_inverted - 2 * rhs_inverted * lhs_inverted };
+
+        // Let r := a ^ b;
+        // Constrain
+        //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
+        context->create_poly_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
+    } else if (!is_constant() && other.is_constant()) {
         // witness ^ 1 = !witness
-        if (other.witness_bool ^ other.witness_inverted) {
-            result = !bool_t<Builder>(*this);
-        } else {
-            result = bool_t<Builder>(*this);
-        }
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
-        if (witness_bool ^ witness_inverted) {
-            result = !bool_t<Builder>(other);
-        } else {
-            result = bool_t<Builder>(other);
-        }
-    } else {
-        result.witness_inverted = false;
-        result.witness_index = IS_CONSTANT;
+        ASSERT(other.witness_inverted == false);
+        result = other.witness_bool ? !*this : *this;
+
+    } else if (is_constant() && !other.is_constant()) {
+        ASSERT(witness_inverted == false);
+        result = witness_bool ? !other : other;
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
-
+/**
+ * @brief Implements negation in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
 {
     bool_t<Builder> result(*this);
     if (result.is_constant()) {
+        ASSERT(!witness_inverted);
+        // Negate the value of a constant bool_t element.
         result.witness_bool = !result.witness_bool;
-        return result;
+    } else {
+        // Negate the `inverted` flag of a witnees bool_t element.
+        result.witness_inverted = !result.witness_inverted;
     }
-    result.witness_inverted = !result.witness_inverted;
     return result;
 }
 
+/**
+ * @brief Implements equality operator in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bool_t& other) const
 {
-    ASSERT(context || other.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
-    if ((other.witness_index == IS_CONSTANT) && (witness_index == IS_CONSTANT)) {
-        bool_t<Builder> result(context == nullptr ? other.context : context);
-        result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
-        result.witness_index = IS_CONSTANT;
-        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-        return result;
-    } else if ((witness_index != IS_CONSTANT) && (other.witness_index == IS_CONSTANT)) {
-        if (other.witness_bool ^ other.witness_inverted) {
-            return (*this);
-        } else {
-            return !(*this);
-        }
-    } else if ((witness_index == IS_CONSTANT) && (other.witness_index != IS_CONSTANT)) {
-        if (witness_bool ^ witness_inverted) {
-            return other;
-        } else {
-            return !(other);
-        }
-    } else {
-        bool_t<Builder> result(context == nullptr ? other.context : context);
-        result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
-        bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
+    ASSERT(context || other.context || (is_constant() && other.is_constant()));
+    bool_t<Builder> result(context ? context : other.context);
+
+    result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
+    if (!is_constant() && !other.is_constant()) {
+        const bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
+
         result.witness_index = context->add_variable(value);
-        // norm a, norm b or both inv: 1 - a - b + 2ab
-        // inv a or inv b = a + b - 2ab
-        bb::fr multiplicative_coefficient;
-        bb::fr left_coefficient;
-        bb::fr right_coefficient;
-        bb::fr constant_coefficient;
-        if ((witness_inverted && other.witness_inverted) || (!witness_inverted && !other.witness_inverted)) {
-            multiplicative_coefficient = bb::fr::one() + bb::fr::one();
-            left_coefficient = bb::fr::neg_one();
-            right_coefficient = bb::fr::neg_one();
-            constant_coefficient = bb::fr::one();
-        } else {
-            multiplicative_coefficient = (bb::fr::neg_one() + bb::fr::neg_one());
-            left_coefficient = bb::fr::one();
-            right_coefficient = bb::fr::one();
-            constant_coefficient = bb::fr::zero();
-        }
-        context->create_poly_gate({ witness_index,
-                                    other.witness_index,
-                                    result.witness_index,
-                                    multiplicative_coefficient,
-                                    left_coefficient,
-                                    right_coefficient,
-                                    bb::fr::neg_one(),
-                                    constant_coefficient });
 
-        result.tag = OriginTag(tag, other.tag);
-        return result;
+        // Let
+        //      a := lhs = *this;
+        //      b := rhs = other;
+        // The result is given by
+        //      1 - a  - b + 2 a * b =   [2 *(1 - 2*i_a) * (1 - 2*i_b)] * w_a w_b +
+        //                             [-(1 - 2 * i_a) * (1 - 2 * i_b)] * w_a +
+        //                             [-(1 - 2 * i_b) * (1 - 2 * i_a)] * w_b +
+        //                              [1 - i_a - i_b + 2 * i_a * i_b] * 1
+        const int rhs_inverted = static_cast<int>(other.witness_inverted);
+        const int lhs_inverted = static_cast<int>(witness_inverted);
+        // Compute the value that's being used in several selectors
+        const int aux_prod = (1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted);
+        bb::fr q_m{ 2 * aux_prod };
+        bb::fr q_l{ -aux_prod };
+        bb::fr q_r{ -aux_prod };
+        bb::fr q_o{ bb::fr::neg_one() };
+        bb::fr q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
+
+        context->create_poly_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_r, q_l, q_o, q_c });
+
+    } else if (!is_constant() && (other.is_constant())) {
+        // Compare *this with a constant other. If other == true, then we're checking *this == true. In this case we
+        // propagate *this without adding extra constraints, otherwise (if other = false), we propagate !*this.
+        ASSERT(other.witness_inverted == false);
+        result = other.witness_bool ? *this : !(*this);
+    } else if (is_constant() && !other.is_constant()) {
+        // Completely analogous to the previous case.
+        ASSERT(witness_inverted == false);
+        result = witness_bool ? other : !other;
     }
-}
 
+    result.tag = OriginTag(tag, other.tag);
+    return result;
+}
+/**
+ * @brief Implements the `not equal` operator in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!=(const bool_t<Builder>& other) const
 {
     return operator^(other);
@@ -418,6 +389,9 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator||(const bo
     return operator|(other);
 }
 
+/**
+ * @brief Implements copy constraint for `bool_t` elements.
+ */
 template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs, std::string const& msg) const
 {
     const bool_t lhs = *this;
@@ -426,16 +400,18 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
+        ASSERT(!lhs.witness_inverted);
         // if rhs is inverted, flip the value of the lhs constant
-        bool lhs_value = rhs.witness_inverted ? !lhs.get_value() : lhs.get_value();
+        const bool lhs_value = rhs.witness_inverted ? !lhs.witness_bool : lhs.witness_bool;
         ctx->assert_equal_constant(rhs.witness_index, lhs_value, msg);
     } else if (rhs.is_constant()) {
+        ASSERT(!rhs.witness_inverted);
         // if lhs is inverted, flip the value of the rhs constant
-        bool rhs_value = lhs.witness_inverted ? !rhs.get_value() : rhs.get_value();
+        const bool rhs_value = lhs.witness_inverted ? !rhs.witness_bool : rhs.witness_bool;
         ctx->assert_equal_constant(lhs.witness_index, rhs_value, msg);
     } else {
-        auto left = lhs;
-        auto right = rhs;
+        bool_t left = lhs;
+        bool_t right = rhs;
         // we need to normalize iff lhs or rhs has an inverted witness (but not both)
         if (lhs.witness_inverted ^ rhs.witness_inverted) {
             left = left.normalize();
@@ -445,7 +421,9 @@ template <typename Builder> void bool_t<Builder>::assert_equal(const bool_t& rhs
     }
 }
 
-// if predicate == true then return lhs, else return rhs
+/**
+ * @brief Implements the ternary operator - if predicate == true then return lhs, else return rhs
+ */
 template <typename Builder>
 bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predicate,
                                                     const bool_t& lhs,
@@ -458,120 +436,72 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
     }
 
     bool same = lhs.witness_index == rhs.witness_index;
-    bool witness_same = same && lhs.witness_index != IS_CONSTANT && (lhs.witness_inverted == rhs.witness_inverted);
-    bool const_same = same && (lhs.witness_index == IS_CONSTANT) && (lhs.witness_bool == rhs.witness_bool);
+    bool witness_same = same && !lhs.is_constant() && (lhs.witness_inverted == rhs.witness_inverted);
+    bool const_same = same && lhs.is_constant() && (lhs.witness_bool == rhs.witness_bool);
     if (witness_same || const_same) {
         return lhs;
     }
     return (predicate && lhs) || (!predicate && rhs);
 }
 
+/**
+ * @brief Implements implication operator in circuit.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::implies(const bool_t<Builder>& other) const
 {
+    // Thanks to negation operator being free, this computation requires at most 1 gate.
     return (!(*this) || other); // P => Q is equiv. to !P || Q (not(P) or Q).
 }
 
+/**
+ * @brief Constrains the (a => b) == true.
+ */
 template <typename Builder> void bool_t<Builder>::must_imply(const bool_t& other, std::string const& msg) const
 {
-    (this->implies(other)).assert_equal(true, msg);
+    implies(other).assert_equal(true, msg);
 }
 
 /**
- * Process many implications all at once, for readablity, and as an optimization.
- * @param conds - each pair is a boolean condition that we want to constrain to be "implied", and an error message if it
- * is not implied.
- *
- * Why this works:
- *      (P => Q) && (P => R)
- * <=>  (!P || Q) && (!P || R)
- * <=>  !P || (Q && R)           [by distributivity of propositional logic]
- * <=>  P => (Q && R)            [a.k.a. distribution of implication over conjunction]
+ @brief Implements a "double-implication" (<=>), a.k.a "iff", a.k.a. "biconditional"
  */
-template <typename Builder>
-void bool_t<Builder>::must_imply(const std::vector<std::pair<bool_t, std::string>>& conds) const
-{
-    // Extract the builder
-    const bool_t this_bool = *this;
-    Builder* ctx = this_bool.get_context();
-    bool builder_found = (ctx != nullptr);
-    for (size_t i = 0; i < conds.size(); i++) {
-        if (!builder_found) {
-            ctx = conds[i].first.get_context();
-            builder_found = (ctx != nullptr);
-        }
-    }
-
-    // If no builder is found, all of the bool_t's must be constants.
-    // In that case, we enforce a static assertion to check must_imply condition holds.
-    // If all of your inputs do this function are constants and they don't obey a condition,
-    // this function will panic at those static assertions.
-    if (!builder_found) {
-        bool is_const = this_bool.is_constant();
-        bool result = !this_bool.get_value();
-        bool acc = true;
-        for (size_t i = 0; i < conds.size(); i++) {
-            is_const &= conds[i].first.is_constant();
-            acc &= conds[i].first.get_value();
-        }
-        result |= acc;
-        ASSERT(is_const == true);
-        ASSERT(result == true);
-    }
-
-    bool_t acc = witness_t(ctx, true); // will accumulate the conjunctions of each condition (i.e. `&&` of each)
-    const bool this_val = this->get_value();
-    bool error_found = false;
-    std::string error_msg;
-
-    for (size_t i = 0; i < conds.size(); ++i) {
-        const bool_t& cond = conds[i].first;
-        const std::string& msg = conds[i].second;
-        const bool cond_val = cond.get_value();
-
-        // If this does NOT imply that, throw the error msg of that condition.
-        if (!(!this_val || cond_val) && !error_found) {
-            error_found = true;
-            error_msg = msg;
-        }
-
-        acc &= cond;
-    }
-
-    (this->implies(acc)).assert_equal(true, format("multi implication fail: ", error_msg));
-}
-
-// A "double-implication" (<=>),
-// a.k.a "iff", a.k.a. "biconditional"
 template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(const bool_t<Builder>& other) const
 {
-    return (!(*this) ^ other); // P <=> Q is equiv. to !(P ^ Q) (not(P xor Q)).
+    return !((*this) ^ other); // P <=> Q is equiv. to !(P ^ Q) (not(P xor Q)).
 }
 
+/**
+ * @brief A bool_t element is **normalized** if `witness_inverted == false`. For a given `*this`, output its normalized
+ * version.
+ * @warning  The witness index of *this as well as its `witness_inverted` flag are re-written.
+ */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 {
     if (is_constant()) {
-        ASSERT(!this->witness_inverted);
+        ASSERT(!witness_inverted);
         return *this;
     }
 
-    bb::fr value = witness_bool ^ witness_inverted ? bb::fr::one() : bb::fr::zero();
+    if (!witness_inverted) {
+        return *this;
+    }
+    // Let a := *this, need to constrain a = a_norm
+    // [1 - 2 i_a] w_a + [-1] w_a_norm + [i_a] = 0
+    //       ^             ^               ^
+    //      q_l           q_o             q_c
+    const bool value = witness_bool ^ witness_inverted;
 
-    uint32_t new_witness = context->add_variable(value);
-    uint32_t new_value = witness_bool ^ witness_inverted;
+    uint32_t new_witness = context->add_variable(bb::fr{ static_cast<int>(value) });
 
-    bb::fr q_l;
-    bb::fr q_c;
-
-    q_l = witness_inverted ? bb::fr::neg_one() : bb::fr::one();
-    q_c = witness_inverted ? bb::fr::one() : bb::fr::zero();
-
+    const int inverted = static_cast<int>(witness_inverted);
+    bb::fr q_l{ 1 - 2 * inverted };
+    bb::fr q_c{ inverted };
     bb::fr q_o = bb::fr::neg_one();
     bb::fr q_m = bb::fr::zero();
     bb::fr q_r = bb::fr::zero();
     context->create_poly_gate({ witness_index, witness_index, new_witness, q_m, q_l, q_r, q_o, q_c });
 
     witness_index = new_witness;
-    witness_bool = new_value;
+    witness_bool = value;
     witness_inverted = false;
     return *this;
 }

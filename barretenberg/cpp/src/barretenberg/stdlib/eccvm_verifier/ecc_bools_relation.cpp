@@ -11,7 +11,5 @@
 
 namespace bb {
 template class ECCVMBoolsRelationImpl<stdlib::bigfield<UltraCircuitBuilder, bb::Bn254FqParams>>;
-template class ECCVMBoolsRelationImpl<stdlib::bigfield<MegaCircuitBuilder, bb::Bn254FqParams>>;
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMBoolsRelationImpl, ECCVMRecursiveFlavor_<UltraCircuitBuilder>);
-DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMBoolsRelationImpl, ECCVMRecursiveFlavor_<MegaCircuitBuilder>);
+DEFINE_SUMCHECK_VERIFIER_RELATION_CLASS(ECCVMBoolsRelationImpl, ECCVMRecursiveFlavor);
 } // namespace bb

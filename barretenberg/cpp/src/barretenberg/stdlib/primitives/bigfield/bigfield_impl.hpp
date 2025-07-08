@@ -16,7 +16,6 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "bigfield.hpp"
 
-#include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 

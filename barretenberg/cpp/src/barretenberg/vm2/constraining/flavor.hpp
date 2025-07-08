@@ -202,10 +202,10 @@ class AvmFlavor {
         ProvingKey() = default;
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
 
-        size_t circuit_size;
-        size_t log_circuit_size;
-        size_t num_public_inputs;
-        bb::EvaluationDomain<FF> evaluation_domain;
+        size_t circuit_size = 0;
+        size_t log_circuit_size = 0;
+        size_t num_public_inputs = 0;
+
         CommitmentKey commitment_key;
 
         // Offset off the public inputs from the start of the execution trace

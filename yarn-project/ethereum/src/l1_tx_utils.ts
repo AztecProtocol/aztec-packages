@@ -490,20 +490,15 @@ export class ReadOnlyL1TxUtils {
         ],
       });
 
-      this.logger?.debug(`L1 gas used in simulation: ${result[0].calls[0].gasUsed}`, {
-        result,
-      });
       if (result[0].calls[0].status === 'failure') {
-        this.logger?.error('L1 transaction simulation failed', {
-          error: result[0].calls[0].error,
-        });
-        const decodedError = decodeErrorResult({
-          abi,
-          data: result[0].calls[0].data,
-        });
+        this.logger?.error('L1 transaction simulation failed', result[0].calls[0].error);
+        const decodedError = decodeErrorResult({ abi, data: result[0].calls[0].data });
 
-        throw new Error(`L1 transaction simulation failed with error: ${decodedError.errorName}`);
+        throw new Error(
+          `L1 transaction simulation failed with error ${decodedError.errorName}(${decodedError.args?.join(',')})`,
+        );
       }
+      this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
       return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {

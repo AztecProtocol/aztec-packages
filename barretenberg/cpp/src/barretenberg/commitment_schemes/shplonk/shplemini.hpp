@@ -218,6 +218,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations = {})
 
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1463): Investigate whether this function can be
+        // simplified using the new Shplonk api
         const size_t virtual_log_n = multivariate_challenge.size();
 
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();

@@ -1,4 +1,5 @@
 import type { AztecNode, Wallet } from '@aztec/aztec.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
 
@@ -10,6 +11,8 @@ describe('e2e_include_by_timestamp', () => {
   let teardown: () => Promise<void>;
 
   let contract: TestContract;
+
+  const aztecSlotDuration = BigInt(getL1ContractsConfigEnvVars().aztecSlotDuration);
 
   beforeAll(async () => {
     ({ teardown, wallet, aztecNode } = await setup());
@@ -26,7 +29,8 @@ describe('e2e_include_by_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_include_by_timestamp.test.ts');
       }
-      includeByTimestamp = header.globalVariables.timestamp + 720n;
+      // The timestamp of the next slot.
+      includeByTimestamp = header.globalVariables.timestamp + aztecSlotDuration;
     });
 
     describe('with no enqueued public calls', () => {
@@ -34,8 +38,9 @@ describe('e2e_include_by_timestamp', () => {
 
       it('sets the include by timestamp', async () => {
         const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.isSome).toEqual(true);
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.value).toEqual(includeByTimestamp);
+        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
+        // Note: If the expected value doesn't match, it might be because the includeByTimestamp is rounded down.
+        // See compute_tx_include_by_timestamp.ts for the rounding logic.
       });
 
       it('does not invalidate the transaction', async () => {
@@ -48,12 +53,54 @@ describe('e2e_include_by_timestamp', () => {
 
       it('sets include by timestamp', async () => {
         const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.isSome).toEqual(true);
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.value).toEqual(includeByTimestamp);
+        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
       it('does not invalidate the transaction', async () => {
         await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait();
+      });
+    });
+  });
+
+  describe('when requesting expiration timestamp lower than the next block', () => {
+    let includeByTimestamp: bigint;
+
+    beforeEach(async () => {
+      const header = await aztecNode.getBlockHeader();
+      if (!header) {
+        throw new Error('Block header not found in the setup of e2e_include_by_timestamp.test.ts');
+      }
+      // 1n lower than the next slot.
+      includeByTimestamp = header.globalVariables.timestamp + aztecSlotDuration - 1n;
+    });
+
+    describe('with no enqueued public calls', () => {
+      const enqueuePublicCall = false;
+
+      it('sets include by timestamp', async () => {
+        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
+        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
+      });
+
+      it('invalidates the transaction', async () => {
+        await expect(
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait(),
+        ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+      });
+    });
+
+    describe('with an enqueued public call', () => {
+      const enqueuePublicCall = true;
+
+      it('sets include by timestamp', async () => {
+        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
+        expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
+      });
+
+      it('invalidates the transaction', async () => {
+        await expect(
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait(),
+        ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
       });
     });
   });
@@ -66,38 +113,27 @@ describe('e2e_include_by_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_include_by_timestamp.test.ts');
       }
-      includeByTimestamp = header.globalVariables.timestamp - 720n;
+      // 1n lower than the mined block.
+      includeByTimestamp = header.globalVariables.timestamp - 1n;
     });
 
     describe('with no enqueued public calls', () => {
       const enqueuePublicCall = false;
 
-      it('sets include by timestamp', async () => {
-        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.isSome).toEqual(true);
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.value).toEqual(includeByTimestamp);
-      });
-
-      it('invalidates the transaction', async () => {
+      it('fails to prove the tx', async () => {
         await expect(
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove(),
+        ).rejects.toThrow();
       });
     });
 
     describe('with an enqueued public call', () => {
       const enqueuePublicCall = true;
 
-      it('sets include by timestamp', async () => {
-        const tx = await contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove();
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.isSome).toEqual(true);
-        expect(tx.data.rollupValidationRequests.includeByTimestamp.value).toEqual(includeByTimestamp);
-      });
-
-      it('invalidates the transaction', async () => {
+      it('fails to prove the tx', async () => {
         await expect(
-          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall).prove(),
+        ).rejects.toThrow();
       });
     });
   });

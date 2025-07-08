@@ -19,7 +19,6 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
-        include_by_timestamp::IncludeByTimestamp,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
             PrivateToRollupKernelCircuitPublicInputs,
@@ -44,7 +43,7 @@ use crate::{
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-            RollupValidationRequests, ScopedKeyValidationRequestAndGenerator,
+            ScopedKeyValidationRequestAndGenerator,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
@@ -52,8 +51,9 @@ use crate::{
     constants::{
         ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
         DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
-        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
@@ -135,6 +135,7 @@ pub struct FixtureBuilder {
     pub is_static_call: bool,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
+    pub include_by_timestamp: u64,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -165,7 +166,6 @@ pub struct FixtureBuilder {
     pub reverted: bool,
 
     // Validation requests.
-    pub include_by_timestamp: IncludeByTimestamp,
     pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -233,9 +233,15 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
+        builder.historical_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
-        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
+
+        let max_allowed_include_by_timestamp = builder.historical_header.global_variables.timestamp
+            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+        builder.include_by_timestamp = max_allowed_include_by_timestamp;
 
         builder.tx_context = TxContext {
             chain_id: fixtures::CHAIN_ID,
@@ -668,7 +674,6 @@ impl FixtureBuilder {
 
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
-            for_rollup: self.to_rollup_validation_requests(),
             note_hash_read_requests: claimed_length_array_from_bounded_vec(
                 self.note_hash_read_requests,
             ),
@@ -695,6 +700,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
         }
@@ -717,7 +723,6 @@ impl FixtureBuilder {
     ) -> PrivateToPublicKernelCircuitPublicInputs {
         PrivateToPublicKernelCircuitPublicInputs {
             constants: self.to_tx_constant_data(),
-            rollup_validation_requests: self.to_rollup_validation_requests(),
             non_revertible_accumulated_data: self.to_private_to_public_accumulated_data(
                 false, /* revertible */
             ),
@@ -727,26 +732,22 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
         }
-    }
-
-    pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
-        RollupValidationRequests { include_by_timestamp: self.include_by_timestamp }
     }
 
     pub fn to_private_to_rollup_kernel_circuit_public_inputs(
         self,
     ) -> PrivateToRollupKernelCircuitPublicInputs {
-        let rollup_validation_requests = self.to_rollup_validation_requests();
         let end = self.to_private_to_rollup_accumulated_data();
         let constants = self.to_tx_constant_data();
 
         PrivateToRollupKernelCircuitPublicInputs {
-            rollup_validation_requests,
             end,
             constants,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
         }
     }
 
@@ -1302,10 +1303,6 @@ impl FixtureBuilder {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
-        self.include_by_timestamp = IncludeByTimestamp::new(include_by_timestamp);
-    }
-
     fn get_split_side_effects<T, let N: u32>(
         self,
         array: BoundedVec<Counted<T>, N>,
@@ -1508,7 +1505,7 @@ impl Empty for FixtureBuilder {
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            include_by_timestamp: IncludeByTimestamp::empty(),
+            include_by_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),

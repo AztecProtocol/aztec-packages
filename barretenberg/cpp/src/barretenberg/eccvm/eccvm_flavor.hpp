@@ -725,20 +725,20 @@ class ECCVMFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = ECCVM_FIXED_SIZE; // The circuit size is fixed for the ECCVM.
+        size_t log_circuit_size = CONST_ECCVM_LOG_N;
+
         // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key;
 
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
-            : Base(ECCVM_FIXED_SIZE, 0)
-            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+            : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
         {}
     };
@@ -779,8 +779,8 @@ class ECCVMFlavor {
         {
             this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {

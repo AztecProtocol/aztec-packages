@@ -16,21 +16,22 @@
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
 namespace bb {
-template <typename Flavor> class TranslatorRecursiveVerifier_ {
+class TranslatorRecursiveVerifier {
   public:
-    using FF = typename Flavor::FF;
-    using NativeBF = typename Flavor::Curve::BaseFieldNative;
-    using Builder = typename Flavor::CircuitBuilder;
-    using BF = typename stdlib::bigfield<Builder, typename NativeBF::Params>;
-    using Commitment = typename Flavor::Commitment;
-    using GroupElement = typename Flavor::GroupElement;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using Flavor = TranslatorRecursiveFlavor;
+    using FF = Flavor::FF;
+    using NativeBF = Flavor::Curve::BaseFieldNative;
+    using Builder = Flavor::CircuitBuilder;
+    using BF = Flavor::BF;
+    using Commitment = Flavor::Commitment;
+    using GroupElement = Flavor::GroupElement;
+    using VerificationKey = Flavor::VerificationKey;
+    using NativeVerificationKey = Flavor::NativeVerificationKey;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using RelationSeparator = Flavor::RelationSeparator;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using TranslationEvaluations = TranslationEvaluations_<BF>;
-    using Transcript = typename Flavor::Transcript;
+    using Transcript = Flavor::Transcript;
     using RelationParams = ::bb::RelationParameters<FF>;
     using StdlibProof = stdlib::Proof<Builder>;
 
@@ -42,9 +43,9 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
 
     RelationParams relation_parameters;
 
-    TranslatorRecursiveVerifier_(Builder* builder,
-                                 const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-                                 const std::shared_ptr<Transcript>& transcript);
+    TranslatorRecursiveVerifier(Builder* builder,
+                                const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                const std::shared_ptr<Transcript>& transcript);
 
     void put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
                                                      const BF& batching_challenge_v,

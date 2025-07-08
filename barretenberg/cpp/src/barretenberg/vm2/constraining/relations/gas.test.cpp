@@ -8,7 +8,6 @@
 #include "barretenberg/vm2/generated/relations/gas.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -24,82 +23,235 @@ TEST(GasConstrainingTest, EmptyRow)
     check_relation<gas>(testing::empty_trace());
 }
 
-TEST(GasConstrainingTest, GasUsedContinuity)
+TEST(GasConstrainingTest, AllSubrelations)
 {
-    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } },
-                               {
-                                   // First Row of execution
-                                   { C::execution_sel, 1 },
-                                   { C::execution_l2_gas_used, 100 },
-                                   { C::execution_da_gas_used, 200 },
-                               },
-                               {
-                                   // CALL
-                                   { C::execution_sel, 1 },
-                                   { C::execution_sel_enter_call, 1 },
-                                   { C::execution_l2_gas_used, 110 },
-                                   { C::execution_da_gas_used, 200 },
-                                   { C::execution_prev_l2_gas_used, 100 },
-                                   { C::execution_prev_da_gas_used, 200 },
-                               },
-                               {
-                                   // Return
-                                   { C::execution_sel, 1 },
-                                   { C::execution_sel_exit_call, 1 },
-                                   { C::execution_nested_exit_call, 1 },
-                                   { C::execution_l2_gas_used, 50 },
-                                   { C::execution_da_gas_used, 60 },
-                                   { C::execution_parent_l2_gas_used, 110 },
-                                   { C::execution_parent_da_gas_used, 200 },
-                                   { C::execution_prev_l2_gas_used, 0 },
-                                   { C::execution_prev_da_gas_used, 0 },
-                               },
-                               {
-                                   // After return
-                                   { C::execution_sel, 1 },
-                                   { C::execution_l2_gas_used, 170 },
-                                   { C::execution_da_gas_used, 260 },
-                                   { C::execution_prev_l2_gas_used, 160 }, // 110 + 50
-                                   { C::execution_prev_da_gas_used, 260 }, // 200 + 60
-                               },
-                               {
-                                   { C::execution_sel, 0 },
-                                   { C::execution_last, 1 },
-                               } });
+    uint32_t opcode_l2_gas = 100;
+    uint32_t addressing_gas = 50;
+    uint32_t base_da_gas = 3;
+    uint32_t dynamic_l2_gas = 10;
+    uint32_t dynamic_da_gas = 5;
+    uint32_t dynamic_l2_gas_factor = 2;
+    uint32_t dynamic_da_gas_factor = 1;
+    uint32_t l2_gas_limit = 1000;
+    uint32_t da_gas_limit = 800;
+    uint32_t prev_l2_gas_used = 500;
+    uint32_t prev_da_gas_used = 200;
+    uint64_t limit_used_l2_cmp_diff =
+        l2_gas_limit - (prev_l2_gas_used + opcode_l2_gas + addressing_gas + dynamic_l2_gas * dynamic_l2_gas_factor);
+    uint64_t limit_used_da_cmp_diff =
+        da_gas_limit - (prev_da_gas_used + base_da_gas + dynamic_da_gas * dynamic_da_gas_factor);
 
-    check_relation<gas>(trace,
-                        gas::SR_L2_GAS_USED_CONTINUITY,
-                        gas::SR_L2_GAS_USED_ZERO_AFTER_CALL,
-                        gas::SR_L2_GAS_USED_INGEST_AFTER_EXIT,
-                        gas::SR_DA_GAS_USED_CONTINUITY,
-                        gas::SR_DA_GAS_USED_ZERO_AFTER_CALL,
-                        gas::SR_DA_GAS_USED_INGEST_AFTER_EXIT);
+    TestTraceContainer trace({ {
+        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_constant_64, 64 },
+        // looked up in execution.pil
+        { C::execution_opcode_gas, opcode_l2_gas },
+        { C::execution_addressing_gas, addressing_gas },
+        { C::execution_base_da_gas, base_da_gas },
+        { C::execution_dynamic_l2_gas, dynamic_l2_gas },
+        { C::execution_dynamic_da_gas, dynamic_da_gas },
+        // event
+        { C::execution_l2_gas_limit, l2_gas_limit },
+        { C::execution_da_gas_limit, da_gas_limit },
+        { C::execution_prev_l2_gas_used, prev_l2_gas_used },
+        { C::execution_prev_da_gas_used, prev_da_gas_used },
+        { C::execution_dynamic_l2_gas_factor, dynamic_l2_gas_factor },
+        { C::execution_dynamic_da_gas_factor, dynamic_da_gas_factor },
+        { C::execution_limit_used_l2_cmp_diff, limit_used_l2_cmp_diff },
+        { C::execution_limit_used_da_cmp_diff, limit_used_da_cmp_diff },
+        // out
+        { C::execution_out_of_gas_l2, 0 },
+        { C::execution_out_of_gas_da, 0 },
+        { C::execution_sel_out_of_gas, 0 },
+    } });
+    check_relation<gas>(trace);
 
-    // Negative test: after return, ingest a wrong value
-    trace.set(C::execution_prev_l2_gas_used, 4, 110);
+    // Can't cheat OOG.
+    trace.set(0,
+              { {
+                  { C::execution_out_of_gas_l2, 0 },
+                  { C::execution_out_of_gas_da, 0 },
+                  { C::execution_sel_out_of_gas, 1 },
+              } });
+    EXPECT_THROW(check_relation<gas>(trace), std::runtime_error);
+    trace.set(0,
+              { {
+                  { C::execution_out_of_gas_l2, 1 },
+                  { C::execution_out_of_gas_da, 1 },
+                  { C::execution_sel_out_of_gas, 1 },
+              } });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_CMP_DIFF), "L2_CMP_DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_CMP_DIFF), "DA_CMP_DIFF");
+}
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_GAS_USED_INGEST_AFTER_EXIT),
-                              "L2_GAS_USED_INGEST_AFTER_EXIT");
+TEST(GasConstrainingTest, LimitDiffs)
+{
+    uint32_t opcode_l2_gas = 100;
+    uint32_t addressing_gas = 50;
+    uint32_t base_da_gas = 3;
+    uint32_t dynamic_l2_gas = 10;
+    uint32_t dynamic_da_gas = 5;
+    uint32_t dynamic_l2_gas_factor = 2;
+    uint32_t dynamic_da_gas_factor = 1;
+    uint32_t l2_gas_limit = 1000;
+    uint32_t da_gas_limit = 800;
+    uint32_t prev_l2_gas_used = 500;
+    uint32_t prev_da_gas_used = 200;
 
-    trace.set(C::execution_prev_da_gas_used, 4, 60);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_GAS_USED_INGEST_AFTER_EXIT),
-                              "DA_GAS_USED_INGEST_AFTER_EXIT");
+    TestTraceContainer trace({ {
+        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_constant_64, 64 },
+        // looked up in execution.pil
+        { C::execution_opcode_gas, opcode_l2_gas },
+        { C::execution_addressing_gas, addressing_gas },
+        { C::execution_base_da_gas, base_da_gas },
+        { C::execution_dynamic_l2_gas, dynamic_l2_gas },
+        { C::execution_dynamic_da_gas, dynamic_da_gas },
+        // event
+        { C::execution_l2_gas_limit, l2_gas_limit },
+        { C::execution_da_gas_limit, da_gas_limit },
+        { C::execution_prev_l2_gas_used, prev_l2_gas_used },
+        { C::execution_prev_da_gas_used, prev_da_gas_used },
+        { C::execution_dynamic_l2_gas_factor, dynamic_l2_gas_factor },
+        { C::execution_dynamic_da_gas_factor, dynamic_da_gas_factor },
+        { C::execution_limit_used_l2_cmp_diff, 20 }, // Wrong diff.
+        { C::execution_limit_used_da_cmp_diff, 30 }, // Wrong diff.
+        // out
+        { C::execution_out_of_gas_l2, 0 },
+        { C::execution_out_of_gas_da, 0 },
+        { C::execution_sel_out_of_gas, 0 },
+    } });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_CMP_DIFF), "L2_CMP_DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_CMP_DIFF), "DA_CMP_DIFF");
+}
 
-    // Negative test: inside a nested call, start with non-zero gas used
-    trace.set(C::execution_prev_l2_gas_used, 3, 110);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_GAS_USED_ZERO_AFTER_CALL),
-                              "L2_GAS_USED_ZERO_AFTER_CALL");
+TEST(GasConstrainingTest, OutOfGasBase)
+{
+    uint32_t opcode_l2_gas = 100;
+    uint32_t addressing_gas = 50;
+    uint32_t base_da_gas = 100;
+    uint32_t dynamic_l2_gas = 0;
+    uint32_t dynamic_da_gas = 0;
+    uint32_t dynamic_l2_gas_factor = 2;
+    uint32_t dynamic_da_gas_factor = 1;
+    uint32_t l2_gas_limit = 100;
+    uint32_t da_gas_limit = 80;
+    uint32_t prev_l2_gas_used = 0;
+    uint32_t prev_da_gas_used = 0;
+    uint64_t limit_used_l2_cmp_diff =
+        (prev_l2_gas_used + opcode_l2_gas + addressing_gas + dynamic_l2_gas * dynamic_l2_gas_factor) - l2_gas_limit - 1;
+    uint64_t limit_used_da_cmp_diff =
+        (prev_da_gas_used + base_da_gas + dynamic_da_gas * dynamic_da_gas_factor) - da_gas_limit - 1;
 
-    trace.set(C::execution_prev_da_gas_used, 3, 200);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_GAS_USED_ZERO_AFTER_CALL),
-                              "DA_GAS_USED_ZERO_AFTER_CALL");
+    TestTraceContainer trace({ {
+        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_constant_64, 64 },
+        // looked up in execution.pil
+        { C::execution_opcode_gas, opcode_l2_gas },
+        { C::execution_addressing_gas, addressing_gas },
+        { C::execution_base_da_gas, base_da_gas },
+        { C::execution_dynamic_l2_gas, dynamic_l2_gas },
+        { C::execution_dynamic_da_gas, dynamic_da_gas },
+        // event
+        { C::execution_l2_gas_limit, l2_gas_limit },
+        { C::execution_da_gas_limit, da_gas_limit },
+        { C::execution_prev_l2_gas_used, prev_l2_gas_used },
+        { C::execution_prev_da_gas_used, prev_da_gas_used },
+        { C::execution_dynamic_l2_gas_factor, dynamic_l2_gas_factor },
+        { C::execution_dynamic_da_gas_factor, dynamic_da_gas_factor },
+        { C::execution_limit_used_l2_cmp_diff, limit_used_l2_cmp_diff },
+        { C::execution_limit_used_da_cmp_diff, limit_used_da_cmp_diff },
+        // out
+        { C::execution_out_of_gas_l2, 1 },
+        { C::execution_out_of_gas_da, 1 },
+        { C::execution_sel_out_of_gas, 1 },
+    } });
+    check_relation<gas>(trace);
 
-    // Negative test: when no calls are made, prev gas used should be gas used of the previous row
-    trace.set(C::execution_prev_l2_gas_used, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_GAS_USED_CONTINUITY), "L2_GAS_USED_CONTINUITY");
+    // Can't cheat OOG.
+    trace.set(0,
+              { {
+                  { C::execution_out_of_gas_l2, 0 },
+                  { C::execution_out_of_gas_da, 0 },
+                  { C::execution_sel_out_of_gas, 0 },
+              } });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_CMP_DIFF), "L2_CMP_DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_CMP_DIFF), "DA_CMP_DIFF");
+}
 
-    trace.set(C::execution_prev_da_gas_used, 2, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_GAS_USED_CONTINUITY), "DA_GAS_USED_CONTINUITY");
+TEST(GasConstrainingTest, OutOfGasDynamic)
+{
+    uint32_t opcode_l2_gas = 1;
+    uint32_t addressing_gas = 0;
+    uint32_t base_da_gas = 3;
+    uint32_t dynamic_l2_gas = 10;
+    uint32_t dynamic_da_gas = 9;
+    uint32_t dynamic_l2_gas_factor = 10;
+    uint32_t dynamic_da_gas_factor = 10;
+    uint32_t l2_gas_limit = 100;
+    uint32_t da_gas_limit = 80;
+    uint32_t prev_l2_gas_used = 0;
+    uint32_t prev_da_gas_used = 0;
+    uint64_t limit_used_l2_cmp_diff =
+        (prev_l2_gas_used + opcode_l2_gas + addressing_gas + dynamic_l2_gas * dynamic_l2_gas_factor) - l2_gas_limit - 1;
+    uint64_t limit_used_da_cmp_diff =
+        (prev_da_gas_used + base_da_gas + dynamic_da_gas * dynamic_da_gas_factor) - da_gas_limit - 1;
+
+    TestTraceContainer trace({ {
+        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_constant_64, 64 },
+        // looked up in execution.pil
+        { C::execution_opcode_gas, opcode_l2_gas },
+        { C::execution_addressing_gas, addressing_gas },
+        { C::execution_base_da_gas, base_da_gas },
+        { C::execution_dynamic_l2_gas, dynamic_l2_gas },
+        { C::execution_dynamic_da_gas, dynamic_da_gas },
+        // event
+        { C::execution_l2_gas_limit, l2_gas_limit },
+        { C::execution_da_gas_limit, da_gas_limit },
+        { C::execution_prev_l2_gas_used, prev_l2_gas_used },
+        { C::execution_prev_da_gas_used, prev_da_gas_used },
+        { C::execution_dynamic_l2_gas_factor, dynamic_l2_gas_factor },
+        { C::execution_dynamic_da_gas_factor, dynamic_da_gas_factor },
+        { C::execution_limit_used_l2_cmp_diff, limit_used_l2_cmp_diff },
+        { C::execution_limit_used_da_cmp_diff, limit_used_da_cmp_diff },
+        // out
+        { C::execution_out_of_gas_l2, 1 },
+        { C::execution_out_of_gas_da, 1 },
+        { C::execution_sel_out_of_gas, 1 },
+    } });
+    check_relation<gas>(trace);
+
+    // Can't cheat OOG.
+    trace.set(0,
+              { {
+                  { C::execution_out_of_gas_l2, 0 },
+                  { C::execution_out_of_gas_da, 0 },
+                  { C::execution_sel_out_of_gas, 0 },
+              } });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_L2_CMP_DIFF), "L2_CMP_DIFF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<gas>(trace, gas::SR_DA_CMP_DIFF), "DA_CMP_DIFF");
+}
+
+TEST(GasConstrainingTest, NoCheckNoOOG)
+{
+    TestTraceContainer trace({ {
+        { C::execution_sel_should_check_gas, 0 },
+        // out
+        { C::execution_out_of_gas_l2, 0 },
+        { C::execution_out_of_gas_da, 0 },
+        { C::execution_sel_out_of_gas, 0 },
+    } });
+    check_relation<gas>(trace);
+
+    // Can't cheat OOG.
+    trace.set(0,
+              { {
+                  { C::execution_out_of_gas_l2, 1 },
+                  { C::execution_out_of_gas_da, 1 },
+                  { C::execution_sel_out_of_gas, 1 },
+              } });
+    EXPECT_THROW(check_relation<gas>(trace), std::runtime_error);
 }
 
 } // namespace

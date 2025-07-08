@@ -35,7 +35,7 @@ import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, multicall3Abi, toHex } from 'viem';
+import { type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -104,6 +104,9 @@ export class SequencerPublisher {
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
+
+  // A CALL to a cold address is 2700 gas
+  public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
 
   // Gas report for VotingWithSigTest shows a max gas of 100k, so better err on the safe side
   public static VOTE_GAS_GUESS: bigint = 500_000n;
@@ -631,17 +634,11 @@ export class SequencerPublisher {
       args,
     });
 
-    const forwarderData = encodeFunctionData({
-      abi: multicall3Abi,
-      functionName: 'aggregate3',
-      args: [[{ target: this.rollupContract.address, allowFailure: false, callData: rollupData }]],
-    });
-
     const simulationResult = await this.l1TxUtils
       .simulate(
         {
-          to: MULTI_CALL_3_ADDRESS,
-          data: forwarderData,
+          to: this.rollupContract.address,
+          data: rollupData,
           gas: SequencerPublisher.PROPOSE_GAS_GUESS,
         },
         {
@@ -686,6 +683,11 @@ export class SequencerPublisher {
     const kzg = Blob.getViemKzgInstance();
     const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(encodedData, timestamp);
     const startBlock = await this.l1TxUtils.getBlockNumber();
+    const gasLimit = this.l1TxUtils.bumpGasLimit(
+      BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
+        blobEvaluationGas +
+        SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
+    );
 
     return this.addRequest({
       action: 'propose',
@@ -694,10 +696,7 @@ export class SequencerPublisher {
         data: rollupData,
       },
       lastValidL2Slot: block.header.globalVariables.slotNumber.toBigInt(),
-      gasConfig: {
-        ...opts,
-        gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult.gasUsed + blobEvaluationGas),
-      },
+      gasConfig: { ...opts, gasLimit },
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,
@@ -722,7 +721,7 @@ export class SequencerPublisher {
             blobCount: encodedData.blobs.length,
             inclusionBlocks,
           };
-          this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats() });
+          this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
           // Send the blobs to the blob sink

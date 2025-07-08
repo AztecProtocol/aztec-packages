@@ -10,25 +10,31 @@ describe('sequencer-timetable', () => {
   const enforce = true;
 
   beforeEach(() => {
-    timetable = new SequencerTimetable(ethereumSlotDuration, aztecSlotDuration, maxL1TxInclusionTimeIntoSlot, enforce);
+    timetable = new SequencerTimetable({
+      ethereumSlotDuration,
+      aztecSlotDuration,
+      maxL1TxInclusionTimeIntoSlot,
+      enforce,
+    });
   });
 
   describe('constructor', () => {
     it('fails to construct an instance with too short slot duration', () => {
       const aztecSlotDuration = ethereumSlotDuration;
       expect(
-        () => new SequencerTimetable(ethereumSlotDuration, aztecSlotDuration, maxL1TxInclusionTimeIntoSlot, enforce),
+        () =>
+          new SequencerTimetable({ ethereumSlotDuration, aztecSlotDuration, maxL1TxInclusionTimeIntoSlot, enforce }),
       ).toThrow(/initialize deadline cannot be negative/i);
     });
 
     it('allows a slot duration of at least two ethereum slots', () => {
       const aztecSlotDuration = ethereumSlotDuration * 2;
-      const timetable = new SequencerTimetable(
+      const timetable = new SequencerTimetable({
         ethereumSlotDuration,
         aztecSlotDuration,
         maxL1TxInclusionTimeIntoSlot,
         enforce,
-      );
+      });
       expect(timetable.initializeDeadline).toEqual(
         aztecSlotDuration -
           ethereumSlotDuration - // time to get included on L1 given maxL1TxInclusionTimeIntoSlot=0
@@ -86,7 +92,12 @@ describe('sequencer-timetable', () => {
     });
 
     it('skips check if enforcement is off', () => {
-      timetable = new SequencerTimetable(ethereumSlotDuration, aztecSlotDuration, maxL1TxInclusionTimeIntoSlot, false);
+      timetable = new SequencerTimetable({
+        ethereumSlotDuration,
+        aztecSlotDuration,
+        maxL1TxInclusionTimeIntoSlot,
+        enforce: false,
+      });
       expect(() => timetable.assertTimeLeft(SequencerState.INITIALIZING_PROPOSAL, 1000)).not.toThrow();
     });
   });

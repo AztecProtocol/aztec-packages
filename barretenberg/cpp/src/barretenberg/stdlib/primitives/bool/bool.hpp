@@ -10,7 +10,52 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
-
+/**
+ * @brief Implements boolean logic in-circuit.
+ *
+ * @details
+ * ## Representing bools in-circuit
+ *
+ * To avoid constraining negation operations, we represent an in-circuit boolean \f$ a \f$ by a witness value \f$ w_a
+ * \f$ and an `witness_inverted` flag \f$ i_a \f$. The value of \f$ a \f$ is defined via the equation:
+ *
+ * \f{align}{ w_a \oplus i_a = w_a + i_a - 2 \cdot i_a \cdot w_a \f}
+ *
+ * and can be read from the following table
+ * | w_a | i_a | a = w_a + i_a - 2 i_a w_a |
+ * |  -  |  -  | ------------------------- |
+ * |  0  |  0  |            0              |
+ * |  0  |  1  |            1              |
+ * |  1  |  0  |            1              |
+ * |  1  |  1  |            0              |
+ *
+ * When a new bool_t element \f$ a \f$ is created, its `witness_inverted` flag is set to `false` and
+ * its `witness_value` is constrained to be \f$ 0 \f$  or \f$ 1\f$. More precisely, if \f$ a \f$ is a witness, then we
+ * add a boolean constraint ensuring \f$ w_a^2 = w_a \f$, if \f$ a \f$ is a constant bool_t element, then it's checked
+ * by an **ASSERT**.
+ *
+ * To negate \f$ a \f$ we simply flip the flag. Other basic operations are deduced from their algebraic representations
+ * and the result is constrained to satisfy corresponding algebraic equation.
+ *
+ * ## Detailed example of an operation (logical OR)
+ *
+ * For example, to produce \f$ a || b \f$ in circuit, we compute
+ * \f{align}{
+ *     a + b - a \cdot b =  ( w_a \cdot (1- 2 i_a) + i_a) + ( w_b \cdot (1 - 2 i_b) + i_b) -
+ *                       ( w_a \cdot (1-2 i_a) + i_a) ( w_b \cdot (1 - 2 i_b) + i_b)
+ * \f}
+ * Thus we can use a `poly` gate to constrain the result of a || b as follows:
+ *
+ * \f{align}{  q_m \cdot w_a \cdot w_b + q_l \cdot w_a + q_r \cdot w_b + q_o \cdot (a || b) + q_c  = 0\f}
+ * where
+ *    \f{eqnarray*}    q_m &=& -(1 - 2*i_a) * (1 - 2*i_b)   \\
+ *                     q_l &=& (1 - 2 * i_a) * (1 - i_b)    \\
+ *                     q_r &=& (1 - 2 * i_b) * (1 - i_a)    \\
+ *                     q_o &=& -1                            \\
+ *                     q_c &=& i_a + i_b - i_a * i_b        \f}
+ * As \f$ w_a \f$  and \f$ w_b \f$ are constrained to be boolean, \f$ i_a \f$, \f$ i_b\f$ are boolean flags, we see that
+ * \f$ (a || b)^2 = (a || b)\f$ (as a field element).
+ */
 template <typename Builder> class bool_t {
   public:
     bool_t(const bool value = false);
@@ -60,8 +105,6 @@ template <typename Builder> class bool_t {
     static bool_t conditional_assign(const bool_t<Builder>& predicate, const bool_t& lhs, const bool_t& rhs);
 
     void must_imply(const bool_t& other, std::string const& msg = "bool_t::must_imply") const;
-
-    void must_imply(const std::vector<std::pair<bool_t, std::string>>& conds) const;
 
     bool get_value() const { return witness_bool ^ witness_inverted; }
 

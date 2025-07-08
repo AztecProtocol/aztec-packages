@@ -60,7 +60,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
         , vks_to_fold(DeciderVerificationKeys_(vks))
-        , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
+        , commitment_key(keys_to_fold[1]->commitment_key)
         , transcript(transcript)
         , pg_internal(trace_usage_tracker)
     {

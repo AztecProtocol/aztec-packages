@@ -50,7 +50,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     Builder builder;
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    VerificationKey vk{ proving_key->proving_key };
+    VerificationKey vk{ proving_key->get_precomputed() };
 
     // First method of hashing: using to_field_elements and add_to_hash_buffer.
     std::vector<fr> vk_field_elements = vk.to_field_elements();
@@ -90,6 +90,6 @@ TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
+    typename Flavor::VerificationKey verification_key(proving_key->get_precomputed());
     EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }

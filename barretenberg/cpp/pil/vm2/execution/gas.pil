@@ -15,9 +15,7 @@ include "../range_check.pil";
 namespace execution;
 
     #[skippable_if]
-    sel = 0;  // From execution.pil.
-    // NOTE: we can't use sel_should_check_gas here because we have propagation constraints
-    // that should always be applied.
+    sel_should_check_gas = 0;  // From execution.pil.
 
     // ==== BASE GAS ====
 
@@ -76,6 +74,7 @@ namespace execution;
     pol LIMIT_LT_USED_L2 =  PREV_GAS_PLUS_USAGE_L2 - l2_gas_limit - 1;
     pol commit limit_used_l2_cmp_diff;
     // We multiply by sel_should_check_gas to force a 0 if we shouldn't check the gas.
+    #[L2_CMP_DIFF]
     limit_used_l2_cmp_diff = sel_should_check_gas * ((LIMIT_LT_USED_L2 - LIMIT_GTE_USED_L2) * out_of_gas_l2 + LIMIT_GTE_USED_L2);
 
     #[LIMIT_USED_L2_RANGE]
@@ -90,6 +89,7 @@ namespace execution;
     pol LIMIT_LT_USED_DA =  PREV_GAS_PLUS_USAGE_DA - da_gas_limit - 1;
     pol commit limit_used_da_cmp_diff;
     // We multiply by sel_should_check_gas to force a 0 if we shouldn't check the gas.
+    #[DA_CMP_DIFF]
     limit_used_da_cmp_diff = sel_should_check_gas * ((LIMIT_LT_USED_DA - LIMIT_GTE_USED_DA) * out_of_gas_da + LIMIT_GTE_USED_DA);
 
     #[LIMIT_USED_DA_RANGE]
@@ -102,29 +102,3 @@ namespace execution;
     // If we shouldn't check the gas, you shouldn't be able to claim out of gas.
     // This indirectly enforces that you can't claim out_of_gas_l2 nor out_of_gas_da.
     (1 - sel_should_check_gas) * sel_out_of_gas = 0;
-
-    // ==== GAS USED CONSTRAINING ====
-
-    // If any error happened during execution (i.e., sel_error=1), all gas should be consumed.
-    pol SEL_CONSUMED_ALL_GAS = sel_error;
-    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
-    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;
-
-    // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
-    // sel_enter_call   = 1 <==> prev_gas_used' = 0
-    // otherwise        = 0 <==> prev_gas_used' = gas_used
-    pol commit prev_l2_gas_used;
-    pol commit prev_da_gas_used;
-
-    #[L2_GAS_USED_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (l2_gas_used - prev_l2_gas_used') = 0;
-    #[L2_GAS_USED_ZERO_AFTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * prev_l2_gas_used' = 0;
-    #[L2_GAS_USED_INGEST_AFTER_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (parent_l2_gas_used + l2_gas_used - prev_l2_gas_used') = 0;
-    #[DA_GAS_USED_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (da_gas_used - prev_da_gas_used') = 0;
-    #[DA_GAS_USED_ZERO_AFTER_CALL]
-    NOT_LAST_EXEC * sel_enter_call * prev_da_gas_used' = 0;
-    #[DA_GAS_USED_INGEST_AFTER_EXIT]
-    NOT_LAST_EXEC * nested_exit_call * (parent_da_gas_used + da_gas_used - prev_da_gas_used') = 0;

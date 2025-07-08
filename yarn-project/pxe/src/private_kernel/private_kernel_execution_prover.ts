@@ -272,9 +272,24 @@ export class PrivateKernelExecutionProver {
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    // TODO: Enable padding when we have a better what are the final amounts we should pad to.
+    // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, paddedSideEffectAmounts);
+
+    // Use the aggregated includeByTimestamp set throughout the tx execution.
+    // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
+    const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
+    const blockTimestamp = previousKernelData.publicInputs.constants.historicalHeader.globalVariables.timestamp;
+    if (includeByTimestampUpperBound <= blockTimestamp) {
+      throw new Error(
+        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+      );
+    }
+
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
+      previousKernelData,
+      paddedSideEffectAmounts,
+      includeByTimestampUpperBound,
+    );
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 

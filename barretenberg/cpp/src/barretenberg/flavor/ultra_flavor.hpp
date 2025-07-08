@@ -329,24 +329,8 @@ class UltraFlavor {
             }
         }
     };
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
-      public:
-        using Base = ProvingKey_<FF, CommitmentKey>;
 
-        ProvingKey() = default;
-        ProvingKey(const size_t dyadic_circuit_size,
-                   const size_t num_public_inputs,
-                   CommitmentKey commitment_key = CommitmentKey())
-            : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-    };
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -369,20 +353,18 @@ class UltraFlavor {
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
-        VerificationKey(ProvingKey& proving_key)
-        {
-            this->circuit_size = proving_key.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
-            if (!proving_key.commitment_key.initialized()) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
+        VerificationKey(const PrecomputedData& precomputed)
+        {
+            this->circuit_size = precomputed.metadata.dyadic_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = precomputed.metadata.num_public_inputs;
+            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
+
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 

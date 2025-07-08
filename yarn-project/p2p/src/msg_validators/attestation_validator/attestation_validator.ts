@@ -19,7 +19,7 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
       }
 
       const attester = message.getSender();
-      if (!(await this.epochCache.isInCommittee(attester))) {
+      if (!(await this.epochCache.isInCommittee(slotNumberBigInt, attester))) {
         return PeerErrorSeverity.HighToleranceError;
       }
       return undefined;

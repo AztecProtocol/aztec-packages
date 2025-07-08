@@ -40,14 +40,10 @@ template <typename Builder> class UintFuzzBase {
   private:
     typedef bb::stdlib::bool_t<Builder> bool_t;
 
-    using uint_8_t =
-        typename std::conditional<HasPlookup<Builder>, bb::stdlib::uint_plookup<Builder, uint8_t>, void>::type;
-    using uint_16_t =
-        typename std::conditional<HasPlookup<Builder>, bb::stdlib::uint_plookup<Builder, uint16_t>, void>::type;
-    using uint_32_t =
-        typename std::conditional<HasPlookup<Builder>, bb::stdlib::uint_plookup<Builder, uint32_t>, void>::type;
-    using uint_64_t =
-        typename std::conditional<HasPlookup<Builder>, bb::stdlib::uint_plookup<Builder, uint64_t>, void>::type;
+    using uint_8_t = bb::stdlib::uint8<Builder>;
+    using uint_16_t = bb::stdlib::uint16<Builder>;
+    using uint_32_t = bb::stdlib::uint32<Builder>;
+    using uint_64_t = bb::stdlib::uint64<Builder>;
     typedef bb::stdlib::field_t<Builder> field_t;
     typedef bb::stdlib::byte_array<Builder> byte_array_t;
 

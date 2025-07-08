@@ -1,4 +1,9 @@
-import { MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASHES_PER_TX, VK_TREE_HEIGHT } from '@aztec/constants';
+import {
+  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -32,6 +37,8 @@ describe('Private Kernel Sequencer', () => {
   let dependencies: { [name: string]: string[] } = {};
 
   const contractAddress = AztecAddress.fromBigInt(987654n);
+  const blockTimestamp = 12345n;
+  const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
@@ -74,6 +81,8 @@ describe('Private Kernel Sequencer', () => {
 
   const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
+    publicInputs.constants.historicalHeader.globalVariables.timestamp = blockTimestamp;
+    publicInputs.includeByTimestamp = includeByTimestamp;
     publicInputs.end.noteHashes = new ClaimedLengthArray(
       padArrayEnd(
         newNoteIndices.map(newNoteIndex =>

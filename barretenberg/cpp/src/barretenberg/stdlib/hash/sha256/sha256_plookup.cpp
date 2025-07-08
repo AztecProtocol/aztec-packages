@@ -6,7 +6,6 @@
 
 #include "sha256_plookup.hpp"
 
-#include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
