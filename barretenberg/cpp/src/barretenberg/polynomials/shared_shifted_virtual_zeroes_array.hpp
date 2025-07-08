@@ -10,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
+#include <memory>
 
 template <typename T> struct AlignedMemory {
 
