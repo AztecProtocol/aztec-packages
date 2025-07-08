@@ -26,20 +26,17 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     auto builder = std::make_shared<Builder>();
 
-    // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
-    // circuit
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
-    // these public inputs by turning proof into witnesses and calling set_public on each witness
-    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(vk.mega->num_public_inputs));
-    num_inner_public_inputs -= bb::PAIRING_POINTS_SIZE; // don't add the agg object
-
-    for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder->add_public_variable(proof.mega_proof[i]);
-    }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 
     StdlibProof stdlib_proof(*builder, proof);
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
+
+    // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
+    // Exclude the pairing points which are handled separately.
+    auto num_inner_public_inputs = vk.mega->num_public_inputs - bb::PAIRING_POINTS_SIZE;
+    for (size_t i = 0; i < num_inner_public_inputs; i++) {
+        stdlib_proof.mega_proof[i].set_public();
+    }
 
     client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
