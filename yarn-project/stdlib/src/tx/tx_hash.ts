@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
 
 import { schemas } from '../schemas/index.js';
 
@@ -64,5 +64,25 @@ export class TxHash {
 
   static get SIZE() {
     return Fr.SIZE_IN_BYTES;
+  }
+}
+
+/**
+ * Helper class to handle Serialization and Deserialization of TxHashes array.
+ **/
+export class TxHashArray extends Array<TxHash> {
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const hashes = reader.readVector(TxHash);
+
+      return new TxHashArray(...hashes);
+    } catch {
+      return new TxHashArray();
+    }
+  }
+
+  public toBuffer(): Buffer {
+    return serializeArrayOfBufferableToVector([...this]);
   }
 }
