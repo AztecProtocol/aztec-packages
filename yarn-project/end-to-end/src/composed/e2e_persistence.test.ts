@@ -104,7 +104,7 @@ describe('Aztec persistence', () => {
   }, 180_000);
 
   const progressBlocksPastDelay = async (contract: TokenBlacklistContract) => {
-    for (let i = 0; i < BlacklistTokenContractTest.DELAY; ++i) {
+    for (let i = 0; i < BlacklistTokenContractTest.CHANGE_ROLES_DELAY; ++i) {
       await contract.methods.get_roles(owner.address).send().wait();
     }
   };
