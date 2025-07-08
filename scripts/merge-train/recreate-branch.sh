@@ -69,16 +69,17 @@ for PR_DATA in $PR_LIST; do
     continue
   fi
 
-  # Try to merge with the old SHA
-  if git merge -q "$HEAD_COMMIT" && git merge -q -X ours "origin/$BASE"; then
-    if git push origin "$BR" 2>/dev/null; then
-        echo "✓ PR #$PR_NUM merged successfully"
-    else
-        echo "✗ Could not push to $BR for PR #$PR_NUM"
-    fi
-  else
-    git merge --abort || true
-    echo "✗ PR #$PR_NUM has conflicts, skipping"
-  fi
+  # TODO make PR comment on $PR_NUM
+  # TODO dont display this if $BR has none of the commits from the set of merge-base($BR, $BASE) to $HEAD_COMMIT
+    tips="This had commits from $MT but it has now been squashed.
+Consider running the following commands to rebase onto the new $MT:
+\`\`\`
+# Merge the old PR head before recreation.
+# If you currently have conflicts, you will resolve them here.
+git merge $HEAD_COMMIT
+# Rebase onto $BASE, ignoring commits recieved from the old $MT.
+git rebase --onto $$(git merge-base $HEAD_COMMIT) $MERGE_COMMIT
+\`\`\`"
+
 done
 
