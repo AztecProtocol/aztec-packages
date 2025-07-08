@@ -69,7 +69,7 @@ export async function signVoteWithSig(
   }
 
   const signatureHex = await walletClient.signTypedData({
-    account: walletClient.account.address,
+    account: walletClient.account,
     domain,
     types,
     primaryType: 'Vote',
