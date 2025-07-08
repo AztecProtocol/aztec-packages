@@ -25,7 +25,7 @@ template <typename T> struct FileBackedMemory {
 
     static std::string generate_unique_filename() {}
 
-    static std::shared_ptr<Value> allocate(size_t size) { return std::make_shared<FileBackedMemory>(size); }
+    static std::shared_ptr<Value> allocate(size_t size) { return std::shared_ptr<Value>(new FileBackedMemory(size)); }
 
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
     FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
@@ -33,7 +33,23 @@ template <typename T> struct FileBackedMemory {
     FileBackedMemory(FileBackedMemory&& other) = delete;            // delete move constructor
     FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
 
-    static T* get_data(const std::shared_ptr<Value> backing_memory) { return backing_memory->data(); }
+    static T* get_data(const std::shared_ptr<Value> backing_memory) { return backing_memory->memory; }
+
+    ~FileBackedMemory()
+    {
+        if (file_size == 0) {
+            return;
+        }
+        if (memory != nullptr && file_size > 0) {
+            munmap(memory, file_size);
+        }
+        if (fd >= 0) {
+            close(fd);
+        }
+        if (!filename.empty()) {
+            std::filesystem::remove(filename);
+        }
+    }
 
   private:
     // Create a new file-backed memory region
@@ -66,22 +82,6 @@ template <typename T> struct FileBackedMemory {
         }
 
         memory = static_cast<T*>(addr);
-    }
-
-    ~FileBackedMemory()
-    {
-        if (file_size == 0) {
-            return;
-        }
-        if (memory != nullptr && file_size > 0) {
-            munmap(memory, file_size);
-        }
-        if (fd >= 0) {
-            close(fd);
-        }
-        if (!filename.empty()) {
-            std::filesystem::remove(filename);
-        }
     }
 
     size_t file_size;

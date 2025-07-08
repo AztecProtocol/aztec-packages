@@ -230,7 +230,6 @@
       "inherits": "clang16",
       "binaryDir": "build-low-memory",
       "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_CXX_FLAGS": "-DBB_SLOW_LOW_MEMORY"
       }
     },
