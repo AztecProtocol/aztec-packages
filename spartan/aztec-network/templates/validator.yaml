@@ -204,6 +204,8 @@ spec:
               value: {{ .Values.aztec.slash.inactivitySignalTargetPercentage | quote }}
             - name: SLASH_INACTIVITY_CREATE_PENALTY
               value: {{ .Values.aztec.slash.inactivityCreatePenalty | quote }}
+            - name: SLASH_INACTIVITY_MAX_PENALTY
+              value: {{ .Values.aztec.slash.inactivityMaxPenalty | quote }}
             - name: SLASH_INVALID_BLOCK_ENABLED
               value: {{ .Values.aztec.slash.invalidBlockEnabled | quote }}
             - name: SLASH_INVALID_BLOCK_PENALTY
