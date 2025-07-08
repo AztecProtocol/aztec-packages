@@ -75,6 +75,7 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**

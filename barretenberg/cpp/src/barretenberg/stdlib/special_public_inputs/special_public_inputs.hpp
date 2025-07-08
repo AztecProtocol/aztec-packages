@@ -27,28 +27,27 @@ class KernelIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicKey = PublicComponentKey;
 
-    // PairingInputs pairing_inputs;
+    PairingInputs pairing_inputs;
     G1 kernel_return_data;
     G1 app_return_data;
     // G1 ecc_op_table;
     // FF pg_acc_hash;
 
     // Total size of the kernel IO public inputs, which includes
-    static constexpr size_t KERNEL_IO_PUBLIC_INPUTS_SIZE =
+    static constexpr size_t PUBLIC_INPUTS_SIZE =
         PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Reconstructs the IO components from a public inputs array.
      *
      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
-     * @param start_idx Index at which the kernel public inputs are to be extracted.
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
-        uint32_t index = static_cast<uint32_t>(public_inputs.size() - KERNEL_IO_PUBLIC_INPUTS_SIZE);
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
-        // pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
@@ -63,9 +62,9 @@ class KernelIO {
      * @brief Set each IO component to be a public input of the underlying circuit.
      *
      */
-    void set_public() const
+    void set_public()
     {
-        // pairing_inputs.set_public();
+        pairing_inputs.set_public();
         kernel_return_data.set_public();
         app_return_data.set_public();
         // ecc_op_table.set_public();
@@ -73,40 +72,40 @@ class KernelIO {
     }
 };
 
-// class AppIO {
-//   public:
-//     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
-//     using Curve = stdlib::bn254<Builder>; // curve is always bn254
-//     using FF = typename Curve::ScalarField;
-//     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+class AppIO {
+  public:
+    using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
+    using Curve = stdlib::bn254<Builder>; // curve is always bn254
+    using G1 = typename Curve::Group;
+    using FF = typename Curve::ScalarField;
+    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
 
-//     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
-//     using PublicKey = PublicComponentKey;
+    using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+    using PublicKey = PublicComponentKey;
 
-//     PairingInputs pairing_inputs;
+    PairingInputs pairing_inputs;
 
-//     /**
-//      * @brief Reconstructs the IO components from a public inputs array.
-//      *
-//      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
-//      * @param start_idx Index at which the kernel public inputs are to be extracted.
-//      */
-//     void reconstruct_from_public(const std::vector<FF>& public_inputs, uint32_t start_idx = 0)
-//     {
-//         uint32_t index = start_idx;
-//         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
-//     }
+    // Total size of the kernel IO public inputs, which includes
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE;
 
-//     /**
-//      * @brief Set each IO component to be a public input of the underlying circuit.
-//      *
-//      */
-//     void set_public()
-//     {
-//         Builder* builder = pairing_inputs.P0.get_context();
-//         builder->pairing_inputs_public_input_key.start_idx = pairing_inputs.set_public();
-//     }
-// };
+    /**
+     * @brief Reconstructs the IO components from a public inputs array.
+     *
+     * @param public_inputs Public inputs array containing the serialized kernel public inputs.
+     */
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
+    {
+        // Assumes that the app-io public inputs are at the end of the public_inputs vector
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
+    }
+
+    /**
+     * @brief Set each IO component to be a public input of the underlying circuit.
+     *
+     */
+    void set_public() { pairing_inputs.set_public(); }
+};
 
 // class RollupIO {
 //   public:
