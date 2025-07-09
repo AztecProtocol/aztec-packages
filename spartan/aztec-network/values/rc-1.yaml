@@ -16,7 +16,7 @@ images:
 
 ethereum:
   execution:
-    client: "geth"
+    client: "reth"
 
 telemetry:
   enabled: true
