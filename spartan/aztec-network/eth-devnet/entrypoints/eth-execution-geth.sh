@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Initialize geth with genesis if not already done
 if [ ! -f "/data/geth/chaindata/CURRENT" ]; then

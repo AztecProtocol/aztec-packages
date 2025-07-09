@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
 
 # Get the execution client from the first argument
 execution_client=${1:-"reth"}
