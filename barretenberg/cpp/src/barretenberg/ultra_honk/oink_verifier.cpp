@@ -46,11 +46,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    verification_key->vk->add_to_transcript(domain_separator, *transcript);
+    FF vkey_hash = verification_key->vk->add_hash_to_transcript(domain_separator, *transcript);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Update solidity contract to generate vkey hash
     // from transcript.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
         vinfo("vk hash in Oink verifier: ", vkey_hash);
     }
 

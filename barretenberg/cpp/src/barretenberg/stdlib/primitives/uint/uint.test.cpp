@@ -74,7 +74,7 @@ uint_native rotate(uint_native value, size_t rotation)
                     : value;
 }
 template <typename Builder> class stdlib_uint : public testing::Test {
-    using uint_ct = stdlib::uint_plookup<Builder, uint_native>;
+    using uint_ct = stdlib::uint<Builder, uint_native>;
     using bool_ct = stdlib::bool_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
     using byte_array_ct = stdlib::byte_array<Builder>;
@@ -1911,6 +1911,7 @@ TYPED_TEST(stdlib_uint, test_at)
 }
 
 // There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
+// TODO: either remove this test or move it to a more appropriate location
 TEST(stdlib_uint32, test_accumulators_plookup_uint32)
 {
     using uint32_ct = stdlib::uint32<bb::UltraCircuitBuilder>;
