@@ -23,7 +23,7 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key, transcript };
+    MergeProver merge_prover{ op_queue, MergeSettings::PREPEND, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -94,7 +94,7 @@ bool Goblin::verify(const GoblinProof& proof,
                     const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
                     const std::shared_ptr<Transcript>& transcript)
 {
-    MergeVerifier merge_verifier(transcript);
+    MergeVerifier merge_verifier(MergeSettings::PREPEND, transcript);
     bool merge_verified = merge_verifier.verify_proof(proof.merge_proof, t_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);

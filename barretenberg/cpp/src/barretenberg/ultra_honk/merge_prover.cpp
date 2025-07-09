@@ -16,14 +16,12 @@ namespace bb {
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          CommitmentKey commitment_key,
-                         const std::shared_ptr<Transcript>& transcript,
-                         MergeSettings settings)
+                         const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     , pcs_commitment_key(commitment_key.initialized() ? commitment_key
                                                       : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
-    , transcript(transcript)
-    , settings(settings){};
+    , transcript(transcript){};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -50,10 +48,10 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     const size_t current_table_size = T_current[0].size();
 
-    //
-    const size_t shift_size = settings == MergeSettings::PREPEND ? t_current[0].size() : T_prev[0].size();
-    info("T prev size: ", T_prev[0].size());
-    info("Shift size: ", shift_size);
+    // TODO(): Once the op queue is fixed we won't have to send the shift size in append mode, ensuring the last merge
+    // proof, for an appended subtable, sent to the  rollup is zero-knowledge.
+    const size_t shift_size =
+        op_queue->get_current_settings() == MergeSettings::PREPEND ? t_current[0].size() : T_prev[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript

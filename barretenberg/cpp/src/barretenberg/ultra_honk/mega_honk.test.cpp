@@ -92,10 +92,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
      */
-    bool construct_and_verify_merge_proof(auto& op_queue, MergeSettings settings = MergeSettings::PREPEND)
+    bool construct_and_verify_merge_proof(auto& op_queue)
     {
-        MergeProver merge_prover{ op_queue, settings };
-        MergeVerifier merge_verifier{ settings };
+        MergeProver merge_prover{ op_queue };
+        MergeVerifier merge_verifier{ op_queue->get_current_settings() };
         auto merge_proof = merge_prover.construct_proof();
         std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments_val;
 
@@ -297,16 +297,61 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
-    size_t NUM_CIRCUITS = 1;
+    size_t NUM_CIRCUITS = 3;
+    for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
+        auto builder = typename Flavor::CircuitBuilder{ op_queue };
+
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        // Construct and verify Goblin ECC op queue Merge proof
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+        EXPECT_TRUE(merge_verified);
+    }
+}
+
+TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnlyAppend)
+{
+    using Flavor = TypeParam;
+    // Instantiate EccOpQueue. This will be shared across all circuits in the series
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
+    size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
         auto builder = typename Flavor::CircuitBuilder{ op_queue, MergeSettings::APPEND };
 
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = this->construct_and_verify_merge_proof(op_queue, MergeSettings::APPEND);
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
+}
+
+TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnlyPrependThenAppend)
+{
+    using Flavor = TypeParam;
+    // Instantiate EccOpQueue. This will be shared across all circuits in the series
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
+    size_t NUM_CIRCUITS = 3;
+    for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
+        auto builder = typename Flavor::CircuitBuilder{ op_queue };
+
+        GoblinMockCircuits::construct_simple_circuit(builder);
+
+        // Construct and verify Goblin ECC op queue Merge proof
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+        EXPECT_TRUE(merge_verified);
+    }
+
+    // Construct a final circuit and append its ecc ops to the op queue
+    auto builder = typename Flavor::CircuitBuilder{ op_queue, MergeSettings::APPEND };
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct and verify Goblin ECC op queue Merge proof
+    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+    EXPECT_TRUE(merge_verified);
 }
 
 /**
@@ -356,9 +401,22 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
+
+    // Construct a final circuit whose ecc ops will be appended rather than prepended to the op queue
+    auto builder = typename Flavor::CircuitBuilder{ op_queue, MergeSettings::APPEND };
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct and verify Honk proof
+    bool honk_verified = this->construct_and_verify_honk_proof(builder);
+    EXPECT_TRUE(honk_verified);
+
+    // Construct and verify Goblin ECC op queue Merge proof
+    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+    EXPECT_TRUE(merge_verified);
 }
 
 /**
@@ -430,15 +488,15 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 /**
  * @brief A sanity check that a simple std::swap on a ProverPolynomials object works as expected
  * @details Constuct two valid proving keys. Tamper with the prover_polynomials of one key then swap the
- * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while the
- * other succeeds.
+ * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while
+ * the other succeeds.
  *
  */
 TYPED_TEST(MegaHonkTests, PolySwap)
 {
     using Flavor = TypeParam;
-    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
-    // i=1,2,3. This mechanism does not work with structured polynomials yet.
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i,
+    // for i=1,2,3. This mechanism does not work with structured polynomials yet.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
     // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {

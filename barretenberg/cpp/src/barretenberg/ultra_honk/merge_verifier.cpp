@@ -34,7 +34,6 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     transcript->load_proof(proof);
 
     const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
-    info("Shift size: ", shift_size);
 
     // Receive table column polynomial commitments [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
@@ -60,28 +59,23 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
 
-    // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa). If it fails, return false
+    // Check the identity according to whether the current subtable is prepended or appended. If it fails, return false
     bool identity_checked = true;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        bool current_check = true;
+        bool current_check = false;
         if (settings == MergeSettings::PREPEND) {
+            // In prepend mode we shift the evaluation of the previous table and check the identity
+            // T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa)
             FF T_prev_shifted_eval = T_prev_evals[idx] * kappa.pow(shift_size);
             current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval;
         } else {
+            // In append mode we shift the evaluation of the new subtable and check the identity
+            // T_j(\kappa) =  T_{j,prev}(\kappa) + \kappa^m * t_j(\kappa)
             FF t_shifted_eval = t_evals[idx] * kappa.pow(shift_size);
             current_check = T_evals[idx] == T_prev_evals[idx] + t_shifted_eval;
-            info("current check for idx ",
-                 idx,
-                 ": ",
-                 current_check,
-                 " first ",
-                 T_evals[idx],
-                 "second  ",
-                 t_shifted_eval + T_prev_evals[idx]);
         }
         identity_checked = identity_checked && current_check;
     }
-    info("Identity check result: ", identity_checked);
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
 
