@@ -176,13 +176,17 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
             .alu_ib_tag = tag,
             .alu_ic = c,
             .alu_ic_tag = static_cast<uint8_t>(MemoryTag::U1),
-            .alu_lt_abs_diff = lt_abs_diff,
+            .alu_lt_ops_abs_diff = lt_abs_diff,
+            .alu_lt_ops_input_a = a,
+            .alu_lt_ops_input_b = b,
+            .alu_lt_ops_result_c = c,
             .alu_max_bits = max_bits,
             .alu_max_value = max_value,
             .alu_op_id = AVM_EXEC_OP_ID_ALU_LT,
             .alu_sel = 1,
-            .alu_sel_ff_lt = static_cast<uint8_t>(is_ff),
+            .alu_sel_ff_lt_ops = static_cast<uint8_t>(is_ff),
             .alu_sel_is_ff = static_cast<uint8_t>(is_ff),
+            .alu_sel_lt_ops = 1,
             .alu_sel_op_lt = 1,
             .alu_tag_ff_diff_inv = is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
             .execution_mem_tag_reg_0_ = tag,                                 // = ia_tag
@@ -373,12 +377,13 @@ TEST(AluConstrainingTest, NegativeLTU8)
     check_all_interactions<AluTraceBuilder>(trace);
     bool c = trace.get(Column::alu_ic, 0) == 1;
     trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
     // Which value to range check differs based on c (here, c = 1 => check b - a - 1, c = 0 => check a - b), so that is
     // the first relation failure...
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
-    auto new_result_to_range_check = -trace.get(Column::alu_lt_abs_diff, 0);
+    auto new_result_to_range_check = -trace.get(Column::alu_lt_ops_abs_diff, 0);
     new_result_to_range_check = c ? new_result_to_range_check + 1 : new_result_to_range_check - 1;
-    trace.set(Column::alu_lt_abs_diff, 0, new_result_to_range_check);
+    trace.set(Column::alu_lt_ops_abs_diff, 0, new_result_to_range_check);
     // ...now, we are range checking the correct value...
     check_relation<alu>(trace);
     // ..but the check itself correctly fails (note: new_result_to_range_check doesn't fit in a u128, I'm just adding an
@@ -400,11 +405,12 @@ TEST(AluConstrainingTest, NegativeLTU64)
     auto a = trace.get(Column::alu_ia, 0);
     auto wrong_b = c ? a - 1 : a + 1;
     trace.set(Column::alu_ib, 0, wrong_b);
+    trace.set(Column::alu_lt_ops_input_b, 0, wrong_b);
     // The absolute diff is now wrong:
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
     // Correct the diff based on incorrect c:
     auto new_abs_diff = c ? wrong_b - a - 1 : a - wrong_b;
-    trace.set(Column::alu_lt_abs_diff, 0, new_abs_diff);
+    trace.set(Column::alu_lt_ops_abs_diff, 0, new_abs_diff);
     // Now, we are range checking the correct value...
     check_relation<alu>(trace);
     // ..but the check itself correctly fails (note: new_result_to_range_check doesn't fit in a u128, I'm just adding an
@@ -422,6 +428,7 @@ TEST(AluConstrainingTest, NegativeLTFF)
     check_all_interactions<AluTraceBuilder>(trace);
     bool c = trace.get(Column::alu_ic, 0) == 1;
     trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
     // We rely on lookups, so we expect the relations to still pass...
     check_relation<alu>(trace);
     // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
