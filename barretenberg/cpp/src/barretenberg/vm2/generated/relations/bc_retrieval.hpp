@@ -30,7 +30,7 @@ template <typename FF_> class bc_retrievalImpl {
     {
         using C = ColumnAndShifts;
 
-        const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
+        const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -61,7 +61,7 @@ template <typename FF_> class bc_retrievalImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
+            auto tmp = in.get(C::bc_retrieval_sel) * (constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS -
                                                       in.get(C::bc_retrieval_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);

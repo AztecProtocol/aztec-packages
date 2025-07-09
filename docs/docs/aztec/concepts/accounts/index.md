@@ -98,7 +98,7 @@ Account contracts are tightly coupled to the wallet software that users use to i
 
 ### Account Initialization
 
-When a user wants to interact with the network's **public** state, they need to deploy their account contract. A contract instance is considered to be publicly deployed when it has been broadcasted to the network via the canonical `ContractInstanceDeployer` contract, which also emits a deployment nullifier associated to the deployed instance.
+When a user wants to interact with the network's **public** state, they need to deploy their account contract. A contract instance is considered to be publicly deployed when it has been broadcasted to the network via the canonical `ContractInstanceRegistry` contract, which also emits a deployment nullifier associated to the deployed instance.
 
 However, to send fully **private** transactions, it's enough to initialize the account contract (public deployment is not needed). The default state for any given address is to be uninitialized, meaning a function with the [initializer annotation](../../../developers/tutorials/codealong/contract_tutorials/nft_contract.md#initializer) has not been called. The contract is initialized when one of the functions marked with the `#[initializer]` annotation has been invoked. Multiple functions in the contract can be marked as initializers. Contracts may have functions that skip the initialization check (marked with `#[noinitcheck]`).
 
