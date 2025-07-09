@@ -217,7 +217,8 @@ describe('SlasherClient', () => {
         // Have the slasher sign the vote request
         const voteRequest = await slashingProposer.createVoteRequestWithSignature(
           payload!.toString(),
-          slasherL1Client,
+          slasherL1Client.chain.id,
+          slasherPrivateKey.address,
           msg => slasherPrivateKey.sign({ hash: msg }),
         );
 

@@ -4,7 +4,6 @@ import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 import { type Hex, encodeFunctionData, hashTypedData } from 'viem';
 
 import type { L1TxRequest } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient } from '../types.js';
 
 export interface IEmpireBase {
   getRoundInfo(rollupAddress: Hex, round: bigint): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }>;
@@ -12,7 +11,8 @@ export interface IEmpireBase {
   createVoteRequest(payload: Hex): L1TxRequest;
   createVoteRequestWithSignature(
     payload: Hex,
-    wallet: ExtendedViemWalletClient,
+    chainId: number,
+    signerAddress: Hex,
     signer: (msg: Hex) => Promise<Hex>,
   ): Promise<L1TxRequest>;
 }
