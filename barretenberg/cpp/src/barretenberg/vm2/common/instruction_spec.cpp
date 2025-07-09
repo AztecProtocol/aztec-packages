@@ -541,6 +541,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .register_info = RegisterInfo()
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::NULLIFIEREXISTS,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_NULLIFIEREXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*nullifier*/ ValueTag::FF,
+                                           /*address*/ ValueTag::FF })
+                             .add_output(/*exists*/) } },
     { ExecutionOpCode::GETCONTRACTINSTANCE,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
