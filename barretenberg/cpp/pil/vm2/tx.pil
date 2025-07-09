@@ -186,7 +186,8 @@ namespace tx;
     //     prev_num_nullifiers_emitted,
     //     prev_public_data_tree_root,
     //     prev_public_data_tree_size,
-    //     prev_num_pub_data_writes_emitted,
+    //     prev_written_public_data_slots_tree_root,
+    //     prev_written_public_data_slots_tree_size,
     //     // Gas Info
     //     prev_l2_gas_used_sent_to_enqueued_call,
     //     prev_da_gas_used_sent_to_enqueued_call,
@@ -208,7 +209,8 @@ namespace tx;
     //     execution.prev_num_nullifiers_emitted,
     //     execution.prev_public_data_tree_root,
     //     execution.prev_public_data_tree_size,
-    //     execution.prev_num_pub_data_writes_emitted,
+    //     execution.prev_written_public_data_slots_tree_root,
+    //     execution.prev_written_public_data_slots_tree_size,
     //     // Gas Info
     //     execution.prev_l2_gas_used_sent_to_enqueued_call,
     //     execution.prev_da_gas_used_sent_to_enqueued_call,
@@ -232,7 +234,8 @@ namespace tx;
     //    next_num_nullifiers_emitted,
     //    next_public_data_tree_root,
     //    next_public_data_tree_size,
-    //    next_num_pub_data_writes_emitted,
+    //    next_written_public_data_slots_tree_root,
+    //    next_written_public_data_slots_tree_size,
     //    next_l1_l2_tree_root,
     //    next_l1_l2_tree_size,
     //    // Gas Info
@@ -252,7 +255,8 @@ namespace tx;
     //    execution.num_nullifiers_emitted,
     //    execution.public_data_tree_root,
     //    execution.public_data_tree_size,
-    //    execution.num_pub_data_writes_emitted,
+    //    execution.written_public_data_slots_tree_root,
+    //    execution.written_public_data_slots_tree_size,
     //    execution.l1_l2_tree_root,
     //    execution.l1_l2_tree_size,
     //    // Gas Info
@@ -344,7 +348,9 @@ namespace tx;
 
     pol commit prev_public_data_tree_root;
     pol commit prev_public_data_tree_size;
-    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_written_public_data_slots_tree_root;
+    pol commit prev_written_public_data_slots_tree_size;
 
     pol commit prev_l1_l2_tree_root;
     pol commit prev_l1_l2_tree_size;
@@ -360,7 +366,9 @@ namespace tx;
 
     pol commit next_public_data_tree_root;
     pol commit next_public_data_tree_size;
-    pol commit next_num_pub_data_writes_emitted;
+
+    pol commit next_written_public_data_slots_tree_root;
+    pol commit next_written_public_data_slots_tree_size;
 
     pol commit next_l1_l2_tree_root;
     pol commit next_l1_l2_tree_size;

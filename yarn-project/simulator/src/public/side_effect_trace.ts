@@ -113,8 +113,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
-    // Accept even if reverted, since the user already paid for the writes
-    this.writtenPublicDataSlots = new Set(forkedTrace.writtenPublicDataSlots);
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -122,6 +120,11 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       this.nullifiers.push(...forkedTrace.nullifiers);
       this.l2ToL1Messages.push(...forkedTrace.l2ToL1Messages);
       this.publicLogs.push(...forkedTrace.publicLogs);
+      this.userPublicDataWritesLength += forkedTrace.userPublicDataWritesLength;
+      this.protocolPublicDataWritesLength += forkedTrace.protocolPublicDataWritesLength;
+      for (const slot of forkedTrace.writtenPublicDataSlots) {
+        this.writtenPublicDataSlots.add(slot);
+      }
     }
   }
 
@@ -143,28 +146,31 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     value: Fr,
     protocolWrite: boolean,
   ): Promise<void> {
-    if (protocolWrite) {
-      if (
-        this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
-        PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-      ) {
-        throw new SideEffectLimitReachedError(
-          'protocol public data (contract storage) write',
-          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
+    // Only increment counts if the storage slot has not been written to before.
+    if (this.isStorageCold(contractAddress, slot)) {
+      if (protocolWrite) {
+        if (
+          this.protocolPublicDataWritesLength + this.previousSideEffectArrayLengths.protocolPublicDataWrites >=
+          PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+        ) {
+          throw new SideEffectLimitReachedError(
+            'protocol public data (contract storage) write',
+            PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          );
+        }
+        this.protocolPublicDataWritesLength++;
+      } else {
+        if (
+          this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
+          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+        ) {
+          throw new SideEffectLimitReachedError(
+            'public data (contract storage) write',
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+          );
+        }
+        this.userPublicDataWritesLength++;
       }
-      this.protocolPublicDataWritesLength++;
-    } else {
-      if (
-        this.userPublicDataWritesLength + this.previousSideEffectArrayLengths.publicDataWrites >=
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-      ) {
-        throw new SideEffectLimitReachedError(
-          'public data (contract storage) write',
-          MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        );
-      }
-      this.userPublicDataWritesLength++;
     }
 
     const leafSlot = await computePublicDataTreeLeafSlot(contractAddress, slot);

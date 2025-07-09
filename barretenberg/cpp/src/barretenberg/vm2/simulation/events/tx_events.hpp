@@ -51,6 +51,7 @@ struct TxPhaseEvent {
     TransactionPhase phase;
     TreeStates prev_tree_state;
     TreeStates next_tree_state;
+    // TODO: Add written public data slots tree snapshot, ideally via a TxContextEvent
 
     bool reverted;
 
