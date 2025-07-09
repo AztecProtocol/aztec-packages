@@ -1,0 +1,33 @@
+include "../constants_gen.pil";
+include "../trees/public_data_check.pil";
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    #[skippable_if]
+    sel_sload = 0; // from execution.pil.
+
+    // Selector for when we should get environment variable (gated by earlier errors)
+    pol commit sel_should_sload;
+
+    #[SHOULD_SLOAD]
+    sel_should_sload = sel_sload * sel_should_execute_opcode;
+
+    #[SLOAD_SUCCESS]
+    sel_should_sload * sel_opcode_error = 0;
+
+    #[STORAGE_READ]
+    sel_should_sload {
+        contract_address, // From context
+        register[0],
+        register[1],
+        prev_public_data_tree_root // From context
+    } in public_data_check.sel {
+        public_data_check.address,
+        public_data_check.slot,
+        public_data_check.value,
+        public_data_check.root
+    };
+
+    #[SLOAD_FF_OUTPUT_TAG]
+    sel_should_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
+
