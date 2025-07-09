@@ -24,7 +24,8 @@ import { mockAttestation } from '../mem_pools/attestation_pool/mocks.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
-import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../services/reqresp/protocols/block_txs.js';
+import { BitVector } from '../services/reqresp/protocols/block_txs/bitvector.js';
+import { BlockTxsRequest, BlockTxsResponse } from '../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import {

@@ -4,7 +4,7 @@ import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs.js';
+import { BlockTxsRequest, BlockTxsResponse } from './protocols/block_txs/block_txs_reqresp.js';
 import { StatusMessage } from './protocols/status.js';
 import type { ReqRespStatus } from './status.js';
 

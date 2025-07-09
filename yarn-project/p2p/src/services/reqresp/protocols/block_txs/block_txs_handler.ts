@@ -2,11 +2,12 @@ import { TxArray, type TxWithHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { AttestationPool } from '../../../mem_pools/attestation_pool/attestation_pool.js';
-import type { TxPool } from '../../../mem_pools/index.js';
-import type { ReqRespSubProtocolHandler } from '../interface.js';
-import { ReqRespStatus, ReqRespStatusError } from '../status.js';
-import { BitVector, BlockTxsRequest, BlockTxsResponse } from './block_txs.js';
+import type { AttestationPool } from '../../../../mem_pools/attestation_pool/attestation_pool.js';
+import type { TxPool } from '../../../../mem_pools/index.js';
+import type { ReqRespSubProtocolHandler } from '../../interface.js';
+import { ReqRespStatus, ReqRespStatusError } from '../../status.js';
+import { BitVector } from './bitvector.js';
+import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 
 /**
  * Handler for block txs requests
