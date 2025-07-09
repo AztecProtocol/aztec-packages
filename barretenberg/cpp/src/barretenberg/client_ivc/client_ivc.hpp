@@ -16,6 +16,7 @@
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -73,6 +74,7 @@ class ClientIVC {
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
+    using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**
@@ -220,6 +222,11 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     VerificationKey get_vk() const;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1269): complete integration of kernel io mechanism
+    // Input/outputs utilized for consistency checks in the kernel circuits
+    KernelIO kernel_input;
+    KernelIO kernel_output;
 };
 
 } // namespace bb

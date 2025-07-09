@@ -50,8 +50,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    decider_vk->vk_and_hash->vk->add_to_transcript(domain_separator, *transcript);
-    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vk_hash");
+    FF vkey_hash = decider_vk->vk_and_hash->vk->add_hash_to_transcript(domain_separator, *transcript);
     vinfo("vk hash in Oink recursive verifier: ", vkey_hash);
     vinfo("expected vk hash: ", decider_vk->vk_and_hash->hash);
 
@@ -116,12 +115,14 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    // Get the subrelation separation challenges for sumcheck/combiner computation
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
+
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    alphas = transcript->template get_challenges<FF>(args);
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
 
     decider_vk->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };

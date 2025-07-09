@@ -15,7 +15,7 @@ namespace bb {
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         CommitmentKey commitment_key,
+                         const CommitmentKey& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
     , pcs_commitment_key(commitment_key.initialized() ? commitment_key

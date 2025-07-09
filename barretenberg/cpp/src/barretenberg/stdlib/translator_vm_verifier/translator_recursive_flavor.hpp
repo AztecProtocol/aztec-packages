@@ -40,7 +40,8 @@ class TranslatorRecursiveFlavor {
     using Commitment = Curve::AffineElement;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = TranslatorFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -121,6 +122,14 @@ class TranslatorRecursiveFlavor {
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not implemented yet!");
         }
     };
 

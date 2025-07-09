@@ -45,7 +45,7 @@ class MergeProver {
     static constexpr size_t REVERSED_T_IDX = 3;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         CommitmentKey commitment_key = CommitmentKey(),
+                         const CommitmentKey& commitment_key = CommitmentKey(),
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE MergeProof construct_proof();
