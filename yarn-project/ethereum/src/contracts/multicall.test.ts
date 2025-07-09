@@ -78,31 +78,47 @@ describe('Multicall3', () => {
     await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 
+  const makeSuccessfulCall = () => ({
+    to: tokenAddress,
+    data: encodeFunctionData({
+      abi: TestERC20Abi,
+      functionName: 'mint',
+      args: [privateKey.address, 100n],
+    }),
+    abi: TestERC20Abi,
+  });
+
+  const makeFailingCall = () => ({
+    to: deployed.l1ContractAddresses.governanceProposerAddress.toString(),
+    data: encodeFunctionData({
+      abi: GovernanceProposerAbi,
+      functionName: 'vote',
+      args: [EthAddress.random().toString()],
+    }),
+    abi: GovernanceProposerAbi,
+  });
+
   it('should be able to call multiple functions in a single transaction', async () => {
     await deployMulticall3(walletClient, logger);
     const result = await Multicall3.forward(
-      [
-        {
-          to: tokenAddress,
-          data: encodeFunctionData({
-            abi: TestERC20Abi,
-            functionName: 'mint',
-            args: [privateKey.address, 100n],
-          }),
-          abi: TestERC20Abi,
-        },
+      [makeSuccessfulCall(), makeFailingCall()],
+      l1TxUtils,
+      undefined,
+      undefined,
+      deployed.l1ContractAddresses.rollupAddress.toString(),
+      logger,
+      { revertOnFailure: true },
+    );
+    expect(result).toBeDefined();
+    expect(result).toBeInstanceOf(FormattedViemError);
+    const formattedError = result as FormattedViemError;
+    expect(formattedError.message).toContain('ValidatorSelection__InsufficientCommitteeSize');
+  });
 
-        // This one fails
-        {
-          to: deployed.l1ContractAddresses.governanceProposerAddress.toString(),
-          data: encodeFunctionData({
-            abi: GovernanceProposerAbi,
-            functionName: 'vote',
-            args: [EthAddress.random().toString()],
-          }),
-          abi: GovernanceProposerAbi,
-        },
-      ],
+  it('should not revert by default if a single call fails', async () => {
+    await deployMulticall3(walletClient, logger);
+    const result = await Multicall3.forward(
+      [makeSuccessfulCall(), makeFailingCall()],
       l1TxUtils,
       undefined,
       undefined,
@@ -110,8 +126,6 @@ describe('Multicall3', () => {
       logger,
     );
     expect(result).toBeDefined();
-    expect(result).toBeInstanceOf(FormattedViemError);
-    const formattedError = result as FormattedViemError;
-    expect(formattedError.message).toContain('ValidatorSelection__InsufficientCommitteeSize');
+    expect('receipt' in result && result.receipt.status).toBe('success');
   });
 });
