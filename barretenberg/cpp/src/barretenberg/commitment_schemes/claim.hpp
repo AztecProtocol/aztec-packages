@@ -145,6 +145,8 @@ template <typename Curve> class OpeningClaim {
  *
  * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
  *
+ * @note This structure always represents a zero evaluation claim.
+ *
  * @tparam Curve: BN254 or Grumpkin.
  */
 template <typename Curve> struct BatchOpeningClaim {

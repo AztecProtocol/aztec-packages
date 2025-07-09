@@ -391,8 +391,8 @@ template <typename Curve> class ShplonkVerifier_ {
     }
 
     /**
-     * Struct used to update the internal state of the Shplonk verifier
-     * It is composed of:
+     * Structure used to update the internal state of the Shplonk verifier. It represents a claim which is constructed
+     * as a linear combination of the commitments stored by the Shplonk verifier. The structure is composed of:
      *  - A list of indices = \f$(i_1, \dots, i_k)\f$
      *  - A list of scalar coefficients = \f$(a_1, \dots, a_k)\f$
      *  - An opening pair \f$(x, v)\f$
@@ -404,7 +404,7 @@ template <typename Curve> class ShplonkVerifier_ {
      * expose the method `reduce_verification_vector_claims_no_finalize`
      */
     // It is composed
-    struct UpdateData {
+    struct LinearCombinationOfClaims {
         std::vector<size_t> indices;
         std::vector<Fr> scalars;
         OpeningPair<Curve> opening_pair;
@@ -422,7 +422,7 @@ template <typename Curve> class ShplonkVerifier_ {
      * @param update_data
      * @param inverse_vanishing_eval
      */
-    void update(const UpdateData& update_data, const Fr& inverse_vanishing_eval)
+    void update(const LinearCombinationOfClaims& update_data, const Fr& inverse_vanishing_eval)
     {
 
         // Compute \nu^{i-1} / (z - x)
@@ -531,13 +531,14 @@ template <typename Curve> class ShplonkVerifier_ {
     };
 
     /**
-     * @brief Instantiate a Shplonk verifier and update its state with the provided update data.
+     * @brief Instantiate a Shplonk verifier and update its state with the provided data.
      *
-     * @param claims List of update data \f$\{ ( (i_{j_1}, \dots, i_{j_k}), (a_{j_1}, \dots, a_{j_k}), (r_k, v_k) )
+     * @param claims List of LinearCombinationOfClaims \f$\{ ( (i_{j_1}, \dots, i_{j_k}), (a_{j_1}, \dots, a_{j_k}),
+     * (r_k, v_k) )
      * \}_k\f$ s.t. \f[ \sum_{l=1}^k a_{j_l} f_{j_l}(r_k) = v_k \f] where \f$f_1, \dots, f_m\f$ are the polynomials
      * whose commitments are held by the Shplonk verifier.
      */
-    void reduce_verification_vector_claims_no_finalize(std::span<const UpdateData> claims)
+    void reduce_verification_vector_claims_no_finalize(std::span<const LinearCombinationOfClaims> claims)
     {
         const size_t num_claims = claims.size();
 
@@ -565,11 +566,13 @@ template <typename Curve> class ShplonkVerifier_ {
      * the challenge r. No verification happens so this function always succeeds.
      *
      * @param g1_identity the identity element for the Curve
-     * @param claims List of update data \f$\{ ( (i_{j_1}, \dots, i_{j_k}), (a_{j_1}, \dots, a_{j_k}), (r_k, v_k) )
+     * @param claims List of LinearCombinationOfClaims \f$\{ ( (i_{j_1}, \dots, i_{j_k}), (a_{j_1}, \dots, a_{j_k}),
+     * (r_k, v_k) )
      * \}_k\f$ s.t. \f[ \sum_{l=1}^k a_{j_l} f_{j_l}(r_k) = v_k \f] where \f$f_1, \dots, f_m\f$ are the polynomials
      * whose commitments are held by the Shplonk verifier.
      */
-    OpeningClaim<Curve> reduce_verification_vector_claims(Commitment g1_identity, std::span<const UpdateData> claims)
+    OpeningClaim<Curve> reduce_verification_vector_claims(Commitment g1_identity,
+                                                          std::span<const LinearCombinationOfClaims> claims)
     {
         this->reduce_verification_vector_claims_no_finalize(claims);
         return this->finalize(g1_identity);

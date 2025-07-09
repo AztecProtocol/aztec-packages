@@ -186,7 +186,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
 
         // Update data
-        std::vector<typename ShplonkVerifier::UpdateData> update_data = {
+        std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
             { { 0 }, { Fr(1) }, stdlib_opening_pairs[0] },
             { { 1 }, { Fr(1) }, stdlib_opening_pairs[1] },
             { { 0, 1 }, { coeff1, coeff2 }, { r, eval } }

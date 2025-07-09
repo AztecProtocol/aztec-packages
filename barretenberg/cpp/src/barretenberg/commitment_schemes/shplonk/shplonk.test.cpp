@@ -73,7 +73,7 @@ TYPED_TEST(ShplonkTest, ShplonkLinearlyDependent)
 
     // Shplonk verification
     auto verifier_opening_claims = ClaimData::verifier_opening_claims(setup);
-    std::vector<typename ShplonkVerifier::UpdateData> update_data = {
+    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
         { { 0 }, { Fr(1) }, verifier_opening_claims[0].opening_pair },
         { { 1 }, { Fr(1) }, verifier_opening_claims[1].opening_pair },
         { { 0, 1 }, coefficients, verifier_opening_claims[2].opening_pair },
