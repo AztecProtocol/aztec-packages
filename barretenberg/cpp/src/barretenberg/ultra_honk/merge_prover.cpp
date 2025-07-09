@@ -24,11 +24,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>, 4> MergeProver::preamble_round()
 {
-    // Container for table polynomials:
-    // t_IDX          -> the subtable t_j
-    // T_PREV_IDX     -> the previous table T_{j,prev}
-    // T_IDX          -> the full table T_j
-    // REVERSED_t_IDX -> the reversed subtable g_j(X) = X^{l-1} t_j(X)
+    // Container for table polynomials: t_j, T_{prev, j}, T_j, g_j(X) = X^{l-1} t_j(X)
     std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>, 4> table_polynomials;
 
     table_polynomials[t_IDX] = op_queue->construct_current_ultra_ops_subtable_columns();    // t
@@ -44,8 +40,8 @@ std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>,
     const size_t subtable_size = table_polynomials[t_IDX][0].size();
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(subtable_size));
 
-    // Compute commitments [T_prev], [T], [reversed_t_current], and send to the verifier
-    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_CURRENT_" };
+    // Compute commitments [T_prev], [T], [reversed_t], and send to the verifier
+    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_" };
     std::array<size_t, 3> commitment_indices{ T_PREV_IDX, T_IDX, REVERSED_t_IDX };
     for (auto [idx, label] : zip_view(commitment_indices, labels)) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
@@ -78,7 +74,7 @@ std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_c
         partially_computed_difference[idx] = tmp;
     }
 
-    // Add univariate opening claims for each polynomial p_j, g_j, t_j
+    // Add univariate opening claims for each polynomial t_j, p_j, g_j
     std::vector<OpeningClaim> opening_claims;
     // Compute evaluation t_j(1/kappa), send to verifier, and set opening claim
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -110,7 +106,7 @@ std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_c
  * - the Schwartz-Zippel check:
  *      \f[ T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)) \f]
  * - the degree check a la Thakur:
- *      \f[ x^{l-1} t_j(1/x) = g_j(x) \f]
+ *      \f[ \kappa^{l-1} t_j(1/\kappa) = g_j(\kappa) \f]
  *   where \f$g_j(X) = X^{l-1} t_j(1 / X)\f$.
  *
  * @note The prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present

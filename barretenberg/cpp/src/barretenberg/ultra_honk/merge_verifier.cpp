@@ -18,7 +18,7 @@ std::vector<typename MergeVerifier::Commitment> MergeVerifier::preamble_round(
 {
     // Commitments used by the Shplonk verifier
     std::vector<Commitment> table_commitments;
-    table_commitments.reserve(NUM_MERGE_CLAIMS);
+    table_commitments.reserve(NUM_MERGE_COMMITMENTS);
 
     // [t_j]
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -26,9 +26,8 @@ std::vector<typename MergeVerifier::Commitment> MergeVerifier::preamble_round(
     }
 
     // Receive [T_{j,prev}], [T_j], [g_j]
-    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_CURRENT_" };
-    std::array<std::size_t, 3> commitment_indices = { T_PREV_IDX, T_IDX, REVERSED_t_IDX };
-    for (auto [idx, label] : zip_view(commitment_indices, labels)) {
+    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_" };
+    for (auto& label : labels) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             std::string suffix = std::to_string(wire_idx);
             table_commitments.emplace_back(transcript->template receive_from_prover<Commitment>(label + suffix));
@@ -136,9 +135,9 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     // clang-format off
     /**
-     * Shplonk verification checks the following openings: p_j(kappa), g_j(kappa), t_j(1/kappa)
-     * The polynomials p_j(X) have the form: p_j(X) = t_j(X) - kappa^l T_{j,prev}(X) - T_j(X). Therefore, the verifier
-     * must compute the commitment to p_j starting from the commitments to t_j, T_{j,prev}, T_j. To avoid unnecessary
+     * Shplonk verification checks the following openings: t_j(1/kappa), p_j(kappa), g_j(kappa)
+     * The polynomials p_j(X) have the form: p_j(X) = t_j(X) - kappa^l T_{prev, j}(X) - T_j(X). Therefore, the verifier
+     * must compute the commitment to p_j starting from the commitments to t_j, T_{prev, j}, T_j. To avoid unnecessary
      * ECC operations, we set up the Shplonk verifier as follows.
      *
      * ShplonkVerifier.commitments = {

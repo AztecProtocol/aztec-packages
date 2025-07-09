@@ -50,6 +50,7 @@ class MergeVerifier {
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments);
 
+  private:
     /**
      * @brief Receive commitments to the \f$t, T_prev, T, g(X) := X^{l-1} t(1/X)\f$
      *

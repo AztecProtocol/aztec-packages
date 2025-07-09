@@ -21,7 +21,7 @@ std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Commitment> MergeR
 {
     // Commitments used by the Shplonk verifier
     std::vector<Commitment> table_commitments;
-    table_commitments.reserve(NUM_MERGE_CLAIMS);
+    table_commitments.reserve(NUM_MERGE_COMMITMENTS);
 
     // [t_j]
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -29,7 +29,7 @@ std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Commitment> MergeR
     }
 
     // Receive [T_{j,prev}], [T_j], [g_j]
-    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_CURRENT_" };
+    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_" };
     for (auto& label : labels) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             std::string suffix = std::to_string(wire_idx);
@@ -161,7 +161,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     // clang-format off
     /**
-     * Shplonk verification checks the following openings: p_j(kappa), g_j(kappa), t_j(1/kappa)
+     * Shplonk verification checks the following openings: t_j(1/kappa), p_j(kappa), g_j(kappa)
      * The polynomials p_j(X) have the form: p_j(X) = t_j(X) - kappa^l T_{j,prev}(X) - T_j(X). Therefore, the verifier
      * must compute the commitment to p_j starting from the commitments to t_j, T_{j,prev}, T_j. To avoid unnecessary
      * ECC operations, we set up the Shplonk verifier as follows.

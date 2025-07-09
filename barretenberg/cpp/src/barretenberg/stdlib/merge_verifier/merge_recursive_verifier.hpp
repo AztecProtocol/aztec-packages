@@ -50,10 +50,11 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
         const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
 
+  private:
     /**
-     * @brief Receive commitments to the \f$t, T_prev, T, g(X) := X^{l-1} t(1/X)\f$
+     * @brief Receive commitments to \f$t, T_prev, T, g(X) := X^{l-1} t(1/X)\f$
      *
-     * @return std::vector<Commitment> array of table polynomials
+     * @return std::vector<Commitment>
      */
     std::vector<Commitment> preamble_round(const RefArray<Commitment, NUM_WIRES>& t_commitments);
 
@@ -61,9 +62,9 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
      * @brief Construct the opening claims to be passed to the Shplonk verifier
      *
      * @details Construct the following opening claims for j = 1, 2, 3, 4:
-     *            - p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X), evaluated at kappa
-     *            - g_j(X), evaluated at kappa
-     *            - t_j(X), evaluated at 1/kappa
+     *  - t_j(X), evaluated at 1/kappa
+     *  - p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X), evaluated at kappa
+     *  - g_j(X), evaluated at kappa
      *
      * @param kappa
      * @param kappa_inv
@@ -91,6 +92,8 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
      *
      * @param table_commitments The commitments to the tables received from the Prover
      * @param opening_claims The opening claims to be verified
+     * @param kappa
+     * @param kappa_inv
      *
      */
     PairingPoints verify_claims(std::vector<Commitment>& table_commitments,
