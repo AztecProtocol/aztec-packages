@@ -48,8 +48,6 @@ cid=$(docker run -d \
   ${name_arg:-} \
   ${network_arg:-} \
   ${cpuset_arg:-} \
-  --cpus=$CPUS \
-  --memory=$MEM \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
