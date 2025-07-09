@@ -14,6 +14,7 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
+#include <sstream>
 #include <stdexcept>
 
 namespace bb {
@@ -38,14 +39,21 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
     return wv;
 }
 
-std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(acir_format::AcirProgram& program)
+namespace {
+std::string field_elements_to_json(const std::vector<bb::fr>& fields)
 {
-    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+    std::stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < fields.size(); ++i) {
+        ss << '"' << fields[i] << '"';
+        if (i < fields.size() - 1) {
+            ss << ",";
+        }
+    }
+    ss << "]";
+    return ss.str();
 }
+} // namespace
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
@@ -67,9 +75,9 @@ void write_standalone_vk(const std::string& output_data_type,
     }.execute();
 
     if (output_format == "bytes") {
-        write_file(output_path / "vk", response.vk_bytes);
+        write_file(output_path / "vk", response.bytes);
     } else if (output_format == "fields") {
-        std::string json = bbapi::field_elements_to_json(response.vk_fields);
+        std::string json = field_elements_to_json(response.fields);
         write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
     } else {
         throw_or_abort("Unsupported output format for standalone vk: " + output_format);
@@ -129,9 +137,9 @@ void write_vk_for_ivc(const std::string& output_data_type,
 
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
-        write_bytes_to_stdout(response.vk_bytes);
+        write_bytes_to_stdout(response.bytes);
     } else {
-        write_file(output_dir / "vk", response.vk_bytes);
+        write_file(output_dir / "vk", response.bytes);
     }
 }
 
