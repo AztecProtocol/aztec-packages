@@ -41,6 +41,8 @@ struct ContextEvent {
     InternalCallId next_internal_call_id = 0;
 
     // Tree State
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
+
     // TreeSnapshots tree_state;
 };
 
