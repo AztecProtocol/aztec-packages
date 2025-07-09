@@ -3,7 +3,7 @@ sidebar_position: 0
 title: Slashing
 ---
 
-Slashing is a mechanism that penalizes validators who fail to participate properly in consensus or violate protocol rules. The Aztec protocol implements automatic slashing to maintain network security and validator accountability.
+Slashing is a mechanism that penalizes validators who fail to keep high uptime or violate protocol rules. The Aztec protocol implements automatic slashing to maintain network security and validator accountability.
 
 ## Slashing Components
 
@@ -11,7 +11,7 @@ The slashing system consists of the following components:
 
 | Component        | Type        | Purpose                                                    |
 | ---------------- | ----------- | ---------------------------------------------------------- |
-| StakingLib       | L1 Contract | Designates a slasher address that can slash validators     |
+| Rollup           | L1 Contract | Designates a slasher address that can slash validators     |
 | Slasher          | L1 Contract | Executes slashing directives from the SlashingProposer     |
 | SlashingProposer | L1 Contract | Coordinates voting on slash proposals (instance of Empire) |
 | SlashFactory     | L1 Contract | Creates slash payloads for specific offenses               |
@@ -28,7 +28,7 @@ flowchart TD
     SlashFactory -->|Emits event| Validators[Validators]
     Validators -->|Verify & Vote| SlashingProposer
     SlashingProposer -->|N/M consensus reached| Slasher
-    Slasher -->|Executes slash| StakingLib
+    Slasher -->|Executes slash| Rollup
 ```
 
 ## Slashable Offenses
@@ -37,20 +37,25 @@ The protocol automatically slashes validators for three types of offenses:
 
 ### 1. Liveness Failure
 
-A validator failed to attest to a proven block. This ensures validators actively participate in consensus.
+The Aztec Network needs a mechanism to remove inactive validators from the set to maintain liveness - conceptually similar to Ethereum's inactivity leak.
+
+Node software picks up on validators who missed x% of any single epoch's attestations and will start a proposal to slash the epoch's inactive validators for y% of their stake. Other validators listen for events to slash and will also vote to slash if they agree as long as the amount to vote is less than z% of a validators staked balance.
+
+All three x%, y% and z% are configurable parameters in the client software
 
 ### 2. Data Availability/Finality Failure
 
-An epoch was not proven and either:
+Provers need the tx data to produce the final proofs. The Aztec Network's committee raison d’être is to attest to the availability of the data. Therefore they are held responsible for distributing tx data to the provers.
 
-- The data is unavailable, or
-- The data is available and the epoch was valid
+In the case an epoch was not proven, but either:
 
-Each validator in the epoch's committee is slashed.
+1. the data was available to validator nodes, and the epoch was provable
+2. the data was not available to validator nodes
+   then validator nodes will vote to slash all of the committee members for that epoch.
 
 ### 3. Safety Violation
 
-A validator proposed an invalid block, threatening the integrity of the chain.
+Sequencers who propose invalid blocks (i.e. invalid state root) are either malicious or running faulty software. All validators in the committee must validate block proposals before attesting. If a validator were to detect an invalid block proposal, their node should vote to slash the block proposer in question.
 
 ## SlashFactory Contract
 

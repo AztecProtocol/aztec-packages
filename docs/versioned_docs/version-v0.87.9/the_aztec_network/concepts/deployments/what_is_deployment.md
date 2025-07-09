@@ -5,16 +5,16 @@ title: What is a Deployment?
 
 An Aztec deployment is a set of the following contracts:
 
-| Smart Contract               | Immutability |
-| ---------------------------- | ------------ |
-| Hypothetical Asset           | Immutable    |
-| Issuer Contract              | Immutable    |
-| Registry Contract            | Immutable    |
-| Governance Staking Escrow    | Immutable    |
-| RewardDistributor Contract   | Mutable      |
-| GovernanceProposer Contract  | Mutable      |
-| Governance Contract          | Immutable    |
-| Rollup Contract              | Immutable    |
+| Smart Contract                   |
+| -------------------------------- |
+| Hypothetical Asset               |
+| Issuer Contract                  |
+| Registry Contract                |
+| GovernanceStakingEscrow Contract |
+| RewardDistributor Contract       |
+| GovernanceProposer Contract      |
+| Governance Contract              |
+| Rollup Contract                  |
 
 ## Hypothetical Asset Contract
 
@@ -125,7 +125,6 @@ For each rollup instance, the GSE maintains validator information:
 ```solidity
 struct Validator {
     address attester;
-    address proposer;
     address withdrawer;
     uint256 stake;
 }
@@ -151,19 +150,6 @@ function getValidatorSet(address _instance) {
 
 This allows "willing" stake to be automatically included in new canonical instances without explicit migration.
 
-### Governance Proposal Relay
-
-Since only the GSE can interact with the Governance contract, it provides a relay function for emergency proposals:
-
-```solidity
-function proposeWithLock(IPayload _proposal, address _to) external {
-    uint256 amount = GOVERNANCE.getConfiguration().proposeConfig.lockAmount;
-    STAKING_ASSET.transferFrom(msg.sender, address(this), amount);
-    STAKING_ASSET.approve(address(GOVERNANCE), amount);
-    GOVERNANCE.proposeWithLock(_proposal, _to);
-}
-```
-
 ### Integration with Other Contracts
 
 ```mermaid
@@ -179,13 +165,6 @@ flowchart TD
 ### Governance Requirements
 
 The GSE enforces that governance proposals from the GovernanceProposer require more than 2/3 of total stake to be held in the canonical instance before execution. This ensures sufficient security for the pending chain of new rollup instances.
-
-**Important Considerations:**
-
-- End users have no direct governance participation - only through their chosen rollup operators
-- Exit procedures become more complex due to multiple delay periods across contracts
-- Upgrading the GSE itself requires careful coordination to avoid breaking state
-- The system relies heavily on rollup operators being aligned with user interests
 
 ## Reward Distribution Contract
 
