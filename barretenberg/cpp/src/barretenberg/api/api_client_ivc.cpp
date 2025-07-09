@@ -73,8 +73,6 @@ void write_standalone_vk(const std::string& output_format,
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
 
-    bbapi::BBApiRequest request;
-
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
@@ -99,9 +97,9 @@ void write_civc_vk(const std::string& output_format,
 
     // Since we need to specify the number of public inputs but ClientIvcComputeIvcVk derives it from bytecode,
     // we need to create a mock circuit with the correct number of public inputs
-    // For now, we'll use the compute_civc_vk function directly as it was designed for this purpose
+    // For now, we'll use the compute_vk_for_ivc function directly as it was designed for this purpose
     bbapi::BBApiRequest request;
-    auto vk = bbapi::compute_civc_vk(request, num_public_inputs_in_final_circuit);
+    auto vk = bbapi::compute_vk_for_ivc(request, num_public_inputs_in_final_circuit);
     const auto buf = to_buffer(vk);
 
     const bool output_to_stdout = output_dir == "-";
@@ -144,7 +142,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
+    bbapi::ClientIvcStart{}.execute(request);
 
     size_t loaded_circuit_public_inputs_size = 0;
     for (const auto& step : raw_steps) {
@@ -158,7 +156,7 @@ void ClientIVCAPI::prove(const Flags& flags,
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
+    auto prove_response = bbapi::ClientIvcProve{}.execute(request);
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -229,6 +227,12 @@ bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesyst
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
+        auto response = bbapi::ClientIvcCheckPrecomputedVk{ .circuit = { .name = step.function_name,
+                                                                         .bytecode = step.bytecode,
+                                                                         .verification_key = step.vk },
+                                                            .function_name = step.function_name }
+                            .execute();
+
         auto response = bbapi::ClientIvcCheckPrecomputedVk{ .circuit = { .name = step.function_name,
                                                                          .bytecode = step.bytecode,
                                                                          .verification_key = step.vk },
