@@ -18,11 +18,11 @@ commits=($(
 ))
 
 if [ ${#commits[@]} -eq 0 ]; then
-  echo "No commits to rebase" &>2
+  echo "No commits to rebase" >&2
 fi
 
 # create working branch
-work_branch="auto-rebase"
+work_branch="auto-rebase-$pr_head_ref"
 git switch --force-create "$work_branch" "origin/$pr_base_ref"
 
 # cherry-pick each commit
@@ -38,10 +38,15 @@ done
 
 if [ "${PUSH:-0}" -eq 1 ]; then
   # update PR branch
+  git switch --force-create "$pr_head_ref" "$work_branch"
   git branch -f "$pr_head_ref" HEAD
   git switch "$pr_head_ref"
   git push origin "$pr_head_ref" --force-with-lease
 else
-  echo "You are on a successful rebase branch."
+  echo "You are on a successful rebase branch. Use 'git log' to look around."
+  echo "To return, just do 'git checkout $pr_head_ref'."
+  echo "If you like what you see you can do:"
+  echo git reset --hard "$work_branch"
+  echo git push --force-with-lease
 fi
 
