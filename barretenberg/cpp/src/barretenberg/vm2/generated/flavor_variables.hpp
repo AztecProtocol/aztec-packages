@@ -38,6 +38,7 @@
 #include "relations/note_hash_tree_check.hpp"
 #include "relations/notehash_exists.hpp"
 #include "relations/nullifier_check.hpp"
+#include "relations/nullifier_exists.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_mem.hpp"
 #include "relations/poseidon2_perm.hpp"
@@ -85,6 +86,7 @@
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
 #include "relations/lookups_nullifier_check.hpp"
+#include "relations/lookups_nullifier_exists.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_public_data_check.hpp"
@@ -107,10 +109,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2474;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2477;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 250;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2849;
+    static constexpr size_t NUM_ALL_ENTITIES = 2852;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -152,6 +154,7 @@ struct AvmFlavorVariables {
         avm2::note_hash_tree_check<FF_>,
         avm2::notehash_exists<FF_>,
         avm2::nullifier_check<FF_>,
+        avm2::nullifier_exists<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_mem<FF_>,
         avm2::poseidon2_perm<FF_>,
@@ -413,6 +416,7 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_silo_poseidon2_relation<FF_>,
         lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
+        lookup_nullifier_exists_nullifier_exists_check_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_check_src_addr_in_range_relation<FF_>,

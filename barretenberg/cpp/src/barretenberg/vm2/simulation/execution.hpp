@@ -129,6 +129,10 @@ class Execution : public ExecutionInterface {
                           MemoryAddress unique_note_hash_addr,
                           MemoryAddress leaf_index_addr,
                           MemoryAddress dst_addr);
+    void nullifier_exists(ContextInterface& context,
+                          MemoryAddress nullifier_offset,
+                          MemoryAddress address_offset,
+                          MemoryAddress exists_offset);
     void get_contract_instance(ContextInterface& context,
                                MemoryAddress address_offset,
                                MemoryAddress dst_offset,
