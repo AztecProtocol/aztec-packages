@@ -32,48 +32,44 @@ export function reqRespBlockTxsHandler(
       throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
     }
 
-    try {
-      const blockProposal = await attestationPool?.getBlockProposal(request.blockHash.toString());
+    const blockProposal = await attestationPool?.getBlockProposal(request.blockHash.toString());
 
-      //TODO: (mralj) - check if this is the way to go
-      // Or we want to send Buffer.alloc(0) or error
-      if (!blockProposal) {
-        return BlockTxsResponse.empty().toBuffer();
-      }
-
-      if (blockProposal.blockNumber !== request.blockNumber) {
-        throw new ReqRespStatusError(ReqRespStatus.FAILURE, {
-          cause: new Error(
-            `Requested block proposal number: ${request.blockNumber} does not match the proposal number: ${blockProposal.blockNumber}`,
-          ),
-        });
-      }
-
-      const requestedIndices = new Set(request.txIndices.getTrueIndices());
-      const requestedTxsHashes = new Set(blockProposal.txHashes.filter((_, idx) => requestedIndices.has(idx)));
-
-      // Fetch all transactions from the pool belonging to the proposal
-      const txsFromPool = await txPool.getTxsByHash(blockProposal.txHashes);
-      // Calculate hashes for all transactions we fetched from the pool
-      await Promise.all(txsFromPool.map(tx => tx?.getTxHash()));
-
-      const txsWithHash = txsFromPool as (TxWithHash | undefined)[];
-      const responseTxs: TxWithHash[] = txsWithHash.filter(
-        (tx): tx is TxWithHash => tx !== undefined && requestedTxsHashes.has(tx.txHash),
-      );
-      const availableIndices = txsWithHash.map((tx, idx) => (tx === undefined ? -1 : idx)).filter(idx => idx !== -1);
-      const responseBitVector = BitVector.init(blockProposal.txHashes.length, availableIndices);
-
-      const response = new BlockTxsResponse(
-        request.blockNumber,
-        request.blockHash,
-        new TxArray(...responseTxs),
-        responseBitVector,
-      );
-
-      return response.toBuffer();
-    } catch (err: any) {
-      throw new ReqRespStatusError(ReqRespStatus.INTERNAL_ERROR, { cause: err });
+    if (!blockProposal) {
+      throw new ReqRespStatusError(ReqRespStatus.NOT_FOUND);
     }
+
+    if (blockProposal.blockNumber !== request.blockNumber) {
+      throw new ReqRespStatusError(ReqRespStatus.FAILURE, {
+        cause: new Error(
+          `Requested block proposal number: ${request.blockNumber} does not match the proposal number: ${blockProposal.blockNumber}`,
+        ),
+      });
+    }
+
+    const requestedIndices = new Set(request.txIndices.getTrueIndices());
+    const requestedTxsHashes = new Set(blockProposal.txHashes.filter((_, idx) => requestedIndices.has(idx)));
+
+    // Fetch all transactions from the pool belonging to the proposal
+    const txsFromPool = await txPool.getTxsByHash(blockProposal.txHashes);
+    // Calculate hashes for all transactions we fetched from the pool
+    await Promise.all(txsFromPool.map(tx => tx?.getTxHash()));
+    const txsWithHash = txsFromPool as (TxWithHash | undefined)[];
+
+    // Respond with requested transactions that are available in the pool
+    const responseTxs: TxWithHash[] = txsWithHash.filter(
+      (tx): tx is TxWithHash => tx !== undefined && requestedTxsHashes.has(tx.txHash),
+    );
+
+    const availableIndices = txsWithHash.map((tx, idx) => (tx === undefined ? -1 : idx)).filter(idx => idx !== -1);
+    const responseBitVector = BitVector.init(blockProposal.txHashes.length, availableIndices);
+
+    const response = new BlockTxsResponse(
+      request.blockNumber,
+      request.blockHash,
+      new TxArray(...responseTxs),
+      responseBitVector,
+    );
+
+    return response.toBuffer();
   };
 }
