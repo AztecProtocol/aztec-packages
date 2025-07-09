@@ -30,11 +30,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
+          set -x
           pr_head_ref=${{ github.event.pull_request.head.ref }}
           pr_base_ref=${{ github.event.pull_request.base.ref }}
           # ensure we have up to date head/base
           git fetch origin "$pr_base_ref" "$pr_head_ref"
-          PUSH=1 ./scripts/auto_rebase_pr.sh "$pr_head_ref" "$pr_base_ref"
+          # Be sure to run the auto rebase script such that we don't write to it while it's being read.
+          cp ./scripts/auto_rebase_pr.sh .github/temp-script.sh
+          bash .github/temp-script.sh "$pr_head_ref" "$pr_base_ref"
+          rebase_sha=$(git rev-parse HEAD)
+          git switch --force-create "$pr_head_ref" "origin/$pr_base_ref"
+          git reset --hard "$rebase_sha"
+          git push origin "$pr_head_ref" --force-with-lease
 
       - name: Post failure comment
         if: failure() || steps.rebase.outcome == 'failure'
