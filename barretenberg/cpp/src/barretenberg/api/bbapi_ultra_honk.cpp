@@ -29,8 +29,34 @@ static std::string bytes_to_hex(const std::vector<uint8_t>& bytes)
 
 static std::string bytes_to_base64(const std::vector<uint8_t>& bytes)
 {
-    // TODO: Implement base64 encoding
-    throw_or_abort("Base64 encoding not implemented");
+    // TODO replace this gpt-ese with a proper base64 library
+    static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    std::string result;
+    size_t i = 0;
+    while (i < bytes.size()) {
+        uint32_t octet_a = i < bytes.size() ? bytes[i++] : 0;
+        uint32_t octet_b = i < bytes.size() ? bytes[i++] : 0;
+        uint32_t octet_c = i < bytes.size() ? bytes[i++] : 0;
+
+        uint32_t triple = (octet_a << 16) + (octet_b << 8) + octet_c;
+
+        result.push_back(base64_chars[(triple >> 18) & 0x3F]);
+        result.push_back(base64_chars[(triple >> 12) & 0x3F]);
+        result.push_back(base64_chars[(triple >> 6) & 0x3F]);
+        result.push_back(base64_chars[triple & 0x3F]);
+    }
+
+    // Add padding
+    size_t padding = bytes.size() % 3;
+    if (padding > 0) {
+        result.resize(result.size() - (3 - padding));
+        for (size_t j = 0; j < (3 - padding); ++j) {
+            result.push_back('=');
+        }
+    }
+
+    return result;
 }
 
 CircuitProve::Response CircuitProve::execute(const BBApiRequest& request) &&
