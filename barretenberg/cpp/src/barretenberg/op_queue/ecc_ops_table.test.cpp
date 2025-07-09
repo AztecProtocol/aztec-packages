@@ -76,8 +76,7 @@ class EccOpsTableTest : public ::testing::Test {
             columns[3].push_back(op.z_2);
         }
 
-        // Construct the ultra ops table such that the subtables appear in reverse order, as if prepended, which is
-        // default
+        // Construct the ultra ops table from the given subtables, ordered as they should appear in the op queue.
         MockUltraOpsTable(const auto& subtable_ops)
         {
             for (auto& ops : subtable_ops) {

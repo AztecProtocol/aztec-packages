@@ -95,7 +95,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     bool construct_and_verify_merge_proof(auto& op_queue)
     {
         MergeProver merge_prover{ op_queue };
-        MergeVerifier merge_verifier{ op_queue->get_current_settings() };
+        MergeVerifier merge_verifier;
+        merge_verifier.settings = op_queue->get_current_settings();
         auto merge_proof = merge_prover.construct_proof();
         std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments_val;
 
@@ -488,15 +489,15 @@ TYPED_TEST(MegaHonkTests, StructuredTraceOverflow)
 /**
  * @brief A sanity check that a simple std::swap on a ProverPolynomials object works as expected
  * @details Constuct two valid proving keys. Tamper with the prover_polynomials of one key then swap the
- * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while
- * the other succeeds.
+ * prover_polynomials of the two keys. The key who received the tampered polys leads to a failed verification while the
+ * other succeeds.
  *
  */
 TYPED_TEST(MegaHonkTests, PolySwap)
 {
     using Flavor = TypeParam;
-    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i,
-    // for i=1,2,3. This mechanism does not work with structured polynomials yet.
+    // In MegaZKFlavor, we mask witness polynomials by placing random values at the indices `dyadic_circuit_size`-i, for
+    // i=1,2,3. This mechanism does not work with structured polynomials yet.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
     // ECCVM/Translator/MegaZK
     if constexpr (std::is_same_v<Flavor, MegaZKFlavor>) {

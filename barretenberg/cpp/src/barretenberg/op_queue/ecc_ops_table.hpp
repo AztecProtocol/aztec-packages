@@ -16,7 +16,6 @@ namespace bb {
 /**
  * @brief The MergeSettings define whether an incoming subtable will be added at the beginning (PREPEND) or at the end
  * (APPEND) of the EccOpQueue.
- *
  */
 enum MergeSettings { PREPEND, APPEND };
 
@@ -130,7 +129,7 @@ template <typename OpFormat> class EccOpsTable {
         if (table.size() == 1 && table.front().empty()) {
             return;
         }
-        // Get an iterator at which location we should insert a new subtable
+        // Get the iterator at which location we should insert a new subtable
         auto it = settings == MergeSettings::PREPEND ? table.begin() : table.end();
         Subtable new_subtable;
         new_subtable.reserve(size_hint);
@@ -220,27 +219,25 @@ class UltraEccOpsTable {
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
-    // this has to be changed
     // Construct the columns of the previous full ultra ecc ops table
     ColumnPolynomials construct_previous_table_columns() const
     {
 
         const size_t poly_size = previous_ultra_table_size();
-        const size_t subtable_start_idx = table.settings == MergeSettings::PREPEND ? 1 : 0; // exclude the 0th subtable
+        const size_t subtable_start_idx = table.settings == MergeSettings::PREPEND ? 1 : 0;
         const size_t subtable_end_idx =
             table.settings == MergeSettings::PREPEND ? table.num_subtables() : table.num_subtables() - 1;
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
-    // this also has to be changed
-    // Construct the columns of the current ultra ecc ops subtable
+    // Construct the columns of the current ultra ecc ops subtable which is either the first or the last one depening on
+    // whether it has been prepended or appended
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {
         const size_t poly_size = current_ultra_subtable_size();
         const size_t subtable_start_idx = table.settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
-        const size_t subtable_end_idx =
-            table.settings == MergeSettings::PREPEND ? 1 : table.num_subtables(); // include only the 0th subtable
+        const size_t subtable_end_idx = table.settings == MergeSettings::PREPEND ? 1 : table.num_subtables();
 
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }

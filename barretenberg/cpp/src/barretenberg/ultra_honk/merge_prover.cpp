@@ -48,8 +48,9 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     const size_t current_table_size = T_current[0].size();
 
-    // TODO(): Once the op queue is fixed we won't have to send the shift size in append mode, ensuring the last merge
-    // proof, for an appended subtable, sent to the  rollup is zero-knowledge.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
+    // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
+    // subtable when sending a merge proof to the rollup.
     const size_t shift_size =
         op_queue->get_current_settings() == MergeSettings::PREPEND ? t_current[0].size() : T_prev[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));

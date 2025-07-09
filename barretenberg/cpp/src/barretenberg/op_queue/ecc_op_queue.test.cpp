@@ -41,23 +41,21 @@ class ECCOpQueueTest {
         for (auto [table_poly, prev_table_poly, subtable_poly] :
              zip_view(table_polynomials, prev_table_polynomials, subtable_polynomials)) {
             const Fr table_eval = table_poly.evaluate(eval_challenge); // T(x)
+            // Check that the previous table polynomial is constructed correctly according to the merge settings by
+            // checking the identity at a single point
             if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
-
-                // Check that the table polynomials are constructed correctly by checking the following identity at a
-                // single
-                // point: T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
-                const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_num_rows();
+                // T(x) = t_current(x) + x^k * T_prev(x), where k is the size of the current subtable
+                const size_t current_subtable_size = op_queue->get_current_ultra_ops_subtable_num_rows(); // k
                 const Fr subtable_eval = subtable_poly.evaluate(eval_challenge); // t_current(x)
                 const Fr shifted_previous_table_eval = prev_table_poly.evaluate(eval_challenge) *
                                                        eval_challenge.pow(current_subtable_size); // x^k * T_prev(x)
                 EXPECT_EQ(table_eval, subtable_eval + shifted_previous_table_eval);
-
             } else {
-
-                const size_t prev_table_size = op_queue->get_previous_ultra_ops_table_num_rows();
-                const Fr prev_table_eval = prev_table_poly.evaluate(eval_challenge);
+                // T(x) = T_prev(x) + x^k * t_current(x), where k is the size of the previous table
+                const size_t prev_table_size = op_queue->get_previous_ultra_ops_table_num_rows(); // k
+                const Fr prev_table_eval = prev_table_poly.evaluate(eval_challenge);              // T_prev(x)
                 const Fr shifted_subtable_eval =
-                    subtable_poly.evaluate(eval_challenge) * eval_challenge.pow(prev_table_size);
+                    subtable_poly.evaluate(eval_challenge) * eval_challenge.pow(prev_table_size); // x^k * t_current(x)
                 EXPECT_EQ(table_eval, shifted_subtable_eval + prev_table_eval);
             }
         }
