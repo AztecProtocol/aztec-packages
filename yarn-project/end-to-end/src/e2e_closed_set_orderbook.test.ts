@@ -1,4 +1,4 @@
-import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE } from '@aztec/aztec.js';
+import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE, deriveKeys } from '@aztec/aztec.js';
 import type { AztecNode } from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { ClosedSetOrderbookContract } from '@aztec/noir-contracts.js/ClosedSetOrderbook';
@@ -41,7 +41,6 @@ describe('ClosedSetOrderbook', () => {
 
   beforeAll(async () => {
     let maybeSequencer: SequencerClient | undefined = undefined;
-
     ({
       pxe,
       teardown,
@@ -57,22 +56,37 @@ describe('ClosedSetOrderbook', () => {
     }
     sequencer = maybeSequencer;
 
-    token0 = await deployToken(adminWallet, 0n, logger);
-    token1 = await deployToken(adminWallet, 0n, logger);
+    // TOKEN SETUP
+    {
+      token0 = await deployToken(adminWallet, 0n, logger);
+      token1 = await deployToken(adminWallet, 0n, logger);
 
-    orderbook = await ClosedSetOrderbookContract.deploy(
-      adminWallet,
-      token0.address,
-      token1.address,
-      feeCollector.getAddress(),
-      fee,
-    )
-      .send()
-      .deployed();
+      // Mint tokens to maker and taker
+      await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), bidAmount);
+      await mintTokensToPrivate(token1, adminWallet, taker.getAddress(), askAmount);
+    }
 
-    // Mint tokens to maker and taker
-    await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), bidAmount);
-    await mintTokensToPrivate(token1, adminWallet, taker.getAddress(), askAmount);
+    // ORDERBOOK SETUP
+    {
+      // Generate secret key and public keys for the orderbook contract
+      const orderbookSecretKey = Fr.random();
+      const orderbookPublicKeys = (await deriveKeys(orderbookSecretKey)).publicKeys;
+
+      // Deploy the orderbook contract with public keys such that it can receive and nullify notes.
+      orderbook = await ClosedSetOrderbookContract.deployWithPublicKeys(
+        orderbookPublicKeys,
+        adminWallet,
+        token0.address,
+        token1.address,
+        feeCollector.getAddress(),
+        fee,
+      )
+        .send()
+        .deployed();
+
+      // Register the orderbook as an account in PXE
+      await pxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
+    }
   });
 
   afterAll(() => teardown());
