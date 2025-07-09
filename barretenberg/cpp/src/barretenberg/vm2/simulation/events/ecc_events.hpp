@@ -1,13 +1,29 @@
 #pragma once
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::simulation {
+
+struct EccException : public std::runtime_error {
+    EccException(const std::string& message)
+        : std::runtime_error("EccException: " + message)
+    {}
+};
 
 struct EccAddEvent {
     EmbeddedCurvePoint p;
     EmbeddedCurvePoint q;
     EmbeddedCurvePoint result;
+};
+
+struct EccAddMemoryEvent {
+    uint32_t execution_clk;
+    uint32_t space_id;
+    EmbeddedCurvePoint p;
+    EmbeddedCurvePoint q;
+    EmbeddedCurvePoint result;
+    MemoryAddress dst_address;
 };
 
 struct ScalarMulIntermediateState {

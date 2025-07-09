@@ -5,7 +5,7 @@ include "memory.pil";
 include "keccakf1600.pil";
 include "precomputed.pil";
 include "sha256.pil";
-include "ecc.pil";
+include "ecc_mem.pil";
 include "poseidon2_mem.pil";
 include "scalar_mul.pil";
 include "to_radix.pil";

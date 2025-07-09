@@ -5,7 +5,9 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_ecc_mem.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
+#include "barretenberg/vm2/generated/relations/perms_ecc_mem.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -161,10 +163,65 @@ void EccTraceBuilder::process_scalar_mul(
     }
 }
 
+void EccTraceBuilder::process_add_with_memory(
+    const simulation::EventEmitterInterface<simulation::EccAddMemoryEvent>::Container& events, TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 0;
+    for (const auto& event : events) {
+        uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
+        // Error handling, check if the destination address is out of range.
+        // The max write address is dst_addr + 2, since we write 3 values (x, y, is_inf).
+        bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
+
+        trace.set(row,
+                  { {
+                      { C::ecc_add_mem_sel, 1 },
+                      { C::ecc_add_mem_execution_clk, event.execution_clk },
+                      { C::ecc_add_mem_space_id, event.space_id },
+                      { C::ecc_add_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+                      { C::ecc_add_mem_sel_dst_out_of_range_err, dst_out_of_range_err ? 1 : 0 },
+                      // Memory Reads
+                      { C::ecc_add_mem_dst_addr_0_, dst_addr },
+                      { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
+                      { C::ecc_add_mem_dst_addr_2_, dst_addr + 2 },
+                      // Inputs
+                      // Point P
+                      { C::ecc_add_mem_p_x, event.p.x() },
+                      { C::ecc_add_mem_p_y, event.p.y() },
+                      { C::ecc_add_mem_p_is_inf, event.p.is_infinity() ? 1 : 0 },
+                      // Point Q
+                      { C::ecc_add_mem_q_x, event.q.x() },
+                      { C::ecc_add_mem_q_y, event.q.y() },
+                      { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
+                      // Output
+                      { C::ecc_add_mem_sel_should_exec, dst_out_of_range_err ? 0 : 1 },
+                      { C::ecc_add_mem_res_x, event.result.x() },
+                      { C::ecc_add_mem_res_y, event.result.y() },
+                      { C::ecc_add_mem_res_is_inf, event.result.is_infinity() },
+
+                  } });
+
+        row++;
+    }
+}
+
 const InteractionDefinition EccTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_scalar_mul_double_settings, InteractionType::LookupGeneric>()
         .add<lookup_scalar_mul_add_settings, InteractionType::LookupGeneric>()
-        .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>();
+        .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>()
+        // Memory Aware Interactions
+        // Comparison
+        .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
+        // Lookup into ECC Add Subtrace
+        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>()
+        // These should be permutations (Write to Mem)
+        .add<lookup_ecc_mem_write_mem_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_ecc_mem_write_mem_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_ecc_mem_write_mem_2_settings, InteractionType::LookupGeneric>()
+        // Dispatch Permutation
+        .add<perm_ecc_mem_dispatch_exec_ecc_add_settings, InteractionType::Permutation>();
 
 } // namespace bb::avm2::tracegen
