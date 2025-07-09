@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { TxArray } from '@aztec/stdlib/tx';
 
@@ -96,15 +97,11 @@ export class BitVector {
 export class BlockTxsRequest {
   constructor(
     readonly blockNumber: number,
-    readonly blockHash: Buffer, // 32 byte hash of the proposed block header
+    readonly blockHash: Fr, // 32 byte hash of the proposed block header
     // BitVector indicating which txs from the proposal we are requesting
     // 1 means we want the tx, 0 means we don't
     readonly txIndices: BitVector,
-  ) {
-    if (blockHash.length !== 32) {
-      throw new Error('Block hash must be exactly 32 bytes');
-    }
-  }
+  ) {}
 
   /**
    * Deserializes the BlockTxRequest object from a Buffer
@@ -114,7 +111,7 @@ export class BlockTxsRequest {
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsRequest {
     const reader = BufferReader.asReader(buffer);
     const blockNumber = reader.readNumber();
-    const blockHash = reader.readBytes(32);
+    const blockHash = Fr.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
     return new BlockTxsRequest(blockNumber, blockHash, txIndices);
@@ -135,7 +132,7 @@ export class BlockTxsRequest {
 export class BlockTxsResponse {
   constructor(
     readonly blockNumber: number,
-    readonly blockHash: Buffer,
+    readonly blockHash: Fr,
     readonly txs: TxArray, // List of transactions we requested and peer has
     // BitVector indicating which txs from the proposal are available at the peer
     // 1 means the tx is available, 0 means it is not
@@ -150,7 +147,7 @@ export class BlockTxsResponse {
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsResponse {
     const reader = BufferReader.asReader(buffer);
     const blockNumber = reader.readNumber();
-    const blockHash = reader.readBytes(32);
+    const blockHash = Fr.fromBuffer(reader);
     const txs = TxArray.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
@@ -165,5 +162,9 @@ export class BlockTxsResponse {
    */
   toBuffer(): Buffer {
     return serializeToBuffer([this.blockNumber, this.blockHash, this.txs.toBuffer(), this.txIndices.toBuffer()]);
+  }
+
+  static empty(): BlockTxsResponse {
+    return new BlockTxsResponse(0, Fr.ZERO, new TxArray(), BitVector.init(0, []));
   }
 }
