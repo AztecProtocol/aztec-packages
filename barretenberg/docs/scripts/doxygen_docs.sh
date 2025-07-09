@@ -14,11 +14,11 @@ doxygen Doxyfile
 
 echo "Copying Doxygen HTML to Docusaurus static directory..."
 
-# Create the static/doxygen directory if it doesn't exist
-mkdir -p "../../docs/static/doxygen"
+# Create the static/api directory if it doesn't exist
+mkdir -p "../../docs/static/api"
 
 # Copy the built documentation
-rsync -av --delete build/ ../../docs/static/doxygen/
+rsync -av --delete build/ ../../docs/static/api/
 
 echo "Doxygen documentation successfully built and copied to Docusaurus!"
 echo "You can now build and serve the Docusaurus site to view the integrated documentation."

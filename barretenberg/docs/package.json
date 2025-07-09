@@ -5,23 +5,23 @@
   "scripts": {
     "docs": "docusaurus start --host ${HOST:-localhost}",
     "dev": "HOST=0.0.0.0 ENV=dev yarn run docs",
-    "build": "yarn build:doxygen && docusaurus build",
+    "build": "docusaurus build",
     "build:doxygen": "./scripts/doxygen_docs.sh",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
-    "clear": "docusaurus clear",
+    "clear": "./scripts/clean.sh",
     "serve": "docusaurus serve",
-    "typecheck": "tsc",
-    "version::stables": "yarn tsx ./scripts/setStable.ts",
-    "version": "yarn version::stables && ./scripts/cut_version.sh"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@docusaurus/core": "3.7.0",
+    "@docusaurus/plugin-client-redirects": "3.7.0",
     "@docusaurus/plugin-ideal-image": "^3.7.0",
     "@docusaurus/preset-classic": "3.7.0",
     "@mdx-js/react": "^3.0.0",
     "axios": "^1.8.3",
     "clsx": "^2.0.0",
+    "fs-extra": "^11.3.0",
     "prism-react-renderer": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

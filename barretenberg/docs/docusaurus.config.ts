@@ -12,7 +12,27 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
-// This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
+// To redirect /api to the static/api directory in dev mode (netlify handles it in prod)
+function apiPlugin(context: any, options: any) {
+  return {
+    name: 'api-static-plugin',
+    configureWebpack(config: any, isServer: boolean, utils: any) {
+      if (!isServer) {
+        return {
+          mergeStrategy: { 'devServer.setupMiddlewares': 'replace' },
+          devServer: {
+            setupMiddlewares: (middlewares: any, devServer: any) => {
+              const express = require('express');
+              devServer.app.use('/api', express.static(path.join(__dirname, 'static/api')));
+              return middlewares;
+            },
+          },
+        } as any;
+      }
+      return {};
+    }
+  }
+}
 
 const config: Config = {
   title: "Barretenberg",
@@ -105,60 +125,8 @@ const config: Config = {
       },
     ],
 
-    // [
-    //   "docusaurus-plugin-typedoc",
-    //   {
-    //     id: "aztecjs/pxe",
-    //     entryPoints: ["../yarn-project/stdlib/src/interfaces/pxe.ts"],
-    //     tsconfig: "../yarn-project/stdlib/tsconfig.json",
-    //     entryPointStrategy: "expand",
-    //     out: "developers/reference/aztecjs/pxe",
-    //     readme: "none",
-    //     sidebar: {
-    //       categoryLabel: "Private Execution Environment (PXE)",
-    //     },
-    //     disableSources: true,
-    //   },
-    // ],
-    // [
-    //   "docusaurus-plugin-typedoc",
-    //   {
-    //     id: "aztecjs/aztec-js",
-    //     entryPoints: [
-    //       "../yarn-project/aztec.js/src/contract/index.ts",
-    //       "../yarn-project/aztec.js/src/account/index.ts",
-    //     ],
-    //     tsconfig: "../yarn-project/aztec.js/tsconfig.json",
-    //     entryPointStrategy: "resolve",
-    //     out: "developers/reference/aztecjs/aztec-js",
-    //     readme: "none",
-    //     sidebar: {
-    //       categoryLabel: "Aztec.js",
-    //     },
-    //     disableSources: true,
-    //   },
-    // ],
-    // [
-    //   "docusaurus-plugin-typedoc",
-    //   {
-    //     id: "aztecjs/accounts",
-    //     entryPoints: [
-    //       "../yarn-project/accounts/src/defaults/index.ts",
-    //       "../yarn-project/accounts/src/ecdsa/index.ts",
-    //       "../yarn-project/accounts/src/schnorr/index.ts",
-    //       "../yarn-project/accounts/src/single_key/index.ts",
-    //       "../yarn-project/accounts/src/testing/index.ts",
-    //     ],
-    //     tsconfig: "../yarn-project/accounts/tsconfig.json",
-    //     entryPointStrategy: "resolve",
-    //     out: "developers/reference/aztecjs/accounts",
-    //     readme: "none",
-    //     sidebar: {
-    //       categoryLabel: "Accounts",
-    //     },
-    //     disableSources: true,
-    //   },
-    // ],
+    apiPlugin,
+
   ],
   themeConfig: {
     metadata: [

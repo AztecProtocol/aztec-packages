@@ -31,6 +31,16 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    {
+      type: "html",
+      value: '<div class="divider"></div>',
+      defaultStyle: true,
+    },
+    {
+      type: "html",
+      value: '<a href="/api/index.html" target="_blank" rel="noopener noreferrer" style="color: var(--ifm-menu-color); text-decoration: none; display: block; padding: var(--ifm-menu-link-padding-vertical) var(--ifm-menu-link-padding-horizontal);">C++ API Reference</a>',
+      defaultStyle: true,
+    },
   ],
 };
 

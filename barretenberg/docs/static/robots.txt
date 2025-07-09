@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://docs.aztec.network/sitemap.xml
+Sitemap: https://barretenberg.aztec.network/sitemap.xml
