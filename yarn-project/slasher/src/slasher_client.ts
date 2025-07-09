@@ -454,7 +454,7 @@ export class SlasherClient {
       this.config.slashProposerRoundPollingIntervalSeconds,
     );
     if (!reached) {
-      this.log.error('Round not reached', { proposal, round });
+      this.log.warn('Round not reached', { proposal, round });
       return;
     }
     this.log.info('Executing round', { proposal, round });
@@ -469,8 +469,7 @@ export class SlasherClient {
           this.log.debug('Round already executed', { round });
           return;
         } else {
-          this.log.error('Error executing round', err);
-          throw err;
+          this.log.warn('Error executing round', err);
         }
       });
   }
