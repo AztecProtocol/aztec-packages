@@ -10,17 +10,16 @@ use std::test::OracleMock;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        global_variables::GlobalVariables, sponge_blob::SpongeBlob,
+        block_header::BlockHeader, global_variables::GlobalVariables,
+        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
     },
     address::EthAddress,
-    block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
         PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     },
     merkle_tree::MerkleTree,
-    partial_state_reference::PartialStateReference,
     proof::vk_data::VkData,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
     traits::{Empty, Hash, Serialize},

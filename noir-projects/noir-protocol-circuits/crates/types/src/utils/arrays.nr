@@ -430,38 +430,50 @@ where
 
 impl<T, let N: u32> Empty for ClaimedLengthArray<T, N>
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     fn empty() -> Self {
         Self { array: [T::empty(); N], length: 0 }
     }
 }
 
-// T_N: serialized length of type T
-// N: max length of the ClaimedLengthArray
-// T_N * N + 1: The serialized length of a ClaimedLengthArray<T, N> (the +1 is the `length` field).
-impl<T, let T_N: u32, let N: u32> Deserialize<T_N * N + 1> for ClaimedLengthArray<T, N>
+/// Deserialize implementation for ClaimedLengthArray<T,M>
+///
+/// The serialized format is:
+/// - First M*N fields contain the serialized array elements, where N is the serialized length of type T
+/// - The last field contains the length of the array
+///
+/// For example, if T serializes to 2 fields and M=3 (max length), the format would be:
+/// [T1_field1, T1_field2, T2_field1, T2_field2, T3_field1, T3_field2, length]
+///
+/// The total serialized length is M*N + 1 fields, where:
+/// - M is the max length of the array
+/// - N is the serialized length of type T
+/// - +1 is for the length field
+impl<T, let M: u32> Deserialize for ClaimedLengthArray<T, M>
 where
-    T: Deserialize<T_N> + Empty,
+    T: Deserialize + Empty,
 {
+    let N: u32 = <T as Deserialize>::N * M + 1;
+
     #[inline_always]
-    fn deserialize(fields: [Field; T_N * N + 1]) -> Self {
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut new_arr: Self = Self::empty();
 
         // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
         // field is after `storage` struct field.
-        let len = fields[T_N * N] as u32;
+        let len = fields[<T as Deserialize>::N * M] as u32;
 
         let mut within_length = true;
-        for i in 0..N {
+        for i in 0..M {
             if i == len {
                 within_length = false;
             }
 
             if within_length {
-                let mut nested_fields = [0; T_N];
-                for j in 0..T_N {
-                    nested_fields[j] = fields[i * T_N + j];
+                let mut nested_fields = [0; <T as Deserialize>::N];
+                for j in 0..<T as Deserialize>::N {
+                    nested_fields[j] = fields[i * <T as Deserialize>::N + j];
                 }
 
                 let item = T::deserialize(nested_fields);
@@ -476,24 +488,26 @@ where
     }
 }
 
-impl<T, let T_N: u32, let N: u32> Serialize<T_N * N + 1> for ClaimedLengthArray<T, N>
+impl<T, let M: u32> Serialize for ClaimedLengthArray<T, M>
 where
-    T: Serialize<T_N>,
+    T: Serialize,
 {
-    #[inline_always]
-    fn serialize(self) -> [Field; T_N * N + 1] {
-        let mut fields = [0; T_N * N + 1];
+    let N: u32 = <T as Serialize>::N * M + 1;
 
-        for i in 0..N {
+    #[inline_always]
+    fn serialize(self) -> [Field; Self::N] {
+        let mut fields = [0; Self::N];
+
+        for i in 0..M {
             let serialized_item = self.array[i].serialize();
 
-            for j in 0..T_N {
-                fields[i * T_N + j] = serialized_item[j];
+            for j in 0..<T as Serialize>::N {
+                fields[i * <T as Serialize>::N + j] = serialized_item[j];
             }
         }
 
         // Length is stored in the last field.
-        fields[T_N * N] = self.length as Field;
+        fields[<T as Serialize>::N * M] = self.length as Field;
 
         fields
     }

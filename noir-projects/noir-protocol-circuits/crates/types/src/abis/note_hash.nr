@@ -1,11 +1,11 @@
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::{Ordered, OrderedValue, Readable, Scoped}},
     address::AztecAddress,
-    constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
-    traits::{Deserialize, Empty, Serialize, ToField},
-    utils::reader::Reader,
+    traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct NoteHash {
     pub value: Field,
     pub counter: u32,
@@ -17,27 +17,9 @@ impl Ordered for NoteHash {
     }
 }
 
-impl Eq for NoteHash {
-    fn eq(self, other: NoteHash) -> bool {
-        (self.value == other.value) & (self.counter == other.counter)
-    }
-}
-
 impl Empty for NoteHash {
     fn empty() -> Self {
         NoteHash { value: 0, counter: 0 }
-    }
-}
-
-impl Serialize<NOTE_HASH_LENGTH> for NoteHash {
-    fn serialize(self) -> [Field; NOTE_HASH_LENGTH] {
-        [self.value, self.counter as Field]
-    }
-}
-
-impl Deserialize<NOTE_HASH_LENGTH> for NoteHash {
-    fn deserialize(values: [Field; NOTE_HASH_LENGTH]) -> Self {
-        Self { value: values[0], counter: values[1] as u32 }
     }
 }
 
@@ -47,6 +29,7 @@ impl NoteHash {
     }
 }
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct ScopedNoteHash {
     pub note_hash: NoteHash,
     pub contract_address: AztecAddress,
@@ -73,33 +56,9 @@ impl OrderedValue<Field> for ScopedNoteHash {
     }
 }
 
-impl Eq for ScopedNoteHash {
-    fn eq(self, other: ScopedNoteHash) -> bool {
-        (self.note_hash == other.note_hash) & (self.contract_address == other.contract_address)
-    }
-}
-
 impl Empty for ScopedNoteHash {
     fn empty() -> Self {
         ScopedNoteHash { note_hash: NoteHash::empty(), contract_address: AztecAddress::zero() }
-    }
-}
-
-impl Serialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
-    fn serialize(self) -> [Field; SCOPED_NOTE_HASH_LENGTH] {
-        self.note_hash.serialize().concat([self.contract_address.to_field()])
-    }
-}
-
-impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
-    fn deserialize(values: [Field; SCOPED_NOTE_HASH_LENGTH]) -> Self {
-        let mut reader = Reader::new(values);
-        let res = Self {
-            note_hash: reader.read_struct(NoteHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
-        };
-        reader.finish();
-        res
     }
 }
 
@@ -129,18 +88,30 @@ impl ScopedNoteHash {
     }
 }
 
-#[test]
-fn serialization_of_empty() {
-    let item = NoteHash::empty();
-    let serialized = item.serialize();
-    let deserialized = NoteHash::deserialize(serialized);
-    assert(item.eq(deserialized));
-}
+mod tests {
+    use crate::{
+        abis::note_hash::{NoteHash, ScopedNoteHash},
+        constants::{NOTE_HASH_LENGTH, SCOPED_NOTE_HASH_LENGTH},
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-#[test]
-fn serialization_of_empty_scoped() {
-    let item = ScopedNoteHash::empty();
-    let serialized = item.serialize();
-    let deserialized = ScopedNoteHash::deserialize(serialized);
-    assert(item.eq(deserialized));
+    #[test]
+    fn serialization_of_empty() {
+        let item = NoteHash::empty();
+        // We use the NOTE_HASH_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; NOTE_HASH_LENGTH] = item.serialize();
+        let deserialized = NoteHash::deserialize(serialized);
+        assert(item.eq(deserialized));
+    }
+
+    #[test]
+    fn serialization_of_empty_scoped() {
+        let item = ScopedNoteHash::empty();
+        // We use the SCOPED_NOTE_HASH_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; SCOPED_NOTE_HASH_LENGTH] = item.serialize();
+        let deserialized = ScopedNoteHash::deserialize(serialized);
+        assert(item.eq(deserialized));
+    }
 }
