@@ -116,11 +116,11 @@ FastRandom VarianceRNG(0);
  */
 template <typename Builder> class SafeUintFuzzBase {
   private:
-    typedef bb::stdlib::bool_t<Builder> bool_t;
-    typedef bb::stdlib::field_t<Builder> field_t;
-    typedef bb::stdlib::safe_uint_t<Builder> suint_t;
-    typedef bb::stdlib::witness_t<Builder> witness_t;
-    typedef bb::stdlib::public_witness_t<Builder> public_witness_t;
+    using bool_t = bb::stdlib::bool_t<Builder>;
+    using field_t = bb::stdlib::field_t<Builder>;
+    using suint_t = bb::stdlib::safe_uint_t<Builder>;
+    using witness_t = bb::stdlib::witness_t<Builder>;
+    using public_witness_t = bb::stdlib::public_witness_t<Builder>;
 
   public:
     /**
@@ -1185,6 +1185,12 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t first_index = instruction.arguments.fiveArgs.in1 % stack.size();
             size_t second_index = instruction.arguments.fiveArgs.in2 % stack.size();
             size_t quotient_bit_size = instruction.arguments.fiveArgs.qbs;
+
+            // If the maximum values overflow 256 bits, this is detected by ASSERTS
+            if (quotient_bit_size + stack[second_index].suint.current_max.get_msb() + 1 >= 256) {
+                return 1;
+            }
+
             size_t remainder_bit_size = instruction.arguments.fiveArgs.rbs;
             size_t output_index = instruction.arguments.fiveArgs.out;
             PRINT_TWO_ARG_TWO_VALUES_INSTRUCTION(first_index,

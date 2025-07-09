@@ -192,7 +192,7 @@ template <typename Builder> class UintFuzzBase {
         variable = rng.next() & 0xffff;                                                                                \
     }
             // Depending on instruction type...
-        switch (instruction.id) {
+            switch (instruction.id) {
             case OPCODE::CONSTANT:
                 break;
             case OPCODE::ADD:
@@ -284,8 +284,7 @@ template <typename Builder> class UintFuzzBase {
                           opcode == Instruction::OPCODE::SHR || opcode == Instruction::OPCODE::ROL ||
                           opcode == Instruction::OPCODE::ROR) {
                 return Instruction{ .id = static_cast<typename Instruction::OPCODE>(opcode),
-                                    .arguments.bitArgs = {
-                                        .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
+                                    .arguments.bitArgs = { .in = *Data, .out = *(Data + 1), .bit = *(Data + 2) } };
             }
             if constexpr (opcode == Instruction::OPCODE::NOT || opcode == Instruction::OPCODE::SET) {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
