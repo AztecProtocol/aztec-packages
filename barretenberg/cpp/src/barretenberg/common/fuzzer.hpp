@@ -80,6 +80,41 @@ class FastRandom {
     }
 };
 
+// Sample a uint256_t value from log distribution
+// That is we first sample the bit count in [0..255]
+// And then shrink the random [0..2^255] value
+// This helps to get smaller values more frequently
+template <typename T> static inline uint256_t fast_log_distributed_uint256(T& rng)
+{
+    uint256_t temp;
+    // Generate a random mask_size-bit value
+    // We want to sample from log distribution instead of uniform
+    uint16_t* p = (uint16_t*)&temp;
+    uint8_t mask_size = static_cast<uint8_t>(rng.next() & 0xff);
+    for (size_t i = 0; i < 16; i++) {
+        *(p + i) = static_cast<uint16_t>(rng.next() & 0xffff);
+    }
+    uint256_t mask = (uint256_t(1) << mask_size) - 1;
+    temp &= mask;
+    temp += 1; // I believe we want to avoid lots of infs
+    return temp;
+}
+
+// Read uint256_t from raw bytes.
+// Don't use dereference casts, since the data may be not aligned and it causes segfault
+uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
+{
+    ASSERT(buffer_size <= 32);
+
+    uint64_t parts[4] = { 0, 0, 0, 0 };
+
+    for (size_t i = 0; i < (buffer_size + 7) / 8; i++) {
+        size_t to_read = (buffer_size - i * 8) < 8 ? buffer_size - i * 8 : 8;
+        std::memcpy(&parts[i], data + i * 8, to_read);
+    }
+    return uint256_t(parts[0], parts[1], parts[2], parts[3]);
+}
+
 /**
  * @brief Concept for a simple PRNG which returns a uint32_t when next is called
  *
@@ -635,6 +670,7 @@ class ArithmeticFuzzHelper {
         // If there is a posprocessing function, use it
         if constexpr (PostProcessingEnabled<T, Composer, std::vector<typename T::ExecutionHandler>>) {
             final_value_check = T::postProcess(&composer, state);
+
 #ifdef FUZZING_SHOW_INFORMATION
             if (!final_value_check) {
                 std::cerr << "Final value check failed" << std::endl;
@@ -642,11 +678,11 @@ class ArithmeticFuzzHelper {
 #endif
         }
         bool check_result = bb::CircuitChecker::check(composer) && final_value_check;
-        #ifndef FUZZING_DISABLE_WARNINGS
+#ifndef FUZZING_DISABLE_WARNINGS
         if (circuit_should_fail) {
             info("circuit should fail");
         }
-        #endif
+#endif
         // If the circuit is correct, but it should fail, abort
         if (check_result && circuit_should_fail) {
             abort();
