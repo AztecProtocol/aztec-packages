@@ -207,7 +207,7 @@ Generates a secret key and deploys an account contract. Uses a Schnorr single-ke
 #### Options
 
 - `--skip-initialization`: Skip initializing the account contract. Useful for publicly deploying an existing account.
-- `--public-deploy`: Publicly deploys the account and registers the class if needed.
+- `--public-deploy`: Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
 - `-p, --public-key <string>`: Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
 - `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080")
 - `-sk, --secret-key <string>`: Secret key for account. Uses random by default. (env: `SECRET_KEY`)

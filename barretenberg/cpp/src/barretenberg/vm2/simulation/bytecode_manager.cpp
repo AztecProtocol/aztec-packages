@@ -31,7 +31,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
 
     auto bytecode_id = next_bytecode_id++;
-    if (!merkle_db.nullifier_exists(DEPLOYER_CONTRACT_ADDRESS, address)) {
+    if (!merkle_db.nullifier_exists(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, address)) {
         retrieval_events.emit({
             .bytecode_id = bytecode_id,
             .address = address,
