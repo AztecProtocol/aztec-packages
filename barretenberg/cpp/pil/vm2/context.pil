@@ -62,7 +62,9 @@ namespace execution;
 
     pol commit prev_public_data_tree_root;
     pol commit prev_public_data_tree_size;
-    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_written_public_data_slots_tree_root;
+    pol commit prev_written_public_data_slots_tree_size;
 
     pol commit prev_l1_l2_tree_root;
     pol commit prev_l1_l2_tree_size;
@@ -78,7 +80,9 @@ namespace execution;
 
     pol commit public_data_tree_root;
     pol commit public_data_tree_size;
-    pol commit num_pub_data_writes_emitted;
+
+    pol commit written_public_data_slots_tree_root;
+    pol commit written_public_data_slots_tree_size;
 
     pol commit l1_l2_tree_root;
     pol commit l1_l2_tree_size;

@@ -63,15 +63,15 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = false };
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
-    auto tree_snapshots = merkle_db.get_tree_roots();
+    auto tree_states = merkle_db.get_tree_state();
 
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = tree_snapshots.nullifierTree.root,
-        .public_data_tree_root = tree_snapshots.publicDataTree.root,
+        .nullifier_root = tree_states.nullifierTree.tree.root,
+        .public_data_tree_root = tree_states.publicDataTree.tree.root,
         .current_timestamp = current_timestamp,
     });
 
