@@ -53,7 +53,7 @@ images:
     image: sigp/lighthouse:v6.0.1
     pullPolicy: IfNotPresent
   geth:
-    image: ethereum/client-go:v1.15.5
+    image: ethereum/client-go:v1.16.1
     pullPolicy: IfNotPresent
   nethermind:
     image: nethermind/nethermind:v1.32.2

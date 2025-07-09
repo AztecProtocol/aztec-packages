@@ -16,13 +16,7 @@
     "terminalTotalDifficulty": 0,
     "terminalTotalDifficultyPassed": true,
     "shanghaiTime": 0,
-    "cancunTime": 0,
-    "blobSchedule": {
-      "0": {
-        "targetBlobGasPerBlock": 393216,
-        "maxBlobGasPerBlock": 786432
-      }
-    }
+    "cancunTime": 0
   },
   "alloc": {
     "0x3fab184622dc19b6109349b94811493bf2a45362": {
