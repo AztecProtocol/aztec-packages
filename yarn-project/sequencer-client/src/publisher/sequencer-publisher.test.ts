@@ -227,7 +227,13 @@ describe('SequencerPublisher', () => {
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
-      await publisher.enqueueCastVote(2n, 1n, VoteType.GOVERNANCE, hash => testHarnessPrivateKey.sign({ hash })),
+      await publisher.enqueueCastVote(
+        2n,
+        1n,
+        VoteType.GOVERNANCE,
+        EthAddress.fromString(testHarnessPrivateKey.address),
+        hash => testHarnessPrivateKey.sign({ hash }),
+      ),
     ).toEqual(true);
 
     forwardSpy.mockResolvedValue({

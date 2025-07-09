@@ -388,6 +388,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
       newGlobalVariables.timestamp,
       VoteType.GOVERNANCE,
+      proposerAddress,
       msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
@@ -395,6 +396,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
       newGlobalVariables.timestamp,
       VoteType.SLASHING,
+      proposerAddress,
       msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
