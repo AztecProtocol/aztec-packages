@@ -21,7 +21,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[skippable_if]
     sel_sload = 0; // from execution.pil.
 
-    // Selector for when we should get environment variable (gated by earlier errors)
+    // Selector for when we should actually perform the read (gated by earlier errors)
     pol commit sel_should_sload;
 
     #[SHOULD_SLOAD]
