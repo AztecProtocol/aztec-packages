@@ -27,8 +27,7 @@ export VK=$output_dir/vk
 export VERIFIER_PATH="$output_dir/Verifier.sol"
 
 # Use the BB CLI to write the solidity verifier - this can also be done with bb.js
-# TODO(https://github.com/AztecProtocol/barretenberg/issues/1441): Remove --disable_zk
-$BIN write_solidity_verifier --scheme ultra_honk --disable_zk -k $VK -o $VERIFIER_PATH
+$BIN write_solidity_verifier --scheme ultra_honk -k $VK -o $VERIFIER_PATH
 
 # Verify the proof using the solidity verifier
 export PROOF=$output_dir/proof

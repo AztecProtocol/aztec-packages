@@ -8,7 +8,7 @@ const logger = pino({
   name: "bbjs-test",
 });
 
-const UH_PROOF_FIELDS_LENGTH = 456;
+const UH_PROOF_FIELDS_LENGTH = 507; // length of UltraZKHonk flavor
 const BYTES_PER_FIELD = 32;
 const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
 
