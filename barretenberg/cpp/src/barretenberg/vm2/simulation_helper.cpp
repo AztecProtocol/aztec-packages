@@ -38,6 +38,7 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -107,6 +108,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
     typename S::template DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent>
         written_public_data_slots_tree_check_emitter;
+    typename S::template DefaultEventEmitter<GreaterThanEvent> greater_than_emitter;
 
     uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
 
@@ -117,6 +119,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
+    GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
