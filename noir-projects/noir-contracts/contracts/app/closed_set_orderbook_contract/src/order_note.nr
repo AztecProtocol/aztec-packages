@@ -1,5 +1,5 @@
 use crate::config::Config;
-use aztec::{macros::notes::note, prelude::AztecAddress};
+use aztec::{macros::notes::note, protocol_types::address::AztecAddress};
 
 // TODO: Current macros would not pack this efficiently. Add manual Packable impl. or optimize the macros.
 #[note]

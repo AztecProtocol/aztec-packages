@@ -26,31 +26,24 @@ use aztec::macros::aztec;
 pub contract ClosedSetOrderbook {
     use crate::{config::Config, order_note::OrderNote};
     use aztec::{
-        macros::{
-            events::event,
-            functions::{initializer, internal, private, public, utility},
-            storage::storage,
-        },
+        macros::{functions::{initializer, private, public, utility}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
         note::{
             lifecycle::destroy_note_unsafe, note_getter::get_note, retrieved_note::RetrievedNote,
         },
-        oracle::{notes::check_nullifier_exists, random::random},
-        prelude::{AztecAddress, Map, PrivateImmutable, SharedMutable},
-        protocol_types::traits::{FromField, ToField},
-        state_vars::storage::Storage as StorageTrait,
+        oracle::random::random,
+        protocol_types::address::AztecAddress,
+        state_vars::{HasStorageSlot, Map, PrivateImmutable, SharedMutable},
     };
 
     use token::Token;
 
-    // This is set low such that we don't have to wait too much for the delay to pass in tests upon init.
-    // See constructor comment for more details on how we could afford to set this to a higher value.
     // Note that this value was copied over to e2e_closed_set_orderbook.test.ts. and needs to be kept in sync.
-    global CHANGE_CONFIG_DELAY_BLOCKS: u32 = 10;
+    global CHANGE_CONFIG_DELAY: u64 = 60 * 60 * 24;
 
     #[storage]
     struct Storage<Context> {
-        config: SharedMutable<Config, CHANGE_CONFIG_DELAY_BLOCKS, Context>,
+        config: SharedMutable<Config, CHANGE_CONFIG_DELAY, Context>,
         orders: Map<Field, PrivateImmutable<OrderNote, Context>, Context>,
     }
 

@@ -1,6 +1,9 @@
 import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE } from '@aztec/aztec.js';
+import type { AztecNode } from '@aztec/aztec.js';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { ClosedSetOrderbookContract } from '@aztec/noir-contracts.js/ClosedSetOrderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { SequencerClient } from '@aztec/sequencer-client';
 
 import { jest } from '@jest/globals';
 
@@ -8,7 +11,7 @@ import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
-const CHANGE_CONFIG_DELAY_BLOCKS = 10;
+const CHANGE_CONFIG_DELAY = 60 * 60 * 24;
 
 // TODO(#14525): Write thorough ClosedSetOrderbook tests. Currently we test only a happy path here because we will
 // migrate these tests to TXE once TXE 2.0 is ready.
@@ -19,6 +22,9 @@ describe('ClosedSetOrderbook', () => {
   let logger: Logger;
 
   let pxe: PXE;
+  let cheatCodes: CheatCodes;
+  let sequencer: SequencerClient;
+  let aztecNode: AztecNode;
 
   let adminWallet: AccountWallet;
   let maker: AccountWallet;
@@ -34,12 +40,22 @@ describe('ClosedSetOrderbook', () => {
   const fee = 10n; // 0.1%
 
   beforeAll(async () => {
+    let maybeSequencer: SequencerClient | undefined = undefined;
+
     ({
       pxe,
       teardown,
       wallets: [adminWallet, maker, taker, feeCollector],
       logger,
+      cheatCodes,
+      sequencer: maybeSequencer,
+      aztecNode,
     } = await setup(4));
+
+    if (!maybeSequencer) {
+      throw new Error('Sequencer client not found');
+    }
+    sequencer = maybeSequencer;
 
     token0 = await deployToken(adminWallet, 0n, logger);
     token1 = await deployToken(adminWallet, 0n, logger);
@@ -66,15 +82,8 @@ describe('ClosedSetOrderbook', () => {
     let orderId: FieldLike;
 
     it('config actives', async () => {
-      // We mine CHANGE_CONFIG_DELAY_BLOCKS blocks to make sure the config is active.
-
-      // Note that it would be better to obtain the scheduled block of change from the contract as then we would
-      // not have to copy the CHANGE_CONFIG_DELAY_BLOCKS value here. We currently don't have a getter on
-      // SharedMutable that would allow us to do this.
-      // TODO: Add utility-context getter of block of change on SharedMutable.
-      for (let i = 0; i < CHANGE_CONFIG_DELAY_BLOCKS; i++) {
-        await token0.methods.total_supply().send().wait();
-      }
+      // Warp time to get past the config change delay
+      await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, CHANGE_CONFIG_DELAY);
 
       const config = await orderbook.methods.get_config().simulate();
       expect(config.token0).toEqual(token0.address);
