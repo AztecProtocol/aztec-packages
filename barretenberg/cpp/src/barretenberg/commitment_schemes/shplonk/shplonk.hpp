@@ -414,8 +414,8 @@ template <typename Curve> class ShplonkVerifier_ {
      * @brief Update the internal state of the Shplonk verifier
      *
      * @details Given a list of indices = \f$(i_1, \dots, i_k)\f$, a list of scalar coefficients = \f$(a_1, \dots,
-     * a_k)\f$, an evaluation $\fv\f$, and an inverse vanishing eval \f$\frac{1}{z - x}\f$, update the internal state of
-     * the Shplonk verifier so to add the check \f[ \sum_{j=1}^k a_j f_{i_j}(x) = v \f] This amounts to update:
+     * a_k)\f$, an opening pair $\f(x,v)\f$, and the inverse vanishing eval \f$\frac{1}{z - x}\f$, update the internal
+     * state of the Shplonk verifier so to add the check \f[ \sum_{j=1}^k a_j f_{i_j}(x) = v \f] This amounts to update:
      *  - \f$s_{i_j} -= \frac{\nu^{i-1} * a_j}{z - x}\f$
      *  - \f$\theta += \nu^{i-1} \frac{v}{z - x}\f$
      *
