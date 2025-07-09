@@ -31,7 +31,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     for (size_t i = 0; i < input.points.size(); i += 3) {
         // Instantiate the input point/variable base as `cycle_group_ct`
         cycle_group_ct input_point = to_grumpkin_point(
-            input.points[i], input.points[i + 1], input.points[i + 2], has_valid_witness_assignments, builder);
+            input.points[i], input.points[i + 1], input.points[i + 2], has_valid_witness_assignments, true, builder);
 
         //  Reconstruct the scalar from the low and high limbs
         field_ct scalar_low_as_field = to_field_ct(input.scalars[2 * (i / 3)], builder);
