@@ -230,7 +230,6 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-
         auto response = bbapi::ClientIvcCheckPrecomputedVk{ .circuit = { .name = step.function_name,
                                                                          .bytecode = step.bytecode,
                                                                          .verification_key = step.vk },
