@@ -48,7 +48,6 @@ bool circuit_should_fail = false;
     rhs += std::to_string(second_index);                                                                               \
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
     out = (output_index >= stack.size() ? "auto " : "") + out;
-
 #endif
 
 FastRandom VarianceRNG(0);
@@ -158,26 +157,6 @@ template <typename Builder> class CycleGroupBase {
         // Instruction arguments
         ArgumentContents arguments;
 
-        // Sample a uint256_t value from log distribution
-        // That is we first sample the bit count in [0..255]
-        // And then shrink the random [0..2^255] value
-        // This helps to get smaller values more frequently
-        template <typename T> static inline uint256_t fast_log_distributed_uint256(T& rng)
-        {
-            uint256_t temp;
-            // Generate a random mask_size-bit value
-            // We want to sample from log distribution instead of uniform
-            uint16_t* p = (uint16_t*)&temp;
-            uint8_t mask_size = static_cast<uint8_t>(rng.next() & 0xff);
-            for (size_t i = 0; i < 16; i++) {
-                *(p + i) = static_cast<uint16_t>(rng.next() & 0xffff);
-            }
-            uint256_t mask = (uint256_t(1) << mask_size) - 1;
-            temp &= mask;
-            temp += 1; // I believe we want to avoid lots of infs
-            return temp;
-        }
-
         /**
          * @brief Generates a random instruction
          *
@@ -197,7 +176,7 @@ template <typename Builder> class CycleGroupBase {
             case OPCODE::CONSTANT:
             case OPCODE::WITNESS:
             case OPCODE::CONSTANT_WITNESS: {
-                auto scalar = ScalarField(static_cast<uint64_t>(Instruction::fast_log_distributed_uint256(rng)));
+                auto scalar = ScalarField(static_cast<uint64_t>(fast_log_distributed_uint256(rng)));
                 auto el = GroupElement::one() * scalar;
                 return { .id = instruction_opcode, .arguments.element = Element(scalar, el) };
             }
@@ -233,7 +212,7 @@ template <typename Builder> class CycleGroupBase {
                 in = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode,
-                         .arguments.mulArgs.scalar = ScalarField(Instruction::fast_log_distributed_uint256(rng)),
+                         .arguments.mulArgs.scalar = ScalarField(fast_log_distributed_uint256(rng)),
                          .arguments.mulArgs.in = in,
                          .arguments.mulArgs.out = out };
 #endif
@@ -254,8 +233,7 @@ template <typename Builder> class CycleGroupBase {
                     instr.arguments.batchMulArgs.inputs[i] = static_cast<uint8_t>(rng.next() & 0xff);
                 }
                 for (size_t i = 0; i < mult_size; i++) {
-                    instr.arguments.batchMulArgs.scalars[i] =
-                        ScalarField(Instruction::fast_log_distributed_uint256(rng));
+                    instr.arguments.batchMulArgs.scalars[i] = ScalarField(fast_log_distributed_uint256(rng));
                 }
                 instr.arguments.batchMulArgs.output_index = static_cast<uint8_t>(rng.next() & 0xff);
                 return instr;
@@ -1039,13 +1017,22 @@ template <typename Builder> class CycleGroupBase {
                 std::cout << "cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
                           << to_mul[i] << "\")), ";
 #endif
-                auto scalar = is_witness ? cycle_scalar_t(to_mul[i]) : cycle_scalar_t::from_witness(builder, to_mul[i]);
+                auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, to_mul[i]) : cycle_scalar_t(to_mul[i]);
                 to_mul_cs.push_back(scalar);
 
                 accumulator_cg += to_add[i].base * to_mul[i];
                 accumulator_cs += to_add[i].base_scalar * to_mul[i];
             }
             accumulator_cg -= GroupElement::one();
+
+            // Handle the linearly dependant case that is
+            // assumed to not happen in real life
+            if (accumulator_cg.is_point_at_infinity()) {
+                to_add_cg.push_back(cycle_group_t(GroupElement::one()));
+                to_mul_cs.push_back(cycle_scalar_t(ScalarField::one()));
+                accumulator_cg += GroupElement::one();
+                accumulator_cs += ScalarField::one();
+            }
 
             auto batch_mul_res = cycle_group_t::batch_mul(to_add_cg, to_mul_cs);
             return ExecutionHandler(accumulator_cs, accumulator_cg, batch_mul_res);
