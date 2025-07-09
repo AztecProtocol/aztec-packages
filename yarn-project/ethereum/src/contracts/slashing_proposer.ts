@@ -164,7 +164,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
         {
           // Gas estimation is way off for this, likely because we are creating the contract/selector to call
           // for the actual slashing dynamically.
-          gasLimitBufferPercentage: 1000,
+          gasLimitBufferPercentage: 50, // +50% gas
         },
       )
       .catch(err => {
