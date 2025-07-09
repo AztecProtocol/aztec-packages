@@ -15,7 +15,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
-    memory.checkTagsAreSame(aOffset, bOffset);
+    memory.checkTagsAreSame(aOffset, bOffset); // Brillig semantic enforces that tags match.
 
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
