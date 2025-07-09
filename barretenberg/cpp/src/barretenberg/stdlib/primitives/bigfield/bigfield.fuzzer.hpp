@@ -248,8 +248,7 @@ template <typename Builder> class BigFieldBase {
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
-            uint8_t in1, in2, in3, out, mask_size, mult_size, add_size;
-            uint256_t mask, temp;
+            uint8_t in1, in2, in3, out, mult_size, add_size;
             Instruction instr;
             uint8_t mult_pairs[MULT_MADD_MAXIMUM_MUL_PAIRS * 2] = { 0 };
             uint8_t add_elements[MULT_MADD_MAXIMUM_ADDED_ELEMENTS > SQR_ADD_MAXIMUM_ADDED_ELEMENTS
@@ -260,21 +259,11 @@ template <typename Builder> class BigFieldBase {
             switch (instruction_opcode) {
             case OPCODE::CONSTANT:
             case OPCODE::WITNESS:
-            case OPCODE::CONSTANT_WITNESS:
-                // If it's a constant or witness, it just pushes data onto the stack to be acted upon
-                // Generate a random field element
-                for (size_t i = 0; i < (sizeof(uint256_t) >> 1); i++) {
-                    *(((uint16_t*)&temp) + i) = static_cast<uint16_t>(rng.next() & 0xffff);
-                }
-                // We want small values, too. If we generate randomly, we aren't going to have them, so we also apply a
-                // random mask, which randomizes the logarithm of maximum value
-                mask_size = static_cast<uint8_t>(rng.next() & 0xff);
-                mask = (uint256_t(1) << mask_size) - 1;
-                // Choose the bit range
-                // Return instruction
-                return { .id = instruction_opcode, .arguments.element = Element(static_cast<uint64_t>(temp & mask)) };
-
+            case OPCODE::CONSTANT_WITNESS: {
+                auto value = static_cast<uint64_t>(fast_log_distributed_uint256(rng));
+                return { .id = instruction_opcode, .arguments.element = Element(value) };
                 break;
+            }
             case OPCODE::RANDOMSEED:
                 return { .id = instruction_opcode, .arguments.randomseed = rng.next() };
                 break;
@@ -918,12 +907,20 @@ template <typename Builder> class BigFieldBase {
 
                 bb::fq v = 0;
                 std::vector<bigfield_t> numerators;
-                while (v != this->base) {
-                    const auto add =
-                        static_cast<uint256_t>(bb::fq::random_element()) % (static_cast<uint256_t>(this->base - v) + 1);
+
+                size_t numerators_size = std::max(bigfield_t::MAXIMUM_SUMMAND_COUNT / 2,
+                                                  VarianceRNG.next() % bigfield_t::MAXIMUM_SUMMAND_COUNT);
+                for (size_t i = 0; i < numerators_size && v != this->base; i++) {
+                    uint256_t add;
+                    if (i == numerators_size - 1) {
+                        add = this->base - v;
+                    } else {
+                        add = fast_log_distributed_uint256(VarianceRNG) % (static_cast<uint256_t>(this->base - v) + 1);
+                    }
                     numerators.push_back(bigfield_t(this->bigfield.context, bb::fq(add)));
                     v += add;
                 }
+                ASSERT(v == this->base);
 
                 return ExecutionHandler(this->base / divisor,
                                         /* Multi-numerator division */
