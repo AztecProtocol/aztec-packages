@@ -95,7 +95,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .address = address,
         .current_class_id = instance.current_class_id,
         .original_class_id = instance.original_class_id,
-        .public_data_tree_root = merkle_db.get_tree_roots().publicDataTree.root,
+        .public_data_tree_root = merkle_db.get_tree_state().publicDataTree.tree.root,
         .current_timestamp = current_timestamp,
         .update_hash = hash,
         .update_preimage_metadata = update_preimage_metadata,

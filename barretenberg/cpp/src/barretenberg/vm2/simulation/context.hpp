@@ -16,6 +16,7 @@
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -90,8 +91,10 @@ class BaseContext : public ContextInterface {
                 GlobalVariables globals,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory,
-                std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager)
-        : address(address)
+                std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
+                WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree)
+        : written_public_data_slots_tree(written_public_data_slots_tree)
+        , address(address)
         , msg_sender(msg_sender)
         , transaction_fee(transaction_fee)
         , is_static(is_static)
@@ -154,6 +157,9 @@ class BaseContext : public ContextInterface {
     // Input / Output
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
+  protected:
+    WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
+
   private:
     // Environment.
     AztecAddress address;
@@ -195,6 +201,7 @@ class EnqueuedCallContext : public BaseContext {
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
                         std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
+                        WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                         std::span<const FF> calldata)
         : BaseContext(context_id,
                       address,
@@ -206,7 +213,8 @@ class EnqueuedCallContext : public BaseContext {
                       globals,
                       std::move(bytecode),
                       std::move(memory),
-                      std::move(internal_call_stack_manager))
+                      std::move(internal_call_stack_manager),
+                      written_public_data_slots_tree)
         , calldata(calldata.begin(), calldata.end())
     {}
 
@@ -241,6 +249,7 @@ class NestedContext : public BaseContext {
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
                   std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
+                  WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
                   MemoryAddress cd_size)
@@ -254,7 +263,8 @@ class NestedContext : public BaseContext {
                       globals,
                       std::move(bytecode),
                       std::move(memory),
-                      std::move(internal_call_stack_manager))
+                      std::move(internal_call_stack_manager),
+                      written_public_data_slots_tree)
         , parent_cd_addr(cd_offset_address)
         , parent_cd_size(cd_size)
         , parent_context(parent_context)
