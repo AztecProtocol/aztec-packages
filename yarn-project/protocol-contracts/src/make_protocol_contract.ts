@@ -1,5 +1,5 @@
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 
 import type { ProtocolContract } from './protocol_contract.js';
 import { ProtocolContractAddress, type ProtocolContractName, ProtocolContractSalt } from './protocol_contract_data.js';
@@ -16,7 +16,7 @@ export async function makeProtocolContract(
   const salt = ProtocolContractSalt[name];
   // TODO(@spalladino): This computes the contract class from the artifact twice.
   const contractClass = await getContractClassFromArtifact(artifact);
-  const instance = await getContractInstanceFromDeployParams(artifact, { salt });
+  const instance = await getContractInstanceFromInstantiationParams(artifact, { salt });
   return {
     instance: { ...instance, address },
     contractClass,

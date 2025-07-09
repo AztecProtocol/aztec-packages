@@ -146,42 +146,42 @@ pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
 // Same for utility functions: the size is per function.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000;
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
-pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
+pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
 // How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
-pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
-// Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
+pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+// Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegistry.
 // This is just a stopgap until we implement proper selectors.
-// sha224sum 'struct ContractClassRegistered {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
-pub global REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE: Field =
-    0x6999d1e02b08a447a463563453cb36919c9dd7150336fc7c4d2b52f8;
+// sha224sum 'struct ContractClassPublished {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
+pub global CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE: Field =
+    0x865ad43bd9e1810c684c0e95514e6bd32fb5f55fe1dc8f538c19bd35;
 // sha224sum 'struct ClassPrivateFunctionBroadcasted'
-pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
+pub global CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0x1b70e95fde0b70adc30496b90a327af6a5e383e028e7a43211a07bcd;
 // sha224sum 'struct ClassUtilityFunctionBroadcasted'
-pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
+pub global CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0xe7af816635466f128568edb04c9fa024f6c87fb9010fdbffa68b3d99;
 
 // CONTRACT INSTANCE CONSTANTS
-// sha224sum 'struct ContractInstanceDeployed'
-pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
-    0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
+// sha224sum 'struct ContractInstancePublished'
+pub global CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE: Field =
+    0xb9b83068bdb54802a16c21ea497fa1d3363fdfab7e81557cad2a5547;
 
 // sha224sum 'struct ContractInstanceUpdated'
-pub global DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
+pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
 pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
-pub global DEPLOYER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
-pub global REGISTERER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
+pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
+pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(7);
 
 // Randomly chosen slot for the bytecode capsule.
-pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
 
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
@@ -281,7 +281,7 @@ pub global PUBLIC_LOG_PLAINTEXT_LEN: u32 = PUBLIC_LOG_SIZE_IN_FIELDS - 1; // -1 
 
 // TODO(MW): add new constant for this - the below is just the largest combination atm
 pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
-    + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
+    + CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
 pub global CONTRACT_CLASS_LOG_LENGTH: u32 = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
     + 1 /* length */
     + 1 /* contract_address */;
@@ -618,6 +618,16 @@ pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
 // AVM Keccakf1600 specific constants
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
+
+// Subtrace IDs.
+pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
+pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
+pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
+pub global AVM_SUBTRACE_ID_POSEIDON_PERM: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
+pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON_PERM;
+pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
+pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_ECC;
+pub global AVM_SUBTRACE_ID_DATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
 
 // Execution Opcode IDs
 // Note: these are all powers of 2 to allow for binary decomposition.

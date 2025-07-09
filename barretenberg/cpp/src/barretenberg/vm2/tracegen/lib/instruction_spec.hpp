@@ -5,8 +5,9 @@
 #include <unordered_map>
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -27,5 +28,21 @@ struct SubtraceInfo {
 };
 
 extern const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP;
+
+/**
+ * @brief Get the subtrace ID for a given subtrace enum.
+ *
+ * @param subtrace_sel The subtrace enum.
+ * @return The corresponding subtrace ID.
+ */
+FF get_subtrace_id(SubtraceSel subtrace_sel);
+
+/**
+ * @brief Get the column selector for a given subtrace selector.
+ *
+ * @param subtrace_sel The subtrace selector.
+ * @return The corresponding column selector.
+ */
+Column get_subtrace_selector(SubtraceSel subtrace_sel);
 
 } // namespace bb::avm2::tracegen

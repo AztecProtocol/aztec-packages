@@ -75,8 +75,9 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
-    FF delayed_public_mutable_hash_leaf_slot = poseidon2::hash(
-        { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, delayed_public_mutable_hash_slot });
+    FF delayed_public_mutable_hash_leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+                                                                 CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                                                 delayed_public_mutable_hash_slot });
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
@@ -199,8 +200,9 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     update_leaf_values.push_back(update_hash);
     std::vector<FF> update_leaf_slots;
     for (size_t i = 0; i < update_leaf_values.size(); ++i) {
-        FF leaf_slot = poseidon2::hash(
-            { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, delayed_public_mutable_slot + i });
+        FF leaf_slot = poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+                                         CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                                         delayed_public_mutable_slot + i });
         update_leaf_slots.push_back(leaf_slot);
     }
 

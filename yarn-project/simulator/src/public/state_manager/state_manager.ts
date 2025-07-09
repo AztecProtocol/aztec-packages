@@ -1,9 +1,9 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  DEPLOYER_CONTRACT_ADDRESS,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -353,7 +353,7 @@ export class PublicPersistableStateManager {
 
     // This will decide internally whether to check the nullifier tree or not depending on doMerkleOperations.
     const nullifierExistsInTree = await this.checkNullifierExists(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
     );
     assert(
@@ -386,7 +386,7 @@ export class PublicPersistableStateManager {
       const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
         await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
       const readDeployerStorage = async (storageSlot: Fr) =>
-        await this.readStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
+        await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
       const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
       const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
@@ -495,8 +495,8 @@ export class PublicPersistableStateManager {
 function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
   return (
     contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))

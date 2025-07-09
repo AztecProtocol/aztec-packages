@@ -103,7 +103,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
       await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
-      ProtocolContractAddress.ContractInstanceDeployer,
+      ProtocolContractAddress.ContractInstanceRegistry,
       delayedPublicMutableHashSlot,
     );
     const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockNumber, hashLeafSlot);
@@ -113,11 +113,8 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
     }
 
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
-    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
-      delayedPublicMutableSlot,
-      readStorage,
-    );
+      this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
+    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(
       new MembershipWitness(

@@ -2,7 +2,7 @@ use dep::types::{
     abis::private_kernel::private_call_data::PrivateCallData,
     address::AztecAddress,
     constants::{
-        DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_ADDRESS, MAX_PROTOCOL_CONTRACTS,
+        CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, DEFAULT_UPDATE_DELAY, MAX_PROTOCOL_CONTRACTS,
         UPDATED_CLASS_IDS_SLOT,
     },
     contract_class_id::ContractClassId,
@@ -71,7 +71,7 @@ pub fn validate_contract_address(
     validate_with_hash_hints(
         private_call_data.public_inputs.historical_header,
         derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address),
-        DEPLOYER_CONTRACT_ADDRESS,
+        CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         delayed_public_mutable_values,
         hints.updated_class_id_witness,
         hints.updated_class_id_leaf,

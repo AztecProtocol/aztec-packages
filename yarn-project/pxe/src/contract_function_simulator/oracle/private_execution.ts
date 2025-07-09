@@ -165,7 +165,7 @@ export async function readCurrentClassId(
 ) {
   const { delayedPublicMutableSlot } = await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, slot =>
-    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceDeployer, slot),
+    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
   );
   let currentClassId = delayedPublicMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {

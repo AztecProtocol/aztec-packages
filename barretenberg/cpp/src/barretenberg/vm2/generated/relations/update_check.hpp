@@ -31,7 +31,7 @@ template <typename FF_> class update_checkImpl {
     {
         using C = ColumnAndShifts;
 
-        const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
+        const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
         const auto constants_UPDATED_CLASS_IDS_SLOT = FF(1);
         const auto constants_TIMESTAMP_OF_CHANGE_BIT_SIZE = FF(32);
         const auto constants_UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN = FF(3);
@@ -74,7 +74,7 @@ template <typename FF_> class update_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::update_check_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
+            auto tmp = in.get(C::update_check_sel) * (constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS -
                                                       in.get(C::update_check_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
