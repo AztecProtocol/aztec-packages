@@ -85,7 +85,10 @@ Consider running the following commands to rebase onto the new $MT:
 git merge $HEAD_COMMIT
 # Rebase onto $BASE, ignoring commits received from the old $MT.
 git rebase --onto \$(git merge-base $HEAD_COMMIT $BASE) $MERGE_COMMIT
-\`\`\`"
+\`\`\`
+If that has given you trouble, you can also try:
+
+"
 
     gh pr comment "$PR_NUM" --body "$TIPS"
     echo "✓ Added rebase instructions comment to PR #$PR_NUM"
