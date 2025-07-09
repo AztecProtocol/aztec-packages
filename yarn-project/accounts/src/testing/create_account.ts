@@ -49,10 +49,10 @@ export async function deployFundedSchnorrAccount(
   account: DeployAccountData,
   opts: WaitOpts & {
     /**
-     * Whether or not to skip registering contract class.
+     * Whether or not to skip publishing the contract class.
      */
-    skipClassRegistration?: boolean;
-  } = { interval: 0.1, skipClassRegistration: false },
+    skipClassPublication?: boolean;
+  } = { interval: 0.1, skipClassPublication: false },
   waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager> {
   const signingKey = account.signingKey ?? deriveSigningKey(account.secret);
@@ -64,8 +64,8 @@ export async function deployFundedSchnorrAccount(
 
   const receipt = await accountManager
     .deploy({
-      skipClassRegistration: opts.skipClassRegistration,
-      skipPublicDeployment: true,
+      skipClassPublication: opts.skipClassPublication,
+      skipInstancePublication: true,
       fee: { paymentMethod },
     })
     .wait(opts);
@@ -86,10 +86,10 @@ export async function deployFundedSchnorrAccounts(
   accounts: DeployAccountData[],
   opts: WaitOpts & {
     /**
-     * Whether or not to skip registering contract class.
+     * Whether or not to skip publishing the contract class.
      */
-    skipClassRegistration?: boolean;
-  } = { interval: 0.1, skipClassRegistration: false },
+    skipClassPublication?: boolean;
+  } = { interval: 0.1, skipClassPublication: false },
   waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager[]> {
   const accountManagers: AccountManager[] = [];
@@ -101,7 +101,7 @@ export async function deployFundedSchnorrAccounts(
         accounts[i],
         {
           ...opts,
-          skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
+          skipClassPublication: i !== 0 || opts.skipClassPublication, // Publish the contract class at most once.
         },
         waitForProvenOptions,
       ),

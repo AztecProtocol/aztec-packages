@@ -156,9 +156,9 @@ describe('Contract Class', () => {
       l1ContractAddresses: l1Addresses,
       enr: undefined,
       protocolContractAddresses: {
-        classRegisterer: await AztecAddress.random(),
+        classRegistry: await AztecAddress.random(),
         feeJuice: await AztecAddress.random(),
-        instanceDeployer: await AztecAddress.random(),
+        instanceRegistry: await AztecAddress.random(),
         multiCallEntrypoint: await AztecAddress.random(),
       },
     };
@@ -169,7 +169,7 @@ describe('Contract Class', () => {
     wallet.getContractMetadata.mockResolvedValue({
       contractInstance,
       isContractInitialized: true,
-      isContractPubliclyDeployed: true,
+      isContractPublished: true,
     });
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);

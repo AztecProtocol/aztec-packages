@@ -7,7 +7,7 @@ import {
   type PXE,
   TxStatus,
   type Wallet,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
@@ -36,7 +36,7 @@ describe('e2e_deploy_contract legacy', () => {
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
     const publicKeys = wallet.getCompleteAddress().publicKeys;
-    const deploymentData = await getContractInstanceFromDeployParams(TestContractArtifact, {
+    const deploymentData = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
       salt,
       publicKeys,
       deployer: wallet.getAddress(),
@@ -45,7 +45,7 @@ describe('e2e_deploy_contract legacy', () => {
     const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
     expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
-    expect((await pxe.getContractMetadata(deploymentData.address)).isContractPubliclyDeployed).toBeTrue();
+    expect((await pxe.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
   });
 
   /**
@@ -94,8 +94,8 @@ describe('e2e_deploy_contract legacy', () => {
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {
-      skipClassRegistration: true,
-      skipPublicDeployment: true,
+      skipClassPublication: true,
+      skipInstancePublication: true,
     };
     const secondOpts: DeployOptions = {};
 
