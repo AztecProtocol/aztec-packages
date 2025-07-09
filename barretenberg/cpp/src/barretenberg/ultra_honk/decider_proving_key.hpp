@@ -200,13 +200,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            // Set the pairing point accumulator indices. This should exist for all non-Mega.
+            // Set the pairing point accumulator indices. This should exist for all non-Mega Flavors.
             if constexpr (IsUltraHonk<Flavor>) {
                 ASSERT(
                     circuit.pairing_inputs_public_input_key.is_set() &&
                     "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
                    default one through a method in PairingPoints.");
             }
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1468): Remove use of pairing inputs pub key
             metadata.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
