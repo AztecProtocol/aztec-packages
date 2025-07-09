@@ -17,5 +17,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run auto-merge script
-        run: 
-          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/auto-merge.sh
+        run: |
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
+          ./scripts/merge-train/auto-merge.sh
