@@ -159,7 +159,7 @@ pub contract FPC {
         Token::at(config.accepted_asset)
             .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, authwit_nonce
                 )
-            .enqueue(&mut context);
+                .enqueue(&mut context);
         // docs:end:public_call
 
         context.set_as_fee_payer();
