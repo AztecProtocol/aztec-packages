@@ -55,7 +55,7 @@ template <typename T> struct FileBackedMemory {
 
         static std::atomic<size_t> file_counter{ 0 };
         size_t id = file_counter.fetch_add(1);
-        filename = "/tmp/poly-mmap-" + std::to_string(id);
+        filename = "/mnt/user-data/adam/poly-mmap-" + std::to_string(id);
 
         fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         // Create file
