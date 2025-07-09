@@ -42,7 +42,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
       public:
         size_t degree_proof_idx = 0;
         size_t T_commitment_idx = 17;
-        size_t t_eval_kappa_inv_idx = 51;
+        size_t t_eval_kappa_inv_idx = 49;
         // Outer verification circuit
         RecursiveBuilder outer_circuit;
         // Merge proof
