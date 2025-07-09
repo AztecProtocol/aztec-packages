@@ -876,7 +876,7 @@ TEST(ExecutionTraceGenTest, SLoad)
                 ElementsAre(
                     // First row is empty
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
-                    // Second row is the rd_size
+                    // Second row is the sload
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_sload, 1),
                           ROW_FIELD_EQ(execution_sel_should_sload, 1),
