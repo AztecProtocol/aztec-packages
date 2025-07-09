@@ -38,9 +38,8 @@ done
 
 if [ "${PUSH:-0}" -eq 1 ]; then
   # update PR branch
-  git switch --force-create "$pr_head_ref" "$work_branch"
-  git branch -f "$pr_head_ref" HEAD
-  git switch "$pr_head_ref"
+  git switch --force-create "$pr_head_ref" "origin/$pr_base_ref"
+  git git reset --hard "$work_branch"
   git push origin "$pr_head_ref" --force-with-lease
 else
   echo "You are on a successful rebase branch. Use 'git log' to look around."
