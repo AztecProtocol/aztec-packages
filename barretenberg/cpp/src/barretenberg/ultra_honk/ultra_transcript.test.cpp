@@ -65,18 +65,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t round = 0;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
         if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-            manifest_expected.add_entry(round, "vk_circuit_size", frs_per_Fr);
-            manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_Fr);
-            manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_Fr);
-            manifest_expected.add_entry(round, "vk_pairing_points_start_idx", frs_per_Fr);
-            if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-                manifest_expected.add_entry(round, "vk_ipa_claim_start_idx", frs_per_Fr);
-            }
-            for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-                manifest_expected.add_entry(round, "vk_commitment", frs_per_G);
-            }
-            manifest_expected.add_challenge(round, "vk_hash");
-            round++;
+            manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         } else {
             size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
             manifest_expected.add_entry(round, "vk_circuit_size", frs_per_uint32);
@@ -235,7 +224,7 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -273,7 +262,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -352,7 +341,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
@@ -364,19 +353,19 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // reset verifier's transcript
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
-    proof = TestFixture::export_serialized_proof(prover, proving_key->proving_key.num_public_inputs);
+    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
     EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->proving_key.num_public_inputs);
+    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
     EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->proving_key.num_public_inputs);
+    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
     EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
@@ -385,18 +374,14 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
 TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
 {
-    if constexpr (!IsAnyOf<TypeParam, UltraRollupFlavor, UltraFlavor>) {
-        GTEST_SKIP() << "Not built for this parameter";
-    } else {
-        // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-        auto builder = typename TypeParam::CircuitBuilder();
-        TestFixture::generate_test_circuit(builder);
+    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    auto builder = typename TypeParam::CircuitBuilder();
+    TestFixture::generate_test_circuit(builder);
 
-        // Automatically generate a transcript manifest by constructing a proof
-        auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-        typename TestFixture::Prover prover(proving_key, verification_key);
-        auto proof = prover.construct_proof();
-        EXPECT_EQ(proof.size(), TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
-    }
+    // Automatically generate a transcript manifest by constructing a proof
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
+    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_EQ(proof.size(), TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
 }

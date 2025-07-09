@@ -42,6 +42,7 @@
 #include "relations/to_radix.hpp"
 #include "relations/tx.hpp"
 #include "relations/update_check.hpp"
+#include "relations/written_public_data_slots_tree_check.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
@@ -76,6 +77,7 @@
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_update_check.hpp"
+#include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_public_data_check.hpp"
@@ -84,10 +86,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 127;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2216;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2291;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2591;
+    static constexpr size_t NUM_ALL_ENTITIES = 2666;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -132,7 +134,8 @@ struct AvmFlavorVariables {
         avm2::sha256<FF_>,
         avm2::to_radix<FF_>,
         avm2::tx<FF_>,
-        avm2::update_check<FF_>>;
+        avm2::update_check<FF_>,
+        avm2::written_public_data_slots_tree_check<FF_>>;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -164,8 +167,10 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_range_4_relation<FF_>,
         lookup_addressing_relative_overflow_range_5_relation<FF_>,
         lookup_addressing_relative_overflow_range_6_relation<FF_>,
+        lookup_alu_ff_lt_relation<FF_>,
+        lookup_alu_lt_range_relation<FF_>,
         lookup_alu_register_tag_value_relation<FF_>,
-        lookup_alu_tag_max_value_relation<FF_>,
+        lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,
@@ -175,6 +180,7 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_deployment_nullifier_read_relation<FF_>,
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
+        lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_calldata_hashing_cd_hash_relation<FF_>,
         lookup_calldata_hashing_cd_hash_end_relation<FF_>,
@@ -191,6 +197,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
+        lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
@@ -416,6 +423,14 @@ struct AvmFlavorVariables {
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
         lookup_update_check_update_lo_metadata_range_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_low_leaf_next_slot_validation_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_low_leaf_slot_validation_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
+        lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,

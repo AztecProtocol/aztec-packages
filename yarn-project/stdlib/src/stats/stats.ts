@@ -221,8 +221,8 @@ export type TxStats = {
   nullifierCount: number;
   /** Number of private logs */
   privateLogCount: number;
-  /** How many classes were registered through the canonical class registerer. */
-  classRegisteredCount: number;
+  /** How many classes were published to the canonical class registry. */
+  classPublishedCount: number;
   /** Serialized size of contract class logs in fields. */
   contractClassLogSize: number;
   /** How this tx pays for its fee */
