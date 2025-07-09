@@ -64,4 +64,36 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
     return c;
 }
 
+MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
+{
+    if (a.get_tag() != b.get_tag()) {
+        debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
+        events.emit({ .operation = AluOperation::LTE,
+                      .a = a,
+                      .b = b,
+                      .c = MemoryValue::from<uint1_t>(0),
+                      .error = AluError::TAG_ERROR });
+        throw AluException();
+    }
+    uint128_t lte_abs_diff = 0;
+    FF a_ff = a.as_ff();
+    FF b_ff = b.as_ff();
+    // NOTE: We cannot do a_ff <= b_ff since fields do not have explicit ordering:
+    bool res = static_cast<uint256_t>(a_ff) <= static_cast<uint256_t>(b_ff);
+    MemoryValue c = MemoryValue::from<uint1_t>(res);
+    // We must split FF and non FF cases:
+    if (a.get_tag() == ValueTag::FF) {
+        // Emit the ff check event required (see lookup FF_LT) - note that we check a > b, and in the circuit check this
+        // against !c:
+        field_gt.ff_gt(a, b);
+    } else {
+        // For LTE, we use LT's lookups to check that b < a ? !c :
+        // We have excluded the field case => safe to downcast here for the max 128 bit range check:
+        lte_abs_diff = !res ? static_cast<uint128_t>(a_ff - b_ff) - 1 : static_cast<uint128_t>(b_ff - a_ff);
+    }
+    range_check.assert_range(lte_abs_diff, get_tag_bits(a.get_tag()));
+    events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .c = c });
+    return c;
+}
+
 } // namespace bb::avm2::simulation

@@ -20,6 +20,7 @@ namespace {
 // TODO(MW): Rename to something useful! Helper fn to get operation specific values.
 std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event)
 {
+    bool is_ff = event.a.get_tag() == ValueTag::FF;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
@@ -36,21 +37,45 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  { Column::alu_helper1, diff == 0 ? 0 : diff.invert() } };
     }
     case simulation::AluOperation::LT: {
-        bool is_ff = event.a.get_tag() == ValueTag::FF;
         FF abs_diff = static_cast<uint8_t>(event.c.as_ff()) == 1 ? event.b.as_ff() - event.a.as_ff() - 1
                                                                  : event.a.as_ff() - event.b.as_ff();
         return {
+            { Column::alu_lt_ops_input_a, event.a },
+            { Column::alu_lt_ops_input_b, event.b },
+            { Column::alu_lt_ops_result_c, event.c },
             { Column::alu_sel_op_lt, 1 },
+            { Column::alu_sel_lt_ops, 1 },
             { Column::alu_op_id,
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_sel_ff_lt,
+            { Column::alu_sel_ff_lt_ops,
               is_ff && (!event.error.has_value() || event.error != simulation::AluError::TAG_ERROR) },
             { Column::alu_tag_ff_diff_inv,
               is_ff
                   ? 0
                   : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
-            { Column::alu_lt_abs_diff, is_ff ? 0 : abs_diff },
+            { Column::alu_lt_ops_abs_diff, is_ff ? 0 : abs_diff },
+        };
+    }
+    case simulation::AluOperation::LTE: {
+        // For LTE, we use LT's lookups to check that b < a ? !c :
+        FF abs_diff = static_cast<uint8_t>(event.c.as_ff()) == 0 ? event.a.as_ff() - event.b.as_ff() - 1
+                                                                 : event.b.as_ff() - event.a.as_ff();
+        return {
+            { Column::alu_lt_ops_input_a, event.b },
+            { Column::alu_lt_ops_input_b, event.a },
+            { Column::alu_lt_ops_result_c, MemoryValue::from<uint1_t>(event.c.as_ff() == 0 ? 1 : 0) },
+            { Column::alu_sel_op_lte, 1 },
+            { Column::alu_sel_lt_ops, 1 },
+            { Column::alu_op_id,
+              static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LTE).subtrace_operation_id) },
+            { Column::alu_sel_is_ff, is_ff },
+            { Column::alu_sel_ff_lt_ops, is_ff },
+            { Column::alu_tag_ff_diff_inv,
+              is_ff
+                  ? 0
+                  : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { Column::alu_lt_ops_abs_diff, is_ff ? 0 : abs_diff },
         };
     }
 
