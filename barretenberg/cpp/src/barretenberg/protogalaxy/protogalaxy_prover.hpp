@@ -23,7 +23,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_KEYS>;
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, DeciderProvingKeys::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
-    using UnivariateRelationSeparator =
+    using UnivariateSubrelationSeparators =
         std::array<Univariate<FF, DeciderProvingKeys::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
@@ -49,7 +49,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     CombinerQuotient combiner_quotient;
     FF perturbator_evaluation;
     UnivariateRelationParameters relation_parameters;
-    UnivariateRelationSeparator alphas;
+    UnivariateSubrelationSeparators alphas;
 
     PGInternal pg_internal;
 
@@ -101,7 +101,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
      * @details Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient
      * will be sent to the verifier.
      */
-    std::tuple<std::vector<FF>, UnivariateRelationSeparator, UnivariateRelationParameters, FF, CombinerQuotient>
+    std::tuple<std::vector<FF>, UnivariateSubrelationSeparators, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
                             const DeciderProvingKeys& keys);
@@ -115,7 +115,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
      */
     void update_target_sum_and_fold(const DeciderProvingKeys& keys,
                                     const CombinerQuotient& combiner_quotient,
-                                    const UnivariateRelationSeparator& alphas,
+                                    const UnivariateSubrelationSeparators& alphas,
                                     const UnivariateRelationParameters& univariate_relation_parameters,
                                     const FF& perturbator_evaluation);
 

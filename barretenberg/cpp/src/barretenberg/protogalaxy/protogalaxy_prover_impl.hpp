@@ -75,7 +75,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 std::tuple<std::vector<typename Flavor::FF>,
-           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationSeparator,
+           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateSubrelationSeparators,
            typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationParameters,
            typename Flavor::FF,
            typename ProtogalaxyProver_<Flavor, NUM_KEYS>::CombinerQuotient>
@@ -89,7 +89,7 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
 
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    const UnivariateRelationSeparator alphas = PGInternal::compute_and_extend_alphas(keys);
+    const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(keys);
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
@@ -115,7 +115,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     const DeciderProvingKeys& keys,
     const CombinerQuotient& combiner_quotient,
-    const UnivariateRelationSeparator& alphas,
+    const UnivariateSubrelationSeparators& alphas,
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {

@@ -5,9 +5,13 @@
 #include <cstdint>
 #include <functional>
 #include <stdexcept>
+#include <string>
+
+#include "barretenberg/common/log.hpp"
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
@@ -49,8 +53,27 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         MemoryValue c = alu.add(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
+    }
+}
+
+void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EQ;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.eq(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu eq operation failed");
     }
 }
 
@@ -68,7 +91,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         MemoryValue c = alu.lt(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu lt operation failed");
     }
 }
@@ -333,6 +356,53 @@ void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_
     }
 }
 
+void Execution::debug_log(ContextInterface& context,
+                          MemoryAddress message_offset,
+                          MemoryAddress fields_offset,
+                          MemoryAddress fields_size_offset,
+                          uint16_t message_size,
+                          bool is_debug_logging_enabled)
+{
+    get_gas_tracker().consume_gas();
+
+    // DebugLog is a no-op on the prover side. If it was compiled with assertions and ran in debug mode,
+    // we will print part of the log. However, for this opcode, we give priority to never failing and
+    // never griefing the prover. Some safety checks are done, but if a failure happens, we will just
+    // silently continue.
+    if (is_debug_logging_enabled) {
+        try {
+            auto& memory = context.get_memory();
+
+            // Get the fields size and validate its tag
+            const auto fields_size_value = memory.get(fields_size_offset);
+            const uint32_t fields_size = fields_size_value.as<uint32_t>();
+
+            // Read message and fields from memory
+            std::string message_as_str;
+            uint16_t truncated_message_size = std::min<uint16_t>(message_size, 100);
+            for (uint32_t i = 0; i < truncated_message_size; ++i) {
+                const auto message_field = memory.get(message_offset + i);
+                message_as_str += static_cast<char>(static_cast<uint8_t>(message_field.as_ff()));
+            }
+            message_as_str += ": [";
+
+            // Read fields
+            for (uint32_t i = 0; i < fields_size; ++i) {
+                const auto field = memory.get(fields_offset + i);
+                message_as_str += field_to_string(field);
+                if (i < fields_size - 1) {
+                    message_as_str += ", ";
+                }
+            }
+            message_as_str += "]";
+
+            debug("DEBUGLOG: ", message_as_str);
+        } catch (const std::exception& e) {
+            debug("DEBUGLOG: Error: ", e.what());
+        }
+    }
+}
+
 void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
 {
     constexpr auto opcode = ExecutionOpCode::SUCCESSCOPY;
@@ -343,6 +413,69 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     MemoryValue success = MemoryValue::from<uint1_t>(context.get_last_success());
     memory.set(dst_addr, success);
     set_output(opcode, success);
+}
+
+void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::AND;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.and_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise AND Exeception");
+    }
+}
+
+void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::OR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.or_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise OR Exception");
+    }
+}
+
+void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::XOR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.xor_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise XOR Exception");
+    }
 }
 
 // This context interface is a top-level enqueued one.
@@ -502,6 +635,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::EQ:
+        call_with_operands(&Execution::eq, context, resolved_operands);
+        break;
     case ExecutionOpCode::LT:
         call_with_operands(&Execution::lt, context, resolved_operands);
         break;
@@ -546,6 +682,17 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURNDATASIZE:
         call_with_operands(&Execution::rd_size, context, resolved_operands);
+        break;
+    case ExecutionOpCode::DEBUGLOG:
+        call_with_operands(&Execution::debug_log, context, resolved_operands);
+    case ExecutionOpCode::AND:
+        call_with_operands(&Execution::and_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::OR:
+        call_with_operands(&Execution::or_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::XOR:
+        call_with_operands(&Execution::xor_op, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
