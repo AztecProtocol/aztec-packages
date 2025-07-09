@@ -69,17 +69,28 @@ for PR_DATA in $PR_LIST; do
     continue
   fi
 
-  # TODO make PR comment on $PR_NUM
-  # TODO dont display this if $BR has none of the commits from the set of merge-base($BR, $BASE) to $HEAD_COMMIT
-    tips="This had commits from $MT but it has now been squashed.
+  # Check if branch has commits from the old merge-train
+  PR_BASE=$(git merge-base "$MERGE_COMMIT" "$HEAD_COMMIT")
+  # Check: Has this PR already pulled in commits that were on the old merge-train?
+  #
+  # 1.  List all commit-ids that are in the PR but not in $BASE
+  # 2.  For each of those commit-ids, ask: “is that commit reachable from $BR?” if so, we have history from the old merge-train.
+  if git log --format=%H "$PR_BASE..$HEAD_COMMIT" | grep -qFf <(git log --format=%H "$BR"); then
+    # Branch has commits from the old merge-train, add comment
+    TIPS="This had commits from $MT but it has now been squashed.
 Consider running the following commands to rebase onto the new $MT:
 \`\`\`
 # Merge the old PR head before recreation.
 # If you currently have conflicts, you will resolve them here.
 git merge $HEAD_COMMIT
-# Rebase onto $BASE, ignoring commits recieved from the old $MT.
-git rebase --onto $$(git merge-base $HEAD_COMMIT) $MERGE_COMMIT
+# Rebase onto $BASE, ignoring commits received from the old $MT.
+git rebase --onto \$(git merge-base $HEAD_COMMIT $BASE) $MERGE_COMMIT
 \`\`\`"
 
-done
+    gh pr comment "$PR_NUM" --body "$TIPS"
+    echo "✓ Added rebase instructions comment to PR #$PR_NUM"
+  else
+    echo "✓ PR #$PR_NUM does not contain commits from old $MT, no comment needed"
+  fi
 
+done
