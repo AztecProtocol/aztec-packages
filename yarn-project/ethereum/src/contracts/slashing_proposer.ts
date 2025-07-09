@@ -13,7 +13,7 @@ import {
 } from 'viem';
 
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
 import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
 
@@ -75,11 +75,12 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
 
   public async createVoteRequestWithSignature(
     payload: Hex,
-    wallet: ExtendedViemWalletClient,
+    chainId: number,
+    signerAddress: Hex,
     signer: (msg: Hex) => Promise<Hex>,
   ): Promise<L1TxRequest> {
-    const nonce = await this.getNonce(wallet.account.address);
-    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), wallet.chain.id);
+    const nonce = await this.getNonce(signerAddress);
+    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), chainId);
     return {
       to: this.address.toString(),
       data: encodeVoteWithSignature(payload, signature),

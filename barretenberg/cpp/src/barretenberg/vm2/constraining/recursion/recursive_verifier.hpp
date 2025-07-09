@@ -13,7 +13,7 @@ class AvmRecursiveVerifier {
     using BF = typename Flavor::BF;
     using Curve = typename Flavor::Curve;
     using Commitment = typename Flavor::Commitment;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using Builder = typename Flavor::CircuitBuilder;

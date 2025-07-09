@@ -96,7 +96,7 @@ class UltraFlavor {
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation

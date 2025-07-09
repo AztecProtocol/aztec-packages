@@ -5,12 +5,14 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
 
 namespace bb::avm2::simulation {
 
 enum class AluOperation {
     ADD,
     LT,
+    EQ,
 };
 
 // TODO(MW): Expand when adding new ops (e.g. when using max_bits for mul, we would cover bits related errors)
@@ -40,7 +42,8 @@ class AluException : public std::runtime_error {
 struct AluEvent {
     AluOperation operation;
     MemoryValue a;
-    MemoryValue b;
+    MemoryValue b = MemoryValue::from<uint1_t>(0); // Avoid unitialized values for ALU ops with one input such as NOT,
+                                                   // TRUNCATE. Otherwise, deduplication is not guaranteed.
     MemoryValue c;
     std::optional<AluError> error;
     // To be used with deduplicating event emitters.

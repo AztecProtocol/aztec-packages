@@ -39,7 +39,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
     bool is_structured;
@@ -53,7 +53,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
-    RelationSeparator alphas;      // a challenge for each subrelation
+    SubrelationSeparators alphas;  // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accmumulator
