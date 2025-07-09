@@ -57,8 +57,7 @@ pub contract ClosedSetOrderbook {
     ) {
         // TODO: Why don't we have a way to directly initialize SharedMutable when it's created? If this is done
         // in the constructor then it's safe as we cannot interact with an undeployed contract that has initializer.
-        // Waiting for delay to pass here is quite annoying. Or are we unable to detect we are in a constructor? It
-        // should be possible to do via nullifier non-inclusion and inclusion proofs.
+        // Waiting for delay to pass here is quite annoying.
         storage.config.schedule_value_change(Config::new(token0, token1, fee_collector, fee));
     }
 
