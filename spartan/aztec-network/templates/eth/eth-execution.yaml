@@ -38,6 +38,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              ls -la /entrypoints
               exec /entrypoints/eth-execution.sh {{ .Values.ethereum.execution.client }}
           env:
             - name: K8S_MODE
