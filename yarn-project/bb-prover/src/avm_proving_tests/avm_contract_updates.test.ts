@@ -33,7 +33,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
     const sharedMutableValuesWithHash = new SharedMutableValuesWithHash(valueChange, delayChange);
 
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
-      await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot, value);
+      await tester.setPublicStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot, value);
     };
 
     await sharedMutableValuesWithHash.writeToTree(sharedMutableSlot, writeToTree);

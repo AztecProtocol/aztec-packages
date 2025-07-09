@@ -45,7 +45,7 @@ const itShouldBehaveLikeAnAccountContract = (
       ({ logger, pxe, teardown, wallet } = await setup(0, { initialFundedAccounts: [accountData] }));
 
       const account = await AccountManager.create(pxe, secret, accountContract, salt);
-      if (await account.isDeployable()) {
+      if (await account.hasInitializer()) {
         // The account is pre-funded and can pay for its own fee.
         const paymentMethod = new FeeJuicePaymentMethod(address);
         await account.deploy({ fee: { paymentMethod } }).wait();

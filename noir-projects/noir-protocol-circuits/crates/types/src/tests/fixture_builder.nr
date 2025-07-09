@@ -49,11 +49,11 @@ use crate::{
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
-        DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION,
-        MAX_KEY_VALIDATION_REQUESTS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
+        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, PRIVATE_CALL_REQUEST_LENGTH,
@@ -558,8 +558,10 @@ impl FixtureBuilder {
             let hash_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>, _>(
                 shared_mutable_slot,
             );
-            let hash_leaf_slot =
-                compute_public_data_tree_index(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
+            let hash_leaf_slot = compute_public_data_tree_index(
+                CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                hash_slot,
+            );
             public_data_tree.update_leaf(
                 public_data_prefill - 1,
                 PublicDataTreeLeafPreimage {

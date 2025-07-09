@@ -3,7 +3,7 @@ import {
   createLogger,
   createAztecNodeClient,
   AztecAddress,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   ContractFunctionInteraction,
   SponsoredFeePaymentMethod,
   type PXE,
@@ -58,7 +58,7 @@ export class EmbeddedWallet {
 
   // Internal method to use the Sponsored FPC Contract for fee payment
   async #getSponsoredPFCContract() {
-    const instance = await getContractInstanceFromDeployParams(
+    const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
       {
         salt: new Fr(SPONSORED_FPC_SALT),
@@ -117,8 +117,8 @@ export class EmbeddedWallet {
         ),
       },
       universalDeploy: true,
-      skipClassRegistration: true,
-      skipPublicDeployment: true,
+      skipClassPublication: true,
+      skipInstancePublication: true,
     };
 
     const provenInteraction = await deployMethod.prove(deployOpts);
@@ -174,7 +174,7 @@ export class EmbeddedWallet {
     deploymentSalt: Fr,
     constructorArgs: any[]
   ) {
-    const instance = await getContractInstanceFromDeployParams(artifact, {
+    const instance = await getContractInstanceFromInstantiationParams(artifact, {
       constructorArtifact: getDefaultInitializer(artifact),
       constructorArgs: constructorArgs,
       deployer: deployer,

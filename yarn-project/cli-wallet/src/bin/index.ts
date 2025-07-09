@@ -120,7 +120,7 @@ async function main() {
       await db.init(await openStoreAt(dataDir));
       let protocolContractsRegistered;
       try {
-        protocolContractsRegistered = !!(await db.retrieveAlias('contracts:ContractClassRegisterer'));
+        protocolContractsRegistered = !!(await db.retrieveAlias('contracts:ContractClassRegistry'));
         // eslint-disable-next-line no-empty
       } catch {}
       if (!protocolContractsRegistered) {

@@ -25,7 +25,7 @@ import {
   sleep,
   waitForPXE,
 } from '@aztec/aztec.js';
-import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
@@ -71,7 +71,7 @@ import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import {
   type ContractInstanceWithAddress,
   getContractClassFromArtifact,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -722,7 +722,7 @@ export async function setup(
  */
 
 // docs:start:public_deploy_accounts
-export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToDeploy: Wallet[]) {
+export async function ensureAccountContractsPublished(sender: Wallet, accountsToDeploy: Wallet[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
   // the sandbox and the test accounts exist
   const accountsAndAddresses = await Promise.all(
@@ -730,7 +730,7 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
       const address = account.getAddress();
       return {
         address,
-        deployed: (await sender.getContractMetadata(address)).isContractPubliclyDeployed,
+        deployed: (await sender.getContractMetadata(address)).isContractPublished,
       };
     }),
   );
@@ -743,9 +743,9 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
   ).map(contractMetadata => contractMetadata.contractInstance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
   if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
-    await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
+    await (await publishContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
-  const requests = await Promise.all(instances.map(async instance => await deployInstance(sender, instance!)));
+  const requests = await Promise.all(instances.map(async instance => await publishInstance(sender, instance!)));
   const batch = new BatchCall(sender, requests);
   await batch.send().wait();
 }
@@ -833,7 +833,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  */
 export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
   return Promise.resolve(
-    getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
       salt: new Fr(SPONSORED_FPC_SALT),
     }),
   );
@@ -853,7 +853,7 @@ export async function getSponsoredFPCAddress() {
  * Deploy a sponsored FPC contract to a running instance.
  */
 export async function setupSponsoredFPC(pxe: PXE) {
-  const instance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+  const instance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 

@@ -100,12 +100,12 @@ export class SerializableContractInstance {
 }
 
 /**
- * Generates a Contract Instance from the deployment params.
+ * Generates a Contract Instance from some instantiation params.
  * @param artifact - The account contract build artifact.
- * @param opts - Options for the deployment.
+ * @param opts - Options for the contract's instantiation.
  * @returns - The contract instance
  */
-export async function getContractInstanceFromDeployParams(
+export async function getContractInstanceFromInstantiationParams(
   artifact: ContractArtifact,
   opts: {
     constructorArtifact?: FunctionAbi | string;

@@ -126,7 +126,7 @@ describe('state_manager', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
-      const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceDeployer, address.toField());
+      const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceRegistry, address.toField());
 
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
       mockCheckNullifierExists(treesDB, true, leafIndex);

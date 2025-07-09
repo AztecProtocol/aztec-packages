@@ -52,8 +52,8 @@ describe('e2e_simple', () => {
       const sender = ownerAddress;
       const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
         contractAddressSalt: new Fr(BigInt(1)),
-        skipClassRegistration: true,
-        skipPublicDeployment: true,
+        skipClassPublication: true,
+        skipInstancePublication: true,
       });
       const tx = await provenTx.send().wait();
       await waitForProven(aztecNode, tx, {

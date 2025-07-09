@@ -2,7 +2,7 @@ import type { AuthWitnessProvider } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, NodeInfo } from '@aztec/stdlib/contract';
-import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountInterface } from './interface.js';
@@ -19,24 +19,24 @@ export interface AccountContract {
   getContractArtifact(): Promise<ContractArtifact>;
 
   /**
-   * Returns the deployment function name and arguments for this instance, or undefined if this contract does not require deployment.
+   * Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
    */
-  getDeploymentFunctionAndArgs(): Promise<
+  getInitializationFunctionAndArgs(): Promise<
     | {
-        /** The name of the function used to deploy the contract */
+        /** The name of the function used to initialize the contract */
         constructorName: string;
-        /** The args to the function used to deploy the contract */
+        /** The args to the function used to initialize the contract */
         constructorArgs: any[];
       }
     | undefined
   >;
 
   /**
-   * Returns the account interface for this account contract given a deployment at the provided address.
+   * Returns the account interface for this account contract given an instance at the provided address.
    * The account interface is responsible for assembling tx requests given requested function calls, and
    * for creating signed auth witnesses given action identifiers (message hashes).
-   * @param address - Address where this account contract is deployed.
-   * @param nodeInfo - Info on the chain where it is deployed.
+   * @param address - Address of this account contract.
+   * @param nodeInfo - Info on the chain where it is initialized / published.
    * @returns An account interface instance for creating tx requests and authorizing actions.
    */
   getInterface(address: CompleteAddress, nodeInfo: NodeInfo): AccountInterface;
@@ -54,12 +54,12 @@ export interface AccountContract {
  */
 export async function getAccountContractAddress(accountContract: AccountContract, secret: Fr, salt: Fr) {
   const { publicKeys } = await deriveKeys(secret);
-  const { constructorName, constructorArgs } = (await accountContract.getDeploymentFunctionAndArgs()) ?? {
+  const { constructorName, constructorArgs } = (await accountContract.getInitializationFunctionAndArgs()) ?? {
     constructorName: undefined,
     constructorArgs: undefined,
   };
   const artifact = await accountContract.getContractArtifact();
-  const instance = await getContractInstanceFromDeployParams(artifact, {
+  const instance = await getContractInstanceFromInstantiationParams(artifact, {
     constructorArtifact: constructorName,
     constructorArgs,
     salt,

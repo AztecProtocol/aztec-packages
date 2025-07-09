@@ -29,7 +29,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     // one public data tree slot the hash of the whole structure. This is nice because in circuits you can receive the
     // preimage as a hint and just read 1 storage slot instead of 3. We do that here, we will constrain the hash read
     // but then read in unconstrained mode the preimage. The PIL for this gadget constrains the hash.
-    FF hash = merkle_db.storage_read(DEPLOYER_CONTRACT_ADDRESS, shared_mutable_hash_slot);
+    FF hash = merkle_db.storage_read(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_hash_slot);
 
     uint256_t update_preimage_metadata = 0;
     FF update_preimage_pre_class_id = 0;
@@ -47,7 +47,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         std::vector<FF> update_preimage(3);
 
         for (size_t i = 0; i < update_preimage.size(); ++i) {
-            FF leaf_slot = unconstrained_compute_leaf_slot(DEPLOYER_CONTRACT_ADDRESS, shared_mutable_slot + i);
+            FF leaf_slot =
+                unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, shared_mutable_slot + i);
             update_preimage[i] = unconstrained_read(unconstrained_merkle_db, leaf_slot);
         }
 

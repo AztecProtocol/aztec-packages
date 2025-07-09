@@ -16,8 +16,8 @@ import { DeployMethod } from './deploy_method.js';
  */
 export class Contract extends ContractBase {
   /**
-   * Creates a contract instance.
-   * @param address - The deployed contract's address.
+   * Gets a contract instance.
+   * @param address - The address of the contract instance.
    * @param artifact - Build artifact of the contract.
    * @param wallet - The wallet to use when interacting with the contract.
    * @returns A promise that resolves to a new Contract instance.
@@ -37,7 +37,7 @@ export class Contract extends ContractBase {
   }
 
   /**
-   * Creates a tx to deploy a new instance of a contract.
+   * Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
    * @param wallet - The wallet for executing the deployment.
    * @param artifact - Build artifact of the contract to deploy
    * @param args - Arguments for the constructor.
@@ -49,7 +49,8 @@ export class Contract extends ContractBase {
   }
 
   /**
-   * Creates a tx to deploy a new instance of a contract using the specified public keys hash to derive the address.
+   * Creates a tx to deploy (initialize and/or publish) a new instance of a contract
+   * using the specified public keys hash to derive the address.
    * @param publicKeys - Hash of public keys to use for deriving the address.
    * @param wallet - The wallet for executing the deployment.
    * @param artifact - Build artifact of the contract.

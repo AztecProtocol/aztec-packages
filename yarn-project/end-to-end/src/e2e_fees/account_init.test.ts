@@ -137,7 +137,7 @@ describe('e2e_fees account_init', () => {
       const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, bobsWallet);
       const tx = await bobsAccountManager
         .deploy({
-          skipPublicDeployment: false,
+          skipInstancePublication: false,
           fee: { paymentMethod },
         })
         .wait();
@@ -177,8 +177,8 @@ describe('e2e_fees account_init', () => {
       )
         .send({
           contractAddressSalt: bobsInstance.salt,
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
+          skipClassPublication: true,
+          skipInstancePublication: true,
           skipInitialization: false,
           universalDeploy: true,
           fee: { paymentMethod },

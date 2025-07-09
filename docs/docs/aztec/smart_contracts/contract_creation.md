@@ -4,7 +4,7 @@ sidebar_position: 1
 tags: [contracts, protocol]
 ---
 
-In the Aztec protocol, contracts are deployed as _instances_ of contract _classes_. The deployment process consists of two main steps: first registering the contract _class_ (if not already registered), and then creating a contract _instance_ that references this class.
+In the Aztec protocol, contracts are created as _instances_ of contract _classes_. The deployment process consists of two main steps: first publishing the contract _class_ (if not already published), and then creating a contract _instance_ that references this class.
 
 ## Contract Classes
 
@@ -26,7 +26,7 @@ The specification of the artifact hash is not enforced by the protocol. It shoul
 
 ### Contract Class Registration
 
-A contract class is registered by calling a private `register` function in a canonical `ContractClassRegisterer` contract, which emits a Registration Nullifier. This process guarantees that the public bytecode for a contract class is publicly available, which is required for deploying contract instances.
+A contract class is published by calling a private `publish` function in a canonical `ContractClassRegistry` contract, which emits a Registration Nullifier. This process guarantees that the public bytecode for a contract class is publicly available, which is required for deploying contract instances.
 
 Contract class registration can be skipped if there are no public functions in the contract class, and the contract will still be usable privately. However, the contract class must be registered if it contains public functions, as these functions need to be publicly verifiable.
 
@@ -56,7 +56,7 @@ The address of a contract instance is computed as the hash of the elements in it
 Aztec makes an important distinction between initialization and public deployment:
 
 1. **Initialization**: A contract instance is considered Initialized once it emits an initialization nullifier, meaning it can only be initialized once. The default state for any address is to be uninitialized. A user who knows the preimage of the address can still issue a private call into a function in the contract, as long as that function doesn't assert that the contract has been initialized.
-2. **Public Deployment**: A Contract Instance is considered to be publicly deployed when it has been broadcast to the network via a canonical `ContractInstanceDeployer` contract, which also emits a deployment nullifier. All public function calls to an undeployed address must fail, since the contract class for it is not known to the network.
+2. **Public Deployment**: A Contract Instance is considered to be publicly deployed when it has been broadcast to the network via a canonical `ContractInstanceRegistry` contract, which also emits a deployment nullifier. All public function calls to an undeployed address must fail, since the contract class for it is not known to the network.
 
 ### Initialization
 
@@ -77,7 +77,7 @@ The protocol circuits, both private and public, are responsible for verifying th
 
 ## Genesis Contracts
 
-The `ContractInstanceDeployer` and `ContractClassRegisterer` contracts exist from the genesis of the Aztec Network, as they are necessary for deploying other contracts to the network. Their nullifiers are pre-inserted into the genesis nullifier tree.
+The `ContractInstanceRegistry` and `ContractClassRegistry` contracts exist from the genesis of the Aztec Network, as they are necessary for deploying other contracts to the network. Their nullifiers are pre-inserted into the genesis nullifier tree.
 
 This modular approach to contract deployment creates a flexible system that supports diverse use cases, from public applications to private contract interactions, while maintaining the security and integrity of the Aztec protocol.
 

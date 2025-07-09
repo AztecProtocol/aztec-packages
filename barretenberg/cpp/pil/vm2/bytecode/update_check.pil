@@ -61,7 +61,7 @@ namespace update_check;
 
     // TODO: Remove this as a column when we can lookup with constants
     pol commit deployer_protocol_contract_address;
-    sel * (constants.DEPLOYER_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
     #[UPDATE_HASH_PUBLIC_DATA_READ]
     sel {

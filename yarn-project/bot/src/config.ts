@@ -42,11 +42,11 @@ export type BotConfig = {
   l1ToL2MessageTimeoutSeconds: number;
   /** Signing private key for the sender account. */
   senderPrivateKey: SecretValue<Fr | undefined>;
-  /** Optional salt to use to deploy the sender account */
+  /** Optional salt to use to instantiate the sender account */
   senderSalt: Fr | undefined;
   /** Encryption secret for a recipient account. */
   recipientEncryptionSecret: SecretValue<Fr>;
-  /** Salt for the token contract deployment. */
+  /** Salt for the token contract instantiation. */
   tokenSalt: Fr;
   /** Every how many seconds should a new tx be sent. */
   txIntervalSeconds: number;

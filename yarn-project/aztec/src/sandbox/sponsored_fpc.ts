@@ -1,9 +1,14 @@
-import { type ContractInstanceWithAddress, Fr, type PXE, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
+import {
+  type ContractInstanceWithAddress,
+  Fr,
+  type PXE,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
 async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
-  return await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+  return await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
 }

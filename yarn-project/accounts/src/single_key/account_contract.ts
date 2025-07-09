@@ -17,7 +17,7 @@ export abstract class SingleKeyBaseAccountContract extends DefaultAccountContrac
     super();
   }
 
-  getDeploymentFunctionAndArgs() {
+  getInitializationFunctionAndArgs() {
     return Promise.resolve(undefined);
   }
 

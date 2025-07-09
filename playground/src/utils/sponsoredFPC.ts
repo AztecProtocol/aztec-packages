@@ -1,6 +1,6 @@
 import {
   type PXE,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   SponsoredFeePaymentMethod,
   AztecAddress,
   Fr,
@@ -27,7 +27,7 @@ export async function prepareForFeePayment(
   try {
     const contractArtifact = await getSponsoredFPCArtifact(sponsoredFPCVersion);
 
-    const instance = await getContractInstanceFromDeployParams(contractArtifact, {
+    const instance = await getContractInstanceFromInstantiationParams(contractArtifact, {
       salt: new Fr(SPONSORED_FPC_SALT),
     });
 

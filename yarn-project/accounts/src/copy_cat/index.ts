@@ -5,7 +5,7 @@ import {
   Fr,
   type NoirCompiledContract,
   type PXE,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   loadContractArtifact,
 } from '@aztec/aztec.js';
 
@@ -38,7 +38,7 @@ export class CopyCatAccountWallet extends CopyCatAccountWalletBase {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
     const accountInterface = new DefaultAccountInterface(simulatedAuthWitnessProvider, originalAddress, nodeInfo);
-    const instance = await getContractInstanceFromDeployParams(SimulatedAccountContractArtifact, {});
+    const instance = await getContractInstanceFromInstantiationParams(SimulatedAccountContractArtifact, {});
     return new CopyCatAccountWallet(pxe, accountInterface, originalAddress, SimulatedAccountContractArtifact, instance);
   }
 }

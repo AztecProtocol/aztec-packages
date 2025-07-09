@@ -1,14 +1,14 @@
 import {
+  CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   DEFAULT_GAS_LIMIT,
-  DEPLOYER_CONTRACT_ADDRESS,
   MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  REGISTERER_CONTRACT_ADDRESS,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG } from '@aztec/protocol-contracts';
+import { CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG } from '@aztec/protocol-contracts';
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -164,14 +164,14 @@ export async function addNewContractClassToTx(
   skipNullifierInsertion = false,
 ) {
   const contractClassLogFields = [
-    new Fr(REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE),
+    new Fr(CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE),
     contractClass.id,
     new Fr(contractClass.version),
     new Fr(contractClass.artifactHash),
     new Fr(contractClass.privateFunctionsRoot),
     ...bufferAsFields(contractClass.packedBytecode, Math.ceil(contractClass.packedBytecode.length / 31) + 1),
   ];
-  const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
+  const contractAddress = new AztecAddress(new Fr(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS));
   const emittedLength = contractClassLogFields.length;
   const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 
@@ -210,7 +210,7 @@ export async function addNewContractInstanceToTx(
     contractInstance.publicKeys.masterTaggingPublicKey.y,
   ];
   const logFields = [
-    DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG,
+    CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG,
     contractInstance.address.toField(),
     new Fr(contractInstance.version),
     new Fr(contractInstance.salt),
@@ -225,7 +225,7 @@ export async function addNewContractInstanceToTx(
   );
 
   const contractAddressNullifier = await siloNullifier(
-    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractInstance.address.toField(),
   );
 

@@ -389,7 +389,7 @@ ContractClass .. ContractInstance: hash(contract_class) == contract_class_id
 
 class ContractClass {
     version: u8
-    registerer_address: AztecAddress
+    registry_address: AztecAddress
     artifact_hash: field
     private_functions: field
     public_functions: field
@@ -799,7 +799,7 @@ Public functions and unconstrained functions won't be stored in a function tree;
 | Field                     | Type           | Description                                                        |
 | ------------------------- | -------------- | ------------------------------------------------------------------ |
 | `version`                 | `u8`           | Version identifier.                                                |
-| `registerer_address`      | `AztecAddress` | Address of the canonical contract used for registering this class. |
+| `registry_address`        | `AztecAddress` | Address of the canonical contract used for registering this class. |
 | `artifact_hash`           | `field`        | Hash of the contract artifact.                                     |
 | `private_functions`       | `field`        | Merkle root of the private function tree.                          |
 | `public_functions`        | `field`        | Merkle root of the public function tree.                           |

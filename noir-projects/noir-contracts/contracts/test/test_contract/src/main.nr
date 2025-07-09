@@ -30,7 +30,6 @@ pub contract Test {
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
     use dep::aztec::{
-        deploy::deploy_contract as aztec_deploy_contract,
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
@@ -45,6 +44,7 @@ pub contract Test {
             note_getter_options::NoteStatus,
             retrieved_note::RetrievedNote,
         },
+        publish_contract_instance::publish_contract_instance_for_public_execution,
         test::mocks::mock_struct::MockStruct,
     };
     use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
@@ -396,8 +396,8 @@ pub contract Test {
     //}
 
     #[private]
-    fn deploy_contract(target: AztecAddress) {
-        aztec_deploy_contract(&mut context, target);
+    fn publish_contract_instance(target: AztecAddress) {
+        publish_contract_instance_for_public_execution(&mut context, target);
     }
 
     #[derive(Serialize)]

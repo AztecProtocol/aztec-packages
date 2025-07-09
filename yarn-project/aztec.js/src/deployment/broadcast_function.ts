@@ -1,7 +1,7 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
+  CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -16,11 +16,11 @@ import {
 import { Capsule } from '@aztec/stdlib/tx';
 
 import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { getRegistererContract } from '../contract/protocol_contracts.js';
+import { getClassRegistryContract } from '../contract/protocol_contracts.js';
 import type { Wallet } from '../wallet/index.js';
 
 /**
- * Sets up a call to broadcast a private function's bytecode via the ClassRegisterer contract.
+ * Sets up a call to broadcast a private function's bytecode via the ClassRegistry contract.
  * Note that this is not required for users to call the function, but is rather a convenience to make
  * this code publicly available so dapps or wallets do not need to redistribute it.
  * @param wallet - Wallet to send the transaction.
@@ -58,12 +58,12 @@ export async function broadcastPrivateFunction(
 
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
 
-  const registerer = await getRegistererContract(wallet);
+  const classRegistry = await getClassRegistryContract(wallet);
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  return registerer.methods
+  return classRegistry.methods
     .broadcast_private_function(
       contractClass.id,
       artifactMetadataHash,
@@ -78,8 +78,8 @@ export async function broadcastPrivateFunction(
     .with({
       capsules: [
         new Capsule(
-          ProtocolContractAddress.ContractClassRegisterer,
-          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          ProtocolContractAddress.ContractClassRegistry,
+          new Fr(CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT),
           bytecode,
         ),
       ],
@@ -87,7 +87,7 @@ export async function broadcastPrivateFunction(
 }
 
 /**
- * Sets up a call to broadcast a utility function's bytecode via the ClassRegisterer contract.
+ * Sets up a call to broadcast a utility function's bytecode via the ClassRegistry contract.
  * Note that this is not required for users to call the function, but is rather a convenience to make
  * this code publicly available so dapps or wallets do not need to redistribute it.
  * @param wallet - Wallet to send the transaction.
@@ -121,12 +121,12 @@ export async function broadcastUtilityFunction(
     privateFunctionsArtifactTreeRoot,
   } = await createUtilityFunctionMembershipProof(selector, artifact);
 
-  const registerer = await getRegistererContract(wallet);
+  const classRegistry = await getClassRegistryContract(wallet);
   const bytecode = bufferAsFields(
     utilityFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-  return registerer.methods
+  return classRegistry.methods
     .broadcast_utility_function(
       contractClass.id,
       artifactMetadataHash,
@@ -139,8 +139,8 @@ export async function broadcastUtilityFunction(
     .with({
       capsules: [
         new Capsule(
-          ProtocolContractAddress.ContractClassRegisterer,
-          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          ProtocolContractAddress.ContractClassRegistry,
+          new Fr(CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT),
           bytecode,
         ),
       ],

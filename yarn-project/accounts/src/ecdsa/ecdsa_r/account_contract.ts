@@ -17,7 +17,7 @@ export abstract class EcdsaRBaseAccountContract extends DefaultAccountContract {
     super();
   }
 
-  async getDeploymentFunctionAndArgs() {
+  async getInitializationFunctionAndArgs() {
     const signingPublicKey = await new Ecdsa('secp256r1').computePublicKey(this.signingPrivateKey);
     return {
       constructorName: 'constructor',

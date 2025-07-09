@@ -1,4 +1,4 @@
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import {
   Grumpkin,
   keccak256,
@@ -87,7 +87,7 @@ import {
 
 const siloAddress = (contractAddress: AztecAddress) => {
   const contractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractAddress.toField(),
   );
   return contractAddressNullifier;

@@ -222,7 +222,7 @@ export class Tx extends Gossipable {
       noteHashCount: this.data.getNonEmptyNoteHashes().length,
       nullifierCount: this.data.getNonEmptyNullifiers().length,
       privateLogCount: this.data.getNonEmptyPrivateLogs().length,
-      classRegisteredCount: this.data.getNonEmptyContractClassLogsHashes().length,
+      classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.clientIvcProof.clientIvcProofBuffer.length,

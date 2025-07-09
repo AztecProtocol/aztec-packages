@@ -11,7 +11,7 @@ import {
   type PublicKeys,
   type Wallet,
   createLogger,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -71,7 +71,7 @@ export class DeployTest {
     } = {},
   ): Promise<T> {
     const { salt, publicKeys, initArgs, constructorName, deployer } = opts;
-    const instance = await getContractInstanceFromDeployParams(contractArtifact.artifact, {
+    const instance = await getContractInstanceFromInstantiationParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,

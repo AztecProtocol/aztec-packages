@@ -81,7 +81,10 @@ export function injectCommands(
       '--skip-initialization',
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
-    .option('--public-deploy', 'Publicly deploys the account and registers the class if needed.')
+    .option(
+      '--public-deploy',
+      'Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.',
+    )
     .option(
       '-p, --public-key <string>',
       'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
@@ -159,7 +162,10 @@ export function injectCommands(
       '--register-class',
       'Register the contract class (useful for when the contract class has not been deployed yet).',
     )
-    .option('--public-deploy', 'Publicly deploy this account contract (only useful if it contains public functions')
+    .option(
+      '--public-deploy',
+      'Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.',
+    )
     .addOption(createVerboseOption());
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {

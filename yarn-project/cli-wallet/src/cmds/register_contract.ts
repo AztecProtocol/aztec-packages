@@ -4,7 +4,7 @@ import {
   type AztecNode,
   type Fr,
   PublicKeys,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import type { LogFn } from '@aztec/foundation/log';
@@ -28,7 +28,7 @@ export async function registerContract(
   let contractInstance = await node.getContract(address);
   if (!contractInstance) {
     log(`Contract not found in the node at ${address}. Computing instance locally...`);
-    contractInstance = await getContractInstanceFromDeployParams(contractArtifact, {
+    contractInstance = await getContractInstanceFromInstantiationParams(contractArtifact, {
       constructorArtifact,
       publicKeys: publicKeys ?? PublicKeys.default(),
       constructorArgs: rawArgs,

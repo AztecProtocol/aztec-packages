@@ -9,7 +9,6 @@ import {
   DeployMethod,
   type DeployOptions,
   TxStatus,
-  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -193,9 +192,9 @@ export function ContractComponent() {
         utility: true,
       });
       if (currentContractAddress) {
-        const { isContractPubliclyDeployed } = await wallet.getContractMetadata(currentContractAddress);
-        // Temporarily filter out undeployed contracts
-        if (isContractPubliclyDeployed) {
+        const { isContractPublished } = await wallet.getContractMetadata(currentContractAddress);
+        // Temporarily filter out not-yet-published contracts
+        if (isContractPublished) {
           const contractInstance = await node.getContract(currentContractAddress);
           await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
           const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);

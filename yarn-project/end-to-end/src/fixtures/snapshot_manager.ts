@@ -14,7 +14,7 @@ import {
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js';
-import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
@@ -657,8 +657,8 @@ export async function publicDeployAccounts(
   const alreadyRegistered = (await sender.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered;
 
   const calls: ContractFunctionInteraction[] = await Promise.all([
-    ...(!alreadyRegistered ? [registerContractClass(sender, SchnorrAccountContractArtifact)] : []),
-    ...instances.map(instance => deployInstance(sender, instance!)),
+    ...(!alreadyRegistered ? [publishContractClass(sender, SchnorrAccountContractArtifact)] : []),
+    ...instances.map(instance => publishInstance(sender, instance!)),
   ]);
 
   const batch = new BatchCall(sender, calls);
