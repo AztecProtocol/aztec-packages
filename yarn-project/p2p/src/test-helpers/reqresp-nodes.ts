@@ -188,6 +188,7 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
   [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
+  [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
 };
 
 // By default, all requests are valid
@@ -198,6 +199,7 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.TX]: noopValidator,
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
   [ReqRespSubProtocol.BLOCK]: noopValidator,
+  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
 };
 
 /**

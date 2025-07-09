@@ -1,4 +1,4 @@
-import { randomBytes } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { mockTx } from '@aztec/stdlib/testing';
 import { TxArray } from '@aztec/stdlib/tx';
 
@@ -93,7 +93,7 @@ describe('BitVector', () => {
 describe('BlockTxRequest', () => {
   it('should serialize and deserialize correctly', () => {
     const blockNumber = 123;
-    const blockHash = randomBytes(32);
+    const blockHash = Fr.random();
     const txIndices = BitVector.init(16, [0, 5, 10, 15]);
 
     const original = new BlockTxsRequest(blockNumber, blockHash, txIndices);
@@ -108,7 +108,7 @@ describe('BlockTxRequest', () => {
 
   it('should handle empty BitVector', () => {
     const blockNumber = 0;
-    const blockHash = randomBytes(32);
+    const blockHash = Fr.random();
     const txIndices = BitVector.init(8, []);
 
     const original = new BlockTxsRequest(blockNumber, blockHash, txIndices);
@@ -124,7 +124,7 @@ describe('BlockTxRequest', () => {
 describe('BlockTxResponse', () => {
   it('should serialize and deserialize correctly', async () => {
     const blockNumber = 123;
-    const blockHash = randomBytes(32);
+    const blockHash = Fr.random();
     const txs = new TxArray(await mockTx(), await mockTx(), await mockTx());
     const txIndices = BitVector.init(8, [0, 2, 5]);
 
@@ -147,7 +147,7 @@ describe('BlockTxResponse', () => {
 
   it('should handle empty response', () => {
     const blockNumber = 0;
-    const blockHash = randomBytes(32);
+    const blockHash = Fr.random();
     const txs = new TxArray(); // No transactions
     const txIndices = BitVector.init(10, []); // No indices
 
