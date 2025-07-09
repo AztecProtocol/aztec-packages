@@ -1,0 +1,7 @@
+
+namespace gt;
+
+    pol commit sel;
+    pol commit input_a;
+    pol commit input_b;
+    pol commit res; // Boolean
