@@ -1,6 +1,21 @@
 include "../constants_gen.pil";
 include "../trees/public_data_check.pil";
 
+// SLOAD opcode: Reads a value from storage at the provided slot
+//
+// This opcode interacts with the public data check gadget to read a value at the specified slot.
+// The execution trace reads the slot from memory into register[0], performs FF tag validation,
+// and writes the value retrieved from the tree to memory via register[1].
+// The value written to memory is checked to have tag FF.
+//
+// Register usage:
+// - register[0]: Contains the storage slot to read from
+// - register[1]: Contains the retrieved value to be written to memory
+//
+// The opcode leverages the public_data_check gadget to verify the storage read operation
+// against the current public data tree root. The public_data_check gadget silos the slot
+// with the current contract address.
+//
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
     #[skippable_if]
