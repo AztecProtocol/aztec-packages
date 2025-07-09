@@ -64,11 +64,11 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);
         if (!result) {
-            #ifndef FUZZING_DISABLE_WARNINGS
+#ifndef FUZZING_DISABLE_WARNINGS
             info("Failed at block idx = ", block_idx);
-            #else
+#else
             (void)block_idx;
-            #endif
+#endif
             return false;
         }
         block_idx++;

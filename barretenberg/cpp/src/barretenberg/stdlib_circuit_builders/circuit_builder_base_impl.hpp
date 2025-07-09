@@ -264,12 +264,12 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
-    #ifndef FUZZING_DISABLE_WARNINGS
+#ifndef FUZZING_DISABLE_WARNINGS
     if (!has_dummy_witnesses) {
         // We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
     }
-    #endif
+#endif
     _failed = true;
     set_err(std::move(msg));
 }
