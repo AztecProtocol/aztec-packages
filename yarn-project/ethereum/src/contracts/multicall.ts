@@ -18,12 +18,13 @@ export class Multicall3 {
     blobConfig: L1BlobInputs | undefined,
     rollupAddress: Hex,
     logger: Logger,
+    opts: { revertOnFailure?: boolean } = {},
   ) {
     requests = requests.filter(request => request.to !== null);
     const args = requests.map(r => ({
       target: r.to!,
       callData: r.data!,
-      allowFailure: false,
+      allowFailure: !opts.revertOnFailure,
     }));
     const forwarderFunctionData: Required<EncodeFunctionDataParameters<typeof multicall3Abi, 'aggregate3'>> = {
       abi: multicall3Abi,
