@@ -150,6 +150,9 @@ library Errors {
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
   error FeeLib__AlreadyPreheated();
 
+  // SignatureLib (duplicated)
+  error SignatureLib__InvalidSignature(address, address);
+
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
 }

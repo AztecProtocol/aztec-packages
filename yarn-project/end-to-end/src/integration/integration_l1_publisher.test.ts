@@ -21,6 +21,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -29,7 +30,7 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher } from '@aztec/sequencer-client';
+import { SequencerPublisher, VoteType } from '@aztec/sequencer-client';
 import type { L2Tips } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { fr, makeBloatedProcessedTx } from '@aztec/stdlib/testing';
@@ -532,17 +533,11 @@ describe('L1Publisher integration', () => {
   });
 
   describe('error handling', () => {
-    let loggerErrorSpy: ReturnType<(typeof jest)['spyOn']>;
+    const buildSingleBlock = async (opts: { l1ToL2Messages?: Fr[] } = {}) => {
+      const archiveInRollup = await rollup.archive();
+      expect(hexToBuffer(archiveInRollup.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
-    it(`shows propose custom errors if tx simulation fails`, async () => {
-      // REFACTOR: code below is duplicated from "builds blocks of 2 empty txs building on each other"
-      const archiveInRollup_ = await rollup.archive();
-      expect(hexToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
-
-      // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
-      // because the INBOX.consume does not match the header.contentCommitment.inHash and we get
-      // a Rollup__BlobHash that is not caught by validateHeader before.
-      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
+      const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
 
       const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
       const ts = (await l1Client.getBlock()).timestamp;
@@ -559,11 +554,37 @@ describe('L1Publisher integration', () => {
         new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
       );
       const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
+      return block;
+    };
+
+    it(`succeeds proposing new block when vote fails`, async () => {
+      const block = await buildSingleBlock();
+      publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
+
+      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueCastVote(
+        block.header.getSlot(),
+        block.header.globalVariables.timestamp,
+        VoteType.SLASHING,
+        (_payload: `0x${string}`) => Promise.resolve(Signature.random().toString()),
+      );
+
+      const result = await publisher.sendRequests();
+
+      expect(result!.successfulActions).toEqual(['propose']);
+      expect(result!.failedActions).toEqual(['slashing-vote']);
+    });
+
+    it(`shows propose custom errors if tx simulation fails`, async () => {
+      // Set up different l1-to-l2 messages than the ones on the inbox, so this submission reverts
+      // because the INBOX.consume does not match the header.contentCommitment.inHash and we get
+      // a Rollup__BlobHash that is not caught by validateHeader before.
+      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
+      const block = await buildSingleBlock({ l1ToL2Messages });
 
       // Expect the simulation to fail
-      loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
+      const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
       await expect(publisher.enqueueProposeL2Block(block)).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,

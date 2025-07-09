@@ -23,7 +23,7 @@ export class Multicall3 {
     const args = requests.map(r => ({
       target: r.to!,
       callData: r.data!,
-      allowFailure: false,
+      allowFailure: true,
     }));
     const forwarderFunctionData: Required<EncodeFunctionDataParameters<typeof multicall3Abi, 'aggregate3'>> = {
       abi: multicall3Abi,
