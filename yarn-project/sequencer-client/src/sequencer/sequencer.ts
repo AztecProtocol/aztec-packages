@@ -1,6 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -355,6 +356,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Double check we are good for proposing at the next block before we start operations.
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
+
     const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
     if (canProposeCheck === undefined) {
       this.log.warn(
@@ -380,7 +382,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'} propose block ${newBlockNumber} at slot ${slot}`,
+      `${
+        proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'
+      } propose block ${newBlockNumber} at slot ${slot}`,
       { ...syncLogData, validatorAddresses },
     );
 
@@ -395,12 +399,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
       newGlobalVariables.timestamp,
       VoteType.GOVERNANCE,
+      proposerAddress,
+      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
     const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
       slot,
       newGlobalVariables.timestamp,
       VoteType.SLASHING,
+      proposerAddress,
+      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);

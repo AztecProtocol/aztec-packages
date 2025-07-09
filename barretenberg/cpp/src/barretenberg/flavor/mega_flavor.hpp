@@ -108,7 +108,7 @@ class MegaFlavor {
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -413,27 +413,7 @@ class MegaFlavor {
         }
     };
 
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
-      public:
-        using Base = ProvingKey_<FF, CommitmentKey>;
-
-        ProvingKey() = default;
-        ProvingKey(const size_t circuit_size,
-                   const size_t num_public_inputs,
-                   CommitmentKey commitment_key = CommitmentKey())
-            : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        // Data pertaining to transfer of databus return data via public inputs
-        DatabusPropagationData databus_propagation_data;
-    };
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witness)
@@ -444,7 +424,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
@@ -464,27 +444,25 @@ class MegaFlavor {
 
         VerificationKey(const VerificationKey& vk) = default;
 
-        void set_metadata(const ProvingKey& proving_key)
+        void set_metadata(const MetaData& metadata)
         {
-            this->circuit_size = proving_key.circuit_size;
+            this->circuit_size = metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
+            this->num_public_inputs = metadata.num_public_inputs;
+            this->pub_inputs_offset = metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
 
             // Databus commitment propagation data
-            this->databus_propagation_data = proving_key.databus_propagation_data;
+            this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
-        VerificationKey(ProvingKey& proving_key)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            set_metadata(proving_key);
-            auto& ck = proving_key.commitment_key;
-            if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
-                ck = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = ck.commit(polynomial);
+            set_metadata(precomputed.metadata);
+
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 
@@ -525,30 +503,36 @@ class MegaFlavor {
         }
 
         /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
          *
          * @param domain_separator
          * @param transcript
+         * @returns The hash of the verification key
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                          this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_hash_buffer(
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      this->pairing_inputs_public_input_key.start_idx);
+            transcript.add_to_independent_hash_buffer(
                 domain_separator + "vk_app_return_data_commitment_start_idx",
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(
+            transcript.add_to_independent_hash_buffer(
                 domain_separator + "vk_kernel_return_data_commitment_start_idx",
                 this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_hash_buffer(domain_separator + "vk_is_kernel", this->databus_propagation_data.is_kernel);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_is_kernel",
+                                                      this->databus_propagation_data.is_kernel);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.

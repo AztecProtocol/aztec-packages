@@ -44,8 +44,8 @@ class ECCVMFlavor {
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -94,6 +94,9 @@ class ECCVMFlavor {
                                   ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -725,20 +728,20 @@ class ECCVMFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = ECCVM_FIXED_SIZE; // The circuit size is fixed for the ECCVM.
+        size_t log_circuit_size = CONST_ECCVM_LOG_N;
+
         // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key;
 
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
-            : Base(ECCVM_FIXED_SIZE, 0)
-            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+            : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
         {}
     };
@@ -751,7 +754,7 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         bool operator==(const VerificationKey&) const = default;
 
@@ -779,8 +782,8 @@ class ECCVMFlavor {
         {
             this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
@@ -795,25 +798,26 @@ class ECCVMFlavor {
          */
         std::vector<fr> to_field_elements() const override
         {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
         }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         * @returns The hash of the verification key
+         */
+        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
@@ -996,8 +1000,6 @@ class ECCVMFlavor {
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }
     };
-
-    using Transcript = NativeTranscript;
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)

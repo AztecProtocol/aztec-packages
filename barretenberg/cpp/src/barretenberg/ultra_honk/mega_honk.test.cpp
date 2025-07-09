@@ -41,7 +41,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     bool construct_and_verify_honk_proof(auto& builder)
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
@@ -63,7 +63,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
         auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
 
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
@@ -127,7 +127,7 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
 
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
@@ -193,15 +193,15 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
     // Sanity check: ensure z_perm is not zero everywhere
-    EXPECT_TRUE(!proving_key->proving_key.polynomials.z_perm.is_zero());
+    EXPECT_TRUE(!proving_key->polynomials.z_perm.is_zero());
 
-    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
 
     EXPECT_TRUE(verifier.verify_proof(proof));
 }
@@ -234,17 +234,17 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
-    auto circuit_size = proving_key->proving_key.circuit_size;
+    auto circuit_size = proving_key->dyadic_size();
 
     auto doubled_circuit_size = 2 * circuit_size;
-    proving_key_copy->proving_key.polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
+    proving_key_copy->polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158)
-    // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
+    // proving_key_copy->dyadic_circuit_size = doubled_circuit_size;
 
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
 
-    auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(proving_key_copy->proving_key);
+    auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     Prover prover_copy(proving_key_copy, verification_key_copy);
 
     for (auto [entry, entry_copy] : zip_view(verification_key->get_all(), verification_key_copy->get_all())) {
@@ -254,13 +254,13 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
-    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
-    RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier_copy.verify_proof(proof_copy));
 }
 
@@ -517,18 +517,19 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
-    for (size_t i = 0; i < proving_key_1->proving_key.circuit_size; ++i) {
-        if (proving_key_1->proving_key.polynomials.q_arith[i] != 0) {
-            proving_key_1->proving_key.polynomials.w_l.at(i) += 1;
+    for (size_t i = 0; i < proving_key_1->dyadic_size(); ++i) {
+        if (proving_key_1->polynomials.q_arith[i] != 0) {
+            proving_key_1->polynomials.w_l.at(i) += 1;
             break;
         }
     }
 
     // Swap the polys of the two proving keys; result should be pkey 1 is valid and pkey 2 should fail
-    std::swap(proving_key_1->proving_key.polynomials, proving_key_2->proving_key.polynomials);
+    std::swap(proving_key_1->polynomials, proving_key_2->polynomials);
 
     { // Verification based on pkey 1 should succeed
-        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->proving_key);
+        auto verification_key =
+            std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->get_precomputed());
         typename TestFixture::Prover prover(proving_key_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
@@ -536,7 +537,8 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     }
 
     { // Verification based on pkey 2 should fail
-        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->proving_key);
+        auto verification_key =
+            std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->get_precomputed());
         typename TestFixture::Prover prover(proving_key_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
