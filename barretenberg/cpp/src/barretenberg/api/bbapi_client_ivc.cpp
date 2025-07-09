@@ -172,13 +172,12 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
 
     auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
 
-    std::string error_message = "Precomputed vk does not match computed vk for function " + function_name;
-    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
-        throw_or_abort(error_message);
-    }
-
     Response response;
     response.valid = true;
+    std::string error_message = "Precomputed vk does not match computed vk for function " + function_name;
+    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+        response.valid = false;
+    }
     return response;
 }
 

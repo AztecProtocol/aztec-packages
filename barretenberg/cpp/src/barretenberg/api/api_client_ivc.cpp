@@ -232,12 +232,6 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
                                                             .function_name = step.function_name }
                             .execute();
 
-        auto response = bbapi::ClientIvcCheckPrecomputedVk{ .circuit = { .name = step.function_name,
-                                                                         .bytecode = step.bytecode,
-                                                                         .verification_key = step.vk },
-                                                            .function_name = step.function_name }
-                            .execute();
-
         if (!response.valid) {
             return false;
         }
