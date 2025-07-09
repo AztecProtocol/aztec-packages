@@ -6,7 +6,7 @@ if [ ! -f "/data/geth/chaindata/CURRENT" ]; then
 fi
 
 geth \
-  --datadir="~/geth-data" \
+  --datadir="/data" \
   --authrpc.addr=0.0.0.0 \
   --authrpc.port=${ENGINE_PORT:-8551} \
   --authrpc.jwtsecret=/genesis/jwt-secret.hex \

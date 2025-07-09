@@ -5,13 +5,13 @@ execution_client=${1:-"reth"}
 
 case "$execution_client" in
 "reth")
-  /eth-execution-reth.sh
+  /entrypoints/eth-execution-reth.sh
   ;;
 "geth")
-  /eth-execution-geth.sh
+  /entrypoints/eth-execution-geth.sh
   ;;
 "nethermind")
-  /eth-execution-nethermind.sh
+  /entrypoints/eth-execution-nethermind.sh
   ;;
 *)
   echo "Unknown execution client: $execution_client"

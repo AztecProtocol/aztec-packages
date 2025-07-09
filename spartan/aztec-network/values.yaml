@@ -306,7 +306,7 @@ ethereum:
       wsTargetPort: 8546
     storageSize: "80Gi"
   beacon:
-    externalHost: ""
+    externalHost:
     apiKey: ""
     apiKeyHeader: ""
     service:
