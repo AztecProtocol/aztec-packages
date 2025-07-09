@@ -68,8 +68,6 @@ void write_standalone_vk(const std::string& output_data_type,
                          const std::string& output_path)
 {
 
-    bbapi::BBApiRequest request;
-
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
@@ -101,8 +99,10 @@ void write_vk_for_ivc(const std::string& output_format,
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
+    // Since we need to specify the number of public inputs but ClientIvcComputeIvcVk derives it from bytecode,
+    // we need to create a mock circuit with the correct number of public inputs
+    // For now, we'll use the compute_vk_for_ivc function directly as it was designed for this purpose
     bbapi::BBApiRequest request;
-
     auto vk = bbapi::compute_vk_for_ivc(request, num_public_inputs_in_final_circuit);
     const auto buf = to_buffer(vk);
 
@@ -126,14 +126,9 @@ void write_vk_for_ivc(const std::string& output_data_type,
 
     auto bytecode = get_bytecode(bytecode_path);
 
-    bbapi::BBApiRequest request;
-
-    auto response = bbapi::execute(
-        bbapi::ClientIvcComputeIvcVk{ .circuit = { .name = "final_circuit", .bytecode = std::move(bytecode) } });
-
-    if (!response.error_message.empty()) {
-        throw_or_abort("Failed to compute IVC VK: " + response.error_message);
-    }
+    auto response = bbapi::ClientIvcComputeIvcVk{
+        .circuit = { .name = "final_circuit", .bytecode = std::move(bytecode) }
+    }.execute();
 
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
@@ -150,31 +145,18 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     bbapi::BBApiRequest request;
 
-    auto start_response = bbapi::execute(request, bbapi::ClientIvcStart{});
-    if (!start_response.error_message.empty()) {
-        throw_or_abort("Failed to start ClientIVC: " + start_response.error_message);
-    }
+    bbapi::ClientIvcStart{}.execute(request);
 
     for (const auto& step : raw_steps) {
-        auto load_response = bbapi::execute(
-            request,
-            bbapi::ClientIvcLoad{
-                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk } });
-        if (!load_response.error_message.empty()) {
-            throw_or_abort("Failed to load circuit: " + load_response.error_message);
-        }
+        bbapi::ClientIvcLoad{
+            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
+        }.execute(request);
 
         info("ClientIVC: accumulating " + step.function_name);
-        auto acc_response = bbapi::execute(request, bbapi::ClientIvcAccumulate{ .witness = step.witness });
-        if (!acc_response.error_message.empty()) {
-            throw_or_abort("Failed to accumulate circuit: " + acc_response.error_message);
-        }
+        bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto prove_response = bbapi::execute(request, bbapi::ClientIvcProve{});
-    if (!prove_response.error_message.empty()) {
-        throw_or_abort("Failed to prove: " + prove_response.error_message);
-    }
+    auto prove_response = bbapi::ClientIvcProve{}.execute(request);
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -249,16 +231,13 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
             return false;
         }
 
-        auto response = bbapi::execute(
-            request,
-            bbapi::ClientIvcCheckPrecomputedVk{
-                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
-                .function_name = step.function_name });
+        auto response = bbapi::ClientIvcCheckPrecomputedVk{ .circuit = { .name = step.function_name,
+                                                                         .bytecode = step.bytecode,
+                                                                         .verification_key = step.vk },
+                                                            .function_name = step.function_name }
+                            .execute();
 
-        if (!response.error_message.empty() || !response.valid) {
-            if (!response.error_message.empty()) {
-                info(response.error_message);
-            }
+        if (!response.valid) {
             return false;
         }
     }
