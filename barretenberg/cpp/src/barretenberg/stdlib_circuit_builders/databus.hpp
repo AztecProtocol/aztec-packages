@@ -106,13 +106,7 @@ struct DatabusPropagationData {
     // Construct an instance of this class with the default settings for a kernel circuit
     static DatabusPropagationData kernel_default()
     {
-        DatabusPropagationData data;
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1371): Cleanup these numbers up.
-        // Kernel return data is the first public input after pairing point object, followed by app return data
-        data.kernel_return_data_commitment_pub_input_key.start_idx = PAIRING_POINTS_SIZE;
-        data.app_return_data_commitment_pub_input_key.start_idx =
-            PAIRING_POINTS_SIZE + PROPAGATED_DATABUS_COMMITMENT_SIZE;
-        data.is_kernel = true;
+        DatabusPropagationData data{ .is_kernel = true };
         return data;
     }
 

@@ -22,7 +22,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
      *
      * @details This is where we define the "Manifest" for a ECCVM Honk proof. The tests in this suite are
      * intented to warn the developer if the Prover/Verifier has deviated from this manifest, however, the
-     * Transcript class is not otherwise contrained to follow the manifest.
+     * Transcript class is not otherwise constrained to follow the manifest.
      *
      * @note Entries in the manifest consist of a name string and a size (bytes), NOT actual data.
      *
@@ -221,7 +221,10 @@ class ECCVMTranscriptTests : public ::testing::Test {
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t round = 0;
-        manifest_expected.add_entry(round, "IPA:poly_length", frs_per_Fr);
+
+        manifest_expected.add_entry(round, "IPA:commitment", frs_per_G);
+        manifest_expected.add_entry(round, "IPA:challenge", frs_per_Fr);
+        manifest_expected.add_entry(round, "IPA:evaluation", frs_per_Fr);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {

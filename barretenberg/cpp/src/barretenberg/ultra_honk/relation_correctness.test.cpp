@@ -203,16 +203,15 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
 
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    auto& proving_key = decider_pk->proving_key;
 
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    for (auto selector : proving_key.polynomials.get_gate_selectors()) {
+    for (auto selector : decider_pk->polynomials.get_gate_selectors()) {
         ensure_non_zero(selector);
     }
 
-    auto& prover_polynomials = decider_pk->proving_key.polynomials;
+    auto& prover_polynomials = decider_pk->polynomials;
     auto params = decider_pk->relation_parameters;
 
     RelationChecker<Flavor>::check_all(prover_polynomials, params);
@@ -237,20 +236,19 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
 
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    auto& proving_key = decider_pk->proving_key;
 
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    for (auto selector : proving_key.polynomials.get_gate_selectors()) {
+    for (auto selector : decider_pk->polynomials.get_gate_selectors()) {
         ensure_non_zero(selector);
     }
 
     // Check the databus entities are non-zero
-    for (auto selector : proving_key.polynomials.get_databus_entities()) {
+    for (auto selector : decider_pk->polynomials.get_databus_entities()) {
         ensure_non_zero(selector);
     }
-    auto& prover_polynomials = decider_pk->proving_key.polynomials;
+    auto& prover_polynomials = decider_pk->polynomials;
     auto params = decider_pk->relation_parameters;
 
     RelationChecker<Flavor>::check_all(prover_polynomials, params);

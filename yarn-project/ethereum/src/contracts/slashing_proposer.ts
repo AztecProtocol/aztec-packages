@@ -187,7 +187,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${
+        error ?? 'Unknown error'
+      }`;
       throw new Error(errorMessage);
     }
     return response;

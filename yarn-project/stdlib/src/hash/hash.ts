@@ -1,5 +1,4 @@
 import { GeneratorIndex } from '@aztec/constants';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -13,9 +12,7 @@ import type { AztecAddress } from '../aztec-address/index.js';
  */
 export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
   // Should match the implementation in barretenberg/cpp/src/barretenberg/flavor/flavor.hpp > hash()
-  const hash = (await poseidon2Hash(keyAsFields)).toBuffer();
-  // Taking the last 16 bytes (128 bits) of the hash.
-  return new Fr(toBigIntBE(hash.subarray(Fr.SIZE_IN_BYTES - 16)));
+  return await poseidon2Hash(keyAsFields);
 }
 
 /**

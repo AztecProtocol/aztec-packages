@@ -35,8 +35,8 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFl
 TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_to_transcript.
+ * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
+ * same as the hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
@@ -50,25 +50,24 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     Builder builder;
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    VerificationKey vk{ proving_key->proving_key };
+    VerificationKey vk{ proving_key->get_precomputed() };
 
     // First method of hashing: using to_field_elements and add_to_hash_buffer.
     std::vector<fr> vk_field_elements = vk.to_field_elements();
     NativeTranscript transcript;
     for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_hash_buffer("vk_element", field_element);
+        transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    fr vkey_hash_1 = transcript.get_challenge<fr>("vk_hash");
+    fr vkey_hash_1 = transcript.hash_independent_buffer("vk_hash");
     // Second method of hashing: using hash().
     fr vkey_hash_2 = vk.hash();
     EXPECT_EQ(vkey_hash_1, vkey_hash_2);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Solidity verifier does not fiat shamir the full
     // verification key. This will be fixed in a followup PR.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor>) {
-        // Third method of hashing: using add_to_transcript.
+        // Third method of hashing: using add_hash_to_transcript.
         typename Flavor::Transcript transcript_2;
-        vk.add_to_transcript("", transcript_2);
-        fr vkey_hash_3 = transcript_2.template get_challenge<fr>("vk_hash");
+        fr vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);
         EXPECT_EQ(vkey_hash_2, vkey_hash_3);
     }
 }
@@ -90,6 +89,6 @@ TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
+    typename Flavor::VerificationKey verification_key(proving_key->get_precomputed());
     EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }

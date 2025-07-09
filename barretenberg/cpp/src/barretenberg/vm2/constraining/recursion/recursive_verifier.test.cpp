@@ -127,17 +127,19 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+        auto verification_key =
+            std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
         UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
-    auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+    auto outer_verification_key =
+        std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
-    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
+    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->ipa_proof));
 }
 
 } // namespace bb::avm2::constraining

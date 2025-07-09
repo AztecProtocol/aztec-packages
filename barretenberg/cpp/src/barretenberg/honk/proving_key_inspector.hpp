@@ -49,7 +49,7 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
     circuit.pairing_inputs_public_input_key.start_idx = pairing_points_idx;
 
     DeciderProvingKey proving_key{ circuit, trace_settings };
-    VerificationKey verification_key{ proving_key.proving_key };
+    VerificationKey verification_key{ proving_key.get_precomputed() };
 
     return verification_key.hash();
 }
@@ -94,32 +94,6 @@ void inspect_proving_key(auto& decider_proving_key)
         info("\nProving Key Inspector: The following prover polynomials are identically zero: ");
         for (const std::string& label : zero_polys) {
             info("\t", label);
-        }
-    }
-    info();
-}
-
-/**
- * @brief Print some useful info about polys related to the databus lookup relation
- *
- * @param decider_proving_key
- */
-void print_databus_info(auto& decider_proving_key)
-{
-    info("\nProving Key Inspector: Printing databus gate info.");
-    auto& key = decider_proving_key->proving_key;
-    for (size_t idx = 0; idx < decider_proving_key->proving_key.circuit_size; ++idx) {
-        if (key->q_busread[idx] == 1) {
-            info("idx = ", idx);
-            info("q_busread = ", key->q_busread[idx]);
-            info("w_l = ", key->w_l[idx]);
-            info("w_r = ", key->w_r[idx]);
-        }
-        if (key->calldata_read_counts[idx] > 0) {
-            info("idx = ", idx);
-            info("read_counts = ", key->calldata_read_counts[idx]);
-            info("calldata = ", key->calldata[idx]);
-            info("databus_id = ", key->databus_id[idx]);
         }
     }
     info();

@@ -45,18 +45,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "vk_circuit_size", frs_per_Fr);
-        manifest_expected.add_entry(round, "vk_num_public_inputs", frs_per_Fr);
-        manifest_expected.add_entry(round, "vk_pub_inputs_offset", frs_per_Fr);
-        manifest_expected.add_entry(round, "vk_pairing_points_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vk_app_return_data_commitment_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vk_kernel_return_data_commitment_start_idx", frs_per_Fr);
-        manifest_expected.add_entry(round, "vk_is_kernel", frs_per_Fr);
-        for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-            manifest_expected.add_entry(round, "vk_commitment", frs_per_G);
-        }
-        manifest_expected.add_challenge(round, "vk_hash");
-        round++;
+        manifest_expected.add_entry(round, "vk_hash", frs_per_Fr);
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
@@ -205,7 +194,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -246,7 +235,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
@@ -322,7 +311,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         Prover prover(proving_key);
         auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Verifier verifier(verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof));
 
@@ -345,4 +334,23 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
         EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
     }
+}
+
+TYPED_TEST(MegaTranscriptTests, ProofLengthTest)
+{
+    using Flavor = TypeParam;
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+
+    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+    auto builder = typename Flavor::CircuitBuilder();
+    TestFixture::generate_test_circuit(builder);
+
+    // Automatically generate a transcript manifest by constructing a proof
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+    Prover prover(proving_key, verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_EQ(proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
 }

@@ -106,7 +106,6 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using OpeningClaim = OpeningClaim<Curve>;
-    using OpeningVector = OpeningVector<Curve>;
     using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using StdlibProof = stdlib::Proof<Builder>;
 
@@ -145,8 +144,12 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Compute last commitment as it would happen in a circuit
         Commitment commit = GroupElement::batch_mul(
             { stdlib_opening_claims[0].commitment, stdlib_opening_claims[1].commitment }, { coeff1, coeff2 });
+
+        // Opening pair for the linear combination as it would be received by the Verifier from the Prover
         Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
+
+        // Opening claim for the linear combination
         stdlib_opening_claims.emplace_back(OpeningClaim({ r, eval }, commit));
 
         auto verifier_transcript = std::make_shared<Transcript>();
@@ -178,16 +181,18 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         auto [stdlib_commitments, stdlib_opening_pairs] = this->native_to_stdlib_pairs_and_commitments(
             &builder, native_opening_claims, native_opening_claims.size() - 1);
 
-        // Shplonk verifier functionality - cheap way
-        std::vector<OpeningVector> opening_vectors = {
-            { stdlib_opening_pairs[0].challenge, { Fr(1) }, { stdlib_opening_pairs[0].evaluation } },
-            { stdlib_opening_pairs[1].challenge, { Fr(1) }, { stdlib_opening_pairs[1].evaluation } },
-            { Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge),
-              { coeff1, coeff2 },
-              { Fr::from_witness(&builder, evals[0]), Fr::from_witness(&builder, evals[1]) } }
-        };
-        std::vector<std::vector<size_t>> indices = { { 0 }, { 1 }, { 0, 1 } };
+        // Opening pair for the linear combination as it would be received by the Verifier from the Prover
+        Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
+        Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
 
+        // Update data
+        std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
+            { { 0 }, { Fr(1) }, stdlib_opening_pairs[0] },
+            { { 1 }, { Fr(1) }, stdlib_opening_pairs[1] },
+            { { 0, 1 }, { coeff1, coeff2 }, { r, eval } }
+        };
+
+        // Shplonk verifier functionality - cheap way
         auto verifier_transcript = std::make_shared<Transcript>();
         verifier_transcript->load_proof(stdlib_proof);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
@@ -196,7 +201,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
 
         // Execute the shplonk verifier functionality
         [[maybe_unused]] auto batched_verifier_claim =
-            verifier.reduce_vector_claims_verification(this->vk().get_g1_identity(), indices, opening_vectors);
+            verifier.reduce_verification_vector_claims(this->vk().get_g1_identity(), update_data);
 
         EXPECT_TRUE(CircuitChecker::check(builder));
 

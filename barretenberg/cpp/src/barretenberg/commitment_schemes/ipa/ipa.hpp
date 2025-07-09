@@ -29,8 +29,7 @@ namespace bb {
 // clang-format off
 // Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private, rollup-base-public,
 // rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating IPA_PROOF_LENGTH in other places.
-static constexpr size_t IPA_PROOF_LENGTH =  /* poly_length */ 2 +
-                                            /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N  +
+static constexpr size_t IPA_PROOF_LENGTH =  /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N  +
                                             /* comm G_0 */    2 +
                                             /* eval a_0 */    2;
 
@@ -159,11 +158,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1408): Make IPA fuzzer compatible with `add_to_hash_buffer`.
+        //
         // Step 1.
-        // Note that we don't need to hash `poly_length` as it is a compile-time constant.
-        // It can go away as a result of the resolution of the above issues.
-        // Send polynomial degree + 1 = d to the verifier
-        transcript->send_to_verifier("IPA:poly_length", Fr(poly_length));
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+        // NOTE:
+        //      a. This is a bit inefficient, as the prover otherwise doesn't need this commitment.
+        //      However, the effect to performance of this MSM (in practice of size 2^16) is tiny.
+        //      b. Note that we add these three pieces of information to the hash buffer, as opposed to
+        //      calling the `send_to_verifier` method, as the verifier knows them.
+
+        const auto commitment = ck.commit(polynomial);
+        transcript->template add_to_hash_buffer("IPA:commitment", commitment);
+        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -327,12 +335,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         // Step 1.
-        // Receive polynomial_degree + 1 = d from the prover
-        auto poly_length_received_from_prover = transcript->template receive_from_prover<Fr>(
-            "IPA:poly_length"); // note this is base field because this is a uint32_t, which should map
-                                        // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
-                                        // Grumpkin
-        ASSERT(poly_length_received_from_prover == poly_length);
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+        transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
@@ -349,12 +356,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         auto pippenger_size = 2 * log_poly_length;
         std::vector<Fr> round_challenges(log_poly_length);
-        std::vector<Fr> round_challenges_inv(log_poly_length);
+        // the group elements that will participate in our MSM.
         std::vector<Commitment> msm_elements(pippenger_size);
+        // the scalars that will participate in our MSM.
         std::vector<Fr> msm_scalars(pippenger_size);
 
         // Step 4.
-        // Receive all L_i and R_i and prepare for MSM
+        // Receive all L_i and R_i and populate msm_elements.
         for (size_t i = 0; i < log_poly_length; i++) {
             std::string index = std::to_string(log_poly_length - i - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
@@ -363,15 +371,17 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             if (round_challenges[i].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1140): Use batch_invert.
-            round_challenges_inv[i] = round_challenges[i].invert();
-            if (i < log_poly_length) {
+            msm_elements[2 * i] = element_L;
+            msm_elements[2 * i + 1] = element_R;
+        }
 
-                msm_elements[2 * i] = element_L;
-                msm_elements[2 * i + 1] = element_R;
-                msm_scalars[2 * i] = round_challenges_inv[i];
-                msm_scalars[2 * i + 1] = round_challenges[i];
-            }
+        std::vector<Fr> round_challenges_inv = round_challenges;
+        Fr::batch_invert(round_challenges_inv);
+
+        // populate msm_scalars.
+        for (size_t i = 0; i < log_poly_length; i++) {
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
         }
 
         // Step 5.
@@ -402,7 +412,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute G₀
         Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
+        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
 
         // Step 9.
         // Receive a₀ from the prover
@@ -433,9 +443,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         // Step 1.
-        // Receive polynomial_degree + 1 = d from the prover
-    	const Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_length");
-        poly_length_received_from_prover.assert_equal(poly_length);
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+        transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -580,9 +591,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         // Step 1.
-        // Receive polynomial_degree + 1 = d from the prover
-        const Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_length");
-        poly_length_received_from_prover.assert_equal(poly_length);
+        // Add the commitment, challenge, and evaluation to the hash buffer.
+        transcript->template add_to_hash_buffer("IPA:commitment", opening_claim.commitment);
+        transcript->template add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
+        transcript->template add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
+
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");

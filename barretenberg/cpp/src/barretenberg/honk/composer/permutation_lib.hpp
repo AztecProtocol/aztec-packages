@@ -127,27 +127,27 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
 using CyclicPermutation = std::vector<cycle_node>;
 
 namespace {
+
 /**
  * @brief Compute the traditional or generalized permutation mapping
  *
  * @details Computes the mappings from which the sigma polynomials (and conditionally, the id polynomials)
  * can be computed. The output is proving system agnostic.
  *
- * @tparam program_width The number of wires
- * @tparam generalized (bool) Triggers use of gen perm tags and computation of id mappings when true
- * @param circuit_constructor Circuit-containing object
- * @param proving_key Pointer to the proving key
- * @return PermutationMapping sigma mapping (and id mapping if generalized == true)
+ * @param circuit_constructor
+ * @param dyadic_size
+ * @param wire_copy_cycles
+ * @return PermutationMapping<Flavor::NUM_WIRES, generalized>
  */
 template <typename Flavor, bool generalized>
 PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
     const typename Flavor::CircuitBuilder& circuit_constructor,
-    typename Flavor::ProvingKey* proving_key,
+    const size_t dyadic_size,
     const std::vector<CyclicPermutation>& wire_copy_cycles)
 {
 
     // Initialize the table of permutations so that every element points to itself
-    PermutationMapping<Flavor::NUM_WIRES, generalized> mapping(proving_key->circuit_size);
+    PermutationMapping<Flavor::NUM_WIRES, generalized> mapping(dyadic_size);
 
     // Represents the idx of a variable in circuit_constructor.variables (needed only for generalized)
     std::span<const uint32_t> real_variable_tags = circuit_constructor.real_variable_tags;
@@ -196,7 +196,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
 
     size_t pub_inputs_offset = 0;
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        pub_inputs_offset = proving_key->pub_inputs_offset;
+        pub_inputs_offset = circuit_constructor.blocks.pub_inputs.trace_offset();
     }
     for (size_t i = 0; i < num_public_inputs; ++i) {
         uint32_t idx = static_cast<uint32_t>(i + pub_inputs_offset);
@@ -216,20 +216,21 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
  * @details Given a mapping (effectively at table pointing witnesses to other witnesses) compute Sigma/ID polynomials in
  * lagrange form and put them into the cache. This version is suitable for traditional and generalized permutations.
  *
- * @tparam program_width The number of wires
- * @param permutation_mappings A table with information about permuting each element
- * @param key Pointer to the proving key
+ * @param permutation_polynomials sigma or ID poly
+ * @param permutation_mappings
+ * @param dyadic_size dyadic size of the execution trace
+ * @param active_region_data specifies regions of execution trace with non-trivial values
  */
 template <typename Flavor>
 void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
-    const RefSpan<typename Flavor::Polynomial>& permutation_polynomials, // sigma or ID poly
+    const RefSpan<typename Flavor::Polynomial>& permutation_polynomials,
     const std::array<Mapping, Flavor::NUM_WIRES>& permutation_mappings,
-    typename Flavor::ProvingKey* proving_key)
+    const size_t dyadic_size,
+    ActiveRegionData& active_region_data)
 {
     using FF = typename Flavor::FF;
-    const size_t num_gates = proving_key->circuit_size;
 
-    size_t domain_size = proving_key->active_region_data.size();
+    size_t domain_size = active_region_data.size();
 
     const MultithreadData thread_data = calculate_thread_data(domain_size);
 
@@ -239,7 +240,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
             const size_t start = thread_data.start[j];
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
-                const size_t poly_idx = proving_key->active_region_data.get_idx(i);
+                const size_t poly_idx = active_region_data.get_idx(i);
                 const auto idx = static_cast<ptrdiff_t>(poly_idx);
                 const auto& current_row_idx = permutation_mappings[wire_idx].row_idx[idx];
                 const auto& current_col_idx = permutation_mappings[wire_idx].col_idx[idx];
@@ -255,14 +256,14 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                     // These indices are chosen so they can easily be computed by the verifier. They can expect
                     // the running product to be equal to the "public input delta" that is computed
                     // in <honk/utils/grand_product_delta.hpp>
-                    current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + num_gates * current_col_idx);
+                    current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + dyadic_size * current_col_idx);
                 } else if (current_is_tag) {
                     // Set evaluations to (arbitrary) values disjoint from non-tag values
-                    current_permutation_poly.at(poly_idx) = num_gates * Flavor::NUM_WIRES + current_row_idx;
+                    current_permutation_poly.at(poly_idx) = dyadic_size * Flavor::NUM_WIRES + current_row_idx;
                 } else {
                     // For the regular permutation we simply point to the next location by setting the
                     // evaluation to its idx
-                    current_permutation_poly.at(poly_idx) = FF(current_row_idx + num_gates * current_col_idx);
+                    current_permutation_poly.at(poly_idx) = FF(current_row_idx + dyadic_size * current_col_idx);
                 }
             }
         });
@@ -281,11 +282,13 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
  */
 template <typename Flavor>
 void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuilder& circuit,
-                                              typename Flavor::ProvingKey* key,
-                                              const std::vector<CyclicPermutation>& copy_cycles)
+                                              typename Flavor::ProverPolynomials& polynomials,
+                                              const std::vector<CyclicPermutation>& copy_cycles,
+                                              ActiveRegionData& active_region_data)
 {
     constexpr bool generalized = IsUltraOrMegaHonk<Flavor>;
-    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, key, copy_cycles);
+    const size_t dyadic_size = polynomials.get_polynomial_size();
+    auto mapping = compute_permutation_mapping<Flavor, generalized>(circuit, dyadic_size, copy_cycles);
 
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
     {
@@ -293,14 +296,14 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
         PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            key->polynomials.get_sigmas(), mapping.sigmas, key);
+            polynomials.get_sigmas(), mapping.sigmas, dyadic_size, active_region_data);
     }
     {
 
         PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-            key->polynomials.get_ids(), mapping.ids, key);
+            polynomials.get_ids(), mapping.ids, dyadic_size, active_region_data);
     }
 }
 
