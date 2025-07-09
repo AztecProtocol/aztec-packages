@@ -100,8 +100,7 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-static ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request,
-                                                     size_t num_public_inputs_in_final_circuit)
+ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
 {
     ClientIVC ivc{ request.trace_settings };
     ClientIVCMockCircuitProducer circuit_producer;
