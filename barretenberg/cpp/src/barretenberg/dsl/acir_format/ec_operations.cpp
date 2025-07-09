@@ -157,6 +157,14 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                     // Runtime check that the inputs have not the same x coordinate, as assumed by the function.
                     ASSERT(input1_point.x.get_value() != input2_point.x.get_value());
                 }
+                // Check that the x coordinates are distincts.
+                // This function is not supposed to make any check so that the checks can be added by the developer
+                // when required, for best performance. However this is a critical assumption so we still check it for
+                // now. We should make the test optional via an additional parameter in the future.
+                auto x_match = input1_point.x - input2_point.x;
+                x_match.assert_is_not_zero(
+                    "Unsupported EC ADDITION UNSAFE; asbcissas should be disctinct, or the points should be identical "
+                    "(doubling)");
                 result = input1_point.unconditional_add(input2_point);
             }
         } else {
