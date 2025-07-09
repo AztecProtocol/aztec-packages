@@ -38,28 +38,18 @@ void write_standalone_vk(const std::string& output_format,
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
 
-    bool wrote_file = false;
-    bool is_stdout = output_path == "-";
-    auto write_fn = [&](const std::filesystem::path& path, const auto& data) {
-        if (is_stdout) {
-            write_bytes_to_stdout(data);
-        } else {
-            write_file(path, data);
-        }
-    };
-    if (output_format == "bytes_and_fields" && is_stdout) {
-        throw_or_abort("Cannot write to stdout in bytes_and_fields format.");
-    }
-    if (output_format == "bytes" || output_format == "bytes_and_fields") {
-        write_fn(output_path / "vk", response.bytes);
-        wrote_file = true;
-    }
-    if (output_format == "fields" || output_format == "bytes_and_fields") {
-        std::string json = field_elements_to_json(response.fields);
-        write_fn(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
-        wrote_file = true;
-    }
-    if (!wrote_file) {
+    bbapi::BBApiRequest request;
+
+    auto response = bbapi::ClientIvcComputeStandaloneVk{
+        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
+    }.execute();
+
+    if (output_format == "bytes") {
+        write_file(output_path / "vk", response.vk_bytes);
+    } else if (output_format == "fields") {
+        std::string json = bbapi::field_elements_to_json(response.vk_fields);
+        write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
+    } else {
         throw_or_abort("Unsupported output format for standalone vk: " + output_format);
     }
 }
