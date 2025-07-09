@@ -567,6 +567,7 @@ describe('L1Publisher integration', () => {
         block.header.getSlot(),
         block.header.globalVariables.timestamp,
         VoteType.SLASHING,
+        EthAddress.random(),
         (_payload: `0x${string}`) => Promise.resolve(Signature.random().toString()),
       );
 
