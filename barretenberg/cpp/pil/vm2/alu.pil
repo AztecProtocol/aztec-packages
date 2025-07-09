@@ -10,6 +10,9 @@ pol commit sel;
 pol commit sel_op_add;
 pol commit sel_op_lt;
 pol commit sel_op_eq;
+pol commit sel_op_not;
+pol commit sel_op_shl;
+pol commit sel_op_shr;
 pol commit op_id;
 
 pol commit ia;
@@ -50,7 +53,10 @@ sel_is_ff * (1 - sel_is_ff) = 0;
 #[OP_ID_CHECK]
 op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_lt * constants.AVM_EXEC_OP_ID_ALU_LT
-      + sel_op_eq * constants.AVM_EXEC_OP_ID_ALU_EQ;
+      + sel_op_eq * constants.AVM_EXEC_OP_ID_ALU_EQ
+      + sel_op_not * constants.AVM_EXEC_OP_ID_ALU_NOT
+      + sel_op_shl * constants.AVM_EXEC_OP_ID_ALU_SHL
+      + sel_op_shr * constants.AVM_EXEC_OP_ID_ALU_SHR;
 
 #[REGISTER_TAG_VALUE]
 execution.sel_alu {
@@ -66,7 +72,7 @@ execution.sel_alu {
 // IS_FF CHECKING
 
 // TODO(MW): remove this and check for all (i.e. replace with sel), just being lazy for now. For add, we don't care, for lt we need to differentiate.
-pol CHECK_TAG_FF = sel_op_lt;
+pol CHECK_TAG_FF = sel_op_lt + sel_op_not;
 // We prove that sel_is_ff == 1 <==> ia_tag == MEM_TAG_FF
 pol TAG_FF_DIFF = ia_tag - constants.MEM_TAG_FF;
 pol commit tag_ff_diff_inv;
@@ -88,10 +94,15 @@ pol commit sel_tag_err;
 pol commit ab_tags_diff_inv;
 pol AB_TAGS_EQ = 1 - sel_tag_err;
 
+// For NOT opcode, qn error occurs if the tag of a is FF. In this case, tracegen will set
+// b as FF(0) which would not satisfy the relation #[AB_TAGS_CHECK] if it were not gated
+// by CHECK_AB_TAGS.
+pol CHECK_AB_TAGS = 1 - sel_op_not;
+
 // TODO(MW): Add sel/flag to turn off check when we expect a/b tags to not be equal (e.g. SHR?)
 // Prove that sel_tag_err = 1 <==> we have a disallowed inequality between the tags:
 #[AB_TAGS_CHECK]
-(ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ = 0;
+CHECK_AB_TAGS * ( (ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ ) = 0;
 
 #[TAG_MAX_BITS_VALUE]
 sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
@@ -128,6 +139,7 @@ sel_op_lt { lt_abs_diff, max_bits } in range_check.sel { range_check.value, rang
 
 // EQ
 
+sel_op_eq * (1 - sel_op_eq) = 0;
 pol DIFF = ia - ib;
 
 // Use helper1 to invert DIFF.
@@ -137,3 +149,12 @@ pol DIFF = ia - ib;
 // sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
 #[EQ_OP_MAIN]
 sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;
+
+// NOT
+
+// Relation is: a + ~a = 2^k - 1, where k is the number of bits in a.
+#[NOT_OP_MAIN]
+sel_op_not * (1 - sel_tag_err) * (ia + ib - max_value) = 0;
+
+#[NOT_OP_TAG_ERROR]
+sel_op_not * sel_is_ff * (1 - sel_tag_err) = 0;

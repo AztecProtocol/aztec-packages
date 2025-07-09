@@ -13,7 +13,8 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 5, 4, 4, 3, 5, 3, 4, 6, 6 };
+    static constexpr std::array<size_t, 16> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 5, 4, 5, 3,
+                                                                            5, 3, 4, 6, 3, 6, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,12 +36,16 @@ template <typename FF_> class aluImpl {
         const auto constants_AVM_EXEC_OP_ID_ALU_ADD = FF(1);
         const auto constants_AVM_EXEC_OP_ID_ALU_EQ = FF(32);
         const auto constants_AVM_EXEC_OP_ID_ALU_LT = FF(64);
+        const auto constants_AVM_EXEC_OP_ID_ALU_NOT = FF(256);
+        const auto constants_AVM_EXEC_OP_ID_ALU_SHL = FF(512);
+        const auto constants_AVM_EXEC_OP_ID_ALU_SHR = FF(1024);
         const auto alu_IS_NOT_FF = (FF(1) - in.get(C::alu_sel_is_ff));
-        const auto alu_CHECK_TAG_FF = in.get(C::alu_sel_op_lt);
+        const auto alu_CHECK_TAG_FF = in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_not);
         const auto alu_TAG_FF_DIFF = (in.get(C::alu_ia_tag) - constants_MEM_TAG_FF);
         const auto alu_EXPECTED_C_TAG = in.get(C::alu_sel_op_add) * in.get(C::alu_ia_tag) +
                                         (in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_eq)) * constants_MEM_TAG_U1;
         const auto alu_AB_TAGS_EQ = (FF(1) - in.get(C::alu_sel_tag_err));
+        const auto alu_CHECK_AB_TAGS = (FF(1) - in.get(C::alu_sel_op_not));
         const auto alu_A_GTE_B = (in.get(C::alu_ia) - in.get(C::alu_ib));
         const auto alu_A_LT_B = ((in.get(C::alu_ib) - in.get(C::alu_ia)) - FF(1));
         const auto alu_DIFF = (in.get(C::alu_ia) - in.get(C::alu_ib));
@@ -67,7 +72,10 @@ template <typename FF_> class aluImpl {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_op_id) - (in.get(C::alu_sel_op_add) * constants_AVM_EXEC_OP_ID_ALU_ADD +
                                                 in.get(C::alu_sel_op_lt) * constants_AVM_EXEC_OP_ID_ALU_LT +
-                                                in.get(C::alu_sel_op_eq) * constants_AVM_EXEC_OP_ID_ALU_EQ));
+                                                in.get(C::alu_sel_op_eq) * constants_AVM_EXEC_OP_ID_ALU_EQ +
+                                                in.get(C::alu_sel_op_not) * constants_AVM_EXEC_OP_ID_ALU_NOT +
+                                                in.get(C::alu_sel_op_shl) * constants_AVM_EXEC_OP_ID_ALU_SHL +
+                                                in.get(C::alu_sel_op_shr) * constants_AVM_EXEC_OP_ID_ALU_SHR));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
@@ -90,6 +98,7 @@ template <typename FF_> class aluImpl {
         { // AB_TAGS_CHECK
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp =
+                alu_CHECK_AB_TAGS *
                 (((in.get(C::alu_ia_tag) - in.get(C::alu_ib_tag)) *
                       (alu_AB_TAGS_EQ * (FF(1) - in.get(C::alu_ab_tags_diff_inv)) + in.get(C::alu_ab_tags_diff_inv)) -
                   FF(1)) +
@@ -132,14 +141,33 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        { // EQ_OP_MAIN
+        {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+            auto tmp = in.get(C::alu_sel_op_eq) * (FF(1) - in.get(C::alu_sel_op_eq));
+            tmp *= scaling_factor;
+            std::get<12>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EQ_OP_MAIN
+            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::alu_sel_op_eq) * (FF(1) - in.get(C::alu_sel_tag_err)) *
                 ((alu_DIFF * (in.get(C::alu_ic) * (FF(1) - in.get(C::alu_helper1)) + in.get(C::alu_helper1)) - FF(1)) +
                  in.get(C::alu_ic));
             tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
+            std::get<13>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_OP_MAIN
+            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            auto tmp = in.get(C::alu_sel_op_not) * (FF(1) - in.get(C::alu_sel_tag_err)) *
+                       ((in.get(C::alu_ia) + in.get(C::alu_ib)) - in.get(C::alu_max_value));
+            tmp *= scaling_factor;
+            std::get<14>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_OP_TAG_ERROR
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            auto tmp = in.get(C::alu_sel_op_not) * in.get(C::alu_sel_is_ff) * (FF(1) - in.get(C::alu_sel_tag_err));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -163,8 +191,12 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "ALU_ADD";
         case 11:
             return "ALU_LT_RESULT";
-        case 12:
+        case 13:
             return "EQ_OP_MAIN";
+        case 14:
+            return "NOT_OP_MAIN";
+        case 15:
+            return "NOT_OP_TAG_ERROR";
         }
         return std::to_string(index);
     }
@@ -176,7 +208,9 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_AB_TAGS_CHECK = 6;
     static constexpr size_t SR_ALU_ADD = 8;
     static constexpr size_t SR_ALU_LT_RESULT = 11;
-    static constexpr size_t SR_EQ_OP_MAIN = 12;
+    static constexpr size_t SR_EQ_OP_MAIN = 13;
+    static constexpr size_t SR_NOT_OP_MAIN = 14;
+    static constexpr size_t SR_NOT_OP_TAG_ERROR = 15;
 };
 
 } // namespace bb::avm2
