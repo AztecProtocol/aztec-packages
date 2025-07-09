@@ -430,9 +430,7 @@ class MegaFlavor {
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
             /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
-            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
-            /* 4. is_kernel bool */ (1 * num_frs_fr) +
-            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+            /* 3. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)

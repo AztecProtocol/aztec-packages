@@ -170,9 +170,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             }
         }
 
+        // WORKTODO: can this and maybe all other to_field_elements() methods be moved to the base class?
         /**
-         * @brief Serialize verification key to field elements. Overrides the base class definition to include
-         * databus_propagation_data. WORKTODO: hmm thats not true..
+         * @brief Serialize verification key to field elements.
          *
          * @return std::vector<FF>
          */
