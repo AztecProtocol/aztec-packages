@@ -191,7 +191,8 @@ class ClientIVC {
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
-        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+        const bool& is_kernel);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

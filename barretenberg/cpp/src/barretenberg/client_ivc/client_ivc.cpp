@@ -86,7 +86,8 @@ void ClientIVC::instantiate_stdlib_verification_queue(
 ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+    const bool& is_kernel)
 {
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
@@ -136,9 +137,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): move is_kernel flag out of
-    // databus_propagation_data or remove it altogether
-    if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
+    if (is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
@@ -175,7 +174,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
  */
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-    circuit.databus_propagation_data.is_kernel = true;
+    circuit.is_kernel = true;
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app)
@@ -188,16 +187,20 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
+    bool is_kernel = true;
     while (!stdlib_verification_queue.empty()) {
+        // First queue entry is always a kernel, unless the type is OINK (which means this the first app)
+        is_kernel &= stdlib_verification_queue.front().type != QUEUE_TYPE::OINK;
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         PairingPoints pairing_points = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, accumulation_recursive_transcript);
+            circuit, verifier_input, accumulation_recursive_transcript, is_kernel);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
         // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
 
         stdlib_verification_queue.pop_front();
+        is_kernel = false; // entries after the first are always app circuits
     }
 
     // Set the kernel output data to be propagated via the public inputs
@@ -225,7 +228,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
     // the circuit VK
-    if (circuit.databus_propagation_data.is_kernel) {
+    if (circuit.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
     }
