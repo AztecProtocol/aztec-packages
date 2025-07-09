@@ -53,6 +53,11 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     transcript->load_proof(proof.pre_ipa_proof);
 
+    // Fiat-Shamir the vk hash
+    // WORKTODO, hardcode vk hash in verifier
+    typename Flavor::BF vkey_hash = key->add_hash_to_transcript("", *transcript);
+    vinfo("ECCVM vk hash in recursive verifier: ", vkey_hash);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 

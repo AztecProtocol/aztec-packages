@@ -99,6 +99,11 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
 
     transcript->load_proof(proof);
 
+    // Fiat-Shamir the vk hash
+    // WORKTODO, hardcode vk hash in verifier
+    typename Flavor::FF vkey_hash = key->add_hash_to_transcript("", *transcript);
+    vinfo("Translator vk hash in recursive verifier: ", vkey_hash);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
