@@ -15,6 +15,10 @@ namespace bb::stdlib::recursion::honk {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1269): Complete integration of the IO mechanism and
 // remove PublicComponentKeys from the VK.
 
+/**
+ * @brief Manages the data that is propagated on the public inputs of a kernel circuit
+ *
+ */
 class KernelIO {
   public:
     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
@@ -25,11 +29,10 @@ class KernelIO {
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
-    using PublicKey = PublicComponentKey;
 
-    PairingInputs pairing_inputs;
-    G1 kernel_return_data;
-    G1 app_return_data;
+    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;        // Commitment to the return data of a kernel circuit
+    G1 app_return_data;           // Commitment to the return data of an app circuit
     // G1 ecc_op_table;
     // FF pg_acc_hash;
 
@@ -47,15 +50,15 @@ class KernelIO {
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
 
-        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
-        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
+        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
-        app_return_data = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
+        app_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
-        // ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicKey{ index });
+        // ecc_op_table = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         // index += G1::PUBLIC_INPUTS_SIZE;
-        // pg_acc_hash = FF::reconstruct(public_inputs, PublicKey{ index });
+        // pg_acc_hash = FF::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
     /**
@@ -72,16 +75,18 @@ class KernelIO {
     }
 };
 
+/**
+ * @brief Manages the data that is propagated on the public inputs of an application/function circuit
+ *
+ */
 class AppIO {
   public:
     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
-    using G1 = typename Curve::Group;
     using FF = typename Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
-    using PublicKey = PublicComponentKey;
 
     PairingInputs pairing_inputs;
 
@@ -97,7 +102,7 @@ class AppIO {
     {
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
-        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicKey{ index });
+        pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
     }
 
     /**
