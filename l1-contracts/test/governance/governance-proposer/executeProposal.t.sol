@@ -53,7 +53,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
   modifier whenRoundInPast() {
     vm.warp(
-      Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(governanceProposer.M())))
+      Timestamp.unwrap(
+        validatorSelection.getTimestampForSlot(Slot.wrap(governanceProposer.ROUND_SIZE()))
+      )
     );
     _;
   }
@@ -66,7 +68,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it revert
 
     Slot lower = validatorSelection.getCurrentSlot()
-      + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
+      + Slot.wrap(governanceProposer.ROUND_SIZE() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
       (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
         / validatorSelection.getSlotDuration()
@@ -98,7 +100,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     {
       // Need to execute a proposal first here.
-      for (uint256 i = 0; i < governanceProposer.N(); i++) {
+      for (uint256 i = 0; i < governanceProposer.QUORUM_SIZE(); i++) {
         vm.prank(proposer);
         assertTrue(governanceProposer.vote(proposal));
         vm.warp(
@@ -112,7 +114,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       vm.warp(
         Timestamp.unwrap(
           validatorSelection.getTimestampForSlot(
-            validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.M())
+            validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.ROUND_SIZE())
           )
         )
       );
@@ -139,13 +141,13 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it revert
 
     // The first slot in the next round (round 1)
-    Slot lowerSlot = Slot.wrap(governanceProposer.M());
+    Slot lowerSlot = Slot.wrap(governanceProposer.ROUND_SIZE());
     uint256 lower = Timestamp.unwrap(validatorSelection.getTimestampForSlot(lowerSlot));
     // the last slot in the LIFETIME_IN_ROUNDS next round
     uint256 upper = Timestamp.unwrap(
       validatorSelection.getTimestampForSlot(
         lowerSlot
-          + Slot.wrap(governanceProposer.M() * (governanceProposer.LIFETIME_IN_ROUNDS() - 1))
+          + Slot.wrap(governanceProposer.ROUND_SIZE() * (governanceProposer.LIFETIME_IN_ROUNDS() - 1))
       )
     );
     uint256 time = bound(_slotsToJump, lower, upper);
@@ -175,12 +177,12 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.prank(proposer);
     governanceProposer.vote(proposal);
 
-    uint256 votesNeeded = governanceProposer.N();
+    uint256 votesNeeded = governanceProposer.QUORUM_SIZE();
 
     vm.warp(
       Timestamp.unwrap(
         validatorSelection.getTimestampForSlot(
-          validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.M())
+          validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.ROUND_SIZE())
         )
       )
     );
@@ -191,7 +193,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   }
 
   modifier givenSufficientYea(uint256 _yeas) {
-    uint256 limit = bound(_yeas, governanceProposer.N(), governanceProposer.M());
+    uint256 limit = bound(_yeas, governanceProposer.QUORUM_SIZE(), governanceProposer.ROUND_SIZE());
 
     for (uint256 i = 0; i < limit; i++) {
       vm.prank(proposer);
@@ -205,7 +207,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.warp(
       Timestamp.unwrap(
         validatorSelection.getTimestampForSlot(
-          validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.M())
+          validatorSelection.getCurrentSlot() + Slot.wrap(governanceProposer.ROUND_SIZE())
         )
       )
     );
@@ -244,7 +246,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.warp(
       Timestamp.unwrap(
         validatorSelection.getTimestampForSlot(
-          validatorSelection.getCurrentSlot() + Slot.wrap(2 * governanceProposer.M())
+          validatorSelection.getCurrentSlot() + Slot.wrap(2 * governanceProposer.ROUND_SIZE())
         )
       )
     );
