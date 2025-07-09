@@ -39,10 +39,10 @@ class MergeProver {
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     // The positions of the table polynomials in the array computed during proof generation
-    static constexpr size_t T_CURRENT_IDX = 0;
+    static constexpr size_t t_IDX = 0;
     static constexpr size_t T_PREV_IDX = 1;
     static constexpr size_t T_IDX = 2;
-    static constexpr size_t REVERSED_T_IDX = 3;
+    static constexpr size_t REVERSED_t_IDX = 3;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          const CommitmentKey& commitment_key = CommitmentKey(),
@@ -55,19 +55,20 @@ class MergeProver {
     std::shared_ptr<Transcript> transcript;
 
     /**
-     * @brief Compute polynomials \f$t, T_prev, T, g(X) := X^{l-1} t(1/X)\f$ and send their commitments to the verifier
+     * @brief Compute polynomials \f$t_j, T_{prev, j}, T_j, g_j(X) := X^{l-1} t_j(1/X)\f$ and send their commitments to
+     * the verifier
      *
-     * @return std::array<std::array<Polynomial, NUM_WIRES>, 4> array of table polynomials
+     * @return std::array<std::array<Polynomial, NUM_WIRES>, 4> array of arrays of table polynomials
      */
     std::array<std::array<Polynomial, NUM_WIRES>, 4> preamble_round();
 
     /**
      * @brief Construct the opening claims to be passed to the Shplonk prover
      *
-     * @details Construct the following opening claims for j = 1, 2, 3, 4:
-     *            - p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X), evaluated at kappa
-     *            - g_j(X), evaluated at kappa
-     *            - t_j(X), evaluated at 1/kappa
+     * @details Construct the opening claims:
+     *  - \f$t_j(X)\f$, evaluated at \f$\frac{1}{kappa}\f$
+     *  - \f$p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X)\f$, evaluated at \f$\kappa\f$
+     *  - \f$g_j(X)\f$, evaluated at \f$kappa\f$
      *
      * @param table_polynomials
      * @param kappa

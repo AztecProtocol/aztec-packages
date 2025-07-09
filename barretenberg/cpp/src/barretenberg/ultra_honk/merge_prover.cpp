@@ -24,26 +24,30 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>, 4> MergeProver::preamble_round()
 {
-    // Table polynomials: the current subtable t_j, the previous table T_{j,prev}, the full table T_j, and the reversed
-    // current subtable g_j(X) = X^{l-1} t_j(X)
+    // Container for table polynomials:
+    // t_IDX          -> the subtable t_j
+    // T_PREV_IDX     -> the previous table T_{j,prev}
+    // T_IDX          -> the full table T_j
+    // REVERSED_t_IDX -> the reversed subtable g_j(X) = X^{l-1} t_j(X)
     std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>, 4> table_polynomials;
 
-    table_polynomials[T_CURRENT_IDX] = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-    table_polynomials[T_PREV_IDX] = op_queue->construct_previous_ultra_ops_table_columns();      // T_prev
-    table_polynomials[T_IDX] = op_queue->construct_ultra_ops_table_columns();                    // T
+    table_polynomials[t_IDX] = op_queue->construct_current_ultra_ops_subtable_columns();    // t
+    table_polynomials[T_PREV_IDX] = op_queue->construct_previous_ultra_ops_table_columns(); // T_prev
+    table_polynomials[T_IDX] = op_queue->construct_ultra_ops_table_columns();               // T
 
     // Compute g_j(X) = X^{l-1} t_j(1/X)
     for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-        table_polynomials[REVERSED_T_IDX][wire_idx] = table_polynomials[T_CURRENT_IDX][wire_idx].reverse();
+        table_polynomials[REVERSED_t_IDX][wire_idx] = table_polynomials[t_IDX][wire_idx].reverse();
     }
 
-    const size_t current_subtable_size = table_polynomials[T_CURRENT_IDX][0].size();
-    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
+    // Send subtable size to the verifier
+    const size_t subtable_size = table_polynomials[t_IDX][0].size();
+    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(subtable_size));
 
-    // Compute commitments [T_prev], [T], [reversed_t_current], and add to transcript
-    std::array<std::string, 3> labels{ "T_PREV_", "T_CURRENT_", "REVERSED_t_CURRENT_" };
-    for (size_t idx = 1; idx < 4; ++idx) {
-        std::string label = labels[idx - 1];
+    // Compute commitments [T_prev], [T], [reversed_t_current], and send to the verifier
+    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_CURRENT_" };
+    std::array<size_t, 3> commitment_indices{ T_PREV_IDX, T_IDX, REVERSED_t_IDX };
+    for (auto [idx, label] : zip_view(commitment_indices, labels)) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             std::string suffix = std::to_string(wire_idx);
             transcript->send_to_verifier(label + suffix, pcs_commitment_key.commit(table_polynomials[idx][wire_idx]));
@@ -56,19 +60,19 @@ std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>,
 std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_claims(
     const std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>, 4>& table_polynomials)
 {
-    const size_t current_table_size = table_polynomials[T_IDX][0].size();
-    const size_t current_subtable_size = table_polynomials[T_CURRENT_IDX][0].size();
+    const size_t subtable_size = table_polynomials[t_IDX][0].size();
+    const size_t table_size = table_polynomials[T_IDX][0].size();
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    auto pow_kappa = kappa.pow(current_subtable_size);
+    auto pow_kappa = kappa.pow(subtable_size);
     auto kappa_inv = kappa.invert();
 
     // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
     std::array<Polynomial, NUM_WIRES> partially_computed_difference;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Polynomial tmp(current_table_size);
-        tmp += table_polynomials[T_CURRENT_IDX][idx];
+        Polynomial tmp(table_size);
+        tmp += table_polynomials[t_IDX][idx];
         tmp.add_scaled(table_polynomials[T_PREV_IDX][idx], pow_kappa);
         tmp -= table_polynomials[T_IDX][idx];
         partially_computed_difference[idx] = tmp;
@@ -76,21 +80,21 @@ std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_c
 
     // Add univariate opening claims for each polynomial p_j, g_j, t_j
     std::vector<OpeningClaim> opening_claims;
+    // Compute evaluation t_j(1/kappa), send to verifier, and set opening claim
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF evaluation = table_polynomials[t_IDX][idx].evaluate(kappa_inv);
+        transcript->send_to_verifier("t_eval_kappa_inv_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ table_polynomials[t_IDX][idx], { kappa_inv, evaluation } });
+    }
     // Set opening claims p_j(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         opening_claims.emplace_back(OpeningClaim{ std::move(partially_computed_difference[idx]), { kappa, FF(0) } });
     }
-    // Compute evaluation g_j(\kappa), t_j(1/kappa), add to transcript, and set opening claim
+    // Compute evaluation g_j(\kappa), send to verifier, and set opening claim
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // g_j(kappa)
-        FF evaluation = table_polynomials[REVERSED_T_IDX][idx].evaluate(kappa);
+        FF evaluation = table_polynomials[REVERSED_t_IDX][idx].evaluate(kappa);
         transcript->send_to_verifier("reversed_t_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ table_polynomials[REVERSED_T_IDX][idx], { kappa, evaluation } });
-
-        // t_j(1/kappa)
-        evaluation = table_polynomials[T_CURRENT_IDX][idx].evaluate(kappa_inv);
-        transcript->send_to_verifier("t_eval_kappa_inv_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ table_polynomials[T_CURRENT_IDX][idx], { kappa_inv, evaluation } });
+        opening_claims.emplace_back(OpeningClaim{ table_polynomials[REVERSED_t_IDX][idx], { kappa, evaluation } });
     }
 
     return opening_claims;
