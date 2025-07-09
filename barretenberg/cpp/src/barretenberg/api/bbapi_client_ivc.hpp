@@ -25,7 +25,7 @@ struct ClientIvcStart {
         static constexpr const char* NAME = "ClientIvcStartResponse";
         // Empty response - success indicated by no exception
     };
-    Response execute(BBApiRequest& request) const;
+    Response execute(BBApiRequest& request) &&;
 };
 
 struct ClientIvcLoad {
@@ -37,7 +37,7 @@ struct ClientIvcLoad {
     };
 
     CircuitInput circuit;
-    Response execute(BBApiRequest& request) const;
+    Response execute(BBApiRequest& request) &&;
 };
 
 struct ClientIvcAccumulate {
@@ -50,7 +50,7 @@ struct ClientIvcAccumulate {
 
     // Serialized witness for the last loaded circuit.
     std::vector<uint8_t> witness;
-    Response execute(BBApiRequest& request) const;
+    Response execute(BBApiRequest& request) &&;
 };
 
 struct ClientIvcProve {
@@ -61,7 +61,7 @@ struct ClientIvcProve {
 
         ClientIVC::Proof proof;
     };
-    Response execute(BBApiRequest& request) const;
+    Response execute(BBApiRequest& request) &&;
 };
 
 /** Compute standalone verification key for a circuit */
@@ -76,7 +76,7 @@ struct ClientIvcComputeStandaloneVk {
     };
 
     CircuitInputNoVK circuit;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /** Compute IVC verification key */
@@ -90,7 +90,7 @@ struct ClientIvcComputeIvcVk {
     };
 
     CircuitInputNoVK circuit;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -108,7 +108,7 @@ struct ClientIvcCheckPrecomputedVk {
     // Circuit with its precomputed VK
     CircuitInput circuit;
     std::string function_name;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 } // namespace bb::bbapi

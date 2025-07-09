@@ -10,21 +10,21 @@
 
 namespace bb::bbapi {
 
-ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) const
+ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
     request.ivc_in_progress = std::make_shared<ClientIVC>(request.trace_settings);
     request.ivc_stack_depth = 0;
     return Response{};
 }
 
-ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) const
+ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 {
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
 
     request.last_circuit_name = circuit.name;
-    request.last_circuit_constraints = acir_format::circuit_buf_to_acir_format(circuit.bytecode);
+    request.last_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
     request.last_circuit_vk = circuit.verification_key;
 
     info("ClientIvcLoad - loaded circuit '", request.last_circuit_name, "'");
@@ -32,7 +32,7 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) const
     return Response{};
 }
 
-ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request) const
+ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request) &&
 {
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
@@ -42,7 +42,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
         throw_or_abort("No circuit loaded. Call ClientIvcLoad first.");
     }
 
-    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(witness);
+    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
     acir_format::AcirProgram program{ std::move(request.last_circuit_constraints.value()), std::move(witness_data) };
 
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
@@ -63,7 +63,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     return Response{};
 }
 
-ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) const
+ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
@@ -123,11 +123,11 @@ static ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request
     return ivc.get_vk();
 }
 
-ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) const
+ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(circuit.bytecode);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
@@ -142,11 +142,11 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     return response;
 }
 
-ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiRequest& request) const
+ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiRequest& request) &&
 {
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(circuit.bytecode);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     auto vk = compute_vk_for_ivc(request, constraint_system.public_inputs.size());
 
@@ -158,9 +158,9 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiReques
     return response;
 }
 
-ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const BBApiRequest& request) const
+ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const BBApiRequest& request) &&
 {
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(circuit.bytecode),
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);

@@ -44,6 +44,7 @@ struct CircuitProve {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 struct CircuitComputeVk {
@@ -57,7 +58,7 @@ struct CircuitComputeVk {
 
     CircuitInputNoVK circuit;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /** Compute verification key, Treat the previously loaded circuit as either a standalone circuit
@@ -70,7 +71,7 @@ struct CircuitComputeIvcVk {
 
         std::vector<uint8_t> bytes; // Serialized verification key
     };
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -92,7 +93,7 @@ struct CircuitInfo {
     CircuitInput circuit;
     bool include_gates_per_opcode = false;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -112,7 +113,7 @@ struct CircuitCheck {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -132,7 +133,7 @@ struct CircuitVerify {
     PublicInputsVector public_inputs;
     HonkProof proof;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -149,7 +150,7 @@ struct ProofAsFields {
     };
 
     HonkProof proof;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -167,7 +168,7 @@ struct VkAsFields {
 
     std::vector<uint8_t> verification_key;
     bool is_mega_honk = false;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -184,7 +185,7 @@ struct CircuitWriteSolidityVerifier {
 
     std::vector<uint8_t> verification_key;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -204,7 +205,7 @@ struct CircuitProveAndVerify {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -222,7 +223,7 @@ struct CircuitWriteBytecode {
 
     CircuitInput circuit;
     std::string format = "binary"; // binary, hex, base64
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -241,7 +242,7 @@ struct CircuitValidate {
     CircuitInput circuit;
     ProofSystemSettings settings;
     bool check_recursive_structure = false;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
@@ -265,7 +266,7 @@ struct CircuitBenchmark {
     uint32_t num_iterations = 1;
     bool benchmark_witness_generation = true;
     bool benchmark_proving = true;
-    Response execute(const BBApiRequest& request = {}) const;
+    Response execute(const BBApiRequest& request = {}) &&;
 };
 
 // OracleHashType enum and parse_oracle_hash_type are defined in bbapi_shared.hpp
