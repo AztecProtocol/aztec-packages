@@ -344,7 +344,6 @@ template <typename Curve> class ShplonkVerifier_ {
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using VK = VerifierCommitmentKey<Curve>;
-    using OpeningPair = OpeningPair<Curve>;
 
     // Random challenges
     std::vector<Fr> pows_of_nu;
@@ -408,7 +407,7 @@ template <typename Curve> class ShplonkVerifier_ {
     struct UpdateData {
         std::vector<size_t> indices;
         std::vector<Fr> scalars;
-        OpeningPair opening_pair;
+        OpeningPair<Curve> opening_pair;
     };
 
     /**
