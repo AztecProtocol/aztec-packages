@@ -41,6 +41,7 @@
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 #include "barretenberg/vm2/tracegen/tx_trace.hpp"
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/written_public_data_slots_tree_check_trace.hpp"
 
 namespace bb::avm2 {
 
@@ -367,6 +368,13 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                         "tracegen/note_hash_tree_check",
                         note_hash_tree_check_trace_builder.process(events.note_hash_tree_check_events, trace));
                     clear_events(events.note_hash_tree_check_events);
+                },
+                [&]() {
+                    WrittenPublicDataSlotsTreeCheckTraceBuilder written_public_data_slots_tree_check_trace_builder;
+                    AVM_TRACK_TIME("tracegen/written_public_data_slots_tree_check",
+                                   written_public_data_slots_tree_check_trace_builder.process(
+                                       events.written_public_data_slots_tree_check_events, trace));
+                    clear_events(events.written_public_data_slots_tree_check_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -377,28 +385,30 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
 {
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = concatenate_jobs(TxTraceBuilder::interactions.get_all_jobs(),
-                                                  ExecutionTraceBuilder::interactions.get_all_jobs(),
-                                                  AluTraceBuilder::interactions.get_all_jobs(),
-                                                  Poseidon2TraceBuilder::interactions.get_all_jobs(),
-                                                  RangeCheckTraceBuilder::interactions.get_all_jobs(),
-                                                  BitwiseTraceBuilder::interactions.get_all_jobs(),
-                                                  Sha256TraceBuilder::interactions.get_all_jobs(),
-                                                  KeccakF1600TraceBuilder::interactions.get_all_jobs(),
-                                                  BytecodeTraceBuilder::interactions.get_all_jobs(),
-                                                  ClassIdDerivationTraceBuilder::interactions.get_all_jobs(),
-                                                  EccTraceBuilder::interactions.get_all_jobs(),
-                                                  ToRadixTraceBuilder::interactions.get_all_jobs(),
-                                                  AddressDerivationTraceBuilder::interactions.get_all_jobs(),
-                                                  FieldGreaterThanTraceBuilder::interactions.get_all_jobs(),
-                                                  MerkleCheckTraceBuilder::interactions.get_all_jobs(),
-                                                  PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
-                                                  UpdateCheckTraceBuilder::interactions.get_all_jobs(),
-                                                  NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                                                  MemoryTraceBuilder::interactions.get_all_jobs(),
-                                                  DataCopyTraceBuilder::interactions.get_all_jobs(),
-                                                  CalldataTraceBuilder::interactions.get_all_jobs(),
-                                                  NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs());
+        auto jobs_interactions =
+            concatenate_jobs(TxTraceBuilder::interactions.get_all_jobs(),
+                             ExecutionTraceBuilder::interactions.get_all_jobs(),
+                             AluTraceBuilder::interactions.get_all_jobs(),
+                             Poseidon2TraceBuilder::interactions.get_all_jobs(),
+                             RangeCheckTraceBuilder::interactions.get_all_jobs(),
+                             BitwiseTraceBuilder::interactions.get_all_jobs(),
+                             Sha256TraceBuilder::interactions.get_all_jobs(),
+                             KeccakF1600TraceBuilder::interactions.get_all_jobs(),
+                             BytecodeTraceBuilder::interactions.get_all_jobs(),
+                             ClassIdDerivationTraceBuilder::interactions.get_all_jobs(),
+                             EccTraceBuilder::interactions.get_all_jobs(),
+                             ToRadixTraceBuilder::interactions.get_all_jobs(),
+                             AddressDerivationTraceBuilder::interactions.get_all_jobs(),
+                             FieldGreaterThanTraceBuilder::interactions.get_all_jobs(),
+                             MerkleCheckTraceBuilder::interactions.get_all_jobs(),
+                             PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
+                             UpdateCheckTraceBuilder::interactions.get_all_jobs(),
+                             NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                             MemoryTraceBuilder::interactions.get_all_jobs(),
+                             DataCopyTraceBuilder::interactions.get_all_jobs(),
+                             CalldataTraceBuilder::interactions.get_all_jobs(),
+                             NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

@@ -109,7 +109,7 @@ uint8_t get_tag_bits(ValueTag tag)
     case ValueTag::U128:
         return 128;
     case ValueTag::FF:
-        return 254;
+        return 0; // It is more useful for this to be 0 in the circuit
     }
 
     assert(false && "Invalid tag");
@@ -128,7 +128,7 @@ uint8_t get_tag_bytes(ValueTag tag)
     case ValueTag::U128:
         return get_tag_bits(tag) / 8;
     case ValueTag::FF:
-        return 32;
+        return 0; // It is more useful for this to be 0 in the circuit
     }
 
     assert(false && "Invalid tag");

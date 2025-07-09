@@ -45,8 +45,8 @@ describe(`deploys and transfers a private only token`, () => {
     const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerWallet.getAddress())
       .send({
         universalDeploy: true,
-        skipPublicDeployment: true,
-        skipClassRegistration: true,
+        skipInstancePublication: true,
+        skipClassPublication: true,
         skipInitialization: false,
       })
       .deployed({ timeout: 300 });

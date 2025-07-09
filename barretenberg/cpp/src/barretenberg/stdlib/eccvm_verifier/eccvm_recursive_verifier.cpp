@@ -12,12 +12,9 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-
-template <typename Flavor>
-ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
-    Builder* builder,
-    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
-    const std::shared_ptr<Transcript>& transcript)
+ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
+                                               const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                               const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
     , builder(builder)
     , transcript(transcript)
@@ -29,9 +26,8 @@ ECCVMRecursiveVerifier_<Flavor>::ECCVMRecursiveVerifier_(
  * @tparam Flavor
  * @param proof Native ECCVM proof
  */
-template <typename Flavor>
-typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifier_<Flavor>::verify_proof(
-    const ECCVMProof& proof)
+
+ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(const ECCVMProof& proof)
 {
     StdlibProof stdlib_proof(*builder, proof);
     return verify_proof(stdlib_proof);
@@ -43,11 +39,9 @@ typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifie
  * @tparam Flavor
  * @param proof Stdlib ECCVM proof
  */
-template <typename Flavor>
-typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof& proof)
+ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(const StdlibProof& proof)
 {
-    using Curve = typename Flavor::Curve;
+    using Curve = Flavor::Curve;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using Shplonk = ShplonkVerifier_<Curve>;
     using OpeningClaim = OpeningClaim<Curve>;
@@ -85,8 +79,11 @@ typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifie
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    Sumcheck sumcheck(transcript, alpha);
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -97,7 +94,7 @@ typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifie
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -160,12 +157,10 @@ typename ECCVMRecursiveVerifier_<Flavor>::IpaClaimAndProof ECCVMRecursiveVerifie
  * @param translation_commitments Commitments to  `op`, `Px`, `Py`, `z1`, and `z2`
  * @return Populate `opening_claims`.
  */
-template <typename Flavor>
-void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
-    const std::vector<Commitment>& translation_commitments)
+void ECCVMRecursiveVerifier::compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments)
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
-    using SmallIPA = SmallSubgroupIPAVerifier<typename Flavor::Curve>;
+    using SmallIPA = SmallSubgroupIPAVerifier<Flavor::Curve>;
 
     // Initialize SmallSubgroupIPA structures
     SmallSubgroupIPACommitments<Commitment> small_ipa_commitments;
@@ -240,6 +235,4 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     // NUM_DISABLED_ROWS_IN_SUMCHECK}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
-
-template class ECCVMRecursiveVerifier_<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 } // namespace bb

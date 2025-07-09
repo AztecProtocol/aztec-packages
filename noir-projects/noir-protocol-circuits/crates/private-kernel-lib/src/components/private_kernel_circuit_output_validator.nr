@@ -1,15 +1,14 @@
-use crate::components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier;
+use crate::components::private_kernel_circuit_public_inputs_composer::{
+    create_protocol_nullifier::create_protocol_nullifier,
+    get_include_by_timestamp_for_contract_updates::get_include_by_timestamp_for_contract_updates,
+};
 use dep::types::{
     abis::{
-        include_by_timestamp::IncludeByTimestamp,
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
     },
     address::AztecAddress,
-    constants::DEFAULT_UPDATE_DELAY,
-    contract_class_id::ContractClassId,
-    shared_mutable::{compute_shared_mutable_time_horizon, SharedMutableValues},
-    traits::{Empty, Packable},
+    traits::Empty,
     transaction::tx_request::TxRequest,
     utils::arrays::{
         assert_array_appended, assert_array_appended_and_scoped,
@@ -115,21 +114,26 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect initial min_revertible_side_effect_counter",
         );
 
-        let include_by_timestamp = Self::update_include_by_timestamp_for_contract_updates(
-            private_call,
+        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // This value can only decrease with each iteration. Here we take the minimum of:
+        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value computed for contract updates
+        let include_by_timestamp = std::cmp::min(
             private_call.public_inputs.include_by_timestamp,
+            get_include_by_timestamp_for_contract_updates(private_call),
         );
-
         assert_eq(
-            self.output.validation_requests.for_rollup.include_by_timestamp,
+            self.output.include_by_timestamp,
             include_by_timestamp,
             "incorrect initial include_by_timestamp",
         );
+
         assert_eq(
             self.output.public_teardown_call_request,
             private_call.public_inputs.public_teardown_call_request,
             "incorrect initial public_teardown_call_request",
         );
+
         let initial_fee_payer = if private_call.public_inputs.is_fee_payer {
             private_call.public_inputs.call_context.contract_address
         } else {
@@ -162,19 +166,20 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect output min_revertible_side_effect_counter",
         );
 
-        // include_by_timestamp
-        let include_by_timestamp = IncludeByTimestamp::min(
-            previous_kernel.validation_requests.for_rollup.include_by_timestamp,
-            private_call.public_inputs.include_by_timestamp,
+        // `include_by_timestamp` - The timestamp at which the transaction expires.
+        // This value can only decrease with each iteration. Here we take the minimum of:
+        // - The value from the previous kernel iteration
+        // - The value set by the private call (via `context.set_include_by_timestamp()`)
+        // - The value computed for contract updates
+        let include_by_timestamp = std::cmp::min(
+            previous_kernel.include_by_timestamp,
+            std::cmp::min(
+                private_call.public_inputs.include_by_timestamp,
+                get_include_by_timestamp_for_contract_updates(private_call),
+            ),
         );
-
-        let include_by_timestamp = Self::update_include_by_timestamp_for_contract_updates(
-            private_call,
-            include_by_timestamp,
-        );
-
         assert_eq(
-            self.output.validation_requests.for_rollup.include_by_timestamp,
+            self.output.include_by_timestamp,
             include_by_timestamp,
             "incorrect output include_by_timestamp",
         );
@@ -397,26 +402,5 @@ impl PrivateKernelCircuitOutputValidator {
             self.output.end.private_call_stack,
             private_call.public_inputs.private_call_requests,
         );
-    }
-
-    fn update_include_by_timestamp_for_contract_updates(
-        private_call: PrivateCallData,
-        include_by_timestamp: IncludeByTimestamp,
-    ) -> IncludeByTimestamp {
-        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
-            let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
-                private_call.verification_key_hints.updated_class_id_shared_mutable_values,
-            );
-
-            IncludeByTimestamp::min(
-                include_by_timestamp,
-                IncludeByTimestamp::new(compute_shared_mutable_time_horizon(
-                    shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.timestamp,
-                )),
-            )
-        } else {
-            include_by_timestamp
-        }
     }
 }

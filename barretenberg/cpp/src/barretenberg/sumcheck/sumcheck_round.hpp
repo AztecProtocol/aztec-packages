@@ -47,7 +47,7 @@ template <typename Flavor> class SumcheckProverRound {
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = typename Flavor::SumcheckTupleOfTuplesOfUnivariates;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
     using FF = typename Flavor::FF;
@@ -166,7 +166,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                const bb::RelationParameters<FF>& relation_parameters,
                                                const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                               const RelationSeparator alpha)
+                                               const SubrelationSeparators& alphas)
     {
         PROFILE_THIS_NAME("compute_univariate");
 
@@ -274,7 +274,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
 
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alpha, gate_separators);
+        return batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
     }
 
     /**
@@ -286,7 +286,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckRoundUnivariate compute_hiding_univariate(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
                                                       const bb::RelationParameters<FF>& relation_parameters,
                                                       const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                                      const RelationSeparator& alpha,
+                                                      const SubrelationSeparators& alpha,
                                                       const ZKData& zk_sumcheck_data,
                                                       const RowDisablingPolynomial<FF> row_disabling_polynomial,
                                                       const size_t round_idx)
@@ -313,7 +313,7 @@ template <typename Flavor> class SumcheckProverRound {
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
-        const RelationSeparator alpha,
+        const SubrelationSeparators& alphas,
         const size_t round_idx,
         const RowDisablingPolynomial<FF> row_disabling_polynomial)
         requires UseRowDisablingPolynomial<Flavor>
@@ -332,7 +332,7 @@ template <typename Flavor> class SumcheckProverRound {
                                             relation_parameters,
                                             gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
         }
-        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alpha, gate_separators);
+        result = batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulator, alphas, gate_separators);
         bb::Univariate<FF, 2> row_disabling_factor =
             bb::Univariate<FF, 2>({ row_disabling_polynomial.eval_at_0, row_disabling_polynomial.eval_at_1 });
         SumcheckRoundUnivariate row_disabling_factor_extended =
@@ -360,11 +360,10 @@ template <typename Flavor> class SumcheckProverRound {
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
-                                                   const RelationSeparator& challenge,
+                                                   const SubrelationSeparators& challenge,
                                                    const bb::GateSeparatorPolynomial<FF>& gate_separators)
     {
-        auto running_challenge = FF(1);
-        Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
+        Utils::scale_univariates(univariate_accumulators, challenge);
 
         auto result = ExtendedUnivariate(0);
         extend_and_batch_univariates(univariate_accumulators, result, gate_separators);
@@ -520,7 +519,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using TupleOfArraysOfValues = typename Flavor::TupleOfArraysOfValues;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
     using FF = typename Flavor::FF;
@@ -603,7 +602,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_full_relation_purported_value(const ClaimedEvaluations& purported_evaluations,
                                              const bb::RelationParameters<FF>& relation_parameters,
                                              const bb::GateSeparatorPolynomial<FF>& gate_separators,
-                                             const RelationSeparator alpha)
+                                             const SubrelationSeparators& alphas)
     {
         // The verifier should never skip computation of contributions from any relation
         Utils::template accumulate_relation_evaluations_without_skipping<>(purported_evaluations,
@@ -611,10 +610,8 @@ template <typename Flavor> class SumcheckVerifierRound {
                                                                            relation_parameters,
                                                                            gate_separators.partial_evaluation_result);
 
-        FF running_challenge{ 1 };
-        FF output{ 0 };
-        Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
-        return output;
+        return Utils::scale_and_batch_elements(relation_evaluations, alphas);
+        ;
     }
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in

@@ -26,6 +26,7 @@ include "execution/gas.pil";
 include "trees/merkle_check.pil";
 include "trees/nullifier_check.pil";
 include "trees/public_data_check.pil";
+include "trees/written_public_data_slots_tree_check.pil";
 
 include "bytecode/address_derivation.pil";
 include "bytecode/bc_decomposition.pil";
@@ -274,6 +275,13 @@ sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error)
 // NOTE: Gas is constrained in gas.pil.
 // The "output we want is" sel_out_of_gas from gas.pil.
 
+// For bitwise, the tag determines the dynamic_l2_gas_factor
+#[DYN_L2_FACTOR_BITWISE]
+sel_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
+in
+precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
+
+
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
  **************************************************************************************************/
@@ -311,6 +319,7 @@ pol commit sel_return;
 pol commit sel_revert;
 pol commit sel_success_copy;
 pol commit sel_returndata_size;
+pol commit sel_debug_log; // unused but we are forced to have it
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execution * (
@@ -326,7 +335,8 @@ sel_execution * (
    sel_return * constants.AVM_EXEC_OP_ID_RETURN +
    sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
    sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
-   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE
+   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
+   sel_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG
    - subtrace_operation_id
 ) = 0;
 
@@ -344,6 +354,7 @@ sel_return * (1 - sel_return) = 0;
 sel_revert * (1 - sel_revert) = 0;
 sel_success_copy * (1 - sel_success_copy) = 0;
 sel_returndata_size * (1 - sel_returndata_size) = 0;
+sel_debug_log * (1 - sel_debug_log) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;

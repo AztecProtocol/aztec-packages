@@ -530,7 +530,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                                         this->byte_array.write(other.byte_array));
             }
         }
-        /* Explicit re-instantiation using the various bit_array constructors */
+        /* Explicit re-instantiation using the various byte_array constructors */
         ExecutionHandler set(Builder* builder)
         {
             const auto& ref = this->reference_value;
@@ -597,7 +597,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                 }
             }
             case 6: {
-                /* Create a bit_array with gibberish.
+                /* Create a byte_array with gibberish.
                  *
                  * The purpose of this is to ascertain that no gibberish
                  * values are retained in the re-assigned value

@@ -9,9 +9,9 @@
 
 namespace bb::avm2 {
 
-template <typename BuilderType> class AvmRecursiveFlavor_ {
+class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = MegaCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
@@ -38,7 +38,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
@@ -60,7 +61,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
         using Base::Base;
     };
 
-    class VerificationKey : public StdlibVerificationKey_<BuilderType, NativeFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey
+        : public StdlibVerificationKey_<CircuitBuilder, NativeFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
