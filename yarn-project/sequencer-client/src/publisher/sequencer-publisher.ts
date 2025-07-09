@@ -119,7 +119,7 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
       blobSinkClient?: BlobSinkClientInterface;
@@ -429,7 +429,7 @@ export class SequencerPublisher {
 
     const request = await base.createVoteRequestWithSignature(
       payload.toString(),
-      this.l1TxUtils.client.chain.id,
+      this.config.l1ChainId,
       signerAddress.toString(),
       signer,
     );
