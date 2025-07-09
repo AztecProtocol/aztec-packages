@@ -36,58 +36,52 @@ using tracegen::RangeCheckTraceBuilder;
 
 constexpr uint8_t NUM_OF_TAGS = static_cast<uint8_t>(MemoryTag::MAX) + 1;
 
-// The below test values do not carry:
-const std::unordered_map<MemoryTag, std::array<FF, 6>> TEST_VALUES = {
+// The below test values do not carry for ADD operations:
+const std::unordered_map<MemoryTag, std::array<FF, 3>> TEST_VALUES = {
     { MemoryTag::FF,
-      { FF::modulus - 4,
-        2,
-        FF::modulus - 2,
-        static_cast<uint8_t>(MemoryTag::FF),
-        get_tag_bits(MemoryTag::FF),
-        get_tag_max_value(MemoryTag::FF) } },
-    { MemoryTag::U1,
-      { 1, 0, 1, static_cast<uint8_t>(MemoryTag::U1), get_tag_bits(MemoryTag::U1), get_tag_max_value(MemoryTag::U1) } },
+      {
+          FF::modulus - 4,
+          2,
+          FF::modulus - 2,
+      } },
+    { MemoryTag::U1, { 1, 0, 1 } },
     { MemoryTag::U8,
-      { 200,
-        50,
-        250,
-        static_cast<uint8_t>(MemoryTag::U8),
-        get_tag_bits(MemoryTag::U8),
-        get_tag_max_value(MemoryTag::U8) } },
+      {
+          200,
+          50,
+          250,
+      } },
     { MemoryTag::U16,
-      { 30,
-        65500,
-        65530,
-        static_cast<uint8_t>(MemoryTag::U16),
-        get_tag_bits(MemoryTag::U16),
-        get_tag_max_value(MemoryTag::U16) } },
+      {
+          30,
+          65500,
+          65530,
+      } },
     { MemoryTag::U32,
-      { (uint256_t(1) << 32) - 10,
-        5,
-        (uint256_t(1) << 32) - 5,
-        static_cast<uint8_t>(MemoryTag::U32),
-        get_tag_bits(MemoryTag::U32),
-        get_tag_max_value(MemoryTag::U32) } },
+      {
+          (uint256_t(1) << 32) - 10,
+          5,
+          (uint256_t(1) << 32) - 5,
+      } },
     { MemoryTag::U64,
-      { (uint256_t(1) << 64) - 10,
-        5,
-        (uint256_t(1) << 64) - 5,
-        static_cast<uint8_t>(MemoryTag::U64),
-        get_tag_bits(MemoryTag::U64),
-        get_tag_max_value(MemoryTag::U64) } },
+      {
+          (uint256_t(1) << 64) - 10,
+          5,
+          (uint256_t(1) << 64) - 5,
+      } },
     { MemoryTag::U128,
-      { (uint256_t(1) << 128) - 10,
-        5,
-        (uint256_t(1) << 128) - 5,
-        static_cast<uint8_t>(MemoryTag::U128),
-        get_tag_bits(MemoryTag::U128),
-        get_tag_max_value(MemoryTag::U128) } },
+      {
+          (uint256_t(1) << 128) - 10,
+          5,
+          (uint256_t(1) << 128) - 5,
+      } },
 };
 
 auto process_basic_add_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
-    auto [a, b, c, tag, max_bits, max_value] = TEST_VALUES.at(input_tag);
+    auto [a, b, c] = TEST_VALUES.at(input_tag);
+    auto tag = static_cast<uint8_t>(input_tag);
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = a,
@@ -96,8 +90,8 @@ auto process_basic_add_trace(MemoryTag input_tag)
             .alu_ib_tag = tag,
             .alu_ic = c,
             .alu_ic_tag = tag,
-            .alu_max_bits = max_bits,
-            .alu_max_value = max_value,
+            .alu_max_bits = get_tag_bits(input_tag),
+            .alu_max_value = get_tag_max_value(input_tag),
             .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -111,7 +105,28 @@ auto process_basic_add_trace(MemoryTag input_tag)
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD, // = alu_op_id
         },
     });
-    // Build just enough clk rows for the lookup
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+auto process_basic_add_with_tracegen(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    auto [a, b, c] = TEST_VALUES.at(input_tag);
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::ADD,
+              .a = MemoryValue::from_tag(input_tag, a),
+              .b = MemoryValue::from_tag(input_tag, b),
+              .c = MemoryValue::from_tag(input_tag, c) },
+        },
+        trace);
+
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
@@ -120,11 +135,12 @@ auto process_basic_add_trace(MemoryTag input_tag)
 auto process_carry_add_trace(MemoryTag input_tag)
 {
     PrecomputedTraceBuilder precomputed_builder;
-    auto [_a, _b, _c, tag, max_bits, max_value] = TEST_VALUES.at(input_tag);
+    auto tag = static_cast<uint8_t>(input_tag);
     // Special cases for U1 since the only 'carry' case is 1 + 1 = 0:
-    auto a = input_tag == MemoryTag::U1 ? 1 : max_value - 1;
-    auto b = input_tag == MemoryTag::U1 ? 1 : 3;
-    auto c = input_tag == MemoryTag::U1 ? 0 : 1;
+    bool is_u1 = input_tag == MemoryTag::U1;
+    auto a = is_u1 ? 1 : get_tag_max_value(input_tag) - 1;
+    auto b = is_u1 ? 1 : 3;
+    auto c = is_u1 ? 0 : 1;
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_cf = 1,
@@ -134,8 +150,8 @@ auto process_carry_add_trace(MemoryTag input_tag)
             .alu_ib_tag = tag,
             .alu_ic = c,
             .alu_ic_tag = tag,
-            .alu_max_bits = max_bits,
-            .alu_max_value = max_value,
+            .alu_max_bits = get_tag_bits(input_tag),
+            .alu_max_value = get_tag_max_value(input_tag),
             .alu_op_id = AVM_EXEC_OP_ID_ALU_ADD,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
@@ -149,7 +165,32 @@ auto process_carry_add_trace(MemoryTag input_tag)
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD, // = alu_op_id
         },
     });
-    // Build just enough clk rows for the lookup
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+auto process_carry_add_with_tracegen(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    // Special cases for U1 since the only 'carry' case is 1 + 1 = 0:
+    bool is_u1 = input_tag == MemoryTag::U1;
+    auto a = is_u1 ? 1 : get_tag_max_value(input_tag) - 1;
+    auto b = is_u1 ? 1 : 3;
+    auto c = is_u1 ? 0 : 1;
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::ADD,
+              .a = MemoryValue::from_tag(input_tag, a),
+              .b = MemoryValue::from_tag(input_tag, b),
+              .c = MemoryValue::from_tag(input_tag, c) },
+        },
+        trace);
+
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
@@ -160,7 +201,8 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     PrecomputedTraceBuilder precomputed_builder;
     RangeCheckTraceBuilder range_check_builder;
     FieldGreaterThanTraceBuilder field_gt_builder;
-    auto [a, b, _c, tag, max_bits, max_value] = TEST_VALUES.at(input_tag);
+    auto [a, b, _c] = TEST_VALUES.at(input_tag);
+    auto tag = static_cast<uint8_t>(input_tag);
     auto is_ff = input_tag == MemoryTag::FF;
     auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) < static_cast<uint256_t>(b));
 
@@ -180,8 +222,8 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
             .alu_lt_ops_input_a = a,
             .alu_lt_ops_input_b = b,
             .alu_lt_ops_result_c = c,
-            .alu_max_bits = max_bits,
-            .alu_max_value = max_value,
+            .alu_max_bits = get_tag_bits(input_tag),
+            .alu_max_value = get_tag_max_value(input_tag),
             .alu_op_id = AVM_EXEC_OP_ID_ALU_LT,
             .alu_sel = 1,
             .alu_sel_ff_lt_ops = static_cast<uint8_t>(is_ff),
@@ -199,12 +241,49 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT,        // = alu_op_id
         },
     });
-    if (input_tag == MemoryTag::FF) {
+    if (is_ff) {
         field_gt_builder.process({ { .a = b, .b = a, .result = a < b } }, trace);
     }
     range_check_builder.process(
-        { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(max_bits) } }, trace);
-    // Build just enough clk rows for the lookup
+        { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+        trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+auto process_lt_with_tracegen(MemoryTag input_tag)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    FieldGreaterThanTraceBuilder field_gt_builder;
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    auto [a, b, _c] = TEST_VALUES.at(input_tag);
+    auto is_ff = input_tag == MemoryTag::FF;
+    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) < static_cast<uint256_t>(b));
+
+    // When we have input fields, we use field_gt for lt and do not use lt_abs_diff
+    // In the circuit, we force lt_abs_diff to be 0 so the range_check does not fail
+    auto result = c == 1 ? b - a - 1 : a - b;
+    auto lt_abs_diff = is_ff ? 0 : result;
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::LT,
+              .a = MemoryValue::from_tag(input_tag, a),
+              .b = MemoryValue::from_tag(input_tag, b),
+              .c = MemoryValue::from_tag(MemoryTag::U1, c) },
+        },
+        trace);
+    if (is_ff) {
+        field_gt_builder.process({ { .a = b, .b = a, .result = a < b } }, trace);
+    }
+    range_check_builder.process(
+        { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+        trace);
+
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
     return trace;
@@ -253,10 +332,26 @@ TEST_P(AluTagTest, AluBasicAddTag)
     check_relation<alu>(trace);
 }
 
+TEST_P(AluTagTest, AluBasicAddTagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_basic_add_with_tracegen(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
 TEST_P(AluTagTest, AluCarryAddTag)
 {
     const auto tag = GetParam();
     auto trace = process_carry_add_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluCarryAddTagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_carry_add_with_tracegen(tag);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }
@@ -365,6 +460,14 @@ TEST_P(AluTagTest, AluLTTag)
 {
     const auto tag = GetParam();
     auto trace = process_lt_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluLTTagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_lt_with_tracegen(tag);
     check_all_interactions<AluTraceBuilder>(trace);
     check_relation<alu>(trace);
 }

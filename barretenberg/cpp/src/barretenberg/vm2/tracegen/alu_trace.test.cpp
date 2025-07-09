@@ -21,6 +21,7 @@ using testing::ElementsAre;
 
 using R = TestTraceContainer::Row;
 
+// TODO(MW): Add TEST_P for ADD, LT, LTE
 TEST(AluTraceGenTest, TraceGenerationBasicAddU32)
 {
     TestTraceContainer trace;
