@@ -447,7 +447,7 @@ export class SequencerPublisher {
       await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi);
       this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
     } catch (err) {
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber}`, err);
+      this.log.warn(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
       // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
     }
 

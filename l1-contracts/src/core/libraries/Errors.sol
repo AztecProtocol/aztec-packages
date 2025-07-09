@@ -151,7 +151,7 @@ library Errors {
   error FeeLib__AlreadyPreheated();
 
   // SignatureLib (duplicated)
-  error SignatureLib__InvalidSignature(address, address);
+  error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
 
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
