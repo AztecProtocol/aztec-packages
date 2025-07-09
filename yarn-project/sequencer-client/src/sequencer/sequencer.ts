@@ -387,7 +387,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'} propose block ${newBlockNumber} at slot ${slot}`,
+      `${
+        proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'
+      } propose block ${newBlockNumber} at slot ${slot}`,
       { ...syncLogData, validatorAddresses },
     );
 
