@@ -1,11 +1,15 @@
-
+include "constants_gen.pil";
 include "execution.pil";
+include "ff_gt.pil";
 include "precomputed.pil";
+include "range_check.pil";
 namespace alu;
 
 pol commit sel;
 
 pol commit sel_op_add;
+pol commit sel_op_lt;
+pol commit sel_op_eq;
 pol commit op_id;
 
 pol commit ia;
@@ -22,13 +26,29 @@ sel = 0;
 // carry flag
 pol commit cf;
 
-// TODO(MW): Not required for add, reinstate when needed:
-// pol commit max_bits;
+// Generic helper column
+// Current use: EQ (inverse of a-b)
+pol commit helper1;
+
+// maximum bits the number can hold (i.e. 8 for a u8):
+pol commit max_bits;
 // maximum value the number can hold (i.e. 255 for a u8), we 'mod' by max_value + 1
 pol commit max_value;
+// we need a selector to conditionally lookup ff_gt when inputs a, b are fields:
+pol commit sel_is_ff;
+
+pol IS_NOT_FF = 1 - sel_is_ff;
 
 sel * (1 - sel) = 0;
 cf * (1 - cf) = 0;
+sel_is_ff * (1 - sel_is_ff) = 0;
+
+// TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
+// Note that the op_ids below represent a binary decomposition (see constants_gen.pil):
+#[OP_ID_CHECK]
+op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
+      + sel_op_lt * constants.AVM_EXEC_OP_ID_ALU_LT
+      + sel_op_eq * constants.AVM_EXEC_OP_ID_ALU_EQ;
 
 #[REGISTER_TAG_VALUE]
 execution.sel_alu {
@@ -41,13 +61,24 @@ execution.sel_alu {
 // MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
 // Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
 
-// Will become e.g. sel_op_add * ia_tag + sel_op_lt * MEM_TAG_U1 + ....
-// TODO(MW): Mutual exclusivity of selectors? sel_op_add, sel_op_mul, ...
-pol EXPECTED_C_TAG = sel_op_add * ia_tag;
+// IS_FF CHECKING
 
-// No error handling here since the type of c is handled by the VM:
+// TODO(MW): remove this and check for all (i.e. replace with sel), just being lazy for now. For add, we don't care, for lt we need to differentiate.
+pol CHECK_TAG_FF = sel_op_lt;
+// We prove that sel_is_ff == 1 <==> ia_tag == MEM_TAG_FF
+pol TAG_FF_DIFF = ia_tag - constants.MEM_TAG_FF;
+pol commit tag_ff_diff_inv;
+#[TAG_IS_FF]
+CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_inv) + sel_is_ff - 1) = 0;
+
+// TAG CHECKING
+
+// Will become e.g. sel_op_add * ia_tag + (comparison ops) * MEM_TAG_U1 + ....
+pol EXPECTED_C_TAG = sel_op_add * ia_tag + (sel_op_lt + sel_op_eq) * constants.MEM_TAG_U1;
+
+// No error handling here since, as a memory write, the type of c is handled by the VM:
 #[C_TAG_CHECK]
-EXPECTED_C_TAG - ic_tag = 0;
+EXPECTED_C_TAG = ic_tag;
 
 pol commit sel_tag_err;
 pol commit ab_tags_diff_inv;
@@ -58,18 +89,47 @@ pol AB_TAGS_EQ = 1 - sel_tag_err;
 #[AB_TAGS_CHECK]
 (ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ = 0;
 
-// TODO(MW): Add max_bits -> precomputed.max_bits when required by other ops:
-#[TAG_MAX_VALUE]
-sel { ia_tag, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_value };
+#[TAG_MAX_BITS_VALUE]
+sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
 
 
 // ADD
-
-// TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
-#[OP_ID_CHECK]
-sel_op_add - op_id = 0;
 
 sel_op_add * (1 - sel_op_add) = 0;
 
 #[ALU_ADD]
 sel_op_add * (ia + ib - ic - cf * (max_value + 1)) = 0;
+
+// LT
+
+sel_op_lt * (1 - sel_op_lt) = 0;
+pol commit sel_ff_lt;
+// sel_is_ff & sel_op_lt:
+sel_ff_lt - sel_is_ff * sel_op_lt = 0;
+
+// Looks up whether b > a for field:
+#[FF_LT]
+sel_ff_lt { ib, ia, ic }
+in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+pol A_GTE_B = ia - ib;
+pol A_LT_B = ib - ia - 1;
+pol commit lt_abs_diff;
+// Note: When we have fields, force lt_abs_diff = 0, so the range check doesn't fail but we are still constrained by the FF lookup above.
+#[ALU_LT_RESULT]
+sel_op_lt * ( IS_NOT_FF * ( (A_LT_B - A_GTE_B) * ic + A_GTE_B ) - lt_abs_diff ) = 0;
+#[LT_RANGE]
+sel_op_lt { lt_abs_diff, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+
+// EQ
+
+pol DIFF = ia - ib;
+
+// Use helper1 to invert DIFF.
+// ic is a boolean output and ic == 1 <==> a == b.
+// Important: ic boolean constraint is enforced as part of write to memory due to ic_tag == U1 as enforced by #[C_TAG_CHECK].
+
+// sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
+#[EQ_OP_MAIN]
+sel_op_eq * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;

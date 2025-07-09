@@ -203,6 +203,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_success_copy;
     case ExecutionOpCode::RETURNDATASIZE:
         return C::execution_sel_returndata_size;
+    case ExecutionOpCode::DEBUGLOG:
+        return C::execution_sel_debug_log;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -373,6 +375,15 @@ void ExecutionTraceBuilder::process(
                       // Context - gas.
                       { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
                       { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      // Context - tree states
+                      { C::execution_prev_written_public_data_slots_tree_root,
+                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
+                      { C::execution_prev_written_public_data_slots_tree_size,
+                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                      { C::execution_written_public_data_slots_tree_root,
+                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
+                      { C::execution_written_public_data_slots_tree_size,
+                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
                       // Other.
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                       // Helpers for identifying parent context
@@ -704,7 +715,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 
     // Execution Trace opcodes - separating for clarity
     if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
-        trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
+        trace.set(get_execution_opcode_selector(exec_opcode), row, 1);
     }
 }
 
@@ -1018,6 +1029,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()

@@ -114,9 +114,16 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function floatConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function floatConfigHelper(
+  defaultVal: number,
+  validationFn?: (val: number) => void,
+): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
   return {
-    parseEnv: (val: string) => safeParseFloat(val, defaultVal),
+    parseEnv: (val: string): number => {
+      const parsed = safeParseFloat(val, defaultVal);
+      validationFn?.(parsed);
+      return parsed;
+    },
     defaultValue: defaultVal,
   };
 }
