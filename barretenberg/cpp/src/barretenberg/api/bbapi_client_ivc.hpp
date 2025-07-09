@@ -14,6 +14,8 @@
 
 namespace bb::bbapi {
 
+ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit);
+
 /**
  * @brief
  * Note, only one IVC request can be made at a time for each batch_request.
