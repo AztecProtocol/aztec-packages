@@ -1087,8 +1087,12 @@ bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const st
     if (is_constant() && to_mul.is_constant() && add_constant) {
         remainder = bigfield(ctx, uint256_t(remainder_value.lo));
         return remainder;
+    } else if (is_constant() && to_mul.is_constant()) {
+        const auto [_, mul_remainder_1024] = (left * mul_right).divmod(modulus);
+        std::vector<bigfield> to_add_copy(to_add);
+        to_add_copy.push_back(bigfield(ctx, uint256_t(mul_remainder_1024.lo.lo)));
+        return bigfield::sum(to_add_copy);
     } else {
-
         auto [reduction_required, num_quotient_bits] = get_quotient_reduction_info(
             { get_maximum_value() }, { to_mul.get_maximum_value() }, to_add, { DEFAULT_MAXIMUM_REMAINDER });
         if (reduction_required) {
