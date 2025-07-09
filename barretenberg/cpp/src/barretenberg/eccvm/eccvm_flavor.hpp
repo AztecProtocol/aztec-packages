@@ -44,7 +44,6 @@ class ECCVMFlavor {
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
 
@@ -95,6 +94,9 @@ class ECCVMFlavor {
                                   ECCVMBoolsRelation<FF>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 

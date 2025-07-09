@@ -165,7 +165,7 @@ export async function readCurrentClassId(
 ) {
   const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
-    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceDeployer, slot),
+    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
   );
   let currentClassId = sharedMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {

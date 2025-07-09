@@ -25,7 +25,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkVerifier {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
   public:
     std::shared_ptr<Transcript> transcript;
@@ -56,6 +56,6 @@ template <IsUltraOrMegaHonk Flavor> class OinkVerifier {
 
     void execute_grand_product_computation_round();
 
-    RelationSeparator generate_alphas_round();
+    SubrelationSeparators generate_alphas_round();
 };
 } // namespace bb
