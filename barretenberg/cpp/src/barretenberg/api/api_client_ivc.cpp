@@ -1,6 +1,5 @@
 #include "api_client_ivc.hpp"
-#include "barretenberg/api/bbapi_commands.hpp"
-#include "barretenberg/api/bbapi_execute.hpp"
+#include "barretenberg/api/bbapi.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
@@ -63,12 +62,9 @@ void write_standalone_vk(const std::string& output_data_type,
 
     bbapi::BBApiRequest request;
 
-    auto response = bbapi::execute(bbapi::ClientIvcComputeStandaloneVk{
-        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) } });
-
-    if (!response.error_message.empty()) {
-        throw_or_abort("Failed to compute standalone VK: " + response.error_message);
-    }
+    auto response = bbapi::ClientIvcComputeStandaloneVk{
+        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
+    }.execute();
 
     if (output_format == "bytes") {
         write_file(output_path / "vk", response.vk_bytes);
