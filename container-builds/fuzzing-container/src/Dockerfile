@@ -28,7 +28,12 @@ RUN cmake --build --preset fuzzing
 RUN cmake --preset fuzzing-asan
 RUN cmake --build --preset fuzzing-asan
 
+# Build all coverage fuzzers
+RUN cmake --preset fuzzing-coverage
+RUN cmake --build --preset fuzzing-coverage
+
 RUN mv ./build-fuzzing ./build-fuzzing-asan /home/fuzzer
 WORKDIR /home/fuzzer
 
 COPY entrypoint.sh .
+COPY coverage_style.css .

@@ -4,6 +4,7 @@ umask 000
 
 main_fuzzer="./build-fuzzing/bin"
 post_fuzzer="./build-fuzzing-asan/bin"
+cov_fuzzer="./build-fuzzing-cov/bin"
 
 workdir="/home/fuzzer"
 
@@ -17,6 +18,12 @@ CORPUS="$workdir/corpus"
 
 OUTPUT="$workdir/output"
 [[ -d "$OUTPUT" ]] || mkdir "$OUTPUT" 2> /dev/null
+
+COVERAGE="$workdir/coverage"
+[[ -d "$COVERAGE" ]] || mkdir "$COVERAGE" 2> /dev/null
+
+RAWCOV="$COVERAGE/raw"
+[[ -d "$RAWCOV" ]] || mkdir "$RAWCOV" 2> /dev/null
 
 fuzzer=''
 verbosity='0'
@@ -118,6 +125,7 @@ fi
 
 main_fuzzer="$main_fuzzer/$fuzzer"
 post_fuzzer="$post_fuzzer/$fuzzer"
+cov_fuzzer="$cov_fuzzer/$fuzzer"
 
 CRASHES="$CRASHES/$fuzzer"
 [[ -d "$CRASHES" ]] || mkdir "$CRASHES"
@@ -224,7 +232,22 @@ fuzz() {
 }
 
 cov() {
-    "$main_fuzzer" -print_funcs=2000 -verbosity=0 -timeout=120 &> "$OUTPUT/cov";
+    TMPOUT="$(mktemp -d)"
+    trap 'rm -rf "$TMPOUT" 2>/dev/null' EXIT
+
+    TS=$(date +%Y%m%dT%H%M%S)
+    LLVM_PROFILE_FILE="$RAWCOV/${fuzzer}-${TS}-%p.profraw" "$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
+
+    llvm-profdata-16 merge -sparse "$RAWCOV/"*.profraw -o "$COVERAGE/barretenberg-fuzzing.profdata"
+
+    llvm-cov-16 show "$cov_fuzzer"                               \
+        -instr-profile="$COVERAGE/barretenberg-fuzzing.profdata" \
+        -format=html                                             \
+        -output-dir="$COVERAGE/cov-html"                         \
+        -show-line-counts-or-regions                             \
+        --show-branches=percent                                  \
+        --show-directory-coverage
+    cp ./coverage_style.css "$COVERAGE/cov-html/style.css"
 }
 
 case "$mode" in
