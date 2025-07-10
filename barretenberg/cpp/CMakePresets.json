@@ -729,6 +729,11 @@
       "configurePreset": "fuzzing-asan"
     },
     {
+      "name": "fuzzing-coverage",
+      "inherits": "clang16",
+      "configurePreset": "fuzzing-coverage"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang16",
       "configurePreset": "gperftools"
