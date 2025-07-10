@@ -81,18 +81,3 @@ inline std::vector<CommandResponse> execute_request(BBApiRequest&& request, std:
 }
 
 } // namespace bb::bbapi
-
-namespace bb {
-template <typename T>
-inline typename T::Response do_bbapi(T&& command)
-    requires(!bbapi::RequiresBBApiRequest<T>)
-{
-    bbapi::BBApiRequest request;
-    return command.execute(request);
-}
-
-template <bbapi::RequiresBBApiRequest T> inline typename T::Response do_bbapi(bbapi::BBApiRequest& request, T&& command)
-{
-    return command.execute(request);
-}
-} // namespace bb
