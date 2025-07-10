@@ -3,7 +3,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
-import { type ExtendedNote, NoteStatus } from '@aztec/stdlib/note';
+import type { ExtendedNote } from '@aztec/stdlib/note';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
@@ -40,10 +40,13 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock, getNotes] = await Promise.all([
+  const [receipt, effectsInBlock] = await Promise.all([
     pxe.getTxReceipt(txHash),
     pxe.getTxEffect(txHash),
-    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    // Disabled getting notes here as now we need to provide the contract address on input. Since until now it
+    // basically didn't work as we didn't call sync_private_state() I don't think anyone cares about this. Getting
+    // the addresses this tx interacted with here is problematic.
+    // pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
@@ -84,18 +87,21 @@ export async function inspectTx(
     }
   }
 
-  // Created notes
-  const notes = effects.noteHashes;
-  if (notes.length > 0) {
-    log(' Created notes:');
-    log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
-    if (getNotes.length) {
-      log('  Found notes:');
-      for (const note of getNotes) {
-        inspectNote(note, artifactMap, log);
-      }
-    }
-  }
+  // Disabled getting notes here as now we need to provide the contract address on input. Since until now it
+  // basically didn't work as we didn't call sync_private_state() I don't think anyone cares about this. Getting
+  // the addresses this tx interacted with here is problematic.
+  // // Created notes
+  // const notes = effects.noteHashes;
+  // if (notes.length > 0) {
+  //   log(' Created notes:');
+  //   log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
+  //   if (getNotes.length) {
+  //     log('  Found notes:');
+  //     for (const note of getNotes) {
+  //       inspectNote(note, artifactMap, log);
+  //     }
+  //   }
+  // }
 
   // Nullifiers
   const nullifierCount = effects.nullifiers.length;
@@ -103,8 +109,8 @@ export async function inspectTx(
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
-      const [note] = await pxe.getNotes({ siloedNullifier: nullifier });
       const deployed = deployNullifiers[nullifier.toString()];
+      const [note] = await pxe.getNotes({ siloedNullifier: nullifier, contractAddress: deployed });
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
       if (nullifier.toBuffer().equals(txHash.toBuffer())) {
