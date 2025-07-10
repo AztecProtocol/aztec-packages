@@ -1,5 +1,6 @@
-import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE, deriveKeys } from '@aztec/aztec.js';
+import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import type { AztecNode } from '@aztec/aztec.js';
+import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE, deriveKeys, sleep } from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { ClosedSetOrderbookContract } from '@aztec/noir-contracts.js/ClosedSetOrderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -8,7 +9,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup } from './fixtures/utils.js';
+import { setup, setupPXEService } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 const CHANGE_CONFIG_DELAY = 60 * 60 * 24;
@@ -18,13 +19,17 @@ const CHANGE_CONFIG_DELAY = 60 * 60 * 24;
 describe('ClosedSetOrderbook', () => {
   jest.setTimeout(TIMEOUT);
 
-  let teardown: () => Promise<void>;
+  let teardownA: () => Promise<void>;
+  let teardownB: () => Promise<void>;
   let logger: Logger;
 
-  let pxe: PXE;
+  let makerPxe: PXE;
+  let takerPxe: PXE;
   let cheatCodes: CheatCodes;
   let sequencer: SequencerClient;
   let aztecNode: AztecNode;
+
+  let initialFundedAccounts: InitialAccountData[];
 
   let adminWallet: AccountWallet;
   let maker: AccountWallet;
@@ -42,24 +47,48 @@ describe('ClosedSetOrderbook', () => {
   beforeAll(async () => {
     let maybeSequencer: SequencerClient | undefined = undefined;
     ({
-      pxe,
-      teardown,
-      wallets: [adminWallet, maker, taker, feeCollector],
+      pxe: makerPxe,
+      teardown: teardownA,
+      wallets: [adminWallet, maker, feeCollector],
+      initialFundedAccounts,
       logger,
       cheatCodes,
       sequencer: maybeSequencer,
       aztecNode,
-    } = await setup(4));
+    } = await setup(3, { numberOfInitialFundedAccounts: 4 }));
 
     if (!maybeSequencer) {
       throw new Error('Sequencer client not found');
     }
     sequencer = maybeSequencer;
 
+    // TAKER ACCOUNT SETUP
+    // We setup a second PXE for the taker account to demonstrate a more realistic scenario.
+    {
+      // Setup second PXE for taker
+      ({ pxe: takerPxe, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
+      const takerAccount = await deployFundedSchnorrAccount(takerPxe, initialFundedAccounts[3]);
+      taker = await takerAccount.getWallet();
+
+      /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
+      What is a more robust solution? */
+      await sleep(5000);
+    }
+
+    await makerPxe.registerSender(taker.getAddress());
+    await takerPxe.registerSender(maker.getAddress());
+    // We need to register the admin wallet as a sender for taker such that taker's PXE knows that it needs to sync
+    // the minted token1 note (admin is set as sender there).
+    await takerPxe.registerSender(adminWallet.getAddress());
+
     // TOKEN SETUP
     {
       token0 = await deployToken(adminWallet, 0n, logger);
       token1 = await deployToken(adminWallet, 0n, logger);
+
+      // Register tokens with PXE B
+      await takerPxe.registerContract(token0);
+      await takerPxe.registerContract(token1);
 
       // Mint tokens to maker and taker
       await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), bidAmount);
@@ -84,13 +113,17 @@ describe('ClosedSetOrderbook', () => {
         .send()
         .deployed();
 
-      // Register the orderbook as an account in PXE. This is necessary for us to be able to work with the orderbook
-      // notes.
-      await pxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
+      // Register orderbook with both PXEs
+      await makerPxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
+      await takerPxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
+      await takerPxe.registerContract(orderbook);
     }
   });
 
-  afterAll(() => teardown());
+  afterAll(async () => {
+    await teardownB();
+    await teardownA();
+  });
 
   // THESE TESTS HAVE TO BE RUN SEQUENTIALLY AS THEY ARE INTERDEPENDENT.
   describe('full flow - happy path', () => {
@@ -109,6 +142,7 @@ describe('ClosedSetOrderbook', () => {
 
     it('creates an order', async () => {
       const nonceForAuthwits = Fr.random();
+
       // Create authwit for maker to allow orderbook to transfer bidAmount of token0 to itself
       const makerAuthwit = await maker.createAuthWit({
         caller: orderbook.address,
@@ -130,7 +164,7 @@ describe('ClosedSetOrderbook', () => {
         bidAmount,
       );
 
-      const notes = await pxe.getNotes({
+      const notes = await makerPxe.getNotes({
         txHash: txReceipt.txHash,
         contractAddress: orderbook.address,
       });
@@ -140,8 +174,25 @@ describe('ClosedSetOrderbook', () => {
       orderId = notes[0].note.items[0];
     });
 
-    // Note that this test case depends on the previous one.
     it('fulfills an order', async () => {
+      // First we check that taker's PXE has managed to successfully sync the order note and the bid token note that
+      // are both held by the orderbook contract.
+      {
+        const orderNote = await takerPxe.getNotes({
+          contractAddress: orderbook.address,
+        });
+        expect(orderNote.length).toEqual(1);
+
+        expect(await token0.withWallet(taker).methods.balance_of_private(orderbook.address).simulate()).toEqual(
+          bidAmount,
+        );
+
+        // Check that taker has the expected balance of ask token
+        expect(await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate()).toEqual(
+          askAmount,
+        );
+      }
+
       const nonceForAuthwits = Fr.random();
 
       // Create authwit for taker to allow orderbook to transfer askAmount of token1 from taker to maker
@@ -150,13 +201,13 @@ describe('ClosedSetOrderbook', () => {
         action: token1.methods.transfer_in_private(taker.getAddress(), maker.getAddress(), askAmount, nonceForAuthwits),
       });
 
-      // Fulfill order
+      // Fulfill order using PXE B
       await orderbook
         .withWallet(taker)
         .methods.fulfill_order(orderId, nonceForAuthwits)
         .with({ authWitnesses: [takerAuthwit] })
         .send()
-        .wait();
+        .wait({ interval: 0.1 });
 
       // Verify balances after order fulfillment
       const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
