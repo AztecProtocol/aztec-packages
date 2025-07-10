@@ -38,11 +38,6 @@ class MergeProver {
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
-    // The positions of the table polynomials in the array computed during proof generation
-    static constexpr size_t t_IDX = 0;          // t
-    static constexpr size_t T_PREV_IDX = 1;     // T_prev
-    static constexpr size_t T_IDX = 2;          // T
-    static constexpr size_t REVERSED_t_IDX = 3; // g(X) := X^{l-1} * t(1/X)
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          const CommitmentKey& commitment_key = CommitmentKey(),
@@ -50,17 +45,21 @@ class MergeProver {
 
     BB_PROFILE MergeProof construct_proof();
 
-    std::shared_ptr<ECCOpQueue> op_queue;
     CommitmentKey pcs_commitment_key;
     std::shared_ptr<Transcript> transcript;
 
+    std::array<Polynomial, NUM_WIRES> t;
+    std::array<Polynomial, NUM_WIRES> T_prev;
+    std::array<Polynomial, NUM_WIRES> T;
+    std::array<Polynomial, NUM_WIRES> t_reversed;
+
     /**
-     * @brief Compute polynomials \f$t_j, T_{prev, j}, T_j, g_j(X) := X^{l-1} t_j(1/X)\f$ and send their commitments to
-     * the verifier
+     * @brief Compute commitments to the polynomials \f$t_j, T_{prev, j}, T_j, g_j(X) := X^{l-1} t_j(1/X)\f$ and send
+     * them to the verifier, together with the size of \f$t_j\f$
      *
-     * @return std::array<std::array<Polynomial, NUM_WIRES>, 4>
+     * @return
      */
-    std::array<std::array<Polynomial, NUM_WIRES>, 4> preamble_round();
+    void preamble_round();
 
     /**
      * @brief Construct the opening claims to be passed to the Shplonk prover
@@ -74,8 +73,7 @@ class MergeProver {
      *
      * @return std::vector<OpeningClaim>
      */
-    std::vector<OpeningClaim> construct_opening_claims(
-        const std::array<std::array<Polynomial, NUM_WIRES>, 4>& table_polynomials);
+    std::vector<OpeningClaim> construct_opening_claims();
 };
 
 } // namespace bb
