@@ -9,21 +9,8 @@ echo "Building Doxygen documentation..."
 # Navigate to the C++ docs directory
 cd "$(dirname "$0")/../../cpp/docs"
 
-# Always build fresh documentation in CI
-echo "Building Doxygen documentation..."
+# Build the documentation using Doxygen
 doxygen Doxyfile
-
-# Debug: check what was created
-echo "Checking output structure:"
-ls -la
-if [ -d "docs" ]; then
-  echo "docs/ directory contents:"
-  ls -la docs/
-  if [ -d "docs/build" ]; then
-    echo "docs/build/ directory exists"
-    ls -la docs/build/
-  fi
-fi
 
 echo "Copying Doxygen HTML to Docusaurus static directory..."
 
