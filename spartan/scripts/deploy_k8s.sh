@@ -24,7 +24,7 @@ values_file="${3:-default.yaml}"
 sepolia_deployment="${4:-false}"
 mnemonic_file="${5:-"mnemonic.tmp"}"
 helm_instance="${6:-spartan}"
-project_id="${7:-testnet-440309}"
+project_id="${7:-"testnet-440309"}"
 
 # Default values for environment variables
 chaos_values="${CHAOS_VALUES:-}"
