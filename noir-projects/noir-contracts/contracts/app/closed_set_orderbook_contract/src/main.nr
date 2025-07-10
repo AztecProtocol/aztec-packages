@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 
 /// ## Overview
 /// This contract demonstrates how to implement an **Orderbook** that keeps all of the information in private. Orders
-/// are revealed only to a closed set of participants.
+/// are revealed only to a closed set of participants (those that know the Orderbook's secret keys).
 ///
 /// **Note:**
 /// This is purely a demonstration implemented to test various features of Aztec.nr. The **Aztec team** does not
@@ -20,8 +20,8 @@ use aztec::macros::aztec;
 /// - In this contract, **private functions** do not introduce intermediate states.
 ///
 /// ### 2. Public Functions:
-/// No **reentrancy guard** is required for public functions because:
-/// -
+/// The only public function in the contract is the constructor and there reentrancy is prevented by the
+/// `#[initializer]` macro.
 #[aztec]
 pub contract ClosedSetOrderbook {
     use crate::{config::Config, order_note::OrderNote};
@@ -43,6 +43,9 @@ pub contract ClosedSetOrderbook {
 
     #[storage]
     struct Storage<Context> {
+        // Using SharedMutable here reveals the whole config which is unfortunate.
+        // TODO: Implement smt. like `ClosedSharedMutable` as described in the comment below and use it here.
+        // https://github.com/AztecProtocol/aztec-packages/issues/14917#issuecomment-2960329494
         config: SharedMutable<Config, CHANGE_CONFIG_DELAY, Context>,
         orders: Map<Field, PrivateImmutable<OrderNote, Context>, Context>,
     }
