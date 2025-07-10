@@ -62,14 +62,14 @@ class AcirIntegrationTest : public ::testing::Test {
         using VerificationKey = Flavor::VerificationKey;
 
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover{ proving_key, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
         info("num gates          = ", builder.get_estimated_num_finalized_gates());
         info("total circuit size = ", builder.get_estimated_total_circuit_size());
-        info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
-        info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
+        info("circuit size       = ", prover.proving_key->dyadic_size());
+        info("log circuit size   = ", prover.proving_key->log_dyadic_size());
 #endif
         auto proof = prover.construct_proof();
 

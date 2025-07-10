@@ -8,9 +8,7 @@ for node_file in $(find $DIR -type d -path "./*/node*"); do
 done
 
 # Replace all **/node/** imports and exports with **/browser/**
-for file in $(find $DIR -type f -name "*.js"); do
-    sed -i 's/\([import|export]\)\(.*\)from\(.*\)\(\/node\/\)\(.*\)/\1\2from\3\/browser\/\5/' $file;
-done
+find "$DIR" -type f -name "*.js" -exec sed -i 's/\(import\|export\)\(.*\)from\(.*\)\/node\//\1\2from\3\/browser\//g' {} +
 
 # Provide default wasm files as gziped base64 strings
 for file in barretenberg barretenberg-threads; do

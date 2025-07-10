@@ -9,9 +9,6 @@ NO_TERMINATE=${NO_TERMINATE:-0}
 # We're always "in CI" if we're running on a remote instance.
 export CI=1
 
-# Set defaults for variable that might be unset to prevent heredoc expansion errors
-GCP_SA_KEY_B64="${GCP_SA_KEY_B64:-}"
-
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
@@ -197,8 +194,8 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
-  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip <<EOF
-    # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+    # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
@@ -211,11 +208,9 @@ function run {
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
     # Save GCP_SA_KEY to a file if set (using base64 for safety)
-    if [ -n "${GCP_SA_KEY_B64:-}" ]; then
-      echo "$GCP_SA_KEY_B64" | base64 -d > /tmp/gcp-key.json
-      echo "GCP_SA_KEY decoded and saved to /tmp/gcp-key.json"
-    else
-      touch /tmp/gcp-key.json
+    if [ -n '${GCP_SA_KEY_B64:-}' ]; then
+      echo '${GCP_SA_KEY_B64:-}' | base64 -d > /tmp/gcp-key.json
+      echo 'GCP_SA_KEY decoded and saved to /tmp/gcp-key.json'
     fi
 
     start_build() {
@@ -241,14 +236,15 @@ function run {
         -e SSH_CONNECTION=' ' \
         -e LOCAL_USER_ID=\$(id -u) \
         -e LOCAL_GROUP_ID=\$(id -g) \
+        -e GCP_PROJECT_ID=${GCP_PROJECT_ID:-} \
         -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
         -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
         -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-        -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
-        -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" \
+        -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+        -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
         -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
         -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
         -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
@@ -266,16 +262,16 @@ function run {
       docker_args+=' -ti'
       start_build
     else
-      echo "Stdout is not a tty, starting build container in background..."
+      echo 'Stdout is not a tty, starting build container in background...'
       start_build &
       build_pid=\$!
 
       # While the docker container is running, check for spot termination notices.
       while kill -0 \$build_pid &>/dev/null; do
         # The check for the file allows for testing spot termination logic.
-        if [ -f /tmp/spot_term ] || curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
+        if [ -f /tmp/spot_term ] || curl -fs -H 'X-aws-ec2-metadata-token: '\$aws_token http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
           # Termination notice found, exit with 155.
-          echo "Spot will be terminated! Exiting early."
+          echo 'Spot will be terminated! Exiting early.'
           docker kill aztec_build &>/dev/null || true
           exit 155
         fi
@@ -285,7 +281,7 @@ function run {
       # Returns exit code from docker run.
       wait \$build_pid
     fi
-EOF
+"
 }
 
 set +e

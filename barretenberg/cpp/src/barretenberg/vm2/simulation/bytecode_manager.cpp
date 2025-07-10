@@ -31,7 +31,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
 
     auto bytecode_id = next_bytecode_id++;
-    if (!merkle_db.nullifier_exists(DEPLOYER_CONTRACT_ADDRESS, address)) {
+    if (!merkle_db.nullifier_exists(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, address)) {
         retrieval_events.emit({
             .bytecode_id = bytecode_id,
             .address = address,
@@ -63,15 +63,15 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = false };
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
-    auto tree_snapshots = merkle_db.get_tree_roots();
+    auto tree_states = merkle_db.get_tree_state();
 
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = tree_snapshots.nullifierTree.root,
-        .public_data_tree_root = tree_snapshots.publicDataTree.root,
+        .nullifier_root = tree_states.nullifierTree.tree.root,
+        .public_data_tree_root = tree_states.publicDataTree.tree.root,
         .current_timestamp = current_timestamp,
     });
 

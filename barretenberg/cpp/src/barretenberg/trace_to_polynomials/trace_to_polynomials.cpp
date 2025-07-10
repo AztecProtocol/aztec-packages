@@ -16,56 +16,32 @@
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key)
+void TraceToPolynomials<Flavor>::populate(Builder& builder,
+                                          typename Flavor::ProverPolynomials& polynomials,
+                                          ActiveRegionData& active_region_data)
 {
 
     PROFILE_THIS_NAME("trace populate");
 
-    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, proving_key);
-
-    proving_key.pub_inputs_offset = builder.blocks.pub_inputs.trace_offset();
-
-    {
-        PROFILE_THIS_NAME("add_memory_records_to_proving_key");
-
-        add_memory_records_to_proving_key(builder, proving_key);
-    }
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
 
     if constexpr (IsMegaFlavor<Flavor>) {
         PROFILE_THIS_NAME("add_ecc_op_wires_to_proving_key");
 
-        add_ecc_op_wires_to_proving_key(builder, proving_key);
+        add_ecc_op_wires_to_proving_key(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
         PROFILE_THIS_NAME("compute_permutation_argument_polynomials");
 
-        compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, copy_cycles);
-    }
-}
-
-template <class Flavor>
-void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(Builder& builder,
-                                                                   typename Flavor::ProvingKey& proving_key)
-{
-    ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
-
-    // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
-    uint32_t ram_rom_offset = builder.blocks.aux.trace_offset();
-    proving_key.memory_read_records.reserve(builder.memory_read_records.size());
-    for (auto& index : builder.memory_read_records) {
-        proving_key.memory_read_records.emplace_back(index + ram_rom_offset);
-    }
-    proving_key.memory_write_records.reserve(builder.memory_write_records.size());
-    for (auto& index : builder.memory_write_records) {
-        proving_key.memory_write_records.emplace_back(index + ram_rom_offset);
+        compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
     }
 }
 
 template <class Flavor>
 std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
-    Builder& builder, typename Flavor::ProvingKey& proving_key)
+    Builder& builder, ProverPolynomials& polynomials, ActiveRegionData& active_region_data)
 {
 
     PROFILE_THIS_NAME("construct_trace_data");
@@ -73,8 +49,8 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     std::vector<CyclicPermutation> copy_cycles;
     copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
 
-    RefArray<Polynomial, NUM_WIRES> wires = proving_key.polynomials.get_wires();
-    RefArray<Polynomial, NUM_SELECTORS> selectors = proving_key.polynomials.get_selectors();
+    RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
+    RefArray<Polynomial, NUM_SELECTORS> selectors = polynomials.get_selectors();
 
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
@@ -83,7 +59,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
         // Save ranges over which the blocks are "active" for use in structured commitments
         if (block.size() > 0) {
-            proving_key.active_region_data.add_range(offset, offset + block.size());
+            active_region_data.add_range(offset, offset + block.size());
         }
 
         // Update wire polynomials and copy cycles
@@ -119,18 +95,16 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 }
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                                 typename Flavor::ProvingKey& proving_key)
+void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder, ProverPolynomials& polynomials)
     requires IsMegaFlavor<Flavor>
 {
-    auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
+    auto& ecc_op_selector = polynomials.lagrange_ecc_op;
     const size_t wire_idx_offset = Flavor::has_zero_row ? 1 : 0;
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
     // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by a zero row.
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
-    for (auto [ecc_op_wire, wire] :
-         zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
+    for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {
             ecc_op_wire.at(i) = wire[i + wire_idx_offset];
             ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
