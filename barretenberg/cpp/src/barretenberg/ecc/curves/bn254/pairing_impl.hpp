@@ -102,6 +102,10 @@ constexpr void mixed_addition_step_for_flipped_miller_loop(const g2::element& ba
 
 constexpr void precompute_miller_lines(const g2::element& Q, miller_lines& lines)
 {
+    if (Q.is_point_at_infinity()) {
+        throw_or_abort("Computing Miller lines when Q is the point at infinity");
+    }
+
     g2::element Q_neg{ Q.x, -Q.y, fq2::one() };
     g2::element work_point = Q;
 
@@ -260,6 +264,10 @@ constexpr fq12 reduced_ate_pairing(const g1::affine_element& P_affine, const g2:
     g1::element P(P_affine);
     g2::element Q(Q_affine);
 
+    if (Q.is_point_at_infinity() || P.is_point_at_infinity()) {
+        return fq12::one();
+    }
+
     miller_lines lines;
     precompute_miller_lines(Q, lines);
 
@@ -287,18 +295,32 @@ fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
                                const g2::affine_element* Q_affines,
                                const size_t num_points)
 {
+
     std::vector<g1::element> P(num_points);
     std::vector<g2::element> Q(num_points);
     std::vector<miller_lines> lines(num_points);
 
+    size_t num_pairings = 0;
     for (size_t i = 0; i < num_points; ++i) {
-        P[i] = g1::element(P_affines[i]);
-        Q[i] = g2::element(Q_affines[i]);
+        if (!P_affines[i].is_point_at_infinity() && !Q_affines[i].is_point_at_infinity()) {
+            P[i] = g1::element(P_affines[i]);
+            Q[i] = g2::element(Q_affines[i]);
 
-        precompute_miller_lines(Q[i], lines[i]);
+            precompute_miller_lines(Q[i], lines[i]);
+
+            num_pairings += 1;
+        }
     }
 
-    fq12 result = miller_loop_batch(&P[0], &lines[0], num_points);
+    P.resize(num_pairings);
+    Q.resize(num_pairings);
+    lines.resize(num_pairings);
+
+    if (P.empty()) {
+        return fq12::one();
+    }
+
+    fq12 result = miller_loop_batch(&P[0], &lines[0], num_pairings);
     result = final_exponentiation_easy_part(result);
     result = final_exponentiation_tricky_part(result);
     return result;
