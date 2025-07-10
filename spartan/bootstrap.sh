@@ -92,33 +92,8 @@ case "$cmd" in
       # Patch the kubeconfig to replace any invalid API server address (0.0.0.0) with 127.0.0.1
       sed -i 's/https:\/\/0\.0\.0\.0:/https:\/\/127.0.0.1:/' "$HOME/.kube/config"
 
-      # If the fix flag is enabled, replace core dns with public fallbacks
-      DNS_TOGGLE="$(printf '%s' "${KIND_FIX_DNS:-false}" | tr '[:upper:]' '[:lower:]')"
-      case "${DNS_TOGGLE,,}" in
-        true)
-          echo "Patching CoreDNS namespace resolution"
-
-          CORE_FIXED=$(kubectl -n kube-system get cm coredns -o json \
-            | jq -c '
-                .data.Corefile |=
-                sub("forward \\. [^{}]*\\{" ;
-                    "forward . 1.1.1.1 8.8.8.8 {")
-              ')
-
-          kubectl -n kube-system patch cm coredns \
-            --type merge --patch "$CORE_FIXED"
-
-          kubectl -n kube-system rollout restart deploy/coredns
-          ;;
-        ""|false)
-          echo "KIND_FIX_DNS not set/false – skipping DNS patch"
-          ;;
-        *)
-          echo "KIND_FIX_DNS must be 'true' or 'false' (got '$KIND_FIX_DNS')" >&2
-          kind delete cluster || :
-          exit 1
-          ;;
-      esac
+      # Patch DNS if KIND_FIX_DNS=true
+      ./scripts/patch_dns.sh
     fi
     kubectl config use-context kind-kind >/dev/null || true
     docker update --restart=no kind-control-plane >/dev/null || true
