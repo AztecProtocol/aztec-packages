@@ -11,24 +11,18 @@ namespace bb::avm2::simulation {
 
 MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
 {
-    if (a.get_tag() != b.get_tag()) {
-        debug("ALU (ADD opcode) operation failed: ",
-              to_string(AluError::TAG_ERROR),
-              " a: ",
-              a.to_string(),
-              ", b: ",
-              b.to_string());
+    try {
+        MemoryValue c = a + b; // This will throw if the tags do not match.
+        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
         events.emit({ .operation = AluOperation::ADD,
                       .a = a,
                       .b = b,
                       .c = MemoryValue::from_tag(a.get_tag(), 0),
                       .error = AluError::TAG_ERROR });
-        throw AluException();
+        throw AluException("ADD, " + std::string(e.what()));
     }
-    // TODO(MW): Apart from tags, how can the below fail and how to catch/assign the errors?
-    MemoryValue c = a + b;
-    events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
-    return c;
 }
 
 MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
@@ -38,13 +32,7 @@ MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
     // Brillig semantic enforces that tags match for EQ.
     if (a.get_tag() != b.get_tag()) {
         events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = AluError::TAG_ERROR });
-        debug("ALU (EQ opcode) operation failed: ",
-              to_string(AluError::TAG_ERROR),
-              " a: ",
-              a.to_string(),
-              ", b: ",
-              b.to_string());
-        throw AluException();
+        throw AluException("EQ, Tag mismatch between operands.");
     }
 
     events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .c = c });
@@ -54,29 +42,36 @@ MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
 MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for LT.
+    // This is special cased because comparison operators do not throw on tag mismatch.
     if (a.get_tag() != b.get_tag()) {
-        debug("ALU (LT opcode) operation failed: ", to_string(AluError::TAG_ERROR));
         events.emit({ .operation = AluOperation::LT,
                       .a = a,
                       .b = b,
                       .c = MemoryValue::from<uint1_t>(0),
                       .error = AluError::TAG_ERROR });
-        throw AluException();
+        throw AluException("LT, Tag mismatch between operands.");
     }
-    uint128_t lt_abs_diff = 0;
-    FF a_ff = a.as_ff();
-    FF b_ff = b.as_ff();
-    // NOTE: We cannot do a_ff < b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a_ff) < static_cast<uint256_t>(b_ff);
-    MemoryValue c = MemoryValue::from<uint1_t>(res);
+
     // We must split FF and non FF cases:
     if (a.get_tag() == ValueTag::FF) {
         // Emit the ff check event required (see lookup FF_LT) - note that we check b > a:
-        field_gt.ff_gt(b, a);
-    } else {
-        // We have excluded the field case => safe to downcast here for the max 128 bit range check:
-        lt_abs_diff = res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
+        bool res = field_gt.ff_gt(b, a);
+
+        // This is an artifact of the circuit, we cannot range check > 128bits but in this case get_tag_bits(FF) = 0,
+        range_check.assert_range(0, get_tag_bits(a.get_tag()));
+
+        MemoryValue c = MemoryValue::from<uint1_t>(res);
+        events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
+        return c;
     }
+
+    bool res = a < b;
+    MemoryValue c = MemoryValue::from<uint1_t>(res);
+    FF a_ff = a.as_ff();
+    FF b_ff = b.as_ff();
+
+    // This is circuit leakage, we need to range check the absolute difference to ensure that they are 0 < x < 2^tag
+    uint128_t lt_abs_diff = res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
     range_check.assert_range(lt_abs_diff, get_tag_bits(a.get_tag()));
     events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     return c;
