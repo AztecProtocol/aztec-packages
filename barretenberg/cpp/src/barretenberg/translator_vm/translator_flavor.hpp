@@ -167,6 +167,34 @@ class TranslatorFlavor {
                   "LIBRA_UNIVARIATES_LENGTH must be equal to Translator::BATCHED_RELATION_PARTIAL_LENGTH");
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t num_frs_fq = bb::field_conversion::calc_num_bn254_frs<BF>();
+
+    // Proof length formula
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. accumulated_result */ (num_frs_fq) +
+        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 4) * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fr) +
+        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 6. Libra claimed evaluation */ (num_frs_fr) +
+        /* 7. Libra grand sum commitment */ (num_frs_comm) +
+        /* 8. Libra quotient commitment */ (num_frs_comm) +
+        /* 9. Gemini masking commitment */ (num_frs_comm) +
+        /* 10. Gemini masking evaluation */ (num_frs_fr) +
+        /* 11. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
+        /* 12. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
+        /* 13. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 14. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 15. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 16. Shplonk Q commitment */ (num_frs_comm) +
+        /* 17. KZG W commitment */ (num_frs_comm);
+
     // define the containers for storing the contributions from each relation in Sumcheck
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
@@ -727,6 +755,10 @@ class TranslatorFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
             : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
@@ -760,8 +792,18 @@ class TranslatorFlavor {
          */
         std::vector<fr> to_field_elements() const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<fr> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+            return elements;
         }
 
         /**
@@ -923,6 +965,11 @@ class TranslatorFlavor {
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
             this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
+            this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
+            this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
+            this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
+            this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
+            this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
             this->interleaved_range_constraints_0 = "INTERLEAVED_RANGE_CONSTRAINTS_0";
             this->interleaved_range_constraints_1 = "INTERLEAVED_RANGE_CONSTRAINTS_1";
             this->interleaved_range_constraints_2 = "INTERLEAVED_RANGE_CONSTRAINTS_2";
