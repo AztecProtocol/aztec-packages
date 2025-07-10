@@ -51,7 +51,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
      * Condition (1) is equivalent, up to negligible probability, to:
      *      t_j(kappa) + kappa^l T_{prev,j}(kappa) - T_j(kappa) = 0
      * so the prover constructs the polynomial
-     *      p_j(X) := t_j(X) + X^{l-1} T_{prev, j}(X) - T_j(X)
+     *      p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X)
      * and proves that it opens to 0 at kappa.
      *
      * To convince the verifier of (2), the prover commits to a polynomial g_j(X) (allegedly equal to X^{l-1} t_j(1/X))
@@ -62,7 +62,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
      * not able to commit to a polynomial g_j(X) that satisfies:
      *      g_j(kappa) = kappa^{l-1} t_j(1/kappa)
      * for a random evaluation challenge kappa.
-     *
      */
 
     std::array<Polynomial, NUM_WIRES> t = op_queue->construct_current_ultra_ops_subtable_columns();

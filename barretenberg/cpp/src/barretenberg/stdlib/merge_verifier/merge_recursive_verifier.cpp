@@ -39,39 +39,41 @@ template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
 {
-    // Transform proof into a stdlib object
-    transcript->load_proof(proof);
-
-    // clang-format off
     /**
-     * Shplonk verification checks the following openings: t_j(1/kappa), p_j(kappa), g_j(kappa)
-     * The polynomials p_j(X) have the form: p_j(X) = t_j(X) - kappa^l T_{j,prev}(X) - T_j(X). Therefore, the verifier
-     * must compute the commitment to p_j starting from the commitments to t_j, T_{j,prev}, T_j. To avoid unnecessary
-     * ECC operations, we set up the Shplonk verifier as follows.
+     * The prover wants to convince the verifier that the polynomials t_j, T_{prev,j}, T_j for which they have sent
+     * commitments [t_j], [T_{prev,j}], [T_j] satisfy:
+     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X)   (1)
+     *      - deg(t_j(X)) < l                       (2)
      *
-     * ShplonkVerifier.commitments = {
-     *      [t_1], .., [t_4], [T_{1,prev}], .., [T_{4, prev}], [T_1], .., [T_4], [g_1], .., [g_4]
-     * }
+     * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that the
+     * polynomial
+     *      p_j(X) = t_j(X) + kappa^{l-1} T_{prev,j}(X) - T_j(X)
+     * opens to 0 at kappa.
      *
-     * And then we open the claims by linearly combining the commitments:
+     * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and then
+     * requests proofs that t_j and g_j open to c, d, at 1/kappa, kappa, respectively. Then, they verify
+     *      c * kappa^{l-1} = d
+     * which implies, up to negligible probability, that g_j(X) = X^{l-1} t_j(1/X), and the prover can commit to this
+     * polynomial only if deg(t_j(X)) < l.
      *
-     * [t_1] [t_2] [t_3] [t_4] [T_{1,prev}] [T_{2,prev}] [T_{3,prev}] [T_{4 prev}] [T_1] [T_2] [T_3] [T_4] [g_1] [g_2] [g_3] [g_4] / evaluation_challenge
-     *
-     *   1     0     0     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
-     *   0     1     0     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
-     *   0     0     1     0         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
-     *   0     0     0     1         0           0             0           0         0     0     0     0     0     0     0     0           1/kappa
-     *   1     0     0     0      kappa^l        0             0           0        -1     0     0     0     0     0     0     0            kappa
-     *   0     1     0     0         0         kappa^l         0           0         0    -1     0     0     0     0     0     0            kappa
-     *   0     0     1     0         0           0          kappa^l        0         0     0    -1     0     0     0     0     0            kappa
-     *   0     0     0     1         0           0             0        kappa^l      0     0     0    -1     0     0     0     0            kappa
-     *   0     0     0     0         0           0             0           0         0     0     0     0     1     0     0     0            kappa
-     *   0     0     0     0         0           0             0           0         0     0     0     0     0     1     0     0            kappa
-     *   0     0     0     0         0           0             0           0         0     0     0     0     0     0     1     0            kappa
-     *   0     0     0     0         0           0             0           0         0     0     0     0     0     0     0     1            kappa
-     *
+     * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, t_j(1/kappa), g_j(kappa)
+     * We use Shplonk to verify the claims with a single MSM. We initialize the Shplonk verifier with the following
+     * commitments:
+     *      [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
+     * Then, we verify the various claims:
+     *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to t_j, T_{prev,j}, T_j, so
+     *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
+     *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
+     *                           reconstructing p_j from t_j, T_{prev,j}, T_j: {1, kappa^l, -1}, and the claimed
+     *                           evaluation: 0.
+     *     - t_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
+     *                           v_j.
+     *     - g_j(kappa) = w_j:   The index is {3 + 4 * (j-1)}, the coefficient is { 1 }, and the evaluation is w_j.
+     * The claims are passed in the following order:
+     *   {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0}, {1/kappa, v_1}, {kappa, w_1}, .., {1/kappa, v_4}, {kappa, w_4}
      */
-    // clang-format on
+
+    transcript->load_proof(proof);
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 
