@@ -619,6 +619,16 @@ pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 
+// Subtrace IDs.
+pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
+pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
+pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
+pub global AVM_SUBTRACE_ID_POSEIDON_PERM: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
+pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON_PERM;
+pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
+pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_ECC;
+pub global AVM_SUBTRACE_ID_DATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
+
 // Execution Opcode IDs
 // Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_EXEC_OP_ID_GETENVVAR: u32 = 1;
@@ -635,6 +645,7 @@ pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
 pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
 pub global AVM_EXEC_OP_ID_RETURNDATASIZE: u32 = 2 * AVM_EXEC_OP_ID_SUCCESSCOPY;
 pub global AVM_EXEC_OP_ID_DEBUGLOG: u32 = 2 * AVM_EXEC_OP_ID_RETURNDATASIZE;
+pub global AVM_EXEC_OP_ID_SLOAD: u32 = 2 * AVM_EXEC_OP_ID_DEBUGLOG;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.
