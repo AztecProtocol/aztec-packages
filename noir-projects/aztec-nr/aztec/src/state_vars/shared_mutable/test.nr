@@ -373,7 +373,7 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
-        assert_eq(state_var.context.include_by_timestamp, historical_timestamp + new_delay);
+        assert_eq(context.include_by_timestamp, historical_timestamp + new_delay);
     });
 }
 
