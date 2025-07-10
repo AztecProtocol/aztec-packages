@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
@@ -75,6 +76,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockContextProvider> context_provider;
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
+    StrictMock<MockHighLevelMerkleDB> merkle_db;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -84,7 +86,8 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   execution_id_manager,
                                                   execution_event_emitter,
                                                   context_stack_event_emitter,
-                                                  keccakf1600);
+                                                  keccakf1600,
+                                                  merkle_db);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -359,6 +362,25 @@ TEST_F(ExecutionSimulationTest, DebugLogExceptionHandling)
     // The debug_log method should not throw, it should catch the exception and continue
     EXPECT_NO_THROW(execution.debug_log(
         context, message_offset, fields_offset, fields_size_offset, message_size, is_debug_logging_enabled));
+}
+
+TEST_F(ExecutionSimulationTest, Sload)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress dst_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
+    EXPECT_CALL(merkle_db, storage_read(address, slot.as<FF>())).WillOnce(Return(7));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<FF>(7)));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    execution.sload(context, slot_addr, dst_addr);
 }
 
 } // namespace
