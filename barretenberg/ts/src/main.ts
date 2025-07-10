@@ -166,7 +166,7 @@ export async function proveUltraHonk(
           ? api.acirProveUltraStarknetHonk.bind(api)
           : options?.starknetZK
             ? api.acirProveUltraStarknetZkHonk.bind(api)
-            : api.acirProveUltraHonk.bind(api);
+            : api.acirProveUltraZKHonk.bind(api);
     const proof = await acirProveUltraHonk(bytecode, witness, new RawBuffer(readFileSync(vkPath)));
 
     if (outputPath === '-') {
@@ -231,7 +231,7 @@ export async function verifyUltraHonk(
           ? api.acirVerifyUltraStarknetHonk.bind(api)
           : options?.starknetZK
             ? api.acirVerifyUltraStarknetZkHonk.bind(api)
-            : api.acirVerifyUltraHonk.bind(api);
+            : api.acirVerifyUltraZKHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
       Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),

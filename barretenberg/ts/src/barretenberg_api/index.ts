@@ -383,11 +383,11 @@ export class BarretenbergApi {
     return out as any;
   }
 
-  async acirProveUltraHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Promise<Uint8Array> {
+  async acirProveUltraZKHonk(acirVec: Uint8Array, witnessVec: Uint8Array, vkBuf: Uint8Array): Promise<Uint8Array> {
     const inArgs = [acirVec, witnessVec, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_prove_ultra_honk',
+      'acir_prove_ultra_zk_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -455,11 +455,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+  async acirVerifyUltraZKHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_verify_ultra_honk',
+      'acir_verify_ultra_zk_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
