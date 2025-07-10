@@ -1,7 +1,7 @@
 FROM ubuntu:noble AS base-build
 
 RUN apt-get update && \
-    apt-get install -y build-essential python3 wget unzip git cmake clang-16 ninja-build && \
+    apt-get install -y build-essential python3 wget unzip git cmake clang-16 ninja-build curl && \
     apt-get -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
