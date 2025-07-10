@@ -90,7 +90,7 @@ CircuitProve::Response CircuitProve::execute(const BBApiRequest& request) &&
         if (!circuit.verification_key.empty()) {
             vk = from_buffer<std::shared_ptr<Flavor::VerificationKey>>(circuit.verification_key);
         } else {
-            vk = std::make_shared<Flavor::VerificationKey>(proving_key->proving_key);
+            vk = std::make_shared<Flavor::VerificationKey>(proving_key->get_precomputed());
         }
 
         UltraProver_<Flavor> prover{ proving_key, vk };
@@ -109,7 +109,7 @@ CircuitProve::Response CircuitProve::execute(const BBApiRequest& request) &&
         if (!circuit.verification_key.empty()) {
             vk = from_buffer<std::shared_ptr<Flavor::VerificationKey>>(circuit.verification_key);
         } else {
-            vk = std::make_shared<Flavor::VerificationKey>(proving_key->proving_key);
+            vk = std::make_shared<Flavor::VerificationKey>(proving_key->get_precomputed());
         }
 
         UltraProver_<Flavor> prover{ proving_key, vk };
@@ -145,7 +145,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(const BBApiRequest& request
         using Flavor = UltraRollupFlavor;
         auto builder = acir_format::create_circuit<Flavor::CircuitBuilder>(program, metadata);
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, request.trace_settings);
-        auto verification_key = std::make_shared<Flavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<Flavor::VerificationKey>(proving_key->get_precomputed());
 
         response.bytes = to_buffer(*verification_key);
     } else {
@@ -153,7 +153,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(const BBApiRequest& request
         using Flavor = UltraFlavor;
         auto builder = acir_format::create_circuit<Flavor::CircuitBuilder>(program, metadata);
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, request.trace_settings);
-        auto verification_key = std::make_shared<Flavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<Flavor::VerificationKey>(proving_key->get_precomputed());
 
         response.bytes = to_buffer(*verification_key);
     }
