@@ -30,6 +30,7 @@ class MergeVerifier {
 
   public:
     using Commitment = typename Curve::AffineElement;
+    using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
 
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
@@ -73,9 +74,7 @@ class MergeVerifier {
      *
      * @return ShplonkVerifier::LinearCombinationOfClaims
      */
-    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> construct_opening_claims(const FF& kappa,
-                                                                                              const FF& kappa_inv,
-                                                                                              const FF& pow_kappa);
+    std::vector<Claims> construct_opening_claims(const FF& kappa, const FF& kappa_inv, const FF& pow_kappa);
 
     /**
      * @brief Execute the degree check
@@ -87,8 +86,7 @@ class MergeVerifier {
      * @return true
      * @return false
      */
-    static bool degree_check(const std::vector<typename ShplonkVerifier::LinearCombinationOfClaims>& opening_claims,
-                             const FF& pow_kappa_minus_one);
+    static bool degree_check(const std::vector<Claims>& opening_claims, const FF& pow_kappa_minus_one);
 
     /**
      * @brief Verify the opening claims received from the Prover
@@ -97,8 +95,7 @@ class MergeVerifier {
      * @param opening_claims The opening claims to be verified
      *
      */
-    bool verify_claims(std::vector<Commitment>& table_commitments,
-                       const std::vector<typename ShplonkVerifier::LinearCombinationOfClaims>& opening_claims);
+    bool verify_claims(std::vector<Commitment>& table_commitments, const std::vector<Claims>& opening_claims);
 };
 
 } // namespace bb

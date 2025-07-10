@@ -25,6 +25,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using BatchOpeningClaim = ::bb::BatchOpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
     using PairingPoints = stdlib::recursion::PairingPoints<CircuitBuilder>;
+    using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
 
     CircuitBuilder* builder;
     std::shared_ptr<Transcript> transcript;
@@ -72,9 +73,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
      *
      * @return std::vector<ShplonkVerifier::LinearCombinationOfClaims>
      */
-    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> construct_opening_claims(const FF& kappa,
-                                                                                              const FF& kappa_inv,
-                                                                                              const FF& pow_kappa);
+    std::vector<Claims> construct_opening_claims(const FF& kappa, const FF& kappa_inv, const FF& pow_kappa);
 
     /**
      * @brief Execute the degree check
@@ -84,8 +83,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
      * @param opening_claims
      * @param pow_kappa_minus_one
      */
-    static void degree_check(const std::vector<typename ShplonkVerifier::LinearCombinationOfClaims>& opening_claims,
-                             const FF& pow_kappa_minus_one);
+    static void degree_check(const std::vector<Claims>& opening_claims, const FF& pow_kappa_minus_one);
 
     /**
      * @brief Verify the opening claims received from the Prover
@@ -97,7 +95,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
      *
      */
     PairingPoints verify_claims(std::vector<Commitment>& table_commitments,
-                                const std::vector<typename ShplonkVerifier::LinearCombinationOfClaims>& opening_claims,
+                                const std::vector<Claims>& opening_claims,
                                 const FF& kappa,
                                 const FF& kappa_inv);
 };

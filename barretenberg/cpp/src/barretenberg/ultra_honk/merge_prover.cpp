@@ -45,8 +45,8 @@ std::array<std::array<typename MergeProver::Polynomial, MergeProver::NUM_WIRES>,
     std::array<size_t, 3> commitment_indices{ T_PREV_IDX, T_IDX, REVERSED_t_IDX };
     for (auto [idx, label] : zip_view(commitment_indices, labels)) {
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            std::string suffix = std::to_string(wire_idx);
-            transcript->send_to_verifier(label + suffix, pcs_commitment_key.commit(table_polynomials[idx][wire_idx]));
+            transcript->send_to_verifier(label + std::to_string(wire_idx),
+                                         pcs_commitment_key.commit(table_polynomials[idx][wire_idx]));
         }
     }
 
@@ -61,18 +61,8 @@ std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_c
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    auto pow_kappa = kappa.pow(subtable_size);
-    auto kappa_inv = kappa.invert();
-
-    // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
-    std::array<Polynomial, NUM_WIRES> partially_computed_difference;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Polynomial tmp(table_size);
-        tmp += table_polynomials[t_IDX][idx];
-        tmp.add_scaled(table_polynomials[T_PREV_IDX][idx], pow_kappa);
-        tmp -= table_polynomials[T_IDX][idx];
-        partially_computed_difference[idx] = tmp;
-    }
+    const FF pow_kappa = kappa.pow(subtable_size);
+    const FF kappa_inv = kappa.invert();
 
     // Add univariate opening claims for each polynomial t_j, p_j, g_j
     std::vector<OpeningClaim> opening_claims;
@@ -84,7 +74,13 @@ std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_c
     }
     // Set opening claims p_j(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        opening_claims.emplace_back(OpeningClaim{ std::move(partially_computed_difference[idx]), { kappa, FF(0) } });
+        // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
+        Polynomial partially_evaluated_difference(table_size);
+        partially_evaluated_difference += table_polynomials[t_IDX][idx];
+        partially_evaluated_difference.add_scaled(table_polynomials[T_PREV_IDX][idx], pow_kappa);
+        partially_evaluated_difference -= table_polynomials[T_IDX][idx];
+
+        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
     }
     // Compute evaluation g_j(\kappa), send to verifier, and set opening claim
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {

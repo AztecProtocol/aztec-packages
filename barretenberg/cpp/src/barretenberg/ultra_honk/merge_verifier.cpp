@@ -36,45 +36,38 @@ std::vector<typename MergeVerifier::Commitment> MergeVerifier::preamble_round(
     return table_commitments;
 }
 
-std::vector<typename MergeVerifier::ShplonkVerifier::LinearCombinationOfClaims> MergeVerifier::construct_opening_claims(
-    const FF& kappa, const FF& kappa_inv, const FF& pow_kappa)
+std::vector<typename MergeVerifier::Claims> MergeVerifier::construct_opening_claims(const FF& kappa,
+                                                                                    const FF& kappa_inv,
+                                                                                    const FF& pow_kappa)
 {
-    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> opening_claims;
+    std::vector<Claims> opening_claims;
     opening_claims.reserve(NUM_MERGE_CLAIMS);
 
     // Add opening claim for t_j(1/kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
-        ShplonkVerifier::LinearCombinationOfClaims claim{ { idx + t_IDX * NUM_WIRES },
-                                                          { FF::one() },
-                                                          { kappa_inv, t_eval_kappa_inv } };
+        Claims claim{ { idx + t_IDX * NUM_WIRES }, { FF::one() }, { kappa_inv, t_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
     }
     // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Evaluation is hard-coded to zero
-        ShplonkVerifier::LinearCombinationOfClaims claim{
-            { idx + t_IDX * NUM_WIRES, idx + T_PREV_IDX * NUM_WIRES, idx + T_IDX * NUM_WIRES },
-            { FF::one(), pow_kappa, FF::neg_one() },
-            { kappa, FF::zero() }
-        };
+        Claims claim{ { idx + t_IDX * NUM_WIRES, idx + T_PREV_IDX * NUM_WIRES, idx + T_IDX * NUM_WIRES },
+                      { FF::one(), pow_kappa, FF::neg_one() },
+                      { kappa, FF::zero() } };
         opening_claims.emplace_back(claim);
     }
     // Add opening claim for g_j(kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF reversed_t_eval = transcript->template receive_from_prover<FF>("reversed_t_eval_" + std::to_string(idx));
-        ShplonkVerifier::LinearCombinationOfClaims claim{ { idx + REVERSED_t_IDX * NUM_WIRES },
-                                                          { FF::one() },
-                                                          { kappa, reversed_t_eval } };
+        Claims claim{ { idx + REVERSED_t_IDX * NUM_WIRES }, { FF::one() }, { kappa, reversed_t_eval } };
         opening_claims.emplace_back(claim);
     }
 
     return opening_claims;
 };
 
-bool MergeVerifier::degree_check(
-    const std::vector<typename MergeVerifier::ShplonkVerifier::LinearCombinationOfClaims>& opening_claims,
-    const FF& pow_kappa_minus_one)
+bool MergeVerifier::degree_check(const std::vector<Claims>& opening_claims, const FF& pow_kappa_minus_one)
 {
     // Indices in the `opening_claims` vector
     static constexpr size_t REVERSED_t_EVAL_IDX = REVERSED_t_IDX - 1;
@@ -92,9 +85,7 @@ bool MergeVerifier::degree_check(
     return verified;
 }
 
-bool MergeVerifier::verify_claims(
-    std::vector<typename MergeVerifier::Commitment>& table_commitments,
-    const std::vector<typename ShplonkVerifier::LinearCombinationOfClaims>& opening_claims)
+bool MergeVerifier::verify_claims(std::vector<Commitment>& table_commitments, const std::vector<Claims>& opening_claims)
 {
     // Initialize Shplonk verifier
     ShplonkVerifier verifier(table_commitments, transcript, NUM_MERGE_CLAIMS);
@@ -174,10 +165,10 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     }
 
     // Evaluation challenge
-    FF kappa = transcript->template get_challenge<FF>("kappa");
-    FF kappa_inv = kappa.invert();
-    FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
-    FF pow_kappa = pow_kappa_minus_one * kappa;
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF kappa_inv = kappa.invert();
+    const FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
+    const FF pow_kappa = pow_kappa_minus_one * kappa;
 
     auto opening_claims = construct_opening_claims(kappa, kappa_inv, pow_kappa);
 

@@ -41,40 +41,30 @@ std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Commitment> MergeR
 };
 
 template <typename CircuitBuilder>
-std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::ShplonkVerifier::LinearCombinationOfClaims>
-MergeRecursiveVerifier_<CircuitBuilder>::construct_opening_claims(const FF& kappa,
-                                                                  const FF& kappa_inv,
-                                                                  const FF& pow_kappa)
+std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Claims> MergeRecursiveVerifier_<
+    CircuitBuilder>::construct_opening_claims(const FF& kappa, const FF& kappa_inv, const FF& pow_kappa)
 {
-    using ShplonkVerifier = MergeRecursiveVerifier_<CircuitBuilder>::ShplonkVerifier;
-
-    std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> opening_claims;
+    std::vector<Claims> opening_claims;
     opening_claims.reserve(NUM_MERGE_CLAIMS);
 
     // Add opening claim for t_j(1/kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
-        typename ShplonkVerifier::LinearCombinationOfClaims claim{ { idx + t_IDX * NUM_WIRES },
-                                                                   { FF(1) },
-                                                                   { kappa_inv, t_eval_kappa_inv } };
+        Claims claim{ { idx + t_IDX * NUM_WIRES }, { FF(1) }, { kappa_inv, t_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
     }
     // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Evaluation is hard-coded to zero
-        typename ShplonkVerifier::LinearCombinationOfClaims claim{
-            { idx + t_IDX * NUM_WIRES, idx + T_PREV_IDX * NUM_WIRES, idx + T_IDX * NUM_WIRES },
-            { FF(1), pow_kappa, FF(-1) },
-            { kappa, FF(0) }
-        };
+        Claims claim{ { idx + t_IDX * NUM_WIRES, idx + T_PREV_IDX * NUM_WIRES, idx + T_IDX * NUM_WIRES },
+                      { FF(1), pow_kappa, FF(-1) },
+                      { kappa, FF(0) } };
         opening_claims.emplace_back(claim);
     }
     // Add opening claim for g_j(kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF reversed_t_eval = transcript->template receive_from_prover<FF>("reversed_t_eval_" + std::to_string(idx));
-        typename ShplonkVerifier::LinearCombinationOfClaims claim{ { idx + REVERSED_t_IDX * NUM_WIRES },
-                                                                   { FF(1) },
-                                                                   { kappa, reversed_t_eval } };
+        Claims claim{ { idx + REVERSED_t_IDX * NUM_WIRES }, { FF(1) }, { kappa, reversed_t_eval } };
         opening_claims.emplace_back(claim);
     }
 
@@ -82,10 +72,8 @@ MergeRecursiveVerifier_<CircuitBuilder>::construct_opening_claims(const FF& kapp
 };
 
 template <typename CircuitBuilder>
-void MergeRecursiveVerifier_<CircuitBuilder>::degree_check(
-    const std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::ShplonkVerifier::LinearCombinationOfClaims>&
-        opening_claims,
-    const FF& pow_kappa_minus_one)
+void MergeRecursiveVerifier_<CircuitBuilder>::degree_check(const std::vector<Claims>& opening_claims,
+                                                           const FF& pow_kappa_minus_one)
 {
     // Indices in the `opening_claims` vector
     static constexpr size_t REVERSED_t_EVAL_IDX = REVERSED_t_IDX - 1;
@@ -102,9 +90,8 @@ void MergeRecursiveVerifier_<CircuitBuilder>::degree_check(
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_claims(
-    std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Commitment>& table_commitments,
-    const std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::ShplonkVerifier::LinearCombinationOfClaims>&
-        opening_claims,
+    std::vector<Commitment>& table_commitments,
+    const std::vector<Claims>& opening_claims,
     const FF& kappa,
     const FF& kappa_inv)
 {
@@ -112,9 +99,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     ShplonkVerifier verifier(table_commitments, transcript, NUM_MERGE_CLAIMS);
 
     // Get z_challenge and compute vanishing evals
-    FF shplonk_z_challenge = verifier.get_z_challenge();
-    FF kappa_vanishing_eval = (shplonk_z_challenge - kappa).invert();
-    FF kappa_inv_vanishing_eval = (shplonk_z_challenge - kappa_inv).invert();
+    const FF shplonk_z_challenge = verifier.get_z_challenge();
+    const FF kappa_vanishing_eval = (shplonk_z_challenge - kappa).invert();
+    const FF kappa_inv_vanishing_eval = (shplonk_z_challenge - kappa_inv).invert();
 
     // Update state of the verifier
     static constexpr size_t NUM_KAPPA_INV_CLAIMS = 4;
