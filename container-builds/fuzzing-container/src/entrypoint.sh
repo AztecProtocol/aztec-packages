@@ -143,7 +143,6 @@ regress() {
     log "Entering $src...";
     if compgen -G "$src/*" &> /dev/null; then
         for x in "$src"/*; do
-            log "Testing $x"
             "$main_fuzzer" "$x" &> /dev/null;
             status=$?;
             if [[ "$status" -ne 0 ]]; then
@@ -177,13 +176,15 @@ fuzz() {
 
     files=("$TMPOUT"/crash-*)
     timeout_files=("$TMPOUT"/timeout-*)
-
+    
+    exit_code=0
     if [ ${#files[@]} -eq 0 ] || [ ! -e "${files[0]}" ]; then
         if [[ "$status" -ne 0 ]] && [ ! ${#timeout_files[@]} -eq "$workers" ];  then
             log "Something wrong with $fuzzer. Not related to fuzzing. Exit status: $status";
-            exit 1;
+            exit_code=1;
+        else
+            log "No crashes occurred";
         fi
-        log "No crashes occurred";
     else 
         log "Start minimization"
         for crash in "${files[@]}"; do
@@ -203,6 +204,7 @@ fuzz() {
             mv "$MINDIR/"* "$CRASHES";
             rm -rf "$MINDIR"
         done
+        exit_code=1
     fi
 
     log "Minimizing the corpus of size $(find "$CORPUS" -type f | wc -l)...";
@@ -218,6 +220,7 @@ fuzz() {
 
     mv "$TMPOUT/"* "$OUTPUT";
     rmdir "$TMPOUT"
+    exit "$exit_code"
 }
 
 cov() {

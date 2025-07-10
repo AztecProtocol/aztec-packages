@@ -13,12 +13,28 @@ using namespace bb;
 using Fr = curve::BN254::ScalarField;
 using Fq = curve::BN254::BaseField;
 
+// Read uint256_t from raw bytes.
+// Don't use dereference casts, since the data may be not aligned and it causes segfault
+uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
+{
+    ASSERT(buffer_size <= 32);
+
+    uint64_t parts[4] = { 0, 0, 0, 0 };
+
+    for (size_t i = 0; i < (buffer_size + 7) / 8; i++) {
+        size_t to_read = (buffer_size - i * 8) < 8 ? buffer_size - i * 8 : 8;
+        std::memcpy(&parts[i], data + i * 8, to_read);
+    }
+    return uint256_t(parts[0], parts[1], parts[2], parts[3]);
+}
+
 extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
 {
     constexpr size_t NUM_LIMB_BITS = bb::TranslatorCircuitBuilder::NUM_LIMB_BITS;
-    constexpr size_t WIDE_LIMB_BYTES = 2 * NUM_LIMB_BITS / 8;
+    constexpr size_t NUM_LAST_LIMB_BITS = bb::TranslatorCircuitBuilder::NUM_LAST_LIMB_BITS;
+    constexpr size_t WIDE_LIMB_BITS = bb::TranslatorCircuitBuilder::NUM_Z_BITS;
+    constexpr size_t WIDE_LIMB_BYTES = (WIDE_LIMB_BITS + 7) / 8;
     constexpr size_t TOTAL_SIZE = 1 + 5 * sizeof(numeric::uint256_t) + 2 * WIDE_LIMB_BYTES;
-    char buffer[32] = { 0 };
     if (size < (TOTAL_SIZE)) {
         return 0;
     }
@@ -39,22 +55,21 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
         break;
     }
 
-    Fq p_x = Fq(*(uint256_t*)(data + 1));
+    Fq p_x = Fq(read_uint256(data + 1));
     Fr p_x_lo = uint256_t(p_x).slice(0, 2 * NUM_LIMB_BITS);
-    Fr p_x_hi = uint256_t(p_x).slice(2 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS);
+    Fr p_x_hi = uint256_t(p_x).slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS + NUM_LAST_LIMB_BITS);
 
-    Fq p_y = Fq(*(uint256_t*)(data + sizeof(uint256_t) + 1));
+    Fq p_y = Fq(read_uint256(data + sizeof(uint256_t) + 1));
     Fr p_y_lo = uint256_t(p_y).slice(0, 2 * NUM_LIMB_BITS);
-    Fr p_y_hi = uint256_t(p_y).slice(2 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS);
+    Fr p_y_hi = uint256_t(p_y).slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS + NUM_LAST_LIMB_BITS);
 
-    Fq v = Fq(*(uint256_t*)(data + 2 * sizeof(uint256_t) + 1));
-    Fq x = Fq(*(uint256_t*)(data + 3 * sizeof(uint256_t) + 1));
-    Fq previous_accumulator = Fq(*(uint256_t*)(data + 4 * sizeof(uint256_t) + 1));
+    Fq v = Fq(read_uint256(data + 2 * sizeof(uint256_t) + 1));
+    Fq x = Fq(read_uint256(data + 3 * sizeof(uint256_t) + 1));
+    Fq previous_accumulator = Fq(read_uint256(data + 4 * sizeof(uint256_t) + 1));
 
-    memcpy(buffer, data + 1 + 5 * sizeof(uint256_t), WIDE_LIMB_BYTES);
-    Fr z_1 = Fr(*(uint256_t*)(buffer));
-    memcpy(buffer, data + 1 + 5 * sizeof(uint256_t) + WIDE_LIMB_BYTES, WIDE_LIMB_BYTES);
-    Fr z_2 = Fr(*(uint256_t*)(buffer));
+    Fr z_1 = Fr(read_uint256(data + 1 + 5 * sizeof(uint256_t), WIDE_LIMB_BYTES).slice(0, WIDE_LIMB_BITS));
+    Fr z_2 =
+        Fr(read_uint256(data + 1 + 5 * sizeof(uint256_t) + WIDE_LIMB_BYTES, WIDE_LIMB_BYTES).slice(0, WIDE_LIMB_BITS));
 
     bb::TranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
         bb::TranslatorCircuitBuilder::generate_witness_values(UltraOp{ .op_code = op_code,

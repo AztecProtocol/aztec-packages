@@ -114,6 +114,13 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         return std::make_pair(elt_native, elt_ct);
     }
 
+    // Gets a random bigfield element that may be either circuit-witness or cirucit-constant
+    static std::pair<fq, fq_ct> get_random_element(Builder* builder, bool reduce_input = false)
+    {
+        return (engine.get_random_uint8() & 1) == 1 ? get_random_witness(builder, reduce_input)
+                                                    : get_random_constant(builder, reduce_input);
+    }
+
     static std::pair<std::vector<fq>, std::vector<fq_ct>> get_random_witnesses(Builder* builder,
                                                                                size_t num,
                                                                                bool reduce_input = false)
@@ -247,7 +254,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     static void test_madd()
     {
         auto builder = Builder();
-        size_t num_repetitions = 1;
+        size_t num_repetitions = 4;
         for (size_t i = 0; i < num_repetitions; ++i) {
             auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
             auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
@@ -271,6 +278,33 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq expected = (a_native * b_native) + c_native;
             expected = expected.from_montgomery_form();
             uint512_t result = d_ct.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_madd_with_constants()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 8;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            auto [a_native, a_ct] = get_random_element(&builder); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder); // fq, fq_ct
+            auto [c_native, c_ct] = get_random_element(&builder); // fq, fq_ct
+            fq_ct d_ct = a_ct.madd(b_ct, { c_ct });
+            fq expected = (a_native * b_native) + c_native;
+            expected = expected.from_montgomery_form();
+
+            uint512_t result = d_ct.get_value() % bb::fq::modulus;
 
             EXPECT_EQ(result.lo.data[0], expected.data[0]);
             EXPECT_EQ(result.lo.data[1], expected.data[1]);
@@ -1272,6 +1306,10 @@ TYPED_TEST(stdlib_bigfield, sqr)
 TYPED_TEST(stdlib_bigfield, madd)
 {
     TestFixture::test_madd();
+}
+TYPED_TEST(stdlib_bigfield, madd_constants)
+{
+    TestFixture::test_madd_with_constants();
 }
 TYPED_TEST(stdlib_bigfield, mult_madd)
 {
