@@ -450,7 +450,6 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
 
             // Databus commitment propagation data
             this->databus_propagation_data = metadata.databus_propagation_data;
@@ -483,7 +482,6 @@ class MegaFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
 
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
                                       elements);
@@ -518,8 +516,6 @@ class MegaFlavor {
                                                       this->num_public_inputs);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
                                                       this->pub_inputs_offset);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      this->pairing_inputs_public_input_key.start_idx);
             transcript.add_to_independent_hash_buffer(
                 domain_separator + "vk_app_return_data_commitment_start_idx",
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
@@ -541,7 +537,6 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
                        databus_propagation_data,
                        q_m,
                        q_c,

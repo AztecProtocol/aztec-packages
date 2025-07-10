@@ -62,8 +62,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
       public:
         using NativeVerificationKey = NativeFlavor::VerificationKey;
 
-        PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
-
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -77,8 +75,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
-            this->ipa_claim_public_input_key = native_key->ipa_claim_public_input_key;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -107,12 +103,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 
-            this->pairing_inputs_public_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-
-            this->ipa_claim_public_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
@@ -139,16 +129,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
-            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            pairing_points_start_idx.convert_constant_to_fixed_witness(
-                builder); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1413): We can't use poseidon2
-                          // with constants.
-            serialize_to_field_buffer(pairing_points_start_idx, elements);
-
-            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
-            serialize_to_field_buffer(ipa_claim_start_idx, elements);
-
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
@@ -172,14 +152,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
                                                       this->num_public_inputs);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
                                                       this->pub_inputs_offset);
-            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            CircuitBuilder* builder = this->circuit_size.context;
-            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      pairing_points_start_idx);
-            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_ipa_claim_start_idx", ipa_claim_start_idx);
+
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }

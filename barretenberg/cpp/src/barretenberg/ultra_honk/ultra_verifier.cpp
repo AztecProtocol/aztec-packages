@@ -30,10 +30,10 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
             transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
     }
 
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_key and runs the native IPA verifier.
+    // Reconstruct the nested IPA claim from the public inputs and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         // Extract the public inputs containing the IPA claim and reconstruct
-        const uint32_t start_idx = verification_key->vk->ipa_claim_public_input_key.start_idx;
+        const uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - IPA_CLAIM_SIZE;
         std::span<const FF, IPA_CLAIM_SIZE> ipa_claim_limbs{ verification_key->public_inputs.data() + start_idx,
                                                              IPA_CLAIM_SIZE };
 
@@ -61,11 +61,11 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     // Extract nested pairing points from the proof
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
     if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
-        const size_t limb_offset = verification_key->vk->pairing_inputs_public_input_key.start_idx;
-        BB_ASSERT_GTE(verification_key->public_inputs.size(),
-                      limb_offset + PAIRING_POINTS_SIZE,
-                      "Not enough public inputs to extract pairing points");
-        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + limb_offset,
+        uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - PAIRING_POINTS_SIZE;
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            start_idx -= IPA_CLAIM_SIZE;
+        }
+        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + start_idx,
                                                                  PAIRING_POINTS_SIZE };
         PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
         decider_output.pairing_points.aggregate(nested_pairing_points);

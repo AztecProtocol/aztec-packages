@@ -129,8 +129,6 @@ struct MetaData {
     size_t dyadic_size = 0; // power-of-2 size of the execution trace
     size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
-    PublicComponentKey pairing_inputs_public_input_key;
-    PublicComponentKey ipa_claim_public_input_key;
     DatabusPropagationData databus_propagation_data;
 };
 
@@ -158,7 +156,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
-    PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const NativeVerificationKey_&) const = default;
     virtual ~NativeVerificationKey_() = default;
@@ -221,7 +218,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
-    PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const StdlibVerificationKey_&) const = default;
     virtual ~StdlibVerificationKey_() = default;

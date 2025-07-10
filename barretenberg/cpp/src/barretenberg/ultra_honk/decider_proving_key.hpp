@@ -200,50 +200,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            // Set the pairing point accumulator indices. This should exist for all non-Mega Flavors.
-            if constexpr (IsUltraHonk<Flavor>) {
-                ASSERT(
-                    circuit.pairing_inputs_public_input_key.is_set() &&
-                    "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
-                   default one through a method in PairingPoints.");
-            }
-            // // TODO(https://github.com/AztecProtocol/barretenberg/issues/1468): Remove use of pairing inputs pub key
-            // metadata.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
-
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-                ASSERT(circuit.ipa_claim_public_input_key.is_set() && "Rollup Honk circuit must output a IPA claim.");
-                ASSERT(circuit.ipa_proof.size() &&
-                       "Rollup Honk circuit must produce an IPA proof to go with its claim.");
-                metadata.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
                 ipa_proof = circuit.ipa_proof;
             }
 
             if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
                 metadata.databus_propagation_data = circuit.databus_propagation_data;
-            }
-
-            // Based on the flavor, we can check the locations of each backend-added public input object.
-            if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
-                                                       // [user-public-inputs][pairing-point-object][ipa-claim]
-                BB_ASSERT_EQ(metadata.ipa_claim_public_input_key.start_idx,
-                             num_public_inputs() - IPA_CLAIM_SIZE,
-                             "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
-                BB_ASSERT_EQ(
-                    metadata.pairing_inputs_public_input_key.start_idx,
-                    num_public_inputs() - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
-                    "Pairing point accumulator must be the second to last public input object before the IPA claim.");
-            } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
-                                                        // [user-public-inputs][pairing-point-object]
-                BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                             num_public_inputs() - PAIRING_POINTS_SIZE,
-                             "Pairing point accumulator must be the last public input object.");
-            } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
-                                                         // [user-public-inputs][pairing-point-object][databus-comms]
-                // For Mega, public inputs are handled via the KernelIO/AppIO objects. See the definition of those
-                // objects for details of what public inputs are present.
-            } else {
-                // static_assert(false);
-                ASSERT(false && "Dealing with unexpected flavor.");
             }
         }
         auto end = std::chrono::steady_clock::now();

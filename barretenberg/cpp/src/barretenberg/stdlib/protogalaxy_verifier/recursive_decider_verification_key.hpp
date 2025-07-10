@@ -115,7 +115,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             static_cast<uint64_t>(vk_and_hash->vk->circuit_size.get_value()),
             static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value()));
         native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(vk_and_hash->vk->pub_inputs_offset.get_value());
-        native_honk_vk->pairing_inputs_public_input_key = vk_and_hash->vk->pairing_inputs_public_input_key;
         if constexpr (IsMegaFlavor<Flavor>) {
             native_honk_vk->databus_propagation_data = vk_and_hash->vk->databus_propagation_data;
         }

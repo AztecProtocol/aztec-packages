@@ -41,13 +41,6 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
 
     Builder circuit = circuit_in; // Copy the circuit to avoid modifying the original
 
-    // Avoid hitting debugging ASSERTs by correctly setting the pairing point accumulator public component key idx
-    uint32_t pairing_points_idx = static_cast<uint32_t>(circuit.num_public_inputs()) - PAIRING_POINTS_SIZE;
-    if (circuit.databus_propagation_data.is_kernel) {
-        pairing_points_idx -= PROPAGATED_DATABUS_COMMITMENTS_SIZE;
-    }
-    circuit.pairing_inputs_public_input_key.start_idx = pairing_points_idx;
-
     DeciderProvingKey proving_key{ circuit, trace_settings };
     VerificationKey verification_key{ proving_key.get_precomputed() };
 

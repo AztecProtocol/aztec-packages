@@ -54,16 +54,6 @@ template <typename FF_> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
 
-    // (PLONK ONLY) Public input indices which contain recursive proof information
-    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
-    bool contains_pairing_point_accumulator = false;
-
-    // Index of the pairing inputs in the public inputs
-    PublicComponentKey pairing_inputs_public_input_key;
-
-    // Index of the IPA opening claim in the public inputs
-    PublicComponentKey ipa_claim_public_input_key;
-
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
     // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
     // description and should be able to verify a proof with just the verification key and the proof.

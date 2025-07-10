@@ -133,7 +133,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->databus_propagation_data = native_key->databus_propagation_data;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
@@ -159,9 +158,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value()));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-
-            this->pairing_inputs_public_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
@@ -202,10 +198,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
-            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
-            serialize_to_field_buffer(pairing_points_start_idx, elements);
-
             FF app_return_data_commitment_start_idx(
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
             app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
@@ -243,11 +235,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                                                       this->num_public_inputs);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
                                                       this->pub_inputs_offset);
-            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            CircuitBuilder* builder = this->circuit_size.context;
-            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      pairing_points_start_idx);
             FF app_return_data_commitment_start_idx(
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
             app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);

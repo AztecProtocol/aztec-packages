@@ -79,9 +79,6 @@ template <typename Curve> class OpeningClaim {
         opening_pair.evaluation.set_public();
         commitment.set_public();
 
-        Builder* ctx = commitment.get_context();
-        ctx->ipa_claim_public_input_key.start_idx = start_idx;
-
         return start_idx;
     }
 

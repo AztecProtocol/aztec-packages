@@ -34,7 +34,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH + /* IPA Claim PI start index */ 1;
 
         virtual ~VerificationKey() = default;
-        PublicComponentKey ipa_claim_public_input_key;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -61,8 +60,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-            serialize_to_field_buffer(ipa_claim_public_input_key.start_idx, elements);
 
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
@@ -91,10 +88,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                                                       this->num_public_inputs);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
                                                       this->pub_inputs_offset);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_ipa_claim_start_idx",
-                                                      ipa_claim_public_input_key.start_idx);
+
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
@@ -108,8 +102,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
-            this->ipa_claim_public_input_key = precomputed.metadata.ipa_claim_public_input_key;
 
             CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
             for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
@@ -122,8 +114,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
-                        const PublicComponentKey& pairing_inputs_public_input_key,
-                        const PublicComponentKey& ipa_claim_public_input_key,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -151,13 +141,11 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                         const Commitment& table_4,
                         const Commitment& lagrange_first,
                         const Commitment& lagrange_last)
-            : ipa_claim_public_input_key(ipa_claim_public_input_key)
         {
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -192,8 +180,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
-                       ipa_claim_public_input_key,
                        q_m,
                        q_c,
                        q_l,
