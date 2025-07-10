@@ -171,6 +171,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      memory_provider,
                                      calldata_hashing_provider,
                                      internal_call_stack_manager_provider,
+                                     merkle_db,
                                      written_public_data_slots_tree_check,
                                      hints.tx.globalVariables);
     DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
@@ -184,7 +185,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_id_manager,
                         execution_emitter,
                         context_stack_emitter,
-                        keccakf1600);
+                        keccakf1600,
+                        merkle_db);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
