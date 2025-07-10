@@ -45,8 +45,8 @@ template <typename Curve_> class KZG {
         OpeningPair<Curve> pair = opening_claim.opening_pair;
         Commitment quotient_commitment;
 
-        if (opening_claim.polynomial.is_zero()) {
-            // If p(X) = 0, then q(X) = 0
+        if (opening_claim.polynomial.is_empty()) {
+            // We treat the empty polynomial as the zero polynomial
             quotient_commitment = Commitment::infinity();
         } else {
             quotient.at(0) = quotient[0] - pair.evaluation;

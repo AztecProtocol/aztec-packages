@@ -35,27 +35,32 @@ class KZGTest : public CommitmentTest<Curve> {
         ck = create_commitment_key<CK>(n);
         vk = create_verifier_commitment_key<VK>();
     }
+
+    static void prove_and_verify(const OpeningPair<Curve>& opening_pair, bb::Polynomial<Fr>& witness)
+    {
+        const Commitment commitment = ck.commit(witness);
+
+        auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
+
+        auto prover_transcript = NativeTranscript::prover_init_empty();
+
+        PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
+
+        auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+        const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
+
+        EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    }
 };
 
 TEST_F(KZGTest, Single)
 {
 
     auto witness = bb::Polynomial<Fr>::random(n);
-    const Commitment commitment = ck.commit(witness);
-
     const Fr challenge = Fr::random_element();
     const Fr evaluation = witness.evaluate(challenge);
-    auto opening_pair = OpeningPair<Curve>{ challenge, evaluation };
-    auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
-
-    PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
-
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
-
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    prove_and_verify({ challenge, evaluation }, witness);
 }
 
 TEST_F(KZGTest, ZeroEvaluation)
@@ -68,20 +73,7 @@ TEST_F(KZGTest, ZeroEvaluation)
     // Modify witness to achieve zero evaluation
     witness.at(0) -= evaluation;
 
-    // Compute commitment
-    const Commitment commitment = ck.commit(witness);
-
-    auto opening_pair = OpeningPair<Curve>{ challenge, Fr::zero() };
-    auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
-
-    auto prover_transcript = NativeTranscript::prover_init_empty();
-
-    PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
-
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
-
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    prove_and_verify({ challenge, Fr::zero() }, witness);
 }
 
 TEST_F(KZGTest, ZeroPolynomial)
@@ -97,19 +89,26 @@ TEST_F(KZGTest, ZeroPolynomial)
 
     const Fr challenge = Fr::random_element();
     const Fr evaluation = zero.evaluate(challenge);
-    const Commitment commitment = ck.commit(zero);
 
-    auto opening_pair = OpeningPair<Curve>{ challenge, evaluation };
-    auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
+    prove_and_verify({ challenge, evaluation }, zero);
+}
 
-    auto prover_transcript = NativeTranscript::prover_init_empty();
+TEST_F(KZGTest, ConstantPolynomial)
+{
+    auto constant = bb::Polynomial<Fr>::random(1);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = constant.evaluate(challenge);
 
-    PCS::compute_opening_proof(ck, { zero, opening_pair }, prover_transcript);
+    prove_and_verify({ challenge, evaluation }, constant);
+}
 
-    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
-    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
+TEST_F(KZGTest, EmptyPolynomial)
+{
+    bb::Polynomial<Fr> empty_poly;
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = empty_poly.evaluate(challenge);
 
-    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+    prove_and_verify({ challenge, evaluation }, empty_poly);
 }
 
 /**
