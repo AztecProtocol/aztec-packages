@@ -1270,6 +1270,23 @@ template <typename Field> struct FieldVM {
     }
 
     /**
+     * @brief Export the final field state as a vector of Field elements
+     *
+     * @return std::vector<Field> The final field state
+     *
+     * @details This method creates a copy of the field_internal_state array for external use,
+     * typically for state transfer between VM phases.
+     */
+    std::vector<Field> export_fr_state() const
+    {
+        std::vector<Field> result;
+        result.reserve(INTERNAL_STATE_SIZE);
+        for (size_t i = 0; i < INTERNAL_STATE_SIZE; i++) {
+            result.push_back(Field(uint_internal_state[i]));
+        }
+        return result;
+    }
+    /**
      * @brief Get the number of steps executed
      *
      * @return size_t The number of steps executed

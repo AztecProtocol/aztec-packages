@@ -56,7 +56,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     AcirFormat& constraint_system = program.constraints;
 
     if (collect_gates_per_opcode) {
-        constraint_system.gates_per_opcode.resize(constraint_system.num_acir_opcodes, 0);
     }
 
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
