@@ -100,7 +100,8 @@ jobs:
       - name: Build dependencies for Barretenberg docs
         if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'barretenberg' }}
         run: |
-          ./barretenberg/bootstrap.sh
+          cd barretenberg/cpp
+          ./bootstrap.sh build_native
 
       # Making the bash script here so we don't accidentally deploy
       - name: Run release-preview script
