@@ -100,8 +100,9 @@ jobs:
       - name: Build dependencies for Barretenberg docs
         if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'barretenberg' }}
         run: |
-          cd barretenberg/cpp
-          ./bootstrap.sh build_native
+          # Install doxygen for generating API documentation
+          sudo apt-get update
+          sudo apt-get install -y doxygen
 
       # Making the bash script here so we don't accidentally deploy
       - name: Run release-preview script
