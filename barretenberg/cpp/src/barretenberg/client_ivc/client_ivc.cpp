@@ -187,20 +187,20 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
-    bool is_kernel = true;
+    bool is_first = true;
     while (!stdlib_verification_queue.empty()) {
+        const StdlibVerifierInputs& queue_entry = stdlib_verification_queue.front();
         // First queue entry is always a kernel, unless the type is OINK (which means this the first app)
-        is_kernel &= stdlib_verification_queue.front().type != QUEUE_TYPE::OINK;
-        const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
+        bool is_kernel = is_first && (queue_entry.type != QUEUE_TYPE::OINK);
         PairingPoints pairing_points = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, accumulation_recursive_transcript, is_kernel);
+            circuit, queue_entry, accumulation_recursive_transcript, is_kernel);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
         // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
 
         stdlib_verification_queue.pop_front();
-        is_kernel = false; // entries after the first are always app circuits
+        is_first = false;
     }
 
     // Set the kernel output data to be propagated via the public inputs
