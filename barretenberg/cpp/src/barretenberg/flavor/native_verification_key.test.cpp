@@ -41,18 +41,16 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
         }
     }
 
-    typename Flavor::VerificationKey create_vk()
+    VerificationKey create_vk()
     {
         if constexpr (IsUltraOrMegaHonk<Flavor>) {
             using DeciderProvingKey = DeciderProvingKey_<Flavor>;
             Builder builder;
             set_default_pairing_points_and_ipa_claim_and_proof(builder);
             auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-            VerificationKey vk{ proving_key->get_precomputed() };
-            return vk;
+            return VerificationKey{ proving_key->get_precomputed() };
         } else {
-            VerificationKey vk;
-            return vk;
+            return VerificationKey();
         }
     }
 
