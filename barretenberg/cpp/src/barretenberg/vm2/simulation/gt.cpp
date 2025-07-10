@@ -8,8 +8,9 @@ bool GreaterThan::gt(const FF& a, const FF& b)
 }
 bool GreaterThan::gt(const uint128_t& a, const uint128_t& b)
 {
-    // Implement actual circuit logic
     bool res = a > b;
+    uint128_t abs_diff = res ? a - b - 1 : b - a;
+    range_check.assert_range(abs_diff, 128);
     events.emit({
         .a = a,
         .b = b,

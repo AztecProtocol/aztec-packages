@@ -22,6 +22,7 @@
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/get_env_var.hpp"
+#include "relations/gt.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
@@ -62,6 +63,7 @@
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_get_env_var.hpp"
+#include "relations/lookups_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_keccak_memory.hpp"
@@ -117,6 +119,7 @@ struct AvmFlavorVariables {
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::get_env_var<FF_>,
+        avm2::gt<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
@@ -214,6 +217,7 @@ struct AvmFlavorVariables {
         lookup_get_env_var_precomputed_info_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col1_relation<FF_>,
+        lookup_gt_gt_range_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
