@@ -110,7 +110,9 @@ export async function inspectTx(
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
       const deployed = deployNullifiers[nullifier.toString()];
-      const [note] = await pxe.getNotes({ siloedNullifier: nullifier, contractAddress: deployed });
+      const note = deployed
+        ? (await pxe.getNotes({ siloedNullifier: nullifier, contractAddress: deployed }))[0]
+        : undefined;
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];
       if (nullifier.toBuffer().equals(txHash.toBuffer())) {
