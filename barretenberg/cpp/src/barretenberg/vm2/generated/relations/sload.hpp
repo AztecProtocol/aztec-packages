@@ -13,7 +13,7 @@ template <typename FF_> class sloadImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3 };
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS = { 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -32,25 +32,17 @@ template <typename FF_> class sloadImpl {
 
         const auto constants_MEM_TAG_FF = FF(0);
 
-        { // SHOULD_SLOAD
+        { // SLOAD_SUCCESS
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_should_sload) -
-                        in.get(C::execution_sel_sload) * in.get(C::execution_sel_should_execute_opcode));
+            auto tmp = in.get(C::execution_sel_sload) * in.get(C::execution_sel_opcode_error);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        { // SLOAD_SUCCESS
+        { // SLOAD_FF_OUTPUT_TAG
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_should_sload) * in.get(C::execution_sel_opcode_error);
+            auto tmp = in.get(C::execution_sel_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SLOAD_FF_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_should_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -63,19 +55,16 @@ template <typename FF> class sload : public Relation<sloadImpl<FF>> {
     {
         switch (index) {
         case 0:
-            return "SHOULD_SLOAD";
-        case 1:
             return "SLOAD_SUCCESS";
-        case 2:
+        case 1:
             return "SLOAD_FF_OUTPUT_TAG";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SHOULD_SLOAD = 0;
-    static constexpr size_t SR_SLOAD_SUCCESS = 1;
-    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 2;
+    static constexpr size_t SR_SLOAD_SUCCESS = 0;
+    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 1;
 };
 
 } // namespace bb::avm2

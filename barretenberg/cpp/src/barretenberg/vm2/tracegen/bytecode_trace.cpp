@@ -195,7 +195,7 @@ void BytecodeTraceBuilder::process_retrieval(
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.
-                { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
+                { C::bc_retrieval_deployer_protocol_contract_address, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
                 { C::bc_retrieval_nullifier_exists, true } } });
         row++;
     }

@@ -879,7 +879,6 @@ TEST(ExecutionTraceGenTest, SLoad)
                     // Second row is the sload
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_sload, 1),
-                          ROW_FIELD_EQ(execution_sel_should_sload, 1),
                           ROW_FIELD_EQ(execution_rop_0_, slot_offset),
                           ROW_FIELD_EQ(execution_rop_1_, dst_offset),
                           ROW_FIELD_EQ(execution_register_0_, slot),

@@ -21,17 +21,11 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[skippable_if]
     sel_sload = 0; // from execution.pil.
 
-    // Selector for when we should actually perform the read (gated by earlier errors)
-    pol commit sel_should_sload;
-
-    #[SHOULD_SLOAD]
-    sel_should_sload = sel_sload * sel_should_execute_opcode;
-
     #[SLOAD_SUCCESS]
-    sel_should_sload * sel_opcode_error = 0;
+    sel_sload * sel_opcode_error = 0;
 
     #[STORAGE_READ]
-    sel_should_sload {
+    sel_sload {
         contract_address, // From context
         register[0],
         register[1],
@@ -44,5 +38,5 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     };
 
     #[SLOAD_FF_OUTPUT_TAG]
-    sel_should_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
+    sel_sload * (constants.MEM_TAG_FF - mem_tag_reg[1]) = 0;
 

@@ -68,7 +68,12 @@ export type SequencerEvents = {
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
   ['block-build-failed']: (args: { reason: string }) => void;
-  ['block-publish-failed']: (args: { validActions?: Action[]; expiredActions?: Action[] }) => void;
+  ['block-publish-failed']: (args: {
+    successfulActions?: Action[];
+    failedActions?: Action[];
+    sentActions?: Action[];
+    expiredActions?: Action[];
+  }) => void;
   ['block-published']: (args: { blockNumber: number; slot: number }) => void;
 };
 
@@ -382,7 +387,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'} propose block ${newBlockNumber} at slot ${slot}`,
+      `${
+        proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'
+      } propose block ${newBlockNumber} at slot ${slot}`,
       { ...syncLogData, validatorAddresses },
     );
 
@@ -468,7 +475,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     const l1Response = await this.publisher.sendRequests();
-    const proposedBlock = l1Response?.validActions.find(a => a === 'propose');
+    const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
     if (proposedBlock) {
       this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
@@ -477,10 +484,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.isFlushing = false;
       }
     } else if (block) {
-      this.emit('block-publish-failed', {
-        validActions: l1Response?.validActions,
-        expiredActions: l1Response?.expiredActions,
-      });
+      this.emit('block-publish-failed', l1Response ?? {});
     }
 
     this.setState(SequencerState.IDLE, undefined);

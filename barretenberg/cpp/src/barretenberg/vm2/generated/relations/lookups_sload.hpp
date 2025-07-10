@@ -17,7 +17,7 @@ struct lookup_sload_storage_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SLOAD_STORAGE_READ";
     static constexpr std::string_view RELATION_NAME = "sload";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_sload;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_sload;
     static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_sload_storage_read_counts;
     static constexpr Column INVERSES = Column::lookup_sload_storage_read_inv;

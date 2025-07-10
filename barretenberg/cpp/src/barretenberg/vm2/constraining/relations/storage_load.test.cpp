@@ -56,8 +56,6 @@ TEST(SLoadConstrainingTest, PositiveTest)
 {
     TestTraceContainer trace({
         { { C::execution_sel_sload, 1 },
-          { C::execution_sel_should_execute_opcode, 1 },
-          { C::execution_sel_should_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -71,8 +69,6 @@ TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
 {
     TestTraceContainer trace({
         { { C::execution_sel_sload, 1 },
-          { C::execution_sel_should_execute_opcode, 1 },
-          { C::execution_sel_should_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -86,8 +82,6 @@ TEST(SLoadConstrainingTest, NegativeSloadSuccess)
 {
     TestTraceContainer trace({
         { { C::execution_sel_sload, 1 },
-          { C::execution_sel_should_execute_opcode, 1 },
-          { C::execution_sel_should_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -130,8 +124,6 @@ TEST(SLoadConstrainingTest, Interactions)
 
     TestTraceContainer trace({
         { { C::execution_sel_sload, 1 },
-          { C::execution_sel_should_execute_opcode, 1 },
-          { C::execution_sel_should_sload, 1 },
           { C::execution_register_0_, slot },
           { C::execution_register_1_, value },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
