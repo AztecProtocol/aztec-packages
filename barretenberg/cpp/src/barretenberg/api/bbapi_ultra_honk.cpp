@@ -16,49 +16,6 @@
 
 namespace bb::bbapi {
 
-// Helper functions for format conversions
-static std::string bytes_to_hex(const std::vector<uint8_t>& bytes)
-{
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (uint8_t b : bytes) {
-        ss << std::setw(2) << static_cast<int>(b);
-    }
-    return ss.str();
-}
-
-static std::string bytes_to_base64(const std::vector<uint8_t>& bytes)
-{
-    // TODO replace this gpt-ese with a proper base64 library
-    static const char base64_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    std::string result;
-    size_t i = 0;
-    while (i < bytes.size()) {
-        uint32_t octet_a = i < bytes.size() ? bytes[i++] : 0;
-        uint32_t octet_b = i < bytes.size() ? bytes[i++] : 0;
-        uint32_t octet_c = i < bytes.size() ? bytes[i++] : 0;
-
-        uint32_t triple = (octet_a << 16) + (octet_b << 8) + octet_c;
-
-        result.push_back(base64_chars[(triple >> 18) & 0x3F]);
-        result.push_back(base64_chars[(triple >> 12) & 0x3F]);
-        result.push_back(base64_chars[(triple >> 6) & 0x3F]);
-        result.push_back(base64_chars[triple & 0x3F]);
-    }
-
-    // Add padding
-    size_t padding = bytes.size() % 3;
-    if (padding > 0) {
-        result.resize(result.size() - (3 - padding));
-        for (size_t j = 0; j < (3 - padding); ++j) {
-            result.push_back('=');
-        }
-    }
-
-    return result;
-}
-
 CircuitProve::Response CircuitProve::execute(const BBApiRequest& request) &&
 {
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
@@ -159,11 +116,6 @@ CircuitComputeVk::Response CircuitComputeVk::execute(const BBApiRequest& request
     }
 
     return response;
-}
-
-CircuitComputeIvcVk::Response CircuitComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    throw_or_abort("CircuitComputeIvcVk not implemented yet");
 }
 
 CircuitInfo::Response CircuitInfo::execute(BB_UNUSED const BBApiRequest& request) &&
@@ -289,20 +241,6 @@ CircuitProveAndVerify::Response CircuitProveAndVerify::execute(const BBApiReques
     return { .verified = verify_result.verified,
              .proof = prove_result.proof,
              .public_inputs = prove_result.public_inputs };
-}
-
-CircuitWriteBytecode::Response CircuitWriteBytecode::execute(BB_UNUSED const BBApiRequest& request) &&
-{
-    Response response;
-    response.bytecode = circuit.bytecode;
-
-    if (format == "hex") {
-        response.formatted_output = bytes_to_hex(circuit.bytecode);
-    } else if (format == "base64") {
-        response.formatted_output = bytes_to_base64(circuit.bytecode);
-    }
-
-    return response;
 }
 
 CircuitValidate::Response CircuitValidate::execute(BB_UNUSED const BBApiRequest& request) &&

@@ -61,19 +61,6 @@ struct CircuitComputeVk {
     Response execute(const BBApiRequest& request = {}) &&;
 };
 
-/** Compute verification key, Treat the previously loaded circuit as either a standalone circuit
- * or a common final circuit used to verify all of IVC. */
-struct CircuitComputeIvcVk {
-    static constexpr const char* NAME = "CircuitComputeIvcVk";
-
-    struct Response {
-        static constexpr const char* NAME = "CircuitComputeIvcVkResponse";
-
-        std::vector<uint8_t> bytes; // Serialized verification key
-    };
-    Response execute(const BBApiRequest& request = {}) &&;
-};
-
 /**
  * @struct CircuitInfo
  * @brief Consolidated command for retrieving circuit information.
@@ -205,24 +192,6 @@ struct CircuitProveAndVerify {
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
-    Response execute(const BBApiRequest& request = {}) &&;
-};
-
-/**
- * @brief Command to write circuit bytecode in various formats
- */
-struct CircuitWriteBytecode {
-    static constexpr const char* NAME = "CircuitWriteBytecode";
-
-    struct Response {
-        static constexpr const char* NAME = "CircuitWriteBytecodeResponse";
-
-        std::vector<uint8_t> bytecode;
-        std::string formatted_output; // For hex/base64
-    };
-
-    CircuitInput circuit;
-    std::string format = "binary"; // binary, hex, base64
     Response execute(const BBApiRequest& request = {}) &&;
 };
 
