@@ -535,7 +535,6 @@ class MegaFlavor {
             return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
-        // WORKTODO closes https://github.com/AztecProtocol/barretenberg/issues/964
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
         MSGPACK_FIELDS(circuit_size,
