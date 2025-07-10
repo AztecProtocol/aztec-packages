@@ -14,15 +14,27 @@
 
 namespace bb::bbapi {
 
+/**
+ * @brief Helper function to compute verification key for IVC
+ * @param request The API request context
+ * @param num_public_inputs_in_final_circuit Number of public inputs in the final circuit
+ * @return The computed IVC verification key
+ */
 ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit);
 
 /**
- * @brief
- * Note, only one IVC request can be made at a time for each batch_request.
+ * @struct ClientIvcStart
+ * @brief Initialize a new ClientIVC instance for incremental proof accumulation
+ *
+ * @note Only one IVC request can be made at a time for each batch_request.
  */
 struct ClientIvcStart {
     static constexpr const char* NAME = "ClientIvcStart";
 
+    /**
+     * @struct Response
+     * @brief Empty response indicating successful initialization
+     */
     struct Response {
         static constexpr const char* NAME = "ClientIvcStartResponse";
         // Empty response - success indicated by no exception
@@ -30,85 +42,137 @@ struct ClientIvcStart {
     Response execute(BBApiRequest& request) &&;
 };
 
+/**
+ * @struct ClientIvcLoad
+ * @brief Load a circuit into the ClientIVC instance for accumulation
+ */
 struct ClientIvcLoad {
     static constexpr const char* NAME = "ClientIvcLoad";
 
+    /**
+     * @struct Response
+     * @brief Empty response indicating successful circuit loading
+     */
     struct Response {
         static constexpr const char* NAME = "ClientIvcLoadResponse";
         // Empty response - success indicated by no exception
     };
 
+    /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
     Response execute(BBApiRequest& request) &&;
 };
 
+/**
+ * @struct ClientIvcAccumulate
+ * @brief Accumulate the previously loaded circuit into the IVC proof
+ */
 struct ClientIvcAccumulate {
     static constexpr const char* NAME = "ClientIvcAccumulate";
 
+    /**
+     * @struct Response
+     * @brief Empty response indicating successful circuit accumulation
+     */
     struct Response {
         static constexpr const char* NAME = "ClientIvcAccumulateResponse";
         // Empty response - success indicated by no exception
     };
 
-    // Serialized witness for the last loaded circuit.
+    /** @brief Serialized witness data for the last loaded circuit */
     std::vector<uint8_t> witness;
     Response execute(BBApiRequest& request) &&;
 };
 
+/**
+ * @struct ClientIvcProve
+ * @brief Generate a proof for all accumulated circuits
+ */
 struct ClientIvcProve {
     static constexpr const char* NAME = "ClientIvcProve";
 
+    /**
+     * @struct Response
+     * @brief Contains the generated IVC proof
+     */
     struct Response {
         static constexpr const char* NAME = "ClientIvcProveResponse";
 
+        /** @brief Complete IVC proof for all accumulated circuits */
         ClientIVC::Proof proof;
     };
     Response execute(BBApiRequest& request) &&;
 };
 
-/** Compute standalone verification key for a circuit */
+/**
+ * @struct ClientIvcComputeStandaloneVk
+ * @brief Compute standalone verification key for a circuit
+ */
 struct ClientIvcComputeStandaloneVk {
     static constexpr const char* NAME = "ClientIvcComputeStandaloneVk";
 
+    /**
+     * @struct Response
+     * @brief Contains the computed verification key in multiple formats
+     */
     struct Response {
         static constexpr const char* NAME = "ClientIvcComputeStandaloneVkResponse";
 
-        std::vector<uint8_t> bytes; // Serialized verification key
-        std::vector<bb::fr> fields; // Verification key as field elements
+        /** @brief Serialized verification key in binary format */
+        std::vector<uint8_t> bytes;
+        /** @brief Verification key as array of field elements */
+        std::vector<bb::fr> fields;
     };
 
-    CircuitInputNoVK circuit;
-    Response execute(const BBApiRequest& request = {}) &&;
-};
-
-/** Compute IVC verification key */
-struct ClientIvcComputeIvcVk {
-    static constexpr const char* NAME = "ClientIvcComputeIvcVk";
-
-    struct Response {
-        static constexpr const char* NAME = "ClientIvcComputeIvcVkResponse";
-
-        std::vector<uint8_t> bytes; // Serialized IVC verification key
-    };
-
+    /** @brief Circuit bytecode without precomputed VK */
     CircuitInputNoVK circuit;
     Response execute(const BBApiRequest& request = {}) &&;
 };
 
 /**
- * @brief Command to check if a precomputed VK matches the circuit
+ * @struct ClientIvcComputeIvcVk
+ * @brief Compute IVC verification key for the complete proof
+ */
+struct ClientIvcComputeIvcVk {
+    static constexpr const char* NAME = "ClientIvcComputeIvcVk";
+
+    /**
+     * @struct Response
+     * @brief Contains the computed IVC verification key
+     */
+    struct Response {
+        static constexpr const char* NAME = "ClientIvcComputeIvcVkResponse";
+
+        /** @brief Serialized IVC verification key in binary format */
+        std::vector<uint8_t> bytes;
+    };
+
+    /** @brief Final circuit bytecode for IVC VK computation */
+    CircuitInputNoVK circuit;
+    Response execute(const BBApiRequest& request = {}) &&;
+};
+
+/**
+ * @struct ClientIvcCheckPrecomputedVk
+ * @brief Verify that a precomputed verification key matches the circuit
  */
 struct ClientIvcCheckPrecomputedVk {
     static constexpr const char* NAME = "ClientIvcCheckPrecomputedVk";
 
+    /**
+     * @struct Response
+     * @brief Contains the validation result
+     */
     struct Response {
         static constexpr const char* NAME = "ClientIvcCheckPrecomputedVkResponse";
 
+        /** @brief True if the precomputed VK matches the circuit */
         bool valid;
     };
 
-    // Circuit with its precomputed VK
+    /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
+    /** @brief Human-readable name for logging and error messages */
     std::string function_name;
     Response execute(const BBApiRequest& request = {}) &&;
 };
