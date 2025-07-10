@@ -13,9 +13,7 @@ data:
   deposit_contract_block.txt: |
     {{- $path := printf "%s/deposit_contract_block.txt" $basePath }}
     {{ .Files.Get $path | nindent 4 }}
-  jwt-secret.hex: |-
-    {{- $path := printf "%s/jwt-secret.hex" $basePath }}
-    {{ .Files.Get $path | trim }}
+  jwt-secret.hex: "0x61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1"
   genesis-ssz: |
     {{- $path := printf "%s/genesis-ssz" $basePath }}
     {{ .Files.Get $path | nindent 4 }}
@@ -32,6 +30,4 @@ data:
   genesis.json: |
     {{- $path := printf "%s/genesis.json" $basePath }}
     {{ .Files.Get $path | nindent 4 }}
-  jwt-secret.hex: |-
-    {{- $path := printf "%s/jwt-secret.hex" $basePath }}
-    {{ .Files.Get $path | trim }}
+  jwt-secret.hex: "0x61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1"
