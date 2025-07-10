@@ -135,6 +135,7 @@ class ClientIVC {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -143,6 +144,7 @@ class ClientIVC {
         StdlibProof proof; // oink or PG
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
@@ -191,8 +193,7 @@ class ClientIVC {
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
-        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
-        const bool& is_kernel);
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
