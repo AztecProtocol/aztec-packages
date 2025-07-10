@@ -1,14 +1,5 @@
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import {
-  type AccountWallet,
-  type AztecNode,
-  type FieldLike,
-  Fr,
-  type Logger,
-  type PXE,
-  deriveKeys,
-  sleep,
-} from '@aztec/aztec.js';
+import { type AccountWallet, type AztecNode, Fr, type Logger, type PXE, deriveKeys, sleep } from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { ClosedSetOrderbookContract } from '@aztec/noir-contracts.js/ClosedSetOrderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -161,8 +152,6 @@ describe('ClosedSetOrderbook', () => {
 
   // THESE TESTS HAVE TO BE RUN SEQUENTIALLY AS THEY ARE INTERDEPENDENT.
   describe('full flow - happy path', () => {
-    let orderId: FieldLike;
-
     it('config actives', async () => {
       // Warp time to get past the config change delay
       await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, CHANGE_CONFIG_DELAY);
@@ -184,7 +173,7 @@ describe('ClosedSetOrderbook', () => {
       });
 
       // Create order
-      const txReceipt = await orderbook
+      await orderbook
         .withWallet(maker)
         .methods.create_order(token0.address, token1.address, bidAmount, askAmount, nonceForAuthwits)
         .with({ authWitnesses: [makerAuthwit] })
@@ -195,33 +184,24 @@ describe('ClosedSetOrderbook', () => {
       // should have 0.
       await expectTokenBalance(maker, token0, maker.getAddress(), 0n, logger);
       await expectTokenBalance(maker, token0, orderbook.address, bidAmount, logger);
-
-      const notes = await makerPxe.getNotes({
-        txHash: txReceipt.txHash,
-        contractAddress: orderbook.address,
-      });
-      expect(notes.length).toEqual(1);
-
-      // First item in the note is the order ID
-      orderId = notes[0].note.items[0];
     });
 
     it('fulfills an order', async () => {
-      // First we check that taker's PXE has managed to successfully sync the order note and the bid token note that
-      // are both held by the orderbook contract.
+      // First we check that taker's PXE has managed to successfully sync the token notes.
       {
-        const orderNote = await takerPxe.getNotes({
-          contractAddress: orderbook.address,
-        });
-        expect(orderNote.length).toEqual(1);
-
         await expectTokenBalance(taker, token0, orderbook.address, bidAmount, logger);
         await expectTokenBalance(taker, token1, taker.getAddress(), askAmount, logger);
       }
 
-      const nonceForAuthwits = Fr.random();
+      // Taker fetches the order and decides to fulfill it.
+      const orderNote = await takerPxe.getNotes({
+        contractAddress: orderbook.address,
+      });
+      expect(orderNote.length).toEqual(1);
+      const orderId = orderNote[0].note.items[0];
 
       // Create authwit for taker to allow orderbook to transfer askAmount of token1 from taker to maker
+      const nonceForAuthwits = Fr.random();
       const takerAuthwit = await taker.createAuthWit({
         caller: orderbook.address,
         action: token1.methods.transfer_in_private(taker.getAddress(), maker.getAddress(), askAmount, nonceForAuthwits),
