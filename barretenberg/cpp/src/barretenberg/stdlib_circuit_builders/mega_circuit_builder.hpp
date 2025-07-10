@@ -51,20 +51,22 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
-                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
+                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
+                        MergeSettings settings = MergeSettings::PREPEND)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
         , op_queue(std::move(op_queue_in))
     {
         PROFILE_THIS();
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
-        op_queue->initialize_new_subtable();
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
+        op_queue->initialize_new_subtable(settings);
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
 
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
-        : MegaCircuitBuilder_(0, op_queue_in)
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, MergeSettings settings = MergeSettings::PREPEND)
+        : MegaCircuitBuilder_(0, op_queue_in, settings)
     {}
 
     /**
@@ -84,12 +86,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in,
                         auto& witness_values,
                         const std::vector<uint32_t>& public_inputs,
-                        size_t varnum)
+                        size_t varnum,
+                        MergeSettings merge_settings = MergeSettings::PREPEND)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(std::move(op_queue_in))
     {
-        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
-        op_queue->initialize_new_subtable();
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit. The merge settings indicate
+        // whether the subtable should be prepended or appended to the existing subtables from prior circuits.
+        op_queue->initialize_new_subtable(merge_settings);
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
