@@ -35,7 +35,12 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
 {
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->dyadic_size();
-    auto sumcheck = Sumcheck(polynomial_size, transcript);
+    Sumcheck sumcheck(polynomial_size,
+                      proving_key->polynomials,
+                      transcript,
+                      proving_key->alphas,
+                      proving_key->gate_challenges,
+                      proving_key->relation_parameters);
     {
 
         PROFILE_THIS_NAME("sumcheck.prove");
@@ -44,17 +49,9 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
             CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-            sumcheck_output = sumcheck.prove(proving_key->polynomials,
-                                             proving_key->relation_parameters,
-                                             proving_key->alphas,
-                                             proving_key->gate_challenges,
-                                             zk_sumcheck_data);
+            sumcheck_output = sumcheck.prove(zk_sumcheck_data);
         } else {
-
-            sumcheck_output = sumcheck.prove(proving_key->polynomials,
-                                             proving_key->relation_parameters,
-                                             proving_key->alphas,
-                                             proving_key->gate_challenges);
+            sumcheck_output = sumcheck.prove();
         }
     }
 }

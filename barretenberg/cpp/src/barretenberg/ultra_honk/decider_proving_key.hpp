@@ -39,7 +39,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Polynomial = typename Flavor::Polynomial;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
     bool is_structured;
@@ -53,7 +53,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
-    RelationSeparator alphas;      // a challenge for each subrelation
+    SubrelationSeparators alphas;  // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accmumulator
@@ -206,8 +206,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                     circuit.pairing_inputs_public_input_key.is_set() &&
                     "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
                    default one through a method in PairingPoints.");
-                metadata.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
             }
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1468): Remove use of pairing inputs pub key
+            metadata.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
                 ASSERT(circuit.ipa_claim_public_input_key.is_set() && "Rollup Honk circuit must output a IPA claim.");
@@ -223,10 +224,10 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 BB_ASSERT_EQ(metadata.ipa_claim_public_input_key.start_idx,
                              num_public_inputs() - IPA_CLAIM_SIZE,
                              "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
-                BB_ASSERT_EQ(
-                    metadata.pairing_inputs_public_input_key.start_idx,
-                    num_public_inputs() - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
-                    "Pairing point accumulator must be the second to last public input object before the IPA claim.");
+                BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
+                             num_public_inputs() - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
+                             "Pairing point accumulator must be the second to last public input object before the "
+                             "IPA claim.");
             } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
                                                         // [user-public-inputs][pairing-point-object]
                 BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,

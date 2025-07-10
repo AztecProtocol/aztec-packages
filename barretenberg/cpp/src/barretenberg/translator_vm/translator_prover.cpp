@@ -133,23 +133,29 @@ void TranslatorProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
 
-    Sumcheck sumcheck(key->proving_key->circuit_size, transcript);
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
+    const size_t circuit_size = key->proving_key->circuit_size;
+
+    Sumcheck sumcheck(
+        circuit_size, key->proving_key->polynomials, transcript, alpha, gate_challenges, relation_parameters);
+
     const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
-    // // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
-    // // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
-    // //  until we enter the PCS round
+    // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
+    // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
+    // until we enter the PCS round
     CommitmentKey ck(1 << (log_subgroup_size + 1));
 
     zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
-    sumcheck_output =
-        sumcheck.prove(key->proving_key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    sumcheck_output = sumcheck.prove(zk_sumcheck_data);
 }
 
 /**

@@ -53,8 +53,27 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         MemoryValue c = alu.add(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
+    }
+}
+
+void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EQ;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.eq(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu eq operation failed");
     }
 }
 
@@ -72,7 +91,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         MemoryValue c = alu.lt(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu lt operation failed");
     }
 }
@@ -459,6 +478,22 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     }
 }
 
+void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SLOAD;
+
+    auto& memory = context.get_memory();
+    get_gas_tracker().consume_gas();
+
+    auto slot = memory.get(slot_addr);
+    set_and_validate_inputs(opcode, { slot });
+
+    auto value = MemoryValue::from<FF>(merkle_db.storage_read(context.get_address(), slot.as<FF>()));
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -616,6 +651,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::EQ:
+        call_with_operands(&Execution::eq, context, resolved_operands);
+        break;
     case ExecutionOpCode::LT:
         call_with_operands(&Execution::lt, context, resolved_operands);
         break;
@@ -671,6 +709,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::XOR:
         call_with_operands(&Execution::xor_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SLOAD:
+        call_with_operands(&Execution::sload, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

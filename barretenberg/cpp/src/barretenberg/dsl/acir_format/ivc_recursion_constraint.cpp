@@ -108,6 +108,7 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
     honk_verification_key->circuit_size = dyadic_size;
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1468): Remove use of pairing inputs pub key
     honk_verification_key->pairing_inputs_public_input_key.start_idx = 0;
 
     for (auto& commitment : honk_verification_key->get_all()) {

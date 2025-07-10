@@ -22,7 +22,7 @@ export abstract class EcdsaRSSHBaseAccountContract extends DefaultAccountContrac
     super();
   }
 
-  getDeploymentFunctionAndArgs() {
+  getInitializationFunctionAndArgs() {
     return Promise.resolve({
       constructorName: 'constructor',
       constructorArgs: [this.signingPublicKey.subarray(0, 32), this.signingPublicKey.subarray(32, 64)],

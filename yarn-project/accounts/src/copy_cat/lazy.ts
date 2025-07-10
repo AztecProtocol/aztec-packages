@@ -4,7 +4,7 @@ import {
   AuthWitness,
   Fr,
   type PXE,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   loadContractArtifact,
 } from '@aztec/aztec.js';
 
@@ -34,7 +34,7 @@ export class CopyCatAccountWallet extends CopyCatAccountWalletBase {
     const accountInterface = new DefaultAccountInterface(simulatedAuthWitnessProvider, originalAddress, nodeInfo);
     const { default: simulatedAccountContractJson } = await import('../../artifacts/SimulatedAccount.json');
     const simulatedAccountContractArtifact = loadContractArtifact(simulatedAccountContractJson);
-    const instance = await getContractInstanceFromDeployParams(simulatedAccountContractArtifact, {});
+    const instance = await getContractInstanceFromInstantiationParams(simulatedAccountContractArtifact, {});
     return new CopyCatAccountWallet(pxe, accountInterface, originalAddress, simulatedAccountContractArtifact, instance);
   }
 }

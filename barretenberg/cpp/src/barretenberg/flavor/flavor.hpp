@@ -183,13 +183,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     fr hash()
     {
-        fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
-        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-
-        auto converted = static_cast<uint256_t>(challenge);
-        uint256_t lo = converted.slice(0, LO_BITS);
-        return lo;
+        fr vk_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
+        return vk_hash;
     }
 
     /**
@@ -252,12 +247,8 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     FF hash(Builder& builder)
     {
-        // use existing field-splitting code in cycle_scalar
-        FF challenge = stdlib::poseidon2<Builder>::hash(builder, to_field_elements());
-        using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
-        const cycle_scalar scalar = cycle_scalar(challenge);
-        scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
-        return scalar.lo;
+        FF vk_hash = stdlib::poseidon2<Builder>::hash(builder, to_field_elements());
+        return vk_hash;
     }
 
     /**

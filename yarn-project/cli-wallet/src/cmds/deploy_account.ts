@@ -46,8 +46,8 @@ export async function deployAccount(
   let txReceipt;
 
   const deployOpts: DeployAccountOptions = {
-    skipPublicDeployment: !publicDeploy,
-    skipClassRegistration: !registerClass,
+    skipInstancePublication: !publicDeploy,
+    skipClassPublication: !registerClass,
     ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
 

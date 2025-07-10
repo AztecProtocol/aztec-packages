@@ -26,6 +26,7 @@ include "execution/gas.pil";
 include "trees/merkle_check.pil";
 include "trees/nullifier_check.pil";
 include "trees/public_data_check.pil";
+include "trees/written_public_data_slots_tree_check.pil";
 
 include "bytecode/address_derivation.pil";
 include "bytecode/bc_decomposition.pil";
@@ -38,6 +39,7 @@ include "bytecode/update_check.pil";
 include "opcodes/get_env_var.pil";
 include "opcodes/internal_call.pil";
 include "opcodes/external_call.pil";
+include "opcodes/sload.pil";
 
 namespace execution;
 
@@ -162,8 +164,7 @@ sel_instruction_fetching_success {
     sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
     sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
-    subtrace_operation_id, sel_execution, sel_alu, sel_bitwise, sel_poseidon2_perm,
-    sel_to_radix, sel_ecc_add, sel_keccakf1600, sel_data_copy,
+    subtrace_id, subtrace_operation_id,
     // register information
     sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5], sel_mem_op_reg[6],
     rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5], rw_reg[6],
@@ -187,15 +188,8 @@ precomputed.sel_exec_spec {
     precomputed.sel_op_is_address[5],
     precomputed.sel_op_is_address[6],
     // subtraces
+    precomputed.subtrace_id,
     precomputed.subtrace_operation_id,
-    precomputed.sel_dispatch_execution,
-    precomputed.sel_dispatch_alu,
-    precomputed.sel_dispatch_bitwise,
-    precomputed.sel_dispatch_poseidon_perm,
-    precomputed.sel_dispatch_to_radix,
-    precomputed.sel_dispatch_ecc,
-    precomputed.sel_dispatch_keccakf1600,
-    precomputed.sel_dispatch_data_copy,
     // whether we should perform a memory operation on the register
     precomputed.sel_mem_op_reg[0],
     precomputed.sel_mem_op_reg[1],
@@ -291,7 +285,8 @@ sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 pol commit sel_opcode_error;
 sel_opcode_error * (1 - sel_opcode_error) = 0;
 
-// Subtrace operation id
+// Subtraces
+pol commit subtrace_id;
 pol commit subtrace_operation_id;
 
 // Subtrace Dispatch selectors
@@ -319,25 +314,39 @@ pol commit sel_revert;
 pol commit sel_success_copy;
 pol commit sel_returndata_size;
 pol commit sel_debug_log; // unused but we are forced to have it
+pol commit sel_sload;
+
+#[SUBTRACE_ID_DECOMPOSITION]
+sel_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
+sel_alu * constants.AVM_SUBTRACE_ID_ALU +
+sel_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
+sel_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
+sel_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
+sel_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
+sel_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
+sel_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY
+// We force the selectors to be 0 if we are not executing an opcode.
+= sel_should_execute_opcode * subtrace_id;
 
 #[EXEC_OP_ID_DECOMPOSITION]
-sel_execution * (
-   sel_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
-   sel_set * constants.AVM_EXEC_OP_ID_SET +
-   sel_mov * constants.AVM_EXEC_OP_ID_MOV +
-   sel_jump * constants.AVM_EXEC_OP_ID_JUMP +
-   sel_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +
-   sel_call * constants.AVM_EXEC_OP_ID_CALL +
-   sel_static_call * constants.AVM_EXEC_OP_ID_STATICCALL +
-   sel_internal_call * constants.AVM_EXEC_OP_ID_INTERNALCALL +
-   sel_internal_return * constants.AVM_EXEC_OP_ID_INTERNALRETURN +
-   sel_return * constants.AVM_EXEC_OP_ID_RETURN +
-   sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
-   sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
-   sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
-   sel_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG
-   - subtrace_operation_id
-) = 0;
+sel_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
+sel_set * constants.AVM_EXEC_OP_ID_SET +
+sel_mov * constants.AVM_EXEC_OP_ID_MOV +
+sel_jump * constants.AVM_EXEC_OP_ID_JUMP +
+sel_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +
+sel_call * constants.AVM_EXEC_OP_ID_CALL +
+sel_static_call * constants.AVM_EXEC_OP_ID_STATICCALL +
+sel_internal_call * constants.AVM_EXEC_OP_ID_INTERNALCALL +
+sel_internal_return * constants.AVM_EXEC_OP_ID_INTERNALRETURN +
+sel_return * constants.AVM_EXEC_OP_ID_RETURN +
+sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
+sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
+sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
+sel_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG +
+sel_sload * constants.AVM_EXEC_OP_ID_SLOAD
+// We force the selectors to be 0 if we are not executing an opcode
+// or when we are not in the execution subtrace.
+= sel_should_execute_opcode * sel_execution * subtrace_operation_id;
 
 // Boolean relations for the embedded execution opcode selectors.
 sel_get_env_var * (1 - sel_get_env_var) = 0;
@@ -354,6 +363,7 @@ sel_revert * (1 - sel_revert) = 0;
 sel_success_copy * (1 - sel_success_copy) = 0;
 sel_returndata_size * (1 - sel_returndata_size) = 0;
 sel_debug_log * (1 - sel_debug_log) = 0;
+sel_sload * (1 - sel_sload) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;

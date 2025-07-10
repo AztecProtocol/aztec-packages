@@ -160,8 +160,8 @@ function toFriendlyAddress(address: AztecAddress, artifactMap: ArtifactMap) {
 
 async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
   const knownContracts = await pxe.getContracts();
-  const deployerAddress = ProtocolContractAddress.ContractInstanceDeployer;
-  const registererAddress = ProtocolContractAddress.ContractClassRegisterer;
+  const deployerAddress = ProtocolContractAddress.ContractInstanceRegistry;
+  const classRegistryAddress = ProtocolContractAddress.ContractClassRegistry;
   const initNullifiers: Record<string, AztecAddress> = {};
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
@@ -170,7 +170,7 @@ async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
     deployNullifiers[(await siloNullifier(deployerAddress, contract.toField())).toString()] = contract;
   }
   for (const artifact of Object.values(artifactMap)) {
-    classNullifiers[(await siloNullifier(registererAddress, artifact.classId)).toString()] =
+    classNullifiers[(await siloNullifier(classRegistryAddress, artifact.classId)).toString()] =
       `${artifact.name}Class<${artifact.classId}>`;
   }
   return { initNullifiers, deployNullifiers, classNullifiers };
