@@ -1,6 +1,7 @@
 #include "api_client_ivc.hpp"
 #include "barretenberg/api/bbapi.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -63,11 +64,11 @@ std::string field_elements_to_json(const std::vector<bb::fr>& fields)
  * @param bytecode_path
  * @param witness_path
  */
-void write_standalone_vk(const std::string& output_data_type,
-                         const std::string& bytecode_path,
-                         const std::string& output_path)
+void write_standalone_vk(const std::string& output_format,
+                         const std::filesystem::path& bytecode_path,
+                         const std::filesystem::path& output_path)
 {
-
+    auto bytecode = get_bytecode(bytecode_path);
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
@@ -96,8 +97,6 @@ void write_vk_for_ivc(const std::string& output_format,
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
-    ClientIVCMockCircuitProducer circuit_producer;
 
     // Since we need to specify the number of public inputs but ClientIvcComputeIvcVk derives it from bytecode,
     // we need to create a mock circuit with the correct number of public inputs
@@ -107,7 +106,6 @@ void write_vk_for_ivc(const std::string& output_format,
     const auto buf = to_buffer(vk);
 
     const bool output_to_stdout = output_dir == "-";
-    const auto buf = to_buffer(ivc.get_vk());
 
     if (output_to_stdout) {
         write_bytes_to_stdout(buf);
@@ -146,17 +144,20 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
 
     bbapi::ClientIvcStart{}.execute(request);
+    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
+    size_t last_circuit_public_inputs_size = 0;
     for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
+        last_circuit_public_inputs_size = request.last_circuit_constraints->public_inputs.size();
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto prove_response = bbapi::ClientIvcProve{}.execute(request);
+    auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -177,8 +178,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        const size_t num_public_inputs_in_final_circuit = steps.folding_stack.back().constraints.public_inputs.size();
-        write_vk_for_ivc("bytes", num_public_inputs_in_final_circuit, output_dir);
+        write_vk_for_ivc("bytes", last_circuit_public_inputs_size, output_dir);
     }
 }
 
@@ -218,12 +218,9 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
 }
 
 bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path)
-
 {
-    PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
-
     bbapi::BBApiRequest request;
+    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     for (const auto& step : raw_steps) {
         if (step.vk.empty()) {
