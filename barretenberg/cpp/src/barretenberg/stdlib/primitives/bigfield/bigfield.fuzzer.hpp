@@ -24,9 +24,9 @@ bool circuit_should_fail = false;
 FastRandom VarianceRNG(0);
 // #define DISABLE_DIVISION
 //  Enable this definition, when you want to find out the instructions that caused a failure
-// #define SHOW_INFORMATION 1
+// #define FUZZING_SHOW_INFORMATION 1
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
 #define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)                                 \
     {                                                                                                                  \
         std::cout << operation_name << " " << (vector[first_index].bigfield.is_constant() ? "constant(" : "witness(")  \
@@ -248,8 +248,7 @@ template <typename Builder> class BigFieldBase {
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
-            uint8_t in1, in2, in3, out, mask_size, mult_size, add_size;
-            uint256_t mask, temp;
+            uint8_t in1, in2, in3, out, mult_size, add_size;
             Instruction instr;
             uint8_t mult_pairs[MULT_MADD_MAXIMUM_MUL_PAIRS * 2] = { 0 };
             uint8_t add_elements[MULT_MADD_MAXIMUM_ADDED_ELEMENTS > SQR_ADD_MAXIMUM_ADDED_ELEMENTS
@@ -260,21 +259,11 @@ template <typename Builder> class BigFieldBase {
             switch (instruction_opcode) {
             case OPCODE::CONSTANT:
             case OPCODE::WITNESS:
-            case OPCODE::CONSTANT_WITNESS:
-                // If it's a constant or witness, it just pushes data onto the stack to be acted upon
-                // Generate a random field element
-                for (size_t i = 0; i < (sizeof(uint256_t) >> 1); i++) {
-                    *(((uint16_t*)&temp) + i) = static_cast<uint16_t>(rng.next() & 0xffff);
-                }
-                // We want small values, too. If we generate randomly, we aren't going to have them, so we also apply a
-                // random mask, which randomizes the logarithm of maximum value
-                mask_size = static_cast<uint8_t>(rng.next() & 0xff);
-                mask = (uint256_t(1) << mask_size) - 1;
-                // Choose the bit range
-                // Return instruction
-                return { .id = instruction_opcode, .arguments.element = Element(static_cast<uint64_t>(temp & mask)) };
-
+            case OPCODE::CONSTANT_WITNESS: {
+                auto value = static_cast<uint64_t>(fast_log_distributed_uint256(rng));
+                return { .id = instruction_opcode, .arguments.element = Element(value) };
                 break;
+            }
             case OPCODE::RANDOMSEED:
                 return { .id = instruction_opcode, .arguments.randomseed = rng.next() };
                 break;
@@ -817,7 +806,7 @@ template <typename Builder> class BigFieldBase {
         {
             const bool reconstruct = static_cast<bool>(VarianceRNG.next() % 2);
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << " reconstruction? " << reconstruct << std::endl;
 #endif
 
@@ -918,12 +907,20 @@ template <typename Builder> class BigFieldBase {
 
                 bb::fq v = 0;
                 std::vector<bigfield_t> numerators;
-                while (v != this->base) {
-                    const auto add =
-                        static_cast<uint256_t>(bb::fq::random_element()) % (static_cast<uint256_t>(this->base - v) + 1);
+
+                size_t numerators_size = std::max(bigfield_t::MAXIMUM_SUMMAND_COUNT / 2,
+                                                  VarianceRNG.next() % bigfield_t::MAXIMUM_SUMMAND_COUNT);
+                for (size_t i = 0; i < numerators_size && v != this->base; i++) {
+                    uint256_t add;
+                    if (i == numerators_size - 1) {
+                        add = this->base - v;
+                    } else {
+                        add = fast_log_distributed_uint256(VarianceRNG) % (static_cast<uint256_t>(this->base - v) + 1);
+                    }
                     numerators.push_back(bigfield_t(this->bigfield.context, bb::fq(add)));
                     v += add;
                 }
+                ASSERT(v == this->base);
 
                 return ExecutionHandler(this->base / divisor,
                                         /* Multi-numerator division */
@@ -1064,7 +1061,7 @@ template <typename Builder> class BigFieldBase {
 
             uint32_t switch_case = VarianceRNG.next() % 5;
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << " using " << switch_case << " constructor" << std::endl;
 #endif
             switch (switch_case) {
@@ -1125,7 +1122,7 @@ template <typename Builder> class BigFieldBase {
             (void)builder;
             stack.push_back(ExecutionHandler(instruction.arguments.element.value,
                                              bigfield_t(builder, instruction.arguments.element.value)));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed constant value " << instruction.arguments.element.value << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
@@ -1153,7 +1150,7 @@ template <typename Builder> class BigFieldBase {
             //    bigfield_t::create_from_u512_as_witness(builder,
             //    uint256_t(instruction.arguments.element.value)));
 
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed witness value " << instruction.arguments.element.value << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
@@ -1176,7 +1173,7 @@ template <typename Builder> class BigFieldBase {
             stack.push_back(ExecutionHandler(
                 instruction.arguments.element.value,
                 bigfield_t::create_from_u512_as_witness(builder, uint256_t(instruction.arguments.element.value))));
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "Pushed constant witness value " << instruction.arguments.element.value << " to position "
                       << stack.size() - 1 << std::endl;
 #endif
@@ -1309,7 +1306,7 @@ template <typename Builder> class BigFieldBase {
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_EQUAL", "== something + ")
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << std::endl;
 #endif
 
@@ -1337,7 +1334,7 @@ template <typename Builder> class BigFieldBase {
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
             PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_NOT_EQUAL", "!=")
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << std::endl;
 #endif
 
@@ -1518,7 +1515,7 @@ template <typename Builder> class BigFieldBase {
             std::vector<ExecutionHandler> input_left;
             std::vector<ExecutionHandler> input_right;
             std::vector<ExecutionHandler> to_add;
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "MULT_MADD:" << std::endl;
             for (size_t i = 0; i < instruction.arguments.multOpArgs.mult_pairs_count; i++) {
                 size_t index_left = (size_t)instruction.arguments.multOpArgs.mult_pairs[2 * i] % stack.size();
@@ -1592,7 +1589,7 @@ template <typename Builder> class BigFieldBase {
             std::vector<ExecutionHandler> input_right;
             std::vector<ExecutionHandler> to_sub;
             size_t divisor_index = instruction.arguments.multOpArgs.divisor_index % stack.size();
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
 
             std::cout << "MSUB_DIV:" << std::endl;
             std::cout << "- (";
@@ -1674,7 +1671,7 @@ template <typename Builder> class BigFieldBase {
             std::vector<ExecutionHandler> to_add;
 
             size_t input_index = (size_t)instruction.arguments.multAddArgs.input_index % stack.size();
-#ifdef SHOW_INFORMATION
+#ifdef FUZZING_SHOW_INFORMATION
             std::cout << "SQR_ADD:" << std::endl;
             std::cout << (stack[input_index].bigfield.is_constant() ? "Constant( " : "Witness( ")
                       << stack[input_index].bigfield.get_value() << ") at " << input_index << " squared ";
