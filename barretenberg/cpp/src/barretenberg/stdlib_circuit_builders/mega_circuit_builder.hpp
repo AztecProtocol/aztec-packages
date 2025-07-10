@@ -40,7 +40,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
 
-    bool is_kernel = false; // Flag to indicate whether the current circuit is a kernel
+    bool is_kernel = false; // Flag indicating whether this circuit is a kernel
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);

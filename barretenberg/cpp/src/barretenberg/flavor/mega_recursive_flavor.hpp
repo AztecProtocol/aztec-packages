@@ -170,7 +170,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             }
         }
 
-        // WORKTODO: can this and maybe all other to_field_elements() methods be moved to the base class?
         /**
          * @brief Serialize verification key to field elements.
          *

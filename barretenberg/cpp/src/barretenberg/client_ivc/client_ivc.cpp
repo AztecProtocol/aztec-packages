@@ -187,9 +187,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
     while (!stdlib_verification_queue.empty()) {
-        const StdlibVerifierInputs& queue_entry = stdlib_verification_queue.front();
+        const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         PairingPoints pairing_points = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, queue_entry, accumulation_recursive_transcript);
+            circuit, verifier_input, accumulation_recursive_transcript);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
         // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
@@ -258,10 +258,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
     if (!initialized) {
-        BB_ASSERT_EQ(circuit.is_kernel, false);
-        queue_entry.type = QUEUE_TYPE::OINK;
-        // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
-        // proof
+        BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
+        // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, accumulation_transcript };
         vinfo("computing oink proof...");
         oink_prover.prove();
