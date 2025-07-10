@@ -94,7 +94,9 @@ jobs:
       - name: Build dependencies
         if: ${{ matrix.docs.changed == 'true' }}
         run: |
-          export NOIR_HASH=$(./noir/bootstrap.sh hash)
+          if [[ "${{ matrix.docs.build_deps }}" == *"noir"* ]]; then
+            export NOIR_HASH=$(./noir/bootstrap.sh hash)
+          fi
           for project in ${{ matrix.docs.build_deps }}; do
             $project/bootstrap.sh
           done
