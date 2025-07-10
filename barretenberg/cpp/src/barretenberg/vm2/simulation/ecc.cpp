@@ -8,9 +8,10 @@ namespace bb::avm2::simulation {
 
 EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoint& q)
 {
-    // Check if points are on the curve.
-    assert(p.on_curve() && "Point p is not on the curve");
-    assert(q.on_curve() && "Point q is not on the curve");
+    if (!p.on_curve() || !q.on_curve()) {
+        add_events.emit({ .p = p, .q = q, .result = EmbeddedCurvePoint(0, 0, false) });
+        throw EccException("One of the points is not on the curve");
+    }
 
     EmbeddedCurvePoint result = p + q;
     add_events.emit({ .p = p, .q = q, .result = result });
@@ -19,6 +20,9 @@ EmbeddedCurvePoint Ecc::add(const EmbeddedCurvePoint& p, const EmbeddedCurvePoin
 
 EmbeddedCurvePoint Ecc::scalar_mul(const EmbeddedCurvePoint& point, const FF& scalar)
 {
+    // This is catastrophic  - The scalar mul circuit requires the point to be on the curve.
+    assert(point.on_curve() && "Point must be on the curve for scalar multiplication");
+
     auto intermediate_states = std::vector<ScalarMulIntermediateState>(254);
     auto bits = to_radix.to_le_bits(scalar, 254);
 
@@ -61,7 +65,7 @@ void Ecc::add(MemoryInterface& memory,
             throw std::runtime_error("dst address out of range");
         }
 
-        EmbeddedCurvePoint result = add(p, q);
+        EmbeddedCurvePoint result = add(p, q); // This can throw if the points are not on the curve.
         memory.set(dst_address, MemoryValue::from<FF>(result.x()));
         memory.set(dst_address + 1, MemoryValue::from<FF>(result.y()));
         memory.set(dst_address + 2, MemoryValue::from<uint1_t>(result.is_infinity() ? 1 : 0));

@@ -30,6 +30,7 @@ using ::testing::Return;
 using ::testing::StrictMock;
 
 using tracegen::EccTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
 using tracegen::TestTraceContainer;
 using tracegen::ToRadixTraceBuilder;
 
@@ -102,6 +103,7 @@ TEST(EccAddConstrainingTest, EccAdd)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_use_computed_result = 1,
         .ecc_x_match = 0,
         .ecc_y_match = 0,
@@ -146,6 +148,7 @@ TEST(EccAddConstrainingTest, EccDouble)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_use_computed_result = 1,
         .ecc_x_match = 1,
         .ecc_y_match = 1,
@@ -189,6 +192,7 @@ TEST(EccAddConstrainingTest, EccAddResultingInInfinity)
         .ecc_result_infinity = 1,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_x_match = 1,
         .ecc_y_match = 0,
     } });
@@ -232,6 +236,7 @@ TEST(EccAddConstrainingTest, EccAddingToInfinity)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_x_match = 0,
         .ecc_y_match = 0,
     } });
@@ -274,6 +279,7 @@ TEST(EccAddConstrainingTest, EccAddingInfinity)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_x_match = 0,
         .ecc_y_match = 0,
 
@@ -317,6 +323,7 @@ TEST(EccAddConstrainingTest, EccDoublingInf)
         .ecc_result_infinity = 1,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_x_match = 1,
         .ecc_y_match = 1,
 
@@ -358,6 +365,7 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_result_infinity = 0,
 
                                                      .ecc_sel = 1,
+                                                     .ecc_sel_should_exec = 1,
                                                      .ecc_use_computed_result = 1,
                                                      .ecc_x_match = 0,
                                                      .ecc_y_match = 0,
@@ -391,6 +399,7 @@ TEST(EccAddConstrainingTest, EccTwoOps)
                                                      .ecc_result_infinity = 0,
 
                                                      .ecc_sel = 1,
+                                                     .ecc_sel_should_exec = 1,
                                                      .ecc_use_computed_result = 1,
                                                      .ecc_x_match = 1,
                                                      .ecc_y_match = 1,
@@ -436,6 +445,7 @@ TEST(EccAddConstrainingTest, EccNegativeBadAdd)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_x_match = 0,
         .ecc_y_match = 0,
 
@@ -480,6 +490,7 @@ TEST(EccAddConstrainingTest, EccNegativeBadDouble)
         .ecc_result_infinity = 0,
 
         .ecc_sel = 1,
+        .ecc_sel_should_exec = 1,
         .ecc_x_match = 1,
         .ecc_y_match = 1,
 
@@ -924,7 +935,6 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryEmptyRow)
 
 TEST(EccAddMemoryConstrainingTest, EccAddMemory)
 {
-
     TestTraceContainer trace;
     EccTraceBuilder builder;
 
@@ -947,7 +957,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemory)
                                scalar_mul_event_emitter,
                                ecc_add_memory_event_emitter);
 
-    ecc_simulator.add(memory, p, q, 5);
+    ecc_simulator.add(memory, p, q, /*dst_address=*/5);
     builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
     builder.process_add(ecc_add_event_emitter.dump_events(), trace);
 
@@ -1092,5 +1102,67 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
     check_all_interactions<EccTraceBuilder>(trace);
     check_relation<mem_aware_ecc>(trace);
 }
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryPropagatePointError)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    EccTraceBuilder builder;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
+
+    MemoryStore memory;
+    NiceMock<MockExecutionIdManager> execution_id_manager;
+    NiceMock<MockGreaterThan> gt;
+    ToRadixSimulator to_radix_simulator(to_radix_event_emitter);
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Point P is not on the curve
+    FF p_x("0x0000000000063d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a");
+    FF p_y("0x00000000000c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60");
+    EmbeddedCurvePoint p(p_x, p_y, false);
+
+    uint32_t dst_address = 0x1000;
+    // Set the execution and gt traces
+    TestTraceContainer trace = TestTraceContainer({
+        // Row 0
+        {
+            // Execution
+            { C::execution_sel, 1 },
+            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_rop_6_, dst_address },
+            { C::execution_register_0_, p.x() },
+            { C::execution_register_1_, p.y() },
+            { C::execution_register_2_, p.is_infinity() ? 1 : 0 },
+            { C::execution_register_3_, q.x() },
+            { C::execution_register_4_, q.y() },
+            { C::execution_register_5_, q.is_infinity() ? 1 : 0 },
+            { C::execution_sel_opcode_error, 1 }, // Indicate an error in the operation
+            // GT - dst out of range check
+            { C::gt_sel, 1 },
+            { C::gt_input_a, dst_address + 2 }, // highest write address is dst_address + 2
+            { C::gt_input_b, AVM_HIGHEST_MEM_ADDRESS },
+            { C::gt_res, 0 },
+        },
+    });
+
+    EXPECT_THROW(ecc_simulator.add(memory, p, q, dst_address), simulation::EccException);
+
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
+    precomputed_builder.process_misc(trace, 1);
+
+    check_all_interactions<EccTraceBuilder>(trace);
+    check_relation<mem_aware_ecc>(trace);
+    check_relation<ecc>(trace);
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

@@ -72,7 +72,7 @@ using lookup_scalar_mul_double_relation = lookup_relation_base<FF_, lookup_scala
 struct lookup_scalar_mul_add_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SCALAR_MUL_ADD";
     static constexpr std::string_view RELATION_NAME = "scalar_mul";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
     static constexpr Column SRC_SELECTOR = Column::scalar_mul_should_add;
     static constexpr Column DST_SELECTOR = Column::ecc_sel;
     static constexpr Column COUNTS = Column::lookup_scalar_mul_add_counts;
@@ -82,12 +82,13 @@ struct lookup_scalar_mul_add_settings_ {
         ColumnAndShifts::scalar_mul_res_inf,     ColumnAndShifts::scalar_mul_res_x_shift,
         ColumnAndShifts::scalar_mul_res_y_shift, ColumnAndShifts::scalar_mul_res_inf_shift,
         ColumnAndShifts::scalar_mul_temp_x,      ColumnAndShifts::scalar_mul_temp_y,
-        ColumnAndShifts::scalar_mul_temp_inf
+        ColumnAndShifts::scalar_mul_temp_inf,    ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf,
         ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
-        ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf
+        ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf,
+        ColumnAndShifts::ecc_err
     };
 };
 
