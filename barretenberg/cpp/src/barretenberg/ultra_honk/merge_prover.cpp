@@ -82,15 +82,17 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
         opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
     }
-    // Compute evaluation t_j(1/kappa), send to verifier, and set opening claim
+    // Compute evaluation t_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = t[idx].evaluate(kappa_inv);
+        FF evaluation;
+
+        // Evaluate t_j(1/kappa)
+        evaluation = t[idx].evaluate(kappa_inv);
         transcript->send_to_verifier("t_eval_kappa_inv_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ t[idx], { kappa_inv, evaluation } });
-    }
-    // Compute evaluation g_j(\kappa), send to verifier, and set opening claim
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = t_reversed[idx].evaluate(kappa);
+
+        // Evaluate g_j(kappa)
+        evaluation = t_reversed[idx].evaluate(kappa);
         transcript->send_to_verifier("t_reversed_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ t_reversed[idx], { kappa, evaluation } });
     }
