@@ -37,7 +37,7 @@ class KZGTest : public CommitmentTest<Curve> {
     }
 };
 
-TEST_F(KZGTest, single)
+TEST_F(KZGTest, Single)
 {
 
     auto witness = bb::Polynomial<Fr>::random(n);
@@ -51,6 +51,60 @@ TEST_F(KZGTest, single)
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
+
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+}
+
+TEST_F(KZGTest, ZeroEvaluation)
+{
+
+    auto witness = bb::Polynomial<Fr>::random(n);
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = witness.evaluate(challenge);
+
+    // Modify witness to achieve zero evaluation
+    witness.at(0) -= evaluation;
+
+    // Compute commitment
+    const Commitment commitment = ck.commit(witness);
+
+    auto opening_pair = OpeningPair<Curve>{ challenge, Fr::zero() };
+    auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    PCS::compute_opening_proof(ck, { witness, opening_pair }, prover_transcript);
+
+    auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
+    const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
+
+    EXPECT_EQ(vk.pairing_check(pairing_points[0], pairing_points[1]), true);
+}
+
+TEST_F(KZGTest, ZeroPolynomial)
+{
+    static constexpr size_t POLY_SIZE = 10;
+    bb::Polynomial<Fr> zero(POLY_SIZE);
+    for (size_t idx = 0; idx < POLY_SIZE; ++idx) {
+        zero.at(idx) = 0;
+    }
+
+    // Sanity check
+    ASSERT(zero.is_zero());
+
+    const Fr challenge = Fr::random_element();
+    const Fr evaluation = zero.evaluate(challenge);
+    const Commitment commitment = ck.commit(zero);
+
+    auto opening_pair = OpeningPair<Curve>{ challenge, evaluation };
+    auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
+
+    auto prover_transcript = NativeTranscript::prover_init_empty();
+
+    PCS::compute_opening_proof(ck, { zero, opening_pair }, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
     const auto pairing_points = PCS::reduce_verify(opening_claim, verifier_transcript);
