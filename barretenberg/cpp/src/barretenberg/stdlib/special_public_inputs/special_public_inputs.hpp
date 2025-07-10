@@ -36,7 +36,7 @@ class KernelIO {
     // G1 ecc_op_table;
     // FF pg_acc_hash;
 
-    // Total size of the kernel IO public inputs, which includes
+    // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE =
         PairingInputs::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE + G1::PUBLIC_INPUTS_SIZE;
 
@@ -90,7 +90,7 @@ class AppIO {
 
     PairingInputs pairing_inputs;
 
-    // Total size of the kernel IO public inputs, which includes
+    // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE;
 
     /**
