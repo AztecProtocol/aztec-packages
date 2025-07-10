@@ -792,8 +792,18 @@ class TranslatorFlavor {
          */
         std::vector<fr> to_field_elements() const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<fr> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+            return elements;
         }
 
         /**
