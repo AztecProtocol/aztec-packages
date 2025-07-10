@@ -361,7 +361,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Update gossipsub score params
     node.services.pubsub.score.params.appSpecificWeight = 10;
-    node.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+    node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
+      if (peerManager.shouldDisableP2PGossip(peerId)) {
+        return -Infinity;
+      }
+      return peerManager.getPeerScore(peerId);
+    };
 
     return new LibP2PService(
       clientType,
