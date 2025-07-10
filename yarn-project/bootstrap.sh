@@ -27,11 +27,10 @@ function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
-      --exclude @aztec/noir-bb-bench \
       --exclude @aztec/scripts \
       exec 'basename $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated | grep -vE 'noir-bb-bench'
+    dirname */src l1-artifacts/generated
   fi
 }
 
@@ -109,8 +108,7 @@ function test_cmds {
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
-  # noir-bb-bench: A slow pain. Figure out later.
-  for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
+  for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
     if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
@@ -161,7 +159,7 @@ function test_cmds {
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
   if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }
 

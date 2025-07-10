@@ -1,6 +1,7 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -67,7 +68,12 @@ export type SequencerEvents = {
   ['proposer-rollup-check-failed']: (args: { reason: string }) => void;
   ['tx-count-check-failed']: (args: { minTxs: number; availableTxs: number }) => void;
   ['block-build-failed']: (args: { reason: string }) => void;
-  ['block-publish-failed']: (args: { validActions?: Action[]; expiredActions?: Action[] }) => void;
+  ['block-publish-failed']: (args: {
+    successfulActions?: Action[];
+    failedActions?: Action[];
+    sentActions?: Action[];
+    expiredActions?: Action[];
+  }) => void;
   ['block-published']: (args: { blockNumber: number; slot: number }) => void;
 };
 
@@ -199,10 +205,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   private setTimeTable() {
     this.timetable = new SequencerTimetable(
-      this.l1Constants.ethereumSlotDuration,
-      this.aztecSlotDuration,
-      this.maxL1TxInclusionTimeIntoSlot,
-      this.enforceTimeTable,
+      {
+        ethereumSlotDuration: this.l1Constants.ethereumSlotDuration,
+        aztecSlotDuration: this.aztecSlotDuration,
+        maxL1TxInclusionTimeIntoSlot: this.maxL1TxInclusionTimeIntoSlot,
+        attestationPropagationTime: this.config.attestationPropagationTime,
+        enforce: this.enforceTimeTable,
+      },
       this.metrics,
       this.log,
     );
@@ -352,6 +361,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Double check we are good for proposing at the next block before we start operations.
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
+
     const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
     if (canProposeCheck === undefined) {
       this.log.warn(
@@ -377,7 +387,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'} propose block ${newBlockNumber} at slot ${slot}`,
+      `${
+        proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'
+      } propose block ${newBlockNumber} at slot ${slot}`,
       { ...syncLogData, validatorAddresses },
     );
 
@@ -392,12 +404,16 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       slot,
       newGlobalVariables.timestamp,
       VoteType.GOVERNANCE,
+      proposerAddress,
+      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
     const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
       slot,
       newGlobalVariables.timestamp,
       VoteType.SLASHING,
+      proposerAddress,
+      msg => this.validatorClient!.signWithAddress(proposerAddress, Buffer32.fromString(msg)).then(s => s.toString()),
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
@@ -459,7 +475,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
 
     const l1Response = await this.publisher.sendRequests();
-    const proposedBlock = l1Response?.validActions.find(a => a === 'propose');
+    const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
     if (proposedBlock) {
       this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
@@ -468,10 +484,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.isFlushing = false;
       }
     } else if (block) {
-      this.emit('block-publish-failed', {
-        validActions: l1Response?.validActions,
-        expiredActions: l1Response?.expiredActions,
-      });
+      this.emit('block-publish-failed', l1Response ?? {});
     }
 
     this.setState(SequencerState.IDLE, undefined);
@@ -536,7 +549,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await this.p2pClient.deleteTxs(failedTxHashes);
   }
 
-  protected getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
+  protected getBlockBuilderOptions(slot: number): PublicProcessorLimits {
     // Deadline for processing depends on whether we're proposing a block
     const secondsIntoSlot = this.getSecondsIntoSlot(slot);
     const processingEndTimeWithinSlot = this.timetable.getBlockProposalExecTimeEnd(secondsIntoSlot);
@@ -584,7 +597,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.CREATING_BLOCK, slot);
 
     try {
-      const blockBuilderOptions = this.getDefaultBlockBuilderOptions(Number(slot));
+      const blockBuilderOptions = this.getBlockBuilderOptions(Number(slot));
       const buildBlockRes = await this.blockBuilder.buildBlock(
         pendingTxs,
         l1ToL2Messages,

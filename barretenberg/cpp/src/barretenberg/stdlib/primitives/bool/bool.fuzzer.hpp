@@ -5,7 +5,6 @@
 // =====================
 
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib/primitives/bit_array/bit_array.hpp"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc99-designator"
 // This is a global variable, so that the execution handling class could alter it and signal to the input tester that
@@ -18,7 +17,7 @@ bool circuit_should_fail = false;
 FastRandom VarianceRNG(0);
 
 // Enable this definition, when you want to find out the instructions that caused a failure
-// #define SHOW_INFORMATION 1
+// #define FUZZING_SHOW_INFORMATION 1
 
 #define OPERATION_TYPE_SIZE 1
 
@@ -393,7 +392,6 @@ template <typename Builder> class BoolFuzzBase {
                                     (other1.b == other2.b).get_value() ? other1.b : this->b);
         }
 
-        /* Explicit re-instantiation using the various bit_array constructors */
         ExecutionHandler set(Builder* builder)
         {
             (void)builder;

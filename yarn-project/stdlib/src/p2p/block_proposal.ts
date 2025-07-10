@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import type { BlockInfo } from '../block/l2_block.js';
+import { TxHash } from '../tx/index.js';
 import { Tx } from '../tx/tx.js';
 import type { UInt32 } from '../types/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
@@ -48,6 +49,9 @@ export class BlockProposal extends Gossipable {
     /** The signer of the BlockProposal over the header of the new block*/
     public readonly signature: Signature,
 
+    /** The sequence of transactions in the block */
+    public readonly txHashes: TxHash[],
+
     // Note(md): this is placed after the txs payload in order to be backwards compatible with previous versions
     /** The transactions in the block */
     public readonly txs?: Tx[],
@@ -72,13 +76,14 @@ export class BlockProposal extends Gossipable {
       blockNumber: this.blockNumber,
       slotNumber: this.slotNumber.toNumber(),
       archive: this.archive.toString(),
-      txCount: this.payload.txHashes.length,
+      txCount: this.txHashes.length,
     };
   }
 
   static async createProposalFromSigner(
     blockNumber: UInt32,
     payload: ConsensusPayload,
+    txHashes: TxHash[],
     // Note(md): Provided separately to tx hashes such that this function can be optional
     txs: Tx[] | undefined,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
@@ -86,7 +91,7 @@ export class BlockProposal extends Gossipable {
     const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
     const sig = await payloadSigner(hashed);
 
-    return new BlockProposal(blockNumber, payload, sig, txs);
+    return new BlockProposal(blockNumber, payload, sig, txHashes, txs);
   }
 
   /**Get Sender
@@ -107,7 +112,7 @@ export class BlockProposal extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    const buffer: any[] = [this.blockNumber, this.payload, this.signature];
+    const buffer: any[] = [this.blockNumber, this.payload, this.signature, this.txHashes.length, this.txHashes];
     if (this.txs) {
       buffer.push(this.txs.length);
       buffer.push(this.txs);
@@ -121,13 +126,14 @@ export class BlockProposal extends Gossipable {
     const blockNumber = reader.readNumber();
     const payload = reader.readObject(ConsensusPayload);
     const sig = reader.readObject(Signature);
+    const txHashes = reader.readArray(reader.readNumber(), TxHash);
 
     if (!reader.isEmpty()) {
       const txs = reader.readArray(reader.readNumber(), Tx);
-      return new BlockProposal(blockNumber, payload, sig, txs);
+      return new BlockProposal(blockNumber, payload, sig, txHashes, txs);
     }
 
-    return new BlockProposal(blockNumber, payload, sig);
+    return new BlockProposal(blockNumber, payload, sig, txHashes);
   }
 
   getSize(): number {
@@ -135,7 +141,9 @@ export class BlockProposal extends Gossipable {
       4 /* blockNumber */ +
       this.payload.getSize() +
       this.signature.getSize() +
-      (this.txs ? this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0)
+      4 /* txHashes.length */ +
+      this.txHashes.length * TxHash.SIZE +
+      (this.txs ? 4 /* txs.length */ + this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0)
     );
   }
 }

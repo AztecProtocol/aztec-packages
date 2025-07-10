@@ -236,7 +236,7 @@ unconstrained fn test_get_current_value_in_private_initial() {
 
         assert_eq(state_var.get_current_value(), zeroed());
         assert_eq(
-            context.include_by_timestamp.unwrap(),
+            context.include_by_timestamp,
             context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
@@ -258,7 +258,7 @@ unconstrained fn test_get_current_value_in_private_before_change() {
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), MockStruct::empty());
-        assert_eq(context.include_by_timestamp.unwrap(), timestamp_of_change - 1);
+        assert_eq(context.include_by_timestamp, timestamp_of_change - 1);
     });
 }
 
@@ -286,7 +286,7 @@ unconstrained fn test_get_current_value_in_private_immediately_before_change() {
         // Note that this transaction would never be valid since the max timestamp is the same as the historical timestamp
         // used to built the proof, i.e. in the past.
         assert_eq(state_var.get_current_value(), MockStruct::empty());
-        assert_eq(context.include_by_timestamp.unwrap(), timestamp_of_change - 1);
+        assert_eq(context.include_by_timestamp, timestamp_of_change - 1);
     });
 }
 
@@ -313,7 +313,7 @@ unconstrained fn test_get_current_value_in_private_at_change() {
 
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
-            context.include_by_timestamp.unwrap(),
+            context.include_by_timestamp,
             context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
@@ -342,7 +342,7 @@ unconstrained fn test_get_current_value_in_private_after_change() {
 
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
-            context.include_by_timestamp.unwrap(),
+            context.include_by_timestamp,
             context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
         );
     });
@@ -373,10 +373,7 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
         let state_var = in_private(context);
 
         assert_eq(state_var.get_current_value(), new_value);
-        assert_eq(
-            state_var.context.include_by_timestamp.unwrap(),
-            historical_timestamp + new_delay,
-        );
+        assert_eq(state_var.context.include_by_timestamp, historical_timestamp + new_delay);
     });
 }
 
