@@ -189,14 +189,6 @@ pub unconstrained fn public_call_new_flow(
     (returns_hash, tx_hash)
 }
 
-pub unconstrained fn disable_oracles() {
-    oracle_disable_oracles();
-}
-
-pub unconstrained fn enable_oracles() {
-    oracle_enable_oracles();
-}
-
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
@@ -275,12 +267,6 @@ unconstrained fn oracle_private_call_new_flow(
     _is_static_call: bool,
 ) -> [Field; 3] {}
 
-#[oracle(enableOracles)]
-unconstrained fn oracle_disable_oracles() {}
-
-#[oracle(disableOracles)]
-unconstrained fn oracle_enable_oracles() {}
-
 #[oracle(publicCallNewFlow)]
 unconstrained fn oracle_public_call_new_flow(
     from: AztecAddress,
@@ -288,3 +274,18 @@ unconstrained fn oracle_public_call_new_flow(
     calldata: [Field],
     is_static_call: bool,
 ) -> [Field; 2] {}
+
+#[oracle(enableContextChecks)]
+pub unconstrained fn enable_context_checks() {}
+
+#[oracle(setTopLevelTXEContext)]
+pub unconstrained fn set_top_level_txe_context() {}
+
+#[oracle(setPrivateTXEContext)]
+pub unconstrained fn set_private_txe_context() {}
+
+#[oracle(setPublicTXEContext)]
+pub unconstrained fn set_public_txe_context() {}
+
+#[oracle(setUtilityTXEContext)]
+pub unconstrained fn set_utility_txe_context() {}
