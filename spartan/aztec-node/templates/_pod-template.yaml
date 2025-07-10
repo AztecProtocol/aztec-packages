@@ -3,6 +3,9 @@ metadata:
   labels:
     {{- include "chart.selectorLabels" . | nindent 4 }}
     app: node
+  annotations:
+    {{- /* Recreate the pods on every upgrade in order to refresh configmaps and secrets */}}
+    rollme: {{ randAlphaNum 5 | quote }}
 spec:
   {{- if .Values.serviceAccount.create }}
   serviceAccountName: {{ include "chart.serviceAccountName" . }}
