@@ -71,7 +71,7 @@ const config: Config = {
         docs: {
           path: "docs",
           sidebarPath: "./sidebars.ts",
-          routeBasePath: "/",
+          routeBasePath: "docs",
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -85,8 +85,7 @@ const config: Config = {
           ],
           versions: {
             current: {
-              label: "dev",
-              path: "dev",
+              label: "dev"
             },
           },
           editUrl: (params) => {
@@ -124,6 +123,17 @@ const config: Config = {
         disableInDev: false,
       },
     ],
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          {
+            from: "/",
+            to: "/docs",
+          },
+        ],
+      },
+    ],
 
     apiPlugin,
 
@@ -158,7 +168,7 @@ const config: Config = {
       logo: {
         alt: "Aztec Logo",
         srcDark: "img/logo-light.svg",
-        href: "/",
+        href: "/docs",
         src: "img/logo-dark.svg",
       },
       items: [

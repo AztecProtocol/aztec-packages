@@ -27,3 +27,5 @@ joblog.txt
 
 docs/.yarn/install-state.gz
 docs/docs/protocol-specs/public-vm/gen/
+
+CLAUDE.md

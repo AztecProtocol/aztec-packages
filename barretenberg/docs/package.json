@@ -5,8 +5,7 @@
   "scripts": {
     "docs": "docusaurus start --host ${HOST:-localhost}",
     "dev": "HOST=0.0.0.0 ENV=dev yarn run docs",
-    "build": "docusaurus build",
-    "build:doxygen": "./scripts/doxygen_docs.sh",
+    "build": "./scripts/build_docs.sh && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "./scripts/clean.sh",
@@ -22,6 +21,7 @@
     "axios": "^1.8.3",
     "clsx": "^2.0.0",
     "fs-extra": "^11.3.0",
+    "netlify": "^22.2.2",
     "prism-react-renderer": "^2.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -160,3 +160,115 @@ const api = await Barretenberg.new({
   }
 });
 ```
+
+### Resource Cleanup
+
+Always clean up resources to prevent memory leaks:
+
+```typescript
+const backend = new UltraHonkBackend(bytecode);
+
+try {
+  const proof = await backend.generateProof(witness);
+  return proof;
+} finally {
+  // Essential for preventing memory leaks
+  await backend.destroy();
+}
+```
+
+## Error Handling
+
+```typescript
+import { UltraHonkBackend } from '@aztec/bb.js';
+
+async function generateProofSafely(bytecode: string, witness: Uint8Array) {
+  let backend: UltraHonkBackend | null = null;
+
+  try {
+    backend = new UltraHonkBackend(bytecode, { threads: 4 });
+    const proof = await backend.generateProof(witness);
+    return { success: true, proof };
+  } catch (error) {
+    console.error('Proof generation failed:', error);
+    return { success: false, error: error.message };
+  } finally {
+    if (backend) {
+      await backend.destroy();
+    }
+  }
+}
+```
+
+## Complete Example
+
+Here's a complete example that demonstrates the full proving workflow:
+
+```typescript
+import { UltraHonkBackend, ProofData } from '@aztec/bb.js';
+import { readFileSync } from 'fs';
+import { gunzipSync } from 'zlib';
+
+async function proveAndVerify() {
+  // Load circuit bytecode (from Noir compiler output)
+  const circuitJson = JSON.parse(readFileSync('./target/program.json', 'utf8'));
+  const bytecode = circuitJson.bytecode;
+
+  // Load witness data
+  const witnessBuffer = readFileSync('./target/witness.gz');
+  const witness = gunzipSync(witnessBuffer);
+
+  // Initialize backend
+  const backend = new UltraHonkBackend(
+    bytecode,
+    { threads: 4 }, // Use 4 threads for proving
+    { recursive: false }
+  );
+
+  try {
+    console.log('Generating proof...');
+    const startTime = Date.now();
+
+    // Generate proof with Keccak for EVM verification
+    const proofData: ProofData = await backend.generateProof(witness, {
+      keccak: true
+    });
+
+    const provingTime = Date.now() - startTime;
+    console.log(`Proof generated in ${provingTime}ms`);
+    console.log(`Proof size: ${proofData.proof.length} bytes`);
+    console.log(`Public inputs: ${proofData.publicInputs.length}`);
+
+    // Verify the proof
+    console.log('Verifying proof...');
+    const isValid = await backend.verifyProof(proofData, { keccak: true });
+    console.log(`Proof verification: ${isValid ? 'SUCCESS' : 'FAILED'}`);
+
+    // Get Solidity verifier contract
+    const vk = await backend.getVerificationKey({ keccak: true });
+    const contract = await backend.getSolidityVerifier(vk);
+
+    console.log('Solidity verifier contract generated');
+
+    return {
+      proof: proofData,
+      isValid,
+      contract,
+      provingTime
+    };
+
+  } finally {
+    // Always clean up
+    await backend.destroy();
+  }
+}
+
+// Run the example
+proveAndVerify()
+  .then(result => {
+    console.log('Success!', result);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+```

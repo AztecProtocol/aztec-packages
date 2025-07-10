@@ -26,7 +26,7 @@ function build_and_preview {
   if cache_download bb-docs-$hash.tar.gz; then
     return
   fi
-  denoise "yarn install && yarn docusaurus clear && yarn docusaurus build"
+  denoise "yarn install && yarn build"
   cache_upload bb-docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
