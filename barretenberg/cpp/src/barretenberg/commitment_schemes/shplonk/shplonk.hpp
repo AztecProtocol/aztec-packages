@@ -391,13 +391,6 @@ template <typename Curve> class ShplonkVerifier_ {
     }
 
     /**
-     * @brief Get the z challenge
-     *
-     * @return Fr
-     */
-    Fr get_z_challenge() { return z_challenge; }
-
-    /**
      * Structure used to update the internal state of the Shplonk verifier. It represents a claim which is constructed
      * as a linear combination of the commitments stored by the Shplonk verifier. The structure is composed of:
      *  - A list of indices = \f$(i_1, \dots, i_k)\f$

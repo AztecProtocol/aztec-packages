@@ -91,13 +91,11 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
      * @param table_commitments The commitments to the tables received from the Prover
      * @param opening_claims The opening claims to be verified
      * @param kappa
-     * @param kappa_inv
      *
      */
     PairingPoints verify_claims(std::vector<Commitment>& table_commitments,
                                 const std::vector<Claims>& opening_claims,
-                                const FF& kappa,
-                                const FF& kappa_inv);
+                                const FF& kappa);
 };
 
 } // namespace bb::stdlib::recursion::goblin

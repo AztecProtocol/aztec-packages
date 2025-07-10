@@ -90,27 +90,11 @@ void MergeRecursiveVerifier_<CircuitBuilder>::degree_check(const std::vector<Cla
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_claims(
-    std::vector<Commitment>& table_commitments,
-    const std::vector<Claims>& opening_claims,
-    const FF& kappa,
-    const FF& kappa_inv)
+    std::vector<Commitment>& table_commitments, const std::vector<Claims>& opening_claims, const FF& kappa)
 {
     // Initialize Shplonk verifier
     ShplonkVerifier verifier(table_commitments, transcript, NUM_MERGE_CLAIMS);
-
-    // Get z_challenge and compute vanishing evals
-    const FF shplonk_z_challenge = verifier.get_z_challenge();
-    const FF kappa_vanishing_eval = (shplonk_z_challenge - kappa).invert();
-    const FF kappa_inv_vanishing_eval = (shplonk_z_challenge - kappa_inv).invert();
-
-    // Update state of the verifier
-    static constexpr size_t NUM_KAPPA_INV_CLAIMS = 4;
-    for (size_t idx = 0; idx < NUM_KAPPA_INV_CLAIMS; ++idx) {
-        verifier.update(opening_claims[idx], kappa_inv_vanishing_eval);
-    };
-    for (size_t idx = NUM_KAPPA_INV_CLAIMS; idx < NUM_MERGE_CLAIMS; ++idx) {
-        verifier.update(opening_claims[idx], kappa_vanishing_eval);
-    };
+    verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
 
     // Export batched claim
     auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));
@@ -195,7 +179,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     auto opening_claims = construct_opening_claims(kappa, kappa_inv, pow_kappa);
 
     // Verify the claims
-    auto pairing_points = verify_claims(table_commitments, opening_claims, kappa, kappa_inv);
+    auto pairing_points = verify_claims(table_commitments, opening_claims, kappa);
 
     // Perform degree check
     degree_check(opening_claims, pow_kappa_minus_one);
