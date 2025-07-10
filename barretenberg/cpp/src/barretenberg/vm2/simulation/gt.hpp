@@ -19,7 +19,7 @@ class GreaterThanInterface {
 
 class GreaterThan : public GreaterThanInterface {
   public:
-    GreaterThan(FieldGreaterThan& field_gt,
+    GreaterThan(FieldGreaterThanInterface& field_gt,
                 RangeCheckInterface& range_check,
                 EventEmitterInterface<GreaterThanEvent>& event_emitter)
         : field_gt(field_gt)
@@ -31,8 +31,8 @@ class GreaterThan : public GreaterThanInterface {
     bool gt(const uint128_t& a, const uint128_t& b) override;
 
   private:
-    FieldGreaterThan& field_gt;
-    [[maybe_unused]] RangeCheckInterface& range_check;
+    FieldGreaterThanInterface& field_gt;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<GreaterThanEvent>& events;
 };
 
