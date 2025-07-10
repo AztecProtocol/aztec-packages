@@ -44,67 +44,74 @@ impl Config {
     }
 }
 
-// mod test {
-//     use crate::config::Config;
-//     use aztec::{prelude::AztecAddress, protocol_types::traits::FromField};
+mod test {
+    use crate::config::Config;
+    use aztec::protocol_types::{address::AztecAddress, traits::FromField};
 
-//     global token0: AztecAddress = AztecAddress::from_field(1);
-//     global token1: AztecAddress = AztecAddress::from_field(2);
-//     global token2: AztecAddress = AztecAddress::from_field(3);
+    global token0: AztecAddress = AztecAddress::from_field(1);
+    global token1: AztecAddress = AztecAddress::from_field(2);
+    global token2: AztecAddress = AztecAddress::from_field(3);
+    global fee_collector: AztecAddress = AztecAddress::from_field(4);
+    global fee: u16 = 100; // 1%
 
-//     #[test]
-//     unconstrained fn new_config_valid_inputs() {
-//         let _ = Config::new(token0, token1);
-//     }
+    #[test]
+    unconstrained fn new_config_valid_inputs() {
+        let _ = Config::new(token0, token1, fee_collector, fee);
+    }
 
-//     #[test(should_fail_with = "Tokens must be different")]
-//     unconstrained fn new_config_same_tokens() {
-//         let _ = Config::new(token0, token0);
-//     }
+    #[test(should_fail_with = "Tokens must be different")]
+    unconstrained fn new_config_same_tokens() {
+        let _ = Config::new(token0, token0, fee_collector, fee);
+    }
 
-//     #[test]
-//     unconstrained fn validate_input_tokens_valid() {
-//         let config = Config::new(token0, token1);
+    #[test(should_fail_with = "Fee must be in basis points (0-10000)")]
+    unconstrained fn new_config_invalid_fee() {
+        let _ = Config::new(token0, token1, fee_collector, 10001);
+    }
 
-//         // Test token0 to token1 direction
-//         let is_zero = config.validate_input_tokens_and_get_direction(token0, token1);
-//         assert(is_zero);
+    #[test]
+    unconstrained fn validate_input_tokens_valid() {
+        let config = Config::new(token0, token1, fee_collector, fee);
 
-//         // Test token1 to token0 direction
-//         let is_zero = config.validate_input_tokens_and_get_direction(token1, token0);
-//         assert(!is_zero);
-//     }
+        // Test token0 to token1 direction
+        let is_zero = config.validate_input_tokens_and_get_direction(token0, token1);
+        assert(is_zero);
 
-//     #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
-//     unconstrained fn validate_input_tokens_invalid_bid() {
-//         let config = Config::new(token0, token1);
-//         let _ = config.validate_input_tokens_and_get_direction(token2, token1);
-//     }
+        // Test token1 to token0 direction
+        let is_zero = config.validate_input_tokens_and_get_direction(token1, token0);
+        assert(!is_zero);
+    }
 
-//     #[test(should_fail_with = "ASK_TOKEN_IS_INVALID")]
-//     unconstrained fn validate_input_tokens_invalid_ask() {
-//         let config = Config::new(token0, token1);
-//         let _ = config.validate_input_tokens_and_get_direction(token0, token2);
-//     }
+    #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
+    unconstrained fn validate_input_tokens_invalid_bid() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let _ = config.validate_input_tokens_and_get_direction(token2, token1);
+    }
 
-//     #[test(should_fail_with = "SAME_TOKEN_TRADE")]
-//     unconstrained fn validate_input_tokens_same_token() {
-//         let config = Config::new(token0, token1);
-//         let _ = config.validate_input_tokens_and_get_direction(token0, token0);
-//     }
+    #[test(should_fail_with = "ASK_TOKEN_IS_INVALID")]
+    unconstrained fn validate_input_tokens_invalid_ask() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let _ = config.validate_input_tokens_and_get_direction(token0, token2);
+    }
 
-//     #[test]
-//     unconstrained fn get_tokens_correct_order() {
-//         let config = Config::new(token0, token1);
+    #[test(should_fail_with = "SAME_TOKEN_TRADE")]
+    unconstrained fn validate_input_tokens_same_token() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let _ = config.validate_input_tokens_and_get_direction(token0, token0);
+    }
 
-//         let is_zero = config.validate_input_tokens_and_get_direction(token0, token1);
-//         let (bid, ask) = config.get_tokens(is_zero);
-//         assert(bid == token0);
-//         assert(ask == token1);
+    #[test]
+    unconstrained fn get_tokens_correct_order() {
+        let config = Config::new(token0, token1, fee_collector, fee);
 
-//         let is_zero = config.validate_input_tokens_and_get_direction(token1, token0);
-//         let (bid, ask) = config.get_tokens(is_zero);
-//         assert(bid == token1);
-//         assert(ask == token0);
-//     }
-// }
+        let is_zero = config.validate_input_tokens_and_get_direction(token0, token1);
+        let (bid, ask) = config.get_tokens(is_zero);
+        assert(bid == token0);
+        assert(ask == token1);
+
+        let is_zero = config.validate_input_tokens_and_get_direction(token1, token0);
+        let (bid, ask) = config.get_tokens(is_zero);
+        assert(bid == token1);
+        assert(ask == token0);
+    }
+}

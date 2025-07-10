@@ -1,6 +1,14 @@
 import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/accounts/testing';
-import type { AztecNode } from '@aztec/aztec.js';
-import { type AccountWallet, type FieldLike, Fr, type Logger, type PXE, deriveKeys, sleep } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type AztecNode,
+  type FieldLike,
+  Fr,
+  type Logger,
+  type PXE,
+  deriveKeys,
+  sleep,
+} from '@aztec/aztec.js';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { ClosedSetOrderbookContract } from '@aztec/noir-contracts.js/ClosedSetOrderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
