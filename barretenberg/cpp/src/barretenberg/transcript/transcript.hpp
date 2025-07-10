@@ -452,11 +452,10 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     Fr hash_independent_buffer(const std::string& label)
     {
-        Fr new_challenge = TranscriptParams::hash(independent_hash_buffer);
-        std::array<Fr, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
+        Fr buffer_hash = TranscriptParams::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
-        add_to_hash_buffer(label, new_challenge);
-        return new_challenges[0];
+        add_to_hash_buffer(label, buffer_hash);
+        return buffer_hash;
     }
 
     /**

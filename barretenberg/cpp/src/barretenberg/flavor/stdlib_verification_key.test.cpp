@@ -39,8 +39,8 @@ using FlavorTypes = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
 TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_hash_to_transcript.
+ * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
+ * same as the hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
@@ -68,9 +68,9 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     std::vector<FF> vk_field_elements = vk.to_field_elements();
     StdlibTranscript transcript;
     for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_hash_buffer("vk_element", field_element);
+        transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    FF vkey_hash_1 = transcript.template get_challenge<FF>("vk_hash");
+    FF vkey_hash_1 = transcript.hash_independent_buffer("vk_hash");
     // Second method of hashing: using hash().
     FF vkey_hash_2 = vk.hash(outer_builder);
     EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());

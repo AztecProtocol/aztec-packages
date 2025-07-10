@@ -360,6 +360,7 @@ describe('SequencerPublisher', () => {
         data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [EthAddress.random().toString()] }),
       },
       lastValidL2Slot: 1n,
+      checkSuccess: () => true,
     });
 
     const resultPromise = publisher.sendRequests();

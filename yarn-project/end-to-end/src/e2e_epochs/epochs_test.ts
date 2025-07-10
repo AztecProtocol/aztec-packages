@@ -4,7 +4,7 @@ import {
   type Logger,
   MerkleTreeId,
   type Wallet,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   getTimestampRangeForEpoch,
   retryUntil,
   sleep,
@@ -324,7 +324,7 @@ export class EpochsTestContext {
 
   /** Registers the SpamContract on the given wallet. */
   public async registerSpamContract(wallet: Wallet, salt = Fr.ZERO) {
-    const instance = await getContractInstanceFromDeployParams(SpamContract.artifact, {
+    const instance = await getContractInstanceFromInstantiationParams(SpamContract.artifact, {
       constructorArgs: [],
       constructorArtifact: undefined,
       salt,
