@@ -14,8 +14,8 @@ import { setup, setupPXEService } from './fixtures/utils.js';
 const TIMEOUT = 120_000;
 const CHANGE_CONFIG_DELAY = 60 * 60 * 24;
 
-// TODO(#14525): Write thorough ClosedSetOrderbook tests. Currently we test only a happy path here because we will
-// migrate these tests to TXE once TXE 2.0 is ready.
+// We test only the happy path here because we don't care that much about the orderbook being super robust as we
+// implemented it just to test different kinds of flows.
 describe('ClosedSetOrderbook', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -73,10 +73,6 @@ describe('ClosedSetOrderbook', () => {
       ({ pxe: takerPxe, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
       const takerAccount = await deployFundedSchnorrAccount(takerPxe, initialFundedAccounts[2]);
       taker = await takerAccount.getWallet();
-
-      /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
-      What is a more robust solution? */
-      await sleep(5000);
     }
 
     // FEE COLLECTOR ACCOUNT SETUP
@@ -86,17 +82,22 @@ describe('ClosedSetOrderbook', () => {
       ({ pxe: feeCollectorPxe, teardown: teardownC } = await setupPXEService(aztecNode, {}, undefined, true));
       const feeCollectorAccount = await deployFundedSchnorrAccount(feeCollectorPxe, initialFundedAccounts[3]);
       feeCollector = await feeCollectorAccount.getWallet();
-
-      /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
-      What is a more robust solution? */
-      await sleep(5000);
     }
 
+    // Note: I am not sure if the following is needed but it was present in the e2e_2_pxes.test.ts so I better just
+    // copied it here since we are also dealing with multiple PXEs.
+    /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
+      What is a more robust solution? */
+    await sleep(5000);
+
     {
+      // Taker sends the ask token to the maker so we need to register the taker as a sender in maker's PXE.
       await makerPxe.registerSender(taker.getAddress());
+      // We need to register the maker as a sender in taker's PXE even though none of the notes are sent from maker to
+      // taker because we need to discover the notes sent from maker to the orderbook contract.
       await takerPxe.registerSender(maker.getAddress());
-      // We need to register the admin wallet as a sender for taker and fee collector such that their PXEs know that they need to sync
-      // the minted token notes (admin is set as sender there).
+      // We need to register the admin wallet as a sender for taker and fee collector such that their PXEs know that
+      // they need to sync the minted token notes (admin is set as sender there).
       await takerPxe.registerSender(adminWallet.getAddress());
     }
 

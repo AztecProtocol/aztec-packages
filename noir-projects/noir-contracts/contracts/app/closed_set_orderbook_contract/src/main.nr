@@ -156,6 +156,9 @@ pub contract ClosedSetOrderbook {
             .transfer_in_private(taker, order.maker, order.ask_amount, authwit_nonce)
             .call(&mut context);
 
+        // Note that we cannot use the hyper-optimized `Token::transfer` function to perform the following 2 transfers
+        // because we need constrained delivery.
+
         // Transfer the bid_amount minus fee from this contract's private balance to the taker
         Token::at(bid_token)
             .transfer_in_private(context.this_address(), taker, taker_amount, 0)
