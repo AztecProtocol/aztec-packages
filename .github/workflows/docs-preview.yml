@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         docs:
-          - name: "aztec"
+          - name: "aztec-docs-dev"
             path: "docs"
             changed: "${{ needs.check-changes.outputs.aztec }}"
           - name: "barretenberg"
@@ -113,14 +113,14 @@ jobs:
           yarn install
           yarn build
 
-          if ! deploy_output=$(yarn netlify deploy --site ${{ matrix.docs.name }}-docs-dev 2>&1); then
+          if ! deploy_output=$(yarn netlify deploy --site ${{ matrix.docs.name }} 2>&1); then
             echo "Netlify deploy failed with error:"
             echo "$deploy_output"
             exit 1
           fi
 
           # Extract preview URL.
-          docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*${{ matrix.docs.name }}-docs-dev.netlify.app" | awk '{print $4}')
+          docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*${{ matrix.docs.name }}.netlify.app" | awk '{print $4}')
           if [ -z "$docs_preview_url" ]; then
             echo "Failed to extract preview URL from Netlify output."
           else
