@@ -223,7 +223,7 @@ mod tests {
             Self {
                 previous_kernel,
                 transient_data_index_hints: [
-                    TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
+                    TransientDataIndexHint::skip(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                          TRANSIENT_DATA_SQUASHING_HINTS_LEN
                     ],
                 note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),

@@ -59,7 +59,7 @@ impl ResetOutputValidatorBuilder {
         let nullifier_read_request_hints_builder = NullifierReadRequestHintsBuilder::new();
         let key_validation_hints = [KeyValidationHint::empty(); KEY_VALIDATION_HINTS_LEN];
         let transient_data_index_hints = [
-            TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
+            TransientDataIndexHint::skip(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                  TRANSIENT_DATA_SQUASHING_HINTS_LEN
             ];
 

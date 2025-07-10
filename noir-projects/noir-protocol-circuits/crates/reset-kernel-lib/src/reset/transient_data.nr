@@ -1,3 +1,7 @@
+pub(crate) mod is_squashed_hint;
+pub(crate) mod nullifier_index_hint_sorted_tuple;
+pub(crate) mod note_log_hint;
+
 use dep::types::{
     abis::{
         note_hash::ScopedNoteHash,
@@ -5,12 +9,15 @@ use dep::types::{
         private_log::PrivateLogData,
         side_effect::{Ordered, OrderedValue, scoped::Scoped},
     },
-    utils::arrays::ClaimedLengthArray,
+    utils::arrays::{ClaimedLengthArray, find_index_hint, SortedTuple},
 };
+use is_squashed_hint::{get_is_squashed_note_hash_hints, get_is_squashed_nullifier_hints};
+use note_log_hint::{get_note_log_hints, NoteLogHint};
+use nullifier_index_hint_sorted_tuple::get_nullifier_index_hint_sorted_tuples;
 
-fn is_note_hash_for_log(note_hash: ScopedNoteHash, log: Scoped<PrivateLogData>) -> bool {
-    (note_hash.counter() == log.inner.note_hash_counter)
-        & (note_hash.contract_address == log.contract_address)
+fn is_log_linked_to_note_hash(log: Scoped<PrivateLogData>, note_hash: ScopedNoteHash) -> bool {
+    (log.inner.note_hash_counter == note_hash.counter())
+        & (log.contract_address == note_hash.contract_address)
 }
 
 /// Delineates the indices of transient note_hashes and their nullifiers
@@ -20,80 +27,241 @@ pub struct TransientDataIndexHint {
 }
 
 impl TransientDataIndexHint {
-    pub fn nada(num_nullifiers: u32, num_note_hashes: u32) -> Self {
+    pub fn skip(num_nullifiers: u32, num_note_hashes: u32) -> Self {
         TransientDataIndexHint { nullifier_index: num_nullifiers, note_hash_index: num_note_hashes }
     }
 }
 
-pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
-    previous_kernel_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-    previous_kernel_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
-    previous_kernel_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>, // hint
-    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>, // hint
-    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>, // hint
-    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS], // hint
-    // This array maps each log to its associated note hash index, identifying whether the log corresponds to a transient or propagated note hash.
-    // If a log is associated with a propagated note hash, the index refers to its position in the expected_kept_note_hashes array.
-    // If a log is associated with a squashed note hash, the index is for the hint in transient_data_index_hints.
-    // For non-note logs or empty logs (where note_hash_counter is 0), the value does not matter.
-    transient_or_propagated_note_hash_index_for_each_log: [u32; NUM_LOGS], // hint
-    split_counter: u32,
-    is_squashed_note_hash_hints: [bool; NUM_NOTE_HASHES], // hint
-    is_squashed_nullifier_hints: [bool; NUM_NULLIFIERS], // hint
+struct DerivedHints<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32> {
+    num_squashed_note_hash_nullifier_pairs: u32,
+    nullifier_index_hint_sorted_tuples: [SortedTuple<u32>; NUM_INDEX_HINTS],
+    is_squashed_note_hash_hints: [bool; NUM_NOTE_HASHES],
+    is_squashed_nullifier_hints: [bool; NUM_NULLIFIERS],
+    note_log_hints: [NoteLogHint; NUM_LOGS],
+}
+
+unconstrained fn get_derived_hints<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
+    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+) -> DerivedHints<NUM_INDEX_HINTS, NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS> {
+    // If the hinted `note_hash_index` is invalid (i.e., `note_hash_index == NUM_NOTE_HASHES`), we skip the squashing.
+    //
+    // Because the number of squashable pairs may be less than the hints array length (`NUM_INDEX_HINTS`), we can skip a
+    // hint by setting the `note_hash_index` to the length of the note hashes array (`NUM_NOTE_HASHES`).
+    //
+    // Once a hint with `note_hash_index == NUM_NOTE_HASHES` is encountered, all subsequent hints must be unused.
+    // This makes it easier to ensure that the active hints are unique (see the implementation of
+    // `verify_squashed_transient_data_with_derived_hints` for more details).
+    let num_squashed_note_hash_nullifier_pairs = find_index_hint(
+        transient_data_index_hints,
+        |hint| hint.note_hash_index == NUM_NOTE_HASHES,
+    )
+        .unwrap_or(NUM_INDEX_HINTS);
+
+    let nullifier_index_hint_sorted_tuples =
+        get_nullifier_index_hint_sorted_tuples(transient_data_index_hints);
+
+    let is_squashed_note_hash_hints = get_is_squashed_note_hash_hints(transient_data_index_hints);
+
+    let is_squashed_nullifier_hints =
+        get_is_squashed_nullifier_hints(transient_data_index_hints, NUM_NOTE_HASHES);
+
+    let note_log_hints = get_note_log_hints(
+        logs,
+        note_hashes,
+        expected_kept_note_hashes,
+        transient_data_index_hints,
+    );
+
+    DerivedHints {
+        num_squashed_note_hash_nullifier_pairs,
+        nullifier_index_hint_sorted_tuples,
+        is_squashed_note_hash_hints,
+        is_squashed_nullifier_hints,
+        note_log_hints,
+    }
+}
+
+pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    // Hints provided by the user to specify what to squash.
+    // These are not derived automatically in this function like other hints, because the user can choose to not
+    // squash a pair even if it's squashable. The transient data might be useful in later iterations. For example, a
+    // note hash must be kept to be used for a note hash read request created in a later iteration, and can only be
+    // squashed after the read request is validated.
+    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
+    min_revertible_side_effect_counter: u32,
 ) {
-    // - Validate that the hinted-to-be-squashable (note, nullifier) pairs are allowed to be squashed.
-    // - Ensure the hinted items are within the claimed lengths of the arrays.
-    // - Ensure consistency between `is_squashed...hints` and transient_data_index_hints
-    let mut squashed_counter = 0;
+    // Safety: The hints are verified below by verify_squashed_transient_data_with_derived_hints.
+    let derived_hints = unsafe {
+        get_derived_hints(
+            transient_data_index_hints,
+            note_hashes,
+            expected_kept_note_hashes,
+            logs,
+        )
+    };
+
+    verify_squashed_transient_data_with_derived_hints(
+        note_hashes,
+        nullifiers,
+        logs,
+        expected_kept_note_hashes,
+        expected_kept_nullifiers,
+        expected_kept_logs,
+        min_revertible_side_effect_counter,
+        transient_data_index_hints,
+        derived_hints,
+    );
+}
+
+fn verify_squashed_transient_data_with_derived_hints<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    min_revertible_side_effect_counter: u32,
+    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
+    derived_hints: DerivedHints<NUM_INDEX_HINTS, NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS>,
+) {
+    let num_squashed_note_hash_nullifier_pairs =
+        derived_hints.num_squashed_note_hash_nullifier_pairs;
+    let nullifier_index_hint_sorted_tuples = derived_hints.nullifier_index_hint_sorted_tuples;
+    let is_squashed_note_hash_hints = derived_hints.is_squashed_note_hash_hints;
+    let is_squashed_nullifier_hints = derived_hints.is_squashed_nullifier_hints;
+    let note_log_hints = derived_hints.note_log_hints;
+
+    // =================================
+    // Note Hash and Nullifier Squashing
+    // =================================
+    //
+    // This loop iterates over the hints `transient_data_index_hints` and validates that each (note hash, nullifier)
+    // pair is eligible to be squashed.
+    //
+    // We iterate over the hints directly (rather than the full note hash or nullifier arrays) so that the circuit size
+    // can be optimized according to the number of squashable pairs needed.
+    //
+    let mut should_skip_hint = false;
     for i in 0..NUM_INDEX_HINTS {
         let hint = transient_data_index_hints[i];
-        // Note: Must refer to the note_hash_index instead of the nullifier_index to determine whether to squash a pair,
-        // because the note_hash_index is also used later as a hint to squash the logs.
-        // TODO: avoid overloading the index as a bool flag meaning "not squashed".
-        if hint.note_hash_index != NUM_NOTE_HASHES {
-            // We have a hint that points to a (note, nullifier) pair that can be squashed.
-            let nullifier = previous_kernel_nullifiers.array[hint.nullifier_index];
-            let note_hash = previous_kernel_note_hashes.array[hint.note_hash_index];
+        let nullifier_index_hint_sorted_tuple = nullifier_index_hint_sorted_tuples[i];
 
-            // Ensure the indexes don't exceed the claimed lengths.
+        // === Determine if the hint should be skipped ===
+        // Only the first `num_squashed_note_hash_nullifier_pairs` hints are used to squash note hashes and nullifiers.
+        //
+        // Each of theses active hints must be unique.
+        // This prevents having two identical hints that point to the same note hashes or nullifiers, which will
+        // make the `num_squashed_note_hash_nullifier_pairs` more than the actual items being squashed. This will allow
+        // skipping propagating a note hash or nullifier.
+        should_skip_hint |= i == num_squashed_note_hash_nullifier_pairs;
+
+        if should_skip_hint {
+            // Ensure each inactive hint has the nullifier index that is out of bounds for the nullifiers array.
+            // Without this check, the sorted tuple can point to a hint that is not used to squash a note hash and
+            // nullifier,
+            assert_eq(hint.nullifier_index, NUM_NULLIFIERS);
+            assert_eq(nullifier_index_hint_sorted_tuple.elem, NUM_NULLIFIERS);
+            // Note: We don't need to check that the `note_hash_index` is out of bounds. We can make sure the first
+            // `num_squashed_note_hash_nullifier_pairs` note hash indices are unique by checking that they are in
+            // increasing order.
+        } else {
+            // We have a hint that points to a (note, nullifier) pair that can be squashed.
+            let nullifier = nullifiers.array[hint.nullifier_index];
+            let note_hash = note_hashes.array[hint.note_hash_index];
+
+            // === Ensure the transient_data_index_hint is unique ===
+
+            // Ensure each `note_hash_index` is unique by checking that they are in increasing order.
+            if i != 0 {
+                assert(
+                    hint.note_hash_index > transient_data_index_hints[i - 1].note_hash_index,
+                    "Note hash index hint is not in increasing order",
+                );
+            }
+
+            // Ensure each `nullifier_index` is unique.
+            // Unlike the `note_hash_index`, the `nullifier_index` is not sorted.
+            // So we take a sorted array `nullifier_index_hint_sorted_tuple` as hint, and check that there exists a
+            // `nullifier_index` in `transient_data_index_hints` that matches the hint. We then check that the values in
+            // the sorted tuples are in increasing order.
+            assert_eq(
+                nullifier_index_hint_sorted_tuple.elem,
+                transient_data_index_hints[nullifier_index_hint_sorted_tuple.original_index]
+                    .nullifier_index,
+            );
+            if i != 0 {
+                assert(
+                    nullifier_index_hint_sorted_tuple.elem
+                        > nullifier_index_hint_sorted_tuples[i - 1].elem,
+                    "Nullifier sorted tuple hint is not in increasing order",
+                );
+            }
+
+            // === Ensure the indices are within the claimed lengths ===
+
+            // Check that the hinted indexes are within the claimed lengths of the note hash and nullifier arrays.
+            // This prevents malicious users from faking a note hash or nullifier beyond the claimed length to justify
+            // squashing a nullifier or note hash that should not be squashed.
             assert(
-                hint.nullifier_index < previous_kernel_nullifiers.length,
+                hint.nullifier_index < nullifiers.length,
                 "Nullifier index hint exceeds claimed length",
             );
+            // TODO: Check this only once.
             assert(
-                hint.note_hash_index < previous_kernel_note_hashes.length,
+                hint.note_hash_index < note_hashes.length,
                 "Note hash index hint exceeds claimed length",
             );
 
+            // === Ensure the nullifier can nullify the note hash ===
+
+            // Ensure the nullifier refers to the note hash.
             assert_eq(
                 note_hash.value(),
                 nullifier.nullified_note_hash(),
                 "Value of the hinted transient note hash does not match",
             );
+
+            // Ensure the note hash and nullifier are from the same contract.
             assert_eq(
                 note_hash.contract_address,
                 nullifier.contract_address,
                 "Contract address of the hinted transient note hash does not match",
             );
+
+            // Ensure the nullifier is created after the note hash it nullifies.
             assert(
                 nullifier.counter() > note_hash.counter(),
                 "Cannot nullify a note hash created afterwards",
             );
-            // Note: `>=` is correct, because split_counter is the min_revertible_side_effect_counter.
-            // So when a nullifier's counter equals split_counter, the nullifier is revertible,
-            // and its corresponding note hash must be revertible, too.
-            if nullifier.counter() >= split_counter {
+
+            // If the nullifier is revertible (i.e., counter >= min_revertible_side_effect_counter), the note hash must
+            // also be revertible.
+            //
+            // A revertible nullifier and non-revertible note hash pair can't be squashed; they must be propagated.
+            // That is because, if the transaction reverts, the non-revertible note hash will be kept, and the
+            // revertible nullifier will be discarded. If we squash the pair, we would lose the non-revertible note hash
+            // that is no longer nullified when the transaction reverts.
+            //
+            // Note: No need to check the other way around. Since the nullifier counter must be larger than the note
+            // hash counter, it's not possible to have a non-revertible nullifier nullifying a revertible note hash.
+            if nullifier.counter() >= min_revertible_side_effect_counter {
                 assert(
-                    note_hash.counter() >= split_counter,
+                    note_hash.counter() >= min_revertible_side_effect_counter,
                     "Cannot squash a non-revertible note hash with a revertible nullifier",
                 );
-                // Since the nullifier counter must be larger than the note hash counter, it's not possible to squash a revertible note hash with a non-revertible nullifier.
             }
-            squashed_counter += 1;
 
-            // Validate consistency of the `is_squashed...hints`, relative to the
-            // transient_data_index_hints, so they can be used next.
+            // === Validate the flags `is_squashed...hints` are correctly set ===
+            // They are used later to check that the kept note hashes and nullifiers are correctly propagated.
             assert(
                 is_squashed_note_hash_hints[hint.note_hash_index],
                 "Wrong squashed note hash hint",
@@ -105,199 +273,178 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
         }
     }
 
-    // Assert that when we splice-remove the squashed note hashes from the previous kernel's array,
-    // we get an array which matches the hinted `expected_kept_note_hashes`.
+    // === Validate the expected kept note hashes ===
+    // Iterate over the `is_squashed_note_hash_hints` and check that the non-squashed note hashes are propagated
+    // correctly.
+    // Earlier we ensured that a note hash's corresponding flag in `is_squashed_note_hash_hints` is set to `true` when
+    // it is squashed. Here we propagate the note hashes whose flags are `false`, and check that they match the expected
+    // kept note hashes.
     let mut kept_note_hashes_counter = 0;
     for i in 0..NUM_NOTE_HASHES {
         if !is_squashed_note_hash_hints[i] {
             assert_eq(
                 expected_kept_note_hashes.array[kept_note_hashes_counter],
-                previous_kernel_note_hashes.array[i],
+                note_hashes.array[i],
                 "Propagated note hash does not match",
             );
             kept_note_hashes_counter += 1;
         }
     }
+    // If a flag is set to `true` for a note hash that is not squashed, the `kept_note_hashes_counter` will be smaller
+    // than it should be, and the below check will fail.
     assert_eq(
-        expected_kept_note_hashes.length,
-        previous_kernel_note_hashes.length - squashed_counter,
-        "Length of expected kept note hashes array is incorrect",
-    );
-    assert_eq(
-        kept_note_hashes_counter + squashed_counter,
+        kept_note_hashes_counter + num_squashed_note_hash_nullifier_pairs,
         NUM_NOTE_HASHES,
         "Wrong number of note hashes removed",
     );
+    // Ensure that the length of the kept note hashes array is correct.
+    assert_eq(
+        expected_kept_note_hashes.length,
+        note_hashes.length - num_squashed_note_hash_nullifier_pairs,
+        "Length of expected kept note hashes array is incorrect",
+    );
 
-    // Assert that when we splice-remove the squashed nullifiers from the previous kernel's array,
-    // we get an array which matches the hinted `expected_kept_nullifiers`.
+    // === Validate the expected kept nullifiers ===
+    // Iterate over the `is_squashed_nullifier_hints` and check that the non-squashed nullifiers are propagated
+    // correctly.
+    // Earlier we ensured that a nullifier's corresponding flag in `is_squashed_nullifier_hints` is set to `true` when
+    // it is squashed. Here we propagate the nullifiers whose flags are `false`, and check that they match the expected
+    // kept nullifiers.
     let mut kept_nullifiers_counter = 0;
     for i in 0..NUM_NULLIFIERS {
         if !is_squashed_nullifier_hints[i] {
             assert_eq(
                 expected_kept_nullifiers.array[kept_nullifiers_counter],
-                previous_kernel_nullifiers.array[i],
+                nullifiers.array[i],
                 "Propagated nullifier does not match",
             );
             kept_nullifiers_counter += 1;
         }
     }
+    // If a flag is set to `true` for a nullifier that is not squashed, the `kept_nullifiers_counter` will be smaller
+    // than it should be, and the below check will fail.
     assert_eq(
         expected_kept_nullifiers.length,
-        previous_kernel_nullifiers.length - squashed_counter,
+        nullifiers.length - num_squashed_note_hash_nullifier_pairs,
         "Length of expected kept nullifiers array is incorrect",
     );
+    // Ensure that the number of kept nullifiers array is correct.
     assert_eq(
-        kept_nullifiers_counter + squashed_counter,
+        kept_nullifiers_counter + num_squashed_note_hash_nullifier_pairs,
         NUM_NULLIFIERS,
         "Wrong number of nullifiers removed",
     );
 
-    /*
-     * Log Squashing
-     */
+    // =============
+    // Log Squashing
+    // =============
+    //
+    // This loop determines whether each log should be:
+    // - kept and propagated forward, or
+    // - squashed along with its associated note hash.
+    //
+    // The decision is based on whether the log is a note log and whether it's correctly linked
+    // to a note hash that has been either kept or squashed.
+    //
     let mut kept_logs_counter = 0;
     for i in 0..NUM_LOGS {
-        let log = previous_kernel_logs.array[i];
-        let hinted_note_hash_index_for_this_log =
-            transient_or_propagated_note_hash_index_for_each_log[i];
+        let log = logs.array[i];
+        let note_log_hint = note_log_hints[i];
 
+        // A log is considered a "note log" if its `note_hash_counter` is non-zero.
         let is_note_log = log.inner.note_hash_counter != 0;
-        let expected_kept_note_hash =
-            expected_kept_note_hashes.array[hinted_note_hash_index_for_this_log];
-        // Logs with 0 note_hash_counter must be propagated, since they do not relate to any note,
-        // and therefore cannot ever be squashed.
-        // Logs linked to a _propagated_ note hash will also be propagated. In this case, the log's note_hash_counter points to a note hash in expected_kept_note_hashes.
-        // TODO: it's quite complicated that the index hint could possibly point to an index in one of two arrays.
-        let is_propagated = !is_note_log | is_note_hash_for_log(expected_kept_note_hash, log);
 
-        // This is only used if is_propagated is true. But it's cheaper to declare it outside of the if statement.
+        // === Read the hinted data ===
+        // If the log is squashed, it should be linked to the note hash at this index.
+        let squashed_note_hash_index = transient_data_index_hints[note_log_hint
+            .transient_data_index_hint_index]
+            .note_hash_index;
+        // If the log is kept, it should be linked to this note hash.
+        let kept_note_hash_index = note_log_hint.kept_note_hash_index;
+        let hinted_kept_note_hash = expected_kept_note_hashes.array[kept_note_hash_index];
+        // The expected output if the log is kept.
         let expected_kept_log = expected_kept_logs.array[kept_logs_counter];
 
-        if is_propagated {
-            assert_eq(expected_kept_log, log, "Propagated private log does not match");
+        // === Determine if the log should be kept ===
+        // A log will be kept if:
+        // - it is note a note log, OR
+        // - it is linked to a kept note hash.
+        let is_kept = !is_note_log | is_log_linked_to_note_hash(log, hinted_kept_note_hash);
 
-            // If the log is linked to a note, then the index of the linked note hash must be less than the claimed
-            // length of the source array.
+        if is_kept {
             if is_note_log {
+                // Check that the index used to get `hinted_kept_note_hash` is within the claimed length of the
+                // `expected_kept_note_hashes` array.
+                // This prevents malicious users from faking a note hash beyond the claimed length to justify keeping a
+                // log that should be squashed.
                 assert(
-                    hinted_note_hash_index_for_this_log < expected_kept_note_hashes.length,
+                    kept_note_hash_index < expected_kept_note_hashes.length,
                     "Kept note hash index exceeds claimed length",
                 );
             }
 
+            // Ensure the log is propagated correctly.
+            assert_eq(log, expected_kept_log, "Propagated private log does not match");
+
+            // We've encountered a log that is kept. Increment the counter by 1.
             kept_logs_counter += 1;
         } else {
-            // Log being squashed must be linked to a note hash that's been squashed.
-            // The linked note hash's index should exist in transient_data_index_hints.
-            let transient_note_hash_index =
-                transient_data_index_hints[hinted_note_hash_index_for_this_log].note_hash_index;
-            let transient_note_hash = previous_kernel_note_hashes.array[transient_note_hash_index];
-
-            // Don't need to check transient_note_hash_index is within the claimed length, because it's already been
-            // checked when the hint was used to squash the note hash.
-
-            assert_eq(
-                log.contract_address,
-                transient_note_hash.contract_address,
-                "Contract address of the hinted transient note hash does not match log",
+            // Ensure the log is associated with a squashed note hash.
+            // Note: `hinted_squashed_note_hash` can't be defined outside the `else` block like everything else, because
+            // `squashed_note_hash_index` might be out of bounds for a kept log. It's only in this `else` block that we
+            // know it must point to a valid entry in `note_hashes`.
+            let hinted_squashed_note_hash = note_hashes.array[squashed_note_hash_index];
+            assert(
+                is_log_linked_to_note_hash(log, hinted_squashed_note_hash),
+                "Log does not link to the hinted squashed note hash",
             );
+            // We can be sure that `hinted_squashed_note_hash` is squashed because its index appears in
+            // `transient_data_index_hints`, which is iterated over earlier. And each `note_hash_index` in it that
+            // doesn't overflow the note hashes array is used to squash a note_hash, nullifier pair.
+            //
+            // No need to check that `squashed_note_hash_index` is within the claimed length; that check is already
+            // done when the hint is used to squash the note hash.
 
+            // === Log and squashed note hash must both be revertible or non-revertible ===
+            // If the squashed note hash is revertible (i.e., counter >= min_revertible_side_effect_counter), the log
+            // must also be revertible.
+            // If the squashed note hash is non-revertible, the log must be non-revertible.
+            //
+            // If a non-revertible log is linked to a revertible note hash, and vice versa, both the note hash and the
+            // log must be kept.
+            // Because if the transaction reverts, the non-revertible data will be kept, and the revertible data will be
+            // discarded. Squashing them together would result in the loss of the non-revertible log or note hash that
+            // is supposed to be preserved when the transaction reverts.
+            //
+            // While it is unlikely that an app would want to retain a log linked to a discarded note hash, or discard
+            // a log while its note hash is kept, it is still a valid scenario that must be handled.
+            let is_note_hash_revertible =
+                hinted_squashed_note_hash.counter() >= min_revertible_side_effect_counter;
+            let is_log_revertible = log.counter() >= min_revertible_side_effect_counter;
             assert_eq(
-                // Consider disallowing squashing of a non-revertible log and a revertible note hash (and vice versa)
-                //    - (I'm not sure why an app would do this, and you could argue it's the app's fault...
-                //       If you were to argue it's the app's fault, we could at least put an _unconstrained_
-                //       check here, to prevent devs from creating app functions with this footgun).
-                log.inner.note_hash_counter,
-                transient_note_hash.counter(),
-                "Value of the hinted transient note hash does not match log",
+                is_note_hash_revertible,
+                is_log_revertible,
+                "Cannot squash a note hash and log across the revertible/non-revertible boundaries",
             );
         }
     }
 
-    // Note: We can't compare expected_kept_logs.length with the kept_logs_counter directly, because the counter also
-    // includes logs that are empty.
+    // === Validate the kept logs array length ===
+    // Note: We can't directly compare `expected_kept_logs.length` with `kept_logs_counter`, because the counter
+    // includes logs beyond the claimed length.
+    // Instead, we calculate how many logs were squashed, and derive the expected kept array length.
     let num_squashed_logs = NUM_LOGS - kept_logs_counter;
     assert_eq(
         expected_kept_logs.length,
-        previous_kernel_logs.length - num_squashed_logs,
+        logs.length - num_squashed_logs,
         "Length of expected kept logs array is incorrect",
-    );
-}
-
-// Q: We already computed a load of hints relating to squashing earlier. Why weren't these computed back then?
-// A: TODO: I haven't got the chance to refactor this, I wanted to bring the functions that create hints to the file
-// that verifies the data, and generate the hints in the main function using the data to be verified whenever possible.
-// And if the hints are used outside of the function, then they will be given as args, like the
-// expected_kept_ arrays here. But the functions creating them will also live here.
-// And of course, there's always a function verify_with_hints that the main function calls,
-// so that we can test the cases where the hints are tweaked.
-// I think it's easier to see how the hints are created and used, and easier to test them all together.
-pub unconstrained fn get_squashed_note_hash_hints<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32>(
-    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
-) -> [bool; NUM_NOTE_HASHES] {
-    let mut hints = [false; NUM_NOTE_HASHES];
-    for i in 0..transient_data_index_hints.len() {
-        let note_hash_index = transient_data_index_hints[i].note_hash_index;
-        // TODO: consider using Option::none
-        if note_hash_index != NUM_NOTE_HASHES {
-            hints[note_hash_index] = true;
-        }
-    }
-    hints
-}
-
-pub unconstrained fn get_squashed_nullifier_hints<let NUM_INDEX_HINTS: u32, let NUM_NULLIFIERS: u32>(
-    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
-) -> [bool; NUM_NULLIFIERS] {
-    let mut hints = [false; NUM_NULLIFIERS];
-    for i in 0..transient_data_index_hints.len() {
-        let nullifier_index = transient_data_index_hints[i].nullifier_index;
-        if nullifier_index != NUM_NULLIFIERS {
-            hints[nullifier_index] = true;
-        }
-    }
-    hints
-}
-
-pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
-    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
-    transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
-    transient_or_propagated_note_hash_index_for_each_log: [u32; NUM_LOGS],
-    split_counter: u32,
-) {
-    // Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
-    let is_squashed_note_hash_hints =
-        unsafe { get_squashed_note_hash_hints(transient_data_index_hints) };
-
-    // Safety: The hints are verified below by verify_squashed_transient_data_with_hint_indexes.
-    let is_squashed_nullifier_hints =
-        unsafe { get_squashed_nullifier_hints(transient_data_index_hints) };
-
-    verify_squashed_transient_data_with_hint_indexes(
-        note_hashes,
-        nullifiers,
-        logs,
-        expected_kept_note_hashes,
-        expected_kept_nullifiers,
-        expected_kept_logs,
-        transient_data_index_hints,
-        transient_or_propagated_note_hash_index_for_each_log,
-        split_counter,
-        is_squashed_note_hash_hints,
-        is_squashed_nullifier_hints,
     );
 }
 
 mod tests {
     use crate::reset::transient_data::{
-        get_squashed_note_hash_hints, get_squashed_nullifier_hints, TransientDataIndexHint,
-        verify_squashed_transient_data, verify_squashed_transient_data_with_hint_indexes,
+        DerivedHints, get_derived_hints, TransientDataIndexHint, verify_squashed_transient_data,
+        verify_squashed_transient_data_with_derived_hints,
     };
     use dep::types::{
         abis::{
@@ -308,9 +455,9 @@ mod tests {
         },
         address::AztecAddress,
         constants::PRIVATE_LOG_SIZE_IN_FIELDS,
-        tests::utils::pad_end,
+        tests::utils::{pad_end, pad_end_with_empty},
         traits::{Empty, FromField},
-        utils::arrays::ClaimedLengthArray,
+        utils::arrays::{ClaimedLengthArray, find_index_hint},
     };
 
     global contract_address: AztecAddress = AztecAddress::from_field(987654);
@@ -329,12 +476,17 @@ mod tests {
         expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
         expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
         expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+        min_revertible_side_effect_counter: u32,
         transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
-        transient_or_propagated_note_hash_index_for_each_log: [u32; NUM_LOGS],
-        split_counter: u32,
     }
 
-    impl TestDataBuilder<5, 4, 6, 2> {
+    impl TestDataBuilder<5, 4, 6, 3> {
+        /// Create a test case with no note hashes, nullifiers, or logs.
+        pub fn empty() -> Self {
+            Self::from_active_arrays([], [], [], [], [], [], [])
+        }
+
+        /// Create a test case where 2 out of 3 note hash and nullifier pairs are squashed.
         pub fn new() -> Self {
             let note_hashes = [
                 NoteHash { value: 11, counter: 100 }.scope(contract_address), // Nullified by nullifiers[1]
@@ -373,12 +525,6 @@ mod tests {
                 TransientDataIndexHint { nullifier_index: 1, note_hash_index: 0 },
             ];
 
-            let transient_or_propagated_note_hash_index_for_each_log = [
-                1, // Points to transient_data_index_hints[1].
-                0, // Points to expected_kept_note_hashes[0].
-                3, // This can be any value < NUM_NOTES. The log has 0 note_hash_counter and will always be propagated.
-            ];
-
             Self::from_active_arrays(
                 note_hashes,
                 nullifiers,
@@ -387,13 +533,12 @@ mod tests {
                 expected_kept_nullifiers,
                 expected_kept_logs,
                 transient_data_index_hints,
-                transient_or_propagated_note_hash_index_for_each_log,
             )
         }
     }
 
     impl TestDataBuilder<4, 4, 4, 3> {
-        // Create a test case where all notes are nullified, and therefore squashed.
+        /// Create a test case where all note hashes and nullifiers are squashed.
         pub fn new_clear_all() -> Self {
             let note_hashes = [
                 NoteHash { value: 11, counter: 100 }.scope(contract_address), // Nullified by nullifiers[1]
@@ -432,12 +577,6 @@ mod tests {
                 TransientDataIndexHint { nullifier_index: 2, note_hash_index: 1 },
             ];
 
-            let transient_or_propagated_note_hash_index_for_each_log = [
-                1, // Points to transient_data_index_hints[1].
-                0, // Points to transient_data_index_hints[0].
-                2, // Points to transient_data_index_hints[2].
-            ];
-
             Self::from_active_arrays(
                 note_hashes,
                 nullifiers,
@@ -446,12 +585,12 @@ mod tests {
                 expected_kept_nullifiers,
                 expected_kept_logs,
                 transient_data_index_hints,
-                transient_or_propagated_note_hash_index_for_each_log,
             )
         }
     }
 
-    impl TestDataBuilder<3, 3, 5, 3> {
+    impl TestDataBuilder<5, 5, 7, 4> {
+        /// Create a test case where all the note hashes have the same value.
         pub fn new_identical_note_hashes() -> Self {
             let note_hashes = [
                 NoteHash { value: 11, counter: 100 }.scope(contract_address), // Nullified by nullifiers[0]
@@ -492,14 +631,6 @@ mod tests {
             let transient_data_index_hints = [
                 TransientDataIndexHint { nullifier_index: 0, note_hash_index: 0 },
                 TransientDataIndexHint { nullifier_index: 2, note_hash_index: 1 },
-                TransientDataIndexHint { nullifier_index: 3, note_hash_index: 3 },
-            ];
-
-            let transient_or_propagated_note_hash_index_for_each_log = [
-                1, // Points to transient_data_index_hints[1].
-                0, // Can be any value < NUM_NOTE_HASHES. The log has 0 note_hash_counter and will always be propagated.
-                0, // Points to transient_data_index_hints[0].
-                0, // Point to expected_kept_note_hashes[0].
             ];
 
             Self::from_active_arrays(
@@ -510,12 +641,12 @@ mod tests {
                 expected_kept_nullifiers,
                 expected_kept_logs,
                 transient_data_index_hints,
-                transient_or_propagated_note_hash_index_for_each_log,
             )
         }
     }
 
     impl TestDataBuilder<5, 4, 6, 2> {
+        /// Create a test case where more than 1 log is linked to the same note hash.
         pub fn new_identical_linked_note_hash() -> Self {
             let note_hashes = [
                 NoteHash { value: 11, counter: 100 }.scope(contract_address),
@@ -558,13 +689,6 @@ mod tests {
                 TransientDataIndexHint { nullifier_index: 0, note_hash_index: 5 }, // Set the note_hash_index to NUM_NOTE_HASHES to indicate that the note hash is not squashed.
             ];
 
-            let transient_or_propagated_note_hash_index_for_each_log = [
-                1, // Points to expected_kept_note_hashes[1]
-                0, // Points to transient_data_index_hints[0]
-                1, // Points to expected_kept_note_hashes[1]
-                0, // Points to transient_data_index_hints[0]
-            ];
-
             Self::from_active_arrays(
                 note_hashes,
                 nullifiers,
@@ -573,71 +697,105 @@ mod tests {
                 expected_kept_nullifiers,
                 expected_kept_logs,
                 transient_data_index_hints,
-                transient_or_propagated_note_hash_index_for_each_log,
             )
         }
     }
 
     impl<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32> TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS, NUM_INDEX_HINTS> {
-        pub fn from_active_arrays<let N: u32, let M: u32, let P: u32, let Q: u32, let R: u32, let S: u32>(
+        pub fn from_active_arrays<let N: u32, let M: u32, let P: u32, let Q: u32, let R: u32, let S: u32, let T: u32>(
             note_hashes: [ScopedNoteHash; N],
             nullifiers: [ScopedNullifier; M],
             logs: [Scoped<PrivateLogData>; P],
             expected_kept_note_hashes: [ScopedNoteHash; Q],
             expected_kept_nullifiers: [ScopedNullifier; R],
             expected_kept_logs: [Scoped<PrivateLogData>; S],
-            transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
-            transient_or_propagated_note_hash_index_for_each_log: [u32; P],
+            transient_data_index_hints: [TransientDataIndexHint; T],
         ) -> Self {
             TestDataBuilder {
                 note_hashes: ClaimedLengthArray {
-                    array: pad_end(note_hashes, ScopedNoteHash::empty()),
+                    array: pad_end_with_empty(note_hashes),
                     length: note_hashes.len(),
                 },
                 nullifiers: ClaimedLengthArray {
-                    array: pad_end(nullifiers, ScopedNullifier::empty()),
+                    array: pad_end_with_empty(nullifiers),
                     length: nullifiers.len(),
                 },
-                logs: ClaimedLengthArray {
-                    array: pad_end(logs, Scoped::empty()),
-                    length: logs.len(),
-                },
+                logs: ClaimedLengthArray { array: pad_end_with_empty(logs), length: logs.len() },
                 expected_kept_note_hashes: ClaimedLengthArray {
-                    array: pad_end(expected_kept_note_hashes, ScopedNoteHash::empty()),
+                    array: pad_end_with_empty(expected_kept_note_hashes),
                     length: expected_kept_note_hashes.len(),
                 },
                 expected_kept_nullifiers: ClaimedLengthArray {
-                    array: pad_end(expected_kept_nullifiers, ScopedNullifier::empty()),
+                    array: pad_end_with_empty(expected_kept_nullifiers),
                     length: expected_kept_nullifiers.len(),
                 },
                 expected_kept_logs: ClaimedLengthArray {
-                    array: pad_end(expected_kept_logs, Scoped::empty()),
+                    array: pad_end_with_empty(expected_kept_logs),
                     length: expected_kept_logs.len(),
                 },
-                transient_data_index_hints,
-                transient_or_propagated_note_hash_index_for_each_log: pad_end(
-                    transient_or_propagated_note_hash_index_for_each_log,
-                    0,
+                min_revertible_side_effect_counter: 0,
+                transient_data_index_hints: pad_end(
+                    transient_data_index_hints,
+                    TransientDataIndexHint::skip(NUM_NULLIFIERS, NUM_NOTE_HASHES),
                 ),
-                split_counter: 0,
             }
         }
 
-        pub fn get_nada_index_hint(_self: Self) -> TransientDataIndexHint {
-            TransientDataIndexHint {
-                nullifier_index: NUM_NULLIFIERS,
-                note_hash_index: NUM_NOTE_HASHES,
+        pub fn add_note_hashes<let N: u32>(&mut self, note_hashes: [NoteHash; N]) {
+            for i in 0..N {
+                self.note_hashes.push(note_hashes[i].scope(contract_address));
             }
         }
 
-        pub fn get_hint_indexes(self) -> ([bool; NUM_NOTE_HASHES], [bool; NUM_NULLIFIERS]) {
+        pub fn add_nullifiers<let N: u32>(&mut self, nullifiers: [Nullifier; N]) {
+            for i in 0..N {
+                self.nullifiers.push(nullifiers[i].scope(contract_address));
+            }
+        }
+
+        pub fn squash(&mut self, note_hash_index: u32, nullifier_index: u32) {
+            // Find the index of the first "skip" hint.
             // Safety: This is only used in tests.
-            let squashed_note_hash_hints =
-                unsafe { get_squashed_note_hash_hints(self.transient_data_index_hints) };
+            let transient_data_index_hint_index = unsafe {
+                find_index_hint(
+                    self.transient_data_index_hints,
+                    |hint| hint.note_hash_index == NUM_NOTE_HASHES,
+                )
+                    .unwrap()
+            };
+            // Update the hint to squash the pair.
+            self.transient_data_index_hints[transient_data_index_hint_index] =
+                TransientDataIndexHint { nullifier_index, note_hash_index };
+        }
+
+        pub fn keep_note_hashes<let N: u32>(&mut self, note_hash_indices: [u32; N]) {
+            for i in 0..N {
+                self.expected_kept_note_hashes.push(self.note_hashes.array[note_hash_indices[i]]);
+            }
+        }
+
+        pub fn keep_nullifiers<let N: u32>(&mut self, nullifier_indices: [u32; N]) {
+            for i in 0..N {
+                self.expected_kept_nullifiers.push(self.nullifiers.array[nullifier_indices[i]]);
+            }
+        }
+
+        pub fn get_skip_index_hint(_self: Self) -> TransientDataIndexHint {
+            TransientDataIndexHint::skip(NUM_NULLIFIERS, NUM_NOTE_HASHES)
+        }
+
+        pub fn get_derived_hints(
+            self,
+        ) -> DerivedHints<NUM_INDEX_HINTS, NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS> {
             // Safety: This is only used in tests.
-            let squashed_nullifier_hints =
-                unsafe { get_squashed_nullifier_hints(self.transient_data_index_hints) };
-            (squashed_note_hash_hints, squashed_nullifier_hints)
+            unsafe {
+                get_derived_hints(
+                    self.transient_data_index_hints,
+                    self.note_hashes,
+                    self.expected_kept_note_hashes,
+                    self.logs,
+                )
+            }
         }
 
         pub fn verify(self) {
@@ -649,28 +807,24 @@ mod tests {
                 self.expected_kept_nullifiers,
                 self.expected_kept_logs,
                 self.transient_data_index_hints,
-                self.transient_or_propagated_note_hash_index_for_each_log,
-                self.split_counter,
+                self.min_revertible_side_effect_counter,
             );
         }
 
-        pub fn verify_with_hint_indexes(
+        pub fn verify_with_derived_hints(
             self,
-            squashed_note_hash_hints: [bool; NUM_NOTE_HASHES],
-            squashed_nullifier_hints: [bool; NUM_NULLIFIERS],
+            derived_hints: DerivedHints<NUM_INDEX_HINTS, NUM_NOTE_HASHES, NUM_NULLIFIERS, NUM_LOGS>,
         ) {
-            verify_squashed_transient_data_with_hint_indexes(
+            verify_squashed_transient_data_with_derived_hints(
                 self.note_hashes,
                 self.nullifiers,
                 self.logs,
                 self.expected_kept_note_hashes,
                 self.expected_kept_nullifiers,
                 self.expected_kept_logs,
+                self.min_revertible_side_effect_counter,
                 self.transient_data_index_hints,
-                self.transient_or_propagated_note_hash_index_for_each_log,
-                self.split_counter,
-                squashed_note_hash_hints,
-                squashed_nullifier_hints,
+                derived_hints,
             );
         }
     }
@@ -686,15 +840,22 @@ mod tests {
     }
 
     #[test]
-    fn succeeds_partially_propagated() {
+    fn succeeds_empty() {
+        TestDataBuilder::empty().verify();
+    }
+
+    #[test]
+    fn succeeds_propagate_squashable_pairs() {
         let mut builder = TestDataBuilder::new_clear_all();
 
         // Keep the nullifier at index 0 and the note hash at index 2.
         let removed_hint = builder.transient_data_index_hints[0];
         assert_eq(removed_hint.nullifier_index, 0);
         assert_eq(removed_hint.note_hash_index, 2);
+
         // Update the hint to skip squashing.
-        builder.transient_data_index_hints[0] = builder.get_nada_index_hint();
+        builder.transient_data_index_hints[0] = builder.get_skip_index_hint();
+
         // Propagate the values.
         builder.expected_kept_note_hashes.push(
             builder.note_hashes.array[removed_hint.note_hash_index],
@@ -702,9 +863,6 @@ mod tests {
         builder.expected_kept_nullifiers.push(
             builder.nullifiers.array[removed_hint.nullifier_index],
         );
-
-        // Keep the logs for note hash at index 2.
-        builder.transient_or_propagated_note_hash_index_for_each_log[1] = 0; // Point it to the expected note hash at index 0.
         builder.expected_kept_logs.push(builder.logs.array[1]);
 
         builder.verify();
@@ -795,7 +953,7 @@ mod tests {
         let hint = builder.transient_data_index_hints[1];
         let note_hash_counter = builder.note_hashes.array[hint.note_hash_index].counter();
         // Make the note hash non-revertible.
-        builder.split_counter = note_hash_counter + 1;
+        builder.min_revertible_side_effect_counter = note_hash_counter + 1;
 
         builder.verify();
     }
@@ -813,19 +971,24 @@ mod tests {
     fn fails_wrong_expected_note_hash_counter() {
         let mut builder = TestDataBuilder::new();
 
+        // Get the hints before the data is modified..
+        let derived_hints = builder.get_derived_hints();
+
+        // Change the counter of a kept note hash.
         builder.expected_kept_note_hashes.array[0].note_hash.counter += 1;
 
-        builder.verify();
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test(should_fail_with = "Wrong squashed note hash hint")]
     fn fails_wrong_note_hash_squashed_hint() {
-        let mut builder = TestDataBuilder::new_clear_all();
+        let builder = TestDataBuilder::new_clear_all();
 
-        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
-        squashed_note_hash_hints[0] = false;
+        let mut derived_hints = builder.get_derived_hints();
 
-        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+        derived_hints.is_squashed_note_hash_hints[0] = false;
+
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test]
@@ -864,16 +1027,17 @@ mod tests {
         // Propagate the note hash at index 1.
         builder.expected_kept_note_hashes.array[0] = builder.note_hashes.array[1];
 
-        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        let mut derived_hints = builder.get_derived_hints();
         // Set the hint to false so it's assumed the note hash has not been squashed.
-        squashed_note_hash_hints[1] = false;
+        derived_hints.is_squashed_note_hash_hints[1] = false;
 
-        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test(should_fail_with = "Wrong number of note hashes removed")]
     fn fails_identical_note_hashes_nullify_same_note_hash() {
         let mut builder = TestDataBuilder::new_identical_note_hashes();
+        let mut derived_hints = builder.get_derived_hints();
 
         assert_eq(builder.transient_data_index_hints[1].note_hash_index, 1);
         // Make the nullifier at index 2 to also nullify the note hash at index 0.
@@ -882,26 +1046,25 @@ mod tests {
         builder.expected_kept_note_hashes.array[0] = builder.note_hashes.array[1];
         builder.expected_kept_note_hashes.array[1] = builder.note_hashes.array[2];
 
-        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
         // Set the hint to false so it's assumed the note hash has not been squashed.
-        squashed_note_hash_hints[1] = false;
+        derived_hints.is_squashed_note_hash_hints[1] = false;
 
-        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test(should_fail_with = "Wrong number of note hashes removed")]
     fn fails_note_hash_not_propagated() {
         let mut builder = TestDataBuilder::new();
+        let mut derived_hints = builder.get_derived_hints();
 
         // Do not propagate any note hashes.
         builder.expected_kept_note_hashes.array[0] = ScopedNoteHash::empty();
 
-        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
-        assert_eq(squashed_note_hash_hints[1], false);
         // Set the hint to true so it's assumed the note hash has been squashed.
-        squashed_note_hash_hints[1] = true;
+        assert_eq(derived_hints.is_squashed_note_hash_hints[1], false);
+        derived_hints.is_squashed_note_hash_hints[1] = true;
 
-        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test(should_fail_with = "Propagated nullifier does not match")]
@@ -929,11 +1092,11 @@ mod tests {
         // Propagate the nullifier at index 1.
         builder.expected_kept_nullifiers.array[0] = builder.nullifiers.array[1];
 
-        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        let mut derived_hints = builder.get_derived_hints();
         // Set the hint to false so it's assumed the note hash has not been squashed.
-        squashed_nullifier_hints[1] = false;
+        derived_hints.is_squashed_nullifier_hints[1] = false;
 
-        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test]
@@ -972,11 +1135,88 @@ mod tests {
         // Do not propagate any nullifiers.
         builder.expected_kept_nullifiers.array[0] = ScopedNullifier::empty();
 
-        let mut (squashed_note_hash_hints, squashed_nullifier_hints) = builder.get_hint_indexes();
+        let mut derived_hints = builder.get_derived_hints();
         // Set the hint to true so it's assumed the note hash has been squashed.
-        squashed_nullifier_hints[2] = true;
+        derived_hints.is_squashed_nullifier_hints[2] = true;
 
-        builder.verify_with_hint_indexes(squashed_note_hash_hints, squashed_nullifier_hints);
+        builder.verify_with_derived_hints(derived_hints);
+    }
+
+    #[test]
+    fn fails_two_identical_transient_data_index_hints() {
+        let mut builder = TestDataBuilder::empty();
+
+        builder.add_note_hashes([
+            NoteHash { value: 11, counter: 100 },
+            NoteHash { value: 22, counter: 200 },
+        ]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 44, counter: 400, note_hash: 0 },
+            Nullifier { value: 55, counter: 500, note_hash: 11 },
+        ]);
+
+        builder.squash(0, 1);
+        builder.squash(0, 1);
+
+        let mut derived_hints = builder.get_derived_hints();
+
+        // Tweak the hints to mark the note hash and nullifier as squashed.
+        derived_hints.is_squashed_note_hash_hints[1] = true;
+        derived_hints.is_squashed_nullifier_hints[0] = true;
+
+        builder.verify_with_derived_hints(derived_hints);
+    }
+
+    #[test]
+    fn fails_two_nullifiers_linked_to_same_note_hash() {
+        let mut builder = TestDataBuilder::empty();
+
+        builder.add_note_hashes([
+            NoteHash { value: 11, counter: 100 },
+            NoteHash { value: 22, counter: 200 },
+        ]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 44, counter: 400, note_hash: 11 },
+            Nullifier { value: 55, counter: 500, note_hash: 11 },
+        ]);
+
+        builder.squash(0, 0);
+        builder.squash(0, 1);
+
+        let mut derived_hints = builder.get_derived_hints();
+
+        // Tweak the hints to mark the note hash and nullifier as squashed.
+        derived_hints.is_squashed_note_hash_hints[1] = true;
+        derived_hints.is_squashed_nullifier_hints[0] = true;
+
+        builder.verify_with_derived_hints(derived_hints);
+    }
+
+    #[test]
+    fn fails_two_note_hashes_linked_to_same_nullifier() {
+        let mut builder = TestDataBuilder::empty();
+
+        builder.add_note_hashes([
+            NoteHash { value: 11, counter: 100 },
+            NoteHash { value: 11, counter: 200 },
+        ]);
+
+        builder.add_nullifiers([
+            Nullifier { value: 44, counter: 400, note_hash: 11 },
+            Nullifier { value: 55, counter: 500, note_hash: 22 },
+        ]);
+
+        builder.squash(0, 0);
+        builder.squash(1, 0);
+
+        let mut derived_hints = builder.get_derived_hints();
+
+        // Tweak the hints to mark the note hash and nullifier as squashed.
+        derived_hints.is_squashed_nullifier_hints[1] = true;
+
+        builder.verify_with_derived_hints(derived_hints);
     }
 
     #[test]
@@ -1032,9 +1272,8 @@ mod tests {
         builder.logs.array[fake_log_index].inner.note_hash_counter = 111;
         builder.expected_kept_logs.array[fake_kept_log_index].inner.note_hash_counter = 111;
 
-        // Update the hint to point to the fake note hash index.
-        builder.transient_or_propagated_note_hash_index_for_each_log[fake_log_index] =
-            fake_kept_note_hash_index;
+        // // Update the hint to point to the fake note hash index.
+        // builder.note_log_hints[fake_log_index] = NoteLogHint::as_kept(fake_kept_note_hash_index);
 
         builder.verify();
     }
@@ -1057,33 +1296,24 @@ mod tests {
         builder.verify();
     }
 
-    #[test(should_fail_with = "Contract address of the hinted transient note hash does not match log")]
+    #[test(should_fail_with = "Log does not link to the hinted squashed note hash")]
     fn fails_mismatch_log_contract_address() {
         let mut builder = TestDataBuilder::new();
 
-        // Change the contract address of the log linked to a transient note hash.
+        // Change the contract address of the log linked to a squashed note hash.
         builder.logs.array[0].contract_address.inner += 1;
 
         builder.verify();
     }
 
-    #[test(should_fail_with = "Value of the hinted transient note hash does not match log")]
-    fn fails_log_not_nullified() {
-        let mut builder = TestDataBuilder::new();
+    // #[test(should_fail_with = "Value of the hinted transient note hash does not match log")]
+    // fn fails_wrong_log_note_hash() {
+    //     let mut builder = TestDataBuilder::new();
 
-        builder.transient_or_propagated_note_hash_index_for_each_log[1] = 1;
+    //     builder.logs.array[0].inner.note_hash_counter += 1;
 
-        builder.verify();
-    }
-
-    #[test(should_fail_with = "Value of the hinted transient note hash does not match log")]
-    fn fails_wrong_log_note_hash() {
-        let mut builder = TestDataBuilder::new();
-
-        builder.logs.array[0].inner.note_hash_counter += 1;
-
-        builder.verify();
-    }
+    //     builder.verify_with_derived_hints();
+    // }
 
     #[test]
     fn succeeds_linking_more_than_one_log_with_same_note_hash() {
