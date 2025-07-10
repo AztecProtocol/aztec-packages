@@ -209,7 +209,7 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     // When we have input fields, we use field_gt for lt and do not use lt_abs_diff
     // In the circuit, we force lt_abs_diff to be 0 so the range_check does not fail
     auto result = c == 1 ? b - a - 1 : a - b;
-    auto lt_abs_diff = is_ff ? 0 : result;
+    auto lt_ops_abs_diff = is_ff ? 0 : result;
     auto trace = TestTraceContainer::from_rows({
         {
             .alu_ia = a,
@@ -218,7 +218,7 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
             .alu_ib_tag = tag,
             .alu_ic = c,
             .alu_ic_tag = static_cast<uint8_t>(MemoryTag::U1),
-            .alu_lt_ops_abs_diff = lt_abs_diff,
+            .alu_lt_ops_abs_diff = lt_ops_abs_diff,
             .alu_lt_ops_input_a = a,
             .alu_lt_ops_input_b = b,
             .alu_lt_ops_result_c = c,
@@ -242,11 +242,11 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
         },
     });
     if (is_ff) {
-        field_gt_builder.process({ { .a = b, .b = a, .result = a < b } }, trace);
+        field_gt_builder.process({ { .a = b, .b = a, .result = c == 1 } }, trace);
     }
-    range_check_builder.process(
-        { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
-        trace);
+    range_check_builder.process({ { .value = static_cast<uint128_t>(lt_ops_abs_diff),
+                                    .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+                                trace);
 
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
@@ -267,7 +267,7 @@ auto process_lt_with_tracegen(MemoryTag input_tag)
     // When we have input fields, we use field_gt for lt and do not use lt_abs_diff
     // In the circuit, we force lt_abs_diff to be 0 so the range_check does not fail
     auto result = c == 1 ? b - a - 1 : a - b;
-    auto lt_abs_diff = is_ff ? 0 : result;
+    auto lt_ops_abs_diff = is_ff ? 0 : result;
 
     builder.process(
         {
@@ -278,11 +278,108 @@ auto process_lt_with_tracegen(MemoryTag input_tag)
         },
         trace);
     if (is_ff) {
-        field_gt_builder.process({ { .a = b, .b = a, .result = a < b } }, trace);
+        field_gt_builder.process({ { .a = b, .b = a, .result = c == 1 } }, trace);
     }
-    range_check_builder.process(
-        { { .value = static_cast<uint128_t>(lt_abs_diff), .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+    range_check_builder.process({ { .value = static_cast<uint128_t>(lt_ops_abs_diff),
+                                    .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+                                trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+TestTraceContainer process_lte_trace(MemoryTag input_tag, bool eq = false)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    FieldGreaterThanTraceBuilder field_gt_builder;
+    auto [a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto tag = static_cast<uint8_t>(input_tag);
+    auto is_ff = input_tag == MemoryTag::FF;
+    auto b = eq ? a : _b;
+    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) <= static_cast<uint256_t>(b));
+
+    // When we have input fields, we use field_gt for lte and do not use lt_abs_diff
+    // In the circuit, we force lt_abs_diff to be 0 so the range_check does not fail
+    // For LTE, we use LT's lookups to check that b < a ? !c :
+    auto result = c == 0 ? a - b - 1 : b - a;
+    auto lt_ops_abs_diff = is_ff ? 0 : result;
+    auto trace = TestTraceContainer::from_rows({
+        {
+            .alu_ia = a,
+            .alu_ia_tag = tag,
+            .alu_ib = b,
+            .alu_ib_tag = tag,
+            .alu_ic = c,
+            .alu_ic_tag = static_cast<uint8_t>(MemoryTag::U1),
+            .alu_lt_ops_abs_diff = lt_ops_abs_diff,
+            .alu_lt_ops_input_a = b,
+            .alu_lt_ops_input_b = a,
+            .alu_lt_ops_result_c = c == 0 ? 1 : 0,
+            .alu_max_bits = get_tag_bits(input_tag),
+            .alu_max_value = get_tag_max_value(input_tag),
+            .alu_op_id = AVM_EXEC_OP_ID_ALU_LTE,
+            .alu_sel = 1,
+            .alu_sel_ff_lt_ops = static_cast<uint8_t>(is_ff),
+            .alu_sel_is_ff = static_cast<uint8_t>(is_ff),
+            .alu_sel_lt_ops = 1,
+            .alu_sel_op_lte = 1,
+            .alu_tag_ff_diff_inv = is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert(),
+            .execution_mem_tag_reg_0_ = tag,                                 // = ia_tag
+            .execution_mem_tag_reg_1_ = tag,                                 // = ib_tag
+            .execution_mem_tag_reg_2_ = static_cast<uint8_t>(MemoryTag::U1), // = ic_tag
+            .execution_register_0_ = a,                                      // = ia
+            .execution_register_1_ = b,                                      // = ib
+            .execution_register_2_ = c,                                      // = ic
+            .execution_sel_alu = 1,                                          // = sel
+            .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LTE,       // = alu_op_id
+        },
+    });
+    if (is_ff) {
+        field_gt_builder.process({ { .a = a, .b = b, .result = c == 0 } }, trace);
+    }
+    range_check_builder.process({ { .value = static_cast<uint128_t>(lt_ops_abs_diff),
+                                    .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+                                trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+auto process_lte_with_tracegen(MemoryTag input_tag, bool eq = false)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+    RangeCheckTraceBuilder range_check_builder;
+    FieldGreaterThanTraceBuilder field_gt_builder;
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+    auto [a, _b, _c] = TEST_VALUES.at(input_tag);
+    auto is_ff = input_tag == MemoryTag::FF;
+    auto b = eq ? a : _b;
+    auto c = static_cast<uint8_t>(static_cast<uint256_t>(a) <= static_cast<uint256_t>(b));
+
+    // When we have input fields, we use field_gt for lte and do not use lt_abs_diff
+    // In the circuit, we force lt_abs_diff to be 0 so the range_check does not fail
+    // For LTE, we use LT's lookups to check that b < a ? !c :
+    auto result = c == 0 ? a - b - 1 : b - a;
+    auto lt_ops_abs_diff = is_ff ? 0 : result;
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::LTE,
+              .a = MemoryValue::from_tag(input_tag, a),
+              .b = MemoryValue::from_tag(input_tag, b),
+              .c = MemoryValue::from_tag(MemoryTag::U1, c) },
+        },
         trace);
+    if (is_ff) {
+        field_gt_builder.process({ { .a = a, .b = b, .result = c == 0 } }, trace);
+    }
+    range_check_builder.process({ { .value = static_cast<uint128_t>(lt_ops_abs_diff),
+                                    .num_bits = static_cast<uint8_t>(get_tag_bits(input_tag)) } },
+                                trace);
 
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
@@ -484,16 +581,14 @@ TEST(AluConstrainingTest, NegativeLTU8)
     // Which value to range check differs based on c (here, c = 1 => check b - a - 1, c = 0 => check a - b), so that is
     // the first relation failure...
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
-    auto new_result_to_range_check = -trace.get(Column::alu_lt_ops_abs_diff, 0);
-    new_result_to_range_check = c ? new_result_to_range_check + 1 : new_result_to_range_check - 1;
-    trace.set(Column::alu_lt_ops_abs_diff, 0, new_result_to_range_check);
+    auto new_abs_diff = -trace.get(Column::alu_lt_ops_abs_diff, 0) - 1;
+    trace.set(Column::alu_lt_ops_abs_diff, 0, new_abs_diff);
     // ...now, we are range checking the correct value...
     check_relation<alu>(trace);
-    // ..but the check itself correctly fails (note: new_result_to_range_check doesn't fit in a u128, I'm just adding an
+    // ..but the check itself correctly fails (note: new_abs_diff doesn't fit in a u128, I'm just adding an
     // event which will definitely fail):
     range_check_builder.process(
-        { { .value = static_cast<uint128_t>(new_result_to_range_check), .num_bits = get_tag_bits(MemoryTag::U8) } },
-        trace);
+        { { .value = static_cast<uint128_t>(new_abs_diff), .num_bits = get_tag_bits(MemoryTag::U8) } }, trace);
     EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_lt_range_settings>(trace)),
                               "LOOKUP_ALU_LT_RANGE");
 }
@@ -579,6 +674,148 @@ TEST(AluConstrainingTest, NegativeLTWrongTagCMismatch)
     check_relation<alu>(trace);
     trace.set(Column::alu_ic_tag, 0, tag - 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
+}
+
+// LTE TESTS
+
+// TODO(MW): reduce footprint of negative tests by using TEST_P
+
+TEST_P(AluTagTest, AluLTETag)
+{
+    const auto tag = GetParam();
+    auto trace = process_lte_trace(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluLTEEqTag)
+{
+    const auto tag = GetParam();
+    auto trace = process_lte_trace(tag, true);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluLTETagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_lte_with_tracegen(tag);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST_P(AluTagTest, AluLTEEqTagTraceGen)
+{
+    const auto tag = GetParam();
+    auto trace = process_lte_with_tracegen(tag, true);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, NegativeLTEU8)
+{
+    RangeCheckTraceBuilder range_check_builder;
+    auto trace = process_lte_trace(MemoryTag::U8);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
+    // Which value to range check differs based on c (here, c = 1 => check b - a, c = 0 => check a - b - 1), so that is
+    // the first relation failure...
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
+    auto new_abs_diff = -trace.get(Column::alu_lt_ops_abs_diff, 0) - 1;
+    trace.set(Column::alu_lt_ops_abs_diff, 0, new_abs_diff);
+    // ...now, we are range checking the correct value...
+    check_relation<alu>(trace);
+    // ..but the check itself correctly fails (note: new_abs_diff doesn't fit in a u128, I'm just adding an
+    // event which will definitely fail):
+    range_check_builder.process(
+        { { .value = static_cast<uint128_t>(new_abs_diff), .num_bits = get_tag_bits(MemoryTag::U8) } }, trace);
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_lt_range_settings>(trace)),
+                              "LOOKUP_ALU_LT_RANGE");
+}
+
+TEST(AluConstrainingTest, NegativeLTEU8Eq)
+{
+    RangeCheckTraceBuilder range_check_builder;
+    auto trace = process_lte_trace(MemoryTag::U8, true);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
+    // Which value to range check differs based on c (here, c = 1 => check b - a, c = 0 => check a - b - 1), so that is
+    // the first relation failure...
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
+    auto new_abs_diff = -trace.get(Column::alu_lt_ops_abs_diff, 0) - 1;
+    trace.set(Column::alu_lt_ops_abs_diff, 0, new_abs_diff);
+    // ...now, we are range checking the correct value...
+    check_relation<alu>(trace);
+    // ..but the check itself correctly fails (note: new_abs_diff doesn't fit in a u128, I'm just adding an
+    // event which will definitely fail):
+    range_check_builder.process(
+        { { .value = static_cast<uint128_t>(new_abs_diff), .num_bits = get_tag_bits(MemoryTag::U8) } }, trace);
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_lt_range_settings>(trace)),
+                              "LOOKUP_ALU_LT_RANGE");
+}
+
+TEST(AluConstrainingTest, NegativeLTEU64)
+{
+    RangeCheckTraceBuilder range_check_builder;
+    auto trace = process_lte_trace(MemoryTag::U64);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+    auto a = trace.get(Column::alu_ia, 0);
+    auto wrong_b = c ? a - 1 : a + 1;
+    trace.set(Column::alu_ib, 0, wrong_b);
+    trace.set(Column::alu_lt_ops_input_a, 0, wrong_b);
+    // The absolute diff is now wrong:
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_LT_RESULT");
+    // Correct the diff based on incorrect c:
+    auto new_abs_diff = c ? wrong_b - a : a - wrong_b - 1;
+    trace.set(Column::alu_lt_ops_abs_diff, 0, new_abs_diff);
+    // Now, we are range checking the correct value...
+    check_relation<alu>(trace);
+    // ..but the check itself correctly fails (note: new_result_to_range_check doesn't fit in a u128, I'm just adding an
+    // event which will definitely fail):
+    range_check_builder.process(
+        { { .value = static_cast<uint128_t>(new_abs_diff), .num_bits = get_tag_bits(MemoryTag::U64) } }, trace);
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_lt_range_settings>(trace)),
+                              "LOOKUP_ALU_LT_RANGE");
+}
+
+TEST(AluConstrainingTest, NegativeLTEFF)
+{
+    auto trace = process_lte_trace(MemoryTag::FF);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
+    // We rely on lookups, so we expect the relations to still pass...
+    check_relation<alu>(trace);
+    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
+    // wrong, rather than because this test has not processed the events):
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_lt_settings>(trace)),
+                              "LOOKUP_ALU_FF_LT");
+}
+
+TEST(AluConstrainingTest, NegativeLTEFFEq)
+{
+    auto trace = process_lte_trace(MemoryTag::FF, true);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    bool c = trace.get(Column::alu_ic, 0) == 1;
+    trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
+    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
+    // We rely on lookups, so we expect the relations to still pass...
+    check_relation<alu>(trace);
+    // ... but the lookup will fail (TODO(MW): properly add a gt and => range check events so it fails because c is
+    // wrong, rather than because this test has not processed the events):
+    EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_lt_settings>(trace)),
+                              "LOOKUP_ALU_FF_LT");
 }
 
 // EQ TESTS
