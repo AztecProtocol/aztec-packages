@@ -44,12 +44,14 @@ class ContextProvider : public ContextProviderInterface {
                     MemoryProviderInterface& memory_provider,
                     CalldataHashingProviderInterface& cd_hash_provider,
                     InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider,
+                    HighLevelMerkleDBInterface& merkle_db,
                     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                     const GlobalVariables& global_variables)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
         , cd_hash_provider(cd_hash_provider)
         , internal_call_stack_manager_provider(internal_call_stack_manager_provider)
+        , merkle_db(merkle_db)
         , written_public_data_slots_tree(written_public_data_slots_tree)
         , global_variables(global_variables)
     {}
@@ -77,6 +79,7 @@ class ContextProvider : public ContextProviderInterface {
     MemoryProviderInterface& memory_provider;
     CalldataHashingProviderInterface& cd_hash_provider;
     InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider;
+    HighLevelMerkleDBInterface& merkle_db;
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
     const GlobalVariables& global_variables;
 };

@@ -78,6 +78,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
         .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
         // Tree states
+        .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
     };
 };
@@ -130,6 +131,7 @@ ContextEvent NestedContext::serialize_context_event()
         .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
         .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
         // Tree states
+        .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
     };
 };

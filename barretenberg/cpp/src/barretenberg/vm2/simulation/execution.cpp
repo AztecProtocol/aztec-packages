@@ -478,6 +478,22 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     }
 }
 
+void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SLOAD;
+
+    auto& memory = context.get_memory();
+    get_gas_tracker().consume_gas();
+
+    auto slot = memory.get(slot_addr);
+    set_and_validate_inputs(opcode, { slot });
+
+    auto value = MemoryValue::from<FF>(merkle_db.storage_read(context.get_address(), slot.as<FF>()));
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -693,6 +709,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::XOR:
         call_with_operands(&Execution::xor_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SLOAD:
+        call_with_operands(&Execution::sload, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

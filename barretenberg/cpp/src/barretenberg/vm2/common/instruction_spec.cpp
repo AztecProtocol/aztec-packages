@@ -540,6 +540,10 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .register_info = RegisterInfo()
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::SLOAD,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_SLOAD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*slot*/ ValueTag::FF).add_output(/*dst*/) } },
 };
 
 } // namespace bb::avm2

@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -173,6 +174,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_returndata_size;
     case ExecutionOpCode::DEBUGLOG:
         return C::execution_sel_debug_log;
+    case ExecutionOpCode::SLOAD:
+        return C::execution_sel_sload;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -352,6 +355,14 @@ void ExecutionTraceBuilder::process(
                         ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
                       { C::execution_written_public_data_slots_tree_size,
                         ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                      { C::execution_prev_public_data_tree_root,
+                        ex_event.before_context_event.tree_states.publicDataTree.tree.root },
+                      { C::execution_prev_public_data_tree_size,
+                        ex_event.before_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                      { C::execution_public_data_tree_root,
+                        ex_event.after_context_event.tree_states.publicDataTree.tree.root },
+                      { C::execution_public_data_tree_size,
+                        ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
                       // Other.
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                       // Helpers for identifying parent context
@@ -1005,6 +1016,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Sload
+        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

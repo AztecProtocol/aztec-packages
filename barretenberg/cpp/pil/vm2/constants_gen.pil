@@ -45,6 +45,7 @@ namespace constants;
     pol AVM_EXEC_OP_ID_SUCCESSCOPY = 2048;
     pol AVM_EXEC_OP_ID_RETURNDATASIZE = 4096;
     pol AVM_EXEC_OP_ID_DEBUGLOG = 8192;
+    pol AVM_EXEC_OP_ID_SLOAD = 16384;
     pol AVM_EXEC_OP_ID_ALU_ADD = 1;
     pol AVM_EXEC_OP_ID_ALU_SUB = 2;
     pol AVM_EXEC_OP_ID_ALU_MUL = 4;
