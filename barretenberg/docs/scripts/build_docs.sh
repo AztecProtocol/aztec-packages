@@ -6,22 +6,22 @@ set -e
 
 echo "Building Doxygen documentation..."
 
-# Navigate to the C++ docs directory
-cd "$(dirname "$0")/../../cpp/docs"
+# Navigate to the C++ root directory so paths in Doxyfile are correct
+cd "$(dirname "$0")/../../cpp"
 
-# Build the documentation using Doxygen
-doxygen Doxyfile
+# Build the documentation using Doxygen from the docs subdirectory
+doxygen docs/Doxyfile
 
 echo "Copying Doxygen HTML to Docusaurus static directory..."
 
 # Create the static/api directory if it doesn't exist
-mkdir -p "../../docs/static/api"
+mkdir -p "../docs/static/api"
 
 # Copy the built documentation from the correct path
-if [ -d "docs/build" ]; then
-  rsync -av --delete docs/build/ ../../docs/static/api/
+if [ -d "docs/docs/build" ]; then
+  rsync -av --delete docs/docs/build/ ../docs/static/api/
 else
-  echo "Error: docs/build directory not found!"
+  echo "Error: docs/docs/build directory not found!"
   exit 1
 fi
 
