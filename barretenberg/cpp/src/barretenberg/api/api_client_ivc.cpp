@@ -73,10 +73,6 @@ void write_standalone_vk(const std::string& output_format,
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
 
-    auto response = bbapi::ClientIvcComputeStandaloneVk{
-        .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
-
     if (output_format == "bytes") {
         write_file(output_path / "vk", response.bytes);
     } else if (output_format == "fields") {
@@ -143,20 +139,20 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ClientIvcStart{}.execute(request);
+    std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    size_t loaded_circuit_public_inputs_size = 0;
+    size_t last_circuit_public_inputs_size = 0;
     for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        loaded_circuit_public_inputs_size = request.loaded_circuit_constraints->public_inputs.size();
+        last_circuit_public_inputs_size = request.last_circuit_constraints->public_inputs.size();
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto prove_response = bbapi::ClientIvcProve{}.execute(request);
+    auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -177,7 +173,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_civc_vk("bytes", loaded_circuit_public_inputs_size, output_dir);
+        write_vk_for_ivc("bytes", last_circuit_public_inputs_size, output_dir);
     }
 }
 

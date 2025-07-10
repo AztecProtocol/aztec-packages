@@ -122,7 +122,7 @@ ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request, size_
     return ivc.get_vk();
 }
 
-ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
+ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
@@ -130,7 +130,7 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
 
     Response response;
     response.bytes = to_buffer(*verification_key);
@@ -163,7 +163,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
                                       /*witness=*/{} };
 
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", function_name);
