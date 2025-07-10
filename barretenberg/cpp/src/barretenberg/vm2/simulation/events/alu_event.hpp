@@ -39,12 +39,18 @@ class AluException : public std::runtime_error {
     {}
 };
 
+// Explanations on default values for b and c:
+// FF(0) corresponds to execution.register[X] == 0 and execution.mem_tag_reg[X] == 0 and we need this to have a correct
+// lookup from Execution into ALU. When an ALU exception is thrown, the output in execution trace not be set and
+// default trace values (0) will be set.
+// Note also that the default value for b allows to deduplicate events with only a being set. Otherwise, the key would
+// not be deterministic.
 struct AluEvent {
     AluOperation operation;
     MemoryValue a;
-    MemoryValue b = MemoryValue::from<uint1_t>(0); // Avoid unitialized values for ALU ops with one input such as NOT,
-                                                   // TRUNCATE. Otherwise, deduplication is not guaranteed.
-    MemoryValue c;
+    MemoryValue b = MemoryValue::from<FF>(0); // Avoid unitialized values for ALU ops with one input such as NOT,
+                                              // TRUNCATE. Otherwise, deduplication is not guaranteed.
+    MemoryValue c = MemoryValue::from<FF>(0); // Avoid unitialized values for ALU ops with one input and one output.
     std::optional<AluError> error;
     // To be used with deduplicating event emitters.
     using Key = std::tuple<AluOperation, MemoryValue, MemoryValue>;

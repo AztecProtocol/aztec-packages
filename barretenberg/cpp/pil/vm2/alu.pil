@@ -76,9 +76,8 @@ CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_i
 // Will become e.g. sel_op_add * ia_tag + (comparison ops) * MEM_TAG_U1 + ....
 pol EXPECTED_C_TAG = sel_op_add * ia_tag + (sel_op_lt + sel_op_eq) * constants.MEM_TAG_U1;
 
-// No error handling here since, as a memory write, the type of c is handled by the VM:
 #[C_TAG_CHECK]
-EXPECTED_C_TAG = ic_tag;
+(1 - sel_tag_err) * (EXPECTED_C_TAG - ic_tag) = 0;
 
 pol commit sel_tag_err;
 pol commit ab_tags_diff_inv;
@@ -98,14 +97,14 @@ sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precompu
 sel_op_add * (1 - sel_op_add) = 0;
 
 #[ALU_ADD]
-sel_op_add * (ia + ib - ic - cf * (max_value + 1)) = 0;
+sel_op_add * (1 - sel_tag_err) * (ia + ib - ic - cf * (max_value + 1)) = 0;
 
 // LT
 
 sel_op_lt * (1 - sel_op_lt) = 0;
 pol commit sel_ff_lt;
-// sel_is_ff & sel_op_lt:
-sel_ff_lt - sel_is_ff * sel_op_lt = 0;
+// sel_is_ff && sel_op_lt && !sel_tag_err:
+sel_ff_lt = (1 - sel_tag_err) * sel_is_ff * sel_op_lt;
 
 // Looks up whether b > a for field:
 #[FF_LT]
@@ -117,7 +116,7 @@ pol A_LT_B = ib - ia - 1;
 pol commit lt_abs_diff;
 // Note: When we have fields, force lt_abs_diff = 0, so the range check doesn't fail but we are still constrained by the FF lookup above.
 #[ALU_LT_RESULT]
-sel_op_lt * ( IS_NOT_FF * ( (A_LT_B - A_GTE_B) * ic + A_GTE_B ) - lt_abs_diff ) = 0;
+sel_op_lt * (1 - sel_tag_err) * ( IS_NOT_FF * ( (A_LT_B - A_GTE_B) * ic + A_GTE_B ) - lt_abs_diff ) = 0;
 #[LT_RANGE]
 sel_op_lt { lt_abs_diff, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
@@ -132,4 +131,4 @@ pol DIFF = ia - ib;
 
 // sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
 #[EQ_OP_MAIN]
-sel_op_eq * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;
+sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;
