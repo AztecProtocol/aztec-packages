@@ -1,10 +1,6 @@
-pub mod get_transient_or_propagated_note_hash_index_for_each_log;
 pub mod squash_transient_data;
 
-use crate::components::reset_output_composer::reset_output_hints::{
-    get_transient_or_propagated_note_hash_index_for_each_log::get_transient_or_propagated_note_hash_index_for_each_log,
-    squash_transient_data::squash_transient_data,
-};
+use crate::components::reset_output_composer::reset_output_hints::squash_transient_data::squash_transient_data;
 use dep::reset_kernel_lib::TransientDataIndexHint;
 use dep::types::{
     abis::{
@@ -24,7 +20,6 @@ pub struct ResetOutputHints {
     pub sorted_kept_nullifier_indexes: [u32; MAX_NULLIFIERS_PER_TX],
     // private_logs
     pub kept_private_logs: ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub transient_or_propagated_note_hash_index_for_each_log: [u32; MAX_PRIVATE_LOGS_PER_TX],
     pub sorted_kept_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }
 
@@ -59,12 +54,6 @@ pub unconstrained fn generate_reset_output_hints<let TRANSIENT_DATA_SQUASHING_HI
         get_order_hints_asc(kept_nullifiers.array).map(|h: OrderHint| h.sorted_index);
 
     // private_logs
-    let transient_or_propagated_note_hash_index_for_each_log = get_transient_or_propagated_note_hash_index_for_each_log(
-        previous_kernel.end.private_logs.array,
-        previous_kernel.end.note_hashes.array,
-        kept_note_hashes.array,
-        transient_data_index_hints,
-    );
     let sorted_kept_private_log_indexes =
         get_order_hints_asc(kept_private_logs.array).map(|h: OrderHint| h.sorted_index);
 
@@ -74,7 +63,6 @@ pub unconstrained fn generate_reset_output_hints<let TRANSIENT_DATA_SQUASHING_HI
         kept_nullifiers,
         sorted_kept_nullifier_indexes,
         kept_private_logs,
-        transient_or_propagated_note_hash_index_for_each_log,
         sorted_kept_private_log_indexes,
     }
 }

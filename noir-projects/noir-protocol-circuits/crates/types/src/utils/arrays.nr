@@ -34,6 +34,7 @@ pub use assert_split_sorted_transformed_value_arrays::{
 };
 pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
 pub use get_sorted_result::{get_sorted_result, SortedResult};
+pub use get_sorted_tuple::{get_sorted_tuple, SortedTuple};
 pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Deserialize, Empty, Serialize};
