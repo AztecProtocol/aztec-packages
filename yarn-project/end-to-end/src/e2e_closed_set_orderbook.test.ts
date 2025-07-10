@@ -43,6 +43,8 @@ describe('ClosedSetOrderbook', () => {
   const bidAmount = 1000n;
   const askAmount = 2000n;
   const fee = 10n; // 0.1%
+  const feeAmount = (bidAmount * fee) / 10000n;
+  const takerAmount = bidAmount - feeAmount;
 
   beforeAll(async () => {
     let maybeSequencer: SequencerClient | undefined = undefined;
@@ -80,6 +82,9 @@ describe('ClosedSetOrderbook', () => {
     // We need to register the admin wallet as a sender for taker such that taker's PXE knows that it needs to sync
     // the minted token1 note (admin is set as sender there).
     await takerPxe.registerSender(adminWallet.getAddress());
+    // Register fee collector with both PXEs to track fee transfers
+    await makerPxe.registerSender(feeCollector.getAddress());
+    await takerPxe.registerSender(feeCollector.getAddress());
 
     // TOKEN SETUP
     {
@@ -201,12 +206,18 @@ describe('ClosedSetOrderbook', () => {
         .send()
         .wait({ interval: 0.1 });
 
-      // Verify balances after order fulfillment - at this point, maker should have the askAmount of token1 and taker
-      // should have the bidAmount of token0 and orderbook should have nothing.
+      // Verify balances after order fulfillment:
+      // - maker should have the askAmount of token1
+      // - taker should have the bidAmount minus fee of token0
+      // - fee collector should have the fee amount of token0
+      // - orderbook should have nothing
       await expectTokenBalance(maker, token0, maker.getAddress(), 0n, logger);
       await expectTokenBalance(maker, token1, maker.getAddress(), askAmount, logger);
-      await expectTokenBalance(taker, token0, taker.getAddress(), bidAmount, logger);
+      await expectTokenBalance(taker, token0, taker.getAddress(), takerAmount, logger);
       await expectTokenBalance(taker, token1, taker.getAddress(), 0n, logger);
+      await expectTokenBalance(feeCollector, token0, feeCollector.getAddress(), feeAmount, logger);
+      await expectTokenBalance(taker, token0, orderbook.address, 0n, logger);
+      await expectTokenBalance(taker, token1, orderbook.address, 0n, logger);
     });
   });
 });

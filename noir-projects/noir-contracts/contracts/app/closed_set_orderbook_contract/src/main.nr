@@ -147,18 +147,23 @@ pub contract ClosedSetOrderbook {
         // Determine which tokens are being exchanged based on bid_token_is_zero flag
         let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);
 
-        // TODO: Transfer the fee denominated in bid_token to the fee collector here.
+        // Calculate fee amount based on bid_amount
+        let fee_amount = (order.bid_amount * config.fee as u128) / 10000u128;
+        let taker_amount = order.bid_amount - fee_amount;
 
         // Transfer the ask_amount from taker directly to the maker
         Token::at(ask_token)
             .transfer_in_private(taker, order.maker, order.ask_amount, authwit_nonce)
             .call(&mut context);
 
-        // Transfer the bid_amount from this contract's private balance to the taker
-        // Note that we cannot use the hyper-optimized `Token::transfer` function here because we need constrained
-        // delivery.
+        // Transfer the bid_amount minus fee from this contract's private balance to the taker
         Token::at(bid_token)
-            .transfer_in_private(context.this_address(), taker, order.bid_amount, 0)
+            .transfer_in_private(context.this_address(), taker, taker_amount, 0)
+            .call(&mut context);
+
+        // Transfer the fee from this contract's private balance to the fee collector
+        Token::at(bid_token)
+            .transfer_in_private(context.this_address(), config.fee_collector, fee_amount, 0)
             .call(&mut context);
     }
 

@@ -6,8 +6,8 @@ use std::meta::derive;
 pub struct Config {
     token0: AztecAddress,
     token1: AztecAddress,
-    fee_collector: AztecAddress,
-    fee: u16, // The fee is defined in basis points (0-10000) hence u16 is sufficient.
+    pub fee_collector: AztecAddress,
+    pub fee: u16, // The fee is defined in basis points (0-10000) hence u16 is sufficient.
 }
 
 impl Config {
