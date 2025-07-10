@@ -143,6 +143,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): move is_kernel flag out of
     // databus_propagation_data or remove it altogether
     if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
+        KernelIO kernel_input;
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
 
         // Perform databus consistency checks
@@ -198,6 +199,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     points_accumulator.set_public();
 
     // Set the databus return data commitments to be propagated via the public inputs
+    KernelIO kernel_output;
     kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
     kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
 
@@ -364,14 +366,23 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
     verification_queue.clear();
 
+    // Get the completed decider verification key correspondsing to the tail kernel from the folding verifier
+    const auto& tail_kernel_decider_vk = folding_verifier.keys_to_fold[1];
+
     // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
-    PairingPoints points_accumulator = PublicPairingPoints::reconstruct(
-        folding_verifier.keys_to_fold[1]->public_inputs,
-        folding_verifier.keys_to_fold[1]->vk_and_hash->vk->pairing_inputs_public_input_key);
+    PairingPoints points_accumulator =
+        PublicPairingPoints::reconstruct(tail_kernel_decider_vk->public_inputs,
+                                         tail_kernel_decider_vk->vk_and_hash->vk->pairing_inputs_public_input_key);
+
+    // Reconstruct the KernelIO from the public inputs of the tail kernel and perform databus consistency checks
+    KernelIO kernel_input;
+    kernel_input.reconstruct_from_public(tail_kernel_decider_vk->public_inputs);
+    kernel_input.kernel_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.calldata);
+    kernel_input.app_return_data.assert_equal(tail_kernel_decider_vk->witness_commitments.secondary_calldata);
 
     // Perform recursive verification of the last merge proof
     PairingPoints goblin_pairing_points = goblin.recursively_verify_merge(
-        builder, folding_verifier.keys_to_fold[1]->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
+        builder, tail_kernel_decider_vk->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
     points_accumulator.aggregate(goblin_pairing_points);
 
     // Perform recursive decider verification

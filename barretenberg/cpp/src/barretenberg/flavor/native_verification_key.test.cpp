@@ -35,8 +35,8 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFl
 TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_hash_to_transcript.
+ * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
+ * same as the hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
@@ -56,9 +56,9 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     std::vector<fr> vk_field_elements = vk.to_field_elements();
     NativeTranscript transcript;
     for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_hash_buffer("vk_element", field_element);
+        transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    fr vkey_hash_1 = transcript.get_challenge<fr>("vk_hash");
+    fr vkey_hash_1 = transcript.hash_independent_buffer("vk_hash");
     // Second method of hashing: using hash().
     fr vkey_hash_2 = vk.hash();
     EXPECT_EQ(vkey_hash_1, vkey_hash_2);

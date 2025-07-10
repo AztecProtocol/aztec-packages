@@ -222,11 +222,6 @@ class ClientIVC {
     HonkProof decider_prove() const;
 
     VerificationKey get_vk() const;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1269): complete integration of kernel io mechanism
-    // Input/outputs utilized for consistency checks in the kernel circuits
-    KernelIO kernel_input;
-    KernelIO kernel_output;
 };
 
 } // namespace bb

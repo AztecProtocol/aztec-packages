@@ -200,11 +200,11 @@ A contract class has an implicit `version` field that identifies the schema of t
 
 Note that the version field is not directly used when computing the contract class id, but is implicit in the generator index. Bumping the version of a contract class struct would involve using a different generator index for computing its id.
 
-## Canonical Contract Class Registerer
+## Canonical Contract Class Registry
 
-A contract class is registered by calling a private `register` function in a canonical `ContractClassRegisterer` contract, which will emit a Registration Nullifier. The Registration Nullifier is defined as the `contract_class_id` itself of the class being registered. Note that the Private Kernel circuit will [silo](../circuits/private-kernel-tail.md#siloing-values) this value with the contract address of the `ContractClassRegisterer`, effectively storing the hash of the `contract_class_id` and `ContractClassRegisterer` address in the nullifier tree. As such, proving that a given contract class has been registered requires checking existence of this siloed nullifier.
+A contract class is registered by calling a private `register` function in a canonical `ContractClassRegistry` contract, which will emit a Registration Nullifier. The Registration Nullifier is defined as the `contract_class_id` itself of the class being registered. Note that the Private Kernel circuit will [silo](../circuits/private-kernel-tail.md#siloing-values) this value with the contract address of the `ContractClassRegistry`, effectively storing the hash of the `contract_class_id` and `ContractClassRegistry` address in the nullifier tree. As such, proving that a given contract class has been registered requires checking existence of this siloed nullifier.
 
-The rationale for the Registerer contract is to guarantee that the public bytecode for a contract class is publicly available. This is a requirement for publicly [deploying a contract instance](./instances.md#publicly_deployed), which ultimately prevents a sequencer from executing a public function for which other nodes in the network may not have the code.
+The rationale for the Registry contract is to guarantee that the public bytecode for a contract class is publicly available. This is a requirement for publicly [deploying a contract instance](./instances.md#publicly_deployed), which ultimately prevents a sequencer from executing a public function for which other nodes in the network may not have the code.
 
 ### Register Function
 
@@ -213,7 +213,7 @@ The `register` function receives the artifact hash, private functions tree root,
 - Assert that `packed_public_bytecode` is valid according to the definition in the [Public VM section](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation).
 - Computes the `contract_class_id` as [defined above](#class-identifier).
 - Emits the resulting `contract_class_id` as a nullifier to prevent the same class from being registered again.
-- Emits an unencrypted event `ContractClassRegistered` with the contents of the contract class.
+- Emits an unencrypted event `ContractClassPublished` with the contents of the contract class.
 
 In pseudocode:
 
@@ -235,7 +235,7 @@ fn register(
 
   emit_nullifier(contract_class_id);
 
-  emit_public_log(ContractClassRegistered::new(
+  emit_public_log(ContractClassPublished::new(
     contract_class_id,
     version,
     artifact_hash,
@@ -245,19 +245,19 @@ fn register(
 }
 ```
 
-Upon seeing a `ContractClassRegistered` event in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class. Note that a class may be used for deploying a contract within the same transaction in which it is registered.
+Upon seeing a `ContractClassPublished` event in a mined transaction, nodes are expected to store the contract class, so they can retrieve it when executing a public function for that class. Note that a class may be used for deploying a contract within the same transaction in which it is registered.
 
 Note that emitting the `contract_class_id` as a nullifier (the `contract_class_id_nullifier`), instead of as an entry in the note hashes tree, allows nodes to prove non-existence of a class. This is needed so a sequencer can provably revert a transaction that includes a call to an unregistered class.
 
 ### Genesis
 
-The `ContractClassRegisterer` will need to exist from the genesis of the Aztec Network, otherwise nothing will ever be publicly deployable to the network. The Class Nullifier for the `ContractClassRegisterer` contract will be pre-inserted into the genesis nullifier tree at leaf index [`GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_CLASS_REGISTERER_CLASS_ID_NULLIFIER`](../constants.md#genesis-constants). The canonical instance will be deployed at [`CONTRACT_CLASS_REGISTERER_ADDRESS`](../constants.md#genesis-constants), and its Deployment Nullifier will be inserted at [`GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_CLASS_REGISTERER_DEPLOYMENT_NULLIFIER`](../constants.md#genesis-constants).
+The `ContractClassRegistry` will need to exist from the genesis of the Aztec Network, otherwise no classes will ever be publishable to the network. The Class Nullifier for the `ContractClassRegistry` contract will be pre-inserted into the genesis nullifier tree at leaf index [`GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_CLASS_REGISTRY_CLASS_ID_NULLIFIER`](../constants.md#genesis-constants). The canonical instance will be deployed at [`CONTRACT_CLASS_REGISTRY_ADDRESS`](../constants.md#genesis-constants), and its Deployment Nullifier will be inserted at [`GENESIS_NULLIFIER_LEAF_INDEX_OF_CONTRACT_CLASS_REGISTRY_INSTANCE_NULLIFIER`](../constants.md#genesis-constants).
 
 <!-- TODO(cryptography): How do we convince the world that there's 'nothing up our sleeves'? What could be the consequences of a cunningly-chosen nullifier being pre-inserted into the nullifier tree? -->
 
 ### Broadcast
 
-The `ContractClassRegisterer` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private and utility functions in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
+The `ContractClassRegistry` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private and utility functions in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
 
 Broadcasted function artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
 
@@ -340,7 +340,7 @@ computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_a
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
 
-It is strongly recommended for developers registering new classes to broadcast the code for `compute_hash_and_nullifier`, so any private message recipients have the code available to process their incoming notes. However, the `ContractClassRegisterer` contract does not enforce this during registration, since it is difficult to check the multiple signatures for `compute_hash_and_nullifier` as they may evolve over time to account for new note sizes.
+It is strongly recommended for developers registering new classes to broadcast the code for `compute_hash_and_nullifier`, so any private message recipients have the code available to process their incoming notes. However, the `ContractClassRegistry` contract does not enforce this during registration, since it is difficult to check the multiple signatures for `compute_hash_and_nullifier` as they may evolve over time to account for new note sizes.
 
 ### Encoding Bytecode
 
@@ -352,7 +352,7 @@ The `register`, `broadcast_utility_function`, and `broadcast_private_function` f
 
 To encode the bytecode into a fixed-length array of Fields, the bytecode is first split into 31-byte chunks, and each chunk interpreted big-endian as a field element. The total length in bytes is then prepended as an initial element, and then right-padded with zeroes.
 
-The log itself is prepended by the address of the contract that emitted it. This is not strictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
+The log itself is prepended by the address of the contract that emitted it. This is not strictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegistry` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
 
 ```
 chunks = chunk bytecode into 31 bytes elements, last element right-padded with zeroes
