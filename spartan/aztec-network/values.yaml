@@ -50,7 +50,7 @@ images:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
     pullPolicy: IfNotPresent
   lighthouse:
-    image: sigp/lighthouse:v6.0.1
+    image: sigp/lighthouse:v7.1.0
     pullPolicy: IfNotPresent
   geth:
     image: ethereum/client-go:v1.16.1
