@@ -351,6 +351,141 @@ TEST(AluTraceGenTest, TraceGenerationLTFF)
                                   ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
 }
 
+TEST(AluTraceGenTest, TraceGenerationLTEFF)
+{
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    builder.process(
+        {
+            { .operation = AluOperation::LTE,
+              .a = MemoryValue::from<FF>(1),
+              .b = MemoryValue::from<FF>(2),
+              .c = MemoryValue::from<uint1_t>(1) },
+            { .operation = AluOperation::LTE,
+              .a = MemoryValue::from<FF>(FF::modulus - 3),
+              .b = MemoryValue::from<FF>(4),
+              .c = MemoryValue::from<uint1_t>(0) },
+        },
+        trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_lte, 1),
+                                  ROW_FIELD_EQ(alu_sel_lt_ops, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LTE),
+                                  ROW_FIELD_EQ(alu_ia, 1),
+                                  ROW_FIELD_EQ(alu_ib, 2),
+                                  ROW_FIELD_EQ(alu_ic, 1),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_cf, 0),
+                                  ROW_FIELD_EQ(alu_lt_ops_input_a, 2),
+                                  ROW_FIELD_EQ(alu_lt_ops_input_b, 1),
+                                  ROW_FIELD_EQ(alu_lt_ops_result_c, 0),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_lt_ops_abs_diff, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_ff_lt_ops, 1),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+                            AllOf(ROW_FIELD_EQ(alu_sel_op_lte, 1),
+                                  ROW_FIELD_EQ(alu_sel_lt_ops, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LTE),
+                                  ROW_FIELD_EQ(alu_ia, FF::modulus - 3),
+                                  ROW_FIELD_EQ(alu_ib, 4),
+                                  ROW_FIELD_EQ(alu_ic, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                                  ROW_FIELD_EQ(alu_cf, 0),
+                                  ROW_FIELD_EQ(alu_lt_ops_input_a, 4),
+                                  ROW_FIELD_EQ(alu_lt_ops_input_b, FF::modulus - 3),
+                                  ROW_FIELD_EQ(alu_lt_ops_result_c, 1),
+                                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_lt_ops_abs_diff, 0),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1),
+                                  ROW_FIELD_EQ(alu_sel_ff_lt_ops, 1),
+                                  ROW_FIELD_EQ(alu_tag_ff_diff_inv, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+}
+
+TEST(AluTraceGenTest, TraceGenerationLTEU128)
+{
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    uint128_t u128_max = static_cast<uint128_t>(get_tag_max_value(ValueTag::U128));
+    builder.process(
+        {
+            { .operation = AluOperation::LTE,
+              .a = MemoryValue::from<uint128_t>(1),
+              .b = MemoryValue::from<uint128_t>(2),
+              .c = MemoryValue::from<uint1_t>(1) },
+            { .operation = AluOperation::LTE,
+              .a = MemoryValue::from<uint128_t>(u128_max),
+              .b = MemoryValue::from<uint128_t>(4),
+              .c = MemoryValue::from<uint1_t>(0) },
+        },
+        trace);
+
+    EXPECT_THAT(
+        trace.as_rows(),
+        ElementsAre(
+            AllOf(ROW_FIELD_EQ(alu_sel_op_lte, 1),
+                  ROW_FIELD_EQ(alu_sel_lt_ops, 1),
+                  ROW_FIELD_EQ(alu_sel, 1),
+                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LTE),
+                  ROW_FIELD_EQ(alu_ia, 1),
+                  ROW_FIELD_EQ(alu_ib, 2),
+                  ROW_FIELD_EQ(alu_ic, 1),
+                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                  ROW_FIELD_EQ(alu_cf, 0),
+                  ROW_FIELD_EQ(alu_lt_ops_input_a, 2),
+                  ROW_FIELD_EQ(alu_lt_ops_input_b, 1),
+                  ROW_FIELD_EQ(alu_lt_ops_result_c, 0),
+                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_max_value, u128_max),
+                  ROW_FIELD_EQ(alu_lt_ops_abs_diff, 1),
+                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                  ROW_FIELD_EQ(alu_sel_ff_lt_ops, 0),
+                  ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                               FF(static_cast<uint8_t>(ValueTag::U128) - static_cast<uint8_t>(ValueTag::FF)).invert()),
+                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0)),
+            AllOf(ROW_FIELD_EQ(alu_sel_op_lte, 1),
+                  ROW_FIELD_EQ(alu_sel_lt_ops, 1),
+                  ROW_FIELD_EQ(alu_sel, 1),
+                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_LTE),
+                  ROW_FIELD_EQ(alu_ia, u128_max),
+                  ROW_FIELD_EQ(alu_ib, 4),
+                  ROW_FIELD_EQ(alu_ic, 0),
+                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(ValueTag::U1)),
+                  ROW_FIELD_EQ(alu_cf, 0),
+                  ROW_FIELD_EQ(alu_lt_ops_input_a, 4),
+                  ROW_FIELD_EQ(alu_lt_ops_input_b, u128_max),
+                  ROW_FIELD_EQ(alu_lt_ops_result_c, 1),
+                  ROW_FIELD_EQ(alu_max_bits, get_tag_bits(ValueTag::U128)),
+                  ROW_FIELD_EQ(alu_max_value, u128_max),
+                  ROW_FIELD_EQ(alu_lt_ops_abs_diff, u128_max - 5),
+                  ROW_FIELD_EQ(alu_sel_is_ff, 0),
+                  ROW_FIELD_EQ(alu_sel_ff_lt_ops, 0),
+                  ROW_FIELD_EQ(alu_tag_ff_diff_inv,
+                               FF(static_cast<uint8_t>(ValueTag::U128) - static_cast<uint8_t>(ValueTag::FF)).invert()),
+                  ROW_FIELD_EQ(alu_sel_tag_err, 0),
+                  ROW_FIELD_EQ(alu_ab_tags_diff_inv, 0))));
+}
+
 // Base class for EQ tests with common setup
 class AluTraceGenEQTestBase {
   protected:
