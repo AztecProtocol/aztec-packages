@@ -25,7 +25,7 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     // Total number of random polynomials in each test
     static constexpr size_t num_polynomials = 7;
     // Number of shiftable polynomials
-    static constexpr size_t num_shiftable = 2;
+    static constexpr size_t num_shiftable = 3;
     // Number of polynomials to be right shifted by k
     static constexpr size_t num_right_shiftable_by_k = 2;
 

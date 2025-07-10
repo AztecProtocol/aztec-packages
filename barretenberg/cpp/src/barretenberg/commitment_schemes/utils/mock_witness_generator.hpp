@@ -92,24 +92,74 @@ template <typename Curve> struct MockClaimGenerator {
         const size_t num_not_to_be_shifted = num_polynomials - total_num_to_be_shifted;
 
         // Construct claim data for polynomials that are NOT to be shifted
-        for (size_t idx = 0; idx < num_not_to_be_shifted; idx++) {
+        for (size_t idx = 0; idx < 1; idx++) {
+            Polynomial poly = Polynomial::random(poly_size);
+            for (size_t i = 0; i < poly_size; ++i) {
+                poly.at(i) = 0;
+            }
+            unshifted.commitments.push_back(ck->commit(poly));
+            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+            unshifted.polys.push_back(std::move(poly));
+        }
+        for (size_t idx = 1; idx < num_not_to_be_shifted; idx++) {
             Polynomial poly = Polynomial::random(poly_size);
             unshifted.commitments.push_back(ck->commit(poly));
             unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
             unshifted.polys.push_back(std::move(poly));
         }
 
-        // Construct claim data for polynomials that are to-be-shifted
-        for (size_t idx = 0; idx < num_to_be_shifted; idx++) {
-            Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
-            Commitment commitment = ck->commit(poly);
-            to_be_shifted.commitments.push_back(commitment);
-            to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
-            to_be_shifted.polys.push_back(poly.share());
-            // Populate the unshifted counterpart in the unshifted claims
-            unshifted.commitments.push_back(commitment);
-            unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
-            unshifted.polys.push_back(std::move(poly));
+        if (num_to_be_shifted > 3) {
+            for (size_t idx = 0; idx < 1; idx++) {
+                Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
+                Commitment commitment = ck->commit(poly);
+                to_be_shifted.commitments.push_back(commitment);
+                to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
+                to_be_shifted.polys.push_back(poly.share());
+                // Populate the unshifted counterpart in the unshifted claims
+                unshifted.commitments.push_back(commitment);
+                unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+                unshifted.polys.push_back(std::move(poly));
+            }
+            for (size_t idx = 1; idx < 2; idx++) {
+                Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
+                for (size_t i = 0; i < poly_size; ++i) {
+                    poly.at(i) = 0;
+                }
+                Commitment commitment = ck->commit(poly);
+                to_be_shifted.commitments.push_back(commitment);
+                to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
+                to_be_shifted.polys.push_back(poly.share());
+                // Populate the unshifted counterpart in the unshifted claims
+                unshifted.commitments.push_back(commitment);
+                unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+                unshifted.polys.push_back(std::move(poly));
+            }
+
+            // Construct claim data for polynomials that are to-be-shifted
+            for (size_t idx = 2; idx < num_to_be_shifted; idx++) {
+                Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
+                Commitment commitment = ck->commit(poly);
+                to_be_shifted.commitments.push_back(commitment);
+                to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
+                to_be_shifted.polys.push_back(poly.share());
+                // Populate the unshifted counterpart in the unshifted claims
+                unshifted.commitments.push_back(commitment);
+                unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+                unshifted.polys.push_back(std::move(poly));
+            }
+        } else {
+            // Construct claim data for polynomials that are to-be-shifted
+            for (size_t idx = 0; idx < num_to_be_shifted; idx++) {
+                Polynomial poly = Polynomial::random(poly_size, /*shiftable*/ 1);
+                Commitment commitment = ck->commit(poly);
+                to_be_shifted.commitments.push_back(commitment);
+                to_be_shifted.evals.push_back(poly.shifted().evaluate_mle(mle_opening_point));
+                to_be_shifted.polys.push_back(poly.share());
+                // Populate the unshifted counterpart in the unshifted claims
+                unshifted.commitments.push_back(commitment);
+                unshifted.evals.push_back(poly.evaluate_mle(mle_opening_point));
+                unshifted.polys.push_back(std::move(poly));
+            }
         }
 
         // Construct claim data for polynomials that are to-be-right-shifted-by-k

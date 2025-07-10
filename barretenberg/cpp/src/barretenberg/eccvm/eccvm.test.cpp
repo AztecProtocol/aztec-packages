@@ -62,6 +62,28 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
+
+ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr)
+{
+    using Curve = curve::BN254;
+    // using G1 = Curve::Element;
+    // using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    // G1 a = G1::random_element(engine);
+    // G1 b = G1::random_element(engine);
+    // G1 c = G1::random_element(engine);
+    // Fr x = Fr::random_element(engine);
+    // Fr y = Fr::random_element(engine);
+
+    op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    ECCVMCircuitBuilder builder{ op_queue };
+    return builder;
+}
 void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_parameters,
                                    std::shared_ptr<PK>& pk,
                                    std::vector<FF>& gate_challenges)
@@ -89,6 +111,21 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
         gate_challenges[idx] = FF::random_element();
     }
+}
+
+TEST_F(ECCVMTests, Zeroes)
+{
+    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
+    bool verified = verifier.verify_proof(proof);
+
+    ASSERT_TRUE(verified);
 }
 
 TEST_F(ECCVMTests, BaseCaseFixedSize)
