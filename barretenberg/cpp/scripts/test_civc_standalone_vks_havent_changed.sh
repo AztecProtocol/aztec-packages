@@ -11,7 +11,7 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-94fd74f7.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-8e8cd466.tar.gz"
 
 # For easily rerunning the inputs generation
 if [[ "${1:-}" == "--update_inputs" ]]; then
@@ -23,9 +23,6 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
 
     ../../bootstrap.sh # bootstrap aztec-packages from root
     ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
-
-    # 2) Compress the results
-    echo "Compressing the generated inputs..."
     tar -czf bb-civc-inputs.tar.gz -C ../../yarn-project/end-to-end/example-app-ivc-inputs-out .
 
     # 3) Compute a short hash for versioning
