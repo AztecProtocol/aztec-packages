@@ -2,13 +2,33 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/merge-train-lib.sh"
+# Ensure required token is set
+if [[ -z "${MERGE_TRAIN_GITHUB_TOKEN:-}" ]]; then
+  echo "Error: MERGE_TRAIN_GITHUB_TOKEN is not set. This token is required for PR approval."
+  exit 1
+fi
 
-# Methods used from merge-train-lib.sh:
-# - log_info: Log informational messages
-# - pr_has_auto_merge: Check if a PR has auto-merge enabled
-# - enable_auto_merge: Enable auto-merge for a PR (includes approval if needed)
+# Function to check if a PR has auto-merge enabled
+function pr_has_auto_merge {
+  local pr_number="$1"
+  local result=$(gh pr view "$pr_number" --json autoMergeRequest --jq '.autoMergeRequest')
+  [[ -n "$result" ]]
+}
+
+# Function to enable auto-merge for a PR (includes approval if needed)
+function enable_auto_merge {
+  local pr_number="$1"
+
+  local reviews=$(gh pr view "$pr_number" --json reviews --jq '.reviews[] | select(.state == "APPROVED")')
+  if [[ -z "$reviews" ]]; then
+    echo "Approving PR #$pr_number"
+    # Use MERGE_TRAIN_GITHUB_TOKEN specifically for approval
+    GH_TOKEN="${MERGE_TRAIN_GITHUB_TOKEN}" gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
+  fi
+
+  echo "Enabling auto-merge for PR #$pr_number"
+  gh pr merge "$pr_number" --auto --merge
+}
 
 # Constants
 INACTIVITY_HOURS="${INACTIVITY_HOURS:-4}"
@@ -74,13 +94,13 @@ function is_pr_inactive {
 }
 
 # Start execution
-log_info "Starting auto-merge check for inactive merge-train PRs"
-log_info "Inactivity threshold: $INACTIVITY_HOURS hours"
+echo "Starting auto-merge check for inactive merge-train PRs"
+echo "Inactivity threshold: $INACTIVITY_HOURS hours"
 
 prs=$(get_merge_train_prs)
 
 if [[ -z "$prs" ]]; then
-  log_info "No merge-train PRs found"
+  echo "No merge-train PRs found"
   exit 0
 fi
 
@@ -88,13 +108,13 @@ while IFS= read -r pr_json; do
   pr_number=$(echo "$pr_json" | jq -r '.number')
   branch=$(echo "$pr_json" | jq -r '.headRefName')
 
-  log_info "Checking PR #$pr_number ($branch)"
+  echo "Checking PR #$pr_number ($branch)"
 
   # Get last meaningful commit info (SHA and date)
   commit_info=$(get_last_meaningful_commit_info "$pr_number")
 
   if [[ -z "$commit_info" ]]; then
-    log_info "PR #$pr_number has no meaningful commits, skipping"
+    echo "PR #$pr_number has no meaningful commits, skipping"
     continue
   fi
 
@@ -103,33 +123,33 @@ while IFS= read -r pr_json; do
   last_commit_date="${commit_info##*|}"
 
   # Check if the last merge queue run failed
-  log_info "Checking last merge queue run for PR #$pr_number"
-  
+  echo "Checking last merge queue run for PR #$pr_number"
+
   # Get the most recent completed CI3 merge queue run for this PR
   last_mq_run=$(gh api "repos/{owner}/{repo}/actions/runs?event=merge_group&per_page=50" \
     --jq '.workflow_runs[] | select(.head_commit.message | contains("#'$pr_number'")) | select(.status == "completed") | select(.name == "CI3") | {conclusion: .conclusion, name: .name}' 2>/dev/null | head -1)
-  
+
   if [[ -n "$last_mq_run" ]]; then
     last_mq_conclusion=$(echo "$last_mq_run" | jq -r '.conclusion // empty')
     if [[ "$last_mq_conclusion" == "failure" ]] || [[ "$last_mq_conclusion" == "cancelled" ]]; then
-      log_info "PR #$pr_number last merge queue run failed ($last_mq_conclusion), skipping auto-merge"
+      echo "PR #$pr_number last merge queue run failed ($last_mq_conclusion), skipping auto-merge"
       continue
     fi
   fi
 
   if is_pr_inactive "$last_commit_date"; then
-    log_info "PR #$pr_number has been inactive since $last_commit_date"
+    echo "PR #$pr_number has been inactive since $last_commit_date"
 
     # Check if already has auto-merge
     if pr_has_auto_merge "$pr_number"; then
-        log_info "PR #$pr_number already has auto-merge enabled"
+        echo "PR #$pr_number already has auto-merge enabled"
     else
         enable_auto_merge "$pr_number"
         gh pr comment "$pr_number" --body "🤖 Auto-merge enabled after $INACTIVITY_HOURS hours of inactivity. This PR will be merged automatically once all checks pass."
     fi
   else
-    log_info "PR #$pr_number is still active (last commit: $last_commit_date)"
+    echo "PR #$pr_number is still active (last commit: $last_commit_date)"
   fi
 done <<< "$prs"
 
-log_info "Auto-merge check completed"
+echo "Auto-merge check completed"

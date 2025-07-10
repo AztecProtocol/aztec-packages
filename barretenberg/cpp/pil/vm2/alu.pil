@@ -1,4 +1,3 @@
-
 include "constants_gen.pil";
 include "execution.pil";
 include "ff_gt.pil";
@@ -10,6 +9,7 @@ pol commit sel;
 
 pol commit sel_op_add;
 pol commit sel_op_lt;
+pol commit sel_op_eq;
 pol commit op_id;
 
 pol commit ia;
@@ -25,6 +25,10 @@ sel = 0;
 
 // carry flag
 pol commit cf;
+
+// Generic helper column
+// Current use: EQ (inverse of a-b)
+pol commit helper1;
 
 // maximum bits the number can hold (i.e. 8 for a u8):
 pol commit max_bits;
@@ -42,7 +46,9 @@ sel_is_ff * (1 - sel_is_ff) = 0;
 // TODO(MW): Add other ops like: sel_op_add * AVM_EXEC_OP_ID_ALU_ADD + sel_op_sub * AVM_EXEC_OP_ID_ALU_SUB + sel_op_mul * AVM_EXEC_OP_ID_ALU_MUL - op_id = 0;
 // Note that the op_ids below represent a binary decomposition (see constants_gen.pil):
 #[OP_ID_CHECK]
-sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD + sel_op_lt * constants.AVM_EXEC_OP_ID_ALU_LT - op_id = 0;
+op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
+      + sel_op_lt * constants.AVM_EXEC_OP_ID_ALU_LT
+      + sel_op_eq * constants.AVM_EXEC_OP_ID_ALU_EQ;
 
 #[REGISTER_TAG_VALUE]
 execution.sel_alu {
@@ -68,7 +74,7 @@ CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_i
 // TAG CHECKING
 
 // Will become e.g. sel_op_add * ia_tag + (comparison ops) * MEM_TAG_U1 + ....
-pol EXPECTED_C_TAG = sel_op_add * ia_tag + sel_op_lt * constants.MEM_TAG_U1;
+pol EXPECTED_C_TAG = sel_op_add * ia_tag + (sel_op_lt + sel_op_eq) * constants.MEM_TAG_U1;
 
 // No error handling here since, as a memory write, the type of c is handled by the VM:
 #[C_TAG_CHECK]
@@ -114,3 +120,16 @@ pol commit lt_abs_diff;
 sel_op_lt * ( IS_NOT_FF * ( (A_LT_B - A_GTE_B) * ic + A_GTE_B ) - lt_abs_diff ) = 0;
 #[LT_RANGE]
 sel_op_lt { lt_abs_diff, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+
+// EQ
+
+pol DIFF = ia - ib;
+
+// Use helper1 to invert DIFF.
+// ic is a boolean output and ic == 1 <==> a == b.
+// Important: ic boolean constraint is enforced as part of write to memory due to ic_tag == U1 as enforced by #[C_TAG_CHECK].
+
+// sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
+#[EQ_OP_MAIN]
+sel_op_eq * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;

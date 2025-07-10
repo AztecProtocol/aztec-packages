@@ -53,8 +53,27 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         MemoryValue c = alu.add(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu add operation failed");
+    }
+}
+
+void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EQ;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.eq(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu eq operation failed");
     }
 }
 
@@ -72,7 +91,7 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         MemoryValue c = alu.lt(a, b);
         memory.set(dst_addr, c);
         set_output(opcode, c);
-    } catch (AluError& e) {
+    } catch (AluException& e) {
         throw OpcodeExecutionException("Alu lt operation failed");
     }
 }
@@ -396,6 +415,69 @@ void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
     set_output(opcode, success);
 }
 
+void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::AND;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.and_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise AND Exeception");
+    }
+}
+
+void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::OR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.or_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise OR Exception");
+    }
+}
+
+void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::XOR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.xor_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise XOR Exception");
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -553,6 +635,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::EQ:
+        call_with_operands(&Execution::eq, context, resolved_operands);
+        break;
     case ExecutionOpCode::LT:
         call_with_operands(&Execution::lt, context, resolved_operands);
         break;
@@ -600,6 +685,14 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::DEBUGLOG:
         call_with_operands(&Execution::debug_log, context, resolved_operands);
+    case ExecutionOpCode::AND:
+        call_with_operands(&Execution::and_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::OR:
+        call_with_operands(&Execution::or_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::XOR:
+        call_with_operands(&Execution::xor_op, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

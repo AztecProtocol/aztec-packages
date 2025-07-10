@@ -106,7 +106,7 @@ using lookup_execution_instruction_fetching_body_relation =
 struct lookup_execution_exec_spec_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_EXEC_SPEC_READ";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 49;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 42;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_exec_spec;
     static constexpr Column COUNTS = Column::lookup_execution_exec_spec_read_counts;
@@ -124,15 +124,8 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::execution_sel_op_is_address_4_,
         ColumnAndShifts::execution_sel_op_is_address_5_,
         ColumnAndShifts::execution_sel_op_is_address_6_,
+        ColumnAndShifts::execution_subtrace_id,
         ColumnAndShifts::execution_subtrace_operation_id,
-        ColumnAndShifts::execution_sel_execution,
-        ColumnAndShifts::execution_sel_alu,
-        ColumnAndShifts::execution_sel_bitwise,
-        ColumnAndShifts::execution_sel_poseidon2_perm,
-        ColumnAndShifts::execution_sel_to_radix,
-        ColumnAndShifts::execution_sel_ecc_add,
-        ColumnAndShifts::execution_sel_keccakf1600,
-        ColumnAndShifts::execution_sel_data_copy,
         ColumnAndShifts::execution_sel_mem_op_reg_0_,
         ColumnAndShifts::execution_sel_mem_op_reg_1_,
         ColumnAndShifts::execution_sel_mem_op_reg_2_,
@@ -175,15 +168,8 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::precomputed_sel_op_is_address_4_,
         ColumnAndShifts::precomputed_sel_op_is_address_5_,
         ColumnAndShifts::precomputed_sel_op_is_address_6_,
+        ColumnAndShifts::precomputed_subtrace_id,
         ColumnAndShifts::precomputed_subtrace_operation_id,
-        ColumnAndShifts::precomputed_sel_dispatch_execution,
-        ColumnAndShifts::precomputed_sel_dispatch_alu,
-        ColumnAndShifts::precomputed_sel_dispatch_bitwise,
-        ColumnAndShifts::precomputed_sel_dispatch_poseidon_perm,
-        ColumnAndShifts::precomputed_sel_dispatch_to_radix,
-        ColumnAndShifts::precomputed_sel_dispatch_ecc,
-        ColumnAndShifts::precomputed_sel_dispatch_keccakf1600,
-        ColumnAndShifts::precomputed_sel_dispatch_data_copy,
         ColumnAndShifts::precomputed_sel_mem_op_reg_0_,
         ColumnAndShifts::precomputed_sel_mem_op_reg_1_,
         ColumnAndShifts::precomputed_sel_mem_op_reg_2_,
@@ -218,5 +204,29 @@ struct lookup_execution_exec_spec_read_settings_ {
 using lookup_execution_exec_spec_read_settings = lookup_settings<lookup_execution_exec_spec_read_settings_>;
 template <typename FF_>
 using lookup_execution_exec_spec_read_relation = lookup_relation_base<FF_, lookup_execution_exec_spec_read_settings>;
+
+/////////////////// lookup_execution_dyn_l2_factor_bitwise ///////////////////
+
+struct lookup_execution_dyn_l2_factor_bitwise_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_DYN_L2_FACTOR_BITWISE";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_bitwise;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_tag_parameters;
+    static constexpr Column COUNTS = Column::lookup_execution_dyn_l2_factor_bitwise_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_dyn_l2_factor_bitwise_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_mem_tag_reg_0_, ColumnAndShifts::execution_dynamic_l2_gas_factor
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_byte_length
+    };
+};
+
+using lookup_execution_dyn_l2_factor_bitwise_settings =
+    lookup_settings<lookup_execution_dyn_l2_factor_bitwise_settings_>;
+template <typename FF_>
+using lookup_execution_dyn_l2_factor_bitwise_relation =
+    lookup_relation_base<FF_, lookup_execution_dyn_l2_factor_bitwise_settings>;
 
 } // namespace bb::avm2
