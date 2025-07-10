@@ -1,11 +1,12 @@
 global:
   aztecRollupVersion: "canonical"
-  customNetwork:
+  customAztecNetwork:
     enabled: true
     l1ChainId: 11155111
     registryContractAddress: 0x315b521ad88c038aa63962533677538435680614
     slashFactoryAddress: 0xea1986b735e5a3a4b46646f4ea150bbc0f348a25
     feeAssetHandlerContractAddress: 0x7aad514626f735d2415e67e5f088284e5194a417
+
 
   l1ExecutionUrls: []
   l1ConsensusUrls: []
@@ -17,12 +18,9 @@ global:
     tag: staging
     pullPolicy: Always
 
-node:
-  node:
-    resources:
-      requests:
-        cpu: "3"
-        memory: "12Gi"
+validator:
+  replicaCount: 8
+  validatorsPerNode: 100
 
   nodeSelector:
     local-ssd: "false"
@@ -40,6 +38,14 @@ node:
           topologyKey: "kubernetes.io/hostname"
           namespaceSelector: {}
 
+  node:
+    env:
+      SPONSORED_FPC: true
+    resources:
+      requests:
+        cpu: "3"
+        memory: "12Gi"
+
   persistence:
     enabled: true
   statefulSet:
@@ -52,52 +58,6 @@ node:
             requests:
               storage: 16Gi
 
-broker:
-  replicaCount: 1
-
-  nodeSelector:
-    local-ssd: "false"
-    node-type: "network"
-
-  persistence:
-    enabled: true
-  statefulSet:
-    volumeClaimTemplates:
-      - metadata:
-          name: data
-        spec:
-          accessModes: [ReadWriteOnce]
-          resources:
-            requests:
-              storage: 8Gi
-  node:
-    resources:
-      requests:
-        # should land on a 2-core node
-        cpu: "1.6"
-        memory: "5Gi"
-
-agent:
-  replicaCount: 16
-
-  node:
-    env:
-      HARDWARE_CONCURRENCY: "15"
-    resources:
-      requests:
-        memory: "60Gi"
-        cpu: "15"
-
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: cloud.google.com/gke-spot
-            operator: Exists
-
-  tolerations:
-    - key: "cloud.google.com/gke-spot"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
+  service:
+    headless:
+      enabled: true
