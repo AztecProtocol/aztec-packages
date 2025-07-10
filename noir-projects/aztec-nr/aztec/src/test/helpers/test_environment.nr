@@ -211,22 +211,12 @@ impl TestEnvironment {
         ret_value
     }
 
-    pub unconstrained fn utility_context_at<Env, T>(
-        &mut self,
-        addr: AztecAddress,
-        f: fn[Env](UtilityContext) -> T,
-    ) -> T {
-        // temporary hack until we reimplement the utility context oracle and have it take this as a param
-        let pre = txe_oracles::get_contract_address();
-        txe_oracles::set_contract_address(addr);
-        let ret = self.utility_context(f);
-        txe_oracles::set_contract_address(pre);
-
-        ret
-    }
-
-    /// Returns the number of the next block to be built.
-    pub unconstrained fn next_block_number(_self: Self) -> u32 {
+    /// Returns the block number of the block currently being built. Since sequencer is executing the public part
+    /// of transactions when building blocks, this block number is also returned by public_context.block_number().
+    pub unconstrained fn pending_block_number(_self: Self) -> u32 {
+        // TODO: This oracle when used in PXE returns the latest synched block number by the node and not the pending
+        // block number! But TXE handles this in some messed up custom way so this might actually be kinda correct.
+        // Terrible.
         get_block_number()
     }
 
