@@ -47,8 +47,92 @@ impl TestEnvironment {
 
     pub unconstrained fn _new() -> Self {
         cheatcodes::reset();
-        cheatcodes::disable_oracles();
+        cheatcodes::enable_context_checks();
         Self {}
+    }
+
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    ///
+    /// Creates a `PublicContext`, which allows using aztec-nr features as if inside a public contract function. Useful
+    /// for low-level testing of public state variables and utilities.
+    ///
+    /// Receives a function which is called with the created `PublicContext`. Any value returned by said function is
+    /// bubbled up to the caller of `public_context`. Do *NOT* return or use the `PublicContext` value in any way
+    /// outside of the passed function, since it will become invalid once `public_context` returns.
+    ///
+    /// A new block is automatically mined once `public_context` returns, containing all of the side-effects caused by
+    /// its execution (e.g. public storage writes).
+    ///
+    /// ---
+    /// Sample usage:
+    /// ```noir
+    /// env.public_context(|context| {
+    ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
+    ///   state_var.write(some_value);
+    ///   assert_eq(state_var.read(), some_value);
+    /// });
+    /// ```
+    ///
+    /// ---
+    /// Advanced usage with returns:
+    /// ```noir
+    /// let read_value = env.public_context(|context| {
+    ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
+    ///   state_var.read()
+    /// });
+    pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
+        cheatcodes::set_public_txe_context();
+
+        let mut context = self.public();
+        let ret_value = f(&mut context);
+
+        // merge calls below into 'exit public txe context' -> this mines a block
+        // 36 is the slot duration - for some reason we need to advance by at least this much in order to get a block to
+        // get mined. note that this may cause the block we just mined to not have the timestamp we thought it did - we
+        // need to test this.
+        cheatcodes::advance_timestamp_by(36);
+        cheatcodes::advance_blocks_by(1);
+        cheatcodes::set_top_level_txe_context();
+
+        ret_value
+    }
+
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    ///
+    /// Creates a `PrivateContext`, which allows using aztec-nr features as if inside a private contract function.
+    /// Useful for low-level testing of public state variables and utilities.
+    ///
+    /// Receives a function which is called with the created `PrivateContext`. Any value returned by said function is
+    /// bubbled up to the caller of `private_context`. Do *NOT* return or use the `PrivateContext` value in any way
+    /// outside of the passed function, since it will become invalid once `private_context` returns.
+    ///
+    /// The historical block is set to the latest block.
+    pub unconstrained fn private_context<Env, T>(
+        &mut self,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
+        let mut context = self.private();
+        cheatcodes::set_private_txe_context();
+
+        let ret_value = f(&mut context);
+        cheatcodes::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context
+
+        ret_value
+    }
+
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
+        cheatcodes::set_utility_txe_context();
+        let context = self.utility();
+        let ret_value = f(context);
+        cheatcodes::set_top_level_txe_context();
+
+        ret_value
     }
 
     /// Returns the block number of the block currently being built. Since sequencer is executing the public part
