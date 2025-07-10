@@ -1248,8 +1248,8 @@ describe('PeerManager', () => {
       );
       expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
 
-      // An unauthenticated peer should have a -Infinity peer score
-      expect(newPeerManager.getPeerScore(peerId.toString())).toBe(-Infinity);
+      //For an unauthenticated peer, the peer we should disable gossiping
+      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeTruthy();
     });
 
     it('should authenticate peer if auth handshake succeeds', async () => {
@@ -1389,8 +1389,8 @@ describe('PeerManager', () => {
       expect(receivedAuth?.status.latestBlockHash).toEqual(blockHash);
       expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
 
-      // An unauthenticated peer should have a -Infinity peer score
-      expect(newPeerManager.getPeerScore(peerId.toString())).toBe(-Infinity);
+      //For an unauthenticated peer, the peer we should disable gossiping
+      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeTruthy();
     });
 
     it('should remove authentication if peer is no longer a registered validator', async () => {
@@ -1468,8 +1468,8 @@ describe('PeerManager', () => {
 
       expect(newPeerManager.isAuthenticatedPeer(peerId)).toBe(false);
 
-      // An unauthenticated peer should have a -Infinity peer score
-      expect(newPeerManager.getPeerScore(peerId.toString())).toBe(-Infinity);
+      //For an unauthenticated peer, the peer we should disable gossiping
+      expect(newPeerManager.shouldDisableP2PGossip(peerId.toString())).toBeTruthy();
     });
 
     it('should remove authentication if peer is disconnected', async () => {

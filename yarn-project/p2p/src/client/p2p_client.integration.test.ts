@@ -57,6 +57,8 @@ describe('p2p client integration', () => {
     logger = createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
+    epochCache.getRegisteredValidators.mockResolvedValue([]);
+
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
       return Promise.resolve([] as Tx[]);
@@ -630,7 +632,7 @@ describe('p2p client integration', () => {
       jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async (peerId: PeerId, ...rest) => {
         if (peerId.toString() === badPeerId.toString()) {
           logger.debug(`Client 1 returning invalid status handshake for peer ${peerId.toString()}`);
-          return { status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') };
+          return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
         }
         logger.debug(`Client 1 returning valid status handshake for peer ${peerId.toString()}`);
         return await realSend(peerId, ...rest);

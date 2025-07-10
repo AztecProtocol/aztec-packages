@@ -19,5 +19,7 @@ export interface PeerManagerInterface {
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 
   getPeerScore(peerId: string): number;
+  shouldDisableP2PGossip(peerId: string): boolean;
+
   stop(): Promise<void>;
 }
