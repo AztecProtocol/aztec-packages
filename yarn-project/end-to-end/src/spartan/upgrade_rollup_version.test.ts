@@ -99,6 +99,7 @@ describe('spartan_upgrade_rollup_version', () => {
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,
           realVerifier: false,
+          exitDelaySeconds: 2 * 24 * 60 * 60,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,
