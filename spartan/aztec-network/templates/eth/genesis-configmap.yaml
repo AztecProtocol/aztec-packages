@@ -15,7 +15,7 @@ data:
     {{ .Files.Get $path | nindent 4 }}
   jwt-secret.hex: |-
     {{- $path := printf "%s/jwt-secret.hex" $basePath }}
-    {{ .Files.Get $path | nindent 4 }}
+    {{ .Files.Get $path | trim }}
   genesis-ssz: |
     {{- $path := printf "%s/genesis-ssz" $basePath }}
     {{ .Files.Get $path | nindent 4 }}
@@ -34,4 +34,4 @@ data:
     {{ .Files.Get $path | nindent 4 }}
   jwt-secret.hex: |-
     {{- $path := printf "%s/jwt-secret.hex" $basePath }}
-    {{ .Files.Get $path | nindent 4 }}
+    {{ .Files.Get $path | trim }}
