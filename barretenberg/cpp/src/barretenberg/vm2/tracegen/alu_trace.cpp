@@ -44,7 +44,8 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_op_id,
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_sel_ff_lt, is_ff },
+            { Column::alu_sel_ff_lt,
+              is_ff && (!event.error.has_value() || event.error != simulation::AluError::TAG_ERROR) },
             { Column::alu_tag_ff_diff_inv,
               is_ff
                   ? 0

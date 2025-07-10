@@ -72,7 +72,7 @@ TEST(AvmSimulationAluTest, NegativeAddTag)
                 ElementsAre(AluEvent{ .operation = AluOperation::ADD,
                                       .a = a,
                                       .b = b,
-                                      .c = MemoryValue::from_tag(a.get_tag(), 0),
+                                      .c = MemoryValue::from_tag(static_cast<ValueTag>(0), 0),
                                       .error = AluError::TAG_ERROR }));
 }
 
@@ -134,7 +134,7 @@ TEST(AvmSimulationAluTest, NegativeLTTag)
                 ElementsAre(AluEvent{ .operation = AluOperation::LT,
                                       .a = a,
                                       .b = b,
-                                      .c = MemoryValue::from<uint1_t>(0),
+                                      .c = MemoryValue::from_tag(static_cast<ValueTag>(0), 0),
                                       .error = AluError::TAG_ERROR }));
 }
 
@@ -193,7 +193,7 @@ TEST(AvmSimulationAluTest, EQTagError)
                 ElementsAre(AluEvent{ .operation = AluOperation::EQ,
                                       .a = a,
                                       .b = b,
-                                      .c = MemoryValue::from<uint1_t>(1),
+                                      .c = MemoryValue::from_tag(static_cast<ValueTag>(0), 0),
                                       .error = AluError::TAG_ERROR }));
 }
 
