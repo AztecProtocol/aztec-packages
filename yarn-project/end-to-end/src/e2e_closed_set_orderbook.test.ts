@@ -115,21 +115,31 @@ describe('ClosedSetOrderbook', () => {
       });
 
       // Create order
-      const tx = await orderbook
+      const txReceipt = await orderbook
         .withWallet(maker)
         .methods.create_order(token0.address, token1.address, bidAmount, askAmount, nonceForAuthwits)
         .with({ authWitnesses: [makerAuthwit] })
         .send()
         .wait();
 
-      // // // Get order ID from transaction return value
-      // // orderId = tx.order_id;
-      // // At this point, bidAmount of token0 should be transferred to the private balance of the orderbook and maker
-      // // should have 0.
-      // const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      // expect(makerBalances0).toEqual(0n);
-      // const orderbookBalances0 = await token0.withWallet(maker).methods.balance_of_private(orderbook.address).simulate();
-      // expect(orderbookBalances0).toEqual(bidAmount);
+      // // Get order ID from transaction return value
+      // orderId = tx.order_id;
+      // At this point, bidAmount of token0 should be transferred to the private balance of the orderbook and maker
+      // should have 0.
+      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      expect(makerBalances0).toEqual(0n);
+      const orderbookBalances0 = await token0
+        .withWallet(maker)
+        .methods.balance_of_private(orderbook.address)
+        .simulate();
+      expect(orderbookBalances0).toEqual(bidAmount);
+
+      const notes = await pxe.getNotes({
+        txHash: txReceipt.txHash,
+        contractAddress: orderbook.address,
+      });
+
+      console.log(notes);
     });
 
     // // Note that this test case depends on the previous one.
