@@ -38,11 +38,9 @@ jobs:
         docs:
           - name: "aztec"
             path: "docs"
-            build_deps: "noir barretenberg avm-transpiler noir-projects l1-contracts yarn-project"
             changed: "${{ needs.check-changes.outputs.aztec }}"
           - name: "barretenberg"
             path: "barretenberg/docs"
-            build_deps: "barretenberg"
             changed: "${{ needs.check-changes.outputs.barretenberg }}"
     if: |
       ((needs.check-changes.outputs.aztec == 'true' || needs.check-changes.outputs.barretenberg == 'true') &&
@@ -91,15 +89,18 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Build dependencies
-        if: ${{ matrix.docs.changed == 'true' }}
+      - name: Build dependencies for Aztec docs
+        if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'aztec' }}
         run: |
-          if [[ "${{ matrix.docs.build_deps }}" == *"noir"* ]]; then
-            export NOIR_HASH=$(./noir/bootstrap.sh hash)
-          fi
-          for project in ${{ matrix.docs.build_deps }}; do
+          export NOIR_HASH=$(./noir/bootstrap.sh hash)
+          for project in noir barretenberg avm-transpiler noir-projects l1-contracts yarn-project; do
             $project/bootstrap.sh
           done
+
+      - name: Build dependencies for Barretenberg docs
+        if: ${{ matrix.docs.changed == 'true' && matrix.docs.name == 'barretenberg' }}
+        run: |
+          ./barretenberg/bootstrap.sh
 
       # Making the bash script here so we don't accidentally deploy
       - name: Run release-preview script
