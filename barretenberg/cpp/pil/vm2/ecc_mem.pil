@@ -39,9 +39,10 @@ include "execution.pil";
  *     - guaranteed by this gadget to be U1.
 *
  * ERROR HANDLING:
- * A single error needs to be handled as part of this trace
+ * Two errors needs to be handled as part of this trace,
  * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
  *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
+ * (2) POINT_NOT_ON_CURVE: This is propagated up from the ecc_add subtrace.
  *
  * N.B This subtrace writes the values within a single row (i.e. 3 output columns)
  *
@@ -73,6 +74,12 @@ namespace ecc_add_mem;
     ////////////////////////////////////////////////
     pol commit sel_dst_out_of_range_err;
     sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+
+    pol commit sel_point_not_on_curve_err; // Propagate from ecc_add dispatch
+    sel_point_not_on_curve_err * (1 - sel_point_not_on_curve_err) = 0;
+
+    pol commit err; // Consolidate errors
+    err = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_point_not_on_curve_err);
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
@@ -119,7 +126,7 @@ namespace ecc_add_mem;
         // Dst address
         dst_addr[0],
         // Error
-        sel_dst_out_of_range_err
+        err
     };
 
     ///////////////////////////////////////////////////////////////////////
@@ -133,20 +140,24 @@ namespace ecc_add_mem;
     sel_should_exec {
         p_x, p_y, p_is_inf,
         q_x, q_y, q_is_inf,
-        res_x, res_y, res_is_inf
+        res_x, res_y, res_is_inf,
+        sel_point_not_on_curve_err
     } in
     ecc.sel {
         ecc.p_x, ecc.p_y, ecc.p_is_inf,
         ecc.q_x, ecc.q_y, ecc.q_is_inf,
-        ecc.r_x, ecc.r_y, ecc.r_is_inf
+        ecc.r_x, ecc.r_y, ecc.r_is_inf,
+        ecc.err
     };
 
     ////////////////////////////////////////////////
     // Write output to memory
     ////////////////////////////////////////////////
+    pol commit sel_should_write;
+    sel_should_write = sel_should_exec * (1 - sel_point_not_on_curve_err);
     // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
     #[WRITE_MEM_0]
-    sel_should_exec { 
+    sel_should_write { 
         execution_clk, dst_addr[0],
         res_x,         /*FF_mem_tag*/ precomputed.zero,
         space_id,      /*rw=1*/ sel_should_exec
@@ -158,7 +169,7 @@ namespace ecc_add_mem;
     };
 
     #[WRITE_MEM_1]
-    sel_should_exec { 
+    sel_should_write { 
         execution_clk, dst_addr[1],
         res_y,         /*FF_mem_tag*/ precomputed.zero,
         space_id,      /*rw=1*/ sel_should_exec
@@ -170,7 +181,7 @@ namespace ecc_add_mem;
     };
 
     #[WRITE_MEM_2]
-    sel_should_exec { 
+    sel_should_write { 
         execution_clk,  dst_addr[2],
         res_is_inf,     /*U1_mem_tag=1*/ sel_should_exec,
         space_id,       /*rw=1*/ sel_should_exec

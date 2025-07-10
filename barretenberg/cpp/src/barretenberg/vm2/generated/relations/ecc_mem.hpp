@@ -13,7 +13,7 @@ template <typename FF_> class ecc_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -55,17 +55,40 @@ template <typename FF_> class ecc_memImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::ecc_add_mem_sel) * (in.get(C::ecc_add_mem_max_mem_addr) - constants_AVM_HIGHEST_MEM_ADDRESS);
+            auto tmp = in.get(C::ecc_add_mem_sel_point_not_on_curve_err) *
+                       (FF(1) - in.get(C::ecc_add_mem_sel_point_not_on_curve_err));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::ecc_add_mem_err) -
+                        (FF(1) - (FF(1) - in.get(C::ecc_add_mem_sel_dst_out_of_range_err)) *
+                                     (FF(1) - in.get(C::ecc_add_mem_sel_point_not_on_curve_err))));
+            tmp *= scaling_factor;
+            std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::ecc_add_mem_sel) * (in.get(C::ecc_add_mem_max_mem_addr) - constants_AVM_HIGHEST_MEM_ADDRESS);
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = (in.get(C::ecc_add_mem_sel_should_exec) -
                         in.get(C::ecc_add_mem_sel) * (FF(1) - in.get(C::ecc_add_mem_sel_dst_out_of_range_err)));
             tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp =
+                (in.get(C::ecc_add_mem_sel_should_write) -
+                 in.get(C::ecc_add_mem_sel_should_exec) * (FF(1) - in.get(C::ecc_add_mem_sel_point_not_on_curve_err)));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
