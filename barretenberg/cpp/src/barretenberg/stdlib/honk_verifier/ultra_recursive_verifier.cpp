@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -82,10 +83,18 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // Extract the aggregation object from the public inputs
-    PairingPoints nested_points_accumulator =
-        PublicPairingPoints::reconstruct(key->public_inputs, key->vk_and_hash->vk->pairing_inputs_public_input_key);
-    output.points_accumulator = nested_points_accumulator;
+    // Extract the data carried on the public inputs of the proof
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        RollupIO inputs; // pairing points, IPA claim
+        inputs.reconstruct_from_public(key->public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+        output.ipa_claim = inputs.ipa_claim;
+    } else {
+        DefaultIO<Builder> inputs; // pairing points
+        inputs.reconstruct_from_public(key->public_inputs);
+        output.points_accumulator = inputs.pairing_inputs;
+    }
+
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
@@ -129,13 +138,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
     output.points_accumulator.aggregate(pairing_points);
-
-    // Extract the IPA claim from the public inputs
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        using PublicIpaClaim = PublicInputComponent<OpeningClaim<grumpkin<Builder>>>;
-        output.ipa_claim =
-            PublicIpaClaim::reconstruct(key->public_inputs, key->vk_and_hash->vk->ipa_claim_public_input_key);
-    }
 
     return output;
 }
