@@ -1,7 +1,9 @@
 terraform {
   backend "gcs" {
-    bucket = "aztec-terraform"
-    prefix = "terraform/state/alpha-testnet"
+    # Use terraform init -backend-config to set appropriate location
+    # These are the values for the default alpha-testnet deployment
+    # bucket = "aztec-terraform"
+    # prefix = "terraform/state/alpha-testnet"
   }
   required_providers {
     helm = {
@@ -48,11 +50,11 @@ data "terraform_remote_state" "metrics" {
   }
 }
 
-data "terraform_remote_state" "blochain_node_engine" {
+data "terraform_remote_state" "blockchain_node_engine" {
   backend = "gcs"
   config = {
     bucket = "aztec-terraform"
-    prefix = "terraform/state/blockchain-node-engine/default.tfstate"
+    prefix = "terraform/state/blockchain-node-engine"
   }
 }
 
@@ -89,17 +91,15 @@ locals {
   ]
 
   consensus_hosts = [
-    "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052",
-    "https://${data.terraform_remote_state.blockchain_node_engine.outputs.outputs.sepolia_node_beacon_api_url}"
+    "https://${data.terraform_remote_state.blockchain_node_engine.outputs.sepolia_node_beacon_api_url}",
+    "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052"
   ]
 
   consensus_api_keys = [
-    "",
     data.google_secret_manager_secret_version.blockchain_node_api_key_latest.secret_data
   ]
 
   consensus_api_key_headers = [
-    "",
     "X-goog-api-key"
   ]
 }
