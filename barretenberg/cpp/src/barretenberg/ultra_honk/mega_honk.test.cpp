@@ -117,7 +117,7 @@ TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
  * with recursive verification circuits
  * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
  */
-TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
+TYPED_TEST(MegaHonkTests, ProofLengthCheck)
 {
     using Flavor = TypeParam;
 
