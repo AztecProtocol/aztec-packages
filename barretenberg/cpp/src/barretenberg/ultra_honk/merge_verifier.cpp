@@ -121,7 +121,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         Claims claim;
 
         // Opening claim for t_j(1/kappa)
-        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
+        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_eval_kappa_inv_" + std::to_string(idx));
         claim = { { commitment_idx }, { FF::one() }, { kappa_inv, t_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
 

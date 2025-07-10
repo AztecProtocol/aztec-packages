@@ -125,7 +125,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
         Claims claim;
 
         // Opening claim for t_j(1/kappa)
-        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
+        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_eval_kappa_inv_" + std::to_string(idx));
         claim = { { commitment_idx }, { FF(1) }, { kappa_inv, t_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
 

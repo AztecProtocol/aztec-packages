@@ -60,8 +60,8 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Compute commitments [T_prev], [T], [reversed_t], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         transcript->send_to_verifier("T_PREV_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
-        transcript->send_to_verifier("T_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
-        transcript->send_to_verifier("t_REVERSED_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
+        transcript->send_to_verifier("T_" + std::to_string(idx), pcs_commitment_key.commit(T[idx]));
+        transcript->send_to_verifier("t_REVERSED_" + std::to_string(idx), pcs_commitment_key.commit(t_reversed[idx]));
     }
 
     // Compute evaluation challenge
