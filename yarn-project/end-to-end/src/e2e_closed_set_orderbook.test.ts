@@ -8,7 +8,7 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 
 import { jest } from '@jest/globals';
 
-import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
+import { deployToken, expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup, setupPXEService } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
@@ -86,7 +86,7 @@ describe('ClosedSetOrderbook', () => {
       token0 = await deployToken(adminWallet, 0n, logger);
       token1 = await deployToken(adminWallet, 0n, logger);
 
-      // Register tokens with PXE B
+      // Register tokens with taker's PXE
       await takerPxe.registerContract(token0);
       await takerPxe.registerContract(token1);
 
@@ -159,10 +159,8 @@ describe('ClosedSetOrderbook', () => {
 
       // At this point, bidAmount of token0 should be transferred to the private balance of the orderbook and maker
       // should have 0.
-      expect(await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate()).toEqual(0n);
-      expect(await token0.withWallet(maker).methods.balance_of_private(orderbook.address).simulate()).toEqual(
-        bidAmount,
-      );
+      await expectTokenBalance(maker, token0, maker.getAddress(), 0n, logger);
+      await expectTokenBalance(maker, token0, orderbook.address, bidAmount, logger);
 
       const notes = await makerPxe.getNotes({
         txHash: txReceipt.txHash,
@@ -183,14 +181,8 @@ describe('ClosedSetOrderbook', () => {
         });
         expect(orderNote.length).toEqual(1);
 
-        expect(await token0.withWallet(taker).methods.balance_of_private(orderbook.address).simulate()).toEqual(
-          bidAmount,
-        );
-
-        // Check that taker has the expected balance of ask token
-        expect(await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate()).toEqual(
-          askAmount,
-        );
+        await expectTokenBalance(taker, token0, orderbook.address, bidAmount, logger);
+        await expectTokenBalance(taker, token1, taker.getAddress(), askAmount, logger);
       }
 
       const nonceForAuthwits = Fr.random();
@@ -201,7 +193,7 @@ describe('ClosedSetOrderbook', () => {
         action: token1.methods.transfer_in_private(taker.getAddress(), maker.getAddress(), askAmount, nonceForAuthwits),
       });
 
-      // Fulfill order using PXE B
+      // Fulfill order using taker's PXE
       await orderbook
         .withWallet(taker)
         .methods.fulfill_order(orderId, nonceForAuthwits)
@@ -209,20 +201,12 @@ describe('ClosedSetOrderbook', () => {
         .send()
         .wait({ interval: 0.1 });
 
-      // Verify balances after order fulfillment
-      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      const makerBalances1 = await token1.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      const takerBalances0 = await token0.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
-      const takerBalances1 = await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
-
-      // Full maker token 0 balance should be transferred to taker and hence maker should have 0
-      expect(makerBalances0).toEqual(0n);
-      // askAmount of token1 should be transferred to maker
-      expect(makerBalances1).toEqual(askAmount);
-      // bidAmount of token0 should be transferred to taker
-      expect(takerBalances0).toEqual(bidAmount);
-      // Full taker token 1 balance should be transferred to maker and hence taker should have 0
-      expect(takerBalances1).toEqual(0n);
+      // Verify balances after order fulfillment - at this point, maker should have the askAmount of token1 and taker
+      // should have the bidAmount of token0 and orderbook should have nothing.
+      await expectTokenBalance(maker, token0, maker.getAddress(), 0n, logger);
+      await expectTokenBalance(maker, token1, maker.getAddress(), askAmount, logger);
+      await expectTokenBalance(taker, token0, taker.getAddress(), bidAmount, logger);
+      await expectTokenBalance(taker, token1, taker.getAddress(), 0n, logger);
     });
   });
 });
