@@ -57,7 +57,6 @@ void ClientIVC::instantiate_stdlib_verification_queue(
         StdlibProof stdlib_proof(circuit, entry.proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
-        // Why?? ^
         std::shared_ptr<RecursiveVKAndHash> stdlib_vk_and_hash;
         if (vkeys_provided) {
             stdlib_vk_and_hash = input_keys[key_idx++];
