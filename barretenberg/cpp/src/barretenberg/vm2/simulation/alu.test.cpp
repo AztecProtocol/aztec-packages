@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/alu.hpp"
 
+#include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -194,6 +195,41 @@ TEST(AvmSimulationAluTest, EQTagError)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<ValueTag>(0), 0),
+                                      .error = AluError::TAG_ERROR }));
+}
+
+TEST(AvmSimulationAluTest, NotBasic)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    Alu alu(range_check, field_gt, alu_event_emitter);
+
+    const auto a = MemoryValue::from<uint64_t>(98321);
+    const auto b = alu.op_not(a);
+
+    EXPECT_EQ(b, MemoryValue::from<uint64_t>(UINT64_MAX - 98321));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::NOT, .a = a, .b = b, .error = std::nullopt }));
+}
+
+TEST(AvmSimulationAluTest, NotFFTagError)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    Alu alu(range_check, field_gt, alu_event_emitter);
+
+    auto a = MemoryValue::from<FF>(FF::modulus - 3);
+
+    EXPECT_THROW(alu.op_not(a), AluException);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events,
+                ElementsAre(AluEvent{ .operation = AluOperation::NOT,
+                                      .a = a,
+                                      .b = MemoryValue::from_tag(static_cast<ValueTag>(0), 0),
                                       .error = AluError::TAG_ERROR }));
 }
 
