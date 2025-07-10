@@ -24,8 +24,8 @@ template <msgpack_concepts::HasMsgPack T> struct convert<T> {
                               "MSGPACK_FIELDS requires a constructor that can take the types listed in MSGPACK_FIELDS. "
                               "Type or arg count mismatch, or member initializer constructor not available.");
             };
+            // Call static checker to ensure we have a constructor that takes all fields - unless we opt-out.
             if constexpr (!requires { typename T::MSGPACK_NO_STATIC_CHECK; }) {
-                // static check that the types match
                 std::apply(static_checker, drop_keys(std::tie(args...)));
             }
             msgpack::type::define_map<decltype(args)...>{ args... }.msgpack_unpack(o);
@@ -49,6 +49,7 @@ template <msgpack_concepts::HasMsgPack T> struct pack<T> {
                               "Alternatively, a matching member initializer constructor might not be available for T "
                               "and should be defined.");
             };
+            // Call static checker to ensure we have a constructor that takes all fields - unless we opt-out.
             if constexpr (!requires { typename T::MSGPACK_NO_STATIC_CHECK; }) {
                 std::apply(static_checker, drop_keys(std::tie(args...)));
             }
