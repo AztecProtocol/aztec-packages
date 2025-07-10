@@ -57,8 +57,8 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
      * polynomial only if deg(t_j(X)) < l.
      *
      * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, t_j(1/kappa), g_j(kappa)
-     * We use Shplonk to verify the claims with a single MSM. We initialize the Shplonk verifier with the following
-     * commitments:
+     * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [t_j], [T_{prev,j}], [T_j]
+     * and then open it). We initialize the Shplonk verifier with the following commitments:
      *      [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
      * Then, we verify the various claims:
      *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to t_j, T_{prev,j}, T_j, so
