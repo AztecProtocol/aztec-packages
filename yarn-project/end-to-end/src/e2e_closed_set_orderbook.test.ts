@@ -21,10 +21,12 @@ describe('ClosedSetOrderbook', () => {
 
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
+  let teardownC: () => Promise<void>;
   let logger: Logger;
 
   let makerPxe: PXE;
   let takerPxe: PXE;
+  let feeCollectorPxe: PXE;
   let cheatCodes: CheatCodes;
   let sequencer: SequencerClient;
   let aztecNode: AztecNode;
@@ -51,13 +53,13 @@ describe('ClosedSetOrderbook', () => {
     ({
       pxe: makerPxe,
       teardown: teardownA,
-      wallets: [adminWallet, maker, feeCollector],
+      wallets: [adminWallet, maker],
       initialFundedAccounts,
       logger,
       cheatCodes,
       sequencer: maybeSequencer,
       aztecNode,
-    } = await setup(3, { numberOfInitialFundedAccounts: 4 }));
+    } = await setup(2, { numberOfInitialFundedAccounts: 4 }));
 
     if (!maybeSequencer) {
       throw new Error('Sequencer client not found');
@@ -69,7 +71,7 @@ describe('ClosedSetOrderbook', () => {
     {
       // Setup second PXE for taker
       ({ pxe: takerPxe, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
-      const takerAccount = await deployFundedSchnorrAccount(takerPxe, initialFundedAccounts[3]);
+      const takerAccount = await deployFundedSchnorrAccount(takerPxe, initialFundedAccounts[2]);
       taker = await takerAccount.getWallet();
 
       /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
@@ -77,23 +79,38 @@ describe('ClosedSetOrderbook', () => {
       await sleep(5000);
     }
 
-    await makerPxe.registerSender(taker.getAddress());
-    await takerPxe.registerSender(maker.getAddress());
-    // We need to register the admin wallet as a sender for taker such that taker's PXE knows that it needs to sync
-    // the minted token1 note (admin is set as sender there).
-    await takerPxe.registerSender(adminWallet.getAddress());
-    // Register fee collector with both PXEs to track fee transfers
-    await makerPxe.registerSender(feeCollector.getAddress());
-    await takerPxe.registerSender(feeCollector.getAddress());
+    // FEE COLLECTOR ACCOUNT SETUP
+    // We setup a third PXE for the fee collector account
+    {
+      // Setup third PXE for fee collector
+      ({ pxe: feeCollectorPxe, teardown: teardownC } = await setupPXEService(aztecNode, {}, undefined, true));
+      const feeCollectorAccount = await deployFundedSchnorrAccount(feeCollectorPxe, initialFundedAccounts[3]);
+      feeCollector = await feeCollectorAccount.getWallet();
+
+      /*TODO(post-honk): We wait 5 seconds for a race condition in setting up two nodes.
+      What is a more robust solution? */
+      await sleep(5000);
+    }
+
+    {
+      await makerPxe.registerSender(taker.getAddress());
+      await takerPxe.registerSender(maker.getAddress());
+      // We need to register the admin wallet as a sender for taker and fee collector such that their PXEs know that they need to sync
+      // the minted token notes (admin is set as sender there).
+      await takerPxe.registerSender(adminWallet.getAddress());
+    }
 
     // TOKEN SETUP
     {
       token0 = await deployToken(adminWallet, 0n, logger);
       token1 = await deployToken(adminWallet, 0n, logger);
 
-      // Register tokens with taker's PXE
+      // Register tokens with taker's and fee collector's PXEs
+      // (we don't need to do so for maker pxe because we deployed the tokens via that)
       await takerPxe.registerContract(token0);
       await takerPxe.registerContract(token1);
+      await feeCollectorPxe.registerContract(token0);
+      await feeCollectorPxe.registerContract(token1);
 
       // Mint tokens to maker and taker
       await mintTokensToPrivate(token0, adminWallet, maker.getAddress(), bidAmount);
@@ -118,14 +135,17 @@ describe('ClosedSetOrderbook', () => {
         .send()
         .deployed();
 
-      // Register orderbook with both PXEs
+      // Register orderbook with all PXEs
       await makerPxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
       await takerPxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
+      await feeCollectorPxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
       await takerPxe.registerContract(orderbook);
+      await feeCollectorPxe.registerContract(orderbook);
     }
   });
 
   afterAll(async () => {
+    await teardownC();
     await teardownB();
     await teardownA();
   });
