@@ -44,7 +44,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation to the verifier contract so the
     // VerificationKey from UltraFlavor can be used
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
@@ -54,18 +54,17 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
-        VerificationKey(ProvingKey& proving_key)
-        {
-            this->circuit_size = proving_key.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
-            if (!proving_key.commitment_key.initialized()) {
-                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
+        VerificationKey(const PrecomputedData& precomputed)
+        {
+            this->circuit_size = precomputed.metadata.dyadic_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = precomputed.metadata.num_public_inputs;
+            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
+
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 
@@ -102,23 +101,23 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
         /**
          * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
          *
          * @param domain_separator
          * @param transcript
+         *
+         * @returns The hash of the verification key
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to update this function to look
+            // like UltraFlavor's add_hash_to_transcript. Alternatively, the VerificationKey class will go away when we
+            // add pairing point aggregation to the solidity verifier.
             transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
             transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
             transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): The rest is commented out because the
-            // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a
-            // followup PR.
-            // for (const Commitment& commitment : this->get_all()) {
-            //     transcript->add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
-            // }
+            return 0;
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.

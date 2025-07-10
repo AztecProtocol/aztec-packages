@@ -154,7 +154,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     auto prover_transcript = Transcript::prover_init_empty();
-    auto circuit_size = decider_pk->proving_key.circuit_size;
+    auto circuit_size = decider_pk->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
     SubrelationSeparators prover_alphas;
@@ -170,7 +170,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     decider_pk->gate_challenges = prover_gate_challenges;
 
     SumcheckProver<Flavor> sumcheck_prover(circuit_size,
-                                           decider_pk->proving_key.polynomials,
+                                           decider_pk->polynomials,
                                            prover_transcript,
                                            prover_alphas,
                                            prover_gate_challenges,

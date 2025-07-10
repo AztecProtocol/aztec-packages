@@ -69,17 +69,17 @@ export async function createAccount(
   } else {
     const wallet = await account.getWallet();
     const deployOpts: DeployAccountOptions = {
-      skipClassRegistration: !publicDeploy,
-      skipPublicDeployment: !publicDeploy,
+      skipClassPublication: !publicDeploy,
+      skipInstancePublication: !publicDeploy,
       skipInitialization: skipInitialization,
       ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     /*
-     * This is usually handled by accountManager.deploy(), but we're accessing the lower
+     * This is usually handled by accountManager.create(), but we're accessing the lower
      * level method to get gas and timings. That means we have to replicate some of the logic here.
-     * In case we're deploying our own account, we need to hijack the payment method for the fee,
+     * In case we're initializing and/or publishing our own account, we need to hijack the payment method for the fee,
      * wrapping it in the one that will make use of the freshly deployed account's
-     * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
+     * entrypoint. For reference, see aztec.js/src/account_manager.ts:sendAccountContractSetupTx()
      * Also, salt and universalDeploy have to be explicitly provided
      */
     deployOpts.fee =

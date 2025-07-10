@@ -119,8 +119,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         }
 
         /**
-         * @brief Serialize verification key to field elements. Overrides the base class definition to include
-         * ipa_claim_public_input_key.
+         * @brief Serialize verification key to field elements.
          *
          * @return std::vector<FF>
          */
@@ -158,30 +157,34 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         }
 
         /**
-         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
-         * implementation to include the ipa claim public input key.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
          *
          * @param domain_separator
          * @param transcript
+         * @returns The hash of the verification key
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript) override
+        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
             CircuitBuilder* builder = this->circuit_size.context;
-            pairing_points_start_idx.convert_constant_to_fixed_witness(
-                builder); // We can't use poseidon2 with constants.
-            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx", pairing_points_start_idx);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      pairing_points_start_idx);
             FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
-            transcript.add_to_hash_buffer(domain_separator + "vk_ipa_claim_start_idx", ipa_claim_start_idx);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_ipa_claim_start_idx", ipa_claim_start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         /**

@@ -16,12 +16,12 @@ type ContractInstanceUpdateKey = [string, string] | [string, string, number];
  */
 export class ContractInstanceStore {
   #contractInstances: AztecAsyncMap<string, Buffer>;
-  #contractInstanceDeployedAt: AztecAsyncMap<string, number>;
+  #contractInstancePublishedAt: AztecAsyncMap<string, number>;
   #contractInstanceUpdates: AztecAsyncMap<ContractInstanceUpdateKey, Buffer>;
 
   constructor(private db: AztecAsyncKVStore) {
     this.#contractInstances = db.openMap('archiver_contract_instances');
-    this.#contractInstanceDeployedAt = db.openMap('archiver_contract_instances_deployment_block_number');
+    this.#contractInstancePublishedAt = db.openMap('archiver_contract_instances_publication_block_number');
     this.#contractInstanceUpdates = db.openMap('archiver_contract_instance_updates');
   }
 
@@ -31,14 +31,14 @@ export class ContractInstanceStore {
         contractInstance.address.toString(),
         new SerializableContractInstance(contractInstance).toBuffer(),
       );
-      await this.#contractInstanceDeployedAt.set(contractInstance.address.toString(), blockNumber);
+      await this.#contractInstancePublishedAt.set(contractInstance.address.toString(), blockNumber);
     });
   }
 
   deleteContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
     return this.db.transactionAsync(async () => {
       await this.#contractInstances.delete(contractInstance.address.toString());
-      await this.#contractInstanceDeployedAt.delete(contractInstance.address.toString());
+      await this.#contractInstancePublishedAt.delete(contractInstance.address.toString());
     });
   }
 
@@ -110,6 +110,6 @@ export class ContractInstanceStore {
   }
 
   getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
-    return this.#contractInstanceDeployedAt.getAsync(address.toString());
+    return this.#contractInstancePublishedAt.getAsync(address.toString());
   }
 }
