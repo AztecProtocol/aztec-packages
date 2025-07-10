@@ -94,10 +94,10 @@ pol commit sel_tag_err;
 pol commit ab_tags_diff_inv;
 pol AB_TAGS_EQ = 1 - sel_tag_err;
 
-// For NOT opcode, qn error occurs if the tag of a is FF. In this case, tracegen will set
+// For NOT opcode, an error occurs if the tag of a is FF. In this case, tracegen will set
 // b as FF(0) which would not satisfy the relation #[AB_TAGS_CHECK] if it were not gated
 // by CHECK_AB_TAGS.
-pol CHECK_AB_TAGS = 1 - sel_op_not;
+pol CHECK_AB_TAGS = 1 - sel_op_not * sel_is_ff;
 
 // TODO(MW): Add sel/flag to turn off check when we expect a/b tags to not be equal (e.g. SHR?)
 // Prove that sel_tag_err = 1 <==> we have a disallowed inequality between the tags:
@@ -151,6 +151,8 @@ pol DIFF = ia - ib;
 sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;
 
 // NOT
+
+sel_op_not * (1 - sel_op_not) = 0;
 
 // Relation is: a + ~a = 2^k - 1, where k is the number of bits in a.
 #[NOT_OP_MAIN]

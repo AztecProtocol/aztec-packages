@@ -8,6 +8,9 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/alu.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
@@ -19,6 +22,7 @@ namespace {
 using simulation::AluError;
 using simulation::AluOperation;
 using testing::ElementsAre;
+using testing::StrictMock;
 
 using R = TestTraceContainer::Row;
 
@@ -344,7 +348,7 @@ struct ThreeOperandTestParams {
     MemoryValue c;
 };
 
-auto process_eq_trace(const ThreeOperandTestParams& params, bool error = false)
+TestTraceContainer process_eq_trace(const ThreeOperandTestParams& params, bool error = false)
 {
     TestTraceContainer trace;
     AluTraceBuilder builder;
@@ -419,23 +423,41 @@ TEST_P(EQTraceInequalityTest, Basic)
 }
 
 const std::vector<ThreeOperandTestParams> EQ_INEQUALITY_TEST_PARAMS = {
-    { .a = MemoryValue::from<uint1_t>(1), .b = MemoryValue::from<uint1_t>(0), .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint8_t>(24), .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint16_t>(12345),
-      .b = MemoryValue::from<uint16_t>(54321),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint32_t>(123456789),
-      .b = MemoryValue::from<uint32_t>(987654321),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-      .b = MemoryValue::from<uint64_t>(9876543210987654321ULL),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<uint128_t>(123456789),
-      .b = MemoryValue::from<uint128_t>(987654321),
-      .c = MemoryValue::from<uint1_t>(0) },
-    { .a = MemoryValue::from<FF>(FF::modulus - 3),
-      .b = MemoryValue::from<FF>(FF::modulus - 1),
-      .c = MemoryValue::from<uint1_t>(0) }
+    {
+        .a = MemoryValue::from<uint1_t>(1),
+        .b = MemoryValue::from<uint1_t>(0),
+        .c = MemoryValue::from<uint1_t>(0),
+    },
+    {
+        .a = MemoryValue::from<uint8_t>(42),
+        .b = MemoryValue::from<uint8_t>(24),
+        .c = MemoryValue::from<uint1_t>(0),
+    },
+    {
+        .a = MemoryValue::from<uint16_t>(12345),
+        .b = MemoryValue::from<uint16_t>(54321),
+        .c = MemoryValue::from<uint1_t>(0),
+    },
+    {
+        .a = MemoryValue::from<uint32_t>(123456789),
+        .b = MemoryValue::from<uint32_t>(987654321),
+        .c = MemoryValue::from<uint1_t>(0),
+    },
+    {
+        .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
+        .b = MemoryValue::from<uint64_t>(9876543210987654321ULL),
+        .c = MemoryValue::from<uint1_t>(0),
+    },
+    {
+        .a = MemoryValue::from<uint128_t>(123456789),
+        .b = MemoryValue::from<uint128_t>(987654321),
+        .c = MemoryValue::from<uint1_t>(0),
+    },
+    {
+        .a = MemoryValue::from<FF>(FF::modulus - 3),
+        .b = MemoryValue::from<FF>(FF::modulus - 1),
+        .c = MemoryValue::from<uint1_t>(0),
+    }
 };
 
 // Test parameters for inequality: (MemoryValue a, MemoryValue b) - values are different
@@ -469,29 +491,110 @@ TEST_P(EQTraceTagErrorTest, Basic)
 }
 
 const std::vector<ThreeOperandTestParams> EQ_TAG_ERROR_TEST_PARAMS = {
-    // Equality case
-    { .a = MemoryValue::from<uint8_t>(42),
-      .b = MemoryValue::from<uint16_t>(42),
-      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
-    { .a = MemoryValue::from<uint32_t>(123456789),
-      .b = MemoryValue::from<uint64_t>(123456789),
-      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
-    { .a = MemoryValue::from<uint128_t>(123456789),
-      .b = MemoryValue::from<FF>(123456789),
-      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
-    { .a = MemoryValue::from<FF>(42),
-      .b = MemoryValue::from<uint8_t>(42),
-      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
-    { .a = MemoryValue::from<uint1_t>(1),
-      .b = MemoryValue::from<uint8_t>(1),
-      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
-    { .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-      .b = MemoryValue::from<uint128_t>(1234567890123456789ULL),
-      .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) }
+    {
+        .a = MemoryValue::from<uint8_t>(42),
+        .b = MemoryValue::from<uint16_t>(42),
+        .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+    },
+    {
+        .a = MemoryValue::from<uint32_t>(123456789),
+        .b = MemoryValue::from<uint64_t>(123456789),
+        .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+    },
+    {
+        .a = MemoryValue::from<uint128_t>(123456789),
+        .b = MemoryValue::from<FF>(123456789),
+        .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+    },
+    {
+        .a = MemoryValue::from<FF>(42),
+        .b = MemoryValue::from<uint8_t>(42),
+        .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+    },
+    {
+        .a = MemoryValue::from<uint1_t>(1),
+        .b = MemoryValue::from<uint8_t>(1),
+        .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+    },
+    {
+        .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
+        .b = MemoryValue::from<uint128_t>(1234567890123456789ULL),
+        .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
+    }
 };
 
 // Test parameters for tag error: (MemoryValue a, MemoryValue b) - different tags
 INSTANTIATE_TEST_SUITE_P(AluTraceGenTest, EQTraceTagErrorTest, ::testing::ValuesIn(EQ_TAG_ERROR_TEST_PARAMS));
 
+// NOT Opcode Tests
+
+TestTraceContainer process_not_trace(const MemoryValue& a)
+{
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    simulation::EventEmitter<simulation::AluEvent> alu_event_emitter;
+    StrictMock<simulation::MockRangeCheck> range_check;
+    StrictMock<simulation::MockFieldGreaterThan> field_gt;
+    simulation::Alu alu(range_check, field_gt, alu_event_emitter);
+
+    try {
+        alu.op_not(a);
+    } catch (simulation::AluException& e) {
+    }
+
+    builder.process(alu_event_emitter.dump_events(), trace);
+    return trace;
+}
+
+class NotOpIntegralTraceTest : public ::testing::TestWithParam<MemoryValue> {};
+
+TEST_P(NotOpIntegralTraceTest, Basic)
+{
+    const MemoryValue& param = GetParam();
+    auto trace = process_not_trace(param);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_not, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_NOT),
+                                  ROW_FIELD_EQ(alu_ia, param.as_ff()),
+                                  ROW_FIELD_EQ(alu_ib, (~param).as_ff()),
+                                  ROW_FIELD_EQ(alu_ic, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(param.get_tag())),
+                                  ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(param.get_tag())),
+                                  ROW_FIELD_EQ(alu_ic_tag, 0),
+                                  ROW_FIELD_EQ(alu_max_value, get_tag_max_value(param.get_tag())),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 0))));
+}
+
+const std::vector<MemoryValue> NOT_OP_INTEGRAL_TEST_PARAMS = {
+    MemoryValue::from<uint1_t>(1),
+    MemoryValue::from<uint8_t>(42),
+    MemoryValue::from<uint16_t>(12345),
+    MemoryValue::from<uint32_t>(123456789),
+    MemoryValue::from<uint64_t>(1234567890123456789ULL),
+    MemoryValue::from<uint128_t>((uint128_t(1) << 127) + 982739482),
+};
+
+INSTANTIATE_TEST_SUITE_P(AluTraceGenTest, NotOpIntegralTraceTest, ::testing::ValuesIn(NOT_OP_INTEGRAL_TEST_PARAMS));
+
+TEST(AluTraceGenTest, TraceGenerationNotOpFF)
+{
+    auto trace = process_not_trace(MemoryValue::from<FF>(42));
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(AllOf(ROW_FIELD_EQ(alu_sel_op_not, 1),
+                                  ROW_FIELD_EQ(alu_sel, 1),
+                                  ROW_FIELD_EQ(alu_op_id, AVM_EXEC_OP_ID_ALU_NOT),
+                                  ROW_FIELD_EQ(alu_ia, 42),
+                                  ROW_FIELD_EQ(alu_ib, 0),
+                                  ROW_FIELD_EQ(alu_ic, 0),
+                                  ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(ValueTag::FF)),
+                                  ROW_FIELD_EQ(alu_ib_tag, 0),
+                                  ROW_FIELD_EQ(alu_ic_tag, 0),
+                                  ROW_FIELD_EQ(alu_sel_tag_err, 1),
+                                  ROW_FIELD_EQ(alu_sel_is_ff, 1))));
+}
 } // namespace
 } // namespace bb::avm2::tracegen
