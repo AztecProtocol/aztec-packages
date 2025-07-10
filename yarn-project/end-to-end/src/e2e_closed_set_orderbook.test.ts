@@ -84,7 +84,8 @@ describe('ClosedSetOrderbook', () => {
         .send()
         .deployed();
 
-      // Register the orderbook as an account in PXE
+      // Register the orderbook as an account in PXE. This is necessary for us to be able to work with the orderbook
+      // notes.
       await pxe.registerAccount(orderbookSecretKey, await orderbook.partialAddress);
     }
   });
@@ -122,58 +123,55 @@ describe('ClosedSetOrderbook', () => {
         .send()
         .wait();
 
-      // // Get order ID from transaction return value
-      // orderId = tx.order_id;
       // At this point, bidAmount of token0 should be transferred to the private balance of the orderbook and maker
       // should have 0.
-      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-      expect(makerBalances0).toEqual(0n);
-      const orderbookBalances0 = await token0
-        .withWallet(maker)
-        .methods.balance_of_private(orderbook.address)
-        .simulate();
-      expect(orderbookBalances0).toEqual(bidAmount);
+      expect(await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate()).toEqual(0n);
+      expect(await token0.withWallet(maker).methods.balance_of_private(orderbook.address).simulate()).toEqual(
+        bidAmount,
+      );
 
       const notes = await pxe.getNotes({
         txHash: txReceipt.txHash,
         contractAddress: orderbook.address,
       });
+      expect(notes.length).toEqual(1);
 
-      console.log(notes);
+      // First item in the note is the order ID
+      orderId = notes[0].note.items[0];
     });
 
-    // // Note that this test case depends on the previous one.
-    // it('fulfills an order', async () => {
-    //   const nonceForAuthwits = Fr.random();
+    // Note that this test case depends on the previous one.
+    it('fulfills an order', async () => {
+      const nonceForAuthwits = Fr.random();
 
-    //   // Create authwit for taker to allow orderbook to transfer askAmount of token1 from taker to maker
-    //   const takerAuthwit = await taker.createAuthWit({
-    //     caller: orderbook.address,
-    //     action: token1.methods.transfer_in_private(taker.getAddress(), maker.getAddress(), askAmount, nonceForAuthwits),
-    //   });
+      // Create authwit for taker to allow orderbook to transfer askAmount of token1 from taker to maker
+      const takerAuthwit = await taker.createAuthWit({
+        caller: orderbook.address,
+        action: token1.methods.transfer_in_private(taker.getAddress(), maker.getAddress(), askAmount, nonceForAuthwits),
+      });
 
-    //   // Fulfill order
-    //   await orderbook
-    //     .withWallet(taker)
-    //     .methods.fulfill_order(orderId, nonceForAuthwits)
-    //     .with({ authWitnesses: [takerAuthwit] })
-    //     .send()
-    //     .wait();
+      // Fulfill order
+      await orderbook
+        .withWallet(taker)
+        .methods.fulfill_order(orderId, nonceForAuthwits)
+        .with({ authWitnesses: [takerAuthwit] })
+        .send()
+        .wait();
 
-    //   // Verify balances after order fulfillment
-    //   const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-    //   const makerBalances1 = await token1.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
-    //   const takerBalances0 = await token0.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
-    //   const takerBalances1 = await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
+      // Verify balances after order fulfillment
+      const makerBalances0 = await token0.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      const makerBalances1 = await token1.withWallet(maker).methods.balance_of_private(maker.getAddress()).simulate();
+      const takerBalances0 = await token0.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
+      const takerBalances1 = await token1.withWallet(taker).methods.balance_of_private(taker.getAddress()).simulate();
 
-    //   // Full maker token 0 balance should be transferred to taker and hence maker should have 0
-    //   expect(makerBalances0).toEqual(0n);
-    //   // askAmount of token1 should be transferred to maker
-    //   expect(makerBalances1).toEqual(askAmount);
-    //   // bidAmount of token0 should be transferred to taker
-    //   expect(takerBalances0).toEqual(bidAmount);
-    //   // Full taker token 1 balance should be transferred to maker and hence taker should have 0
-    //   expect(takerBalances1).toEqual(0n);
-    // });
+      // Full maker token 0 balance should be transferred to taker and hence maker should have 0
+      expect(makerBalances0).toEqual(0n);
+      // askAmount of token1 should be transferred to maker
+      expect(makerBalances1).toEqual(askAmount);
+      // bidAmount of token0 should be transferred to taker
+      expect(takerBalances0).toEqual(bidAmount);
+      // Full taker token 1 balance should be transferred to maker and hence taker should have 0
+      expect(takerBalances1).toEqual(0n);
+    });
   });
 });

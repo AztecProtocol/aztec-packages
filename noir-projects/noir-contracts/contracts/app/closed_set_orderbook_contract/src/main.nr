@@ -158,7 +158,7 @@ pub contract ClosedSetOrderbook {
         // Note that we cannot use the hyper-optimized `Token::transfer` function here because we need constrained
         // delivery.
         Token::at(bid_token)
-            .transfer_in_private(context.this_address(), taker, order.bid_amount, authwit_nonce)
+            .transfer_in_private(context.this_address(), taker, order.bid_amount, 0)
             .call(&mut context);
     }
 
