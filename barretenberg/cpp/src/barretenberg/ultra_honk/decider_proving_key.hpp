@@ -200,7 +200,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            // Set the pairing point accumulator indices. This should exist for all non-Mega.
+            // Set the pairing point accumulator indices. This should exist for all non-Mega Flavors.
             if constexpr (IsUltraHonk<Flavor>) {
                 ASSERT(
                     circuit.pairing_inputs_public_input_key.is_set() &&
@@ -224,10 +224,10 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 BB_ASSERT_EQ(metadata.ipa_claim_public_input_key.start_idx,
                              num_public_inputs() - IPA_CLAIM_SIZE,
                              "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
-                BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                             num_public_inputs() - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
-                             "Pairing point accumulator must be the second to last public input object before the "
-                             "IPA claim.");
+                BB_ASSERT_EQ(
+                    metadata.pairing_inputs_public_input_key.start_idx,
+                    num_public_inputs() - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
+                    "Pairing point accumulator must be the second to last public input object before the IPA claim.");
             } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
                                                         // [user-public-inputs][pairing-point-object]
                 BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,

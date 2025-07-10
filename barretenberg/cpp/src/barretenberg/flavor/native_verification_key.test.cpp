@@ -35,8 +35,8 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFl
 TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_hash_to_transcript.
+ * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
+ * same as the hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
