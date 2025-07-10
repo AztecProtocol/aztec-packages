@@ -28,6 +28,7 @@ import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -66,10 +67,13 @@ contract AddRollupTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = VALIDATOR_COUNT * 2;
+
     // We need to make a timejump that is far enough that we can go at least 2 epochs in the past
     vm.warp(100000);
     RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
-      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT * 2).setTargetCommitteeSize(0);
+      .setStakingQueueConfig(stakingQueueConfig).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

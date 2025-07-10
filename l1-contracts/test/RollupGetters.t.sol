@@ -6,9 +6,11 @@
 pragma solidity >=0.8.27;
 
 import {IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
+import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";

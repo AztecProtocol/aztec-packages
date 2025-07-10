@@ -11,6 +11,7 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
@@ -27,6 +28,8 @@ library TestConstants {
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE = 0;
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
 
   // Genesis state
@@ -76,6 +79,15 @@ library TestConstants {
     });
   }
 
+  function getStakingQueueConfig() internal pure returns (StakingQueueConfig memory) {
+    return StakingQueueConfig({
+      bootstrapValidatorSetSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE,
+      bootstrapFlushSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE,
+      normalFlushSizeMin: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN,
+      normalFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT
+    });
+  }
+
   function getRollupConfigInput() internal pure returns (RollupConfigInput memory) {
     return RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
@@ -85,11 +97,10 @@ library TestConstants {
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       manaTarget: AZTEC_MANA_TARGET,
-      entryQueueFlushSizeMin: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN,
-      entryQueueFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
       rewardConfig: getRewardConfig(),
-      rewardBoostConfig: getRewardBoostConfig()
+      rewardBoostConfig: getRewardBoostConfig(),
+      stakingQueueConfig: getStakingQueueConfig()
     });
   }
 }
