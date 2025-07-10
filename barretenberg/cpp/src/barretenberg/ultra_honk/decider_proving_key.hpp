@@ -200,10 +200,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
-            // Set the pairing point accumulator indices. This should exist for all flavors.
-            ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
-                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
+            // Set the pairing point accumulator indices. This should exist for all non-Mega Flavors.
+            if constexpr (IsUltraHonk<Flavor>) {
+                ASSERT(
+                    circuit.pairing_inputs_public_input_key.is_set() &&
+                    "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
                    default one through a method in PairingPoints.");
+            }
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1468): Remove use of pairing inputs pub key
             metadata.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
@@ -235,15 +239,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                              "Pairing point accumulator must be the last public input object.");
             } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
                                                          // [user-public-inputs][pairing-point-object][databus-comms]
-                if (metadata.databus_propagation_data.is_kernel) {
-                    BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                                 num_public_inputs() - PAIRING_POINTS_SIZE - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
-                                 "Pairing point accumulator must be the second to last public input object.");
-                } else {
-                    BB_ASSERT_EQ(metadata.pairing_inputs_public_input_key.start_idx,
-                                 num_public_inputs() - PAIRING_POINTS_SIZE,
-                                 "Pairing point accumulator must be the last public input object.");
-                }
+                // For Mega, public inputs are handled via the KernelIO/AppIO objects. See the definition of those
+                // objects for details of what public inputs are present.
             } else {
                 // static_assert(false);
                 ASSERT(false && "Dealing with unexpected flavor.");
