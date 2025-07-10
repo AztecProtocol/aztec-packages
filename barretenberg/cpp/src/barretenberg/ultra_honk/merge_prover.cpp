@@ -42,6 +42,29 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
+    /**
+     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4:
+     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X) (1)
+     *      - deg(t_j(X)) < l                     (2)
+     * where l = subtable_size.
+     *
+     * Condition (1) is equivalent, up to negligible probability, to:
+     *      t_j(kappa) + kappa^l T_{prev,j}(kappa) - T_j(kappa) = 0
+     * so the prover constructs the polynomial
+     *      p_j(X) := t_j(X) + X^{l-1} T_{prev, j}(X) - T_j(X)
+     * and proves that it opens to 0 at kappa.
+     *
+     * To convince the verifier of (2), the prover commits to a polynomial g_j(X) (allegedly equal to X^{l-1} t_j(1/X))
+     * and provides openings c, d, of t_j(X) and g_j(X) at 1/kappa and kappa, respectively. The verifier then checks
+     * that:
+     *      c * kappa^{l-1} = d
+     * This check is equivalent, up to negligible probablity, to (2) because if deg(t_j(X)) >= l, then the prover is
+     * not able to commit to a polynomial g_j(X) that satisfies:
+     *      g_j(kappa) = kappa^{l-1} t_j(1/kappa)
+     * for a random evaluation challenge kappa.
+     *
+     */
+
     std::array<Polynomial, NUM_WIRES> t = op_queue->construct_current_ultra_ops_subtable_columns();
     std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> T = op_queue->construct_ultra_ops_table_columns();
@@ -69,30 +92,14 @@ MergeProver::MergeProof MergeProver::construct_proof()
     const FF pow_kappa = kappa.pow(subtable_size);
     const FF kappa_inv = kappa.invert();
 
-    /**
-     * Add univariate opening claims for each polynomial p_j, t_j, g_j
-     *
-     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4:
-     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X) (1)
-     *      - deg(t_j(X)) < l                     (2)
-     * where l = subtable_size.
-     *
-     * Condition (1) is equivalent, up to negligible probability, to:
-     *      t_j(kappa) + kappa^l T_{prev,j}(kappa) - T_j(kappa) = 0
-     * so the prover constructs the polynomial
-     *      p_j(X) := t_j(X) + X^{l-1} T_{prev, j}(X) - T_j(X)
-     * and proves that it opens to 0 at kappa.
-     *
-     * To convince the verifier of (2), the prover commits to a polynomial g_j(X) (allegedly equal to X^{l-1} t_j(1/X))
-     * and provides openings c, d, of t_j(X) and g_j(X) at 1/kappa and kappa, respectively. The verifier then checks
-     * that:
-     *      c * kappa^{l-1} = d
-     * This check is equivalent, up to negligible probablity, to (2) because if deg(t_j(X)) >= l, then the prover is
-     * not able to commit to a polynomial g_j(X) that satisfies:
-     *      g_j(kappa) = kappa^{l-1} t_j(1/kappa)
-     * for a random evaluation challenge kappa.
-     *
-     */
+    // Opening claims for each polynomial p_j, t_j, g_j
+    //
+    // The opening claims are sent in the following order:
+    // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
+    //      {1/kappa, t_1(1/kappa)}, {kappa, g_1(kappa)},
+    //          {1/kappa, t_2(1/kappa)}, {kappa, g_2(kappa)},
+    //              {1/kappa, t_3(1/kappa)}, {kappa, g_3(kappa)},
+    //                  {1/kappa, t_4(1/kappa)}, {kappa, g_4(kappa)}
     std::vector<OpeningClaim> opening_claims;
 
     // Set opening claims p_j(\kappa)
