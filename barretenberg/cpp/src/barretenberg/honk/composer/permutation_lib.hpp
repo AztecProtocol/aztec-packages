@@ -192,7 +192,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
 
     // Add information about public inputs so that the cycles can be altered later; See the construction of the
     // permutation polynomials for details.
-    const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.public_inputs.size());
+    const auto num_public_inputs = static_cast<uint32_t>(circuit_constructor.num_public_inputs());
 
     size_t pub_inputs_offset = 0;
     if constexpr (IsUltraOrMegaHonk<Flavor>) {

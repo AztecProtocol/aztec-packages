@@ -28,12 +28,13 @@ template <typename FF_> class CircuitBuilderBase {
     // A container for all of the witness values used by the circuit
     std::vector<FF> variables;
 
+    std::vector<uint32_t> public_inputs_;
+
   public:
     size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
     bool has_dummy_witnesses = false;
 
-    std::vector<uint32_t> public_inputs;
     std::unordered_map<uint32_t, std::string> variable_names;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
@@ -164,7 +165,15 @@ template <typename FF_> class CircuitBuilderBase {
 
     FF get_public_input(const uint32_t index) const;
 
-    std::vector<FF> get_public_inputs() const;
+    const std::vector<uint32_t>& public_inputs() const { return public_inputs_; };
+
+    /**
+     * @brief Directly initialize the public inputs vector.
+     * @details Used e.g. in the case of a circuit generated from ACIR where some public input indices are known at the
+     * time of circuit construction.
+     *
+     */
+    void initialize_public_inputs(const std::vector<uint32_t>& public_inputs) { this->public_inputs_ = public_inputs; }
 
     /**
      * Add a variable to variables
@@ -226,11 +235,9 @@ template <typename FF_> class CircuitBuilderBase {
     virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
-    // TODO(#216)(Adrian): This method should belong in the ComposerHelper, where the number of reserved gates can be
-    // correctly set.
     size_t get_circuit_subgroup_size(size_t num_gates) const;
 
-    size_t get_num_public_inputs() const { return public_inputs.size(); }
+    size_t num_public_inputs() const { return public_inputs_.size(); }
 
     // Check whether each variable index points to a witness in the composer
     //
