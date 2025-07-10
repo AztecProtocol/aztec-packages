@@ -27,7 +27,7 @@ lighthouse bn \
     --target-peers=0 \
     --testnet-dir=/genesis \
     --execution-endpoints=${ETH_EXECUTION_URL} \
-    --execution-jwt-secret-key="61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1" \
+    --execution-jwt=/genesis/jwt-secret.hex \
     --allow-insecure-genesis-sync \
     --log-format=JSON \
     --debug-level=info
