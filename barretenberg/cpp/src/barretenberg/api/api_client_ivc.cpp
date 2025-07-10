@@ -19,42 +19,7 @@
 #include <stdexcept>
 
 namespace bb {
-namespace {} // anonymous namespace
-
-acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
-{
-    acir_format::WitnessVector wv;
-    size_t index = 0;
-    for (const auto& e : witness_map) {
-        uint64_t value = stoull(e.first);
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < value) {
-            wv.push_back(fr(0));
-            index++;
-        }
-        wv.push_back(fr(uint256_t(e.second)));
-        index++;
-    }
-    return wv;
-}
-
-namespace {
-std::string field_elements_to_json(const std::vector<bb::fr>& fields)
-{
-    std::stringstream ss;
-    ss << "[";
-    for (size_t i = 0; i < fields.size(); ++i) {
-        ss << '"' << fields[i] << '"';
-        if (i < fields.size() - 1) {
-            ss << ",";
-        }
-    }
-    ss << "]";
-    return ss.str();
-}
-} // namespace
+namespace { // anonymous namespace
 
 /**
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
@@ -83,9 +48,9 @@ void write_standalone_vk(const std::string& output_format,
     }
 }
 
-void write_civc_vk(const std::string& output_format,
-                   size_t num_public_inputs_in_final_circuit,
-                   const std::filesystem::path& output_dir)
+void write_vk_for_ivc(const std::string& output_format,
+                      size_t num_public_inputs_in_final_circuit,
+                      const std::filesystem::path& output_dir)
 {
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
