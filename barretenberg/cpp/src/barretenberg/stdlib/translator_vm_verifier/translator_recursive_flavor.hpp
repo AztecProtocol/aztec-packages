@@ -126,10 +126,23 @@ class TranslatorRecursiveFlavor {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
         std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
         FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            throw_or_abort("Not implemented yet!");
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
     };
 

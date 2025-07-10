@@ -3,6 +3,9 @@ metadata:
   labels:
     {{- include "chart.selectorLabels" . | nindent 4 }}
     app: node
+  annotations:
+    {{- /* Recreate the pods on every upgrade in order to refresh configmaps and secrets */}}
+    rollme: {{ randAlphaNum 5 | quote }}
 spec:
   {{- if .Values.serviceAccount.create }}
   serviceAccountName: {{ include "chart.serviceAccountName" . }}
@@ -157,7 +160,7 @@ spec:
           value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
         - name: L1_CHAIN_ID
           value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
-        - name: SLASH_FACTORY_ADDRESS
+        - name: SLASH_FACTORY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.slashFactoryAddress }}"
         - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"

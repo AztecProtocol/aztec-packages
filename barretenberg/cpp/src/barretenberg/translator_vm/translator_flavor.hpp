@@ -776,15 +776,16 @@ class TranslatorFlavor {
         fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            }
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK and the verification key.
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
-                       num_public_inputs,
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
+
+        MSGPACK_FIELDS(num_public_inputs,
                        pub_inputs_offset,
                        ordered_extra_range_constraints_numerator,
                        lagrange_first,
