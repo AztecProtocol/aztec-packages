@@ -45,21 +45,9 @@ class MergeProver {
 
     BB_PROFILE MergeProof construct_proof();
 
+    std::shared_ptr<ECCOpQueue> op_queue;
     CommitmentKey pcs_commitment_key;
     std::shared_ptr<Transcript> transcript;
-
-    std::array<Polynomial, NUM_WIRES> t;
-    std::array<Polynomial, NUM_WIRES> T_prev;
-    std::array<Polynomial, NUM_WIRES> T;
-    std::array<Polynomial, NUM_WIRES> t_reversed;
-
-    /**
-     * @brief Compute commitments to the polynomials \f$t_j, T_{prev, j}, T_j, g_j(X) := X^{l-1} t_j(1/X)\f$ and send
-     * them to the verifier, together with the size of \f$t_j\f$
-     *
-     * @return
-     */
-    void preamble_round();
 
     /**
      * @brief Construct the opening claims to be passed to the Shplonk prover

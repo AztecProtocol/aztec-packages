@@ -17,70 +17,10 @@ namespace bb {
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          const CommitmentKey& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
-    : pcs_commitment_key(commitment_key.initialized() ? commitment_key
+    : op_queue(op_queue)
+    , pcs_commitment_key(commitment_key.initialized() ? commitment_key
                                                       : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
-    , transcript(transcript)
-    , t(op_queue->construct_current_ultra_ops_subtable_columns())
-    , T_prev(op_queue->construct_previous_ultra_ops_table_columns())
-    , T(op_queue->construct_ultra_ops_table_columns())
-{
-    // Compute g_j(X) = X^{l-1} t_j(1/X)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        t_reversed[idx] = t[idx].reverse();
-    }
-};
-
-void MergeProver::preamble_round()
-{
-    // Send subtable size to the verifier
-    const size_t subtable_size = t[0].size();
-    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(subtable_size));
-
-    // Compute commitments [T_prev], [T], [reversed_t], and send to the verifier
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        transcript->send_to_verifier("T_PREV_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
-        transcript->send_to_verifier("T_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
-        transcript->send_to_verifier("t_REVERSED_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
-    }
-}
-
-std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_claims()
-{
-    const size_t subtable_size = t[0].size();
-    const size_t table_size = T[0].size();
-
-    // Evaluation challenge
-    const FF kappa = transcript->template get_challenge<FF>("kappa");
-    const FF pow_kappa = kappa.pow(subtable_size);
-    const FF kappa_inv = kappa.invert();
-
-    // Add univariate opening claims for each polynomial t_j, p_j, g_j
-    std::vector<OpeningClaim> opening_claims;
-    // Set opening claims p_j(\kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
-        Polynomial partially_evaluated_difference(table_size);
-        partially_evaluated_difference += t[idx];
-        partially_evaluated_difference.add_scaled(T_prev[idx], pow_kappa);
-        partially_evaluated_difference -= T[idx];
-
-        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
-    }
-    // Compute evaluation t_j(1/kappa), send to verifier, and set opening claim
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = t[idx].evaluate(kappa_inv);
-        transcript->send_to_verifier("t_eval_kappa_inv_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ t[idx], { kappa_inv, evaluation } });
-    }
-    // Compute evaluation g_j(\kappa), send to verifier, and set opening claim
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation = t_reversed[idx].evaluate(kappa);
-        transcript->send_to_verifier("reversed_t_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ t_reversed[idx], { kappa, evaluation } });
-    }
-
-    return opening_claims;
-}
+    , transcript(transcript){};
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -102,9 +42,58 @@ std::vector<typename MergeProver::OpeningClaim> MergeProver::construct_opening_c
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
-    preamble_round();
+    std::array<Polynomial, NUM_WIRES> t = op_queue->construct_current_ultra_ops_subtable_columns();
+    std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_WIRES> T = op_queue->construct_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_WIRES> t_reversed;
+    // Compute g_j(X) = X^{l-1} t_j(1/X)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        t_reversed[idx] = t[idx].reverse();
+    }
 
-    std::vector<OpeningClaim> opening_claims = construct_opening_claims();
+    const size_t subtable_size = t[0].size();
+    const size_t table_size = T[0].size();
+
+    // Send subtable size to the verifier
+    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(subtable_size));
+
+    // Compute commitments [T_prev], [T], [reversed_t], and send to the verifier
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        transcript->send_to_verifier("T_PREV_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
+        transcript->send_to_verifier("T_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
+        transcript->send_to_verifier("t_REVERSED_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
+    }
+
+    // Compute evaluation challenge
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF pow_kappa = kappa.pow(subtable_size);
+    const FF kappa_inv = kappa.invert();
+
+    // Add univariate opening claims for each polynomial p_j, t_j, g_j
+    std::vector<OpeningClaim> opening_claims;
+
+    // Set opening claims p_j(\kappa)
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
+        Polynomial partially_evaluated_difference(table_size);
+        partially_evaluated_difference += t[idx];
+        partially_evaluated_difference.add_scaled(T_prev[idx], pow_kappa);
+        partially_evaluated_difference -= T[idx];
+
+        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
+    }
+    // Compute evaluation t_j(1/kappa), send to verifier, and set opening claim
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF evaluation = t[idx].evaluate(kappa_inv);
+        transcript->send_to_verifier("t_eval_kappa_inv_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ t[idx], { kappa_inv, evaluation } });
+    }
+    // Compute evaluation g_j(\kappa), send to verifier, and set opening claim
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        FF evaluation = t_reversed[idx].evaluate(kappa);
+        transcript->send_to_verifier("t_reversed_eval_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ t_reversed[idx], { kappa, evaluation } });
+    }
 
     // Shplonk prover
     OpeningClaim shplonk_opening_claim = ShplonkProver::prove(pcs_commitment_key, opening_claims, transcript);
