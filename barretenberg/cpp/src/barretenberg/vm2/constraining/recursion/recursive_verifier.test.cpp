@@ -19,7 +19,7 @@ namespace bb::avm2::constraining {
 
 class AvmRecursiveTests : public ::testing::Test {
   public:
-    using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
+    using RecursiveFlavor = AvmRecursiveFlavor;
     using InnerProver = AvmProvingHelper;
     using InnerVerifier = AvmVerifier;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
@@ -43,7 +43,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
         InnerProver prover;
         const auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = prover.create_verification_key(vk_data);
+        const auto verification_key = InnerProver::create_verification_key(vk_data);
         InnerVerifier verifier(verification_key);
 
         const auto public_inputs_cols = public_inputs.to_columns();
@@ -56,96 +56,6 @@ class AvmRecursiveTests : public ::testing::Test {
     }
 };
 
-// TODO: Makes more sense to migrate this one over a Mega-arithmetized AVM recursive verifier?
-/**
- * @brief A test of the "vanilla" Ultra-arithmetized AVM recursive verifier.
- *
- */
-TEST_F(AvmRecursiveTests, StandardRecursion)
-{
-    using RecursiveVerifier = AvmRecursiveVerifier_<RecursiveFlavor>;
-    using OuterProver = UltraProver;
-    using OuterVerifier = UltraVerifier;
-    using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
-
-    if (testing::skip_slow_tests()) {
-        GTEST_SKIP();
-    }
-
-    NativeProofResult proof_result;
-    ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
-
-    auto [proof, verification_key, public_inputs_cols] = proof_result;
-    proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
-
-    // Create the outer verifier, to verify the proof
-    OuterBuilder outer_circuit;
-
-    // Scoped to free memory of RecursiveVerifier.
-    {
-        RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
-
-        auto pairing_points = recursive_verifier.verify_proof(proof, public_inputs_cols);
-
-        NativeVerifierCommitmentKey pcs_vkey{};
-        bool pairing_points_valid =
-            pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
-
-        // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
-        // be aggregated with others.
-        ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
-
-        // Check that no failure flag was raised in the recursive verifier circuit
-        ASSERT_FALSE(outer_circuit.failed()) << outer_circuit.err();
-
-        // Check that the circuit is valid.
-        bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
-        ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
-
-        auto avm_transcript = AvmFlavor::Transcript();
-        avm_transcript.load_proof(proof);
-        auto manifest = avm_transcript.get_manifest();
-        auto recursive_manifest = recursive_verifier.transcript->get_manifest();
-
-        // We sanity check that the recursive manifest matches its counterpart one.
-        ASSERT_EQ(manifest.size(), recursive_manifest.size());
-        for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_manifest[i], manifest[i]);
-        }
-
-        // We sanity check that the recursive verifier key (precomputed columns) matches its counterpart one.
-        for (const auto [key_el, rec_key_el] :
-             zip_view(verification_key->get_all(), recursive_verifier.key->get_all())) {
-            EXPECT_EQ(key_el, rec_key_el.get_value());
-        }
-
-        // Sanity checks on circuit_size and num_public_inputs match.
-        EXPECT_EQ(verification_key->circuit_size,
-                  static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
-        EXPECT_EQ(verification_key->num_public_inputs,
-                  static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
-    }
-
-    // Make a proof of the verification of an AVM proof
-    const size_t srs_size = 1 << 24; // Current outer_circuit size is 9.6 millions
-    auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-        outer_circuit, TraceSettings{}, bb::CommitmentKey<curve::BN254>(srs_size));
-
-    // Scoped to free memory of OuterProver.
-    auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
-        OuterProver ultra_prover(ultra_instance, verification_key);
-        return ultra_prover.construct_proof();
-    }();
-
-    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
-
-    auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
-    OuterVerifier ultra_verifier(ultra_verification_key);
-    EXPECT_TRUE(ultra_verifier.verify_proof(outer_proof)) << "outer/recursion proof verification failed";
-}
-
 /**
  * @brief A test of the Goblinized AVM recursive verifier.
  * @details Constructs a simple AVM circuit for which a proof is verified using the Goblinized AVM recursive verifier. A
@@ -157,7 +67,8 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
-    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
+    using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
+    using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<OuterBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
@@ -170,7 +81,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Construct stdlib representations of the proof, public inputs and verification key
     OuterBuilder outer_circuit;
-    StdlibProof<OuterBuilder> stdlib_proof = bb::convert_native_proof_to_stdlib(&outer_circuit, proof);
+    stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, proof);
 
     std::vector<std::vector<UltraFF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_cols.size());
@@ -199,7 +110,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     verifier_output.points_accumulator.set_public();
     verifier_output.ipa_claim.set_public();
-    outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
+    outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     NativeVerifierCommitmentKey pcs_vkey{};
@@ -216,17 +127,19 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+        auto verification_key =
+            std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
         UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
-    auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+    auto outer_verification_key =
+        std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->get_precomputed());
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
-    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
+    EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->ipa_proof));
 }
 
 } // namespace bb::avm2::constraining

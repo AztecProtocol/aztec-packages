@@ -96,9 +96,9 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_
     auto get_polynomials_views() const
     {
         // As a practical measure, get the first proving key's view to deduce the array type
-        std::array<decltype(_data[0]->proving_key.polynomials.get_all()), NUM> views;
+        std::array<decltype(_data[0]->polynomials.get_all()), NUM> views;
         for (size_t i = 0; i < NUM; i++) {
-            views[i] = _data[i]->proving_key.polynomials.get_all();
+            views[i] = _data[i]->polynomials.get_all();
         }
         return views;
     }
@@ -139,8 +139,7 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerification
     {
         size_t max_log_circuit_size{ 0 };
         for (auto key : _data) {
-            max_log_circuit_size =
-                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
+            max_log_circuit_size = std::max(max_log_circuit_size, static_cast<size_t>(key->vk->log_circuit_size));
         }
         return max_log_circuit_size;
     }
@@ -159,11 +158,11 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerification
      */
     std::vector<std::vector<Commitment>> get_precomputed_commitments() const
     {
-        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        const size_t num_commitments_to_fold = _data[0]->vk->get_all().size();
         std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
         for (size_t idx = 0; auto& commitment_at_idx : result) {
             for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
-                elt = key->verification_key->get_all()[idx];
+                elt = key->vk->get_all()[idx];
             }
             idx++;
         }

@@ -27,7 +27,8 @@ import { TxHash } from './tx_hash.js';
 export class Tx extends Gossipable {
   static override p2pTopic = TopicType.tx;
   // For memoization
-  private txHash: TxHash | undefined;
+  protected txHash: TxHash | undefined;
+
   private calldataMap: Map<string, Fr[]> | undefined;
 
   constructor(
@@ -200,6 +201,7 @@ export class Tx extends Gossipable {
    */
   setTxHash(hash: TxHash) {
     this.txHash = hash;
+    return this as unknown as TxWithHash;
   }
 
   getCalldataMap(): Map<string, Fr[]> {
@@ -220,7 +222,7 @@ export class Tx extends Gossipable {
       noteHashCount: this.data.getNonEmptyNoteHashes().length,
       nullifierCount: this.data.getNonEmptyNullifiers().length,
       privateLogCount: this.data.getNonEmptyPrivateLogs().length,
-      classRegisteredCount: this.data.getNonEmptyContractClassLogsHashes().length,
+      classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
@@ -311,6 +313,15 @@ export class Tx extends Gossipable {
     const calldata = calldataMap.get(request.calldataHash.toString()) ?? [];
     return new PublicCallRequestWithCalldata(request, calldata);
   }
+
+  public async toTxWithHash() {
+    await this.getTxHash();
+    return this as unknown as TxWithHash;
+  }
+
+  public static toTxsWithHashes(txs: Tx[]): Promise<TxWithHash[]> {
+    return Promise.all(txs.map(tx => tx.toTxWithHash()));
+  }
 }
 
 /** Utility type for an entity that has a hash property for a txhash */
@@ -318,4 +329,26 @@ type HasHash = { /** The tx hash */ hash: TxHash };
 
 function hasHash(tx: Tx | HasHash): tx is HasHash {
   return (tx as HasHash).hash !== undefined;
+}
+
+export type TxWithHash = Tx & { txHash: TxHash };
+
+/**
+ * Helper class to handle Serialization and Deserialization of Txs array.
+ **/
+export class TxArray extends Array<Tx> {
+  static fromBuffer(buffer: Buffer | BufferReader): TxArray {
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const txs = reader.readVector(Tx);
+
+      return new TxArray(...txs);
+    } catch {
+      return new TxArray();
+    }
+  }
+
+  public toBuffer(): Buffer {
+    return serializeArrayOfBufferableToVector(this);
+  }
 }

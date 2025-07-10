@@ -1,5 +1,6 @@
 use dep::aztec::macros::aztec;
 
+/// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
@@ -7,9 +8,9 @@ contract Updatable {
     use aztec::state_vars::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{
-        constants::DEPLOYER_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
+        constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
     };
-    use contract_instance_deployer::ContractInstanceDeployer;
+    use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
     #[storage]
@@ -38,21 +39,23 @@ contract Updatable {
 
     #[private]
     fn update_to(new_class_id: ContractClassId) {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).update(new_class_id).enqueue(
-            &mut context,
-        );
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .update(new_class_id)
+            .enqueue(&mut context);
     }
 
     #[private]
     fn set_update_delay(new_delay: u64) {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).set_update_delay(new_delay).enqueue(
-            &mut context,
-        );
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .set_update_delay(new_delay)
+            .enqueue(&mut context);
     }
 
     #[public]
     fn get_update_delay() -> u64 {
-        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
+        ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay()
+            .view(&mut context)
     }
 
     #[utility]

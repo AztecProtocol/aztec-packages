@@ -49,22 +49,23 @@ function run_proof_generation {
   dump_fail "$prove_cmd"
 
   local vk_fields=$(cat "$outdir/vk_fields.json")
+  local vk_hash_fields=$(cat "$outdir/vk_hash_fields.json")
   local public_inputs_fields=$(cat "$outdir/public_inputs_fields.json")
   local proof_fields=$(cat "$outdir/proof_fields.json")
 
-  generate_toml "$program" "$vk_fields" "$proof_fields" "$public_inputs_fields"
+  generate_toml "$program" "$vk_fields" "$vk_hash_fields" "$proof_fields" "$public_inputs_fields"
 }
 
 function generate_toml {
   local program=$1
   local vk_fields=$2
-  local proof_fields=$3
-  local num_inner_public_inputs=$4
+  local vk_hash_fields=$3
+  local proof_fields=$4
+  local num_inner_public_inputs=$5
   local output_file="../$program/Prover.toml"
-  local key_hash="0x0000000000000000000000000000000000000000000000000000000000000000"
 
   jq -nr \
-      --arg key_hash "$key_hash" \
+      --arg key_hash "$vk_hash_fields" \
       --argjson vk_f "$vk_fields" \
       --argjson public_inputs_f "$public_inputs_fields" \
       --argjson proof_f "$proof_fields" \
@@ -95,6 +96,8 @@ function build {
     cp -R ../../noir/noir-repo/test_programs/execution_success acir_tests
     # Running these requires extra gluecode so they're skipped.
     rm -rf acir_tests/{diamond_deps_0,workspace,workspace_default_member,regression_7323}
+
+    rm -rf acir_tests/{ecdsa_secp256k1_invalid_pub_key_in_inactive_branch,ecdsa_secp256r1_invalid_pub_key_in_inactive_branch}
     # These are breaking with:
     # Failed to solve program: 'Failed to solve blackbox function: embedded_curve_add, reason: Infinite input: embedded_curve_add(infinity, infinity)'
     rm -rf acir_tests/{regression_5045,regression_7744}

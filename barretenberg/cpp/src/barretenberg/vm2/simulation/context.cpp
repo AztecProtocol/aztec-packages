@@ -67,7 +67,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .parent_cd_addr = 0,
         .parent_cd_size_addr = 0,
         .last_child_rd_addr = get_last_rd_addr(),
-        .last_child_rd_size_addr = get_last_rd_size(),
+        .last_child_rd_size = get_last_rd_size(),
         .last_child_success = get_last_success(),
         .gas_used = get_gas_used(),
         .gas_limit = get_gas_limit(),
@@ -77,6 +77,9 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .internal_call_id = get_internal_call_stack_manager().get_call_id(),
         .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
         .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
+        // Tree states
+        .tree_states = merkle_db.get_tree_state(),
+        .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
     };
 };
 
@@ -117,7 +120,7 @@ ContextEvent NestedContext::serialize_context_event()
         .parent_cd_addr = parent_cd_addr,
         .parent_cd_size_addr = parent_cd_size,
         .last_child_rd_addr = get_last_rd_addr(),
-        .last_child_rd_size_addr = get_last_rd_size(),
+        .last_child_rd_size = get_last_rd_size(),
         .last_child_success = get_last_success(),
         .gas_used = get_gas_used(),
         .gas_limit = get_gas_limit(),
@@ -127,6 +130,9 @@ ContextEvent NestedContext::serialize_context_event()
         .internal_call_id = get_internal_call_stack_manager().get_call_id(),
         .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
         .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
+        // Tree states
+        .tree_states = merkle_db.get_tree_state(),
+        .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
     };
 };
 

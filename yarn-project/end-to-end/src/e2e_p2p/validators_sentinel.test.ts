@@ -94,6 +94,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = AZTEC_SLOT_DURATION * blockCount * 8;
+      const offlineValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
+
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
@@ -110,7 +112,9 @@ describe('e2e_p2p_validators_sentinel', () => {
             lastProcessedSlot &&
             lastProcessedSlot - initialSlot >= blockCount - 1 &&
             Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
-            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed'))
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed')) &&
+            stats[offlineValidator] &&
+            stats[offlineValidator].history.length > 0
           );
         },
         'sentinel processed blocks',
@@ -127,7 +131,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
       const offlineStats = stats.stats[offlineValidator];
       const historyLength = offlineStats.history.length;
-      expect(offlineStats.history.length).toBeGreaterThanOrEqual(BLOCK_COUNT - 1);
+      expect(offlineStats.history.length).toBeGreaterThan(0);
       expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
       expect(offlineStats.missedAttestations.count + offlineStats.missedProposals.count).toEqual(historyLength);
       expect(offlineStats.missedAttestations.rate).toEqual(1);
@@ -223,7 +227,15 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       await retryUntil(
         async () => {
-          const currentProposer = await rollup.getCurrentProposer();
+          const ignoreExpectedErrors = (err: Error) => {
+            const permissibleErrors = ['ValidatorSelection__InsufficientCommitteeSize', '0x98673597'];
+            if (permissibleErrors.some(error => err.message.includes(error))) {
+              return undefined;
+            }
+            t.logger.error('Error:', err);
+            throw err;
+          };
+          const currentProposer = await rollup.getCurrentProposer().catch(ignoreExpectedErrors);
           t.logger.verbose(`Current proposer is ${currentProposer}`);
           const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
           const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);

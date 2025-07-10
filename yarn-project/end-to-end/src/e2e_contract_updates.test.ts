@@ -1,18 +1,19 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
-import { registerContractClass } from '@aztec/aztec.js/deployment';
+import { publishContractClass } from '@aztec/aztec.js/deployment';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { UpdatableContract } from '@aztec/noir-test-contracts.js/Updatable';
 import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contracts.js/Updated';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -20,15 +21,21 @@ import { setup } from './fixtures/utils.js';
 const { aztecSlotDuration } = getL1ContractsConfigEnvVars();
 const DEFAULT_TEST_UPDATE_DELAY = BigInt(aztecSlotDuration) * 10n;
 
+const INITIAL_UPDATABLE_CONTRACT_VALUE = 1n;
+// Constant copied over from Updated contract
+const UPDATED_CONTRACT_PUBLIC_VALUE = 27n;
+
 describe('e2e_contract_updates', () => {
   let wallet: Wallet;
-  let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
   let contract: UpdatableContract;
   let updatedContractClassId: Fr;
+  let cheatCodes: CheatCodes;
+  let sequencer: SequencerClient;
+  let aztecNode: AztecNode;
 
   const setupScheduledDelay = async (constructorArgs: any[], salt: Fr, deployer: AztecAddress) => {
-    const predictedInstance = await getContractInstanceFromDeployParams(UpdatableContract.artifact, {
+    const predictedInstance = await getContractInstanceFromInstantiationParams(UpdatableContract.artifact, {
       constructorArgs,
       salt,
       deployer,
@@ -41,7 +48,7 @@ describe('e2e_contract_updates', () => {
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       leaves.push(
         new PublicDataTreeLeaf(
-          await computePublicDataTreeLeafSlot(ProtocolContractAddress.ContractInstanceDeployer, storageSlot),
+          await computePublicDataTreeLeafSlot(ProtocolContractAddress.ContractInstanceRegistry, storageSlot),
           value,
         ),
       );
@@ -69,54 +76,55 @@ describe('e2e_contract_updates', () => {
       },
     ];
 
-    const constructorArgs = [1n];
+    const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
     const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
 
-    ({ teardown, wallet, aztecNode } = await setup(1, {
+    let maybeSequencer: SequencerClient | undefined = undefined;
+
+    ({
+      aztecNode,
+      teardown,
+      wallet,
+      cheatCodes,
+      sequencer: maybeSequencer,
+    } = await setup(1, {
       genesisPublicData,
       initialFundedAccounts,
     }));
+
+    if (!maybeSequencer) {
+      throw new Error('Sequencer client not found');
+    }
+    sequencer = maybeSequencer;
 
     contract = await UpdatableContract.deploy(wallet, constructorArgs[0])
       .send({ contractAddressSalt: salt })
       .deployed();
 
-    const registerMethod = await registerContractClass(wallet, UpdatedContractArtifact);
+    const registerMethod = await publishContractClass(wallet, UpdatedContractArtifact);
     await registerMethod.send().wait();
 
     updatedContractClassId = (await getContractClassFromArtifact(UpdatedContractArtifact)).id;
   });
 
-  const mineBlocksToAdvanceTimestampAtLeastBy = async (duration: UInt64) => {
-    const initialTimestamp = (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp;
-    while (true) {
-      const { blockNumber } = await contract.methods.get_update_delay().send().wait();
-      // We get the latest block header and check if the timestamp is at least "initial timestamp + duration"
-      const header = await aztecNode.getBlockHeader(blockNumber);
-      if (header!.globalVariables.timestamp >= initialTimestamp + duration) {
-        break;
-      }
-    }
-  };
-
   afterEach(() => teardown());
 
   it('should update the contract', async () => {
-    expect(await contract.methods.get_private_value().simulate()).toEqual(1n);
-    expect(await contract.methods.get_public_value().simulate()).toEqual(1n);
+    expect(await contract.methods.get_private_value().simulate()).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
+    expect(await contract.methods.get_public_value().simulate()).toEqual(INITIAL_UPDATABLE_CONTRACT_VALUE);
     await contract.methods.update_to(updatedContractClassId).send().wait();
-    // Mine some blocks
-    await mineBlocksToAdvanceTimestampAtLeastBy(DEFAULT_TEST_UPDATE_DELAY);
+    // Warp time to get past the timestamp of change where the update takes effect
+    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, DEFAULT_TEST_UPDATE_DELAY);
     // Should be updated now
     const updatedContract = await UpdatedContract.at(contract.address, wallet);
     // Call a private method that wasn't available in the previous contract
     await updatedContract.methods.set_private_value().send().wait();
     // Read state that was changed by the previous tx
-    expect(await updatedContract.methods.get_private_value().simulate()).toEqual(27n);
+    expect(await updatedContract.methods.get_private_value().simulate()).toEqual(UPDATED_CONTRACT_PUBLIC_VALUE);
 
     // Call a public method with a new implementation
     await updatedContract.methods.set_public_value().send().wait();
-    expect(await updatedContract.methods.get_public_value().simulate()).toEqual(27n);
+    expect(await updatedContract.methods.get_public_value().simulate()).toEqual(UPDATED_CONTRACT_PUBLIC_VALUE);
   });
 
   it('should change the update delay and then update the contract', async () => {
@@ -131,7 +139,7 @@ describe('e2e_contract_updates', () => {
     expect(await contract.methods.get_update_delay().simulate()).toEqual(BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     await contract.methods.update_to(updatedContractClassId).send().wait();
-    await mineBlocksToAdvanceTimestampAtLeastBy(BigInt(MINIMUM_UPDATE_DELAY) + 1n);
+    await cheatCodes.warpL2TimeAtLeastBy(sequencer, aztecNode, BigInt(MINIMUM_UPDATE_DELAY) + 1n);
 
     // Should be updated now
     const updatedContract = await UpdatedContract.at(contract.address, wallet);

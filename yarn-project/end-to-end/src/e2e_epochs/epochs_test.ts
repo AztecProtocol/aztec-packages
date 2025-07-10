@@ -4,7 +4,7 @@ import {
   type Logger,
   MerkleTreeId,
   type Wallet,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
   getTimestampRangeForEpoch,
   retryUntil,
   sleep,
@@ -19,9 +19,14 @@ import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
-import type { SequencerPublisher } from '@aztec/sequencer-client';
+import {
+  type SequencerClient,
+  type SequencerEvents,
+  type SequencerPublisher,
+  SequencerState,
+} from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { L2BlockNumber } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockNumber } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -41,23 +46,15 @@ export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 
-export type EpochsTestOpts = Partial<
-  Pick<
-    SetupOptions,
-    | 'startProverNode'
-    | 'aztecProofSubmissionEpochs'
-    | 'aztecEpochDuration'
-    | 'proverTestDelayMs'
-    | 'l1PublishRetryIntervalMS'
-    | 'txPropagationMaxQueryAttempts'
-    | 'proverNodeConfig'
-    | 'ethereumSlotDuration'
-    | 'aztecSlotDuration'
-    | 'initialValidators'
-    | 'mockGossipSubNetwork'
-    | 'disableAnvilTestWatcher'
-  >
-> & { numberOfAccounts?: number };
+export type EpochsTestOpts = Partial<SetupOptions> & { numberOfAccounts?: number };
+
+export type TrackedSequencerEvent = {
+  [K in keyof SequencerEvents]: Parameters<SequencerEvents[K]>[0] & {
+    type: K;
+    sequencerIndex: number;
+    validator: EthAddress;
+  };
+}[keyof SequencerEvents];
 
 /**
  * Tests building of epochs using fast block times and short epochs.
@@ -204,13 +201,15 @@ export class EpochsTestContext {
 
   public createValidatorNode(
     privateKeys: `0x${string}`[],
-    opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
+    opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
     return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
   }
 
-  private async createNode(opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {}) {
+  private async createNode(
+    opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
+  ) {
     const suffix = (this.nodes.length + 1).toString();
     const { mockGossipSubNetwork } = this.context;
     const resolvedConfig = { ...this.context.config, ...opts };
@@ -237,6 +236,22 @@ export class EpochsTestContext {
         },
       ),
     );
+
+    // REFACTOR: We're getting too much into the internals of the sequencer here.
+    // We should have a single method for constructing an aztec node that returns a TestAztecNodeService
+    // which directly exposes the delayer and sets any test config.
+    if (opts.txDelayerMaxInclusionTimeIntoSlot !== undefined) {
+      this.logger.info(
+        `Setting tx delayer max inclusion time into slot to ${opts.txDelayerMaxInclusionTimeIntoSlot} seconds`,
+      );
+      const sequencer = node.getSequencer() as TestSequencerClient;
+      const publisher = sequencer.sequencer.publisher;
+      const dateProvider = this.context.dateProvider!;
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, dateProvider, this.L1_BLOCK_TIME_IN_S);
+      delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
+      publisher.l1TxUtils = delayed;
+    }
+
     this.nodes.push(node);
     return node;
   }
@@ -309,7 +324,7 @@ export class EpochsTestContext {
 
   /** Registers the SpamContract on the given wallet. */
   public async registerSpamContract(wallet: Wallet, salt = Fr.ZERO) {
-    const instance = await getContractInstanceFromDeployParams(SpamContract.artifact, {
+    const instance = await getContractInstanceFromInstantiationParams(SpamContract.artifact, {
       constructorArgs: [],
       constructorArtifact: undefined,
       salt,
@@ -328,6 +343,7 @@ export class EpochsTestContext {
         privateKeyToAccount(this.getNextPrivateKey()),
         this.l1Client.chain,
       ),
+      this.context.dateProvider!,
       { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
     );
     expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
@@ -344,5 +360,57 @@ export class EpochsTestContext {
       .then(_ => true)
       .catch(_ => false);
     expect(result).toBe(expectedSuccess);
+  }
+
+  public watchSequencerEvents(
+    sequencers: SequencerClient[],
+    getMetadata: (i: number) => Record<string, any> = () => ({}),
+  ) {
+    const stateChanges: TrackedSequencerEvent[] = [];
+    const failEvents: TrackedSequencerEvent[] = [];
+
+    // Note we do not include the 'tx-count-check-failed' event here, since it is fine if we dont build
+    // due to lack of txs available.
+    const failEventsKeys: (keyof SequencerEvents)[] = [
+      'block-build-failed',
+      'block-publish-failed',
+      'proposer-rollup-check-failed',
+    ];
+
+    const makeEvent = (
+      i: number,
+      eventName: keyof SequencerEvents,
+      args: Parameters<SequencerEvents[keyof SequencerEvents]>[0],
+    ) =>
+      ({
+        ...args,
+        type: eventName,
+        sequencerIndex: i + 2,
+        ...getMetadata(i),
+      }) as TrackedSequencerEvent;
+
+    sequencers.forEach((sequencer, i) => {
+      const sequencerIndex = i + 2;
+      sequencer.getSequencer().on('state-changed', (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+        const noisyStates = [SequencerState.IDLE, SequencerState.PROPOSER_CHECK, SequencerState.SYNCHRONIZING];
+        if (!noisyStates.includes(args.newState)) {
+          const evt = makeEvent(i, 'state-changed', args);
+          stateChanges.push(evt);
+          this.logger.verbose(
+            `Sequencer ${sequencerIndex} transitioned from state ${args.oldState} to state ${args.newState}`,
+            evt,
+          );
+        }
+      });
+      failEventsKeys.forEach(eventName => {
+        sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
+          const evt = makeEvent(i, eventName, args);
+          failEvents.push(evt);
+          this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, evt);
+        });
+      });
+    });
+
+    return { failEvents, stateChanges };
   }
 }

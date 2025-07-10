@@ -88,7 +88,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
             // Compute native verification key
             auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(inner_circuit);
-            auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+            auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->get_precomputed());
             UltraProver prover(proving_key, honk_vk); // A prerequisite for computing VK
             auto inner_proof = prover.construct_proof();
 
@@ -98,7 +98,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
                 EXPECT_FALSE(verifier.verify_proof(inner_proof));
             }
             // Instantiate the recursive verifier using the native verification key
-            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
+            auto stdlib_vk_and_hash = std::make_shared<RecursiveFlavor::VKAndHash>(circuit, honk_vk);
+            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, stdlib_vk_and_hash);
 
             VerifierOutput output = verifier.verify_proof(inner_proof);
             output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything
@@ -118,12 +119,14 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     static RecursionConstraint create_recursion_constraint(const VerifierInputs& input, SlabVector<FF>& witness)
     {
         // Assemble simple vectors of witnesses for vkey and proof
-        std::vector<FF> key_witnesses = input.honk_verification_key->to_field_elements();
+        std::vector<FF> key_witnesses = input.honk_vk->to_field_elements();
+        FF key_hash_witness = input.honk_vk->hash();
         std::vector<FF> proof_witnesses = input.proof; // proof contains the public inputs at this stage
 
         // Construct witness indices for each component in the constraint; populate the witness array
-        auto [key_indices, proof_indices, public_inputs_indices] = ProofSurgeon::populate_recursion_witness_data(
-            witness, proof_witnesses, key_witnesses, /*num_public_inputs_to_extract=*/0);
+        auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
+            ProofSurgeon::populate_recursion_witness_data(
+                witness, proof_witnesses, key_witnesses, key_hash_witness, /*num_public_inputs_to_extract=*/0);
 
         // The proof type can be either Oink or PG
         PROOF_TYPE proof_type = input.type == QUEUE_TYPE::OINK ? OINK : PG;
@@ -132,7 +135,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             .key = key_indices,
             .proof = {}, // the proof witness indices are not needed in an ivc recursion constraint
             .public_inputs = public_inputs_indices,
-            .key_hash = 0, // not used
+            .key_hash = key_hash_index,
             .proof_type = proof_type,
         };
     }
@@ -185,9 +188,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
-        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        MegaProver prover(proving_key, verification_key);
-
+        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         return verification_key;
     }
 
@@ -285,7 +286,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
 
         ivc->accumulate(kernel);
-        expected_kernel_vk = ivc->verification_queue.back().honk_verification_key;
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
     }
 
     // Now, construct the kernel VK by mocking the post app accumulation state of the IVC
@@ -335,7 +336,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
             ivc->accumulate(kernel);
         }
 
-        expected_kernel_vk = ivc->verification_queue.back().honk_verification_key;
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
@@ -392,7 +393,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
             ivc->accumulate(kernel);
         }
 
-        expected_kernel_vk = ivc->verification_queue.back().honk_verification_key;
+        expected_kernel_vk = ivc->verification_queue.back().honk_vk;
     }
 
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction

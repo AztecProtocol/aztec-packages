@@ -9,7 +9,7 @@ pub type UltraHonkVerificationKey = [Field; HONK_VERIFICATION_KEY_LENGTH_IN_FIEL
 // Constants for Rollup-UltraHonk recursive verifier inputs (N.B. this is equivalent to UH plus IPA claim and proof)
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5; // identifier for rollup-UltraHonk verfier
 pub global IPA_CLAIM_SIZE: u32 = 10;
-pub global IPA_PROOF_LENGTH: u32 = 69;
+pub global IPA_PROOF_LENGTH: u32 = 68;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 113;

@@ -19,12 +19,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
     static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
 
     using UltraFlavor::UltraFlavor;
-    class ProvingKey : public UltraFlavor::ProvingKey {
-      public:
-        using UltraFlavor::ProvingKey::ProvingKey;
-        PublicComponentKey ipa_claim_public_input_key;
-        HonkProof ipa_proof;
-    };
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -34,7 +28,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH + /* IPA Claim PI start index */ 1;
@@ -82,41 +76,44 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         }
 
         /**
-         * @brief Adds the verification key witnesses directly to the transcript.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
          *
          * @param domain_separator
          * @param transcript
+         * @returns The hash of the verification key
          */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
-            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
-                                          this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_hash_buffer(domain_separator + "vkey_ipa_claim_start_idx",
-                                          ipa_claim_public_input_key.start_idx);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      this->pairing_inputs_public_input_key.start_idx);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_ipa_claim_start_idx",
+                                                      ipa_claim_public_input_key.start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
-        VerificationKey(ProvingKey& proving_key)
-            : ipa_claim_public_input_key(proving_key.ipa_claim_public_input_key)
+        VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = proving_key.circuit_size;
+            this->circuit_size = precomputed.metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
+            this->num_public_inputs = precomputed.metadata.num_public_inputs;
+            this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
+            this->ipa_claim_public_input_key = precomputed.metadata.ipa_claim_public_input_key;
 
-            if (!proving_key.commitment_key.initialized()) {
-                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
-            }
-            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key.commit(polynomial);
+            CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 

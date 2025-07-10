@@ -318,7 +318,7 @@ export class PXEService implements PXE {
     return !!(await this.node.getContractClass(id));
   }
 
-  async #isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
+  async #isContractPublished(address: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContract(address));
   }
 
@@ -498,7 +498,7 @@ export class PXEService implements PXE {
   public async getContractMetadata(address: AztecAddress): Promise<{
     contractInstance: ContractInstanceWithAddress | undefined;
     isContractInitialized: boolean;
-    isContractPubliclyDeployed: boolean;
+    isContractPublished: boolean;
   }> {
     let instance;
     try {
@@ -509,7 +509,7 @@ export class PXEService implements PXE {
     return {
       contractInstance: instance,
       isContractInitialized: await this.#isContractInitialized(address),
-      isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
+      isContractPublished: await this.#isContractPublished(address),
     };
   }
 
@@ -736,9 +736,7 @@ export class PXEService implements PXE {
             totalTime - ((syncTime ?? 0) + (proving ?? 0) + perFunction.reduce((acc, { time }) => acc + time, 0)),
         };
 
-        this.log.info(`Proving completed in ${totalTime}ms`, {
-          timings,
-        });
+        this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
         return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
@@ -909,7 +907,7 @@ export class PXEService implements PXE {
         }
 
         let validationTime: number | undefined;
-        if (!skipTxValidation && !skipKernels) {
+        if (!skipTxValidation) {
           const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
@@ -1070,9 +1068,9 @@ export class PXEService implements PXE {
     return Promise.resolve({
       pxeVersion: this.packageVersion,
       protocolContractAddresses: {
-        classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+        classRegistry: ProtocolContractAddress.ContractClassRegistry,
         feeJuice: ProtocolContractAddress.FeeJuice,
-        instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+        instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
         multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
       },
     });

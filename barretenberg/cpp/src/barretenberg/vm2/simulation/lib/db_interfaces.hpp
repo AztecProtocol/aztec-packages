@@ -72,11 +72,15 @@ class HighLevelMerkleDBInterface {
   public:
     virtual ~HighLevelMerkleDBInterface() = default;
 
-    virtual const TreeSnapshots& get_tree_roots() const = 0;
     virtual TreeStates get_tree_state() const = 0;
 
-    virtual FF storage_read(const FF& key) const = 0;
-    virtual void storage_write(const FF& leaf_slot, const FF& value) = 0;
+    virtual FF storage_read(const AztecAddress& contract_address, const FF& slot) const = 0;
+    virtual void storage_write(const AztecAddress& contract_address,
+                               const FF& slot,
+                               const FF& value,
+                               bool is_protocol_write) = 0;
+    virtual bool was_storage_written(const AztecAddress& contract_address, const FF& slot) const = 0;
+
     virtual bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const = 0;
     virtual bool siloed_nullifier_exists(const FF& nullifier) const = 0;
     virtual bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) = 0;

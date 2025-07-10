@@ -35,6 +35,10 @@ jobs:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      - name: CI Merge Queue Override (grind on PR)
+        if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
+        run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
+
       - name: CI Full Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
@@ -65,11 +69,12 @@ jobs:
           echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
           echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
+      - name: Docs CI Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-docs') || (steps.target_branch.outputs.target_branch == 'merge-train/docs')
+        run: echo "CI_DOCS=1" >> $GITHUB_ENV
+
       - name: Barretenberg CI Override
-        if: |
-          (contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') ||
-           github.event.pull_request.base.ref == 'merge-train/barretenberg') &&
-          !contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
         run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
       # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
@@ -90,7 +95,7 @@ jobs:
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "${{ env.GCP_SA_KEY }}" | base64 -w 0 > gcp_sa_key.b64
+          echo "$GCP_SA_KEY" | base64 -w 0 > gcp_sa_key.b64
           echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
 
       #############
@@ -113,10 +118,14 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
-          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
-          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
+          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
+          elif [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./ci.sh full
+          elif [ "${CI_DOCS:-0}" -eq 1 ]; then
+            exec ./ci.sh docs
           elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
             exec ./ci.sh barretenberg
           elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then

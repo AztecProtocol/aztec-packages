@@ -127,7 +127,15 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "Received: 49999999999999999999n"
+    owners:
+      - *mitch
+  - regex: "e2e_p2p/validators_sentinel"
     error_regex: "Expected: >= 2"
+    owners:
+      - *palla
+  - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "ContractFunctionExecutionError.*execution failed"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"
@@ -174,15 +182,15 @@ tests:
     error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
       - *spyros
-  - regex: "src/e2e_epochs/epochs_monitor_block_building.test.ts"
+  - regex: "src/e2e_epochs/(epochs_simple_block_building|epochs_high_tps_block_building|epochs_first_slot).test.ts"
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
-  # http://ci.aztec-labs.com/fbd46dc29335ec8c
-  - regex: "src/e2e_contract_updates.test.ts"
-    error_regex: "TimeoutError: Timeout awaiting isMined"
+  # http://ci.aztec-labs.com/a1d8b4d360d6d658
+  - regex: "src/e2e_epochs/epochs_first_slot.test.ts"
+    error_regex: "expect\\(received\\).toContain\\(expected\\)"
     owners:
-      - *jan
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"

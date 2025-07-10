@@ -1,5 +1,5 @@
 import { type AccountWallet, Fr, type Logger } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
@@ -9,7 +9,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { afterAll, jest } from '@jest/globals';
 
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { ensureAccountsPubliclyDeployed, setup } from './fixtures/utils.js';
+import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 
 describe('e2e_lending_contract', () => {
@@ -63,7 +63,7 @@ describe('e2e_lending_contract', () => {
     const ctx = await setup(1);
     ({ teardown, logger, cheatCodes: cc, wallet, deployL1ContractsValues, dateProvider } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    await ensureAccountsPubliclyDeployed(wallet, [wallet]);
+    await ensureAccountContractsPublished(wallet, [wallet]);
 
     const rollup = new RollupContract(
       deployL1ContractsValues.l1Client,

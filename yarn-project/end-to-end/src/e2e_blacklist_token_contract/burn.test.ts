@@ -74,7 +74,9 @@ describe('e2e_blacklist_token_contract burn', () => {
         const authwitNonce = 1;
         await expect(
           asset.methods.burn_public(wallets[0].getAddress(), amount, authwitNonce).simulate(),
-        ).rejects.toThrow('Assertion failed: invalid authwit nonce');
+        ).rejects.toThrow(
+          "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
+        );
       });
 
       it('burn on behalf of other without "approval"', async () => {
@@ -123,9 +125,9 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
-          /Assertion failed: Blacklisted: Sender/,
-        );
+        await expect(
+          asset.withWallet(blacklisted).methods.burn_public(blacklisted.getAddress(), 1n, 0).simulate(),
+        ).rejects.toThrow(/Assertion failed: Blacklisted: Sender/);
       });
     });
   });
@@ -182,7 +184,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const amount = balance0 - 1n;
         expect(amount).toBeGreaterThan(0n);
         await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).simulate()).rejects.toThrow(
-          'Assertion failed: invalid authwit nonce',
+          "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
         );
       });
 
@@ -243,9 +245,9 @@ describe('e2e_blacklist_token_contract burn', () => {
       });
 
       it('burn from blacklisted account', async () => {
-        await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).simulate()).rejects.toThrow(
-          'Assertion failed: Blacklisted: Sender',
-        );
+        await expect(
+          asset.withWallet(blacklisted).methods.burn(blacklisted.getAddress(), 1n, 0).simulate(),
+        ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
       });
     });
   });

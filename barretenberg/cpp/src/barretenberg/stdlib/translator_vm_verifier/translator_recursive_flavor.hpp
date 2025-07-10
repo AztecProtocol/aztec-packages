@@ -28,19 +28,20 @@ namespace bb {
  * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class TranslatorRecursiveFlavor_ {
+class TranslatorRecursiveFlavor {
 
   public:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
     // needed
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = UltraCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = TranslatorFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -105,7 +106,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public StdlibVerificationKey_<BuilderType, TranslatorFlavor::PrecomputedEntities<Commitment>> {
+        : public StdlibVerificationKey_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -122,6 +123,14 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
                 comm = Commitment::from_witness(builder, native_comm);
             }
         }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not implemented yet!");
+        }
     };
 
     /**
@@ -134,5 +143,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

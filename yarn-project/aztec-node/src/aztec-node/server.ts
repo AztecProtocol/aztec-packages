@@ -30,13 +30,7 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import {
-  type P2P,
-  type P2PClientDeps,
-  TxCollector,
-  createP2PClient,
-  getDefaultAllowedSetupFunctions,
-} from '@aztec/p2p';
+import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   BlockBuilder,
@@ -264,6 +258,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       worldStateSynchronizer,
       epochCache,
       packageVersion,
+      dateProvider,
       telemetry,
       deps.p2pClientDeps,
     );
@@ -277,13 +272,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
     const blockBuilder = new BlockBuilder(
-      {
-        l1GenesisTime,
-        slotDuration: Number(slotDuration),
-        rollupVersion: config.rollupVersion,
-        l1ChainId: config.l1ChainId,
-        txPublicSetupAllowList: config.txPublicSetupAllowList,
-      },
+      { ...config, l1GenesisTime, slotDuration: Number(slotDuration) },
       worldStateSynchronizer,
       archiver,
       dateProvider,
@@ -303,12 +292,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
     if (config.slashPruneEnabled) {
-      const txCollector = new TxCollector(p2pClient);
       epochPruneWatcher = new EpochPruneWatcher(
         archiver,
         archiver,
         epochCache,
-        txCollector,
+        p2pClient.getTxProvider(),
         blockBuilder,
         config.slashPrunePenalty,
         config.slashPruneMaxPenalty,
@@ -316,6 +304,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);
     }
+
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
@@ -1090,9 +1079,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getProtocolContractAddresses(): Promise<ProtocolContractAddresses> {
     return Promise.resolve({
-      classRegisterer: ProtocolContractAddress.ContractClassRegisterer,
+      classRegistry: ProtocolContractAddress.ContractClassRegistry,
       feeJuice: ProtocolContractAddress.FeeJuice,
-      instanceDeployer: ProtocolContractAddress.ContractInstanceDeployer,
+      instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
       multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
     });
   }

@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_U64_VALUE: u64 = 0xffffffffffffffff;
 pub global MAX_U32_VALUE: u32 = 0xffffffff;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
@@ -128,6 +129,7 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
+pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
     0x0e40440ea6abb9b58877d3aea6628cc6b14b6bc2148ce2be6f46db23360a6aba;
@@ -144,42 +146,42 @@ pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
 // Same for utility functions: the size is per function.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000;
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
-pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
+pub global CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
 // How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
-pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
-// Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
+pub global CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+// Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegistry.
 // This is just a stopgap until we implement proper selectors.
-// sha224sum 'struct ContractClassRegistered {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
-pub global REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE: Field =
-    0x6999d1e02b08a447a463563453cb36919c9dd7150336fc7c4d2b52f8;
+// sha224sum 'struct ContractClassPublished {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
+pub global CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE: Field =
+    0x865ad43bd9e1810c684c0e95514e6bd32fb5f55fe1dc8f538c19bd35;
 // sha224sum 'struct ClassPrivateFunctionBroadcasted'
-pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
+pub global CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0x1b70e95fde0b70adc30496b90a327af6a5e383e028e7a43211a07bcd;
 // sha224sum 'struct ClassUtilityFunctionBroadcasted'
-pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
+pub global CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0xe7af816635466f128568edb04c9fa024f6c87fb9010fdbffa68b3d99;
 
 // CONTRACT INSTANCE CONSTANTS
-// sha224sum 'struct ContractInstanceDeployed'
-pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
-    0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
+// sha224sum 'struct ContractInstancePublished'
+pub global CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE: Field =
+    0xb9b83068bdb54802a16c21ea497fa1d3363fdfab7e81557cad2a5547;
 
 // sha224sum 'struct ContractInstanceUpdated'
-pub global DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
+pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
 pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
-pub global DEPLOYER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
-pub global REGISTERER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
+pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
+pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(7);
 
 // Randomly chosen slot for the bytecode capsule.
-pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+pub global CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
 
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
@@ -251,7 +253,6 @@ pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global INCLUDE_BY_TIMESTAMP_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
@@ -280,7 +281,7 @@ pub global PUBLIC_LOG_PLAINTEXT_LEN: u32 = PUBLIC_LOG_SIZE_IN_FIELDS - 1; // -1 
 
 // TODO(MW): add new constant for this - the below is just the largest combination atm
 pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
-    + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
+    + CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
 pub global CONTRACT_CLASS_LOG_LENGTH: u32 = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
     + 1 /* length */
     + 1 /* contract_address */;
@@ -303,7 +304,6 @@ pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender 
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
 pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
     PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
-pub global ROLLUP_VALIDATION_REQUESTS_LENGTH: u32 = INCLUDE_BY_TIMESTAMP_LENGTH;
 pub global STATE_REFERENCE_LENGTH: u32 =
     APPEND_ONLY_TREE_SNAPSHOT_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH;
 pub global TREE_SNAPSHOTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH * 4;
@@ -340,8 +340,11 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENG
     + 16 /* gas_fees.fee_per_da_gas */
     + 16 /* gas_fees.fee_per_l2_gas */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
-    + 4
-    + INCLUDE_BY_TIMESTAMP_LENGTH
+    + 1 /* args_hash */
+    + 1 /* returns_hash */
+    + 1 /* min_revertible_side_effect_counter */
+    + 1 /* is_fee_payer */
+    + 1 /* include_by_timestamp */
     // The `(... + 1)` is because these arrays include a `length` field.
     + (READ_REQUEST_LENGTH * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1)
     + (READ_REQUEST_LENGTH * MAX_NULLIFIER_READ_REQUESTS_PER_CALL + 1)
@@ -352,7 +355,8 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_CALL + 1)
     + PUBLIC_CALL_REQUEST_LENGTH
     + (COUNTED_L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL + 1)
-    + 2 /* start and end side effect counters */
+    + 1 /* start_side_effect_counter */
+    + 1 /* end_side_effect_counter */
     + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL + 1)
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL + 1)
     + BLOCK_HEADER_LENGTH
@@ -366,12 +370,11 @@ pub global IPA_CLAIM_SIZE: u32 = 10;
 
 pub global SCOPED_READ_REQUEST_LEN: u32 = READ_REQUEST_LENGTH + 1;
 pub global PUBLIC_DATA_READ_LENGTH: u32 = 3;
-pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_LENGTH
+pub global PRIVATE_VALIDATION_REQUESTS_LENGTH: u32 = 2 /* split_counter: 1 for the value, 1 for the option flag */
     // The `(... + 1)` is because these arrays include a `length` field.
     + (SCOPED_READ_REQUEST_LEN * MAX_NOTE_HASH_READ_REQUESTS_PER_TX + 1)
     + (SCOPED_READ_REQUEST_LEN * MAX_NULLIFIER_READ_REQUESTS_PER_TX + 1)
-    + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX + 1)
-    + 2;
+    + (SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_TX + 1);
 
 pub global PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -424,18 +427,18 @@ pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
-    + ROLLUP_VALIDATION_REQUESTS_LENGTH
     + PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH /* non_revertible_accumulated_data */
     + PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH /* revertible_accumulated_data */
     + PUBLIC_CALL_REQUEST_LENGTH /* public_teardown_call_request */
     + GAS_LENGTH /* gas_used */
-    + AZTEC_ADDRESS_LENGTH /* fee_payer */;
+    + AZTEC_ADDRESS_LENGTH /* fee_payer */
+    + 1 /* include_by_timestamp */;
 
-pub global PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = ROLLUP_VALIDATION_REQUESTS_LENGTH
+pub global PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
     + PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH
-    + TX_CONSTANT_DATA_LENGTH
     + GAS_LENGTH /* gas_used */
-    + AZTEC_ADDRESS_LENGTH;
+    + AZTEC_ADDRESS_LENGTH /* fee_payer */
+    + 1 /* include_by_timestamp */;
 
 pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
@@ -513,7 +516,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 pub global RECURSIVE_PROOF_LENGTH: u32 = 456;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 69;
+pub global IPA_PROOF_LENGTH: u32 = 68;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -616,6 +619,16 @@ pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 
+// Subtrace IDs.
+pub global AVM_SUBTRACE_ID_EXECUTION: u32 = 1;
+pub global AVM_SUBTRACE_ID_ALU: u32 = 2 * AVM_SUBTRACE_ID_EXECUTION;
+pub global AVM_SUBTRACE_ID_BITWISE: u32 = 2 * AVM_SUBTRACE_ID_ALU;
+pub global AVM_SUBTRACE_ID_POSEIDON_PERM: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
+pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON_PERM;
+pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
+pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_ECC;
+pub global AVM_SUBTRACE_ID_DATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
+
 // Execution Opcode IDs
 // Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_EXEC_OP_ID_GETENVVAR: u32 = 1;
@@ -630,6 +643,20 @@ pub global AVM_EXEC_OP_ID_INTERNALRETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALCALL;
 pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
 pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
 pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
+pub global AVM_EXEC_OP_ID_RETURNDATASIZE: u32 = 2 * AVM_EXEC_OP_ID_SUCCESSCOPY;
+pub global AVM_EXEC_OP_ID_DEBUGLOG: u32 = 2 * AVM_EXEC_OP_ID_RETURNDATASIZE;
+pub global AVM_EXEC_OP_ID_SLOAD: u32 = 2 * AVM_EXEC_OP_ID_DEBUGLOG;
+
+// Execution Opcode IDs for the ALU subtrace
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_ALU_ADD: u32 = 1;
+pub global AVM_EXEC_OP_ID_ALU_SUB: u32 = 2 * AVM_EXEC_OP_ID_ALU_ADD;
+pub global AVM_EXEC_OP_ID_ALU_MUL: u32 = 2 * AVM_EXEC_OP_ID_ALU_SUB;
+pub global AVM_EXEC_OP_ID_ALU_DIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_MUL;
+pub global AVM_EXEC_OP_ID_ALU_FDIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_DIV;
+pub global AVM_EXEC_OP_ID_ALU_EQ: u32 = 2 * AVM_EXEC_OP_ID_ALU_FDIV;
+pub global AVM_EXEC_OP_ID_ALU_LT: u32 = 2 * AVM_EXEC_OP_ID_ALU_EQ;
+pub global AVM_EXEC_OP_ID_ALU_LTE: u32 = 2 * AVM_EXEC_OP_ID_ALU_LT;
 
 // AvmCircuitPublicInputs - row indices
 // Global Variables
@@ -917,10 +944,20 @@ pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
 // Gas for writing message to L1 portal
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
 
+// AVM - misc constants
+pub global AVM_PC_SIZE_IN_BITS: u32 = 32;
+pub global AVM_MAX_OPERANDS: u32 = 7;
+pub global AVM_MAX_REGISTERS: u32 = 7;
+
 /**
  * GAS COSTS FOR AVM OPCODES
  * They are used in TS and C++
  */
+
+// Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Base L2 GAS
 // Note: magic numbers here are derived from each op's AVM circuit trace area
@@ -960,8 +997,14 @@ pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_L1_TO_L2_MSG_RE
 pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_L2_TO_L1_MSG;
-pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+// See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
+pub global AVM_CALL_BUFFER: u32 = AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS
+    + AVM_MAX_OPERANDS * AVM_ADDRESSING_INDIRECT_L2_GAS
+    + AVM_MAX_OPERANDS * AVM_ADDRESSING_RELATIVE_L2_GAS
+    // Operand resolution. One mem access per operand.
+    + AVM_MAX_REGISTERS * 3;
+pub global AVM_CALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527 + AVM_CALL_BUFFER; // does scalar mul
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 6;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 6;
 pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 6;
@@ -970,11 +1013,6 @@ pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 96;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 150;
 pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
-
-// Addressing gas
-pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
@@ -1016,16 +1054,22 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
-// AVM - misc constants
-pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
-pub global AVM_MAX_OPERANDS: u8 = 8;
+// AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)
+// +1 due to the tree prefill
+pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
+pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
+    0x2870b93163d4fd6ada360fe48ee1e8e8e69308af34cdfaeffacbbe5929e2466d;
+pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
 pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;
 
-// 24 hours
-pub global DEFAULT_UPDATE_DELAY: u64 = 86400;
+// The default update delay used when a contract does not explicitly specify one.
+// Note: This value should match MAX_INCLUDE_BY_TIMESTAMP_DURATION, because if no custom update delay is set during tx
+// execution, the `include_by_timestamp` for the contract updates will be computed using this value. And it should not
+// differ from the maximum allowed duration.
+pub global DEFAULT_UPDATE_DELAY: u64 = MAX_INCLUDE_BY_TIMESTAMP_DURATION;
 // 10 minutes
 pub global MINIMUM_UPDATE_DELAY: u64 = 600;
 
@@ -1046,7 +1090,8 @@ pub global GRUMPKIN_ONE_Y: Field = 176316838811849753701652558875517816157483885
 
 mod test {
     use crate::constants::{
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     };
 
     #[test]
@@ -1065,4 +1110,13 @@ mod test {
             std::embedded_curve_ops::EmbeddedCurvePoint::generator().y,
         );
     }
+
+    #[test]
+    unconstrained fn test_avm_written_public_data_slots_tree_height() {
+        assert_eq(
+            (1 << (AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT as u8)),
+            MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1,
+        );
+    }
+
 }

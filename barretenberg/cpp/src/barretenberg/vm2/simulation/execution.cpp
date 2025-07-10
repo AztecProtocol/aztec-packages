@@ -5,12 +5,17 @@
 #include <cstdint>
 #include <functional>
 #include <stdexcept>
+#include <string>
+
+#include "barretenberg/common/log.hpp"
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
@@ -25,6 +30,13 @@ class RegisterValidationException : public std::runtime_error {
     {}
 };
 
+class OpcodeExecutionException : public std::runtime_error {
+  public:
+    OpcodeExecutionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
 } // namespace
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
@@ -35,15 +47,62 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
 
-    MemoryValue c = alu.add(a, b);
-    memory.set(dst_addr, c);
-    set_output(opcode, c);
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.add(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu add operation failed");
+    }
+}
+
+void Execution::eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::EQ;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.eq(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu eq operation failed");
+    }
+}
+
+void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::LT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.lt(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu lt operation failed");
+    }
 }
 
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
     auto& memory = context.get_memory();
+
+    get_gas_tracker().consume_gas();
+
     TaggedValue result;
 
     EnvironmentVariable env_var = static_cast<EnvironmentVariable>(var_enum);
@@ -85,7 +144,7 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
         result = TaggedValue::from<uint32_t>(context.gas_left().daGas);
         break;
     default:
-        throw std::runtime_error("Invalid environment variable enum value");
+        throw OpcodeExecutionException("Invalid environment variable enum value");
     }
 
     memory.set(dst_addr, result);
@@ -95,6 +154,8 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
 void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
 {
+    get_gas_tracker().consume_gas();
+
     constexpr auto opcode = ExecutionOpCode::SET;
     TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
     context.get_memory().set(dst_addr, tagged_value);
@@ -106,9 +167,11 @@ void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAdd
     constexpr auto opcode = ExecutionOpCode::MOV;
     auto& memory = context.get_memory();
     auto v = memory.get(src_addr);
-    memory.set(dst_addr, v);
-
     set_and_validate_inputs(opcode, { v });
+
+    get_gas_tracker().consume_gas();
+
+    memory.set(dst_addr, v);
     set_output(opcode, v);
 }
 
@@ -122,22 +185,20 @@ void Execution::call(ContextInterface& context,
     constexpr auto opcode = ExecutionOpCode::CALL;
     auto& memory = context.get_memory();
 
-    // TODO(ilyas): Consider temporality groups.
     // NOTE: these reads cannot fail due to addressing guarantees.
-    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset); // Tag check u32
-    const auto& allocated_da_gas_read = memory.get(da_gas_offset); // Tag check u32
-    const auto& contract_address = memory.get(addr);               // Tag check FF
+    const auto& allocated_l2_gas_read = memory.get(l2_gas_offset);
+    const auto& allocated_da_gas_read = memory.get(da_gas_offset);
+    const auto& contract_address = memory.get(addr);
     // Cd offset loads are deferred to calldatacopy
-    const auto& cd_size = memory.get(cd_size_offset); // Tag check u32
+    const auto& cd_size = memory.get(cd_size_offset);
 
     set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
 
-    // Tag Check allocations
+    get_gas_tracker().consume_gas(); // Base gas.
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // Tag check contract address + cd_size
-
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
                                                                /*transaction_fee=*/context.get_transaction_fee(),
@@ -162,13 +223,12 @@ void Execution::cd_copy(ContextInterface& context,
     auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
-    get_gas_tracker().consume_dynamic_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
 
     try {
         data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
     } catch (const std::exception& e) {
-        // re throw - change to a more specific exception later
-        throw std::runtime_error("cd copy failed: " + std::string(e.what()));
+        throw OpcodeExecutionException("cd copy failed: " + std::string(e.what()));
     }
 }
 
@@ -183,22 +243,36 @@ void Execution::rd_copy(ContextInterface& context,
     auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
-    get_gas_tracker().consume_dynamic_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
+    get_gas_tracker().consume_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
 
     try {
         data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
     } catch (const std::exception& e) {
-        // re throw - change to a more specific exception later
-        throw std::runtime_error("rd copy failed: " + std::string(e.what()));
+        throw OpcodeExecutionException("rd copy failed: " + std::string(e.what()));
     }
+}
+
+void Execution::rd_size(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::RETURNDATASIZE;
+    auto& memory = context.get_memory();
+
+    get_gas_tracker().consume_gas();
+
+    // This is safe because the last_rd_size is tag checked on ret/revert to be U32
+    MemoryValue rd_size = MemoryValue::from<uint32_t>(context.get_last_rd_size());
+    memory.set(dst_addr, rd_size);
+    set_output(opcode, rd_size);
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
     constexpr auto opcode = ExecutionOpCode::RETURN;
     auto& memory = context.get_memory();
-    auto rd_size = memory.get(ret_size_offset); // Tag check u32
+    auto rd_size = memory.get(ret_size_offset);
     set_and_validate_inputs(opcode, { rd_size });
+
+    get_gas_tracker().consume_gas();
 
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
@@ -212,8 +286,10 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
 {
     constexpr auto opcode = ExecutionOpCode::REVERT;
     auto& memory = context.get_memory();
-    auto rev_size = memory.get(rev_size_offset); // Tag check u32
+    auto rev_size = memory.get(rev_size_offset);
     set_and_validate_inputs(opcode, { rev_size });
+
+    get_gas_tracker().consume_gas();
 
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
@@ -225,6 +301,8 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
 
 void Execution::jump(ContextInterface& context, uint32_t loc)
 {
+    get_gas_tracker().consume_gas();
+
     context.set_next_pc(loc);
 }
 
@@ -236,6 +314,8 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     auto resolved_cond = memory.get(cond_addr);
     set_and_validate_inputs(opcode, { resolved_cond });
 
+    get_gas_tracker().consume_gas();
+
     if (resolved_cond.as<uint1_t>().value() == 1) {
         context.set_next_pc(loc);
     }
@@ -243,6 +323,8 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
 
 void Execution::internal_call(ContextInterface& context, uint32_t loc)
 {
+    get_gas_tracker().consume_gas();
+
     auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     // The next pc is pushed onto the internal call stack. This will become return_pc later.
     internal_call_stack_manager.push(context.get_next_pc());
@@ -251,24 +333,165 @@ void Execution::internal_call(ContextInterface& context, uint32_t loc)
 
 void Execution::internal_return(ContextInterface& context)
 {
+    get_gas_tracker().consume_gas();
+
     auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     try {
         auto next_pc = internal_call_stack_manager.pop();
         context.set_next_pc(next_pc);
     } catch (const std::exception& e) {
-        // Re-throw - so execution can handle it.
-        throw std::runtime_error("Internal return failed: " + std::string(e.what()));
+        // Re-throw
+        throw OpcodeExecutionException("Internal return failed: " + std::string(e.what()));
     }
 }
 
 void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
+    get_gas_tracker().consume_gas();
+
     try {
         keccakf1600.permutation(context.get_memory(), dst_addr, src_addr);
     } catch (const KeccakF1600Exception& e) {
-        // TODO: Possibly handle the error here.
-        throw e;
+        throw OpcodeExecutionException("Keccak permutation failed: " + std::string(e.what()));
     }
+}
+
+void Execution::debug_log(ContextInterface& context,
+                          MemoryAddress message_offset,
+                          MemoryAddress fields_offset,
+                          MemoryAddress fields_size_offset,
+                          uint16_t message_size,
+                          bool is_debug_logging_enabled)
+{
+    get_gas_tracker().consume_gas();
+
+    // DebugLog is a no-op on the prover side. If it was compiled with assertions and ran in debug mode,
+    // we will print part of the log. However, for this opcode, we give priority to never failing and
+    // never griefing the prover. Some safety checks are done, but if a failure happens, we will just
+    // silently continue.
+    if (is_debug_logging_enabled) {
+        try {
+            auto& memory = context.get_memory();
+
+            // Get the fields size and validate its tag
+            const auto fields_size_value = memory.get(fields_size_offset);
+            const uint32_t fields_size = fields_size_value.as<uint32_t>();
+
+            // Read message and fields from memory
+            std::string message_as_str;
+            uint16_t truncated_message_size = std::min<uint16_t>(message_size, 100);
+            for (uint32_t i = 0; i < truncated_message_size; ++i) {
+                const auto message_field = memory.get(message_offset + i);
+                message_as_str += static_cast<char>(static_cast<uint8_t>(message_field.as_ff()));
+            }
+            message_as_str += ": [";
+
+            // Read fields
+            for (uint32_t i = 0; i < fields_size; ++i) {
+                const auto field = memory.get(fields_offset + i);
+                message_as_str += field_to_string(field);
+                if (i < fields_size - 1) {
+                    message_as_str += ", ";
+                }
+            }
+            message_as_str += "]";
+
+            debug("DEBUGLOG: ", message_as_str);
+        } catch (const std::exception& e) {
+            debug("DEBUGLOG: Error: ", e.what());
+        }
+    }
+}
+
+void Execution::success_copy(ContextInterface& context, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SUCCESSCOPY;
+    auto& memory = context.get_memory();
+
+    get_gas_tracker().consume_gas();
+
+    MemoryValue success = MemoryValue::from<uint1_t>(context.get_last_success());
+    memory.set(dst_addr, success);
+    set_output(opcode, success);
+}
+
+void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::AND;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.and_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise AND Exeception");
+    }
+}
+
+void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::OR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.or_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise OR Exception");
+    }
+}
+
+void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::XOR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
+    // will result in an exception in the bitwise subtrace.
+    get_gas_tracker().consume_gas({ .l2Gas = get_tag_bytes(a.get_tag()), .daGas = 0 });
+
+    try {
+        MemoryValue c = bitwise.xor_op(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (const BitwiseException& e) {
+        throw OpcodeExecutionException("Bitwise XOR Exception");
+    }
+}
+
+void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SLOAD;
+
+    auto& memory = context.get_memory();
+    get_gas_tracker().consume_gas();
+
+    auto slot = memory.get(slot_addr);
+    set_and_validate_inputs(opcode, { slot });
+
+    auto value = MemoryValue::from<FF>(merkle_db.storage_read(context.get_address(), slot.as<FF>()));
+
+    memory.set(dst_addr, value);
+    set_output(opcode, value);
 }
 
 // This context interface is a top-level enqueued one.
@@ -284,9 +507,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
         // We'll be filling in the event as we go. And we always emit at the end.
         ExecutionEvent ex_event;
-
-        // We'll be filling this with gas data as we go.
-        init_gas_tracker(context);
 
         try {
             // State before doing anything.
@@ -308,54 +528,54 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
-            //// Temporality group 3 starts ////
-
-            // Gas checking may throw OOG.
-            ex_event.error = ExecutionError::GAS_BASE;      // Set preemptively.
-            get_gas_tracker().set_instruction(instruction); // This accesses specs, consider changing.
-            get_gas_tracker().consume_base_gas();
-
             //// Temporality group 4 starts ////
 
             // Resolve the operands.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
 
-            //// Temporality group 5+ starts (to be defined) ////
+            //// Temporality group 5+ starts ////
 
-            // Execute the opcode.
-            ex_event.error = ExecutionError::DISPATCHING; // Set preemptively.
+            gas_tracker = execution_components.make_gas_tracker(ex_event.gas_event, instruction, context);
             dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
-
-            // If we made it this far, there was no error.
-            ex_event.error = ExecutionError::NONE;
         }
         // TODO(fcarreiro): handle this in a better way.
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
-            context.halt();
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
             ex_event.bytecode_id = e.bytecode_id;
+            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
+            context.halt();
             set_execution_result({ .success = false });
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
+            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });
         } catch (const AddressingException& e) {
             vinfo("Addressing exception: ", e.what());
             ex_event.error = ExecutionError::ADDRESSING;
+            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });
         } catch (const RegisterValidationException& e) {
             vinfo("Register validation exception: ", e.what());
             ex_event.error = ExecutionError::REGISTER_READ;
+            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
+            context.halt();
+            set_execution_result({ .success = false });
+        } catch (const OpcodeExecutionException& e) {
+            vinfo("Opcode execution exception: ", e.what());
+            ex_event.error = ExecutionError::OPCODE_EXECUTION;
+            context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });
         } catch (const std::exception& e) {
-            vinfo("Exceptional halt: ", e.what());
-            context.halt();
-            set_execution_result({ .success = false });
+            // This is a coding error, we should not get here.
+            // All exceptions should fall in the above catch blocks.
+            info("An unhandled exception occurred: ", e.what());
+            throw e;
         }
 
         // We always do what follows. "Finally".
@@ -366,8 +586,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
         ex_event.inputs = get_inputs();
         ex_event.output = get_output();
-
-        ex_event.gas_event = finish_gas_tracker();
 
         // State after the opcode.
         ex_event.after_context_event = context.serialize_context_event();
@@ -433,6 +651,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::EQ:
+        call_with_operands(&Execution::eq, context, resolved_operands);
+        break;
+    case ExecutionOpCode::LT:
+        call_with_operands(&Execution::lt, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
@@ -469,10 +693,30 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::KECCAKF1600:
         call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
         break;
-    default:
-        // TODO: Make this an assertion once all execution opcodes are supported.
-        vinfo("Warning: dispatch ignored for unknown execution opcode: ", static_cast<uint32_t>(opcode));
+    case ExecutionOpCode::SUCCESSCOPY:
+        call_with_operands(&Execution::success_copy, context, resolved_operands);
         break;
+    case ExecutionOpCode::RETURNDATASIZE:
+        call_with_operands(&Execution::rd_size, context, resolved_operands);
+        break;
+    case ExecutionOpCode::DEBUGLOG:
+        call_with_operands(&Execution::debug_log, context, resolved_operands);
+    case ExecutionOpCode::AND:
+        call_with_operands(&Execution::and_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::OR:
+        call_with_operands(&Execution::or_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::XOR:
+        call_with_operands(&Execution::xor_op, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SLOAD:
+        call_with_operands(&Execution::sload, context, resolved_operands);
+        break;
+    default:
+        // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
+        throw std::runtime_error("Tried to dispatch unknown execution opcode: " +
+                                 std::to_string(static_cast<uint32_t>(opcode)));
     }
 }
 
@@ -489,26 +733,6 @@ inline void Execution::call_with_operands(void (Execution::*f)(ContextInterface&
         // FIXME(fcarreiro): we go through FF here.
         (this->*f)(context, static_cast<Ts>(resolved_operands.at(Is).as_ff())...);
     }(operand_indices);
-}
-
-void Execution::init_gas_tracker(ContextInterface& context)
-{
-    assert(gas_tracker == nullptr);
-    gas_tracker = execution_components.make_gas_tracker(context);
-}
-
-GasTrackerInterface& Execution::get_gas_tracker()
-{
-    assert(gas_tracker != nullptr);
-    return *gas_tracker;
-}
-
-GasEvent Execution::finish_gas_tracker()
-{
-    assert(gas_tracker != nullptr);
-    GasEvent event = gas_tracker->finish();
-    gas_tracker = nullptr;
-    return event;
 }
 
 // Sets the register inputs and validates the tags.

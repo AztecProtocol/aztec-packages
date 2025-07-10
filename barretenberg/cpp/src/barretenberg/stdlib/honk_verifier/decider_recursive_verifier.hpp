@@ -6,10 +6,9 @@
 
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
-#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -23,11 +22,11 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:
     explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeDeciderVK> accumulator)
@@ -55,6 +54,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     }
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const HonkProof& proof);
+    [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(const StdlibProof& proof);
 
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;

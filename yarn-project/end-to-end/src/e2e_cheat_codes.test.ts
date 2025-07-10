@@ -1,6 +1,6 @@
 import { type AztecAddress, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
-import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
-import { EthCheatCodes, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
+import { AnvilTestWatcher, CheatCodes, EthCheatCodes } from '@aztec/aztec/testing';
+import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

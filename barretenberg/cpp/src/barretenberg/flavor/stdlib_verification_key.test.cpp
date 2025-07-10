@@ -39,8 +39,8 @@ using FlavorTypes = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
 TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
- * @brief Checks that the hash produced from calling to_field_elements and then add_to_hash_buffer is the same as the
- * hash() call and also the same as the add_to_transcript.
+ * @brief Checks that the hash produced from calling to_field_elements and then add_to_independent_hash_buffer is the
+ * same as the hash() call and also the same as the add_hash_to_transcript.
  *
  */
 TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
@@ -59,7 +59,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     InnerBuilder builder;
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto native_vk = std::make_shared<NativeVerificationKey>(proving_key->proving_key);
+    auto native_vk = std::make_shared<NativeVerificationKey>(proving_key->get_precomputed());
 
     OuterBuilder outer_builder;
     StdlibVerificationKey vk(&outer_builder, native_vk);
@@ -68,15 +68,14 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     std::vector<FF> vk_field_elements = vk.to_field_elements();
     StdlibTranscript transcript;
     for (const auto& field_element : vk_field_elements) {
-        transcript.add_to_hash_buffer("vkey_element", field_element);
+        transcript.add_to_independent_hash_buffer("vk_element", field_element);
     }
-    FF vkey_hash_1 = transcript.template get_challenge<FF>("vkey_hash");
+    FF vkey_hash_1 = transcript.hash_independent_buffer("vk_hash");
     // Second method of hashing: using hash().
     FF vkey_hash_2 = vk.hash(outer_builder);
     EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());
-    // Third method of hashing: using add_to_transcript.
+    // Third method of hashing: using add_hash_to_transcript.
     StdlibTranscript transcript_2;
-    vk.add_to_transcript("", transcript_2);
-    FF vkey_hash_3 = transcript_2.template get_challenge<FF>("vkey_hash");
+    FF vkey_hash_3 = vk.add_hash_to_transcript("", transcript_2);
     EXPECT_EQ(vkey_hash_2.get_value(), vkey_hash_3.get_value());
 }

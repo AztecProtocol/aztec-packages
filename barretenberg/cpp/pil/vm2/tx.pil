@@ -2,6 +2,7 @@ include "public_inputs.pil";
 include "execution.pil";
 include "precomputed.pil";
 include "trees/note_hash_tree_check.pil";
+include "poseidon2_hash.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
@@ -185,7 +186,8 @@ namespace tx;
     //     prev_num_nullifiers_emitted,
     //     prev_public_data_tree_root,
     //     prev_public_data_tree_size,
-    //     prev_num_pub_data_writes_emitted,
+    //     prev_written_public_data_slots_tree_root,
+    //     prev_written_public_data_slots_tree_size,
     //     // Gas Info
     //     prev_l2_gas_used_sent_to_enqueued_call,
     //     prev_da_gas_used_sent_to_enqueued_call,
@@ -207,7 +209,8 @@ namespace tx;
     //     execution.prev_num_nullifiers_emitted,
     //     execution.prev_public_data_tree_root,
     //     execution.prev_public_data_tree_size,
-    //     execution.prev_num_pub_data_writes_emitted,
+    //     execution.prev_written_public_data_slots_tree_root,
+    //     execution.prev_written_public_data_slots_tree_size,
     //     // Gas Info
     //     execution.prev_l2_gas_used_sent_to_enqueued_call,
     //     execution.prev_da_gas_used_sent_to_enqueued_call,
@@ -231,7 +234,8 @@ namespace tx;
     //    next_num_nullifiers_emitted,
     //    next_public_data_tree_root,
     //    next_public_data_tree_size,
-    //    next_num_pub_data_writes_emitted,
+    //    next_written_public_data_slots_tree_root,
+    //    next_written_public_data_slots_tree_size,
     //    next_l1_l2_tree_root,
     //    next_l1_l2_tree_size,
     //    // Gas Info
@@ -251,7 +255,8 @@ namespace tx;
     //    execution.num_nullifiers_emitted,
     //    execution.public_data_tree_root,
     //    execution.public_data_tree_size,
-    //    execution.num_pub_data_writes_emitted,
+    //    execution.written_public_data_slots_tree_root,
+    //    execution.written_public_data_slots_tree_size,
     //    execution.l1_l2_tree_root,
     //    execution.l1_l2_tree_size,
     //    // Gas Info
@@ -343,7 +348,9 @@ namespace tx;
 
     pol commit prev_public_data_tree_root;
     pol commit prev_public_data_tree_size;
-    pol commit prev_num_pub_data_writes_emitted;
+
+    pol commit prev_written_public_data_slots_tree_root;
+    pol commit prev_written_public_data_slots_tree_size;
 
     pol commit prev_l1_l2_tree_root;
     pol commit prev_l1_l2_tree_size;
@@ -359,7 +366,9 @@ namespace tx;
 
     pol commit next_public_data_tree_root;
     pol commit next_public_data_tree_size;
-    pol commit next_num_pub_data_writes_emitted;
+
+    pol commit next_written_public_data_slots_tree_root;
+    pol commit next_written_public_data_slots_tree_size;
 
     pol commit next_l1_l2_tree_root;
     pol commit next_l1_l2_tree_size;
@@ -426,24 +435,74 @@ namespace tx;
     #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
     (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
 
-    pol commit fee_payer_balance;
-    // TODO: Use gadget to read balance from the tree
+    pol commit fee_juice_contract_address;
+    is_collect_fee * (constants.FEE_JUICE_ADDRESS - fee_juice_contract_address) = 0;
+    pol commit fee_juice_balances_slot;
+    is_collect_fee * (constants.FEE_JUICE_BALANCES_SLOT - fee_juice_balances_slot) = 0;
 
+    pol commit fee_juice_balance_slot;
+
+    #[BALANCE_SLOT_POSEIDON2]
+    is_collect_fee { is_collect_fee, fee_juice_balances_slot, fee_payer, precomputed.zero, fee_juice_balance_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit fee_payer_balance;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // #[BALANCE_READ]
+    // is_collect_fee {
+    //    fee_payer_balance,
+    //    fee_juice_contract_address,
+    //    fee_juice_balance_slot,
+    //    prev_public_data_tree_root
+    // } in public_data_check.sel {
+    //    public_data_check.value,
+    //    public_data_check.address,
+    //    public_data_check.slot,
+    //    public_data_check.root
+    // };
 
     #[BALANCE_VALIDATION]
     is_collect_fee { fee, fee_payer_balance, precomputed.zero }
     in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
-    // TODO: Use gadget to update the tree with fee_payer_balance - fee
+    pol commit fee_payer_new_balance;
+    is_collect_fee * (fee_payer_balance - fee - fee_payer_new_balance) = 0;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    pol commit uint32_max;
+    is_collect_fee * (uint32_max - 0xffffffff) = 0;
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Lookup for now: will need multipermutation
+    // #[BALANCE_UPDATE]
+    // is_collect_fee {
+    //     fee_payer_new_balance,
+    //     fee_juice_contract_address,
+    //     fee_juice_balance_slot,
+    //     prev_public_data_tree_root,
+    //     next_public_data_tree_root,
+    //     prev_public_data_tree_size,
+    //     next_public_data_tree_size,
+    //     uint32_max
+    // } in public_data_check.write {
+    //     public_data_check.value,
+    //     public_data_check.address,
+    //     public_data_check.slot,
+    //     public_data_check.root,
+    //     public_data_check.write_root,
+    //     public_data_check.tree_size_before_write,
+    //     public_data_check.tree_size_after_write,
+    //     public_data_check.clk
+    // };
+
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_FEE_PUBLIC_INPUTS]
     // is_collect_fee { write_pi_offset, fee }
     // in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     pol commit end_gas_used_pi_offset;
 
-    // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
     // #[WRITE_END_GAS_USED_PUBLIC_INPUTS]
     // is_collect_fee {
     //     end_gas_used_pi_offset,

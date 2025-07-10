@@ -21,8 +21,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(
-        key, vk->verification_key, transcript, domain_separator + '_');
+    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
@@ -76,7 +75,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 std::tuple<std::vector<typename Flavor::FF>,
-           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationSeparator,
+           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateSubrelationSeparators,
            typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationParameters,
            typename Flavor::FF,
            typename ProtogalaxyProver_<Flavor, NUM_KEYS>::CombinerQuotient>
@@ -90,7 +89,7 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
 
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    const UnivariateRelationSeparator alphas = PGInternal::compute_and_extend_alphas(keys);
+    const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(keys);
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
@@ -116,7 +115,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     const DeciderProvingKeys& keys,
     const CombinerQuotient& combiner_quotient,
-    const UnivariateRelationSeparator& alphas,
+    const UnivariateSubrelationSeparators& alphas,
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
@@ -127,8 +126,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     accumulator->is_accumulator = true;
 
     // At this point the virtual sizes of the polynomials should already agree
-    BB_ASSERT_EQ(accumulator->proving_key.polynomials.w_l.virtual_size(),
-                 incoming->proving_key.polynomials.w_l.virtual_size());
+    BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
@@ -143,21 +141,19 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
-    if (incoming->overflow_size > accumulator->overflow_size) {
-        std::swap(accumulator->proving_key.polynomials, incoming->proving_key.polynomials);   // swap the polys
-        std::swap(accumulator->proving_key.circuit_size, incoming->proving_key.circuit_size); // swap circuit size
-        std::swap(accumulator->proving_key.log_circuit_size, incoming->proving_key.log_circuit_size);
-        std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
-        std::swap(accumulator->overflow_size, incoming->overflow_size);             // swap overflow size
-        std::swap(accumulator->dyadic_circuit_size, incoming->dyadic_circuit_size); // swap dyadic size
+    if (incoming->get_overflow_size() > accumulator->get_overflow_size()) {
+        std::swap(accumulator->polynomials, incoming->polynomials); // swap the polys
+        std::swap(lagranges[0], lagranges[1]);                 // swap the lagrange coefficients so the sum is unchanged
+        accumulator->set_dyadic_size(incoming->dyadic_size()); // update dyadic size of accumulator
+        accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
     // Fold the proving key polynomials
-    for (auto& poly : accumulator->proving_key.polynomials.get_unshifted()) {
+    for (auto& poly : accumulator->polynomials.get_unshifted()) {
         poly *= lagranges[0];
     }
-    for (auto [acc_poly, key_poly] : zip_view(accumulator->proving_key.polynomials.get_unshifted(),
-                                              incoming->proving_key.polynomials.get_unshifted())) {
+    for (auto [acc_poly, key_poly] :
+         zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
         acc_poly.add_scaled(key_poly, lagranges[1]);
     }
 
@@ -182,17 +178,17 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> Proto
     // Ensure keys are all of the same size
     size_t max_circuit_size = 0;
     for (size_t idx = 0; idx < NUM_KEYS; ++idx) {
-        max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->proving_key.circuit_size);
+        max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->dyadic_size());
     }
     for (size_t idx = 0; idx < NUM_KEYS; ++idx) {
-        if (keys_to_fold[idx]->proving_key.circuit_size != max_circuit_size) {
+        if (keys_to_fold[idx]->dyadic_size() != max_circuit_size) {
             info("ProtogalaxyProver: circuit size mismatch - increasing virtual size of key ",
                  idx,
                  " from ",
-                 keys_to_fold[idx]->proving_key.circuit_size,
+                 keys_to_fold[idx]->dyadic_size(),
                  " to ",
                  max_circuit_size);
-            keys_to_fold[idx]->proving_key.polynomials.increase_polynomials_virtual_size(max_circuit_size);
+            keys_to_fold[idx]->polynomials.increase_polynomials_virtual_size(max_circuit_size);
         }
     }
 

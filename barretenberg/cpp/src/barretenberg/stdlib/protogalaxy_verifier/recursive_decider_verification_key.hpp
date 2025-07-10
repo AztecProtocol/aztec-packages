@@ -21,22 +21,24 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using NativeFF = typename Flavor::Curve::ScalarFieldNative;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using DeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
+    using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
+    using NativeDeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerifierCommitmentKey = typename NativeFlavor::VerifierCommitmentKey;
 
     Builder* builder;
 
-    std::shared_ptr<VerificationKey> verification_key;
+    std::shared_ptr<VKAndHash> vk_and_hash;
 
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
-    RelationSeparator alphas; // a challenge for each subrelation
+    // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
+    SubrelationSeparators alphas;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
@@ -48,18 +50,20 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     RecursiveDeciderVerificationKey_(Builder* builder)
         : builder(builder){};
 
+    // Constructor from native vk
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
         : builder(builder)
-        , verification_key(std::make_shared<VerificationKey>(builder, vk)){};
-
-    // Constructor from stdlib vkey
-    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VerificationKey> vk)
-        : builder(builder)
-        , verification_key(vk)
+        , vk_and_hash(std::make_shared<VKAndHash>(std::make_shared<VerificationKey>(builder, vk),
+                                                  FF::from_witness(builder, vk->hash())))
     {}
 
-    RecursiveDeciderVerificationKey_(Builder* builder, const std::shared_ptr<DeciderVerificationKey>& verification_key)
-        : RecursiveDeciderVerificationKey_(builder, verification_key->verification_key)
+    // Constructor from stdlib vk and hash
+    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
+        : builder(builder)
+        , vk_and_hash(vk_and_hash){};
+
+    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
+        : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
     {
         is_accumulator = verification_key->is_accumulator;
         if (is_accumulator) {
@@ -67,7 +71,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             for (auto [native_public_input] : zip_view(verification_key->public_inputs)) {
                 public_inputs.emplace_back(FF::from_witness(builder, native_public_input));
             }
-            for (size_t alpha_idx = 0; alpha_idx < alphas.size(); alpha_idx++) {
+            for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
 
@@ -104,26 +108,27 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
      * RecursiveDeciderVerificationKey is tied to the builder in whose context it was created so in order to preserve
      * the accumulator values between several iterations we need to retrieve the native DeciderVerificationKey values.
      */
-    DeciderVerificationKey get_value()
+    NativeDeciderVerificationKey get_value()
     {
+        using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
         auto native_honk_vk = std::make_shared<NativeVerificationKey>(
-            static_cast<uint64_t>(verification_key->circuit_size.get_value()),
-            static_cast<uint64_t>(verification_key->num_public_inputs.get_value()));
-        native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(verification_key->pub_inputs_offset.get_value());
-        native_honk_vk->pairing_inputs_public_input_key = verification_key->pairing_inputs_public_input_key;
+            static_cast<uint64_t>(vk_and_hash->vk->circuit_size.get_value()),
+            static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value()));
+        native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(vk_and_hash->vk->pub_inputs_offset.get_value());
+        native_honk_vk->pairing_inputs_public_input_key = vk_and_hash->vk->pairing_inputs_public_input_key;
         if constexpr (IsMegaFlavor<Flavor>) {
-            native_honk_vk->databus_propagation_data = verification_key->databus_propagation_data;
+            native_honk_vk->databus_propagation_data = vk_and_hash->vk->databus_propagation_data;
         }
 
-        for (auto [vk, final_decider_vk] : zip_view(verification_key->get_all(), native_honk_vk->get_all())) {
+        for (auto [vk, final_decider_vk] : zip_view(vk_and_hash->vk->get_all(), native_honk_vk->get_all())) {
             final_decider_vk = vk.get_value();
         }
 
-        DeciderVerificationKey decider_vk(native_honk_vk);
+        NativeDeciderVerificationKey decider_vk(native_honk_vk);
         decider_vk.is_accumulator = is_accumulator;
 
         decider_vk.public_inputs = std::vector<NativeFF>(
-            static_cast<size_t>(static_cast<uint32_t>(verification_key->num_public_inputs.get_value())));
+            static_cast<size_t>(static_cast<uint32_t>(vk_and_hash->vk->num_public_inputs.get_value())));
         for (auto [public_input, inst_public_input] : zip_view(public_inputs, decider_vk.public_inputs)) {
             inst_public_input = public_input.get_value();
         }

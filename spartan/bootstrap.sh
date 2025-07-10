@@ -84,8 +84,9 @@ function start_env {
     export WAIT_FOR_DEPLOYMENT=false
     export CLUSTER_NAME=aztec-gke-private
     export ZONE=us-west1-a
+    export GCP_PROJECT_ID=${GCP_PROJECT_ID:-"testnet-440309"}
     echo "Installing test network in namespace $NIGHTLY_NS"
-    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS"
+    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
   fi
 }
 

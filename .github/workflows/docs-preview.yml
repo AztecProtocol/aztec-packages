@@ -44,7 +44,9 @@ jobs:
             path: "barretenberg/docs"
             build_deps: "barretenberg"
             changed: "${{ needs.check-changes.outputs.barretenberg }}"
-    if: ${{ needs.check-changes.outputs.aztec == 'true' || needs.check-changes.outputs.barretenberg == 'true' }}
+      if: |
+        ((needs.check-changes.outputs.aztec == 'true' || needs.check-changes.outputs.barretenberg == 'true') &&
+        contains(github.event.pull_request.labels.*.name, 'generate-preview'))
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
