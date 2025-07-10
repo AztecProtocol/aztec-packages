@@ -12,10 +12,13 @@ import { NoteStatus } from './note_status.js';
  * @remarks This filter is applied as an intersection of all its params.
  */
 export type NotesFilter = {
+  /**
+   * The contract address the note belongs to.
+   * @remarks Providing a contract address is required as we need that information to trigger private state sync.
+   */
+  contractAddress: AztecAddress;
   /** Hash of a transaction from which to fetch the notes. */
   txHash?: TxHash;
-  /** The contract address the note belongs to. */
-  contractAddress?: AztecAddress;
   /** The specific storage location of the note on the contract. */
   storageSlot?: Fr;
   /** The recipient of the note (whose public key was used to encrypt the note). */
@@ -29,8 +32,8 @@ export type NotesFilter = {
 };
 
 export const NotesFilterSchema: ZodFor<NotesFilter> = z.object({
+  contractAddress: schemas.AztecAddress,
   txHash: TxHash.schema.optional(),
-  contractAddress: schemas.AztecAddress.optional(),
   storageSlot: schemas.Fr.optional(),
   recipient: schemas.AztecAddress.optional(),
   status: z.nativeEnum(NoteStatus).optional(),
