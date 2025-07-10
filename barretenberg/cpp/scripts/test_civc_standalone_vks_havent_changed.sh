@@ -23,9 +23,6 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
 
     ../../bootstrap.sh # bootstrap aztec-packages from root
     ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
-
-    # 2) Compress the results
-    echo "Compressing the generated inputs..."
     tar -czf bb-civc-inputs.tar.gz -C ../../yarn-project/end-to-end/example-app-ivc-inputs-out .
 
     # 3) Compute a short hash for versioning
