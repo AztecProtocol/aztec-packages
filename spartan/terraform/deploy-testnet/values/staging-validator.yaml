@@ -1,0 +1,60 @@
+global:
+  aztecRollupVersion: "canonical"
+  customNetwork:
+    enabled: true
+    l1ChainId: 11155111
+    registryContractAddress: 0x315b521ad88c038aa63962533677538435680614
+    slashFactoryAddress: 0xea1986b735e5a3a4b46646f4ea150bbc0f348a25
+    feeAssetHandlerContractAddress: 0x7aad514626f735d2415e67e5f088284e5194a417
+
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: staging
+    pullPolicy: Always
+
+validator:
+  replicaCount: 8
+  validatorsPerNode: 100
+
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
+
+  node:
+    resources:
+      requests:
+        cpu: "3"
+        memory: "12Gi"
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 16Gi
+
+  service:
+    headless: true

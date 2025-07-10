@@ -1,7 +1,9 @@
 terraform {
   backend "gcs" {
-    bucket = "aztec-terraform"
-    prefix = "terraform/state/alpha-testnet"
+    # Use terraform init -backend-config to set appropriate location
+    # These are the values for the default alpha-testnet deployment
+    # bucket = "aztec-terraform"
+    # prefix = "terraform/state/alpha-testnet"
   }
   required_providers {
     helm = {
