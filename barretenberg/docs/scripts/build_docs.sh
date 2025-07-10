@@ -4,13 +4,18 @@
 
 set -e
 
-echo "Building Doxygen documentation..."
+echo "Using existing Doxygen documentation..."
 
 # Navigate to the C++ docs directory
 cd "$(dirname "$0")/../../cpp/docs"
 
-# Build the documentation using Doxygen
-doxygen Doxyfile
+# Check if build directory exists, if not, we need to build it
+if [ ! -d "build" ]; then
+  echo "Doxygen documentation not found, building..."
+  doxygen Doxyfile
+else
+  echo "Using pre-built Doxygen documentation from build directory"
+fi
 
 echo "Copying Doxygen HTML to Docusaurus static directory..."
 
