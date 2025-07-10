@@ -20,6 +20,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
@@ -111,7 +112,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
     governance.deposit(EMPEROR, 10000 ether);
     vm.stopPrank();
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + DEPOSIT_GRANULARITY_SECONDS);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);

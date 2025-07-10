@@ -10,6 +10,7 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {
@@ -97,7 +98,7 @@ contract GovernanceBase is TestBase {
     proposalId = proposalIds[_proposalName];
 
     // @note We jump to the point where it becomes active
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + DEPOSIT_GRANULARITY_SECONDS);
 
     assertTrue(governance.getProposalState(proposalId) == ProposalState.Active);
   }

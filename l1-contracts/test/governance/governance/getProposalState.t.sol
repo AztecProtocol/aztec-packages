@@ -8,6 +8,7 @@ import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract GetProposalStateTest is GovernanceBase {
   using ProposalLib for Proposal;
@@ -203,7 +204,7 @@ contract GetProposalStateTest is GovernanceBase {
   }
 
   modifier givenExecutionDelayHavePassed() {
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + DEPOSIT_GRANULARITY_SECONDS);
     _;
   }
 
