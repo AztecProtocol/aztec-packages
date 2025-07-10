@@ -15,94 +15,6 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
     , transcript(transcript)
 {}
 
-template <typename CircuitBuilder>
-std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Commitment> MergeRecursiveVerifier_<
-    CircuitBuilder>::MergeRecursiveVerifier_::preamble_round(const RefArray<Commitment, NUM_WIRES>& t_commitments)
-{
-    // Commitments used by the Shplonk verifier
-    std::vector<Commitment> table_commitments;
-    table_commitments.reserve(NUM_MERGE_COMMITMENTS);
-
-    // [t_j]
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        table_commitments.emplace_back(t_commitments[idx]);
-    }
-
-    // Receive [T_{j,prev}], [T_j], [g_j]
-    std::array<std::string, 3> labels{ "T_PREV_", "T_", "REVERSED_t_" };
-    for (auto& label : labels) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            std::string suffix = std::to_string(wire_idx);
-            table_commitments.emplace_back(transcript->template receive_from_prover<Commitment>(label + suffix));
-        }
-    }
-
-    return table_commitments;
-};
-
-template <typename CircuitBuilder>
-std::vector<typename MergeRecursiveVerifier_<CircuitBuilder>::Claims> MergeRecursiveVerifier_<
-    CircuitBuilder>::construct_opening_claims(const FF& kappa, const FF& kappa_inv, const FF& pow_kappa)
-{
-    std::vector<Claims> opening_claims;
-    opening_claims.reserve(NUM_MERGE_CLAIMS);
-
-    // Add opening claim for t_j(1/kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
-        Claims claim{ { idx + t_IDX * NUM_WIRES }, { FF(1) }, { kappa_inv, t_eval_kappa_inv } };
-        opening_claims.emplace_back(claim);
-    }
-    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Evaluation is hard-coded to zero
-        Claims claim{ { idx + t_IDX * NUM_WIRES, idx + T_PREV_IDX * NUM_WIRES, idx + T_IDX * NUM_WIRES },
-                      { FF(1), pow_kappa, FF(-1) },
-                      { kappa, FF(0) } };
-        opening_claims.emplace_back(claim);
-    }
-    // Add opening claim for g_j(kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF reversed_t_eval = transcript->template receive_from_prover<FF>("reversed_t_eval_" + std::to_string(idx));
-        Claims claim{ { idx + REVERSED_t_IDX * NUM_WIRES }, { FF(1) }, { kappa, reversed_t_eval } };
-        opening_claims.emplace_back(claim);
-    }
-
-    return opening_claims;
-};
-
-template <typename CircuitBuilder>
-void MergeRecursiveVerifier_<CircuitBuilder>::degree_check(const std::vector<Claims>& opening_claims,
-                                                           const FF& pow_kappa_minus_one)
-{
-    // Indices in the `opening_claims` vector
-    static constexpr size_t REVERSED_t_EVAL_IDX = REVERSED_t_IDX - 1;
-    static constexpr size_t t_EVAL_IDX = t_IDX;
-
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF reversed_t_eval = opening_claims[idx + REVERSED_t_EVAL_IDX * NUM_WIRES].opening_pair.evaluation;
-        FF t_eval_kappa_inv = opening_claims[idx + t_EVAL_IDX * NUM_WIRES].opening_pair.evaluation;
-
-        // Check t_j(1/kappa) * kappa^{l-1} == g_j(kappa)
-        reversed_t_eval.assert_equal(t_eval_kappa_inv * pow_kappa_minus_one);
-    }
-}
-
-template <typename CircuitBuilder>
-MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_claims(
-    std::vector<Commitment>& table_commitments, const std::vector<Claims>& opening_claims, const FF& kappa)
-{
-    // Initialize Shplonk verifier
-    ShplonkVerifier verifier(table_commitments, transcript, NUM_MERGE_CLAIMS);
-    verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
-
-    // Export batched claim
-    auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));
-
-    // KZG verifier
-    return KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
-}
-
 /**
  * @brief Computes inputs to a pairing check that, if verified, establishes proper construction of the aggregate
  * Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -163,28 +75,84 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
 
-    auto table_commitments = preamble_round(t_commitments);
+    // Vector of commitments to be passed to the Shplonk verifier
+    // The vector is composed of: [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
+    std::vector<Commitment> table_commitments;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        table_commitments.emplace_back(t_commitments[idx]);
+        table_commitments.emplace_back(
+            transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
+        table_commitments.emplace_back(
+            transcript->template receive_from_prover<Commitment>("T_" + std::to_string(idx)));
+        table_commitments.emplace_back(
+            transcript->template receive_from_prover<Commitment>("t_REVERSED_" + std::to_string(idx)));
+    }
 
     // Store T_commitments of the verifier
+    size_t commitment_idx = 2;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_commitments[idx] = table_commitments[idx + T_IDX * NUM_WIRES];
+        T_commitments[idx] = table_commitments[idx + commitment_idx];
+        commitment_idx += NUM_WIRES;
     }
 
     // Evaluation challenge
-    FF kappa = transcript->template get_challenge<FF>("kappa");
-    FF kappa_inv = kappa.invert();
-    FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
-    FF pow_kappa = pow_kappa_minus_one * kappa;
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF kappa_inv = kappa.invert();
+    const FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
+    const FF pow_kappa = pow_kappa_minus_one * kappa;
 
-    auto opening_claims = construct_opening_claims(kappa, kappa_inv, pow_kappa);
+    // Opening claims to be passed to the Shplonk verifier
+    std::vector<Claims> opening_claims;
 
-    // Verify the claims
-    auto pairing_points = verify_claims(table_commitments, opening_claims, kappa);
+    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    commitment_idx = 0;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        // Evaluation is hard-coded to zero
+        Claims claim{ { /*index of t_j*/ commitment_idx,
+                        /*index of T_{prev,j}*/ commitment_idx + 1,
+                        /*index of T_j*/ commitment_idx + 2 },
+                      { FF(1), pow_kappa, FF(-1) },
+                      { kappa, FF(0) } };
+        opening_claims.emplace_back(claim);
 
-    // Perform degree check
-    degree_check(opening_claims, pow_kappa_minus_one);
+        // Move commitment_idx to the index of t_{j+1}
+        commitment_idx += NUM_WIRES;
+    }
 
-    return pairing_points;
+    // Add opening claim for t_j(1/kappa), g_j(kappa) and check g_j(kappa) = t_j(1/kappa) * kappa^{l-1}
+    commitment_idx = 0;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        Claims claim;
+
+        // Opening claim for t_j(1/kappa)
+        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_evals_kappa_inv_" + std::to_string(idx));
+        claim = { { commitment_idx }, { FF(1) }, { kappa_inv, t_eval_kappa_inv } };
+        opening_claims.emplace_back(claim);
+
+        // Move commitment_idx to index of g_j
+        commitment_idx += 3;
+
+        // Opening claim for g_j(kappa)
+        FF t_reversed_eval = transcript->template receive_from_prover<FF>("t_reversed_eval_" + std::to_string(idx));
+        claim = { { commitment_idx }, { FF(1) }, { kappa, t_reversed_eval } };
+        opening_claims.emplace_back(claim);
+
+        // Move commitment_idx to index of t_j
+        commitment_idx += 1;
+
+        // Degree identity
+        t_reversed_eval.assert_equal(t_eval_kappa_inv * pow_kappa_minus_one);
+    }
+
+    // Initialize Shplonk verifier
+    ShplonkVerifier verifier(table_commitments, transcript, opening_claims.size());
+    verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
+
+    // Export batched claim
+    auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));
+
+    // KZG verifier
+    return KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
 }
 
 template class MergeRecursiveVerifier_<MegaCircuitBuilder>;

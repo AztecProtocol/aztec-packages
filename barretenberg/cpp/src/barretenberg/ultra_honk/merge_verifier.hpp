@@ -36,6 +36,8 @@ class MergeVerifier {
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
+    std::array<Commitment, NUM_WIRES> T_commitments;
+
     std::shared_ptr<Transcript> transcript;
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());

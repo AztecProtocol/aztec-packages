@@ -81,6 +81,13 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
             transcript->template receive_from_prover<Commitment>("t_REVERSED_" + std::to_string(idx)));
     }
 
+    // Store T_commitments of the verifier
+    size_t commitment_idx = 2;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        T_commitments[idx] = table_commitments[idx + commitment_idx];
+        commitment_idx += NUM_WIRES;
+    }
+
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
@@ -89,8 +96,9 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
+
     // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
-    size_t commitment_idx = 0;
+    commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Evaluation is hard-coded to zero
         Claims claim{ { /*index of t_j*/ commitment_idx,
