@@ -17,7 +17,6 @@ RUN git clone https://github.com/AztecProtocol/aztec-packages.git
 # Download crs
 WORKDIR /home/fuzzer/aztec-packages/barretenberg
 RUN ./scripts/download_bb_crs.sh
-RUN git checkout as/fuzzing-coverage
 
 WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
 
