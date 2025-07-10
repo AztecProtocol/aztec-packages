@@ -40,14 +40,7 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock] = await Promise.all([
-    pxe.getTxReceipt(txHash),
-    pxe.getTxEffect(txHash),
-    // Disabled getting notes here as now we need to provide the contract address on input. Since until now it
-    // basically didn't work as we didn't call sync_private_state() I don't think anyone cares about this. Getting
-    // the addresses this tx interacted with here is problematic.
-    // pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
-  ]);
+  const [receipt, effectsInBlock] = await Promise.all([pxe.getTxReceipt(txHash), pxe.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
   log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);
@@ -87,21 +80,15 @@ export async function inspectTx(
     }
   }
 
-  // Disabled getting notes here as now we need to provide the contract address on input. Since until now it
-  // basically didn't work as we didn't call sync_private_state() I don't think anyone cares about this. Getting
-  // the addresses this tx interacted with here is problematic.
-  // // Created notes
-  // const notes = effects.noteHashes;
-  // if (notes.length > 0) {
-  //   log(' Created notes:');
-  //   log(`  Total: ${notes.length}. Found: ${getNotes.length}.`);
-  //   if (getNotes.length) {
-  //     log('  Found notes:');
-  //     for (const note of getNotes) {
-  //       inspectNote(note, artifactMap, log);
-  //     }
-  //   }
-  // }
+  // Created notes
+  const notes = effects.noteHashes;
+  if (notes.length > 0) {
+    log(' Created notes:');
+    log(`  Total: ${notes.length}`);
+    for (const note of notes) {
+      log(`  Note hash: ${note.toShortString()}`);
+    }
+  }
 
   // Nullifiers
   const nullifierCount = effects.nullifiers.length;
