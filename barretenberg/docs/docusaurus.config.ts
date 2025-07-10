@@ -34,6 +34,7 @@ function apiPlugin(context: any, options: any) {
   }
 }
 
+
 const config: Config = {
   title: "Barretenberg",
   tagline: "Barretenberg is a fast, private and scalable zk-SNARK library.",
