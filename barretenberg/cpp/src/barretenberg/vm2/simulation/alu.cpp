@@ -67,11 +67,7 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
 MemoryValue Alu::op_not(const MemoryValue& a)
 {
     if (a.get_tag() == ValueTag::FF) {
-        // Set b to FF(0) as this corresponds to execution.register[1] == 0 and execution.mem_tag_reg[1] == 0 and we
-        // need this to have a correct permutation between ALU and Execution. Namely, as we throw an exception, the
-        // output in execution trace will all be zero.
-        events.emit(
-            { .operation = AluOperation::NOT, .a = a, .b = MemoryValue::from<FF>(0), .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::NOT, .a = a, .error = AluError::TAG_ERROR });
         debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
         throw AluException();
     }
