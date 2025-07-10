@@ -1,3 +1,4 @@
+#include "gmock/gmock.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -16,6 +17,8 @@
 #include "barretenberg/vm2/simulation/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
@@ -29,13 +32,19 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::NiceMock;
+
 using simulation::EventEmitter;
 using simulation::L1ToL2MessageTreeCheck;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::unconstrained_root_from_path;
 
 using tracegen::L1ToL2MessageTreeCheckTraceBuilder;
@@ -54,7 +63,11 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveExists)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    NiceMock<MockExecutionIdManager> execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -94,7 +107,11 @@ TEST(L1ToL2MessageTreeCheckConstrainingTests, PositiveNotExists)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    NiceMock<MockExecutionIdManager> execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);

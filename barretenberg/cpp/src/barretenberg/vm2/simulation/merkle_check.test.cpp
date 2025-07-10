@@ -1,3 +1,5 @@
+#include "barretenberg/vm2/simulation/merkle_check.hpp"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <optional>
@@ -5,20 +7,33 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
 
 using testing::ElementsAre;
+using ::testing::NiceMock;
 
-TEST(MerkleCheckSimulationTest, AssertMembership)
-{
+class MerkleCheckSimulationTest : public ::testing::Test {
+  protected:
+    MerkleCheckSimulationTest() = default;
+
     EventEmitter<Poseidon2HashEvent> hash_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
+    // unused hence NoopEventEmitter
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
 
+    NiceMock<MockExecutionIdManager> mock_execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_emitter, perm_emitter, perm_mem_event_emitter);
+};
+
+TEST_F(MerkleCheckSimulationTest, AssertMembership)
+{
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -54,12 +69,8 @@ TEST(MerkleCheckSimulationTest, AssertMembership)
     EXPECT_EQ(hash_emitter.dump_events().size(), expected_merkle_rows);
 }
 
-TEST(MerkleCheckSimulationTest, Write)
+TEST_F(MerkleCheckSimulationTest, Write)
 {
-    EventEmitter<Poseidon2HashEvent> hash_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
-
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -86,12 +97,8 @@ TEST(MerkleCheckSimulationTest, Write)
     EXPECT_EQ(hash_emitter.dump_events().size(), sibling_path.size() * 2);
 }
 
-TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
+TEST_F(MerkleCheckSimulationTest, NegativeBadFinalIndex)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
-
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -106,12 +113,8 @@ TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
                               "Merkle check's final node index must be 0 or 1");
 }
 
-TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
+TEST_F(MerkleCheckSimulationTest, NegativeWrongRoot)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
-
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -126,12 +129,8 @@ TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
                               "Merkle read check failed");
 }
 
-TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
+TEST_F(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
-
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -146,12 +145,8 @@ TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
                               "Merkle read check failed");
 }
 
-TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
+TEST_F(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
-
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
@@ -168,12 +163,8 @@ TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
                               "Merkle read check failed");
 }
 
-TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
+TEST_F(MerkleCheckSimulationTest, NegativeWrongLeafValue)
 {
-    NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
-    NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
-    Poseidon2 poseidon2(hash_emitter, perm_emitter);
-
     EventEmitter<MerkleCheckEvent> emitter;
     MerkleCheck merkle_check(poseidon2, emitter);
 
