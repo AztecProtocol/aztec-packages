@@ -48,7 +48,6 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    // Constructor that instantiates an initial ECC op subtable
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
