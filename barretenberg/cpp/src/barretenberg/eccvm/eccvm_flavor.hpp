@@ -801,7 +801,6 @@ class ECCVMFlavor {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
             throw_or_abort("Not implemented yet!");
         }
-
         /**
          * @brief Adds the verification key hash to the transcript and returns the hash.
          * @details Needed to make sure the Origin Tag system works. See the base class function for
@@ -822,6 +821,8 @@ class ECCVMFlavor {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,

@@ -21,6 +21,7 @@ if (NOT(FUZZING))
         bb
         PRIVATE
         bb-cli-lib
+        tracy_mem
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(
