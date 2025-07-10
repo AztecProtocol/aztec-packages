@@ -46,57 +46,83 @@ impl OrderNote {
     }
 }
 
-// mod test {
-//     use crate::{config::Config, order_note::OrderNote};
-//     use aztec::{prelude::AztecAddress, protocol_types::traits::FromField};
+mod test {
+    use crate::{config::Config, order_note::OrderNote};
+    use aztec::protocol_types::{address::AztecAddress, traits::FromField};
 
-//     #[test]
-//     unconstrained fn new_order_valid_inputs() {
-//         let token0 = AztecAddress::from_field(1);
-//         let token1 = AztecAddress::from_field(2);
-//         let config = Config::new(token0, token1);
+    global token0: AztecAddress = AztecAddress::from_field(1);
+    global token1: AztecAddress = AztecAddress::from_field(2);
+    global token2: AztecAddress = AztecAddress::from_field(3);
+    global fee_collector: AztecAddress = AztecAddress::from_field(4);
+    global owner: AztecAddress = AztecAddress::from_field(5);
+    global maker: AztecAddress = AztecAddress::from_field(6);
+    global fee: u16 = 100; // 1%
 
-//         let bid_amount = 100;
-//         let ask_amount = 200;
+    #[test]
+    unconstrained fn new_order_valid_inputs() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let order_id = 1;
+        let bid_amount = 100;
+        let ask_amount = 200;
 
-//         // Test token0 to token1 direction
-//         let order = OrderNote::new(config, bid_amount, ask_amount, token0, token1);
-//         assert(order.bid_amount == bid_amount);
-//         assert(order.ask_amount == ask_amount);
-//         assert(order.bid_token_is_zero == true);
+        // Test token0 to token1 direction
+        let order = OrderNote::new(
+            order_id,
+            config,
+            owner,
+            maker,
+            bid_amount,
+            ask_amount,
+            token0,
+            token1,
+        );
+        assert(order.order_id == order_id);
+        assert(order.owner == owner);
+        assert(order.maker == maker);
+        assert(order.bid_amount == bid_amount);
+        assert(order.ask_amount == ask_amount);
+        assert(order.bid_token_is_zero);
 
-//         // Test token1 to token0 direction
-//         let order = OrderNote::new(config, bid_amount, ask_amount, token1, token0);
-//         assert(order.bid_amount == bid_amount);
-//         assert(order.ask_amount == ask_amount);
-//         assert(order.bid_token_is_zero == false);
-//     }
+        // Test token1 to token0 direction
+        let order = OrderNote::new(
+            order_id,
+            config,
+            owner,
+            maker,
+            bid_amount,
+            ask_amount,
+            token1,
+            token0,
+        );
+        assert(order.order_id == order_id);
+        assert(order.owner == owner);
+        assert(order.maker == maker);
+        assert(order.bid_amount == bid_amount);
+        assert(order.ask_amount == ask_amount);
+        assert(!order.bid_token_is_zero);
+    }
 
-//     #[test(should_fail_with = "ZERO_BID_AMOUNT")]
-//     unconstrained fn new_order_zero_bid_amount() {
-//         let token0 = AztecAddress::from_field(1);
-//         let token1 = AztecAddress::from_field(2);
-//         let config = Config::new(token0, token1);
+    #[test(should_fail_with = "ZERO_BID_AMOUNT")]
+    unconstrained fn new_order_zero_bid_amount() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let order_id = 1;
 
-//         let _ = OrderNote::new(config, 0, 100, token0, token1);
-//     }
+        let _ = OrderNote::new(order_id, config, owner, maker, 0, 100, token0, token1);
+    }
 
-//     #[test(should_fail_with = "ZERO_ASK_AMOUNT")]
-//     unconstrained fn new_order_zero_ask_amount() {
-//         let token0 = AztecAddress::from_field(1);
-//         let token1 = AztecAddress::from_field(2);
-//         let config = Config::new(token0, token1);
+    #[test(should_fail_with = "ZERO_ASK_AMOUNT")]
+    unconstrained fn new_order_zero_ask_amount() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let order_id = 1;
 
-//         let _ = OrderNote::new(config, 100, 0, token0, token1);
-//     }
+        let _ = OrderNote::new(order_id, config, owner, maker, 100, 0, token0, token1);
+    }
 
-//     #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
-//     unconstrained fn new_order_invalid_tokens() {
-//         let token0 = AztecAddress::from_field(1);
-//         let token1 = AztecAddress::from_field(2);
-//         let token2 = AztecAddress::from_field(3);
-//         let config = Config::new(token0, token1);
+    #[test(should_fail_with = "BID_TOKEN_IS_INVALID")]
+    unconstrained fn new_order_invalid_tokens() {
+        let config = Config::new(token0, token1, fee_collector, fee);
+        let order_id = 1;
 
-//         let _ = OrderNote::new(config, 100, 100, token2, token1);
-//     }
-// }
+        let _ = OrderNote::new(order_id, config, owner, maker, 100, 100, token2, token1);
+    }
+}
