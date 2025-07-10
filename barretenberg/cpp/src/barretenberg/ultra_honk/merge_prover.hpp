@@ -48,20 +48,6 @@ class MergeProver {
     std::shared_ptr<ECCOpQueue> op_queue;
     CommitmentKey pcs_commitment_key;
     std::shared_ptr<Transcript> transcript;
-
-    /**
-     * @brief Construct the opening claims to be passed to the Shplonk prover
-     *
-     * @details Construct the opening claims:
-     *  - \f$t_j(X)\f$, evaluated at \f$\frac{1}{\kappa}\f$
-     *  - \f$p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X)\f$, evaluated at \f$\kappa\f$
-     *  - \f$g_j(X)\f$, evaluated at \f$\kappa\f$
-     *
-     * @param table_polynomials
-     *
-     * @return std::vector<OpeningClaim>
-     */
-    std::vector<OpeningClaim> construct_opening_claims();
 };
 
 } // namespace bb
