@@ -178,7 +178,7 @@ function test_cmds {
   # Run the ZK UH recursive verifier tests.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_zk_proof"
   # Run the ZK UH recursive verifier tests without ZK.
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_zk_proof"
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_zk_proof"
 
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
