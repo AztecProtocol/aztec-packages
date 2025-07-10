@@ -658,6 +658,9 @@ export class PXEService implements PXE {
   }
 
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
+    // We need to manually trigger private state sync to have a guarantee that all the events are available.
+    await this.simulateUtility('sync_private_state', [], filter.contractAddress);
+
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
