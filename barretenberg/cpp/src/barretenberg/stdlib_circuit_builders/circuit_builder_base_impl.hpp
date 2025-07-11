@@ -168,6 +168,7 @@ template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
+    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
     public_inputs_.emplace_back(index);
     return index;
 }
@@ -183,6 +184,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const
         }
     }
     uint32_t public_input_index = static_cast<uint32_t>(num_public_inputs());
+    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
     public_inputs_.emplace_back(witness_index);
 
     return public_input_index;

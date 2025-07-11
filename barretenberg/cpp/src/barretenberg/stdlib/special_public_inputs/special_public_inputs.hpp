@@ -12,9 +12,6 @@
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 namespace bb::stdlib::recursion::honk {
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1269): Complete integration of the IO mechanism and
-// remove PublicComponentKeys from the VK.
-
 /**
  * @brief Manages the data that is propagated on the public inputs of a kernel circuit
  *
@@ -72,6 +69,10 @@ class KernelIO {
         app_return_data.set_public();
         // ecc_op_table.set_public();
         // pg_acc_hash.set_public();
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->finalize_public_inputs();
     }
 };
 
@@ -108,17 +109,29 @@ template <typename Builder> class DefaultIO {
      * @brief Set each IO component to be a public input of the underlying circuit.
      *
      */
-    void set_public() { pairing_inputs.set_public(); }
+    void set_public()
+    {
+        pairing_inputs.set_public();
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->finalize_public_inputs();
+    }
 };
 
 /**
  * @brief The data that is propagated on the public inputs of an application/function circuit
- *
  */
 using AppIO = DefaultIO<MegaCircuitBuilder>; // app IO is always Mega
 
-using HidingKernelIO = DefaultIO<MegaCircuitBuilder>; // hiding kernel IO is always
+/**
+ * @brief The data that is propagated on the public inputs of a hiding kernel circuit
+ */
+using HidingKernelIO = DefaultIO<MegaCircuitBuilder>; // hiding kernel IO is always Mega
 
+/**
+ * @brief The data that is propagated on the public inputs of a rollup circuit
+ */
 class RollupIO {
   public:
     using Builder = UltraCircuitBuilder;  // rollup circuits are always Ultra
@@ -158,6 +171,10 @@ class RollupIO {
     {
         pairing_inputs.set_public();
         ipa_claim.set_public();
+
+        // Finalize the public inputs to ensure no more public inputs can be added hereafter.
+        Builder* builder = pairing_inputs.P0.get_context();
+        builder->finalize_public_inputs();
     }
 };
 

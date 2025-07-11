@@ -30,6 +30,8 @@ template <typename FF_> class CircuitBuilderBase {
 
     std::vector<uint32_t> public_inputs_;
 
+    bool public_inputs_finalized_ = false; // Addition of new public inputs disallowed after this is set to true.
+
   public:
     size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
@@ -156,6 +158,13 @@ template <typename FF_> class CircuitBuilderBase {
     FF get_public_input(const uint32_t index) const;
 
     const std::vector<uint32_t>& public_inputs() const { return public_inputs_; };
+
+    /**
+     * @brief Set the public_inputs_finalized_ to true to prevent any new public inputs from being added.
+     * @details This is used, for example, for special internal public inputs (like pairing inputs) which we want to
+     * ensure are placed at the end of the public inputs vector.
+     */
+    void finalize_public_inputs() { public_inputs_finalized_ = true; }
 
     /**
      * @brief Directly initialize the public inputs vector.
