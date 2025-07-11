@@ -16,7 +16,12 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 As part of a broader effort to make TXE easier to use and reason about, large parts of it are being changed or adapted.
 
 - `committed_block_number` and `committed_timestamp` removed: these functions did not work correctly, and were not generally very useful
-- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamp
+- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamps
+- `pending_block_number` was renamed to `next_block_number`. `pending_timestamp` was removed since it was confusing and not useful
+- `committed_block_number` was renamed to `last_block_number`
+- `advance_timestamp_to` and `advance_timestamp_by` were renamed to `set_next_block_timestamp` and `advance_next_block_timestamp_by` respectively
+- `advance_block_to` was renamed to `mine_block_at`, which takes a timestamp instead of a target block number
+- `advance_block_by` was renamed to `mine_block`, which now mines a single block
 
 ## [Aztec.js]
 
