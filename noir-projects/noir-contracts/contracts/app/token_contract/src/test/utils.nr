@@ -76,7 +76,6 @@ pub unconstrained fn mint_to_private(
     recipient: AztecAddress,
     amount: u128,
 ) {
-    let from = recipient; // we are setting from to recipient because we need to compute the tag
     Token::at(token_contract_address).mint_to_private(recipient, amount).call(&mut env.private());
 
     env.advance_block_by(1);
