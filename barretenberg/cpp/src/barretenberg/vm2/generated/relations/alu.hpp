@@ -235,7 +235,11 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
         case 17:
             return "LT_SWAP_INPUTS_B";
         case 18:
+<<<<<<< HEAD
             return "LTE_NEGATE_RESULT_C";
+=======
+            return "LT_OPS_NEGATE_RESULT_C";
+>>>>>>> 2b58cd4bfb (feat: redirect LT/LTE to GT subtrace)
         case 20:
             return "NOT_OP_MAIN";
         case 21:
@@ -251,9 +255,15 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_AB_TAGS_CHECK = 6;
     static constexpr size_t SR_ALU_ADD = 8;
     static constexpr size_t SR_EQ_OP_MAIN = 10;
+<<<<<<< HEAD
     static constexpr size_t SR_LT_SWAP_INPUTS_A = 16;
     static constexpr size_t SR_LT_SWAP_INPUTS_B = 17;
     static constexpr size_t SR_LTE_NEGATE_RESULT_C = 18;
+=======
+    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_A = 16;
+    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_B = 17;
+    static constexpr size_t SR_LT_OPS_NEGATE_RESULT_C = 18;
+>>>>>>> 2b58cd4bfb (feat: redirect LT/LTE to GT subtrace)
     static constexpr size_t SR_NOT_OP_MAIN = 20;
     static constexpr size_t SR_NOT_OP_TAG_ERROR = 21;
 };
