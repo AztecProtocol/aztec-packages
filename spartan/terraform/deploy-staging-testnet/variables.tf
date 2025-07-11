@@ -51,3 +51,9 @@ variable "PROVER_VALUES" {
   default     = "staging-testnet-prover.yaml"
 }
 
+variable "RPC_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "staging-testnet-rpc.yaml"
+}
+
