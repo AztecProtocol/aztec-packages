@@ -141,6 +141,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         // Move commitment_idx to index of t_{j+1}
         commitment_idx += 1;
 
+        /////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
         // Degree identity
         degree_check_verified &= (t_eval_kappa_inv * pow_kappa_minus_one == t_reversed_eval);
     }
