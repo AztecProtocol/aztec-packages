@@ -10,9 +10,11 @@ namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                                                 const std::shared_ptr<Transcript>& transcript)
+                                                                 const std::shared_ptr<Transcript>& transcript,
+                                                                 MergeSettings settings)
     : builder(builder)
     , transcript(transcript)
+    , settings(settings)
 {}
 
 /**
@@ -106,6 +108,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
 
+    /////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
     // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -142,6 +145,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
         // Move commitment_idx to index of t_j
         commitment_idx += 1;
 
+        /////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
         // Degree identity
         t_reversed_eval.assert_equal(t_eval_kappa_inv * pow_kappa_minus_one);
     }

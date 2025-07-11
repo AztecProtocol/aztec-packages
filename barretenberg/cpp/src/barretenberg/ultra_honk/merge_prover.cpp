@@ -73,11 +73,14 @@ MergeProver::MergeProof MergeProver::construct_proof()
         t_reversed[idx] = t[idx].reverse();
     }
 
-    const size_t subtable_size = t[0].size();
     const size_t table_size = T[0].size();
 
-    // Send subtable size to the verifier
-    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(subtable_size));
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
+    // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
+    // subtable when sending a merge proof to the rollup.
+    const size_t shift_size =
+        op_queue->get_current_settings() == MergeSettings::PREPEND ? t[0].size() : T_prev[0].size();
+    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute commitments [T_prev], [T], [reversed_t], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -88,7 +91,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    const FF pow_kappa = kappa.pow(subtable_size);
+    const FF pow_kappa = kappa.pow(shift_size);
     const FF kappa_inv = kappa.invert();
 
     // Opening claims for each polynomial p_j, t_j, g_j
@@ -101,6 +104,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     //                  {1/kappa, t_4(1/kappa)}, {kappa, g_4(kappa)}
     std::vector<OpeningClaim> opening_claims;
 
+    /////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
     // Set opening claims p_j(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)

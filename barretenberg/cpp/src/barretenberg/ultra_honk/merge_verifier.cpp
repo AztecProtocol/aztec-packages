@@ -10,8 +10,9 @@
 
 namespace bb {
 
-MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript)
-    : transcript(transcript){};
+MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, MergeSettings settings)
+    : transcript(transcript)
+    , settings(settings){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -69,7 +70,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 
     transcript->load_proof(proof);
 
-    uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
+    const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
 
     // Vector of commitments to be passed to the Shplonk verifier
     // The vector is composed of: [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
@@ -94,12 +95,13 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
+    const FF pow_kappa_minus_one = kappa.pow(shift_size - 1);
     const FF pow_kappa = pow_kappa_minus_one * kappa;
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
 
+    ////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
     // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {

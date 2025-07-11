@@ -430,12 +430,7 @@ class MegaFlavor {
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
             /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
-            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
-            /* 4. is_kernel bool */ (1 * num_frs_fr) +
-            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
-        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
-        DatabusPropagationData databus_propagation_data;
+            /* 3. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
@@ -451,9 +446,6 @@ class MegaFlavor {
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
             this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
-
-            // Databus commitment propagation data
-            this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
         VerificationKey(const PrecomputedData& precomputed)
@@ -485,12 +477,6 @@ class MegaFlavor {
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
             serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                                      elements);
-            serialize_to_field_buffer(
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
-
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
@@ -520,14 +506,6 @@ class MegaFlavor {
                                                       this->pub_inputs_offset);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
                                                       this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(
-                domain_separator + "vk_app_return_data_commitment_start_idx",
-                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(
-                domain_separator + "vk_kernel_return_data_commitment_start_idx",
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_is_kernel",
-                                                      this->databus_propagation_data.is_kernel);
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
@@ -535,87 +513,13 @@ class MegaFlavor {
             return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
-        // Explicit constructor for msgpack serialization
-        VerificationKey(const size_t circuit_size,
-                        const size_t num_public_inputs,
-                        const size_t pub_inputs_offset,
-                        const PublicComponentKey& pairing_inputs_public_input_key,
-                        const DatabusPropagationData& databus_propagation_data,
-                        const Commitment& q_m,
-                        const Commitment& q_c,
-                        const Commitment& q_l,
-                        const Commitment& q_r,
-                        const Commitment& q_o,
-                        const Commitment& q_4,
-                        const Commitment& q_busread,
-                        const Commitment& q_lookup,
-                        const Commitment& q_arith,
-                        const Commitment& q_delta_range,
-                        const Commitment& q_elliptic,
-                        const Commitment& q_aux,
-                        const Commitment& q_poseidon2_external,
-                        const Commitment& q_poseidon2_internal,
-                        const Commitment& sigma_1,
-                        const Commitment& sigma_2,
-                        const Commitment& sigma_3,
-                        const Commitment& sigma_4,
-                        const Commitment& id_1,
-                        const Commitment& id_2,
-                        const Commitment& id_3,
-                        const Commitment& id_4,
-                        const Commitment& table_1,
-                        const Commitment& table_2,
-                        const Commitment& table_3,
-                        const Commitment& table_4,
-                        const Commitment& lagrange_first,
-                        const Commitment& lagrange_last,
-                        const Commitment& lagrange_ecc_op,
-                        const Commitment& databus_id)
-        {
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = num_public_inputs;
-            this->pub_inputs_offset = pub_inputs_offset;
-            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
-            this->databus_propagation_data = databus_propagation_data;
-            this->q_m = q_m;
-            this->q_c = q_c;
-            this->q_l = q_l;
-            this->q_r = q_r;
-            this->q_o = q_o;
-            this->q_4 = q_4;
-            this->q_busread = q_busread;
-            this->q_lookup = q_lookup;
-            this->q_arith = q_arith;
-            this->q_delta_range = q_delta_range;
-            this->q_elliptic = q_elliptic;
-            this->q_aux = q_aux;
-            this->q_poseidon2_external = q_poseidon2_external;
-            this->q_poseidon2_internal = q_poseidon2_internal;
-            this->sigma_1 = sigma_1;
-            this->sigma_2 = sigma_2;
-            this->sigma_3 = sigma_3;
-            this->sigma_4 = sigma_4;
-            this->id_1 = id_1;
-            this->id_2 = id_2;
-            this->id_3 = id_3;
-            this->id_4 = id_4;
-            this->table_1 = table_1;
-            this->table_2 = table_2;
-            this->table_3 = table_3;
-            this->table_4 = table_4;
-            this->lagrange_first = lagrange_first;
-            this->lagrange_last = lagrange_last;
-            this->lagrange_ecc_op = lagrange_ecc_op;
-            this->databus_id = databus_id;
-        }
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        pairing_inputs_public_input_key,
-                       databus_propagation_data,
                        q_m,
                        q_c,
                        q_l,
