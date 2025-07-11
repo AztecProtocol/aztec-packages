@@ -16,18 +16,20 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j
- * containing the contribution from a single circuit. T_{j,prev} corresponds to the columns of the aggregate table
- * at the previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k
- * is the length of the subtable columns t_j. This protocol demonstrates that the aggregate ecc op table has been
- * constructed correctly via:
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that
+ * \f$l_j.size() < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
+ * claims by:
  * - the Schwartz-Zippel check:
- *      \f[ T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)) \f]
+ *      \f[ m_j(\kappa) = l_j(\kappa) + \kappa^k * r_j(\kappa) \f]
  * - the degree check a la Thakur:
- *      \f[ x^{l-1} t_j(1/x) = g_j(x) \f]
- *   where \f$g_j(X) = X^{l-1} t_j(1 / X)\f$.
+ *      \f[ \kappa^{l-1} l_j(1/\kappa) = g_j(\kappa) \f]
+ *   where \f$g_j(X) = X^{k-1} l_j(1 / X)\f$.
  *
- * @tparam Flavor
+ * In the Goblin scenario, we have:
+ * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
+ * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
+ *
+ * @param proof
  * @param t_commitments The commitments to t_j read from the transcript by the PG verifier with which the Merge
  * verifier shares a transcript
  * @return bool Verification result
@@ -35,39 +37,34 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
 bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
 {
     /**
-     * The prover wants to convince the verifier that the polynomials t_j, T_{prev,j}, T_j for which they have sent
-     * commitments [t_j], [T_{prev,j}], [T_j] satisfy either:
-     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X) (1.prepend)
-     *      - deg(t_j(X)) < l                     (2.prepend)
-     * or:
-     *      - T_j(X) = T_{prev,j}(X) + X^l t_j(X) (1.append)
-     *      - deg(T_{prev,j}(X)) < l              (2.append)
+     * The prover wants to convince the verifier that the polynomials l_j, r_j, m_j for which they have sent
+     *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
+     *      - deg(l_j(X)) < k                   (2)
      * where l = shift_size.
      *
-     * We focus on the prepend case for the explanation, the append case is similar.
      *
-     * To check condition (1.prepend), the verifier samples a challenge kappa and request from the prover a proof that
+     * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
      * the polynomial
-     *      p_j(X) = t_j(X) + kappa^{l-1} T_{prev,j}(X) - T_j(X)
+     *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
      * opens to 0 at kappa.
      *
-     * To check condition (2.prepend), the verifier requests from the prover the commitment to a polynomial g_j, and
+     * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
      * then requests proofs that
-     *      t_j(1/kappa) = c     g_j(kappa) = d
-     * Then, they verify c * kappa^{l-1} = d, which implies, up to negligible probability, that
-     * g_j(X) = X^{l-1} t_j(1/X), and the prover can commit to this polynomial only if deg(t_j(X)) < l.
+     *      l_j(1/kappa) = c     g_j(kappa) = d
+     * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
+     * g_j(X) = X^{l-1} t_j(1/X), which means that deg(l_j(X)) < l.
      *
-     * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, t_j(1/kappa), g_j(kappa)
-     * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [t_j], [T_{prev,j}], [T_j]
+     * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
+     * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]
      * and then open it). We initialize the Shplonk verifier with the following commitments:
-     *      [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
+     *      [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
      * Then, we verify the various claims:
-     *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to t_j, T_{prev,j}, T_j, so
+     *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
      *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
      *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
-     *                           reconstructing p_j from t_j, T_{prev,j}, T_j: {1, kappa^l, -1}, and the claimed
+     *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^l, -1}, and the claimed
      *                           evaluation: 0.
-     *     - t_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
+     *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
      *                           v_j.
      *     - g_j(kappa) = w_j:   The index is {3 + 4 * (j-1)}, the coefficient is { 1 }, and the evaluation is w_j.
      * The claims are passed in the following order:
@@ -79,14 +76,16 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
 
     // Vector of commitments to be passed to the Shplonk verifier
-    // The vector is composed of: [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
+    // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         if (settings == MergeSettings::PREPEND) {
             table_commitments.emplace_back(t_commitments[idx]);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
             table_commitments.emplace_back(
                 transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
         } else {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
             table_commitments.emplace_back(
                 transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
             table_commitments.emplace_back(t_commitments[idx]);
@@ -113,30 +112,29 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
 
-    // Add opening claim for p_j(X) = left_table_j(X) + X^l right_table_j(X) - merged_table_j(X)
+    // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Claims claim{ { /*index of left_table_j*/ commitment_idx,
-                        /*index of right_table_j*/ commitment_idx + 1,
-                        /*index of merged_table_j*/ commitment_idx + 2 },
+        Claims claim{ { /*index of [l_j]*/ commitment_idx,
+                        /*index of [r_j]*/ commitment_idx + 1,
+                        /*index of [m_j]*/ commitment_idx + 2 },
                       { FF::one(), pow_kappa, FF::neg_one() },
                       { kappa, FF::zero() } };
         opening_claims.emplace_back(claim);
 
-        // Move commitment_idx to the index of t_{j+1}
+        // Move commitment_idx to the index of [l_{j+1}]
         commitment_idx += NUM_WIRES;
     }
 
     // Boolean keeping track of the degree identities
     bool degree_check_verified = true;
 
-    // Add opening claim for left_table_j(1/kappa), left_table_reversed_j(kappa) and check
-    // left_table_reversed_j(kappa) = left_table_j(1/kappa) * kappa^{l-1}
+    // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{l-1}
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Claims claim;
 
-        // Opening claim for left_table_j(1/kappa)
+        // Opening claim for l_j(1/kappa)
         FF left_table_eval_kappa_inv =
             transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
         claim = { { commitment_idx }, { FF::one() }, { kappa_inv, left_table_eval_kappa_inv } };

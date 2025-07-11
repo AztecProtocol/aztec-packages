@@ -24,7 +24,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ three vectors. The Merge prover wants to convince the verifier that
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that
  * \f$l_j.size() < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
  * claims by:
  * - the Schwartz-Zippel check:
@@ -40,28 +40,27 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  * @note The prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
  * circuit, and therefore t_j has already been added to the transcript by PG.
  *
- * @return honk::proof
+ * @return MergeProver::MergeProof
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
     /**
-     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4, either:
+     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4:
      *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
-     *      - deg(l_j(X)) < l                   (2)
+     *      - deg(l_j(X)) < k                   (2)
      * where l = shift_size.
      *
      * Condition (1) is equivalent, up to negligible probability, to:
-     *      l_j(kappa) + kappa^l r_j(kappa) - m_j(kappa) = 0
+     *      l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa) = 0
      * so the prover constructs the polynomial
-     *      p_j(X) := l_j(X) + kappa^{l-1} r_j(X) - m_j(X)
+     *      p_j(X) := l_j(X) + kappa^{k-1} r_j(X) - m_j(X)
      * and proves that it opens to 0 at kappa.
      *
-     * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{l-1} l_j(1/X)) and provides
+     * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{k-1} l_j(1/X)) and provides
      * openings:
      *      c = l_j(1/kappa)     d = g_j(kappa)
-     * The verifier then checks that: c * kappa^{l-1} = d. This check is equivalent, up to negligible probablity, to (2)
-     * because if deg(l_j(X)) >= l, then the prover is not able to commit to a polynomial g_j(X) that satisfies:
-     * g_j(kappa) = kappa^{l-1} l_j(1/kappa) for a random evaluation challenge kappa.
+     * The verifier then checks that: c * kappa^{k-1} = d. This check is equivalent, up to negligible probability, to
+     * \f$g_j(X) = X^{k-1} l_j(1/X)\f$, which implies \f$deg(l_j) < k$.
      */
 
     std::array<Polynomial, NUM_WIRES> left_table;
@@ -89,6 +88,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     const size_t shift_size = left_table[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
     // Compute commitments [T_prev], [merged_table], [reversed_t], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
@@ -113,13 +113,13 @@ MergeProver::MergeProof MergeProver::construct_proof()
     //
     // The opening claims are sent in the following order:
     // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
-    //      {1/kappa, left_table_1(1/kappa)}, {kappa, left_table_reversed_1(kappa)},
-    //          {1/kappa, left_table_2(1/kappa)}, {kappa, left_table_reversed_2(kappa)},
-    //              {1/kappa, left_table_3(1/kappa)}, {kappa, left_table_reversed_3(kappa)},
-    //                  {1/kappa, left_table_4(1/kappa)}, {kappa, left_table_reversed_4(kappa)}
+    //      {1/kappa, l_1(1/kappa)}, {kappa, g_1(kappa)},
+    //          {1/kappa, l_2(1/kappa)}, {kappa, g_2(kappa)},
+    //              {1/kappa, l_3(1/kappa)}, {kappa, g_3(kappa)},
+    //                  {1/kappa, l_4(1/kappa)}, {kappa, g_4(kappa)}
     std::vector<OpeningClaim> opening_claims;
 
-    // Set opening claims p_j(\kappa) = left_table_j(X) + kappa^l right_table_j(X) - merged_table_j(X)
+    // Set opening claims p_j(\kappa) = l_j(X) + kappa^l r_j(X) - m_j(X)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Polynomial partially_evaluated_difference(merged_table_size);
         partially_evaluated_difference += left_table[idx];
@@ -128,16 +128,16 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
         opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
     }
-    // Compute evaluation left_table_j(1/kappa), left_table_reversed_j(\kappa), send to verifier, and set opening claims
+    // Compute evaluation l_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation;
 
-        // Evaluate left_table_j(1/kappa)
+        // Evaluate l_j(1/kappa)
         evaluation = left_table[idx].evaluate(kappa_inv);
         transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
 
-        // Evaluate left_table_reversed_j(\kappa)
+        // Evaluate g_j(\kappa)
         evaluation = left_table_reversed[idx].evaluate(kappa);
         transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
