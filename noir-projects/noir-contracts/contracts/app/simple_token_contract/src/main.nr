@@ -156,7 +156,6 @@ pub contract SimpleToken {
         emit_event_in_private_log(
             Transfer { from, to, amount },
             &mut context,
-            from,
             to,
             PrivateLogContent.NO_CONSTRAINTS,
         );

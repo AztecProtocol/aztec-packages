@@ -52,7 +52,7 @@ mod test {
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
         let log_without_tag = [1, 2, 3];
-        _ = prefix_with_tag(log_without_tag, recipient);
+        let _ = prefix_with_tag(log_without_tag, recipient);
     }
 
     #[test]

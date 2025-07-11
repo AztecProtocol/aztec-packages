@@ -30,13 +30,13 @@ pub contract Counter {
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
         let counters = storage.counters;
-        counters.at(owner).add(headstart, owner, context.msg_sender());
+        counters.at(owner).add(headstart, owner);
     }
     // docs:end:constructor
 
     // docs:start:increment
     #[private]
-    fn increment(owner: AztecAddress, sender: AztecAddress) {
+    fn increment(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing counter for owner {0}",
@@ -47,12 +47,12 @@ pub contract Counter {
         Counter::at(context.this_address()).emit_in_public(12345).enqueue(&mut context);
 
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
+        counters.at(owner).add(1, owner);
     }
     // docs:end:increment
 
     #[private]
-    fn increment_twice(owner: AztecAddress, sender: AztecAddress) {
+    fn increment_twice(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing counter twice for owner {0}",
@@ -60,12 +60,12 @@ pub contract Counter {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
-        counters.at(owner).add(1, owner, sender);
+        counters.at(owner).add(1, owner);
+        counters.at(owner).add(1, owner);
     }
 
     #[private]
-    fn increment_and_decrement(owner: AztecAddress, sender: AztecAddress) {
+    fn increment_and_decrement(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing and decrementing counter for owner {0}",
@@ -73,12 +73,12 @@ pub contract Counter {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
-        counters.at(owner).sub(1, owner, sender);
+        counters.at(owner).add(1, owner);
+        counters.at(owner).sub(1, owner);
     }
 
     #[private]
-    fn decrement(owner: AztecAddress, sender: AztecAddress) {
+    fn decrement(owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Decrementing counter for owner {0}",
@@ -86,7 +86,7 @@ pub contract Counter {
             );
         }
         let counters = storage.counters;
-        counters.at(owner).sub(1, owner, sender);
+        counters.at(owner).sub(1, owner);
     }
 
     // docs:start:get_counter
@@ -97,11 +97,7 @@ pub contract Counter {
     }
 
     #[private]
-    fn increment_self_and_other(
-        other_counter: AztecAddress,
-        owner: AztecAddress,
-        sender: AztecAddress,
-    ) {
+    fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format(
                 "Incrementing counter for other {0}",
@@ -110,10 +106,10 @@ pub contract Counter {
         }
 
         let counters = storage.counters;
-        counters.at(owner).add(1, owner, sender);
+        counters.at(owner).add(1, owner);
 
         Counter::at(context.this_address()).emit_in_public(9876).enqueue(&mut context);
-        Counter::at(other_counter).increment(owner, sender).call(&mut context);
+        Counter::at(other_counter).increment(owner).call(&mut context);
     }
 
     #[public]
@@ -136,7 +132,6 @@ pub contract Counter {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account(1);
-        let sender = env.create_account(2);
         let initial_value: Field = 5;
 
         // Deploy contract and initialize
@@ -155,8 +150,7 @@ pub contract Counter {
         // docs:end:txe_test_read_notes
 
         // Increment the counter
-        let _ =
-            env.call_private_void(owner, Counter::at(contract_address).increment(owner, sender));
+        let _ = env.call_private_void(owner, Counter::at(contract_address).increment(owner));
 
         let incremented_counter =
             env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
@@ -187,7 +181,7 @@ pub contract Counter {
             f"Expected {initial_value} but got {initial_note_value}",
         );
 
-        Counter::at(contract_address).increment_twice(owner, sender).call(&mut env.private());
+        Counter::at(contract_address).increment_twice(owner).call(&mut env.private());
 
         // Checking from the note cache
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
@@ -204,7 +198,7 @@ pub contract Counter {
         assert(notes.len() == 3);
 
         // Checking from the note cache
-        Counter::at(contract_address).increment_and_decrement(owner, sender).call(&mut env.private());
+        Counter::at(contract_address).increment_and_decrement(owner).call(&mut env.private());
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
@@ -220,7 +214,7 @@ pub contract Counter {
         assert(get_counter(owner) == 7);
 
         // Checking from the note cache
-        Counter::at(contract_address).decrement(owner, sender).call(&mut env.private());
+        Counter::at(contract_address).decrement(owner).call(&mut env.private());
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);
