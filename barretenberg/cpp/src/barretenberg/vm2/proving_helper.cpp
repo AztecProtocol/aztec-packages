@@ -72,6 +72,7 @@ std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::p
 {
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
     auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
+    // TODO: VK needs to be precomputed and passed in or hardcoded. Computing it here is not efficient.
     auto verification_key =
         AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));
     auto prover = AVM_TRACK_TIME_V("proving/prove:construct_prover",
