@@ -113,6 +113,7 @@ fi
 [[ -d crash-reports/unsorted ]] || mkdir crash-reports/unsorted;
 [[ -d output ]] || mkdir output;
 [[ -d corpus ]] || mkdir corpus;
+[[ -d coverage ]] || mkdir coverage;
 
 if [[ $verbosity == '1' ]]; then
     docker run -it --rm                                         \
