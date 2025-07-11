@@ -37,7 +37,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const owner = wallet.getAddress();
     const opts = { skipClassPublication: true };
     logger.debug(`Trying to initialize a contract instance without publishing its contract class`);
-    await expect(StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).wait()).rejects.toThrow(
+    await expect(StatefulTestContract.deploy(wallet, owner, 42).send(opts).wait()).rejects.toThrow(
       /Cannot find the leaf for nullifier/,
     );
   });
@@ -45,7 +45,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
     logger.debug(`Deploying stateful test contract`);
-    const contract = await StatefulTestContract.deploy(wallet, owner, owner, 42).send().deployed();
+    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send().deployed();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
     logger.debug(`Calling public method on stateful test contract at ${contract.address.toString()}`);
     await contract.methods.increment_public_value(owner, 84).send().wait();
@@ -58,7 +58,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly universally deploys and initializes a contract', async () => {
     const owner = wallet.getAddress();
     const opts = { universalDeploy: true };
-    const contract = await StatefulTestContract.deploy(wallet, owner, owner, 42).send(opts).deployed();
+    const contract = await StatefulTestContract.deploy(wallet, owner, 42).send(opts).deployed();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(42n);
     await contract.methods.increment_public_value(owner, 84).send().wait();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(84n);
@@ -73,18 +73,13 @@ describe('e2e_deploy_contract deploy method', () => {
   it('publicly deploys and initializes via a public function', async () => {
     const owner = wallet.getAddress();
     logger.debug(`Deploying contract via a public constructor`);
-    const contract = await StatefulTestContract.deployWithOpts(
-      { wallet, method: 'public_constructor' },
-      owner,
-      ignoredArg,
-      42,
-    )
+    const contract = await StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42)
       .send()
       .deployed();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
     const sender = owner;
-    await contract.methods.create_note(owner, sender, 30).send().wait();
+    await contract.methods.create_note(owner, 30).send().wait();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(30n);
   });
 
@@ -93,7 +88,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const opts = { skipClassPublication: true, skipInstancePublication: true };
     const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment_twice(wallet.getAddress(), wallet.getAddress()).send().wait();
+    await contract.methods.increment_twice(wallet.getAddress()).send().wait();
     expect(await contract.methods.get_counter(wallet.getAddress()).simulate()).toEqual(12n);
   });
 
@@ -119,7 +114,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const owner = wallet.getAddress();
     // Create a contract instance and make the PXE aware of it
     logger.debug(`Initializing deploy method`);
-    const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
     logger.debug(`Registering the not-yet-deployed contract to batch calls to`);
     const contract = await deployMethod.register();
 
@@ -135,7 +130,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
     const owner = wallet.getAddress();
     logger.debug('Initializing deploy method');
-    const deployMethod = StatefulTestContract.deploy(wallet, owner, owner, 42);
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
     logger.debug('Creating request/calls to register and deploy contract');
     const deployTx = new BatchCall(wallet, [deployMethod]);
     logger.debug('Registering the not-yet-deployed contract to batch calls to');

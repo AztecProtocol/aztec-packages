@@ -27,7 +27,7 @@ export async function mintTokensToPrivate(
 ) {
   const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
   const from = minterWallet.getAddress(); // we are setting from to minter here because we need a sender to calculate the tag
-  await tokenAsMinter.methods.mint_to_private(from, recipient, amount).send().wait();
+  await tokenAsMinter.methods.mint_to_private(recipient, amount).send().wait();
 }
 // docs:end:token_utils
 
@@ -57,7 +57,7 @@ export async function mintNotes(
   for (let mintedNotes = 0; mintedNotes < noteAmounts.length; mintedNotes += notesPerIteration) {
     const toMint = noteAmounts.slice(mintedNotes, mintedNotes + notesPerIteration);
     const from = sender.getAddress(); // we are setting from to sender here because we need a sender to calculate the tag
-    const actions = toMint.map(amt => asset.methods.mint_to_private(from, recipient, amt));
+    const actions = toMint.map(amt => asset.methods.mint_to_private(recipient, amt));
     await new BatchCall(sender, actions).send().wait();
   }
 

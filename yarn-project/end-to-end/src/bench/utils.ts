@@ -115,7 +115,7 @@ function makeCall(
     return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
   } else {
     return new BatchCall(context.wallet, [
-      contract.methods.create_note(owner, sender, index + 1),
+      contract.methods.create_note(owner, index + 1),
       contract.methods.increment_balance(owner, index + 1),
     ]);
   }

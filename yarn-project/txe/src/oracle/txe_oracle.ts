@@ -1317,6 +1317,14 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  setSenderForTags(_senderForTags: AztecAddress): Promise<void> {
+    return Promise.resolve();
+  }
+
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
