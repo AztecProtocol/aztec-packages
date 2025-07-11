@@ -17,7 +17,7 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
  * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that
- * \f$l_j.size() < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
+ * \f$\deg(l_j) < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
  * claims by:
  * - the Schwartz-Zippel check:
  *      \f[ m_j(\kappa) = l_j(\kappa) + \kappa^k * r_j(\kappa) \f]
@@ -62,7 +62,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
      *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
      *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
      *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
-     *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^l, -1}, and the claimed
+     *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
      *                           evaluation: 0.
      *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
      *                           v_j.
@@ -99,7 +99,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Store T_commitments of the verifier
     size_t commitment_idx = 2;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_commitments[idx] = table_commitments[idx + commitment_idx];
+        T_commitments[idx] = table_commitments[commitment_idx];
         commitment_idx += NUM_WIRES;
     }
 
@@ -129,7 +129,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Boolean keeping track of the degree identities
     bool degree_check_verified = true;
 
-    // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{l-1}
+    // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Claims claim;

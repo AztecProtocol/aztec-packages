@@ -68,7 +68,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
             merge_proof[l_eval_idx] -= FF(1);
             break;
         default:
-            // Unknown mode, do nothing
+            // Nothing to do
             break;
         }
     }
@@ -131,7 +131,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     }
 
     /**
-     * @brief Test failure when degree(subtable) > subtable_size (as read from the proof)
+     * @brief Test failure when degree(l) > shift_size (as read from the proof)
      */
     static void test_degree_check_failure()
     {
@@ -197,7 +197,6 @@ TYPED_TEST_SUITE(RecursiveMergeVerifierTest, Builders);
 
 TYPED_TEST(RecursiveMergeVerifierTest, SingleRecursiveVerification)
 {
-    // TestFixture::test_recursive_merge_verification(/*zero_T_prev=*/true);
     TestFixture::test_recursive_merge_verification();
 };
 

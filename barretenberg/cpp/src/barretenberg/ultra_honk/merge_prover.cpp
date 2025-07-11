@@ -25,7 +25,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
  * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that
- * \f$l_j.size() < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
+ * \f$\deg(l_j) < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
  * claims by:
  * - the Schwartz-Zippel check:
  *      \f[ m_j(\kappa) = l_j(\kappa) + \kappa^k * r_j(\kappa) \f]
@@ -89,7 +89,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
-    // Compute commitments [T_prev], [merged_table], [reversed_t], and send to the verifier
+    // Compute commitments [T_prev], [m_j], [g_j], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
         // steps of the Merge, T_prev will not be sent by the Merge prover, so the following lines will be removed
@@ -109,7 +109,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     const FF pow_kappa = kappa.pow(shift_size);
     const FF kappa_inv = kappa.invert();
 
-    // Opening claims for each polynomial p_j, t_j, g_j
+    // Opening claims for each polynomial p_j, l_j, g_j
     //
     // The opening claims are sent in the following order:
     // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
