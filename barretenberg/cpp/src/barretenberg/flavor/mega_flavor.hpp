@@ -430,12 +430,7 @@ class MegaFlavor {
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
             /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
-            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
-            /* 4. is_kernel bool */ (1 * num_frs_fr) +
-            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
-        // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
-        DatabusPropagationData databus_propagation_data;
+            /* 3. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
@@ -450,9 +445,6 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
-
-            // Databus commitment propagation data
-            this->databus_propagation_data = metadata.databus_propagation_data;
         }
 
         VerificationKey(const PrecomputedData& precomputed)
@@ -483,12 +475,6 @@ class MegaFlavor {
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                                      elements);
-            serialize_to_field_buffer(
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
-
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
@@ -516,14 +502,7 @@ class MegaFlavor {
                                                       this->num_public_inputs);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
                                                       this->pub_inputs_offset);
-            transcript.add_to_independent_hash_buffer(
-                domain_separator + "vk_app_return_data_commitment_start_idx",
-                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(
-                domain_separator + "vk_kernel_return_data_commitment_start_idx",
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_is_kernel",
-                                                      this->databus_propagation_data.is_kernel);
+
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
@@ -537,7 +516,6 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       databus_propagation_data,
                        q_m,
                        q_c,
                        q_l,

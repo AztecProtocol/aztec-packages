@@ -129,7 +129,6 @@ struct MetaData {
     size_t dyadic_size = 0; // power-of-2 size of the execution trace
     size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
-    DatabusPropagationData databus_propagation_data;
 };
 
 /**

@@ -203,10 +203,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
                 ipa_proof = circuit.ipa_proof;
             }
-
-            if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
-                metadata.databus_propagation_data = circuit.databus_propagation_data;
-            }
         }
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

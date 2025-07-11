@@ -116,8 +116,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
       public:
         using NativeVerificationKey = NativeFlavor::VerificationKey;
-        // Data pertaining to transfer of databus return data via public inputs of the proof
-        DatabusPropagationData databus_propagation_data;
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -133,7 +131,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->databus_propagation_data = native_key->databus_propagation_data;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -159,13 +156,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 
-            this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->databus_propagation_data.is_kernel =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
@@ -177,8 +167,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         }
 
         /**
-         * @brief Serialize verification key to field elements. Overrides the base class definition to include
-         * databus_propagation_data.
+         * @brief Serialize verification key to field elements.
          *
          * @return std::vector<FF>
          */
@@ -193,24 +182,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
             std::vector<FF> elements;
 
-            CircuitBuilder* builder = this->circuit_size.context;
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
-            FF app_return_data_commitment_start_idx(
-                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            serialize_to_field_buffer(app_return_data_commitment_start_idx, elements);
-
-            FF kernel_return_data_commitment_start_idx(
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            serialize_to_field_buffer(kernel_return_data_commitment_start_idx, elements);
-
-            FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
-            databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
-            serialize_to_field_buffer(databus_is_kernel_start_idx, elements);
 
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
@@ -235,19 +209,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                                                       this->num_public_inputs);
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
                                                       this->pub_inputs_offset);
-            FF app_return_data_commitment_start_idx(
-                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
-            app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_app_return_data_commitment_start_idx",
-                                                      app_return_data_commitment_start_idx);
-            FF kernel_return_data_commitment_start_idx(
-                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
-            kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_kernel_return_data_commitment_start_idx",
-                                                      kernel_return_data_commitment_start_idx);
-            FF databus_is_kernel(this->databus_propagation_data.is_kernel);
-            databus_is_kernel.convert_constant_to_fixed_witness(builder);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_is_kernel", databus_is_kernel);
+
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
             }

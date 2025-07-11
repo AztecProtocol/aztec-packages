@@ -40,8 +40,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_eq();
     ecc_op_tuple queue_ecc_no_op();
 
-    // Metadata for propagating databus return data commitments via the public input mechanism
-    DatabusPropagationData databus_propagation_data;
+    bool is_kernel = false; // Flag indicating whether this circuit is a kernel
 
   private:
     ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
