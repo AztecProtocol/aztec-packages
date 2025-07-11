@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [TXE]
+
+### API overhaul
+
+As part of a broader effort to make TXE easier to use and reason about, large parts of it are being changed or adapted.
+
+- `committed_block_number` and `committed_timestamp` removed: these functions did not work correctly, and were not generally very useful
+- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamp
+
 ## [Aztec.js]
 
 Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
