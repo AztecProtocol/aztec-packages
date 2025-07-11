@@ -89,7 +89,7 @@ template <typename Builder> class DefaultIO {
 
     PairingInputs pairing_inputs;
 
-    // Total size of the kernel IO public inputs
+    // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE;
 
     /**
@@ -133,15 +133,18 @@ class RollupIO {
     PairingInputs pairing_inputs;
     IpaClaim ipa_claim;
 
+    // Total size of the IO public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = PairingInputs::PUBLIC_INPUTS_SIZE + IpaClaim::PUBLIC_INPUTS_SIZE;
+
     /**
      * @brief Reconstructs the IO components from a public inputs array.
      *
      * @param public_inputs Public inputs array containing the serialized kernel public inputs.
      * @param start_idx Index at which the kernel public inputs are to be extracted.
      */
-    void reconstruct_from_public(const std::vector<FF>& public_inputs, uint32_t start_idx = 0)
+    void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
-        uint32_t index = start_idx;
+        uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         ipa_claim = PublicIpaClaim::reconstruct(public_inputs, PublicComponentKey{ index });

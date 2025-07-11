@@ -46,9 +46,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
     // VerificationKey from UltraFlavor can be used
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
-            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+        static constexpr size_t VERIFICATION_KEY_LENGTH = UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH;
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
