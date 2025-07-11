@@ -187,7 +187,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
+        ASSERT_RELEASE((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
                "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
