@@ -28,13 +28,13 @@ class MergeVerifier {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
 
-  public:
-    using Commitment = typename Curve::AffineElement;
-    using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
-
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+
+  public:
+    using Commitment = typename Curve::AffineElement;
+    using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
 
     std::shared_ptr<Transcript> transcript;
     std::array<Commitment, NUM_WIRES> T_commitments;
