@@ -41,7 +41,7 @@ contract UpgradeTest is RegistryBase {
 
   function test_WhenRollupNotAlreadyInSet() external whenCallerIsOwner {
     // it should add the rollup to state
-    // it should emit a {InstanceAdded} event
+    // it should emit a {CanonicalRollupUpdated} event
 
     IRollup newRollup = IRollup(address(new FakeRollup()));
     uint256 version = newRollup.getVersion();
@@ -50,7 +50,7 @@ contract UpgradeTest is RegistryBase {
     registry.getRollup(version);
 
     vm.expectEmit(true, true, false, false, address(registry));
-    emit IRegistry.InstanceAdded(address(newRollup), version);
+    emit IRegistry.CanonicalRollupUpdated(address(newRollup), version);
     registry.addRollup(newRollup);
 
     assertEq(registry.numberOfVersions(), 1);
