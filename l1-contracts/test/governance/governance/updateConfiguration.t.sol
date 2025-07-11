@@ -67,10 +67,10 @@ contract UpdateConfigurationTest is GovernanceBase {
     whenConfigurationIsInvalid
   {
     // it revert
-    config.voteDifferential =
-      bound(_val, ConfigurationLib.DIFFERENTIAL_UPPER + 1, type(uint256).max);
+    config.requiredYeaMargin =
+      bound(_val, ConfigurationLib.REQUIRED_YEA_MARGIN_UPPER + 1, type(uint256).max);
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__DifferentialTooBig.selector)
+      abi.encodeWithSelector(Errors.Governance__ConfigurationLib__RequiredYeaMarginTooBig.selector)
     );
 
     vm.prank(address(governance));
@@ -267,7 +267,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     assertEq(config.gracePeriod, fresh.gracePeriod);
     assertEq(config.minimumVotes, fresh.minimumVotes);
     assertEq(config.quorum, fresh.quorum);
-    assertEq(config.voteDifferential, fresh.voteDifferential);
+    assertEq(config.requiredYeaMargin, fresh.requiredYeaMargin);
     assertEq(config.votingDelay, fresh.votingDelay);
     assertEq(config.votingDuration, fresh.votingDuration);
 
@@ -284,7 +284,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     assertFalse(
       old.executionDelay == fresh.executionDelay && old.gracePeriod == fresh.gracePeriod
         && old.minimumVotes == fresh.minimumVotes && old.quorum == fresh.quorum
-        && old.voteDifferential == fresh.voteDifferential && old.votingDelay == fresh.votingDelay
+        && old.requiredYeaMargin == fresh.requiredYeaMargin && old.votingDelay == fresh.votingDelay
         && old.votingDuration == fresh.votingDuration
         && old.proposeConfig.lockAmount == fresh.proposeConfig.lockAmount
         && old.proposeConfig.lockDelay == fresh.proposeConfig.lockDelay
@@ -305,7 +305,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.quorum = val;
   }
 
-  function test_WhenDifferentialGeMinAndLeMax(uint256 _val)
+  function test_WhenRequiredYeaMarginGeMinAndLeMax(uint256 _val)
     external
     whenCallerIsSelf
     whenConfigurationIsValid
@@ -313,10 +313,10 @@ contract UpdateConfigurationTest is GovernanceBase {
     // it updates the configuration
     // it emits {ConfigurationUpdated} event
 
-    uint256 val = bound(_val, 0, ConfigurationLib.DIFFERENTIAL_UPPER);
+    uint256 val = bound(_val, 0, ConfigurationLib.REQUIRED_YEA_MARGIN_UPPER);
 
-    vm.assume(val != config.voteDifferential);
-    config.voteDifferential = val;
+    vm.assume(val != config.requiredYeaMargin);
+    config.requiredYeaMargin = val;
   }
 
   function test_WhenMinimumVotesGeMin(uint256 _val)

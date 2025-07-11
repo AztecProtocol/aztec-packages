@@ -10,13 +10,21 @@ library ConfigurationLib {
   uint256 internal constant QUORUM_LOWER = 1;
   uint256 internal constant QUORUM_UPPER = 1e18;
 
-  uint256 internal constant DIFFERENTIAL_UPPER = 1e18;
+  uint256 internal constant REQUIRED_YEA_MARGIN_UPPER = 1e18;
 
   uint256 internal constant VOTES_LOWER = 1;
 
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(60);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
+  /**
+   * @notice The delay after which a withdrawal can be finalized.
+   * @dev This applies to the "normal" withdrawal, not one induced by proposeWithLock.
+   * @dev Making the delay equal to the voting duration + execution delay + a "small buffer"
+   * ensures that if you were able to vote on a proposal, someone may execute it before you can exit.
+   *
+   * The "small buffer" is somewhat arbitrarily set to the votingDelay / 5.
+   */
   function withdrawalDelay(Configuration storage _self) internal view returns (Timestamp) {
     return Timestamp.wrap(Timestamp.unwrap(_self.votingDelay) / 5) + _self.votingDuration
       + _self.executionDelay;
@@ -32,8 +40,8 @@ library ConfigurationLib {
     require(_self.quorum <= QUORUM_UPPER, Errors.Governance__ConfigurationLib__QuorumTooBig());
 
     require(
-      _self.voteDifferential <= DIFFERENTIAL_UPPER,
-      Errors.Governance__ConfigurationLib__DifferentialTooBig()
+      _self.requiredYeaMargin <= REQUIRED_YEA_MARGIN_UPPER,
+      Errors.Governance__ConfigurationLib__RequiredYeaMarginTooBig()
     );
 
     require(
