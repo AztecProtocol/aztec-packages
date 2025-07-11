@@ -2,7 +2,7 @@ use crate::NFT;
 use crate::test::utils;
 use aztec::{
     oracle::random::random,
-    test::helpers::{authwit::add_private_authwit_from_call_interface, cheatcodes},
+    test::helpers::{authwit::add_private_authwit_from_call_interface, txe_oracles},
 };
 
 #[test]
@@ -40,7 +40,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, sender, _, token_id) =
         utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
-    let not_deployed = cheatcodes::create_account(999);
+    let not_deployed = txe_oracles::create_account(999);
 
     // Transfer the NFT to the recipient
     NFT::at(nft_contract_address)
