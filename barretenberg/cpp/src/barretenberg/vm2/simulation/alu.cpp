@@ -92,4 +92,16 @@ MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
     return c;
 }
 
+MemoryValue Alu::op_not(const MemoryValue& a)
+{
+    if (a.get_tag() == ValueTag::FF) {
+        events.emit({ .operation = AluOperation::NOT, .a = a, .error = AluError::TAG_ERROR });
+        debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
+        throw AluException();
+    }
+    MemoryValue b = ~a;
+    events.emit({ .operation = AluOperation::NOT, .a = a, .b = b });
+    return b;
+}
+
 } // namespace bb::avm2::simulation
