@@ -11,8 +11,9 @@ namespace bb::avm2::simulation {
 
 enum class AluOperation {
     ADD,
-    LT,
     EQ,
+    LT,
+    LTE,
     NOT,
 };
 

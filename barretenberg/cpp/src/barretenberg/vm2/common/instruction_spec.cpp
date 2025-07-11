@@ -444,6 +444,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::LTE,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_LTE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
     { ExecutionOpCode::NOT,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_NOT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },

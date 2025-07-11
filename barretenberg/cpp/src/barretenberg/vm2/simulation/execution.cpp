@@ -96,6 +96,25 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
     }
 }
 
+void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::LT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.lte(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu lte operation failed");
+    }
+}
+
 void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
     constexpr auto opcode = ExecutionOpCode::NOT;
@@ -674,6 +693,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::LT:
         call_with_operands(&Execution::lt, context, resolved_operands);
+        break;
+    case ExecutionOpCode::LTE:
+        call_with_operands(&Execution::lte, context, resolved_operands);
         break;
     case ExecutionOpCode::NOT:
         call_with_operands(&Execution::op_not, context, resolved_operands);
