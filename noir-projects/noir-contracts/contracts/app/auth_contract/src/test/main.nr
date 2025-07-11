@@ -29,7 +29,7 @@ unconstrained fn main() {
     let admin_sets_authorized = || {
         env.impersonate(admin);
         Auth::at(auth_contract_address).set_authorized(to_authorize).call(&mut env.public());
-        env.advance_block_by(1);
+        env.mine_block();
 
         let (scheduled_authorized, timestamp_of_change) =
             Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
@@ -51,8 +51,7 @@ unconstrained fn main() {
         env.impersonate(to_authorize);
 
         // We advance time to timestamp of change. At that point we should get the `post` value.
-        env.advance_timestamp_to(expected_timestamp_of_first_change);
-        env.advance_block_by(1);
+        env.mine_block_at(expected_timestamp_of_first_change);
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, to_authorize);
 
@@ -85,9 +84,7 @@ unconstrained fn main() {
         //                                   get_authorized() (public) called here with block_number = 7
         //                                                                      ^
         //                                        get_authorized() (private) called here with block_number = 8
-        // Note: Currently TXE does not progress time when a block is advanced so we mimic "the real block progression"
-        // by advancing the timestamp of the env manually by the duration of 1 slot.
-        env.advance_timestamp_by(AZTEC_SLOT_DURATION);
+        env.mine_block();
         let authorized_in_private_again =
             Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private_again, to_authorize);
@@ -102,7 +99,7 @@ unconstrained fn main() {
     let authorize_other = || {
         env.impersonate(admin);
         Auth::at(auth_contract_address).set_authorized(other).call(&mut env.public());
-        env.advance_block_by(1);
+        env.mine_block();
 
         let (scheduled_authorized, timestamp_of_change) =
             Auth::at(auth_contract_address).get_scheduled_authorized().view(&mut env.public());
@@ -127,7 +124,7 @@ unconstrained fn main() {
         env.impersonate(to_authorize);
 
         // We advance the block to the timestamp of the second change.
-        env.advance_timestamp_to(expected_timestamp_of_second_change);
+        env.set_next_block_timestamp(expected_timestamp_of_second_change);
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, other);
 
@@ -135,7 +132,7 @@ unconstrained fn main() {
             Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private, to_authorize);
 
-        env.advance_timestamp_by(AZTEC_SLOT_DURATION);
+        env.mine_block();
         let authorized_in_private_again =
             Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private_again, other);

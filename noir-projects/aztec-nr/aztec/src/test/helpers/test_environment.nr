@@ -193,7 +193,7 @@ impl TestEnvironment {
     }
 
     /// Instantiates a public context. The block number returned from public_context.block_number() will be the
-    /// block number of the block currently being built (same as the one returned by self.pending_block_number()).
+    /// block number of the block currently being built (same as the one returned by self.next_block_number()).
     pub unconstrained fn public(_self: Self) -> PublicContext {
         PublicContext::new(|| 0)
     }

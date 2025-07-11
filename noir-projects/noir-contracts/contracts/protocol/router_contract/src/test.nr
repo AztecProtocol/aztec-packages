@@ -10,10 +10,12 @@ unconstrained fn test_check_block_number() {
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    env.advance_block_by(8);
+    for _ in 0..7 {
+        env.mine_block();
+    }
 
     // First we sanity-check that current block number is as expected
-    let current_block_number = env.pending_block_number();
+    let current_block_number = env.next_block_number();
     assert(current_block_number == 10, "Expected pending block number to be 10");
 
     // We test just one success case and 1 failure case in this test as the rest is tested in the comparator unit tests
@@ -28,10 +30,12 @@ unconstrained fn test_fail_check_block_number() {
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    env.advance_block_by(8);
+    for _ in 0..7 {
+        env.mine_block();
+    }
 
     // First we sanity-check that current block number is as expected
-    let current_block_number = env.pending_block_number();
+    let current_block_number = env.next_block_number();
     assert(current_block_number == 10, "Expected block number to be 10");
 
     router.check_block_number(Comparator.LT, 5).call(&mut env.private());
