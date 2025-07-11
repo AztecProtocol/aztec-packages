@@ -1,6 +1,6 @@
 use crate::test::utils;
 use crate::Token;
-use dep::aztec::test::helpers::cheatcodes;
+use dep::aztec::test::helpers::txe_oracles;
 
 #[test]
 unconstrained fn transfer_private() {
@@ -36,7 +36,7 @@ unconstrained fn transfer_private_to_non_deployed_account() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
-    let not_deployed = cheatcodes::create_account(999);
+    let not_deployed = txe_oracles::create_account(999);
     // Transfer tokens
     let transfer_amount = 1000 as u128;
     Token::at(token_contract_address).transfer(not_deployed.address, transfer_amount).call(

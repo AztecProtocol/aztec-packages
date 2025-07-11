@@ -3,7 +3,7 @@ use dep::uint_note::uint_note::UintNote;
 use aztec::{
     oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
     protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
-    test::helpers::{cheatcodes, test_environment::TestEnvironment},
+    test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
 pub unconstrained fn setup(
@@ -91,14 +91,14 @@ pub unconstrained fn check_public_balance(
     address_amount: u128,
 ) {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
+    txe_oracles::set_contract_address(token_contract_address);
     let block_number = get_block_number();
 
     let balances_slot = Token::storage_layout().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
     let amount: u128 = storage_read(token_contract_address, address_slot, block_number);
     assert(amount == address_amount, "Public balance is not correct");
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_read_public
 
@@ -107,13 +107,13 @@ pub unconstrained fn get_public_balance(
     address: AztecAddress,
 ) -> u128 {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
+    txe_oracles::set_contract_address(token_contract_address);
     let block_number = get_block_number();
 
     let balances_slot = Token::storage_layout().public_balances.slot;
     let address_slot = derive_storage_slot_in_map(balances_slot, address);
     let amount: u128 = storage_read(token_contract_address, address_slot, block_number);
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
     amount
 }
 
@@ -122,13 +122,13 @@ pub unconstrained fn check_total_supply(
     expected_total_supply: u128,
 ) {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
+    txe_oracles::set_contract_address(token_contract_address);
     let block_number = get_block_number();
 
     let total_supply_slot = Token::storage_layout().total_supply.slot;
     let total_supply: u128 = storage_read(token_contract_address, total_supply_slot, block_number);
     assert(total_supply == expected_total_supply, "Total supply is not correct");
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
 }
 
 // docs:start:txe_test_call_utility
@@ -138,11 +138,11 @@ pub unconstrained fn check_private_balance(
     address_amount: u128,
 ) {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
+    txe_oracles::set_contract_address(token_contract_address);
     // Direct call to a utility function
     let balance_of_private = Token::balance_of_private(address);
     assert(balance_of_private == address_amount, "Private balance is not correct");
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
 }
 // docs:end:txe_test_call_utility
 
@@ -151,9 +151,9 @@ pub unconstrained fn get_private_balance(
     address: AztecAddress,
 ) -> u128 {
     let current_contract_address = get_contract_address();
-    cheatcodes::set_contract_address(token_contract_address);
+    txe_oracles::set_contract_address(token_contract_address);
     let amt = Token::balance_of_private(address);
-    cheatcodes::set_contract_address(current_contract_address);
+    txe_oracles::set_contract_address(current_contract_address);
     amt
 }
 
