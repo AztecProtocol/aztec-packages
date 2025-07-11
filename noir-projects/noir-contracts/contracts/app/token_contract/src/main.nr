@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Token {
     // Libs
-    use std::{meta::ctstring::AsCtString, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use dep::compressed_string::FieldCompressedString;
 
@@ -266,7 +266,7 @@ pub contract Token {
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
 
         // We prepare the private balance increase (the partial note for the change).
-        _prepare_private_balance_increase(from, from, &mut context, storage)
+        _prepare_private_balance_increase(from, &mut context, storage)
     }
 
     // docs:start:transfer
@@ -409,7 +409,7 @@ pub contract Token {
         let token = Token::at(context.this_address());
 
         // We prepare the private balance increase (the partial note).
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
@@ -422,9 +422,8 @@ pub contract Token {
     /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`) with the
     /// returned partial note.
     #[private]
-    fn prepare_private_balance_increase(to: AztecAddress, from: AztecAddress) -> PartialUintNote {
-        // ideally we'd not have `from` here, but we do need a `from` address to produce a tagging secret with `to`.
-        _prepare_private_balance_increase(from, to, &mut context, storage)
+    fn prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
+        _prepare_private_balance_increase(to, &mut context, storage)
     }
     // docs:end:prepare_private_balance_increase
 
@@ -437,7 +436,6 @@ pub contract Token {
     /// function.
     #[contract_library_method]
     fn _prepare_private_balance_increase(
-        from: AztecAddress, // sender of the tag
         to: AztecAddress,
         context: &mut PrivateContext,
         storage: Storage<&mut PrivateContext>,
@@ -543,16 +541,11 @@ pub contract Token {
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
     /// in the enqueued call).
     #[private]
-    fn mint_to_private(
-        // TODO(benesjan): This allows minter to set arbitrary `from`. That seems undesirable. Will nuke it in a followup PR.
-        from: AztecAddress, // sender of the tag
-        to: AztecAddress,
-        amount: u128,
-    ) {
+    fn mint_to_private(to: AztecAddress, amount: u128) {
         let token = Token::at(context.this_address());
 
         // We prepare the partial note to which we'll "send" the minted amount.
-        let partial_note = _prepare_private_balance_increase(from, to, &mut context, storage);
+        let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set
         // the `minter_and_completer` function argument to a message sender, guaranteeing that only a message sender
