@@ -92,21 +92,21 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         if (input.input2_infinite.is_constant && input.input1_infinite.is_constant) {
             if (get_value(input.input1_infinite, builder) == 1) {
                 // input1 is infinity, so we can just return input2
-                result = to_grumpkin_point(input.input2_x,
-                                           input.input2_y,
-                                           input.input2_infinite,
-                                           has_valid_witness_assignments,
-                                           /*use_g1=*/false,
-                                           builder);
+                result = to_witness_grumpkin_point(input.input2_x,
+                                                   input.input2_y,
+                                                   input.input2_infinite,
+                                                   has_valid_witness_assignments,
+                                                   /*use_g1=*/false,
+                                                   builder);
 
             } else if (get_value(input.input2_infinite, builder) == 1) {
                 // input2 is infinity, so we can just return input1
-                result = to_grumpkin_point(input.input1_x,
-                                           input.input1_y,
-                                           input.input1_infinite,
-                                           has_valid_witness_assignments,
-                                           /*use_g1=*/true,
-                                           builder);
+                result = to_witness_grumpkin_point(input.input1_x,
+                                                   input.input1_y,
+                                                   input.input1_infinite,
+                                                   has_valid_witness_assignments,
+                                                   /*use_g1=*/true,
+                                                   builder);
             } else if (x_match && !y_match) {
                 if (input.input1_y.is_constant && input.input2_y.is_constant) {
                     // we know x1==x2 and y1!=y2, so we assume the points are opposite
