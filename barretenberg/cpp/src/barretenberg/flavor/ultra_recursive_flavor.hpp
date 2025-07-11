@@ -166,33 +166,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         }
 
         /**
-         * @brief Serialize verification key to field elements.
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
-        }
-
-        /**
          * @brief Adds the verification key hash to the transcript and returns the hash.
          * @details Needed to make sure the Origin Tag system works. See the base class function for
          * more details.
