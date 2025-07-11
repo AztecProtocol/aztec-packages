@@ -27,10 +27,12 @@ use crate::{
         execution_cache,
         notes::notify_created_note,
     },
-    test::{helpers::{cheatcodes, utils::Deployer}, txe_constants::AZTEC_SLOT_DURATION},
+    test::helpers::{cheatcodes, utils::Deployer},
 };
 
 use super::cheatcodes::public_call_new_flow;
+
+mod test;
 
 pub struct TestEnvironment {}
 
@@ -156,16 +158,6 @@ impl TestEnvironment {
         self.pending_block_number()
     }
 
-    /// Returns the block number of the last committed block - this is the block number that gets used in production
-    /// to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
-    pub unconstrained fn committed_block_number(self: Self) -> u32 {
-        self.pending_block_number() - 1
-    }
-
-    pub unconstrained fn committed_timestamp(self: Self) -> u64 {
-        self.pending_timestamp() - AZTEC_SLOT_DURATION
-    }
-
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
     /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
     /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
@@ -234,7 +226,7 @@ impl TestEnvironment {
     /// Instantiates a private context at the latest committed block number - this is the block number that gets used
     /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(self.committed_block_number())
+        self.private_at(self.pending_block_number() - 1)
     }
 
     pub unconstrained fn utility(_self: Self) -> UtilityContext {
@@ -248,16 +240,6 @@ impl TestEnvironment {
         }
 
         let mut inputs = cheatcodes::get_private_context_inputs_at_block(historical_block_number);
-
-        PrivateContext::new(inputs, 0)
-    }
-
-    /// Instantiates a private context at a specific historical timestamp.
-    pub unconstrained fn private_at_timestamp(
-        _self: &mut Self,
-        historical_timestamp: u64,
-    ) -> PrivateContext {
-        let mut inputs = cheatcodes::get_private_context_inputs_at_timestamp(historical_timestamp);
 
         PrivateContext::new(inputs, 0)
     }
