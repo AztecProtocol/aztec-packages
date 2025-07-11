@@ -54,7 +54,6 @@ CircuitProve::Response CircuitProve::execute(const BBApiRequest& request) &&
         auto proof = prover.construct_proof();
 
         response.proof = proof;
-        response.public_inputs = builder.get_public_inputs();
     } else {
         // Regular UltraFlavor
         using Flavor = UltraFlavor;
@@ -73,7 +72,6 @@ CircuitProve::Response CircuitProve::execute(const BBApiRequest& request) &&
         auto proof = prover.construct_proof();
 
         response.proof = proof;
-        response.public_inputs = builder.get_public_inputs();
     }
 
     return response;

@@ -181,7 +181,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
             std::vector<FF> elements;
 
-            CircuitBuilder* builder = this->circuit_size.context;
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
