@@ -84,7 +84,11 @@ unconstrained fn main() {
         //                                   get_authorized() (public) called here with block_number = 7
         //                                                                      ^
         //                                        get_authorized() (private) called here with block_number = 8
+        // TODO: We should not need to advance time, since we've already mined a block at the time of change. Something
+        // about private calls is setting the wrong time or block.
+        env.advance_next_block_timestamp_by(AZTEC_SLOT_DURATION);
         env.mine_block();
+
         let authorized_in_private_again =
             Auth::at(auth_contract_address).get_authorized_in_private().view(&mut env.private());
         assert_eq(authorized_in_private_again, to_authorize);

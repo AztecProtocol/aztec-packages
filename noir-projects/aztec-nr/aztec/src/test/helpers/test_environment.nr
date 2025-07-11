@@ -207,7 +207,7 @@ impl TestEnvironment {
     /// Instantiates a private context at the latest committed block number - this is the block number that gets used
     /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(self.next_block_number() - 1)
+        self.private_at(self.last_block_number())
     }
 
     pub unconstrained fn utility(_self: Self) -> UtilityContext {
