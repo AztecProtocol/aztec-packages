@@ -1,0 +1,104 @@
+include "../constants_gen.pil";
+include "../trees/public_data_check.pil";
+include "../trees/written_public_data_slots_tree_check.pil";
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    #[skippable_if]
+    sel_sstore = 0; // from execution.pil.
+
+    // =========== DYNAMIC GAS ===========
+
+    pol commit should_check_sstore_gas;
+    should_check_sstore_gas = sel_sstore * sel_should_check_gas;
+
+    // We can probably unconditionally write to the written_public_data_slots_tree here
+    // to avoid writing later in opcode execution, since the root would be reverted if it errors before
+    // the opcode execution. However, this feels like an early optimization
+    // since the simulator would need to write at the gas step which is a bit weird.
+    #[CHECK_WRITTEN_STORAGE_SLOT]
+    should_check_sstore_gas {
+        contract_address,
+        register[1],
+        dynamic_da_gas_factor,
+        prev_written_public_data_slots_tree_root
+    } in written_public_data_slots_tree_check.sel {
+        written_public_data_slots_tree_check.address,
+        written_public_data_slots_tree_check.slot,
+        written_public_data_slots_tree_check.leaf_not_exists,
+        written_public_data_slots_tree_check.root
+    };
+
+    #[SSTORE_DYN_L2_GAS_IS_ZERO]
+    sel_sstore * dynamic_l2_gas_factor = 0;
+
+    // =========== VALIDATION ===========
+
+    pol commit max_data_writes_reached;
+    max_data_writes_reached * (1 - max_data_writes_reached) = 0;
+
+    // We use the written public data slots tree size (taking into account the prefill) to track how many data writes we have emitted.
+    pol REMAINING_DATA_WRITES = constants.MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX +
+        constants.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE -
+        prev_written_public_data_slots_tree_size;
+
+    pol commit remaining_data_writes_inv;
+    #[SSTORE_MAX_DATA_WRITES_REACHED]
+    sel_sstore * (REMAINING_DATA_WRITES * (max_data_writes_reached * (1 - remaining_data_writes_inv) + remaining_data_writes_inv) - 1 + max_data_writes_reached) = 0;
+
+    // If we are at the maximum number of data writes,
+    // and the dynamic gas factor is 1 (which means that we haven't written to this slot before),
+    // the opcode should fail since we can't write to this slot anymore.
+    #[SSTORE_ERROR_TOO_MANY_WRITES]
+    sel_sstore * (max_data_writes_reached * dynamic_da_gas_factor - sel_opcode_error) = 0;
+
+    // Commited since it's used in the lookup
+    // Note: we could perform the work unconditionally here, since the roots will be reverted if sel_opcode_error is one.
+    // We'd save one column, but we'd perform more work in the error case, both in simulation and proving.
+    pol commit sel_should_sstore;
+    sel_sstore * ((1 - sel_opcode_error) - sel_should_sstore) = 0;
+
+    // =========== OPCODE EXECUTION ===========
+
+    #[RECORD_WRITTEN_STORAGE_SLOT]
+    sel_should_sstore {
+        contract_address,
+        register[1],
+        sel_should_sstore,
+        prev_written_public_data_slots_tree_root,
+        prev_written_public_data_slots_tree_size,
+        written_public_data_slots_tree_root,
+        written_public_data_slots_tree_size
+    } in written_public_data_slots_tree_check.sel {
+        written_public_data_slots_tree_check.address,
+        written_public_data_slots_tree_check.slot,
+        written_public_data_slots_tree_check.write,
+        written_public_data_slots_tree_check.root,
+        written_public_data_slots_tree_check.tree_size_before_write,
+        written_public_data_slots_tree_check.write_root,
+        written_public_data_slots_tree_check.tree_size_after_write
+    };
+
+    // This should be a multipermutation
+    #[STORAGE_WRITE]
+    sel_should_sstore {
+        register[0],
+        contract_address,
+        register[1],
+        prev_public_data_tree_root,
+        prev_public_data_tree_size,
+        public_data_tree_root,
+        public_data_tree_size,
+        precomputed.clk
+    } in public_data_check.sel {
+        public_data_check.value,
+        public_data_check.address,
+        public_data_check.slot,
+        public_data_check.root,
+        public_data_check.tree_size_before_write,
+        public_data_check.write_root,
+        public_data_check.tree_size_after_write,
+        public_data_check.clk
+    };
+
+

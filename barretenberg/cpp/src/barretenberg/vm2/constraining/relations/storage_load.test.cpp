@@ -43,7 +43,6 @@ using simulation::MockPoseidon2;
 using simulation::MockWrittenPublicDataSlotsTreeCheck;
 using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
-using simulation::unconstrained_compute_leaf_slot;
 
 using testing::NiceMock;
 using testing::ReturnRef;
