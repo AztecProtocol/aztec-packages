@@ -1,13 +1,4 @@
 global:
-  aztecRollupVersion: "canonical"
-  customAztecNetwork:
-    enabled: true
-    l1ChainId: 11155111
-    registryContractAddress: 0x315b521ad88c038aa63962533677538435680614
-    slashFactoryAddress: 0xea1986b735e5a3a4b46646f4ea150bbc0f348a25
-    feeAssetHandlerContractAddress: 0x7aad514626f735d2415e67e5f088284e5194a417
-
-
   l1ExecutionUrls: []
   l1ConsensusUrls: []
   l1ConsensusHostApiKeys: []
@@ -19,7 +10,7 @@ global:
     pullPolicy: Always
 
 validator:
-  replicaCount: 8
+  replicaCount: 1
   validatorsPerNode: 100
 
   nodeSelector:
@@ -39,8 +30,22 @@ validator:
           namespaceSelector: {}
 
   node:
+    logLevel: "debug; info: aztec:simulator, json-rpc"
+    preStartScript: |
+      source /scripts/get-private-key.sh
+
+      until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+        echo "Waiting for boot node..."
+        sleep 1
+      done
+      echo "Boot node is ready!"
+
+      export BOOTSTRAP_NODES=$(curl -X POST --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
+
     env:
       SPONSORED_FPC: true
+      SEQ_MIN_TX_PER_BLOCK: 0
+      SEQ_MAX_TX_PER_BLOCK: 8
     resources:
       requests:
         cpu: "3"
