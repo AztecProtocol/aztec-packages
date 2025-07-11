@@ -96,7 +96,8 @@ pol AB_TAGS_EQ = 1 - sel_tag_err;
 
 // For NOT opcode, an error occurs if the tag of a is FF. In this case, tracegen will set
 // b as FF(0) which would not satisfy the relation #[AB_TAGS_CHECK] if it were not gated
-// by CHECK_AB_TAGS.
+// by CHECK_AB_TAGS (namely ia_tag == ib_tag == MEM_TAG_FF which would force sel_tag_err == 0, but
+// sel_tag_err must be 1 for sel_op_not whenever ia_tag == MEM_TAG_FF.).
 pol CHECK_AB_TAGS = 1 - sel_op_not * sel_is_ff;
 
 // TODO(MW): Add sel/flag to turn off check when we expect a/b tags to not be equal (e.g. SHR?)
