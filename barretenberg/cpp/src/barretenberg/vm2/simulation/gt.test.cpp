@@ -11,6 +11,7 @@
 namespace bb::avm2::simulation {
 
 using ::testing::ElementsAre;
+using ::testing::Return;
 using ::testing::StrictMock;
 
 namespace {
@@ -64,26 +65,14 @@ TEST(AvmSimulationGTTest, GTFF)
     StrictMock<MockFieldGreaterThan> field_gt;
     GreaterThan gt(field_gt, range_check, gt_event_emitter);
 
-    // a > b ? false
-
     FF a = 2;
     FF b = FF::modulus - 3;
 
-    EXPECT_CALL(field_gt, ff_gt(FF(2), FF(FF::modulus - 3)));
+    EXPECT_CALL(field_gt, ff_gt(FF(2), FF(FF::modulus - 3))).WillOnce(Return(false));
+    EXPECT_FALSE(gt.gt(a, b));
 
-    auto c = gt.gt(a, b);
-
-    EXPECT_EQ(c, false);
-
-    // TODO(MW): THE BELOW FAILS - gives false for b > a for above inputs
-
-    // b > a ? true
-
-    // EXPECT_CALL(field_gt, ff_gt((FF(FF::modulus - 3)), FF(2)));
-
-    // c = gt.gt(b, a);
-
-    // EXPECT_EQ(c, true);
+    EXPECT_CALL(field_gt, ff_gt(FF(FF::modulus - 3), FF(2))).WillOnce(Return(true));
+    EXPECT_TRUE(gt.gt(b, a));
 }
 
 } // namespace
