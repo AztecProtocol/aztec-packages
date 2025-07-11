@@ -1,0 +1,3 @@
+chore: nicer way to show nargo interpret results (https://github.com/noir-lang/noir/pull/9123)
+fix(mem2reg): Look for aliases in `jmp` arguments (https://github.com/noir-lang/noir/pull/9120)
+fix: enum match on integer type variable (https://github.com/noir-lang/noir/pull/9122)
