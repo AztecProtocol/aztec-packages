@@ -829,7 +829,7 @@ struct ThreeOperandTestParams {
     MemoryValue c;
 };
 
-auto process_eq_trace(const ThreeOperandTestParams& params, bool error = false)
+TestTraceContainer process_eq_trace(const ThreeOperandTestParams& params, bool error = false)
 {
     PrecomputedTraceBuilder precomputed_builder;
 
@@ -1005,6 +1005,104 @@ TEST(AluConstrainingTest, NegativeEQWrongTagABMismatch)
     // Correctly using the error, but injecting the wrong inverse will fail:
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+}
+
+// NOT Opcode TESTS
+TestTraceContainer process_not_op_trace(const ThreeOperandTestParams& params, bool error = false)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+
+    TestTraceContainer trace;
+    AluTraceBuilder builder;
+
+    builder.process(
+        {
+            { .operation = simulation::AluOperation::NOT,
+              .a = params.a,
+              .b = params.b,
+              .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+        },
+        trace);
+
+    precomputed_builder.process_misc(trace, NUM_OF_TAGS);
+    precomputed_builder.process_tag_parameters(trace);
+    return trace;
+}
+
+class NotIntegralTest : public ::testing::TestWithParam<ThreeOperandTestParams> {};
+
+TEST_P(NotIntegralTest, Basic)
+{
+    const auto& params = GetParam();
+    auto trace = process_not_op_trace(params);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+
+    trace.set(Column::alu_ib, 0, trace.get(Column::alu_ib, 0) + 1); // Mutate output
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "NOT_OP_MAIN");
+}
+
+const MemoryValue NOT_INTEGRAL_TEST_A_U1 = MemoryValue::from<uint1_t>(1);
+const MemoryValue NOT_INTEGRAL_TEST_A_U8 = MemoryValue::from<uint8_t>(42);
+const MemoryValue NOT_INTEGRAL_TEST_A_U16 = MemoryValue::from<uint16_t>(12345);
+const MemoryValue NOT_INTEGRAL_TEST_A_U32 = MemoryValue::from<uint32_t>(123456789);
+const MemoryValue NOT_INTEGRAL_TEST_A_U64 = MemoryValue::from<uint64_t>(1234567890123456789ULL);
+const MemoryValue NOT_INTEGRAL_TEST_A_U128 = MemoryValue::from<uint128_t>(987654);
+
+const std::vector<ThreeOperandTestParams> NOT_INTEGRAL_TEST_PARAMS = {
+    {
+        .a = NOT_INTEGRAL_TEST_A_U1,
+        .b = ~NOT_INTEGRAL_TEST_A_U1,
+    },
+    {
+        .a = NOT_INTEGRAL_TEST_A_U8,
+        .b = ~NOT_INTEGRAL_TEST_A_U8,
+    },
+    {
+        .a = NOT_INTEGRAL_TEST_A_U16,
+        .b = ~NOT_INTEGRAL_TEST_A_U16,
+    },
+    {
+        .a = NOT_INTEGRAL_TEST_A_U32,
+        .b = ~NOT_INTEGRAL_TEST_A_U32,
+    },
+    {
+        .a = NOT_INTEGRAL_TEST_A_U64,
+        .b = ~NOT_INTEGRAL_TEST_A_U64,
+    },
+    {
+        .a = NOT_INTEGRAL_TEST_A_U128,
+        .b = ~NOT_INTEGRAL_TEST_A_U128,
+    },
+};
+
+INSTANTIATE_TEST_SUITE_P(AluConstrainingTest, NotIntegralTest, ::testing::ValuesIn(NOT_INTEGRAL_TEST_PARAMS));
+
+TEST(AluConstrainingTest, NotFF)
+{
+    auto trace = process_not_op_trace(
+        { .a = MemoryValue::from<FF>(FF::modulus - 3), .b = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0) },
+        true);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_relation<alu>(trace);
+}
+
+TEST(AluConstrainingTest, NegativeNotWrongOpId)
+{
+    const auto a = MemoryValue::from<uint8_t>(42);
+    auto trace = process_not_op_trace({ .a = a, .b = ~a });
+    check_relation<alu>(trace);
+    trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_EQ);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "OP_ID_CHECK");
+}
+
+TEST(AluConstrainingTest, NegativeNotWrongTag)
+{
+    const auto a = MemoryValue::from<uint8_t>(42);
+    auto trace = process_not_op_trace({ .a = a, .b = ~a });
+    check_relation<alu>(trace);
+    trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(bb::avm2::MemoryTag::U16));
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
 }
 
