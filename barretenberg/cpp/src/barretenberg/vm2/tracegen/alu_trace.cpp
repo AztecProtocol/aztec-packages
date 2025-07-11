@@ -21,6 +21,7 @@ namespace {
 std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEvent& event)
 {
     bool is_ff = event.a.get_tag() == ValueTag::FF;
+    bool no_tag_err = !event.error.has_value() || event.error != simulation::AluError::TAG_ERROR;
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
@@ -44,12 +45,11 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_lt_ops_input_b, event.b },
             { Column::alu_lt_ops_result_c, event.c },
             { Column::alu_sel_op_lt, 1 },
-            { Column::alu_sel_lt_ops, 1 },
+            { Column::alu_sel_lt_ops, no_tag_err },
             { Column::alu_op_id,
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_sel_ff_lt_ops,
-              is_ff && (!event.error.has_value() || event.error != simulation::AluError::TAG_ERROR) },
+            { Column::alu_sel_ff_lt_ops, is_ff && no_tag_err },
             { Column::alu_tag_ff_diff_inv,
               is_ff
                   ? 0
@@ -64,13 +64,13 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
         return {
             { Column::alu_lt_ops_input_a, event.b },
             { Column::alu_lt_ops_input_b, event.a },
-            { Column::alu_lt_ops_result_c, MemoryValue::from<uint1_t>(event.c.as_ff() == 0 ? 1 : 0) },
+            { Column::alu_lt_ops_result_c, MemoryValue::from<uint1_t>(event.c.as_ff() == 0 && no_tag_err ? 1 : 0) },
             { Column::alu_sel_op_lte, 1 },
-            { Column::alu_sel_lt_ops, 1 },
+            { Column::alu_sel_lt_ops, no_tag_err },
             { Column::alu_op_id,
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LTE).subtrace_operation_id) },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_sel_ff_lt_ops, is_ff },
+            { Column::alu_sel_ff_lt_ops, is_ff && no_tag_err },
             { Column::alu_tag_ff_diff_inv,
               is_ff
                   ? 0

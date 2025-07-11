@@ -128,7 +128,7 @@ sel_op_lte * (1 - sel_op_lte) = 0;
 // LT & LTE - Shared relations:
 
 pol commit sel_lt_ops;
-sel_lt_ops = sel_op_lt + sel_op_lte;
+sel_lt_ops = (1 - sel_tag_err) * (sel_op_lt + sel_op_lte);
 
 pol commit sel_ff_lt_ops;
 // sel_is_ff & sel_lt_ops:
@@ -151,7 +151,7 @@ sel_op_lt * (lt_ops_input_a - ia) + sel_op_lte * (lt_ops_input_a - ib) = 0;
 sel_op_lt * (lt_ops_input_b - ib) + sel_op_lte * (lt_ops_input_b - ia) = 0;
 
 #[LT_OPS_NEGATE_RESULT_C]
-sel_op_lt * (lt_ops_result_c - ic) + sel_op_lte * ((1 - lt_ops_result_c) - ic) = 0;
+sel_op_lt * (lt_ops_result_c - ic) + sel_op_lte * (1 - sel_tag_err) * ((1 - lt_ops_result_c) - ic) = 0;
 
 // Looks up whether b > a for field:
 // For LT, we check whether b > a ? c where the lt_ops parameters are as they are input (lt_ops_input_b = ib, lt_ops_input_a = ia, lt_ops_result_c = ic)

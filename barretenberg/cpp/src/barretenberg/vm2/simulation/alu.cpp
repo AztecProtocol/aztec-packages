@@ -68,11 +68,7 @@ MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
 {
     if (a.get_tag() != b.get_tag()) {
         debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
-        events.emit({ .operation = AluOperation::LTE,
-                      .a = a,
-                      .b = b,
-                      .c = MemoryValue::from<uint1_t>(0),
-                      .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
     uint128_t lte_abs_diff = 0;

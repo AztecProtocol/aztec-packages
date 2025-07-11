@@ -656,6 +656,8 @@ TEST(AluConstrainingTest, NegativeLTWrongTagABMismatch)
     // ab_tags_diff_inv = inv(a_tag - b_tag) = inv(1) = 1:
     trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
     trace.set(Column::alu_sel_tag_err, 0, 1);
+    // We gate any lt or lte ops by the tag error, so must switch off the selector:
+    trace.set(Column::alu_sel_lt_ops, 0, 0);
     // Though the tags don't match, with error handling we can return the error rather than fail:
     check_relation<alu>(trace);
     // Removing the error will fail:

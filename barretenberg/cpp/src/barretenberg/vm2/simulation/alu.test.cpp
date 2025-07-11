@@ -214,11 +214,7 @@ TEST(AvmSimulationAluTest, NegativeLTETag)
 
     auto events = alu_event_emitter.dump_events();
     EXPECT_THAT(events,
-                ElementsAre(AluEvent{ .operation = AluOperation::LTE,
-                                      .a = a,
-                                      .b = b,
-                                      .c = MemoryValue::from<uint1_t>(0),
-                                      .error = AluError::TAG_ERROR }));
+                ElementsAre(AluEvent{ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR }));
 }
 
 TEST(AvmSimulationAluTest, EQEquality)

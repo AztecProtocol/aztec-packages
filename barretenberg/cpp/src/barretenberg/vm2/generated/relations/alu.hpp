@@ -13,7 +13,8 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 5, 4, 4, 3, 5, 3, 4, 6, 6 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 5, 4, 4, 3, 5, 6,
+                                                                            3, 3, 3, 3, 3, 3, 3, 4, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -114,27 +115,6 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        {
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_lt) * (FF(1) - in.get(C::alu_sel_op_lt));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_ff_lt) -
-                        (FF(1) - in.get(C::alu_sel_tag_err)) * in.get(C::alu_sel_is_ff) * in.get(C::alu_sel_op_lt));
-            tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ALU_LT_RESULT
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_lt) * (FF(1) - in.get(C::alu_sel_tag_err)) *
-                       (alu_IS_NOT_FF * ((alu_A_LT_B - alu_A_GTE_B) * in.get(C::alu_ic) + alu_A_GTE_B) -
-                        in.get(C::alu_lt_abs_diff));
-            tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
-        }
         { // EQ_OP_MAIN
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp =
@@ -158,7 +138,8 @@ template <typename FF_> class aluImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_lt_ops) - (in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_lte)));
+            auto tmp = (in.get(C::alu_sel_lt_ops) -
+                        (FF(1) - in.get(C::alu_sel_tag_err)) * (in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_lte)));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
@@ -191,7 +172,8 @@ template <typename FF_> class aluImpl {
         { // LT_OPS_NEGATE_RESULT_C
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_result_c) - in.get(C::alu_ic)) +
-                        in.get(C::alu_sel_op_lte) * ((FF(1) - in.get(C::alu_lt_ops_result_c)) - in.get(C::alu_ic)));
+                        in.get(C::alu_sel_op_lte) * (FF(1) - in.get(C::alu_sel_tag_err)) *
+                            ((FF(1) - in.get(C::alu_lt_ops_result_c)) - in.get(C::alu_ic)));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
