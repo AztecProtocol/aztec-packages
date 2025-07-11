@@ -1,14 +1,5 @@
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  BatchCall,
-  Fr,
-  type Logger,
-  type PXE,
-  type Wallet,
-  createPXEClient,
-  makeFetch,
-} from '@aztec/aztec.js';
+import { BatchCall, Fr, type Logger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
@@ -24,10 +15,7 @@ describe('e2e_deploy_contract deploy method', () => {
   let logger: Logger;
   let wallet: Wallet;
 
-  let ignoredArg: AztecAddress;
-
   beforeAll(async () => {
-    ignoredArg = await AztecAddress.random();
     ({ pxe, logger, wallet } = await t.setup());
   });
 
@@ -78,7 +66,6 @@ describe('e2e_deploy_contract deploy method', () => {
       .deployed();
     expect(await contract.methods.get_public_value(owner).simulate()).toEqual(42n);
     logger.debug(`Calling a private function to ensure the contract was properly initialized`);
-    const sender = owner;
     await contract.methods.create_note(owner, 30).send().wait();
     expect(await contract.methods.summed_values(owner).simulate()).toEqual(30n);
   });

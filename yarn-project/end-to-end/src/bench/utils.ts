@@ -110,7 +110,6 @@ function makeCall(
   heavyPublicCompute: boolean,
 ) {
   const owner = context.wallet.getAddress();
-  const sender = owner;
   if (heavyPublicCompute) {
     return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
   } else {

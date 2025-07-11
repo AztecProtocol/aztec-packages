@@ -45,7 +45,6 @@ describe('e2e_deploy_contract private initialization', () => {
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
   it('privately initializes an undeployed contract from an account contract', async () => {
     const owner = await t.registerRandomAccount();
-    const sender = owner;
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     logger.info(`Calling the constructor for ${contract.address}`);
@@ -77,7 +76,6 @@ describe('e2e_deploy_contract private initialization', () => {
     const owner = await t.registerRandomAccount();
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
-    const sender = owner;
     const batch = new BatchCall(wallet, [
       contract.methods.constructor(...initArgs),
       contract.methods.create_note(owner, 10),
@@ -108,7 +106,6 @@ describe('e2e_deploy_contract private initialization', () => {
     const initArgs: StatefulContractCtorArgs = [owner, 42];
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs });
     // TODO(@spalladino): It'd be nicer to be able to fail the assert with a more descriptive message.
-    const sender = owner;
     await expect(contract.methods.create_note(owner, 10).send().wait()).rejects.toThrow(
       /Cannot find the leaf for nullifier/i,
     );
@@ -116,8 +113,7 @@ describe('e2e_deploy_contract private initialization', () => {
 
   it('refuses to initialize a contract with incorrect args', async () => {
     const owner = await t.registerRandomAccount();
-    const sender = owner;
-    const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs: [owner, sender, 42] });
+    const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs: [owner, 42] });
     await expect(contract.methods.constructor(owner, 43).simulate()).rejects.toThrow(
       /Initialization hash does not match/,
     );
@@ -125,7 +121,6 @@ describe('e2e_deploy_contract private initialization', () => {
 
   it('refuses to initialize an instance from a different deployer', async () => {
     const owner = await t.registerRandomAccount();
-    const sender = owner;
     const contract = await t.registerContract(wallet, StatefulTestContract, {
       initArgs: [owner, 42],
       deployer: owner,
