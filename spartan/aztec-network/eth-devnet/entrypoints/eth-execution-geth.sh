@@ -5,6 +5,8 @@ if [ ! -f "/data/geth/chaindata/CURRENT" ]; then
   geth init --datadir=/data /genesis/genesis.json
 fi
 
+echo "jwt secret: $(cat /genesis/jwt-secret.hex)"
+
 geth \
   --datadir="/data" \
   --authrpc.addr=0.0.0.0 \

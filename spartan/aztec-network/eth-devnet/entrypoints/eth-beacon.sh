@@ -12,6 +12,8 @@ fi
 echo "env vars: $BEACON_HTTP_PORT"
 echo "env vars: $ETH_EXECUTION_URL"
 
+echo "jwt secret: $(cat /genesis/jwt-secret.hex)"
+
 lighthouse bn \
     --disable-peer-scoring \
     --disable-packet-filter \
