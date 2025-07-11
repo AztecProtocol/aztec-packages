@@ -115,6 +115,24 @@ void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     }
 }
 
+void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { a });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue b = alu.op_not(a);
+        memory.set(dst_addr, b);
+        set_output(opcode, b);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu not operation failed");
+    }
+}
+
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -678,6 +696,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::LTE:
         call_with_operands(&Execution::lte, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NOT:
+        call_with_operands(&Execution::op_not, context, resolved_operands);
         break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
