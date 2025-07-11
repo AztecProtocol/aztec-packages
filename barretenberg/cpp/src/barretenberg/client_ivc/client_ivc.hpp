@@ -160,6 +160,9 @@ class ClientIVC {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
+    // The number of circuits folded in an iteration of ClientIVC
+    size_t num_circuits;
+
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
     HonkProof mega_proof;
@@ -184,7 +187,7 @@ class ClientIVC {
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    ClientIVC(TraceSettings trace_settings = {});
+    ClientIVC(TraceSettings trace_settings = {}, size_t num_circuits = 0);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});

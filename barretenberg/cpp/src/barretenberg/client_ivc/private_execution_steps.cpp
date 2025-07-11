@@ -142,7 +142,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
 {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+    auto ivc = std::make_shared<ClientIVC>(trace_settings, /*num_circuits=*/folding_stack.size());
 
     const acir_format::ProgramMetadata metadata{ ivc };
 

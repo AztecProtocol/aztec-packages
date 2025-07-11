@@ -14,8 +14,9 @@
 namespace bb {
 
 // Constructor
-ClientIVC::ClientIVC(TraceSettings trace_settings)
+ClientIVC::ClientIVC(TraceSettings trace_settings, size_t num_circuits)
     : trace_usage_tracker(trace_settings)
+    , num_circuits(num_circuits)
     , trace_settings(trace_settings)
     , goblin(bn254_commitment_key)
 {
