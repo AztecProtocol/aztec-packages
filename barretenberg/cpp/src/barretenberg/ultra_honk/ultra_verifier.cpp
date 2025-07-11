@@ -59,17 +59,14 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
     }
 
     // Extract nested pairing points from the proof
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.
-    if constexpr (!std::is_same_v<Flavor, UltraKeccakFlavor> && !std::is_same_v<Flavor, UltraKeccakZKFlavor>) {
-        uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - PAIRING_POINTS_SIZE;
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            start_idx -= IPA_CLAIM_SIZE;
-        }
-        std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + start_idx,
-                                                                 PAIRING_POINTS_SIZE };
-        PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
-        decider_output.pairing_points.aggregate(nested_pairing_points);
+    uint32_t start_idx = static_cast<uint32_t>(verification_key->vk->num_public_inputs) - PAIRING_POINTS_SIZE;
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        start_idx -= IPA_CLAIM_SIZE;
     }
+    std::span<FF, PAIRING_POINTS_SIZE> pairing_points_limbs{ verification_key->public_inputs.data() + start_idx,
+                                                             PAIRING_POINTS_SIZE };
+    PairingPoints nested_pairing_points = PairingPoints::reconstruct_from_public(pairing_points_limbs);
+    decider_output.pairing_points.aggregate(nested_pairing_points);
 
     return decider_output.check();
 }

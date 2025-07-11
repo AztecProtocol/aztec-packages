@@ -75,6 +75,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index
 template <typename FF_>
 typename CircuitBuilderBase<FF_>::FF CircuitBuilderBase<FF_>::get_public_input(const uint32_t index) const
 {
+    BB_ASSERT_LT(index, public_inputs_.size(), "Index out of bounds for public inputs.");
     return get_variable(public_inputs_[index]);
 }
 
