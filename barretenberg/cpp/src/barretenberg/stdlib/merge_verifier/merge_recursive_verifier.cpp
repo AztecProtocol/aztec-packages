@@ -80,7 +80,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     transcript->load_proof(proof);
 
-    FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
+    FF subtable_size = transcript->template receive_from_prover<FF>("shift_size");
 
     // Vector of commitments to be passed to the Shplonk verifier
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]

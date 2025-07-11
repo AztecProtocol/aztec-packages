@@ -34,11 +34,48 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using Commitment = InnerFlavor::Commitment;
     using FF = InnerFlavor::FF;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
+    using MergeProof = MergeProver::MergeProof;
+
+    enum class TamperProofMode { None, Shift, MCommitment, LEval };
 
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue)
+    static void tamper_with_proof(MergeProof& merge_proof, const TamperProofMode tampering_mode)
+    {
+        const size_t shift_idx = 0;        // Index of shift_size in the merge proof
+        const size_t m_commitment_idx = 5; // Index of first commitment to merged table in merge proof
+        const size_t l_eval_idx = 50;      // Index of first evaluation of l(1/kappa) in merge proof
+
+        switch (tampering_mode) {
+        case TamperProofMode::Shift:
+            // Tamper with the shift size in the proof
+            merge_proof[shift_idx] += 1;
+            break;
+        case TamperProofMode::MCommitment: {
+            // Tamper with the commitment in the proof
+            Commitment m_commitment = bb::field_conversion::convert_from_bn254_frs<Commitment>(
+                std::span{ merge_proof }.subspan(m_commitment_idx, 4));
+            m_commitment = m_commitment + Commitment::one();
+            auto m_commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(m_commitment);
+            for (size_t idx = 0; idx < 4; ++idx) {
+                merge_proof[m_commitment_idx + idx] = m_commitment_frs[idx];
+            }
+            break;
+        }
+        case TamperProofMode::LEval:
+            // Tamper with the evaluation in the proof
+            merge_proof[l_eval_idx] -= FF(1);
+            break;
+        default:
+            // Unknown mode, do nothing
+            break;
+        }
+    }
+
+    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
+                                       const TamperProofMode tampering_mode = TamperProofMode::None,
+                                       const bool expected = true)
     {
         RecursiveBuilder outer_circuit;
 
@@ -60,6 +97,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         // Construct Merge proof
         auto merge_proof = merge_prover.construct_proof();
+        tamper_with_proof(merge_proof, tampering_mode);
 
         // Create a recursive merge verification circuit for the merge proof
         RecursiveMergeVerifier verifier{ &outer_circuit };
@@ -69,7 +107,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         auto pairing_points = verifier.verify_proof(stdlib_merge_proof, t_commitments_rec);
 
         // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+        EXPECT_EQ(outer_circuit.failed(), !expected) << outer_circuit.err();
 
         // Check 1: Perform native merge verification then perform the pairing on the outputs of the recursive merge
         // verifier and check that the result agrees.
@@ -81,7 +119,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         auto verified_recursive =
             pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(verified_native, verified_recursive);
-        EXPECT_TRUE(verified_recursive);
+        EXPECT_EQ(verified_recursive, expected);
 
         // Check 2: Ensure that the underlying native and recursive merge verification algorithms agree by ensuring
         // the manifests produced by each agree.
@@ -92,51 +130,41 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         }
     }
 
-    // /**
-    //  * @brief Test failure when degree(subtable) > subtable_size (as read from the proof)
-    //  */
-    // static void test_degree_check_failure()
-    // {
-    //     TestData setup = generate_test_data();
-    //     // Decrease subtable_size in the proof by 1
-    //     setup.tamper_with_degree();
+    /**
+     * @brief Test failure when degree(subtable) > subtable_size (as read from the proof)
+     */
+    static void test_degree_check_failure()
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
 
-    //     // Perform native merge verification then perform the pairing on the outputs of the recursive merge
-    //     // verifier and check that both fail.
-    //     auto [native_verified, native_transcript] = native_verification(setup);
-    //     auto [recursive_verified, recursive_transcript] = recursive_verification(setup,
-    //     /*circuit_builder_flag=*/true); EXPECT_FALSE(native_verified); EXPECT_FALSE(recursive_verified);
-    // }
+        InnerBuilder circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+        prove_and_verify_merge(op_queue, TamperProofMode::Shift, false);
+    }
 
-    // /**
-    //  * @brief Test failure when T \neq t + X^l T_prev
-    //  */
-    // static void test_merge_failure()
-    // {
-    //     TestData setup = generate_test_data();
-    //     setup.tamper_with_T_commitment();
+    /**
+     * @brief Test failure when m \neq l + X^k r
+     */
+    static void test_merge_failure()
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
 
-    //     // Perform native merge verification then perform the pairing on the outputs of the recursive merge
-    //     // verifier and check that both fail.
-    //     auto [native_verified, native_transcript] = native_verification(setup);
-    //     auto [recursive_verified, recursive_transcript] = recursive_verification(setup,
-    //     /*circuit_builder_flag=*/true); EXPECT_FALSE(native_verified); EXPECT_FALSE(recursive_verified);
-    // }
+        InnerBuilder circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+        prove_and_verify_merge(op_queue, TamperProofMode::MCommitment, false);
+    }
 
-    // /**
-    //  * @brief Test failure g_j(kappa) = kappa^{l-1} * t_j(1/kappa)
-    //  */
-    // static void test_eval_failure()
-    // {
-    //     TestData setup = generate_test_data();
-    //     setup.tamper_with_t_eval_kappa_inv();
+    /**
+     * @brief Test failure g_j(kappa) = kappa^{k-1} * l_j(1/kappa)
+     */
+    static void test_eval_failure()
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
 
-    //     // Perform native merge verification then perform the pairing on the outputs of the recursive merge
-    //     // verifier and check that both fail.
-    //     auto [native_verified, native_transcript] = native_verification(setup);
-    //     auto [recursive_verified, recursive_transcript] = recursive_verification(setup,
-    //     /*circuit_builder_flag=*/true); EXPECT_FALSE(native_verified); EXPECT_FALSE(recursive_verified);
-    // }
+        InnerBuilder circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+        prove_and_verify_merge(op_queue, TamperProofMode::LEval, false);
+    }
 
     /**
      * @brief Test recursive merge verification for the ops generated by several sample circuit, both prepended and
@@ -173,24 +201,19 @@ TYPED_TEST(RecursiveMergeVerifierTest, SingleRecursiveVerification)
     TestFixture::test_recursive_merge_verification();
 };
 
-// TYPED_TEST(RecursiveMergeVerifierTest, NonZeroTPrev)
-// {
-//     TestFixture::test_recursive_merge_verification(/*zero_T_prev=*/false);
-// };
+TYPED_TEST(RecursiveMergeVerifierTest, DegreeCheckFailure)
+{
+    TestFixture::test_degree_check_failure();
+};
 
-// TYPED_TEST(RecursiveMergeVerifierTest, DegreeCheckFailure)
-// {
-//     TestFixture::test_degree_check_failure();
-// };
+TYPED_TEST(RecursiveMergeVerifierTest, MergeFailure)
+{
+    TestFixture::test_merge_failure();
+};
 
-// TYPED_TEST(RecursiveMergeVerifierTest, TcommitmentFailure)
-// {
-//     TestFixture::test_merge_failure();
-// };
-
-// TYPED_TEST(RecursiveMergeVerifierTest, TevalFailure)
-// {
-//     TestFixture::test_eval_failure();
-// };
+TYPED_TEST(RecursiveMergeVerifierTest, EvalFailure)
+{
+    TestFixture::test_eval_failure();
+};
 
 } // namespace bb::stdlib::recursion::goblin
