@@ -24,16 +24,18 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let T_j be the jth column of the aggregate ecc op table after prepending the subtable columns t_j containing
- * the contribution from the present circuit. T_{j,prev} corresponds to the columns of the aggregate table at the
- * previous stage. For each column we have the relationship T_j = t_j + right_shift(T_{j,prev}, k), where k is the
- * length of the subtable columns t_j. This protocol demonstrates that the aggregate ecc op table has been
- * constructed correctly via:
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ three vectors. The Merge prover wants to convince the verifier that
+ * \f$l_j.size() < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
+ * claims by:
  * - the Schwartz-Zippel check:
- *      \f[ T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)) \f]
+ *      \f[ m_j(\kappa) = l_j(\kappa) + \kappa^k * r_j(\kappa) \f]
  * - the degree check a la Thakur:
- *      \f[ \kappa^{l-1} t_j(1/\kappa) = g_j(\kappa) \f]
- *   where \f$g_j(X) = X^{l-1} t_j(1 / X)\f$.
+ *      \f[ \kappa^{l-1} l_j(1/\kappa) = g_j(\kappa) \f]
+ *   where \f$g_j(X) = X^{l-1} l_j(1 / X)\f$.
+ *
+ * In the Goblin scenario, we have:
+ * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
+ * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
  * @note The prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
  * circuit, and therefore t_j has already been added to the transcript by PG.
@@ -43,50 +45,63 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 MergeProver::MergeProof MergeProver::construct_proof()
 {
     /**
-     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4:
-     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X) (1)
-     *      - deg(t_j(X)) < l                     (2)
-     * where l = subtable_size.
+     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4, either:
+     *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
+     *      - deg(l_j(X)) < l                   (2)
+     * where l = shift_size.
      *
      * Condition (1) is equivalent, up to negligible probability, to:
-     *      t_j(kappa) + kappa^l T_{prev,j}(kappa) - T_j(kappa) = 0
+     *      l_j(kappa) + kappa^l r_j(kappa) - m_j(kappa) = 0
      * so the prover constructs the polynomial
-     *      p_j(X) := t_j(X) + kappa^{l-1} T_{prev, j}(X) - T_j(X)
+     *      p_j(X) := l_j(X) + kappa^{l-1} r_j(X) - m_j(X)
      * and proves that it opens to 0 at kappa.
      *
-     * To convince the verifier of (2), the prover commits to a polynomial g_j(X) (allegedly equal to X^{l-1} t_j(1/X))
-     * and provides openings c, d, of t_j(X) and g_j(X) at 1/kappa and kappa, respectively. The verifier then checks
-     * that:
-     *      c * kappa^{l-1} = d
-     * This check is equivalent, up to negligible probablity, to (2) because if deg(t_j(X)) >= l, then the prover is
-     * not able to commit to a polynomial g_j(X) that satisfies:
-     *      g_j(kappa) = kappa^{l-1} t_j(1/kappa)
-     * for a random evaluation challenge kappa.
+     * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{l-1} l_j(1/X)) and provides
+     * openings:
+     *      c = l_j(1/kappa)     d = g_j(kappa)
+     * The verifier then checks that: c * kappa^{l-1} = d. This check is equivalent, up to negligible probablity, to (2)
+     * because if deg(l_j(X)) >= l, then the prover is not able to commit to a polynomial g_j(X) that satisfies:
+     * g_j(kappa) = kappa^{l-1} l_j(1/kappa) for a random evaluation challenge kappa.
      */
 
-    std::array<Polynomial, NUM_WIRES> t = op_queue->construct_current_ultra_ops_subtable_columns();
-    std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_WIRES> T = op_queue->construct_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_WIRES> t_reversed;
-    // Compute g_j(X) = X^{l-1} t_j(1/X)
+    std::array<Polynomial, NUM_WIRES> left_table;
+    std::array<Polynomial, NUM_WIRES> right_table;
+    std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
+    std::array<Polynomial, NUM_WIRES> left_table_reversed;
+
+    if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
+        left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
+        right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
+    } else {
+        left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
+        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
+    }
+    // Compute g_j(X)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        t_reversed[idx] = t[idx].reverse();
+        left_table_reversed[idx] = left_table[idx].reverse();
     }
 
-    const size_t table_size = T[0].size();
+    const size_t merged_table_size = merged_table[0].size();
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
     // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
     // subtable when sending a merge proof to the rollup.
-    const size_t shift_size =
-        op_queue->get_current_settings() == MergeSettings::PREPEND ? t[0].size() : T_prev[0].size();
+    const size_t shift_size = left_table[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
-    // Compute commitments [T_prev], [T], [reversed_t], and send to the verifier
+    // Compute commitments [T_prev], [merged_table], [reversed_t], and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        transcript->send_to_verifier("T_PREV_" + std::to_string(idx), pcs_commitment_key.commit(T_prev[idx]));
-        transcript->send_to_verifier("T_" + std::to_string(idx), pcs_commitment_key.commit(T[idx]));
-        transcript->send_to_verifier("t_REVERSED_" + std::to_string(idx), pcs_commitment_key.commit(t_reversed[idx]));
+        // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
+        // steps of the Merge, T_prev will not be sent by the Merge prover, so the following lines will be removed
+        if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
+            transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(right_table[idx]));
+        } else {
+            transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(left_table[idx]));
+        }
+        transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
+                                     pcs_commitment_key.commit(merged_table[idx]));
+        transcript->send_to_verifier("LEFT_TABLE_REVERSED_" + std::to_string(idx),
+                                     pcs_commitment_key.commit(left_table_reversed[idx]));
     }
 
     // Compute evaluation challenge
@@ -98,36 +113,34 @@ MergeProver::MergeProof MergeProver::construct_proof()
     //
     // The opening claims are sent in the following order:
     // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
-    //      {1/kappa, t_1(1/kappa)}, {kappa, g_1(kappa)},
-    //          {1/kappa, t_2(1/kappa)}, {kappa, g_2(kappa)},
-    //              {1/kappa, t_3(1/kappa)}, {kappa, g_3(kappa)},
-    //                  {1/kappa, t_4(1/kappa)}, {kappa, g_4(kappa)}
+    //      {1/kappa, left_table_1(1/kappa)}, {kappa, left_table_reversed_1(kappa)},
+    //          {1/kappa, left_table_2(1/kappa)}, {kappa, left_table_reversed_2(kappa)},
+    //              {1/kappa, left_table_3(1/kappa)}, {kappa, left_table_reversed_3(kappa)},
+    //                  {1/kappa, left_table_4(1/kappa)}, {kappa, left_table_reversed_4(kappa)}
     std::vector<OpeningClaim> opening_claims;
 
-    /////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
-    // Set opening claims p_j(\kappa)
+    // Set opening claims p_j(\kappa) = left_table_j(X) + kappa^l right_table_j(X) - merged_table_j(X)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Compute p_j(X) = t_j(X) + kappa^l T_{j,prev}(X) - T_j(X)
-        Polynomial partially_evaluated_difference(table_size);
-        partially_evaluated_difference += t[idx];
-        partially_evaluated_difference.add_scaled(T_prev[idx], pow_kappa);
-        partially_evaluated_difference -= T[idx];
+        Polynomial partially_evaluated_difference(merged_table_size);
+        partially_evaluated_difference += left_table[idx];
+        partially_evaluated_difference.add_scaled(right_table[idx], pow_kappa);
+        partially_evaluated_difference -= merged_table[idx];
 
         opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
     }
-    // Compute evaluation t_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
+    // Compute evaluation left_table_j(1/kappa), left_table_reversed_j(\kappa), send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation;
 
-        // Evaluate t_j(1/kappa)
-        evaluation = t[idx].evaluate(kappa_inv);
-        transcript->send_to_verifier("t_eval_kappa_inv_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ t[idx], { kappa_inv, evaluation } });
+        // Evaluate left_table_j(1/kappa)
+        evaluation = left_table[idx].evaluate(kappa_inv);
+        transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
 
-        // Evaluate g_j(kappa)
-        evaluation = t_reversed[idx].evaluate(kappa);
-        transcript->send_to_verifier("t_reversed_eval_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ t_reversed[idx], { kappa, evaluation } });
+        // Evaluate left_table_reversed_j(\kappa)
+        evaluation = left_table_reversed[idx].evaluate(kappa);
+        transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
+        opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
     }
 
     // Shplonk prover

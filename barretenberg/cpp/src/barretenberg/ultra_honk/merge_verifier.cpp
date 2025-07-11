@@ -36,20 +36,26 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
 {
     /**
      * The prover wants to convince the verifier that the polynomials t_j, T_{prev,j}, T_j for which they have sent
-     * commitments [t_j], [T_{prev,j}], [T_j] satisfy:
-     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X)   (1)
-     *      - deg(t_j(X)) < l                       (2)
+     * commitments [t_j], [T_{prev,j}], [T_j] satisfy either:
+     *      - T_j(X) = t_j(X) + X^l T_{prev,j}(X) (1.prepend)
+     *      - deg(t_j(X)) < l                     (2.prepend)
+     * or:
+     *      - T_j(X) = T_{prev,j}(X) + X^l t_j(X) (1.append)
+     *      - deg(T_{prev,j}(X)) < l              (2.append)
+     * where l = shift_size.
      *
-     * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that the
-     * polynomial
+     * We focus on the prepend case for the explanation, the append case is similar.
+     *
+     * To check condition (1.prepend), the verifier samples a challenge kappa and request from the prover a proof that
+     * the polynomial
      *      p_j(X) = t_j(X) + kappa^{l-1} T_{prev,j}(X) - T_j(X)
      * opens to 0 at kappa.
      *
-     * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and then
-     * requests proofs that t_j and g_j open to c, d, at 1/kappa, kappa, respectively. Then, they verify
-     *      c * kappa^{l-1} = d
-     * which implies, up to negligible probability, that g_j(X) = X^{l-1} t_j(1/X), and the prover can commit to this
-     * polynomial only if deg(t_j(X)) < l.
+     * To check condition (2.prepend), the verifier requests from the prover the commitment to a polynomial g_j, and
+     * then requests proofs that
+     *      t_j(1/kappa) = c     g_j(kappa) = d
+     * Then, they verify c * kappa^{l-1} = d, which implies, up to negligible probability, that
+     * g_j(X) = X^{l-1} t_j(1/X), and the prover can commit to this polynomial only if deg(t_j(X)) < l.
      *
      * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, t_j(1/kappa), g_j(kappa)
      * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [t_j], [T_{prev,j}], [T_j]
@@ -76,13 +82,19 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // The vector is composed of: [t_1], [T_{prev,1}], [T_1], [g_1], ..., [t_4], [T_{prev,4], [T_4], [g_4]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        table_commitments.emplace_back(t_commitments[idx]);
+        if (settings == MergeSettings::PREPEND) {
+            table_commitments.emplace_back(t_commitments[idx]);
+            table_commitments.emplace_back(
+                transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
+        } else {
+            table_commitments.emplace_back(
+                transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
+            table_commitments.emplace_back(t_commitments[idx]);
+        }
         table_commitments.emplace_back(
-            transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
+            transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));
         table_commitments.emplace_back(
-            transcript->template receive_from_prover<Commitment>("T_" + std::to_string(idx)));
-        table_commitments.emplace_back(
-            transcript->template receive_from_prover<Commitment>("t_REVERSED_" + std::to_string(idx)));
+            transcript->template receive_from_prover<Commitment>("LEFT_TABLE_REVERSED_" + std::to_string(idx)));
     }
 
     // Store T_commitments of the verifier
@@ -101,14 +113,12 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
 
-    ////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
-    // Add opening claim for t_j(kappa) + kappa^l T_{j,prev}(kappa) - T_j(kappa) = 0
+    // Add opening claim for p_j(X) = left_table_j(X) + X^l right_table_j(X) - merged_table_j(X)
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Evaluation is hard-coded to zero
-        Claims claim{ { /*index of t_j*/ commitment_idx,
-                        /*index of T_{prev,j}*/ commitment_idx + 1,
-                        /*index of T_j*/ commitment_idx + 2 },
+        Claims claim{ { /*index of left_table_j*/ commitment_idx,
+                        /*index of right_table_j*/ commitment_idx + 1,
+                        /*index of merged_table_j*/ commitment_idx + 2 },
                       { FF::one(), pow_kappa, FF::neg_one() },
                       { kappa, FF::zero() } };
         opening_claims.emplace_back(claim);
@@ -117,33 +127,35 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         commitment_idx += NUM_WIRES;
     }
 
-    // Boolean keeping track of the identities g_j(kappa) = t_j(1/kappa) * kappa^{l-1}
+    // Boolean keeping track of the degree identities
     bool degree_check_verified = true;
 
-    // Add opening claim for t_j(1/kappa), g_j(kappa) and check g_j(kappa) = t_j(1/kappa) * kappa^{l-1}
+    // Add opening claim for left_table_j(1/kappa), left_table_reversed_j(kappa) and check
+    // left_table_reversed_j(kappa) = left_table_j(1/kappa) * kappa^{l-1}
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         Claims claim;
 
-        // Opening claim for t_j(1/kappa)
-        FF t_eval_kappa_inv = transcript->template receive_from_prover<FF>("t_eval_kappa_inv_" + std::to_string(idx));
-        claim = { { commitment_idx }, { FF::one() }, { kappa_inv, t_eval_kappa_inv } };
+        // Opening claim for left_table_j(1/kappa)
+        FF left_table_eval_kappa_inv =
+            transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
+        claim = { { commitment_idx }, { FF::one() }, { kappa_inv, left_table_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to index of g_j
         commitment_idx += 3;
 
         // Opening claim for g_j(kappa)
-        FF t_reversed_eval = transcript->template receive_from_prover<FF>("t_reversed_eval_" + std::to_string(idx));
-        claim = { { commitment_idx }, { FF::one() }, { kappa, t_reversed_eval } };
+        FF left_table_reversed_eval =
+            transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
+        claim = { { commitment_idx }, { FF::one() }, { kappa, left_table_reversed_eval } };
         opening_claims.emplace_back(claim);
 
-        // Move commitment_idx to index of t_{j+1}
+        // Move commitment_idx to index of left_table_{j+1}
         commitment_idx += 1;
 
-        /////// TO DO: HANDLE BOTH APPEND AND PREPEND HERE
         // Degree identity
-        degree_check_verified &= (t_eval_kappa_inv * pow_kappa_minus_one == t_reversed_eval);
+        degree_check_verified &= (left_table_eval_kappa_inv * pow_kappa_minus_one == left_table_reversed_eval);
     }
 
     // Initialize Shplonk verifier
