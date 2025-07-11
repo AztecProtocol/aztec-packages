@@ -168,34 +168,40 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_OPS_SWAP_INPUTS_A
+        {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ia)) +
-                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ib)));
+            auto tmp = in.get(C::alu_lt_ops_result_c) * (FF(1) - in.get(C::alu_lt_ops_result_c));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_OPS_SWAP_INPUTS_B
+        { // LT_OPS_SWAP_INPUTS_A
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ib)) +
-                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ia)));
+            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ia)) +
+                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ib)));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_OPS_SWAP_RESULT_C
+        { // LT_OPS_SWAP_INPUTS_B
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_result_c) - in.get(C::alu_ic)) +
-                        in.get(C::alu_sel_op_lte) * ((FF(1) - in.get(C::alu_lt_ops_result_c)) - in.get(C::alu_ic)));
+            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ib)) +
+                        in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ia)));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // ALU_LT_RESULT
+        { // LT_OPS_NEGATE_RESULT_C
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_result_c) - in.get(C::alu_ic)) +
+                        in.get(C::alu_sel_op_lte) * ((FF(1) - in.get(C::alu_lt_ops_result_c)) - in.get(C::alu_ic)));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        { // ALU_LT_RESULT
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel_lt_ops) *
                        (alu_IS_NOT_FF * ((alu_A_LT_B - alu_A_GTE_B) * in.get(C::alu_lt_ops_result_c) + alu_A_GTE_B) -
                         in.get(C::alu_lt_ops_abs_diff));
             tmp *= scaling_factor;
-            std::get<17>(evals) += typename Accumulator::View(tmp);
+            std::get<18>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -219,13 +225,13 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "ALU_ADD";
         case 9:
             return "EQ_OP_MAIN";
-        case 14:
-            return "LT_OPS_SWAP_INPUTS_A";
         case 15:
-            return "LT_OPS_SWAP_INPUTS_B";
+            return "LT_OPS_SWAP_INPUTS_A";
         case 16:
-            return "LT_OPS_SWAP_RESULT_C";
+            return "LT_OPS_SWAP_INPUTS_B";
         case 17:
+            return "LT_OPS_NEGATE_RESULT_C";
+        case 18:
             return "ALU_LT_RESULT";
         }
         return std::to_string(index);
@@ -238,10 +244,10 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_AB_TAGS_CHECK = 6;
     static constexpr size_t SR_ALU_ADD = 8;
     static constexpr size_t SR_EQ_OP_MAIN = 9;
-    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_A = 14;
-    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_B = 15;
-    static constexpr size_t SR_LT_OPS_SWAP_RESULT_C = 16;
-    static constexpr size_t SR_ALU_LT_RESULT = 17;
+    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_A = 15;
+    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_B = 16;
+    static constexpr size_t SR_LT_OPS_NEGATE_RESULT_C = 17;
+    static constexpr size_t SR_ALU_LT_RESULT = 18;
 };
 
 } // namespace bb::avm2

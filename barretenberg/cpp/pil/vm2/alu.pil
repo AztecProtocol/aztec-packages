@@ -141,16 +141,22 @@ sel_ff_lt_ops - sel_is_ff * sel_lt_ops = 0;
 // TODO(MW): Rename? lt_or_lte_input_x feels too verbose
 pol commit lt_ops_input_a, lt_ops_input_b, lt_ops_result_c;
 
+// Note: may not be required since we constrain that lt_ops_result_c is either ic or !ic?
+lt_ops_result_c * (1 - lt_ops_result_c) = 0;
+
 #[LT_OPS_SWAP_INPUTS_A]
 sel_op_lt * (lt_ops_input_a - ia) + sel_op_lte * (lt_ops_input_a - ib) = 0;
 
 #[LT_OPS_SWAP_INPUTS_B]
 sel_op_lt * (lt_ops_input_b - ib) + sel_op_lte * (lt_ops_input_b - ia) = 0;
 
-#[LT_OPS_SWAP_RESULT_C]
+#[LT_OPS_NEGATE_RESULT_C]
 sel_op_lt * (lt_ops_result_c - ic) + sel_op_lte * ((1 - lt_ops_result_c) - ic) = 0;
 
 // Looks up whether b > a for field:
+// For LT, we check whether b > a ? c where the lt_ops parameters are as they are input (lt_ops_input_b = ib, lt_ops_input_a = ia, lt_ops_result_c = ic)
+// For LTE, we check whether a > b ? !c where the lt_ops parameters are swapped (lt_ops_input_b = ia, lt_ops_input_a = ib, lt_ops_result_c = !ic)
+// NOTE: This means for LTE we essentially 'double swap'!
 #[FF_LT]
 sel_ff_lt_ops { lt_ops_input_b, lt_ops_input_a, lt_ops_result_c }
 in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
