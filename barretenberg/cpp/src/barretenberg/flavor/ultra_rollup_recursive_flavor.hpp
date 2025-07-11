@@ -109,30 +109,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         }
 
         /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
-         */
-        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
-        {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
-                                                      this->num_public_inputs);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
-                                                      this->pub_inputs_offset);
-
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
-        }
-
-        /**
          * @brief Construct a VerificationKey from a set of corresponding witness indices
          *
          * @param builder
