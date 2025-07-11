@@ -75,6 +75,7 @@ import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
   pingHandler,
   reqRespBlockHandler,
+  reqRespBlockTxsHandler,
   reqRespStatusHandler,
   reqRespTxHandler,
 } from '../reqresp/protocols/index.js';
@@ -387,6 +388,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
+    const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,
@@ -394,6 +396,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
+      [ReqRespSubProtocol.BLOCK_TXS]: blockTxsHandler.bind(this),
     };
 
     // add GossipSub listener
@@ -732,6 +735,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Mark the txs in this proposal as non-evictable
     await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+    await this.mempools.attestationPool?.addBlockProposal(block);
     const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice
