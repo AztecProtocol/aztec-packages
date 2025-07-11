@@ -70,7 +70,7 @@ contract VoteWithCanonicalTest is WithGSE {
 
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);
-    assertEq(proposal.summedBallot.nea, 0);
+    assertEq(proposal.summedBallot.nay, 0);
 
     uint256 availablePower = _prepare(_instance, _attester);
     uint256 amount = bound(_amount, 0, availablePower);
@@ -80,7 +80,7 @@ contract VoteWithCanonicalTest is WithGSE {
 
     proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, _support ? amount : 0);
-    assertEq(proposal.summedBallot.nea, _support ? 0 : amount);
+    assertEq(proposal.summedBallot.nay, _support ? 0 : amount);
   }
 
   function _prepare(address _instance, address _attester) internal returns (uint256) {

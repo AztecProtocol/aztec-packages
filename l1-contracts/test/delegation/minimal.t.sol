@@ -239,7 +239,7 @@ contract MinimalDelegationTest is GSEBase {
     assertEq(stakingAsset.balanceOf(WITHDRAWER), depositAmount);
 
     assertEq(governance.getProposal(proposalId).summedBallot.yea, depositAmount * 3, "yeas");
-    assertEq(governance.getProposal(proposalId).summedBallot.nea, 0, "neas");
+    assertEq(governance.getProposal(proposalId).summedBallot.nay, 0, "nays");
   }
 
   function _checkPowerUsed(address _delegatee, uint256 _used, uint256 _power, uint256 _votingTime)

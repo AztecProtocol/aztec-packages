@@ -152,7 +152,7 @@ contract ExecuteTest is GovernanceBase {
     proposal = governance.getProposal(proposalId);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
-    assertEq(proposal.state, ProposalState.Executed);
+    assertEq(proposal.cachedState, ProposalState.Executed);
     address rollup = address(registry.getCanonicalRollup());
     assertEq(rollup, UpgradePayload(address(proposal.payload)).NEW_ROLLUP());
   }

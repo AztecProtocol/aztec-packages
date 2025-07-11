@@ -40,7 +40,7 @@ contract GetProposalStateTest is GovernanceBase {
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     governance.execute(proposalId);
 
-    assertEq(proposal.state, ProposalState.Pending);
+    assertEq(proposal.cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
@@ -52,20 +52,20 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Dropped
     _stateDropped("empty", _governanceProposer);
 
-    assertEq(proposal.state, ProposalState.Pending);
+    assertEq(proposal.cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
 
     governance.dropProposal(proposalId);
 
     Proposal memory fresh = governance.getProposal(proposalId);
-    assertEq(fresh.state, ProposalState.Dropped);
+    assertEq(fresh.cachedState, ProposalState.Dropped);
   }
 
   modifier givenStateIsUnstable() {
     _;
 
     Proposal memory fresh = governance.getProposal(proposalId);
-    assertEq(fresh.state, ProposalState.Pending);
+    assertEq(fresh.cachedState, ProposalState.Pending);
   }
 
   function test_GivenGovernanceProposerHaveChanged(address _governanceProposer)
@@ -76,7 +76,7 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Dropped
     _stateDropped("empty", _governanceProposer);
 
-    assertEq(proposal.state, ProposalState.Pending);
+    assertEq(proposal.cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 

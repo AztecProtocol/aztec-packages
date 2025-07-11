@@ -5,7 +5,7 @@ UpdateConfigurationTest
     ├── when configuration is invalid
     │   ├── when quorum lt min or gt max
     │   │   └── it revert
-    │   ├── when differential lt min or gt max
+    │   ├── when requiredYeaMargin lt min or gt max
     │   │   └── it revert
     │   ├── when minimumVotes lt min
     │   │   └── it revert
@@ -25,7 +25,7 @@ UpdateConfigurationTest
         ├── when quorum ge min and le max
         │   ├── it updates the configuration
         │   └── it emits {ConfigurationUpdated} event
-        ├── when differential ge min and le max
+        ├── when requiredYeaMargin ge min and le max
         │   ├── it updates the configuration
         │   └── it emits {ConfigurationUpdated} event
         ├── when minimumVotes ge min
