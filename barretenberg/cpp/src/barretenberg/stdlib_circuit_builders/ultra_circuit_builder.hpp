@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
@@ -329,7 +330,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         for (auto& block : blocks.get()) {
             size_t nominal_size = block.selectors[0].size();
             for (size_t idx = 1; idx < block.selectors.size(); ++idx) {
-                ASSERT(block.selectors[idx].size() == nominal_size);
+                ASSERT_DEBUG_ONLY(block.selectors[idx].size() == nominal_size);
             }
         }
 
@@ -505,7 +506,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_num_finalized_gates() const override
     {
-        ASSERT(circuit_finalized);
+        ASSERT_RELEASE(circuit_finalized);
         return this->num_gates;
     }
 
@@ -592,7 +593,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_finalized_total_circuit_size() const
     {
-        ASSERT(circuit_finalized);
+        ASSERT_RELEASE(circuit_finalized);
         auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }
@@ -678,13 +679,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_sort_constraint_with_edges(const std::vector<uint32_t>& variable_index, const FF&, const FF&);
     void assign_tag(const uint32_t variable_index, const uint32_t tag)
     {
-        ASSERT(tag <= this->current_tag);
+        BB_ASSERT_LTE(tag, this->current_tag);
         // If we've already assigned this tag to this variable, return (can happen due to copy constraints)
         if (this->real_variable_tags[this->real_variable_index[variable_index]] == tag) {
             return;
         }
 
-        ASSERT(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG);
+        BB_ASSERT_EQ(this->real_variable_tags[this->real_variable_index[variable_index]], DUMMY_TAG);
         this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
     }
 

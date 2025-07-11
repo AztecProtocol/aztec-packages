@@ -66,8 +66,8 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
     , generator_size(target_generator_size ? target_generator_size : domain_size)
     , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
     , domain_inverse(domain.invert())
-    , generator(Fr::coset_generator(0))
-    , generator_inverse(Fr::coset_generator(0).invert())
+    , generator(Fr::template coset_generator<0>())
+    , generator_inverse(Fr::template coset_generator<0>().invert())
     , four_inverse(Fr(4).invert())
     , roots(nullptr)
 {
@@ -80,9 +80,9 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
 
     root_inverse = root.invert();
 
-    ASSERT((1UL << log2_size) == size || (size == 0));
-    ASSERT((1UL << log2_thread_size) == thread_size || (size == 0));
-    ASSERT((1UL << log2_num_threads) == num_threads || (size == 0));
+    ASSERT_RELEASE((1UL << log2_size) == size || (size == 0));
+    ASSERT_RELEASE((1UL << log2_thread_size) == thread_size || (size == 0));
+    ASSERT_RELEASE((1UL << log2_num_threads) == num_threads || (size == 0));
 }
 
 template <typename Fr>
@@ -102,9 +102,9 @@ EvaluationDomain<Fr>::EvaluationDomain(const EvaluationDomain& other)
     , generator_inverse(other.generator_inverse)
     , four_inverse(other.four_inverse)
 {
-    ASSERT((1UL << log2_size) == size);
-    ASSERT((1UL << log2_thread_size) == thread_size);
-    ASSERT((1UL << log2_num_threads) == num_threads);
+    ASSERT_RELEASE((1UL << log2_size) == size);
+    ASSERT_RELEASE((1UL << log2_thread_size) == thread_size);
+    ASSERT_RELEASE((1UL << log2_num_threads) == num_threads);
     if (other.roots != nullptr) {
         const size_t mem_size = sizeof(Fr) * size * 2;
         roots = std::static_pointer_cast<Fr[]>(get_mem_slab(mem_size));
@@ -175,7 +175,7 @@ template <typename Fr> EvaluationDomain<Fr>::~EvaluationDomain() {}
 
 template <typename Fr> void EvaluationDomain<Fr>::compute_lookup_table()
 {
-    ASSERT(roots == nullptr);
+    BB_ASSERT_EQ(roots, nullptr);
     // roots = (Fr*)(aligned_alloc(32, sizeof(Fr) * size * 2));
     roots = std::static_pointer_cast<Fr[]>(get_mem_slab(sizeof(Fr) * size * 2));
     compute_lookup_table_single(root, size, roots.get(), round_roots);

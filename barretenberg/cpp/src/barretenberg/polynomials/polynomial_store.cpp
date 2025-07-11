@@ -44,7 +44,7 @@ template <typename Fr> bb::LegacyPolynomial<Fr> PolynomialStore<Fr>::get(std::st
  */
 template <typename Fr> void PolynomialStore<Fr>::remove(std::string const& key)
 {
-    ASSERT(polynomial_map.contains(key));
+    ASSERT_RELEASE(polynomial_map.contains(key));
     polynomial_map.erase(key);
 };
 

@@ -5,6 +5,7 @@
 // =====================
 
 #include "blake2s.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "blake2s_plookup.hpp"
 #include "blake_util.hpp"
@@ -40,8 +41,8 @@ template <typename Builder> void blake2s_increment_counter(blake2s_state<Builder
     S.t[1] = S.t[1] + (to_inc ? 1 : 0);
     // We assert that t[0] and t[1] are circuit constants to ensure the incerementing depends only on the circuit and
     // not on witness values
-    ASSERT(S.t[0].is_constant());
-    ASSERT(S.t[1].is_constant());
+    ASSERT_RELEASE(S.t[0].is_constant());
+    ASSERT_RELEASE(S.t[1].is_constant());
 }
 
 template <typename Builder> void blake2s_compress(blake2s_state<Builder>& S, byte_array<Builder> const& in)

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib::element_goblin {
@@ -42,7 +43,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     auto builder = points[0].get_context();
 
     // Check that the internal accumulator is zero?
-    ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+    ASSERT_RELEASE(builder->op_queue->get_accumulator().is_point_at_infinity());
 
     // Loop over all points and scalars
     size_t num_points = points.size();
@@ -74,8 +75,8 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         // Note: These constraints do not assume or enforce that the coordinates of the original point have been
         // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
         // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
-        ASSERT(uint1024_t(point.x.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
-        ASSERT(uint1024_t(point.y.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
+        BB_ASSERT_LTE(uint1024_t(point.x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        BB_ASSERT_LTE(uint1024_t(point.y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
         x_lo.assert_equal(point.x.limbs[0]);
         x_hi.assert_equal(point.x.limbs[1]);
         y_lo.assert_equal(point.y.limbs[0]);

@@ -8,6 +8,7 @@
 // #define LOG_CHALLENGES
 // #define LOG_INTERACTIONS
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -203,11 +204,11 @@ template <typename TranscriptParams> class BaseTranscript {
     [[nodiscard]] std::array<Fr, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
         // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
-        ASSERT(num_challenges <= 2);
+        BB_ASSERT_LTE(num_challenges, 2U);
         // Prevent challenge generation if this is the first challenge we're generating,
         // AND nothing was sent by the prover.
         if (is_first_challenge) {
-            ASSERT(!current_round_data.empty());
+            ASSERT_RELEASE(!current_round_data.empty());
         }
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
@@ -284,7 +285,7 @@ template <typename TranscriptParams> class BaseTranscript {
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
         constexpr size_t element_fr_size = TranscriptParams::template calc_num_bn254_frs<T>();
-        ASSERT(offset + element_fr_size <= proof_data.size());
+        BB_ASSERT_LTE(offset + element_fr_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
@@ -554,7 +555,7 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> T receive_from_prover(const std::string& label)
     {
         const size_t element_size = TranscriptParams::template calc_num_bn254_frs<T>();
-        ASSERT(num_frs_read + element_size <= proof_data.size());
+        BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         num_frs_read += element_size;
@@ -657,7 +658,7 @@ template <typename TranscriptParams> class BaseTranscript {
      *      what happens before and after the transcript is branched.
      *  4. To ensure soundness:
      *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
-     *      b. We enforce ASSERT(current_round_data.empty())
+     *      b. We enforce ASSERT_RELEASE(current_round_data.empty())
      *
      * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
      * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
@@ -685,7 +686,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     BaseTranscript branch_transcript()
     {
-        ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
+        ASSERT_RELEASE(current_round_data.empty(), "Branching a transcript with non empty round data");
 
         BaseTranscript branched_transcript;
 

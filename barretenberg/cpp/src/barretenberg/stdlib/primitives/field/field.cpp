@@ -7,6 +7,7 @@
 #include "field.hpp"
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <functional>
 
@@ -75,7 +76,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
     if (is_constant()) {
-        ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
+        ASSERT_RELEASE(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
         result.set_origin_tag(tag);
@@ -121,7 +122,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be added without context
-    ASSERT(ctx || (is_constant() && other.is_constant()));
+    ASSERT_RELEASE(ctx || (is_constant() && other.is_constant()));
 
     if (witness_index == other.witness_index && !is_constant()) {
         // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
@@ -189,7 +190,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be multiplied without context
-    ASSERT(ctx || (is_constant() && other.is_constant()));
+    ASSERT_RELEASE(ctx || (is_constant() && other.is_constant()));
 
     if (is_constant() && other.is_constant()) {
         // Both inputs are constant - don't add a gate.
@@ -314,7 +315,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     Builder* ctx = (context) ? context : other.context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be divided without context
-    ASSERT(ctx || (is_constant() && other.is_constant()));
+    ASSERT_RELEASE(ctx || (is_constant() && other.is_constant()));
 
     bb::fr additive_multiplier = bb::fr::one();
 
@@ -454,7 +455,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
     uint256_t exponent_value = exponent.get_value();
-    ASSERT(exponent_value.get_msb() < 32);
+    BB_ASSERT_LT(exponent_value.get_msb(), 32U);
 
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));
@@ -626,7 +627,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
         return *this;
     }
-    ASSERT(context);
+    ASSERT_RELEASE(context);
 
     // Value of this = this.v * this.mul + this.add; // where this.v = context->variables[this.witness_index]
     // Normalised result = result.v * 1 + 0;         // where result.v = this.v * this.mul + this.add
@@ -814,10 +815,10 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 template <typename Builder> bb::fr field_t<Builder>::get_value() const
 {
     if (!is_constant()) {
-        ASSERT(context);
+        ASSERT_RELEASE(context);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     }
-    ASSERT(multiplicative_constant == bb::fr::one());
+    BB_ASSERT_EQ(multiplicative_constant, bb::fr::one());
     // A constant field_t's value is tracked wholly by its additive_constant member.
     return additive_constant;
 }
@@ -898,7 +899,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
         assert_is_zero("0-bit range_constraint on non-zero field_t.");
     } else {
         if (is_constant()) {
-            ASSERT(uint256_t(get_value()).get_msb() < num_bits);
+            BB_ASSERT_LT(uint256_t(get_value()).get_msb(), num_bits);
         } else {
             context->decompose_into_default_range(
                 get_normalized_witness_index(), num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
@@ -919,7 +920,7 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
     Builder* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
     (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
-        ASSERT(lhs.get_value() == rhs.get_value());
+        BB_ASSERT_EQ(lhs.get_value(), rhs.get_value());
     } else if (lhs.is_constant()) {
         field_t right = rhs.normalize();
         ctx->assert_equal_constant(right.witness_index, lhs.get_value(), msg);
@@ -1053,7 +1054,7 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
     Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        ASSERT(a.get_value() + b.get_value() + c.get_value() + d.get_value() == 0);
+        BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0);
         return;
     }
 
@@ -1088,7 +1089,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& d)
 {
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
-        ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
+        ASSERT_RELEASE((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
 
@@ -1247,8 +1248,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 template <typename Builder>
 std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const uint8_t lsb) const
 {
-    ASSERT(msb >= lsb);
-    ASSERT(msb < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
+    BB_ASSERT_GTE(msb, lsb);
+    BB_ASSERT_LT(msb, grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
     Builder* ctx = get_context();
     const uint256_t one(1);
 
@@ -1341,7 +1342,7 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     size_t num_bits, const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
 {
     static constexpr size_t max_num_bits = 256;
-    ASSERT(num_bits <= max_num_bits);
+    BB_ASSERT_LTE(num_bits, max_num_bits);
     const size_t midpoint = max_num_bits / 2;
     std::vector<bool_t<Builder>> result(num_bits);
 

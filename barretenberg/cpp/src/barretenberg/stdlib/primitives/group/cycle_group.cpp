@@ -5,6 +5,7 @@
 // =====================
 
 #include "../field/field.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -66,7 +67,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1067): This ASSERT is missing in the constructor but
     // causes schnorr acir test to fail due to a bad input (a public key that has x and y coordinate set to 0).
     // Investigate this to be able to enable the test.
-    // ASSERT(get_value().on_curve());
+    // ASSERT_RELEASE(get_value().on_curve());
 }
 
 /**
@@ -91,7 +92,7 @@ cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
     , _is_standard(true)
     , context(nullptr)
 {
-    ASSERT(get_value().on_curve());
+    ASSERT_RELEASE(get_value().on_curve());
 }
 
 /**
@@ -252,14 +253,15 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  */
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
-    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+    BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
+                 this->_is_constant);
 
     this->_is_standard = true;
 
     if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
         // Check that it's not possible to enter the case when
         // The point is already infinity, but `is_infinity` = false
-        ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
+        ASSERT_RELEASE((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
 
         if (is_infinity.get_value()) {
             this->x = 0;
@@ -297,7 +299,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     this->y = field_t::conditional_assign(is_infinity, 0, this->y);
 
     // We won't bump into the case where we end up with non constant coordinates
-    ASSERT(!this->x.is_constant() && !this->y.is_constant());
+    ASSERT_RELEASE(!this->x.is_constant());
+    ASSERT_RELEASE(!this->y.is_constant());
     this->_is_constant = false;
 
     // We have to check this to avoid the situation, where we change the infinity
@@ -318,9 +321,11 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+    BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
+                 this->_is_constant);
     if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
-        ASSERT(this->_is_constant && this->_is_standard);
+        ASSERT_RELEASE(this->_is_constant);
+        ASSERT_RELEASE(this->_is_standard);
     }
 
     if (this->_is_standard) {
@@ -613,7 +618,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 {
     field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT(x_delta.get_value() != 0);
+        ASSERT_RELEASE(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
     }
@@ -639,7 +644,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 {
     field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT(x_delta.get_value() != 0);
+        ASSERT_RELEASE(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
     }
@@ -898,7 +903,7 @@ template <typename Builder>
 typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::from_witness_bitstring(
     Builder* context, const uint256_t& bitstring, const size_t num_bits)
 {
-    ASSERT(bitstring.get_msb() < num_bits);
+    BB_ASSERT_LT(bitstring.get_msb(), num_bits);
     const uint256_t lo_v = bitstring.slice(0, LO_BITS);
     const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
@@ -1020,7 +1025,8 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         }
 
         // sanity check that limb[1] is the limb that contributs both to *this.lo and *this.hi
-        ASSERT((BigScalarField::NUM_LIMB_BITS * 2 > LO_BITS) && (BigScalarField::NUM_LIMB_BITS < LO_BITS));
+        BB_ASSERT_GT(BigScalarField::NUM_LIMB_BITS * 2, LO_BITS);
+        BB_ASSERT_LT(BigScalarField::NUM_LIMB_BITS, LO_BITS);
 
         // limb1 is the tricky one as it contributs to both *this.lo and *this.hi
         // By this point, we know that limb1 fits in the range `1 << BigScalarField::NUM_LIMB_BITS to  (1 <<
@@ -1363,7 +1369,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
                 std::array<uint32_t, 2>{ point_table[i].x.get_witness_index(), point_table[i].y.get_witness_index() });
         }
     } else {
-        ASSERT(table_bits == 1);
+        BB_ASSERT_EQ(table_bits, 1U);
     }
 }
 
@@ -1432,7 +1438,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> offset_generators,
     const bool unconditional_add)
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
 
     Builder* context = nullptr;
     for (auto& scalar : scalars) {
@@ -1562,7 +1568,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
             // if we are doing a batch mul over scalars of different bit-lengths, we may not have a bit slice
             // for a given round and a given scalar
-            ASSERT(scalar_slice.value().get_value() == scalar_slices[j].slices_native[num_rounds - i - 1]);
+            BB_ASSERT_EQ(scalar_slice.value().get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
             if (scalar_slice.has_value()) {
                 const auto& point = points_to_add[point_counter++];
                 if (!unconditional_add) {
@@ -1613,7 +1619,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> /*unused*/)
     requires IsUltraArithmetic<Builder>
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
 
     const size_t num_points = base_points.size();
     using MultiTableId = plookup::MultiTableId;
@@ -1629,7 +1635,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
-        ASSERT(table_id.has_value());
+        ASSERT_RELEASE(table_id.has_value());
         plookup_table_ids.emplace_back(table_id.value()[0]);
         plookup_table_ids.emplace_back(table_id.value()[1]);
         plookup_base_points.emplace_back(base_points[i]);
@@ -1652,7 +1658,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::optional<AffineElement> offset_1 =
             plookup::fixed_base::table::get_generator_offset_for_table_id(plookup_table_ids[i]);
 
-        ASSERT(offset_1.has_value());
+        ASSERT_RELEASE(offset_1.has_value());
         offset_generator_accumulator += offset_1.value();
     }
     /**
@@ -1713,7 +1719,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     requires IsNotUltraArithmetic<Builder>
 
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
     static_assert(TABLE_BITS == 1);
 
     Builder* context = nullptr;
@@ -1819,7 +1825,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
                                                      const std::vector<cycle_scalar>& scalars,
                                                      const GeneratorContext context)
 {
-    ASSERT(scalars.size() == base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size());
 
     std::vector<cycle_scalar> variable_base_scalars;
     std::vector<cycle_group> variable_base_points;

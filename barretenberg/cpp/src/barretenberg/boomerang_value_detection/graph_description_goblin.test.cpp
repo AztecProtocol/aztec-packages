@@ -102,7 +102,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
-        ASSERT(verified);
+        ASSERT_TRUE(verified);
     }
     auto translator_pairing_points = output.points_accumulator;
     translator_pairing_points.P0.x.fix_witness();

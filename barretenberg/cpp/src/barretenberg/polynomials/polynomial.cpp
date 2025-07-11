@@ -80,7 +80,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
     parallel_for(num_threads, [&](size_t j) {
         size_t offset = j * range_per_thread;
         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-        ASSERT(offset < size || size == 0);
+        ASSERT_RELEASE(offset < size || size == 0);
         BB_ASSERT_LTE((offset + range), size);
         memset(static_cast<void*>(coefficients_.data() + offset), 0, sizeof(Fr) * range);
     });
@@ -210,7 +210,7 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::
     const size_t m = evaluation_points.size();
 
     // Assert that the size of the Polynomial being evaluated is a power of 2 greater than (1 << m)
-    ASSERT(numeric::is_power_of_two(size()));
+    ASSERT_RELEASE(numeric::is_power_of_two(size()));
     BB_ASSERT_GTE(size(), static_cast<size_t>(1 << m));
     size_t n = numeric::get_msb(size());
 

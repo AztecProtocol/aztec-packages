@@ -6,6 +6,7 @@
 
 #include "databus.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace bb::stdlib {
 
@@ -21,7 +22,7 @@ void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entri
         }
     }
     // Enforce that builder context is known at this stage. Otherwise first read will fail if the index is a constant.
-    ASSERT(context != nullptr);
+    ASSERT_RELEASE(context != nullptr);
 
     // Initialize the bus vector entries from the input entries which are un-normalized and possibly constants
     for (const auto& entry : entries_in) {

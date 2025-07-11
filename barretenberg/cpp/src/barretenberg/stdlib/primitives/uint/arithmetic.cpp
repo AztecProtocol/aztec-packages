@@ -5,6 +5,7 @@
 // =====================
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "uint.hpp"
 
 using namespace bb;
@@ -15,8 +16,8 @@ template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::operator+(const uint& other) const
 {
 
-    ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
-           (context == nullptr && other.context != nullptr));
+    ASSERT_RELEASE(context == other.context || (context != nullptr && other.context == nullptr) ||
+                   (context == nullptr && other.context != nullptr));
     Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
@@ -56,8 +57,8 @@ template <typename Builder, typename Native>
 uint<Builder, Native> uint<Builder, Native>::operator-(const uint& other) const
 {
 
-    ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
-           (context == nullptr && other.context != nullptr));
+    ASSERT_RELEASE(context == other.context || (context != nullptr && other.context == nullptr) ||
+                   (context == nullptr && other.context != nullptr));
 
     Builder* ctx = (context == nullptr) ? other.context : context;
 

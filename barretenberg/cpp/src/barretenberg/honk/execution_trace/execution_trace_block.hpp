@@ -5,9 +5,11 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <cstddef>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
@@ -73,7 +75,7 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
 
     uint32_t trace_offset() const
     {
-        ASSERT(trace_offset_ != std::numeric_limits<uint32_t>::max());
+        ASSERT_RELEASE(trace_offset_ != std::numeric_limits<uint32_t>::max());
         return trace_offset_;
     }
 

@@ -1,4 +1,5 @@
 #include "./graph.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <algorithm>
 #include <array>
@@ -329,13 +330,13 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
         auto w_4 = block.w_4()[index];
         if (q_3 == FF::one() && q_4 == FF::one()) {
             // bigfield limb accumulation 1
-            ASSERT(q_arith.is_zero());
+            ASSERT_RELEASE(q_arith.is_zero());
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
                                       { w_l, w_r, w_o, w_4, block.w_l()[index + 1], block.w_r()[index + 1] }); // 6
             }
         } else if (q_3 == FF::one() && q_m == FF::one()) {
-            ASSERT(q_arith.is_zero());
+            ASSERT_RELEASE(q_arith.is_zero());
             // bigfield limb accumulation 2
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -347,7 +348,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                                         block.w_4()[index + 1] });
             }
         } else if (q_2 == FF::one() && (q_3 == FF::one() || q_4 == FF::one() || q_m == FF::one())) {
-            ASSERT(q_arith.is_zero());
+            ASSERT_RELEASE(q_arith.is_zero());
             // bigfield product cases
             if (index < block.size() - 1) {
                 std::vector<uint32_t> limb_subproduct_vars = {
@@ -355,14 +356,14 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                 };
                 if (q_3 == FF::one()) {
                     // bigfield product 1
-                    ASSERT(q_4.is_zero() && q_m.is_zero());
+                    ASSERT_RELEASE(q_4.is_zero() && q_m.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(), { w_o, w_4 });
                 }
                 if (q_4 == FF::one()) {
                     // bigfield product 2
-                    ASSERT(q_3.is_zero() && q_m.is_zero());
+                    ASSERT_RELEASE(q_3.is_zero() && q_m.is_zero());
                     std::vector<uint32_t> non_native_field_gate_2 = { w_l, w_4, w_r, w_o, block.w_o()[index + 1] };
                     gate_variables.insert(
                         gate_variables.end(), non_native_field_gate_2.begin(), non_native_field_gate_2.end());
@@ -372,7 +373,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                 }
                 if (q_m == FF::one()) {
                     // bigfield product 3
-                    ASSERT(q_4.is_zero() && q_3.is_zero());
+                    ASSERT_RELEASE(q_4.is_zero() && q_3.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(),
@@ -380,7 +381,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                 }
             }
         } else if (q_1 == FF::one() && q_4 == FF::one()) {
-            ASSERT(q_arith.is_zero());
+            ASSERT_RELEASE(q_arith.is_zero());
             // ram timestamp check
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -391,7 +392,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_auxiliary_gate_connected_c
                                         block.w_o()[index] });
             }
         } else if (q_1 == FF::one() && q_2 == FF::one()) {
-            ASSERT(q_arith.is_zero());
+            ASSERT_RELEASE(q_arith.is_zero());
             // rom constitency check
             if (index < block.size() - 1) {
                 gate_variables.insert(
@@ -430,7 +431,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_rom_table_connected_compon
     bb::UltraCircuitBuilder& ultra_builder, const bb::RomTranscript& rom_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
-    ASSERT(block_index == 5);
+    BB_ASSERT_EQ(block_index, 5U);
 
     // Every RomTranscript data structure has 2 main components that are interested for static analyzer:
     // 1) records contains values that were put in the gate, we can use them to create connections between variables
@@ -491,7 +492,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_compon
     bb::UltraCircuitBuilder& ultra_builder, const bb::RamTranscript& ram_array)
 {
     size_t block_index = find_block_index(ultra_builder, ultra_builder.blocks.aux);
-    ASSERT(block_index == 5);
+    BB_ASSERT_EQ(block_index, 5U);
     std::vector<uint32_t> ram_table_variables;
     for (const auto& record : ram_array.records) {
         std::vector<uint32_t> gate_variables;
@@ -1115,12 +1116,12 @@ inline void StaticAnalyzer_<FF>::remove_record_witness_variables(bb::UltraCircui
     auto block_data = ultra_builder.blocks.get();
     size_t blk_idx = find_block_index(ultra_builder, ultra_builder.blocks.aux);
     std::vector<uint32_t> to_remove;
-    ASSERT(blk_idx == 5);
+    BB_ASSERT_EQ(blk_idx, 5U);
     for (const auto& var_idx : variables_in_one_gate) {
         KeyPair key = { var_idx, blk_idx };
         if (auto search = variable_gates.find(key); search != variable_gates.end()) {
             std::vector<size_t> gate_indexes = variable_gates[key];
-            ASSERT(gate_indexes.size() == 1);
+            BB_ASSERT_EQ(gate_indexes.size(), 1U);
             size_t gate_idx = gate_indexes[0];
             auto q_1 = block_data[blk_idx].q_1()[gate_idx];
             auto q_2 = block_data[blk_idx].q_2()[gate_idx];
@@ -1269,7 +1270,7 @@ void StaticAnalyzer_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ul
     const auto& block_data = ultra_builder.blocks.get();
     for (const auto& [key, gates] : variable_gates) {
         if (key.first == real_idx) {
-            ASSERT(gates.size() == 1);
+            BB_ASSERT_EQ(gates.size(), 1U);
             size_t gate_index = gates[0];
             UltraBlock block = block_data[key.second];
             info("---- printing variables in this gate");

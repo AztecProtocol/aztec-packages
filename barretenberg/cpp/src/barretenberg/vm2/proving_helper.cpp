@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
@@ -26,7 +27,7 @@ std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolyn
     auto proving_key = std::make_shared<AvmProver::ProvingKey>(CIRCUIT_SUBGROUP_SIZE, /*num_public_inputs=*/0);
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
-        ASSERT(flavor_get_label(*proving_key, key_poly) == flavor_get_label(polynomials, prover_poly));
+        BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
         key_poly = std::move(prover_poly);
     }
 

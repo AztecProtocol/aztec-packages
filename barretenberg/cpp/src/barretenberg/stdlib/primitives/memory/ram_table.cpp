@@ -7,6 +7,7 @@
 #include "ram_table.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <vector>
@@ -83,7 +84,7 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
     if (_ram_table_generated_in_builder) {
         return;
     }
-    ASSERT(_context != nullptr);
+    ASSERT_RELEASE(_context != nullptr);
     _ram_id = _context->create_RAM_array(_length);
 
     if (_raw_entries.size() > 0) {

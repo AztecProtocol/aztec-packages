@@ -70,9 +70,9 @@ void fft_inner_serial(std::vector<Fr*> coeffs, const size_t domain_size, const s
 {
     // Assert that the number of polynomials is a power of two.
     const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
+    ASSERT_RELEASE(is_power_of_two(num_polys));
     const size_t poly_domain_size = domain_size / num_polys;
-    ASSERT(is_power_of_two(poly_domain_size));
+    ASSERT_RELEASE(is_power_of_two(poly_domain_size));
 
     Fr temp;
     size_t log2_size = (size_t)numeric::get_msb(domain_size);
@@ -185,9 +185,9 @@ void fft_inner_parallel(std::vector<Fr*> coeffs,
     auto scratch_space = scratch_space_ptr.get();
 
     const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
+    ASSERT_RELEASE(is_power_of_two(num_polys));
     const size_t poly_size = domain.size / num_polys;
-    ASSERT(is_power_of_two(poly_size));
+    ASSERT_RELEASE(is_power_of_two(poly_size));
     const size_t poly_mask = poly_size - 1;
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
 
@@ -574,9 +574,9 @@ void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
     fft_inner_parallel(coeffs, domain, domain.root_inverse, domain.get_inverse_round_roots());
 
     const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
+    ASSERT_RELEASE(is_power_of_two(num_polys));
     const size_t poly_size = domain.size / num_polys;
-    ASSERT(is_power_of_two(poly_size));
+    ASSERT_RELEASE(is_power_of_two(poly_size));
     const size_t poly_mask = poly_size - 1;
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
 
@@ -616,7 +616,7 @@ template <typename Fr>
 void coset_fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 {
     const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
+    ASSERT_RELEASE(is_power_of_two(num_polys));
     const size_t poly_size = domain.size / num_polys;
     const Fr generator_pow_n = domain.generator.pow(poly_size);
     Fr generator_start = 1;
@@ -732,7 +732,7 @@ void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
     ifft(coeffs, domain);
 
     const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
+    ASSERT_RELEASE(is_power_of_two(num_polys));
     const size_t poly_size = domain.size / num_polys;
     const Fr generator_inv_pow_n = domain.generator_inverse.pow(poly_size);
     Fr generator_start = 1;
@@ -797,7 +797,7 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
 {
     const size_t num_polys = coeffs.size();
     const size_t poly_size = large_n / num_polys;
-    ASSERT(is_power_of_two(poly_size));
+    ASSERT_RELEASE(is_power_of_two(poly_size));
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
     size_t num_threads = get_num_cpus_pow2();
     size_t range_per_thread = large_n / num_threads;
@@ -884,7 +884,7 @@ void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
     // First compute X_i^n (which forms a multiplicative subgroup of order k)
     size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size; // log_2(k)
     size_t subgroup_size = 1UL << log2_subgroup_size;                           // k
-    ASSERT(target_domain.log2_size >= src_domain.log2_size);
+    BB_ASSERT_GTE(target_domain.log2_size, src_domain.log2_size);
     Fr subgroup_roots[subgroup_size];
     compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
 
@@ -936,9 +936,9 @@ void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
 
     // Assert that the number of polynomials in coeffs is a power of 2.
     const size_t num_polys = coeffs.size();
-    ASSERT(is_power_of_two(num_polys));
+    ASSERT_RELEASE(is_power_of_two(num_polys));
     const size_t poly_size = target_domain.size / num_polys;
-    ASSERT(is_power_of_two(poly_size));
+    ASSERT_RELEASE(is_power_of_two(poly_size));
     const size_t poly_mask = poly_size - 1;
     const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
 
@@ -951,7 +951,7 @@ void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
     // i.e. the 4th roots of unity
     size_t log2_subgroup_size = target_domain.log2_size - src_domain.log2_size;
     size_t subgroup_size = 1UL << log2_subgroup_size;
-    ASSERT(target_domain.log2_size >= src_domain.log2_size);
+    BB_ASSERT_GTE(target_domain.log2_size, src_domain.log2_size);
 
     Fr* subgroup_roots = new Fr[subgroup_size];
     compute_multiplicative_subgroup(log2_subgroup_size, src_domain, &subgroup_roots[0]);
@@ -1176,7 +1176,7 @@ void compress_fft(const Fr* src, Fr* dest, const size_t cur_size, const size_t c
 {
     // iterate from top to bottom, allows `dest` to overlap with `src`
     size_t log2_compress_factor = (size_t)numeric::get_msb(compress_factor);
-    ASSERT(1UL << log2_compress_factor == compress_factor);
+    BB_ASSERT_EQ(1UL << log2_compress_factor, compress_factor);
     size_t new_size = cur_size >> log2_compress_factor;
     for (size_t i = 0; i < new_size; ++i) {
         Fr::__copy(src[i << log2_compress_factor], dest[i]);

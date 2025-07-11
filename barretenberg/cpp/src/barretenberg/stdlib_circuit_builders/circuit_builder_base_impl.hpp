@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "circuit_builder_base.hpp"
 
@@ -68,7 +69,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index
             break;
         }
     }
-    ASSERT(result != static_cast<uint32_t>(-1));
+    ASSERT_RELEASE(result != static_cast<uint32_t>(-1));
     return result;
 }
 
@@ -92,7 +93,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
 
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
-    ASSERT(variables.size() > index);
+    BB_ASSERT_GT(variables.size(), index);
     uint32_t first_idx = get_first_variable_in_class(index);
 
     if (variable_names.contains(first_idx)) {
@@ -236,7 +237,7 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
 {
     for (const auto& variable_index : variable_indices) {
-        ASSERT(is_valid_variable(variable_index));
+        BB_ASSERT_LT(variable_index, variables.size());
     }
 }
 

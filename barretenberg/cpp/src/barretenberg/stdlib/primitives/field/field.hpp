@@ -353,7 +353,8 @@ template <typename Builder> class field_t {
      */
     void convert_constant_to_fixed_witness(Builder* ctx)
     {
-        ASSERT(is_constant() && ctx);
+        ASSERT_RELEASE(is_constant());
+        ASSERT_RELEASE(ctx);
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
@@ -374,8 +375,8 @@ template <typename Builder> class field_t {
      */
     void fix_witness()
     {
-        ASSERT(!is_constant());
-        ASSERT(context);
+        ASSERT_RELEASE(!is_constant());
+        ASSERT_RELEASE(context);
         // Let     a := *this;
         //       q_l :=  1
         //       q_c := -*this.get_value()

@@ -70,6 +70,7 @@
  */
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
@@ -102,7 +103,7 @@ namespace bb {
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
     {
-        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
+        BB_ASSERT_GTE(start, current_end, "Ranges should be non-overlapping and increasing.");
         ranges.emplace_back(start, end);
         for (size_t i = start; i < end; ++i) {
             idxs.push_back(i);

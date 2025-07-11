@@ -13,7 +13,7 @@ template <class base_uint>
 std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(const uintx& b) const
 
 {
-    ASSERT(b != 0);
+    ASSERT_RELEASE(b != 0);
     if (*this == 0) {
         return { uintx(0), uintx(0) };
     }
@@ -103,7 +103,7 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(cons
  **/
 template <class base_uint> uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
 {
-    ASSERT((*this) != 0);
+    ASSERT_RELEASE((*this) != 0);
     if (modulus == 0) {
         return 0;
     }
@@ -308,7 +308,7 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::barrett_reductio
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1051): investigate, why)
     size_t i = 0;
     while (remainder >= uintx(modulus)) {
-        ASSERT(i < 4);
+        BB_ASSERT_LT(i, 4U);
         remainder = remainder - modulus;
         quotient = quotient + 1;
         i++;

@@ -7,6 +7,7 @@
 #include "twin_rom_table.hpp"
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 using namespace bb;
 
@@ -50,7 +51,7 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
     if (initialized) {
         return;
     }
-    ASSERT(context != nullptr);
+    ASSERT_RELEASE(context != nullptr);
     // populate table. Table entries must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         field_pt first;
@@ -132,7 +133,7 @@ template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const
 {
     if (index >= length) {
-        ASSERT(context != nullptr);
+        ASSERT_RELEASE(context != nullptr);
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
 

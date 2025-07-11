@@ -13,6 +13,7 @@
 #include "../field/field.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
@@ -144,7 +145,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         auto builder = get_context(other);
         // Check that the internal accumulator is zero
-        ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+        ASSERT_RELEASE(builder->op_queue->get_accumulator().is_point_at_infinity());
 
         // Compute the result natively, and validate that result + other == *this
         typename NativeGroup::affine_element result_value = typename NativeGroup::affine_element(

@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -124,7 +125,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
-        ASSERT(verified);
+        ASSERT_TRUE(verified);
     }
 }
 
@@ -193,7 +194,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto native_ipa_proof = goblin_rec_verifier_output.ipa_proof.get_value();
     native_ipa_transcript->load_proof(native_ipa_proof);
 
-    EXPECT_DEATH(
+    EXPECT_THROW_OR_ABORT(
         IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript),
         ".*IPA verification fails.*");
 }
