@@ -32,6 +32,18 @@ template <typename Fr> using BackingMemory = FileBackedMemory<Fr>;
 template <typename Fr> using BackingMemory = AlignedMemory<Fr>;
 #endif
 
+template <typename M, typename T>
+concept BackingMemoryConcept = requires(size_t size, std::shared_ptr<typename M::Value> mem) {
+    typename M::Value;
+
+    {
+        M::allocate(size)
+    } -> std::same_as<std::shared_ptr<typename M::Value>>;
+    {
+        M::get_data(mem)
+    } -> std::same_as<T*>;
+};
+
 /**
  * @brief A shared pointer array template that represents a virtual array filled with zeros up to `virtual_size_`,
  * but with actual memory usage proportional to the region between `start_` and `end_`.
@@ -46,7 +58,9 @@ template <typename Fr> using BackingMemory = AlignedMemory<Fr>;
  *
  * @tparam T The type of the elements in the array.
  */
-template <typename T, typename BackingMemory> struct SharedShiftedVirtualZeroesArray {
+template <typename T, typename BackingMemory>
+    requires BackingMemoryConcept<BackingMemory, T>
+struct SharedShiftedVirtualZeroesArray {
 
     /**
      * @brief Sets the value at the specified index.
