@@ -19,5 +19,4 @@ dotnet /nethermind/Nethermind.Runner.dll \
   --Init.MaxPeers=0 \
   --Pruning.Mode=None \
   --HealthChecks.Enabled=true \
-  --log=INFO #\
-# ${NETHERMIND_EXTRA_ARGS:-}
+  --log=INFO
