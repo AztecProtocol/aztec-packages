@@ -97,9 +97,10 @@ export class EthAddress {
 
     for (let i = 0; i < 40; i++) {
       // The nth letter should be uppercase if the nth digit of casemap is 1.
+      const hashDigit = parseInt(addressHash[i], 16);
       if (
-        (parseInt(addressHash[i], 16) > 7 && address[i].toUpperCase() !== address[i]) ||
-        (parseInt(addressHash[i], 16) <= 7 && address[i].toLowerCase() !== address[i])
+        (hashDigit > 7 && address[i].toUpperCase() !== address[i]) ||
+        (hashDigit <= 7 && address[i].toLowerCase() !== address[i])
       ) {
         return false;
       }
