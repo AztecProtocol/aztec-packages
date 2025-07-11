@@ -169,6 +169,9 @@ export class TXE implements TypedOracle {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
+  // Used by setSenderForTags and getSenderForTags oracles.
+  private senderForTags: AztecAddress | undefined = undefined;
+
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -1318,10 +1321,11 @@ export class TXE implements TypedOracle {
   }
 
   getSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.resolve(undefined);
+    return Promise.resolve(this.senderForTags);
   }
 
-  setSenderForTags(_senderForTags: AztecAddress): Promise<void> {
+  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
     return Promise.resolve();
   }
 
