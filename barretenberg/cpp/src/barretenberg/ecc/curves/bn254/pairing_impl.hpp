@@ -309,8 +309,9 @@ fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
         if (!P_affines[i].is_point_at_infinity() && !Q_affines[i].is_point_at_infinity()) {
             P.emplace_back(g1::element(P_affines[i]));
             Q.emplace_back(g2::element(Q_affines[i]));
+            lines.emplace_back(miller_lines{});
 
-            precompute_miller_lines(Q[i], lines[i]);
+            precompute_miller_lines(Q.back(), lines.back());
 
             num_pairings += 1;
         }
