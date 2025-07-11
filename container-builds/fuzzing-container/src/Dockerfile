@@ -34,4 +34,3 @@ RUN cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 --preset f
 RUN cmake --build build-fuzzing-cov
 
 COPY entrypoint.sh .
-COPY coverage_style.css .

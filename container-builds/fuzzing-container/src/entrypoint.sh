@@ -253,7 +253,6 @@ cov() {
         -show-line-counts-or-regions                             \
         --show-branches=percent                                  \
         --show-directory-coverage
-    cp ./coverage_style.css "$COVERAGE/cov-html/style.css"
 }
 
 case "$mode" in
