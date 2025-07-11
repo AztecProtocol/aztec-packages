@@ -136,6 +136,12 @@ OUTPUT="$OUTPUT/$fuzzer"
 CORPUS="$CORPUS/$fuzzer"
 [[ -d "$CORPUS" ]] || mkdir "$CORPUS"
 
+COVERAGE="$COVERAGE/$fuzzer"
+[[ -d "$COVERAGE" ]] || mkdir "$COVERAGE"
+
+RAWCOV="$RAWCOV/$fuzzer"
+[[ -d "$RAWCOV" ]] || mkdir "$RAWCOV"
+
 if compgen -G "$OUTPUT/*"* &> /dev/null; then
     dirs_=("$OUTPUT/"*)
     dirnum="${#dirs_[@]}"
@@ -236,12 +242,12 @@ cov() {
     trap 'rm -rf "$TMPOUT" 2>/dev/null' EXIT
 
     TS=$(date +%Y%m%dT%H%M%S)
-    LLVM_PROFILE_FILE="$RAWCOV/${fuzzer}-${TS}-%p.profraw" "$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
+    LLVM_PROFILE_FILE="$RAWCOV/${TS}-%p.profraw" "$cov_fuzzer" -merge=1 "$TMPOUT" "$CORPUS/"
 
-    llvm-profdata-16 merge -sparse "$RAWCOV/"*.profraw -o "$COVERAGE/barretenberg-fuzzing.profdata"
+    llvm-profdata-18 merge -sparse "$RAWCOV/"*.profraw -o "$COVERAGE/fuzz.profdata"
 
-    llvm-cov-16 show "$cov_fuzzer"                               \
-        -instr-profile="$COVERAGE/barretenberg-fuzzing.profdata" \
+    llvm-cov-18 show "$cov_fuzzer"                               \
+        -instr-profile="$COVERAGE/fuzz.profdata" \
         -format=html                                             \
         -output-dir="$COVERAGE/cov-html"                         \
         -show-line-counts-or-regions                             \
