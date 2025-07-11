@@ -11,6 +11,9 @@
 
 using namespace bb;
 using namespace bb::stdlib;
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
 
 #define STDLIB_TYPE_ALIASES                                                                                            \
     using Builder = TypeParam;                                                                                         \
@@ -69,6 +72,59 @@ TYPED_TEST(ByteArrayTest, test_string_constructor)
     EXPECT_EQ(arr.get_string(), a);
 }
 
+TYPED_TEST(ByteArrayTest, test_into_byte_decomposition)
+{
+    STDLIB_TYPE_ALIASES
+
+    auto check_byte_decomposition = [](const byte_array_ct& arr, const field_ct& original_val) {
+        STDLIB_TYPE_ALIASES
+        size_t num_bytes = arr.size();
+        fr reconstructed = 0;
+
+        for (size_t i = 0; i < num_bytes; ++i) {
+            auto byte = arr[i].get_value();
+            reconstructed += byte * fr(uint256_t(1) << ((num_bytes - 1 - i) * 8));
+        }
+        EXPECT_TRUE(original_val.get_value() == reconstructed);
+    };
+
+    auto builder = Builder();
+
+    field_ct test_val = witness_ct(&builder, fr::random_element());
+
+    byte_array_ct arr(test_val, 32);
+
+    check_byte_decomposition(arr, test_val);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+
+    {
+        // Produce a 256 bit value `x` such that the high limb of (r-1) - x is overflowing.
+        uint256_t overflowing_value(fr::modulus + 100);
+
+        test_val = witness_ct(&builder, overflowing_value);
+
+        byte_array<Builder> failure_array(test_val, 32, overflowing_value);
+        check_byte_decomposition(failure_array, test_val);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_TRUE(builder.err() == "byte_array: y_hi doesn't fit in 128 bits.");
+    }
+
+    {
+        // Test the case when (r-1).lo - x.lo + 2^128 is not a 129 bit integer, i.e. is negative.
+        Builder builder;
+        uint256_t y_overlap_not_bit("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
+        test_val = witness_ct(&builder, y_overlap_not_bit);
+
+        byte_array<Builder> failure_array(test_val, 32, y_overlap_not_bit);
+        check_byte_decomposition(failure_array, test_val);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_TRUE(builder.err() == "byte_array: y_overlap is not a bit");
+    }
+}
+
 TYPED_TEST(ByteArrayTest, test_ostream_operator)
 {
     STDLIB_TYPE_ALIASES
@@ -96,8 +152,8 @@ TYPED_TEST(ByteArrayTest, test_byte_array_input_output_consistency)
 
     byte_array_ct arr(&builder);
 
-    arr.write(static_cast<byte_array_ct>(a));
-    arr.write(static_cast<byte_array_ct>(b));
+    arr.write(byte_array_ct(a));
+    arr.write(byte_array_ct(b));
 
     EXPECT_EQ(arr.size(), 64UL);
 

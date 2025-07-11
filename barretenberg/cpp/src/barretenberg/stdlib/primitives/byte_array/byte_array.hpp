@@ -21,7 +21,9 @@ template <typename Builder> class byte_array {
     byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
     byte_array(Builder* parent_context, bytes_t const& input);
     byte_array(Builder* parent_context, bytes_t&& input);
-    byte_array(const field_t<Builder>& input, const size_t num_bytes = 32);
+    byte_array(const field_t<Builder>& input,
+               const size_t num_bytes = 32,
+               std::optional<uint256_t> test_val = std::nullopt);
     byte_array(const safe_uint_t<Builder>& input, const size_t num_bytes = 32);
 
     template <typename ItBegin, typename ItEnd>

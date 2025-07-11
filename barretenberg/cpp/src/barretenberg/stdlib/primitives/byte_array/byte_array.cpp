@@ -92,74 +92,99 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
  * Case 0 corresponds to the range [1, 2^128-1]. We see that the 129th bit of y_lo exactly indicates the case.
  * Extracting this (and the 130th bit, which is always 0, for convenience) and adding it to v_hi, we have a uniform
  * constraint to apply. Namely, setting
- *      y_overlap := 1 - (top quad of y_lo regarded as a 130-bit integer)
+ *      y_overlap := 1 - (top bit of y_lo regarded as a 129-bit integer)
  * and
  *      y_hi := s_hi - v_hi - y_overlap,
- * range constrianing y_hi to 128 bits imposes validator < r.
+ * range constraining y_hi to 128 bits imposes validator < r.
  */
-template <typename Builder> byte_array<Builder>::byte_array(const field_t<Builder>& input, const size_t num_bytes)
+template <typename Builder>
+byte_array<Builder>::byte_array(const field_t<Builder>& input,
+                                const size_t num_bytes,
+                                std::optional<uint256_t> test_val)
 {
-    ASSERT(num_bytes <= 32);
-    uint256_t value = input.get_value();
+    using field_t = field_t<Builder>;
+
+    static constexpr size_t max_num_bytes = 32;
+    static constexpr size_t midpoint = max_num_bytes / 2;
+
+    ASSERT(num_bytes <= max_num_bytes);
+    const uint256_t value = test_val.has_value() ? *test_val : static_cast<uint256_t>(input.get_value());
+
     values.resize(num_bytes);
+
+    std::vector<field_t> accumulator_lo;
+    std::vector<field_t> accumulator_hi;
+
     context = input.get_context();
+
+    // size_t start = context->get_estimated_num_finalized_gates();
+
     if (input.is_constant()) {
+        // ADD CHECKS HERE!
         for (size_t i = 0; i < num_bytes; ++i) {
-            values[i] = bb::fr(value.slice((num_bytes - i - 1) * 8, (num_bytes - i) * 8));
+            size_t bit_start = (num_bytes - i - 1) * 8;
+            size_t bit_end = bit_start + 8;
+            values[i] = bb::fr(value.slice(bit_start, bit_end));
         }
     } else {
-        constexpr bb::fr byte_shift(256);
-        field_t<Builder> validator(context, 0);
-
-        field_t<Builder> shifted_high_limb(context, 0); // will be set to 2^128v_hi if `i` reaches 15.
         for (size_t i = 0; i < num_bytes; ++i) {
-            bb::fr byte_val = value.slice((num_bytes - i - 1) * 8, (num_bytes - i) * 8);
-            field_t<Builder> byte = witness_t(context, byte_val);
+
+            size_t bit_start = (num_bytes - i - 1) * 8;
+            size_t bit_end = bit_start + 8;
+            // info(byte_val);
+            field_t byte = witness_t(context, value.slice(bit_start, bit_end));
             byte.create_range_constraint(8, "byte_array: byte extraction failed.");
-            bb::fr scaling_factor_value = byte_shift.pow(static_cast<uint64_t>(num_bytes - 1 - i));
-            field_t<Builder> scaling_factor(context, scaling_factor_value);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1082): Addition could be optimized
-            validator = validator + (scaling_factor * byte);
+
             values[i] = byte;
-            if (i == 15) {
-                shifted_high_limb = field_t<Builder>(validator);
+
+            const field_t scaling_factor = uint256_t(1) << bit_start;
+
+            if (i < midpoint) {
+                accumulator_hi.push_back(scaling_factor * byte);
+            } else {
+                accumulator_lo.push_back(scaling_factor * byte);
             }
         }
-        validator.assert_equal(input);
+        const field_t reconstructed_lo = field_t::accumulate(accumulator_lo);
+
+        const field_t reconstructed_hi = field_t::accumulate(accumulator_hi);
+
+        input.assert_equal(reconstructed_hi + reconstructed_lo);
 
         // constrain validator to be < r
         if (num_bytes == 32) {
             constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-            const fr s_lo = modulus_minus_one.slice(0, 128);
-            const fr s_hi = modulus_minus_one.slice(128, 256);
-            const fr shift = fr(uint256_t(1) << 128);
-            field_t<Builder> y_lo = (-validator) + (s_lo + shift);
+            constexpr uint256_t s_lo = modulus_minus_one.slice(0, 128);
+            constexpr uint256_t s_hi = modulus_minus_one.slice(128, 256);
+            const uint256_t shift = uint256_t(1) << 128;
 
-            field_t<Builder> y_overlap;
-            if constexpr (HasPlookup<Builder>) {
-                // carve out the 2 high bits from (y_lo + shifted_high_limb) and instantiate as y_overlap
-                const uint256_t y_lo_value = y_lo.get_value() + shifted_high_limb.get_value();
-                const uint256_t y_overlap_value = y_lo_value >> 128;
-                y_overlap = witness_t<Builder>(context, y_overlap_value);
-                y_overlap.create_range_constraint(2, "byte_array: y_overlap is not a quad");
-                field_t<Builder> y_remainder =
-                    y_lo.add_two(shifted_high_limb, -(y_overlap * field_t<Builder>(uint256_t(1ULL) << 128)));
-                y_remainder.create_range_constraint(128, "byte_array: y_remainder doesn't fit in 128 bits.");
-                y_overlap = -(y_overlap - 1);
-            } else {
-                // defining input_lo = validator - shifted_high_limb, we're checking s_lo + shift - input_lo is
-                // non-negative.
-                y_lo += shifted_high_limb;
-                // The range constraint imposed here already holds implicitly. We only do this to get the top quad.
-                const auto low_accumulators = context->decompose_into_base4_accumulators(
-                    y_lo.normalize().witness_index, 130, "byte_array: normalized y_lo too large.");
-                y_overlap = -(field_t<Builder>::from_witness_index(context, low_accumulators[0]) - 1);
-            }
+            const field_t diff_lo = -reconstructed_lo + s_lo + shift;
+
+            const uint256_t diff_lo_value =
+                -value + static_cast<uint256_t>(reconstructed_hi.get_value()) + s_lo + shift;
+
+            // Slice diff_lo = [diff_lo_lo, diff_overlap], such that
+            // diff_lo = diff_lo_lo + 2^128 * diff_overlap && diff_lo_lo is 128 bits && diff_overlap is 1 bit
+
+            // Extract the "borrow" bit
+            const uint256_t diff_lo_hi = (diff_lo_value >> 128);
+            const field_t diff_overlap = witness_t<Builder>(context, diff_lo_hi);
+            diff_overlap.create_range_constraint(1, "byte_array: y_overlap is not a bit");
+
+            // Extract first 128 bits
+            constexpr uint256_t one(1);
+            const uint256_t lo_mask = (one << 128) - 1;
+            const uint256_t lo = diff_lo_value & lo_mask;
+            const field_t diff_lo_lo = witness_t(context, lo);
+            diff_lo_lo.create_range_constraint(128, "byte_array: y_remainder doesn't fit in 128 bits.");
+
+            // Both chunks were computed out-of-circuit - need to constrain. The range constraints above ensure that
+            // they are not overlapping.
+            diff_lo.assert_equal(diff_lo_lo + diff_overlap * shift);
             // define input_hi = shifted_high_limb/shift. We know input_hi is max 128 bits, and we're checking
             // s_hi - (input_hi + borrow) is non-negative
-            field_t<Builder> y_hi = -(shifted_high_limb / shift) + (s_hi);
-            y_hi -= y_overlap;
-            y_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
+            field_t diff_hi = (-reconstructed_hi / shift).add_two(s_hi, diff_overlap - 1);
+            diff_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
         }
     }
     set_origin_tag(input.tag);
