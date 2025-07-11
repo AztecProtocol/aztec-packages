@@ -19,8 +19,14 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // allowed in contracts.
     check_each_fn_macroified(m);
 
-    let contract_library_method_compute_note_hash_and_nullifier =
-        generate_contract_library_method_compute_note_hash_and_nullifier();
+    let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
+        f.name() == quote { _compute_note_hash_and_nullifier }
+    }) {
+        generate_contract_library_method_compute_note_hash_and_nullifier()
+    } else {
+        quote {}
+    };
+
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     let sync_private_state = generate_sync_private_state();
