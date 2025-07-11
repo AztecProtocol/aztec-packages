@@ -13,7 +13,6 @@ import {
 
 uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
 
-
 function bytes32ToString(bytes32 value) pure returns (string memory result) {
     bytes memory alphabet = "0123456789abcdef";
 
@@ -27,8 +26,8 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
     result = string(str);
 }
 
-
 // Fr utility
+
 
 function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
     require(proofSection.length == 0x20, "invalid number of bytes to construct Fr scalar");
@@ -77,4 +76,3 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
     (bool success, bytes memory result) = address(0x08).staticcall(input);
     decodedResult = success && abi.decode(result, (bool));
 }
-

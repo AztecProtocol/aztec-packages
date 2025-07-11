@@ -5,6 +5,8 @@ import {strings} from "stringutils/strings.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {TestBase} from "./TestBase.sol";
 
+import "forge-std/console.sol";
+
 contract DifferentialFuzzer is TestBase {
     using strings for *;
     using Strings for uint256;
@@ -96,6 +98,12 @@ contract DifferentialFuzzer is TestBase {
         ffi_cmds[1] = get_flavor();
         ffi_cmds[2] = get_circuit_type();
         ffi_cmds[3] = get_inputs();
+
+        console.log("params");
+        console.log(ffi_cmds[0]);
+        console.log(ffi_cmds[1]);
+        console.log(ffi_cmds[2]);
+        console.log(ffi_cmds[3]);
 
         proof = vm.ffi(ffi_cmds);
     }
