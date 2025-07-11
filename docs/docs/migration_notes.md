@@ -15,7 +15,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 As part of a broader effort to make TXE easier to use and reason about, large parts of it are being changed or adapted.
 
-- `committed_block_number` and `committed_timestamp` removed: these functions did not work correctly, and were not generally very useful
+- `committed_timestamp` removed: this function did not work correctly
 - `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamps
 - `pending_block_number` was renamed to `next_block_number`. `pending_timestamp` was removed since it was confusing and not useful
 - `committed_block_number` was renamed to `last_block_number`
