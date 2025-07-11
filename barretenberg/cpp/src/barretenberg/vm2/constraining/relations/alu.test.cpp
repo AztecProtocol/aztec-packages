@@ -803,27 +803,27 @@ TEST_P(NotIntegralTest, Basic)
 const std::vector<ThreeOperandTestParams> NOT_INTEGRAL_TEST_PARAMS = {
     {
         .a = MemoryValue::from<uint1_t>(1),
-        .b = MemoryValue::from<uint1_t>(0),
+        .b = ~a,
     },
     {
         .a = MemoryValue::from<uint8_t>(42),
-        .b = MemoryValue::from<uint8_t>(UINT8_MAX - 42),
+        .b = ~a,
     },
     {
         .a = MemoryValue::from<uint16_t>(12345),
-        .b = MemoryValue::from<uint16_t>(UINT16_MAX - 12345),
+        .b = ~a,
     },
     {
         .a = MemoryValue::from<uint32_t>(123456789),
-        .b = MemoryValue::from<uint32_t>(UINT32_MAX - 123456789),
+        .b = ~a,
     },
     {
         .a = MemoryValue::from<uint64_t>(1234567890123456789ULL),
-        .b = MemoryValue::from<uint64_t>(UINT64_MAX - 1234567890123456789ULL),
+        .b = ~a,
     },
     {
         .a = MemoryValue::from<uint128_t>(987654),
-        .b = MemoryValue::from<uint128_t>(static_cast<uint128_t>((uint256_t(1) << 128) - 1 - 987654)),
+        .b = ~a,
     },
 };
 
@@ -841,7 +841,7 @@ TEST(AluConstrainingTest, NotFF)
 TEST(AluConstrainingTest, NegativeNotWrongOpId)
 {
     auto trace =
-        process_not_op_trace({ .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint8_t>(UINT8_MAX - 42) });
+        process_not_op_trace({ .a = MemoryValue::from<uint8_t>(42), .b = ~a });
     check_relation<alu>(trace);
     trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_EQ);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "OP_ID_CHECK");
@@ -850,7 +850,7 @@ TEST(AluConstrainingTest, NegativeNotWrongOpId)
 TEST(AluConstrainingTest, NegativeNotWrongTag)
 {
     auto trace =
-        process_not_op_trace({ .a = MemoryValue::from<uint8_t>(42), .b = MemoryValue::from<uint8_t>(UINT8_MAX - 42) });
+        process_not_op_trace({ .a = MemoryValue::from<uint8_t>(42), .b = ~a });
     check_relation<alu>(trace);
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(bb::avm2::MemoryTag::U16));
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");

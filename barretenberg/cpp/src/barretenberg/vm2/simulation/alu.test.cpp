@@ -208,7 +208,7 @@ TEST(AvmSimulationAluTest, NotBasic)
     const auto a = MemoryValue::from<uint64_t>(98321);
     const auto b = alu.op_not(a);
 
-    EXPECT_EQ(b, MemoryValue::from<uint64_t>(UINT64_MAX - 98321));
+    EXPECT_EQ(b, ~a);
 
     auto events = alu_event_emitter.dump_events();
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::NOT, .a = a, .b = b, .error = std::nullopt }));
