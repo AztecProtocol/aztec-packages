@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
     bucket = "aztec-terraform"
-    prefix = "network-deploy/us-west1-a/aztec-gke-public/alpha-testnet/terraform.tfstate"
+    prefix = "network-deploy/us-west1-a/aztec-gke-public/staging-testnet/terraform.tfstate"
   }
   required_providers {
     helm = {
@@ -61,7 +61,7 @@ data "google_secret_manager_secret_version" "mnemonic_latest" {
 }
 
 data "google_secret_manager_secret_version" "blockchain_node_api_key_latest" {
-  secret = "${var.RELEASE_PREFIX}-geth-api-key"
+  secret = "alpha-testnet-geth-api-key"
 }
 
 data "kubernetes_service" "reth" {
@@ -102,6 +102,61 @@ locals {
   ]
 }
 
+resource "helm_release" "p2p_bootstrap" {
+  provider         = helm.gke-cluster
+  name             = "${var.RELEASE_PREFIX}-p2p-bootstrap"
+  repository       = "../../"
+  chart            = "aztec-node"
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+
+  values = [
+    file("./values/staging-testnet-p2p-bootstrap.yaml"),
+    file("./values/staging-testnet.yaml"),
+  ]
+
+  set {
+    name  = "global.aztecImage.repository"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[0]
+  }
+
+  set {
+    name  = "global.aztecImage.tag"
+    value = split(":", var.AZTEC_DOCKER_IMAGE)[1]
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
+  set_list {
+    name  = "global.l1ExecutionUrls"
+    value = local.ethereum_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusUrls"
+    value = local.consensus_hosts
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeys"
+    value = local.consensus_api_keys
+  }
+
+  set_list {
+    name  = "global.l1ConsensusHostApiKeyHeaders"
+    value = local.consensus_api_key_headers
+  }
+
+  timeout       = 300
+  wait          = false
+  wait_for_jobs = false
+}
+
+
 resource "helm_release" "validators" {
   provider         = helm.gke-cluster
   name             = "${var.RELEASE_PREFIX}-validator"
@@ -113,7 +168,14 @@ resource "helm_release" "validators" {
 
   values = [
     file("./values/${var.VALIDATOR_VALUES}"),
+    file("./values/staging-testnet.yaml"),
   ]
+
+
+  set {
+    name  = "validator.node.env.BOOT_NODE_HOST"
+    value = "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  }
 
   set {
     name  = "global.aztecImage.repository"
@@ -176,7 +238,13 @@ resource "helm_release" "prover" {
 
   values = [
     file("./values/${var.PROVER_VALUES}"),
+    file("./values/staging-testnet.yaml"),
   ]
+
+  set {
+    name  = "node.node.env.BOOT_NODE_HOST"
+    value = "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  }
 
   set {
     name  = "global.aztecImage.repository"
@@ -228,92 +296,3 @@ resource "helm_release" "prover" {
   wait_for_jobs = false
 }
 
-resource "helm_release" "nodes" {
-  provider         = helm.gke-cluster
-  name             = "${var.RELEASE_PREFIX}-node"
-  repository       = "../../"
-  chart            = "aztec-node"
-  namespace        = var.NAMESPACE
-  create_namespace = true
-  upgrade_install  = true
-
-  values = [
-    file("./values/${var.NODE_VALUES}"),
-  ]
-
-  set {
-    name  = "global.aztecImage.repository"
-    value = split(":", var.AZTEC_DOCKER_IMAGE)[0] # e.g. aztecprotocol/aztec
-  }
-
-  set {
-    name  = "global.aztecImage.tag"
-    value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
-  }
-
-  set {
-    name  = "global.otelCollectorEndpoint"
-    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
-  }
-
-  set {
-    name  = "global.useGcloudLogging"
-    value = true
-  }
-
-  set_list {
-    name  = "global.l1ExecutionUrls"
-    value = local.ethereum_hosts
-  }
-
-  set_list {
-    name  = "global.l1ConsensusUrls"
-    value = local.consensus_hosts
-  }
-
-  set_list {
-    name  = "global.l1ConsensusHostApiKeys"
-    value = local.consensus_api_keys
-  }
-
-  set_list {
-    name  = "global.l1ConsensusHostApiKeyHeaders"
-    value = local.consensus_api_key_headers
-  }
-
-  timeout       = 300
-  wait          = false
-  wait_for_jobs = false
-}
-
-data "kubernetes_service" "node_admin_svc" {
-  depends_on = [helm_release.nodes]
-  provider   = kubernetes.gke-cluster
-  metadata {
-    name      = "${var.RELEASE_PREFIX}-node"
-    namespace = var.NAMESPACE
-  }
-}
-
-resource "helm_release" "snapshots" {
-  provider         = helm.gke-cluster
-  name             = "${var.RELEASE_PREFIX}-snapshots"
-  repository       = "../../"
-  chart            = "aztec-snapshots"
-  namespace        = var.NAMESPACE
-  create_namespace = true
-  upgrade_install  = true
-
-  values = [
-    file("./values/${var.SNAPSHOT_VALUES}"),
-  ]
-
-  set {
-    name  = "snapshots.aztecNodeAdminUrl"
-    value = "http://${data.kubernetes_service.node_admin_svc.metadata.0.name}.${data.kubernetes_service.node_admin_svc.metadata.0.namespace}.svc.cluster.local:8081"
-  }
-
-  timeout       = 300
-  wait          = false
-  wait_for_jobs = false
-}
