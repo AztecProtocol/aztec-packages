@@ -228,13 +228,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     std::shared_ptr<MegaVerificationKey> verification_key =
         create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
 
-    // If the verification queue entry corresponds to a kernel circuit, set the databus data to indicate the presence of
-    // propagated return data commitments on the public inputs
-    if (is_kernel) {
-        verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
-    }
-
-    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
+    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
 }
 
 /**

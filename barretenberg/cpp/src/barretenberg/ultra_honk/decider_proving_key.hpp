@@ -218,10 +218,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 ipa_proof = circuit.ipa_proof;
             }
 
-            if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
-                metadata.databus_propagation_data = circuit.databus_propagation_data;
-            }
-
             // Based on the flavor, we can check the locations of each backend-added public input object.
             if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
                                                        // [user-public-inputs][pairing-point-object][ipa-claim]

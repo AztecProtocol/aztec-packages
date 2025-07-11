@@ -135,6 +135,7 @@ class ClientIVC {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -143,6 +144,7 @@ class ClientIVC {
         StdlibProof proof; // oink or PG
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 

@@ -131,7 +131,6 @@ struct MetaData {
     size_t pub_inputs_offset = 0;
     PublicComponentKey pairing_inputs_public_input_key;
     PublicComponentKey ipa_claim_public_input_key;
-    DatabusPropagationData databus_propagation_data;
 };
 
 /**

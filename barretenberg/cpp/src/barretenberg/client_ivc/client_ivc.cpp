@@ -51,21 +51,20 @@ void ClientIVC::instantiate_stdlib_verification_queue(
 
     size_t key_idx = 0;
     while (!verification_queue.empty()) {
-        auto& [proof, vk, type] = verification_queue.front();
+        const VerifierInputs& entry = verification_queue.front();
 
         // Construct stdlib proof directly from the internal native queue data
-        StdlibProof stdlib_proof(circuit, proof);
+        StdlibProof stdlib_proof(circuit, entry.proof);
 
         // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
-        // Why?? ^
         std::shared_ptr<RecursiveVKAndHash> stdlib_vk_and_hash;
         if (vkeys_provided) {
             stdlib_vk_and_hash = input_keys[key_idx++];
         } else {
-            stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(circuit, vk);
+            stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(circuit, entry.honk_vk);
         }
 
-        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vk_and_hash, type });
+        stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type, entry.is_kernel);
 
         verification_queue.pop_front(); // the native data is not needed beyond this point
     }
@@ -136,9 +135,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): move is_kernel flag out of
-    // databus_propagation_data or remove it altogether
-    if (decider_vk->vk_and_hash->vk->databus_propagation_data.is_kernel) {
+    if (verifier_inputs.is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(decider_vk->public_inputs);
@@ -175,7 +172,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
  */
 void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
-    circuit.databus_propagation_data.is_kernel = true;
+    circuit.is_kernel = true;
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app)
@@ -225,7 +222,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
     // the circuit VK
-    if (circuit.databus_propagation_data.is_kernel) {
+    if (circuit.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
     }
@@ -258,9 +255,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
+    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
     if (!initialized) {
-        // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
-        // proof
+        BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
+        // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, accumulation_transcript };
         vinfo("computing oink proof...");
         oink_prover.prove();
@@ -272,8 +270,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
-        // Add oink proof and corresponding verification key to the verification queue
-        verification_queue.push_back(VerifierInputs{ oink_proof, honk_vk, QUEUE_TYPE::OINK });
+        queue_entry.type = QUEUE_TYPE::OINK;
+        queue_entry.proof = oink_proof;
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
@@ -286,9 +284,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
-        // Add fold proof and corresponding verification key to the verification queue
-        verification_queue.push_back(VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
+        queue_entry.type = QUEUE_TYPE::PG;
+        queue_entry.proof = fold_output.proof;
     }
+    verification_queue.push_back(queue_entry);
 
     // Construct merge proof for the present circuit
     goblin.prove_merge(accumulation_transcript);
