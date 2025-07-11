@@ -12,6 +12,7 @@ geth \
   --authrpc.addr=0.0.0.0 \
   --authrpc.port=${ENGINE_PORT:-8551} \
   --authrpc.jwtsecret=/genesis/jwt-secret.hex \
+  --authrpc.vhosts="*" \
   --http \
   --http.addr 0.0.0.0 \
   --http.port ${HTTP_PORT:-8545} \
