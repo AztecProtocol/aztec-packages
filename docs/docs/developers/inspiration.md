@@ -68,7 +68,7 @@ There is also a list of up-to-date contract examples in the [aztec-packages Gith
 
 ## Ecosystem projects
 
-- [ShieldSwap](https://app.shieldswap.org/?type=market)
+- [Nemi](https://nemi.fi)
 - [AztecScan](https://aztecscan.xyz/)
 - [Azguard](https://azguardwallet.io/terms)
 
