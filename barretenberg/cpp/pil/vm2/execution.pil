@@ -37,6 +37,7 @@ include "bytecode/class_id_derivation.pil";
 include "bytecode/update_check.pil";
 
 include "opcodes/get_env_var.pil";
+include "opcodes/get_contract_instance.pil";
 include "opcodes/internal_call.pil";
 include "opcodes/external_call.pil";
 include "opcodes/sload.pil";
@@ -88,9 +89,17 @@ pol commit sel_bytecode_retrieval_failure;
 
 #[BYTECODE_RETRIEVAL_RESULT]
 sel {
-    bytecode_id, contract_address, sel_bytecode_retrieval_failure
+    bytecode_id,
+    contract_address,
+    nullifier_tree_root, // from context.pil
+    public_data_tree_root, // from context.pil
+    sel_bytecode_retrieval_failure
 } in bc_retrieval.sel {
-    bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
+    bc_retrieval.bytecode_id,
+    bc_retrieval.address,
+    bc_retrieval.nullifier_tree_root,
+    bc_retrieval.public_data_tree_root,
+    bc_retrieval.error
 };
 
 pol commit sel_bytecode_retrieval_success;
@@ -324,7 +333,8 @@ sel_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
 sel_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
 sel_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
 sel_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
-sel_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY
+sel_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY +
+sel_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
@@ -372,6 +382,7 @@ pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
 pol commit sel_opcode_failure;
 sel_opcode_failure * (1 - sel_opcode_failure) = 0;
 pol commit sel_keccakf1600;
+pol commit sel_get_contract_instance;
 
 /**************************************************************************************************
 * Dispatch permutations to the gadget subtraces
@@ -381,6 +392,33 @@ pol commit sel_keccakf1600;
 sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error }
 is
 keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
+
+// Note: GetContractInstance performs its memory writes internally, so it doesn't have any "outputs" back
+// to execution except its "error".
+#[DISPATCH_GET_CONTRACT_INSTANCE]
+sel_get_contract_instance {
+    // inputs
+    precomputed.clk,
+    /*contract_address=*/ register[0],
+    /*dst_offset=*/ rop[1],
+    /*member_enum=*/ rop[2],
+    /*space_id=*/ context_id,
+    /*nullifier_tree_root=*/ nullifier_tree_root,
+    /*public_data_tree_root=*/ public_data_tree_root,
+    // outputs/errors
+    sel_opcode_error
+} is get_contract_instance.sel {
+    // inputs
+    get_contract_instance.clk,
+    get_contract_instance.contract_address,
+    get_contract_instance.dst_offset,
+    get_contract_instance.member_enum,
+    get_contract_instance.space_id,
+    get_contract_instance.nullifier_tree_root,
+    get_contract_instance.public_data_tree_root,
+    // outputs/errors
+    get_contract_instance.error
+};
 
 /**************************************************************************************************
  *  Opcode specific constraints

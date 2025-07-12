@@ -256,6 +256,7 @@ export const AVM_SUBTRACE_ID_TO_RADIX = 16;
 export const AVM_SUBTRACE_ID_ECC = 32;
 export const AVM_SUBTRACE_ID_KECCAKF1600 = 64;
 export const AVM_SUBTRACE_ID_DATA_COPY = 128;
+export const AVM_SUBTRACE_ID_GETCONTRACTINSTANCE = 256;
 export const AVM_EXEC_OP_ID_GETENVVAR = 1;
 export const AVM_EXEC_OP_ID_SET = 2;
 export const AVM_EXEC_OP_ID_MOV = 4;

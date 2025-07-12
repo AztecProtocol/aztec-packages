@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -20,10 +21,12 @@
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/get_contract_instance_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
@@ -38,6 +41,7 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -107,8 +111,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
     typename S::template DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent>
         written_public_data_slots_tree_check_emitter;
-
-    uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
+    typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
+    typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
@@ -147,18 +151,21 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     merkle_db.add_checkpoint_listener(nullifier_tree_check);
     merkle_db.add_checkpoint_listener(public_data_tree_check);
 
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_emitter, hints.tx.globalVariables);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
     InstructionInfoDB instruction_info_db;
+
+    ContractInstanceManager contract_instance_manager(
+        contract_db, merkle_db, update_check, contract_instance_retrieval_emitter);
+
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
                                        poseidon2,
                                        bytecode_hasher,
                                        range_check,
-                                       update_check,
-                                       current_timestamp,
+                                       contract_instance_manager,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
@@ -176,6 +183,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      hints.tx.globalVariables);
     DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
 
+    // Create GetContractInstance opcode component
+    GetContractInstance get_contract_instance(
+        execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
+
     Execution execution(alu,
                         bitwise,
                         data_copy,
@@ -186,6 +197,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_emitter,
                         context_stack_emitter,
                         keccakf1600,
+                        get_contract_instance,
                         merkle_db);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, poseidon2, tx_event_emitter);
 
@@ -223,6 +235,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         internal_call_stack_emitter.dump_events(),
         note_hash_tree_check_emitter.dump_events(),
         written_public_data_slots_tree_check_emitter.dump_events(),
+        contract_instance_retrieval_emitter.dump_events(),
+        get_contract_instance_emitter.dump_events(),
     };
 }
 

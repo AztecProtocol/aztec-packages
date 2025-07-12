@@ -9,7 +9,8 @@ namespace bb::avm2 {
 
 namespace {
 
-// This structure is code-generated (but manually set) by the test: DecompositionSelectors.CodeGen
+// This structure is code-generated (but manually set) by the test:
+// DecompositionSelectors.CodeGen (op_decomposition.test.cpp)
 const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = {
     { WireOpCode::ADD_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
     { WireOpCode::ADD_16, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
@@ -555,6 +556,10 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_SLOAD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_input(/*slot*/ ValueTag::FF).add_output(/*dst*/) } },
+    { ExecutionOpCode::GETCONTRACTINSTANCE,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
 };
 
 } // namespace bb::avm2

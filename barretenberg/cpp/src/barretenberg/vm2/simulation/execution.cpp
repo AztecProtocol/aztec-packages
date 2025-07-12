@@ -531,6 +531,32 @@ void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, Memory
     set_output(opcode, value);
 }
 
+void Execution::get_contract_instance(ContextInterface& context,
+                                      MemoryAddress address_offset,
+                                      MemoryAddress dst_offset,
+                                      uint8_t member_enum)
+{
+    constexpr auto opcode = ExecutionOpCode::GETCONTRACTINSTANCE;
+    auto& memory = context.get_memory();
+
+    // Execution can still handle address memory read and tag checking
+    auto address_value = memory.get(address_offset);
+    AztecAddress contract_address = address_value.as<AztecAddress>();
+    set_and_validate_inputs(opcode, { address_value });
+
+    get_gas_tracker().consume_gas();
+
+    // Call the dedicated opcode component to get the contract instance, validate the enum,
+    // handle other errors, and perform the memory writes.
+    try {
+        get_contract_instance_component.get_contract_instance(memory, contract_address, dst_offset, member_enum);
+    } catch (const GetContractInstanceException& e) {
+        throw OpcodeExecutionException("GetContractInstance Exception");
+    }
+
+    // No `set_output` here since the dedicated component handles memory writes.
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -755,6 +781,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SLOAD:
         call_with_operands(&Execution::sload, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETCONTRACTINSTANCE:
+        call_with_operands(&Execution::get_contract_instance, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

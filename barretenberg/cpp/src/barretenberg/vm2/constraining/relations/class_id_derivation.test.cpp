@@ -119,11 +119,9 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
     class_id_derivation.assert_derivation(class_id, klass);
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
-    ContractInstance instance = {};
-    instance.current_class_id = class_id;
     bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
                                            .address = 1,
-                                           .contract_instance = instance,
+                                           .current_class_id = class_id,
                                            .contract_class = klass,
                                            .nullifier_root = 3 } },
                                        trace);

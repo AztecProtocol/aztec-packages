@@ -20,6 +20,7 @@ enum class SubtraceSel : uint8_t {
     DATACOPY,
     EXECUTION,
     KECCAKF1600,
+    GETCONTRACTINSTANCE,
 };
 
 struct SubtraceInfo {
