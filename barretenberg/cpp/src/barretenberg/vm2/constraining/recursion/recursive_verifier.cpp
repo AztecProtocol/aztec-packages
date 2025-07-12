@@ -18,14 +18,11 @@
 namespace bb::avm2 {
 
 AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder,
-                                           const std::shared_ptr<NativeVerificationKey>& native_verification_key)
-    : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
-    , builder(builder)
-{}
-
-AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
-    : key(vkey)
-    , builder(builder)
+                                           const std::shared_ptr<VerificationKey>& vkey,
+                                           const FF& vk_hash)
+    : builder(builder)
+    , key(vkey)
+    , vk_hash(vk_hash)
 {}
 
 // Evaluate the given public input column over the multivariate challenge points
@@ -95,7 +92,9 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
     // in-circuit hashing.
     FF vkey_hash = key->add_hash_to_transcript("avm", *transcript);
+    vk_hash.assert_equal(vkey_hash);
     vinfo("AVM vk hash in recursive verifier: ", vkey_hash);
+    vinfo("Expected AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
