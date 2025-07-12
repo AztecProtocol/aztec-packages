@@ -84,8 +84,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
     builder.set_variable(proof_fields[0].witness_index, 1);
-    builder.set_variable(proof_fields[1].witness_index, 1 << log_circuit_size);
-    offset = 2; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
+    offset = 1; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
 
     // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
@@ -172,6 +171,7 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
 
     // Construct in-circuit representations of the verification key, proof and public inputs
     const auto key_fields = fields_from_witnesses(input.key);
+    auto vk_hash = field_ct::from_witness_index(&builder, input.key_hash);
     const auto proof_fields = fields_from_witnesses(input.proof);
     const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
@@ -181,7 +181,7 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     }
 
     // Execute the Goblin AVM2 recursive verifier
-    RecursiveVerifier verifier(builder, key_fields);
+    RecursiveVerifier verifier(builder, key_fields, vk_hash);
 
     bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output =
         verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
