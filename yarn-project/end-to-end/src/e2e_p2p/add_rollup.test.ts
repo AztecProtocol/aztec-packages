@@ -181,6 +181,7 @@ describe('e2e_p2p_add_rollup', () => {
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
+        exitDelaySeconds: 2 * 24 * 60 * 60,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,

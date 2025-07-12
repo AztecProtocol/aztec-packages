@@ -126,6 +126,7 @@ export class EpochsTestContext {
       // but not so much to hang the sequencer and timeout the teardown
       txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
+      exitDelaySeconds: 2 * 24 * 60 * 60,
       ...opts,
     });
 

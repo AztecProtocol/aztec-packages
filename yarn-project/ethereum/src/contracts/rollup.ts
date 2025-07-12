@@ -180,6 +180,11 @@ export class RollupContract {
   }
 
   @memoize
+  getExitDelay() {
+    return this.rollup.read.getExitDelay();
+  }
+
+  @memoize
   getManaTarget() {
     return this.rollup.read.getManaTarget();
   }

@@ -45,6 +45,7 @@ export async function getL1ContractsConfig(
     provingCostPerMana,
     rollupVersion,
     genesisArchiveTreeRoot,
+    exitDelay,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
@@ -62,6 +63,7 @@ export async function getL1ContractsConfig(
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
     rollup.getGenesisArchiveTreeRoot(),
+    rollup.getExitDelay(),
   ] as const);
 
   return {
@@ -81,6 +83,7 @@ export async function getL1ContractsConfig(
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot,
+    exitDelaySeconds: Number(exitDelay),
   };
 }
 
