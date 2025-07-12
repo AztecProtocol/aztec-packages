@@ -58,7 +58,7 @@ contract StakingAssetHandlerScript is Test {
       scope: SCOPE,
       subscope: SUBSCOPE,
       skipBindCheck: false, // DO NOT: skip bind check
-      skipMerkleCheck: false // DO NOT: skip merkle check
+      skipMerkleCheck: true // DO: skip merkle check by default
     });
 
     vm.startBroadcast(ME);
