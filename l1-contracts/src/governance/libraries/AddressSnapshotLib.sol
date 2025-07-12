@@ -150,7 +150,7 @@ library AddressSnapshotLib {
     uint256 size = lengthAtTimestamp(_self, _timestamp);
     require(_index < size, AddressSnapshotLib__IndexOutOfBounds(_index, size));
 
-    uint224 addr = _self.checkpoints[_index].upperLookup(_timestamp);
+    uint224 addr = _self.checkpoints[_index].upperLookupRecent(_timestamp);
     return address(addr.toUint160());
   }
 
@@ -176,7 +176,7 @@ library AddressSnapshotLib {
     view
     returns (uint256)
   {
-    return _self.size.upperLookup(_timestamp);
+    return _self.size.upperLookupRecent(_timestamp);
   }
 
   /**

@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 import {DelegationLibWrapper} from "./DelegationLibWrapper.sol";
-
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 import {WithDelegationLib} from "./base.sol";
 
 contract DelegateTest is WithDelegationLib {
@@ -84,7 +84,7 @@ contract DelegateTest is WithDelegationLib {
     delegationLib.increaseBalance(_instance, _attester, balance);
     delegationLib.delegate(_instance, _attester, _tempDelegatee);
 
-    vm.warp(block.timestamp + 1);
+    vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
 
     vm.record();
     delegationLib.delegate(_instance, _attester, newDelegatee);
@@ -132,7 +132,7 @@ contract DelegateTest is WithDelegationLib {
     assertEq(delegationLib.getSupply(), balance);
     assertEq(delegationLib.getBalanceOf(instance, _attester), balance);
 
-    vm.warp(block.timestamp + 1);
+    vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
 
     vm.record();
     delegationLib.delegate(instance, _attester, _newDelegatee);

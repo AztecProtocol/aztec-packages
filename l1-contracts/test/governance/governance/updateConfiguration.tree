@@ -13,7 +13,7 @@ UpdateConfigurationTest
     │   │   └── it revert
     │   ├── when lockDelay lt min or gt max
     │   │   └── it revert
-    │   ├── when votingDelay lt min or gt max
+    │   ├── when votingDelay lt min or lt DEPOSIT_GRANULARITY_SECONDS or gt max
     │   │   └── it revert
     │   ├── when votingDuration lt min or gt max
     │   │   └── it revert
@@ -37,7 +37,7 @@ UpdateConfigurationTest
         ├── when lockDelay ge min and le max
         │   ├── it updates the configuration
         │   └── it emits {ConfigurationUpdated} event
-        ├── when votingDelay ge min and le max
+        ├── when votingDelay ge min and ge DEPOSIT_GRANULARITY_SECONDS and le max
         │   ├── it updates the configuration
         │   └── it emits {ConfigurationUpdated} event
         ├── when votingDuration ge min and le max

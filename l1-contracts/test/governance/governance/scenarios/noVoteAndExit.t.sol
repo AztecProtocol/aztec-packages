@@ -7,6 +7,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract NoVoteAndExitTest is GovernanceBase {
   using ProposalLib for Proposal;
@@ -41,7 +42,7 @@ contract NoVoteAndExitTest is GovernanceBase {
     vm.stopPrank();
 
     // Jump up to the point where the proposal becomes active
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + DEPOSIT_GRANULARITY_SECONDS);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Active);
 

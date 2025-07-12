@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
-import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {User, UserLib, DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract UserLibBase is TestBase {
   using UserLib for User;
@@ -27,7 +27,10 @@ contract UserLibBase is TestBase {
   ) {
     for (uint256 i = 0; i < CHECKPOINT_COUNT; i++) {
       if (_insert[i] || (i > CHECKPOINT_COUNT / 2 && insertions == 0)) {
-        vm.warp(block.timestamp + bound(_timeBetween[i], 1, type(uint16).max));
+        vm.warp(
+          block.timestamp
+            + DEPOSIT_GRANULARITY_SECONDS * bound(_timeBetween[i], 1, type(uint16).max)
+        );
         uint256 p = bound(_amounts[i], 1, type(uint16).max);
         user.add(p);
         sumBefore += p;

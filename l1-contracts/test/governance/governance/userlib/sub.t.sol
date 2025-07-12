@@ -7,6 +7,7 @@ import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract SubTest is UserLibBase {
   using UserLib for User;
@@ -102,19 +103,19 @@ contract SubTest is UserLibBase {
     // it adds a checkpoint with power equal to last.power - amount
     // it increases num checkpoints
 
-    uint256 time = bound(_time, 1, type(uint16).max);
+    uint256 numCheckpoints = bound(_time, 1, type(uint16).max);
 
     assertEq(user.checkpoints.length(), insertions);
     // Cache in memory
     Checkpoints.Checkpoint224 memory last = user.checkpoints.at(uint32(insertions - 1));
 
-    vm.warp(block.timestamp + time);
+    vm.warp(block.timestamp + numCheckpoints * DEPOSIT_GRANULARITY_SECONDS);
     user.sub(amount);
 
     assertEq(user.checkpoints.length(), insertions + 1);
     Checkpoints.Checkpoint224 memory last2 = user.checkpoints.at(uint32(insertions));
 
-    assertEq(last2._key, last._key + time.toUint32());
+    assertEq(last2._key, last._key + numCheckpoints);
     assertEq(last2._value, last._value - amount.toUint224());
   }
 

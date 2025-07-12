@@ -11,9 +11,9 @@ import {
   Configuration
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {UpgradePayload, FakeRollup} from "../TestPayloads.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract LockAndPassTest is GovernanceBase {
   using ProposalLib for Proposal;
@@ -48,7 +48,7 @@ contract LockAndPassTest is GovernanceBase {
     token.approve(address(governance), config.minimumVotes);
     governance.deposit(address(this), config.minimumVotes);
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + DEPOSIT_GRANULARITY_SECONDS);
     assertEq(governance.getProposalState(proposalId), ProposalState.Active);
 
     vm.prank(address(this));

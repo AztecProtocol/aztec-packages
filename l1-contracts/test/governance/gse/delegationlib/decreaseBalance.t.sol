@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {WithDelegationLib} from "./base.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract DecreaseBalanceTest is WithDelegationLib {
   function test_WhenAmountEq0(address _instance, address _attester) external {
@@ -34,7 +35,7 @@ contract DecreaseBalanceTest is WithDelegationLib {
     uint256 amount = bound(_amount, 1, balance);
     delegationLib.increaseBalance(instance, _attester, balance);
 
-    vm.warp(block.timestamp + 1);
+    vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
 
     vm.record();
     delegationLib.decreaseBalance(instance, _attester, amount);
@@ -79,7 +80,7 @@ contract DecreaseBalanceTest is WithDelegationLib {
     assertEq(delegationLib.getBalanceOf(instance, _attester), balance);
     assertEq(delegationLib.getVotingPower(_delegatee), balance);
 
-    vm.warp(block.timestamp + 1);
+    vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
 
     vm.record();
     delegationLib.decreaseBalance(instance, _attester, amount);

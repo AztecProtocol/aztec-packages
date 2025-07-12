@@ -121,16 +121,16 @@ contract Governance is IGovernance {
     emit ConfigurationUpdated(Timestamp.wrap(block.timestamp));
   }
 
-  function deposit(address _onBehalfOf, uint256 _amount)
+  function deposit(address beneficiary, uint256 _amount)
     external
     override(IGovernance)
-    isDepositAllowed(_onBehalfOf)
+    isDepositAllowed(beneficiary)
   {
     ASSET.safeTransferFrom(msg.sender, address(this), _amount);
-    users[_onBehalfOf].add(_amount);
+    users[beneficiary].add(_amount);
     total.add(_amount);
 
-    emit Deposit(msg.sender, _onBehalfOf, _amount);
+    emit Deposit(msg.sender, beneficiary, _amount);
   }
 
   function initiateWithdraw(address _to, uint256 _amount)
@@ -338,8 +338,10 @@ contract Governance is IGovernance {
     }
 
     Timestamp currentTime = Timestamp.wrap(block.timestamp);
+    uint32 currentDepositCheckpoint = UserLib.toDepositCheckpoint(currentTime);
+    uint32 pendingThroughCheckpoint = UserLib.toDepositCheckpoint(self.pendingThrough());
 
-    if (currentTime <= self.pendingThrough()) {
+    if (currentDepositCheckpoint <= pendingThroughCheckpoint) {
       return ProposalState.Pending;
     }
 

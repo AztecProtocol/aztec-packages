@@ -29,6 +29,7 @@ import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -129,7 +130,7 @@ contract AddRollupTest is TestBase {
     governance.deposit(EMPEROR, 10000 ether);
     vm.stopPrank();
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + DEPOSIT_GRANULARITY_SECONDS);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
