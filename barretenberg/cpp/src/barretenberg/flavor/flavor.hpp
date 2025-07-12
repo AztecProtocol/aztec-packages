@@ -129,8 +129,6 @@ struct MetaData {
     size_t dyadic_size = 0; // power-of-2 size of the execution trace
     size_t num_public_inputs = 0;
     size_t pub_inputs_offset = 0;
-    PublicComponentKey pairing_inputs_public_input_key;
-    PublicComponentKey ipa_claim_public_input_key;
 };
 
 /**
@@ -157,7 +155,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
-    PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const NativeVerificationKey_&) const = default;
     virtual ~NativeVerificationKey_() = default;
@@ -174,7 +171,27 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<fr> to_field_elements() const = 0;
+    virtual std::vector<fr> to_field_elements() const
+    {
+        using namespace bb::field_conversion;
+
+        auto serialize_to_field_buffer = [](const auto& input, std::vector<fr>& buffer) {
+            std::vector<fr> input_fields = convert_to_bn254_frs(input);
+            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+        };
+
+        std::vector<fr> elements;
+
+        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->num_public_inputs, elements);
+        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+        for (const Commitment& commitment : this->get_all()) {
+            serialize_to_field_buffer(commitment, elements);
+        }
+
+        return elements;
+    };
 
     /**
      * @brief A model function to show how to compute the VK hash(without the Transcript abstracting things away)
@@ -199,7 +216,18 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const = 0;
+    virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    {
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+
+        for (const Commitment& commitment : this->get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+        }
+
+        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+    };
 };
 
 /**
@@ -220,7 +248,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
-    PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const StdlibVerificationKey_&) const = default;
     virtual ~StdlibVerificationKey_() = default;
@@ -237,7 +264,27 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<FF> to_field_elements() const = 0;
+    virtual std::vector<FF> to_field_elements() const
+    {
+        using namespace bb::stdlib::field_conversion;
+
+        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
+            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+        };
+
+        std::vector<FF> elements;
+
+        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->num_public_inputs, elements);
+        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+        for (const Commitment& commitment : this->get_all()) {
+            serialize_to_field_buffer(commitment, elements);
+        }
+
+        return elements;
+    };
 
     /**
      * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
@@ -263,7 +310,17 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const = 0;
+    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    {
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+        for (const Commitment& commitment : this->get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+        }
+
+        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+    };
 };
 
 template <typename FF, typename VerificationKey> class VKAndHash_ {

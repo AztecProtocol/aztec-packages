@@ -466,8 +466,7 @@ class UltraFlavor {
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
-            /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
-            /* 3. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -481,65 +480,11 @@ class UltraFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
 
             CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
             for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
                 commitment = commitment_key.commit(polynomial);
             }
-        }
-
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
-         */
-        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
-        {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
-                                                      this->num_public_inputs);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
-                                                      this->pub_inputs_offset);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      this->pairing_inputs_public_input_key.start_idx);
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         // Don't statically check for object completeness.
@@ -550,7 +495,6 @@ class UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
                        q_m,
                        q_c,
                        q_l,

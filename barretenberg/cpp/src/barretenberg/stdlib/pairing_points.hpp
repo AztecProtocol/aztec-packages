@@ -98,15 +98,9 @@ template <typename Builder_> struct PairingPoints {
      */
     uint32_t set_public()
     {
-        Builder* ctx = P0.get_context();
         ASSERT(this->has_data && "Calling set_public on empty pairing points.");
-        if (ctx->pairing_inputs_public_input_key.is_set()) {
-            throw_or_abort("Error: trying to set PairingPoints as public inputs when it already contains one.");
-        }
         uint32_t start_idx = P0.set_public();
         P1.set_public();
-
-        ctx->pairing_inputs_public_input_key.start_idx = start_idx;
 
         return start_idx;
     }

@@ -30,11 +30,9 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH + /* IPA Claim PI start index */ 1;
+        static constexpr size_t VERIFICATION_KEY_LENGTH = UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH;
 
         virtual ~VerificationKey() = default;
-        PublicComponentKey ipa_claim_public_input_key;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -42,74 +40,12 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
-        /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-            serialize_to_field_buffer(ipa_claim_public_input_key.start_idx, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            BB_ASSERT_EQ(elements.size(),
-                         VERIFICATION_KEY_LENGTH,
-                         "Verification key length did not match expected length from formula.");
-
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
-         */
-        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
-        {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
-                                                      this->num_public_inputs);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
-                                                      this->pub_inputs_offset);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      this->pairing_inputs_public_input_key.start_idx);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_ipa_claim_start_idx",
-                                                      ipa_claim_public_input_key.start_idx);
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
-        }
-
         VerificationKey(const PrecomputedData& precomputed)
         {
             this->circuit_size = precomputed.metadata.dyadic_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = precomputed.metadata.pairing_inputs_public_input_key;
-            this->ipa_claim_public_input_key = precomputed.metadata.ipa_claim_public_input_key;
 
             CommitmentKey commitment_key{ precomputed.metadata.dyadic_size };
             for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
@@ -125,8 +61,6 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
-                       ipa_claim_public_input_key,
                        q_m,
                        q_c,
                        q_l,
