@@ -63,10 +63,10 @@ export class L1TokenManager {
   public constructor(
     /** Address of the ERC20 contract. */
     public readonly tokenAddress: EthAddress,
-    /** Address of the handler/faucet contract. */
-    public readonly handlerAddress: EthAddress | undefined,
     private readonly extendedClient: ExtendedViemWalletClient,
     private logger: Logger,
+    /** Address of the handler/faucet contract. */
+    public readonly handlerAddress: EthAddress | undefined = undefined,
   ) {
     this.contract = getContract({
       address: this.tokenAddress.toString(),
@@ -102,19 +102,28 @@ export class L1TokenManager {
 
   /**
    * Mints a fixed amount of tokens for the given address. Returns once the tx has been mined.
+   * @param amount - Amount to mint. Only used if a handler is not provided.
    * @param address - Address to mint the tokens for.
    * @param addressName - Optional name of the address for logging.
+   * @returns The amount of tokens minted.
    */
-  public async mint(address: Hex, addressName?: string) {
-    if (!this.handler) {
-      throw new Error('Minting handler was not provided');
+  public async mint(amount: bigint | undefined, address: Hex, addressName?: string) {
+    if (this.handler) {
+      if (amount) {
+        this.logger.warn('Amount provided but handler is provided, ignoring amount');
+      }
+      const mintAmount = await this.getMintAmount();
+      this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
+      await this.handler.write.mint([address]);
+      return mintAmount;
+    } else if (amount) {
+      this.logger.info(`Minting ${amount} tokens for ${stringifyEthAddress(address, addressName)}`);
+      await this.contract.write.mint([address, amount]);
+      return amount;
+    } else {
+      throw new Error('Amount must be provided if no handler is provided');
     }
-    const mintAmount = await this.getMintAmount();
-    this.logger.info(`Minting ${mintAmount} tokens for ${stringifyEthAddress(address, addressName)}`);
-    // NOTE: the handler mints a fixed amount.
-    await this.handler.write.mint([address]);
   }
-
   /**
    * Approves tokens for the given address. Returns once the tx has been mined.
    * @param amount - Amount to approve.
@@ -137,11 +146,11 @@ export class L1FeeJuicePortalManager {
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    handlerAddress: EthAddress,
     private readonly extendedClient: ExtendedViemWalletClient,
     private readonly logger: Logger,
+    handlerAddress: EthAddress | undefined = undefined,
   ) {
-    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger);
+    this.tokenManager = new L1TokenManager(tokenAddress, extendedClient, logger, handlerAddress);
     this.contract = getContract({
       address: portalAddress.toString(),
       abi: FeeJuicePortalAbi,
@@ -154,27 +163,10 @@ export class L1FeeJuicePortalManager {
     return this.tokenManager;
   }
 
-  /**
-   * Bridges fee juice from L1 to L2 publicly. Handles L1 ERC20 approvals. Returns once the tx has been mined.
-   * @param to - Address to send the tokens to on L2.
-   * @param amount - Amount of tokens to send.
-   * @param mint - Whether to mint the tokens before sending (only during testing).
-   */
-  public async bridgeTokensPublic(to: AztecAddress, amount: bigint | undefined, mint = false): Promise<L2AmountClaim> {
-    const [claimSecret, claimSecretHash] = await generateClaimSecret();
-    const mintableAmount = await this.tokenManager.getMintAmount();
-    const amountToBridge = amount ?? mintableAmount;
-    if (mint) {
-      if (amountToBridge !== mintableAmount) {
-        throw new Error(`Minting amount must be ${mintableAmount}`);
-      }
-      await this.tokenManager.mint(this.extendedClient.account.address);
-    }
-
-    await this.tokenManager.approve(amountToBridge, this.contract.address, 'FeeJuice Portal');
-
+  private async bridgeTokens(to: AztecAddress, amount: bigint, claimSecret: Fr, claimSecretHash: Fr) {
+    await this.tokenManager.approve(amount, this.contract.address, 'FeeJuice Portal');
     this.logger.info('Sending L1 Fee Juice to L2 to be claimed publicly');
-    const args = [to.toString(), amountToBridge, claimSecretHash.toString()] as const;
+    const args = [to.toString(), amount, claimSecretHash.toString()] as const;
 
     await this.contract.simulate.depositToAztecPublic(args);
 
@@ -191,18 +183,49 @@ export class L1FeeJuicePortalManager {
       'DepositToAztecPublic',
       log =>
         log.args.secretHash === claimSecretHash.toString() &&
-        log.args.amount === amountToBridge &&
+        log.args.amount === amount &&
         log.args.to === to.toString(),
       this.logger,
     );
 
     return {
-      claimAmount: amountToBridge,
+      claimAmount: amount,
       claimSecret,
       claimSecretHash,
       messageHash: log.args.key,
       messageLeafIndex: log.args.index,
     };
+  }
+
+  /**
+   * Bridges tokens to L2 after minting from the faucet on L1.
+   * @param to - Address to send the tokens to on L2.
+   */
+  public async bridgeTokensFromFaucet(to: AztecAddress) {
+    const [claimSecret, claimSecretHash] = await generateClaimSecret();
+
+    const amountToBridge = await this.tokenManager.mint(undefined, this.extendedClient.account.address);
+    if (!amountToBridge) {
+      throw new Error('Amount must be provided if not minting');
+    }
+
+    return this.bridgeTokens(to, amountToBridge, claimSecret, claimSecretHash);
+  }
+
+  /**
+   * Bridges tokens to L2 after minting directly from the L1 ERC20.
+   * @param to - Address to send the tokens to on L2.
+   * @param amount - Amount of tokens to mint and bridge.
+   */
+  public async bridgeTokensAsMinter(to: AztecAddress, amount: bigint) {
+    const [claimSecret, claimSecretHash] = await generateClaimSecret();
+
+    const amountToBridge = await this.tokenManager.mint(amount, this.extendedClient.account.address);
+    if (!amountToBridge) {
+      throw new Error('Amount must be provided if not minting');
+    }
+
+    return this.bridgeTokens(to, amountToBridge, claimSecret, claimSecretHash);
   }
 
   /**
@@ -223,16 +246,13 @@ export class L1FeeJuicePortalManager {
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
     }
-    if (!feeAssetHandlerAddress || feeAssetHandlerAddress.isZero()) {
-      throw new Error('Handler not deployed on L1, or handler address is zero');
-    }
 
     return new L1FeeJuicePortalManager(
       feeJuicePortalAddress,
       feeJuiceAddress,
-      feeAssetHandlerAddress,
       extendedClient,
       logger,
+      feeAssetHandlerAddress,
     );
   }
 }
@@ -245,11 +265,11 @@ export class L1ToL2TokenPortalManager {
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    handlerAddress: EthAddress | undefined,
     protected extendedClient: ExtendedViemWalletClient,
     protected logger: Logger,
+    handlerAddress: EthAddress | undefined = undefined,
   ) {
-    this.tokenManager = new L1TokenManager(tokenAddress, handlerAddress, extendedClient, logger);
+    this.tokenManager = new L1TokenManager(tokenAddress, extendedClient, logger, handlerAddress);
     this.portal = getContract({
       address: portalAddress.toString(),
       abi: TokenPortalAbi,
@@ -350,11 +370,7 @@ export class L1ToL2TokenPortalManager {
 
   private async bridgeSetup(amount: bigint, mint: boolean) {
     if (mint) {
-      const mintableAmount = await this.tokenManager.getMintAmount();
-      if (amount !== mintableAmount) {
-        throw new Error(`Minting amount must be ${mintableAmount} for testing`);
-      }
-      await this.tokenManager.mint(this.extendedClient.account.address);
+      await this.tokenManager.mint(amount, this.extendedClient.account.address);
     }
     await this.tokenManager.approve(amount, this.portal.address, 'TokenPortal');
     return generateClaimSecret();
@@ -368,12 +384,11 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
   constructor(
     portalAddress: EthAddress,
     tokenAddress: EthAddress,
-    handlerAddress: EthAddress | undefined,
     outboxAddress: EthAddress,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ) {
-    super(portalAddress, tokenAddress, handlerAddress, extendedClient, logger);
+    super(portalAddress, tokenAddress, extendedClient, logger, undefined);
     this.outbox = getContract({
       address: outboxAddress.toString(),
       abi: OutboxAbi,

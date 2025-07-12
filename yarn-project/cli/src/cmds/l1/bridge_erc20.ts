@@ -12,7 +12,6 @@ export async function bridgeERC20(
   privateKey: string | undefined,
   mnemonic: string,
   tokenAddress: EthAddress,
-  handlerAddress: EthAddress | undefined,
   portalAddress: EthAddress,
   privateTransfer: boolean,
   mint: boolean,
@@ -25,7 +24,7 @@ export async function bridgeERC20(
   const l1Client = createExtendedL1Client(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
 
   // Setup portal manager
-  const manager = new L1ToL2TokenPortalManager(portalAddress, tokenAddress, handlerAddress, l1Client, debugLogger);
+  const manager = new L1ToL2TokenPortalManager(portalAddress, tokenAddress, l1Client, debugLogger);
   let claimSecret: Fr;
   let messageHash: `0x${string}`;
   if (privateTransfer) {
