@@ -49,14 +49,16 @@ class ECCOpQueue {
 
   public:
     // Constructor that instantiates an initial ECC op subtable
-    ECCOpQueue() { initialize_new_subtable(); }
+    ECCOpQueue(MergeSettings settings = MergeSettings::PREPEND) { initialize_new_subtable(settings); }
 
     // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
-    void initialize_new_subtable()
+    void initialize_new_subtable(MergeSettings settings = MergeSettings::PREPEND)
     {
-        eccvm_ops_table.create_new_subtable();
-        ultra_ops_table.create_new_subtable();
+        eccvm_ops_table.create_new_subtable(settings);
+        ultra_ops_table.create_new_subtable(settings);
     }
+
+    MergeSettings get_current_settings() const { return eccvm_ops_table.settings; }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
@@ -84,6 +86,7 @@ class ECCOpQueue {
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
+    size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
     // more memory efficient

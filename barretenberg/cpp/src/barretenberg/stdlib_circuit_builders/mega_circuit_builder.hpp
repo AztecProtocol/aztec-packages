@@ -51,20 +51,22 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
-                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
+                        std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>(),
+                        MergeSettings settings = MergeSettings::APPEND)
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
         , op_queue(std::move(op_queue_in))
     {
         PROFILE_THIS();
         // Instantiate the subtable to be populated with goblin ecc ops from this circuit
-        op_queue->initialize_new_subtable();
+        op_queue->initialize_new_subtable(settings);
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
 
-    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
-        : MegaCircuitBuilder_(0, op_queue_in)
+    // we put settings here
+    MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in, MergeSettings settings = MergeSettings::APPEND)
+        : MegaCircuitBuilder_(0, op_queue_in, settings)
     {}
 
     /**
