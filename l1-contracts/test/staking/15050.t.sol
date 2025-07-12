@@ -52,7 +52,7 @@ contract Test15050 is StakingBase {
     stdstore.clear();
     stdstore.target(address(caller)).sig("yeaCount(address,uint256,address)").with_key(
       address(staking)
-    ).with_key(uint256(0)).with_key(address(payload)).checked_write(caller.M());
+    ).with_key(uint256(0)).with_key(address(payload)).checked_write(caller.ROUND_SIZE());
 
     assertEq(caller.getCurrentRound(), 0);
 

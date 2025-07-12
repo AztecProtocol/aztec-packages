@@ -7,6 +7,8 @@ VoteTest
     └── given canonical rollup hold code
         ├── given a vote already cast in the slot
         │   └── it revert
+        ├── given vote is for prior round
+        │   └── it revert
         └── given no vote already cast in the slot
             ├── when caller is not proposer
             │   └── it revert

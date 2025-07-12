@@ -100,18 +100,18 @@ contract GovScript is Test {
 
     emit log_named_address("# Governance proposer", address(governanceProposer));
     emit log_named_uint("\tLifetime in rounds", governanceProposer.LIFETIME_IN_ROUNDS());
-    emit log_named_uint("\tN", governanceProposer.N());
-    emit log_named_uint("\tM", governanceProposer.M());
+    emit log_named_uint("\tQuorum size", governanceProposer.QUORUM_SIZE());
+    emit log_named_uint("\tRound size", governanceProposer.ROUND_SIZE());
   }
 
   function lookAtRounds() public {
     uint256 lifetime = governanceProposer.LIFETIME_IN_ROUNDS();
-    uint256 n = governanceProposer.N();
-    uint256 m = governanceProposer.M();
+    uint256 n = governanceProposer.QUORUM_SIZE();
+    uint256 m = governanceProposer.ROUND_SIZE();
 
     emit log_named_uint("lifetime", lifetime);
-    emit log_named_uint("n       ", n);
-    emit log_named_uint("m       ", m);
+    emit log_named_uint("quorum size", n);
+    emit log_named_uint("round size  ", m);
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 currentRound = governanceProposer.computeRound(currentSlot);

@@ -52,8 +52,8 @@ contract ConstructorTest is Test {
     GovernanceProposer g = new GovernanceProposer(REGISTRY, GSE, n, m);
 
     assertEq(address(g.REGISTRY()), address(REGISTRY));
-    assertEq(g.N(), n);
-    assertEq(g.M(), m);
+    assertEq(g.QUORUM_SIZE(), n);
+    assertEq(g.ROUND_SIZE(), m);
     assertEq(g.getExecutor(), address(REGISTRY.getGovernance()), "executor");
     assertEq(g.getInstance(), address(REGISTRY.getCanonicalRollup()), "instance");
   }

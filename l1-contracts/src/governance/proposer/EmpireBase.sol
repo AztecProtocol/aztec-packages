@@ -38,23 +38,28 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
   // EIP-712 type hash for the Vote struct
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal,uint256 nonce)");
+  bytes32 public constant VOTE_TYPEHASH =
+    keccak256("Vote(address proposal,uint256 nonce,uint256 round)");
 
-  // The quorum size
-  uint256 public immutable N;
-  // The round size
-  uint256 public immutable M;
+  uint256 public immutable QUORUM_SIZE;
+  uint256 public immutable ROUND_SIZE;
 
   mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal
     rounds;
   mapping(address voter => uint256 nonce) public nonces;
 
-  constructor(uint256 _n, uint256 _m) EIP712("EmpireBase", "1") {
-    N = _n;
-    M = _m;
+  constructor(uint256 _quorumSize, uint256 _roundSize) EIP712("EmpireBase", "1") {
+    QUORUM_SIZE = _quorumSize;
+    ROUND_SIZE = _roundSize;
 
-    require(N > M / 2, Errors.GovernanceProposer__InvalidNAndMValues(N, M));
-    require(N <= M, Errors.GovernanceProposer__NCannotBeLargerTHanM(N, M));
+    require(
+      QUORUM_SIZE > ROUND_SIZE / 2,
+      Errors.GovernanceProposer__InvalidNAndMValues(QUORUM_SIZE, ROUND_SIZE)
+    );
+    require(
+      QUORUM_SIZE <= ROUND_SIZE,
+      Errors.GovernanceProposer__NCannotBeLargerTHanM(QUORUM_SIZE, ROUND_SIZE)
+    );
   }
 
   // Note that this one is heavily realying on the fact that this contract
@@ -119,7 +124,9 @@ abstract contract EmpireBase is EIP712, IEmpire {
       round.leader != IPayload(address(0)), Errors.GovernanceProposer__ProposalCannotBeAddressZero()
     );
     uint256 votesCast = round.yeaCount[round.leader];
-    require(votesCast >= N, Errors.GovernanceProposer__InsufficientVotes(votesCast, N));
+    require(
+      votesCast >= QUORUM_SIZE, Errors.GovernanceProposer__InsufficientVotes(votesCast, QUORUM_SIZE)
+    );
 
     round.executed = true;
 
@@ -179,15 +186,16 @@ abstract contract EmpireBase is EIP712, IEmpire {
    * @return The round number
    */
   function computeRound(Slot _slot) public view override(IEmpire) returns (uint256) {
-    return Slot.unwrap(_slot) / M;
+    return Slot.unwrap(_slot) / ROUND_SIZE;
   }
 
-  function getVoteSignatureDigest(IPayload _proposal, address _proposer)
+  function getVoteSignatureDigest(IPayload _proposal, address _proposer, uint256 _round)
     public
     view
     returns (bytes32)
   {
-    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal, nonces[_proposer])));
+    return
+      _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal, nonces[_proposer], _round)));
   }
 
   // Virtual functions
@@ -218,7 +226,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );
     } else {
-      bytes32 digest = getVoteSignatureDigest(_proposal, proposer);
+      bytes32 digest = getVoteSignatureDigest(_proposal, proposer, roundNumber);
       nonces[proposer]++;
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
@@ -238,7 +246,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     emit VoteCast(_proposal, roundNumber, proposer);
 
-    if (round.yeaCount[_proposal] == N) {
+    if (round.yeaCount[_proposal] == QUORUM_SIZE) {
       emit ProposalExecutable(_proposal, roundNumber);
     }
 
