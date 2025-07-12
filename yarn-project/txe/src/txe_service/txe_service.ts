@@ -111,19 +111,13 @@ export class TXEService {
 
   // Cheatcodes
 
-  async getPrivateContextInputs(
-    blockNumberIsSome: ForeignCallSingle,
-    blockNumberValue: ForeignCallSingle,
-    timestampIsSome: ForeignCallSingle,
-    timestampValue: ForeignCallSingle,
-  ) {
+  async getPrivateContextInputs(blockNumberIsSome: ForeignCallSingle, blockNumberValue: ForeignCallSingle) {
     const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
-    const timestamp = fromSingle(timestampIsSome).toBool() ? fromSingle(timestampValue).toBigInt() : null;
 
-    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber, timestamp);
+    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber);
 
     this.logger.info(
-      `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber}) with timestamp ${inputs.historicalHeader.globalVariables.timestamp} (requested ${timestamp})`,
+      `Created private context for block ${inputs.historicalHeader.globalVariables.blockNumber} (requested ${blockNumber})`,
     );
 
     return toForeignCallResult(inputs.toFields().map(toSingle));
@@ -324,13 +318,22 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
-  // seems to be used to mean the timestamp of the last mined block in txe
+  // seems to be used to mean the timestamp of the last mined block in txe (but that's not what is done here)
   async getTimestamp() {
     if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL && this.context != TXEContext.UTILITY) {
       throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
     }
 
     const timestamp = await this.typedOracle.getTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
+  async getLastBlockTimestamp() {
+    if (this.contextChecksEnabled && this.context != TXEContext.TOP_LEVEL) {
+      throw new Error(`Attempted to call getTimestamp while in context ${TXEContext[this.context]}`);
+    }
+
+    const timestamp = await (this.typedOracle as TXE).getLastBlockTimestamp();
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 

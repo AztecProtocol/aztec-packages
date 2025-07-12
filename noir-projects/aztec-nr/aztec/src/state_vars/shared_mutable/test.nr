@@ -1,10 +1,7 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::shared_mutable::SharedMutable,
-    test::{
-        helpers::{cheatcodes, test_environment::TestEnvironment},
-        mocks::mock_struct::MockStruct,
-    },
+    test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
 };
 use protocol_types::traits::Empty;
 
@@ -17,10 +14,6 @@ global new_delay: u64 = 20;
 global storage_slot: Field = 47;
 
 global TEST_INITIAL_DELAY: u64 = 60 * 60 * 24;
-
-unconstrained fn setup() -> TestEnvironment {
-    TestEnvironment::_new()
-}
 
 unconstrained fn in_public(
     context: &mut PublicContext,
@@ -42,7 +35,7 @@ unconstrained fn in_utility(
 
 #[test]
 unconstrained fn test_get_current_value_in_public_initial() {
-    let env = setup();
+    let env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -52,7 +45,7 @@ unconstrained fn test_get_current_value_in_public_initial() {
 
 #[test]
 unconstrained fn test_get_scheduled_value_in_public() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -69,7 +62,7 @@ unconstrained fn test_get_scheduled_value_in_public() {
 
 #[test]
 unconstrained fn test_get_current_value_in_public_before_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (original_value, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -97,7 +90,7 @@ unconstrained fn test_get_current_value_in_public_before_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_public_at_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -116,7 +109,7 @@ unconstrained fn test_get_current_value_in_public_at_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_public_after_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -136,7 +129,7 @@ unconstrained fn test_get_current_value_in_public_after_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_delay_in_public_initial() {
-    let env = setup();
+    let env = TestEnvironment::_new();
     env.public_context(|context| {
         let state_var = in_public(context);
         assert_eq(state_var.get_current_delay(), TEST_INITIAL_DELAY);
@@ -145,7 +138,7 @@ unconstrained fn test_get_current_delay_in_public_initial() {
 
 #[test]
 unconstrained fn test_get_scheduled_delay_in_public() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -161,7 +154,7 @@ unconstrained fn test_get_scheduled_delay_in_public() {
 
 #[test]
 unconstrained fn test_get_current_delay_in_public_before_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (original_delay, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -189,7 +182,7 @@ unconstrained fn test_get_current_delay_in_public_before_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_delay_in_public_at_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -209,7 +202,7 @@ unconstrained fn test_get_current_delay_in_public_at_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_delay_in_public_after_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -229,7 +222,7 @@ unconstrained fn test_get_current_delay_in_public_after_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_private_initial() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -244,7 +237,7 @@ unconstrained fn test_get_current_value_in_private_initial() {
 
 #[test]
 unconstrained fn test_get_current_value_in_private_before_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -264,7 +257,7 @@ unconstrained fn test_get_current_value_in_private_before_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_private_immediately_before_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -274,8 +267,7 @@ unconstrained fn test_get_current_value_in_private_immediately_before_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change - 1);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change - 1);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -292,7 +284,7 @@ unconstrained fn test_get_current_value_in_private_immediately_before_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_private_at_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -302,8 +294,7 @@ unconstrained fn test_get_current_value_in_private_at_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -321,7 +312,7 @@ unconstrained fn test_get_current_value_in_private_at_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_private_after_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -331,8 +322,7 @@ unconstrained fn test_get_current_value_in_private_after_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change + 10);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change + 10);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -350,7 +340,7 @@ unconstrained fn test_get_current_value_in_private_after_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let ((_, value_timestamp_of_change), (_, delay_timestamp_of_change)) = env
         .public_context(|context| {
@@ -363,8 +353,7 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
         });
 
     let historical_timestamp = std::cmp::max(value_timestamp_of_change, delay_timestamp_of_change);
-    env.set_next_block_timestamp(historical_timestamp);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(historical_timestamp);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -379,7 +368,7 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
 
 #[test]
 unconstrained fn test_get_current_value_in_utility_initial() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
     env.utility_context(|context| {
         let state_var = in_utility(context);
         assert_eq(state_var.get_current_value(), zeroed());
@@ -388,7 +377,7 @@ unconstrained fn test_get_current_value_in_utility_initial() {
 
 #[test]
 unconstrained fn test_get_current_value_in_utility_before_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -398,8 +387,7 @@ unconstrained fn test_get_current_value_in_utility_before_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change - 1);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change - 1);
 
     env.utility_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -412,7 +400,7 @@ unconstrained fn test_get_current_value_in_utility_before_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_utility_at_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);
@@ -435,7 +423,7 @@ unconstrained fn test_get_current_value_in_utility_at_scheduled_change() {
 
 #[test]
 unconstrained fn test_get_current_value_in_utility_after_scheduled_change() {
-    let mut env = setup();
+    let mut env = TestEnvironment::_new();
 
     let (_, timestamp_of_change) = env.public_context(|context| {
         let state_var = in_public(context);

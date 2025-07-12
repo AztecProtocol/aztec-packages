@@ -131,7 +131,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXEStateMachine } from '../state_machine/index.js';
-import { AZTEC_SLOT_DURATION, GENESIS_TIMESTAMP } from '../txe_constants.js';
+import { GENESIS_TIMESTAMP } from '../txe_constants.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
@@ -331,17 +331,12 @@ export class TXE implements TypedOracle {
 
   async getPrivateContextInputs(
     blockNumber: number | null,
-    timestamp: UInt64 | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
     // If blockNumber or timestamp is null, use the values corresponding to the latest historical block (number of
     // the block being built - 1)
     blockNumber = blockNumber ?? this.blockNumber - 1;
-
-    // TODO: we can't just request a timestamp! we always build contexts off of blocks. if anything we'd need to ensure
-    // a block at a given timestamp exists
-    timestamp = timestamp ?? this.timestamp;
 
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
     const previousBlockState = this.nativeWorldStateService.getSnapshot(blockNumber - 1);
@@ -351,7 +346,7 @@ export class TXE implements TypedOracle {
     inputs.txContext.chainId = new Fr(this.CHAIN_ID);
     inputs.txContext.version = new Fr(this.ROLLUP_VERSION);
     inputs.historicalHeader.globalVariables.blockNumber = blockNumber;
-    inputs.historicalHeader.globalVariables.timestamp = timestamp;
+    inputs.historicalHeader.globalVariables.timestamp = await this.getBlockTimestamp(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
       (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
@@ -431,6 +426,10 @@ export class TXE implements TypedOracle {
 
   getTimestamp() {
     return Promise.resolve(this.timestamp);
+  }
+
+  getLastBlockTimestamp() {
+    return this.getBlockTimestamp(this.blockNumber - 1);
   }
 
   getContractAddress() {
@@ -955,11 +954,10 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const historicalBlockNumber = this.blockNumber - 1; // i.e. latest
+    const historicalBlockNumber = this.blockNumber - 1; // i.e. last
 
     const privateContextInputs = await this.getPrivateContextInputs(
       historicalBlockNumber,
-      await this.getBlockTimestamp(historicalBlockNumber),
       sideEffectCounter,
       isStaticCall,
     );
@@ -1503,7 +1501,6 @@ export class TXE implements TypedOracle {
     const txRequestHash = this.getTxRequestHash();
 
     this.setBlockNumber(this.blockNumber + 1);
-    this.advanceTimestampBy(AZTEC_SLOT_DURATION);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
@@ -1668,7 +1665,6 @@ export class TXE implements TypedOracle {
     const txRequestHash = this.getTxRequestHash();
 
     this.setBlockNumber(this.blockNumber + 1);
-    this.advanceTimestampBy(AZTEC_SLOT_DURATION);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,
