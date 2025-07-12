@@ -44,7 +44,6 @@ pub contract AppSubscription {
         storage.subscriptions.at(user_address).replace(note).emit(encode_and_encrypt_note(
             &mut context,
             user_address,
-            user_address,
         ));
 
         context.set_as_fee_payer();
@@ -113,7 +112,7 @@ pub contract AppSubscription {
 
         let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(subscription_note).emit(
-            encode_and_encrypt_note(&mut context, subscriber, context.msg_sender()),
+            encode_and_encrypt_note(&mut context, subscriber),
         );
     }
 

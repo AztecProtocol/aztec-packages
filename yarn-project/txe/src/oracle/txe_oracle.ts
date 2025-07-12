@@ -169,6 +169,9 @@ export class TXE implements TypedOracle {
 
   private authwits: Map<string, AuthWitness> = new Map();
 
+  // Used by setSenderForTags and getSenderForTags oracles.
+  private senderForTags: AztecAddress | undefined = undefined;
+
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
@@ -1317,6 +1320,15 @@ export class TXE implements TypedOracle {
     return Promise.resolve();
   }
 
+  getSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.resolve(this.senderForTags);
+  }
+
+  setSenderForTags(senderForTags: AztecAddress): Promise<void> {
+    this.senderForTags = senderForTags;
+    return Promise.resolve();
+  }
+
   async privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
@@ -1368,6 +1380,10 @@ export class TXE implements TypedOracle {
       this.simulator,
       0,
       1,
+      undefined, // log
+      undefined, // scopes
+      /** In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a contract would perform, including setting senderForTags */
+      this.msgSender,
     );
 
     context.storeInExecutionCache(args, argsHash);

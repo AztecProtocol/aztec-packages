@@ -62,7 +62,6 @@ contract OffchainEffect {
             encode_and_encrypt_note_and_emit_as_offchain_message(
                 &mut context,
                 context.msg_sender(),
-                context.msg_sender(),
             ),
         );
     }

@@ -161,9 +161,8 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const newlyMintedBananas = 10n;
-    const from = aliceAddress; // we are setting from to Alice here because we need a sender to calculate the tag
     const tx = await bananaCoin.methods
-      .mint_to_private(from, aliceAddress, newlyMintedBananas)
+      .mint_to_private(aliceAddress, newlyMintedBananas)
       .send({
         fee: {
           gasSettings,
@@ -302,10 +301,9 @@ describe('e2e_fees private_payment', () => {
 
     await expectMapping(t.getGasBalanceFn, [bankruptFPC.address], [0n]);
 
-    const from = aliceAddress; // we are setting from to Alice here because we need a sender to calculate the tag
     await expect(
       bananaCoin.methods
-        .mint_to_private(from, aliceAddress, 10)
+        .mint_to_private(aliceAddress, 10)
         .send({
           fee: {
             gasSettings,
