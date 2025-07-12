@@ -46,7 +46,7 @@ for artifact in $artifacts_to_process; do
   for fn_index in $private_fn_indices; do
     fn_name=$(jq -r ".functions[$fn_index].name" "$artifact")
     # Remove debug symbols since they don't affect vk computation, but can cause cache misses
-    fn_artifact=$(jq -r ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
+    fn_artifact=$(jq ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
     fn_artifact_hash=$(echo "$fn_artifact-$bb_hash" | sha256sum | cut -d' ' -f1)
 
     # File to capture the base64 encoded verification key.
@@ -73,7 +73,7 @@ for artifact in $artifacts_to_process; do
 
   # Now, update the artifact sequentially with each generated verification key.
   for fn_index in $private_fn_indices; do
-    fn_artifact=$(jq -r ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
+    fn_artifact=$(jq ".functions[$fn_index] | del(.debug_symbols)" "$artifact")
     fn_artifact_hash=$(echo "$fn_artifact-$bb_hash" | sha256sum | cut -d' ' -f1)
     vk_cache="$cache_dir/${artifact_name}_${fn_artifact_hash}.vk"
     verification_key=$(cat "$vk_cache")
