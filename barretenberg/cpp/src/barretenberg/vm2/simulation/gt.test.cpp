@@ -75,5 +75,25 @@ TEST(AvmSimulationGTTest, GTFF)
     EXPECT_TRUE(gt.gt(b, a));
 }
 
+TEST(AvmSimulationGTTest, GTMemoryValue)
+{
+    EventEmitter<GreaterThanEvent> gt_event_emitter;
+    StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    GreaterThan gt(field_gt, range_check, gt_event_emitter);
+
+    auto a = MemoryValue::from<uint64_t>(2);
+    auto b = MemoryValue::from<uint64_t>(1);
+
+    EXPECT_CALL(range_check, assert_range(0, /*num_bits=*/128));
+    EXPECT_TRUE(gt.gt(a, b));
+
+    auto a_ff = MemoryValue::from<FF>(1);
+    auto b_ff = MemoryValue::from<FF>(2);
+
+    EXPECT_CALL(field_gt, ff_gt(FF(1), FF(2))).WillOnce(Return(false));
+    EXPECT_FALSE(gt.gt(a_ff, b_ff));
+}
+
 } // namespace
 } // namespace bb::avm2::simulation

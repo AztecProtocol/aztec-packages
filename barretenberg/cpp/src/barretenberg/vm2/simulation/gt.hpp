@@ -2,6 +2,7 @@
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
@@ -15,6 +16,7 @@ class GreaterThanInterface {
     virtual ~GreaterThanInterface() = default;
     virtual bool gt(const FF& a, const FF& b) = 0;
     virtual bool gt(const uint128_t& a, const uint128_t& b) = 0;
+    virtual bool gt(const MemoryValue& a, const MemoryValue& b) = 0;
 };
 
 class GreaterThan : public GreaterThanInterface {
@@ -29,6 +31,7 @@ class GreaterThan : public GreaterThanInterface {
 
     bool gt(const FF& a, const FF& b) override;
     bool gt(const uint128_t& a, const uint128_t& b) override;
+    bool gt(const MemoryValue& a, const MemoryValue& b) override;
 
   private:
     FieldGreaterThanInterface& field_gt;
