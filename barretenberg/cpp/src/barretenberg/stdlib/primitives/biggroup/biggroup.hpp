@@ -141,6 +141,19 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         unset_free_witness_tag();
     }
 
+    /**
+     * Fix a witness. The value of the witness is constrained with a selector
+     **/
+    void fix_witness()
+    {
+        // Origin tags should be updated within
+        this->x.fix_witness();
+        this->y.fix_witness();
+
+        // This is now effectively a constant
+        unset_free_witness_tag();
+    }
+
     static element one(Builder* ctx)
     {
         uint256_t x = uint256_t(NativeGroup::one.x);
