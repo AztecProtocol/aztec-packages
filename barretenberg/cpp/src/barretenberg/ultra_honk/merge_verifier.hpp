@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -22,8 +23,8 @@ namespace bb {
 class MergeVerifier {
     using Curve = curve::BN254;
     using FF = typename Curve::ScalarField;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using PCS = bb::KZG<Curve>;
-    using OpeningClaim = bb::OpeningClaim<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
 
@@ -33,6 +34,7 @@ class MergeVerifier {
 
   public:
     using Commitment = typename Curve::AffineElement;
+    using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
 
     std::shared_ptr<Transcript> transcript;
     std::array<Commitment, NUM_WIRES> T_commitments;

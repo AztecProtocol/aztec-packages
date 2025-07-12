@@ -368,6 +368,18 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t
     return result;
 }
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::reverse() const
+{
+    const size_t end_index = this->end_index();
+    const size_t start_index = this->start_index();
+    const size_t poly_size = this->size();
+    Polynomial reversed(/*size=*/poly_size, /*virtual_size=*/end_index);
+    for (size_t idx = end_index; idx > start_index; --idx) {
+        reversed.at(end_index - idx) = this->at(idx - 1);
+    }
+    return reversed;
+}
+
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
 } // namespace bb

@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -19,16 +20,21 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
     using GroupElement = typename Curve::Element;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using KZG = ::bb::KZG<Curve>;
-    using OpeningClaim = ::bb::OpeningClaim<Curve>;
+    using BatchOpeningClaim = ::bb::BatchOpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
     using PairingPoints = stdlib::recursion::PairingPoints<CircuitBuilder>;
+    using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
 
     CircuitBuilder* builder;
     std::shared_ptr<Transcript> transcript;
     MergeSettings settings;
 
+    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
+    // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+
     std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
