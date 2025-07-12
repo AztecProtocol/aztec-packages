@@ -18,6 +18,10 @@ images:
   aztec:
     pullPolicy: Always
 
+ethereum:
+  execution:
+    client: "geth"
+
 telemetry:
   enabled: true
 
