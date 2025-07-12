@@ -740,7 +740,7 @@ template <typename Builder, typename T> class bigfield {
     uint32_t set_public() const
     {
         Builder* ctx = get_context();
-        const uint32_t start_index = static_cast<uint32_t>(ctx->public_inputs.size());
+        const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
         for (auto& limb : binary_basis_limbs) {
             ctx->set_public_input(limb.element.normalize().witness_index);
         }

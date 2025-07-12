@@ -75,42 +75,4 @@ struct BusVector {
 using DataBus = std::array<BusVector, 3>;
 enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
 
-/**
- * @brief Data indicating the presence of databus return data commitments in the public inputs of the circuit
- * @details The databus mechanism establishes the transfer of data between two circuits (i-1 and i) in a third circuit
- * (i+1) via commitment equality checks of the form [R_{i-1}] = [C_i]. The return data commitment \pi_{i-1}.[R_{i-1}] is
- * a private witness of circuit i, which extracts it and propagates it to the next circuit via the traditional public
- * inputs mechanism. (I.e. the private witnesses corresponding to the commitment [R_{i-1}] are set to public). Since
- * commitment [C_i] is part of the proof \pi_i, circuit i+1 can perform the required consistency check via
- * \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i].
- *
- */
-struct DatabusPropagationData {
-    bool operator==(const DatabusPropagationData&) const = default;
-
-    // Keys indicating the location of databus return data commitments in the public inputs
-    PublicComponentKey kernel_return_data_commitment_pub_input_key;
-    PublicComponentKey app_return_data_commitment_pub_input_key;
-
-    // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
-    bool is_kernel = false;
-
-    friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
-    {
-        os << data.kernel_return_data_commitment_pub_input_key.start_idx << ",\n"
-           << data.app_return_data_commitment_pub_input_key.start_idx << ",\n"
-           << data.is_kernel << "\n";
-        return os;
-    };
-
-    // Construct an instance of this class with the default settings for a kernel circuit
-    static DatabusPropagationData kernel_default()
-    {
-        DatabusPropagationData data{ .is_kernel = true };
-        return data;
-    }
-
-    MSGPACK_FIELDS(kernel_return_data_commitment_pub_input_key, app_return_data_commitment_pub_input_key, is_kernel);
-};
-
 } // namespace bb

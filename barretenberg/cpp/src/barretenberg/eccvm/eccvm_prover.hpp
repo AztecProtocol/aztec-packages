@@ -41,6 +41,7 @@ class ECCVMProver {
                          const std::shared_ptr<Transcript>& transcript,
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
+    BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
     BB_PROFILE void execute_log_derivative_commitments_round();
     BB_PROFILE void execute_grand_product_computation_round();

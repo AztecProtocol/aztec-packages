@@ -1,8 +1,11 @@
+#include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
@@ -28,14 +31,12 @@ template <typename Flavor> class StdlibVerificationKeyTests : public ::testing::
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraStarknetFlavor, MegaFlavor>;
-#else
 using FlavorTypes = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                    UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                                   MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-#endif
+                                   MegaRecursiveFlavor_<MegaCircuitBuilder>,
+                                   ECCVMRecursiveFlavor,
+                                   TranslatorRecursiveFlavor>;
 TYPED_TEST_SUITE(StdlibVerificationKeyTests, FlavorTypes);
 
 /**
@@ -47,19 +48,25 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
 {
     using Flavor = TypeParam;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using InnerBuilder = typename NativeFlavor::CircuitBuilder;
-    using DeciderProvingKey = DeciderProvingKey_<NativeFlavor>;
     using NativeVerificationKey = typename NativeFlavor::VerificationKey;
-    using FF = typename Flavor::FF;
     using StdlibTranscript = typename Flavor::Transcript;
     using StdlibVerificationKey = typename Flavor::VerificationKey;
     using OuterBuilder = typename Flavor::CircuitBuilder;
+    using FF = stdlib::field_t<OuterBuilder>;
 
     // Create random circuit to create a vk.
-    InnerBuilder builder;
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto native_vk = std::make_shared<NativeVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<NativeVerificationKey> native_vk;
+    if constexpr (IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
+        native_vk = std::make_shared<NativeVerificationKey>();
+    } else {
+        using DeciderProvingKey = DeciderProvingKey_<NativeFlavor>;
+        using InnerBuilder = typename NativeFlavor::CircuitBuilder;
+
+        InnerBuilder builder;
+        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        native_vk = std::make_shared<NativeVerificationKey>(proving_key->get_precomputed());
+    }
 
     OuterBuilder outer_builder;
     StdlibVerificationKey vk(&outer_builder, native_vk);

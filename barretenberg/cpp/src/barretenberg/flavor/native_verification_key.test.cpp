@@ -1,17 +1,35 @@
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 #include <gtest/gtest.h>
 
 using namespace bb;
 
+#ifdef STARKNET_GARAGA_FLAVORS
+using FlavorTypes = testing::Types<UltraFlavor,
+                                   UltraKeccakFlavor,
+                                   UltraRollupFlavor,
+                                   UltraStarknetFlavor,
+                                   MegaFlavor,
+                                   ECCVMFlavor,
+                                   TranslatorFlavor>;
+#else
+using FlavorTypes =
+    testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, MegaFlavor, ECCVMFlavor, TranslatorFlavor>;
+#endif
+
 template <typename Flavor> class NativeVerificationKeyTests : public ::testing::Test {
   public:
+    using Builder = typename Flavor::CircuitBuilder;
+    using VerificationKey = typename Flavor::VerificationKey;
+
     void set_default_pairing_points_and_ipa_claim_and_proof(typename Flavor::CircuitBuilder& builder)
     {
         stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
@@ -23,15 +41,22 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
         }
     }
 
+    VerificationKey create_vk()
+    {
+        if constexpr (IsUltraOrMegaHonk<Flavor>) {
+            using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+            Builder builder;
+            set_default_pairing_points_and_ipa_claim_and_proof(builder);
+            auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+            return VerificationKey{ proving_key->get_precomputed() };
+        } else {
+            return VerificationKey();
+        }
+    }
+
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
-
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, UltraStarknetFlavor, MegaFlavor>;
-#else
-using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraRollupFlavor, MegaFlavor>;
-#endif
 TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 
 /**
@@ -42,15 +67,9 @@ TYPED_TEST_SUITE(NativeVerificationKeyTests, FlavorTypes);
 TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
 {
     using Flavor = TypeParam;
-    using Builder = typename Flavor::CircuitBuilder;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
 
-    // Create random circuit to create a vk.
-    Builder builder;
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    VerificationKey vk{ proving_key->get_precomputed() };
+    VerificationKey vk(TestFixture::create_vk());
 
     // First method of hashing: using to_field_elements and add_to_hash_buffer.
     std::vector<fr> vk_field_elements = vk.to_field_elements();
@@ -83,12 +102,8 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
 TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
 {
     using Flavor = TypeParam;
-    using Builder = typename Flavor::CircuitBuilder;
+    using VerificationKey = typename Flavor::VerificationKey;
 
-    Builder builder;
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    typename Flavor::VerificationKey verification_key(proving_key->get_precomputed());
-    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
+    VerificationKey vk(TestFixture::create_vk());
+    EXPECT_EQ(vk.to_field_elements().size(), VerificationKey::VERIFICATION_KEY_LENGTH);
 }

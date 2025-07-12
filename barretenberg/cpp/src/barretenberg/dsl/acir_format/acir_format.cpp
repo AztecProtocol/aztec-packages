@@ -250,9 +250,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // RecursionConstraints
     if constexpr (IsMegaBuilder<Builder>) {
-        if (!constraint_system.recursion_constraints.empty()) {
-            info("WARNING: this circuit contains unhandled recursion_constraints!");
-        }
         if (!constraint_system.honk_recursion_constraints.empty()) {
             HonkRecursionConstraintsOutput<Builder> output = process_honk_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);

@@ -102,7 +102,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, stdlib_vk_and_hash);
 
             VerifierOutput output = verifier.verify_proof(inner_proof);
-            output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything
+            output.points_accumulator.set_public(); // propagate resulting pairing points on the public inputs
         }
 
         return circuit;

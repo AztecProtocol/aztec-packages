@@ -26,12 +26,14 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
     CircuitBuilder* builder;
     std::shared_ptr<Transcript> transcript;
+    MergeSettings settings;
 
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                                     MergeSettings settings = MergeSettings::PREPEND);
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
         const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);

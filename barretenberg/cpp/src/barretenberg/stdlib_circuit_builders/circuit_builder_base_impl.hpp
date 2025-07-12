@@ -62,8 +62,8 @@ void CircuitBuilderBase<FF_>::update_real_variable_indices(uint32_t index, uint3
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index(const uint32_t witness_index) const
 {
     uint32_t result = static_cast<uint32_t>(-1);
-    for (size_t i = 0; i < public_inputs.size(); ++i) {
-        if (real_variable_index[public_inputs[i]] == real_variable_index[witness_index]) {
+    for (size_t i = 0; i < num_public_inputs(); ++i) {
+        if (real_variable_index[public_inputs_[i]] == real_variable_index[witness_index]) {
             result = static_cast<uint32_t>(i);
             break;
         }
@@ -75,17 +75,8 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index
 template <typename FF_>
 typename CircuitBuilderBase<FF_>::FF CircuitBuilderBase<FF_>::get_public_input(const uint32_t index) const
 {
-    return get_variable(public_inputs[index]);
-}
-
-template <typename FF_>
-std::vector<typename CircuitBuilderBase<FF_>::FF> CircuitBuilderBase<FF_>::get_public_inputs() const
-{
-    std::vector<FF> result;
-    for (uint32_t i = 0; i < get_num_public_inputs(); ++i) {
-        result.push_back(get_public_input(i));
-    }
-    return result;
+    BB_ASSERT_LT(index, public_inputs_.size(), "Index out of bounds for public inputs.");
+    return get_variable(public_inputs_[index]);
 }
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
@@ -178,13 +169,14 @@ template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
-    public_inputs.emplace_back(index);
+    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
+    public_inputs_.emplace_back(index);
     return index;
 }
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
-    for (const uint32_t public_input : public_inputs) {
+    for (const uint32_t public_input : public_inputs()) {
         if (public_input == witness_index) {
             if (!failed()) {
                 failure("Attempted to set a public input that is already public!");
@@ -192,8 +184,9 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const
             return 0;
         }
     }
-    uint32_t public_input_index = static_cast<uint32_t>(public_inputs.size());
-    public_inputs.emplace_back(witness_index);
+    uint32_t public_input_index = static_cast<uint32_t>(num_public_inputs());
+    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
+    public_inputs_.emplace_back(witness_index);
 
     return public_input_index;
 }

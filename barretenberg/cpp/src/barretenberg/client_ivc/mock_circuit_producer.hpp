@@ -194,7 +194,7 @@ class ClientIVCMockCircuitProducer {
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-        while (circuit.get_num_public_inputs() < num_public_inputs) {
+        while (circuit.num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
         }
         if (is_kernel) {

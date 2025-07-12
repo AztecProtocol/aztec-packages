@@ -522,9 +522,9 @@ pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
-pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 112; // size of an Ultra verification key
-pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 113; // size of an Ultra Rollup verification key
-pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
+pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 111; // size of an Ultra verification key
+pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 111; // size of an Ultra Rollup verification key
+pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 123; // size of a Mega verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)

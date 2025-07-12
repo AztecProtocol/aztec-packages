@@ -108,6 +108,46 @@ class ECCVMFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fq = bb::field_conversion::calc_num_bn254_frs<FF>();
+
+    // Proof length formula
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fq) +
+        /* 4. CONST_ECCVM_LOG_N sumcheck univariates commitments */
+        (CONST_ECCVM_LOG_N * num_frs_comm) +
+        /* 5. 2 * CONST_ECCVM_LOG_N sumcheck univariate evaluations */
+        (2 * CONST_ECCVM_LOG_N * num_frs_fq) +
+        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fq) +
+        /* 7. Libra claimed evaluation */ (num_frs_fq) +
+        /* 8. Libra grand sum commitment */ (num_frs_comm) +
+        /* 9. Libra quotient commitment */ (num_frs_comm) +
+        /* 10. Gemini masking commitment */ (num_frs_comm) +
+        /* 11. Gemini masking evaluation */ (num_frs_fq) +
+        /* 12. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
+        ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
+        /* 13. CONST_ECCVM_LOG_N Gemini a evaluations */
+        (CONST_ECCVM_LOG_N * num_frs_fq) +
+        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
+        /* 15. Shplonk Q commitment */ (num_frs_comm) +
+        /* 16. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 17 Translator op evaluation */ (num_frs_fq) +
+        /* 18 Translator Px evaluation */ (num_frs_fq) +
+        /* 19 Translator Py evaluation */ (num_frs_fq) +
+        /* 20 Translator z1 evaluation */ (num_frs_fq) +
+        /* 21 Translator z2 evaluation */ (num_frs_fq) +
+        /* 22 Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 23 Translator grand sum commitment */ (num_frs_comm) +
+        /* 24 Translator quotient commitment */ (num_frs_comm) +
+        /* 25 Translator concatenation eval */ (num_frs_fq) +
+        /* 26 Translator grand sum shift eval */ (num_frs_fq) +
+        /* 27 Translator grand sum eval */ (num_frs_fq) +
+        /* 28 Translator quotient eval */ (num_frs_fq) +
+        /* 29 Shplonk Q commitment */ (num_frs_comm) +
+        /* 30 IPA proof */ IPA_PROOF_LENGTH;
+
     // Instantiate the BarycentricData needed to extend each Relation Univariate
 
     // define the containers for storing the contributions from each relation in Sumcheck
@@ -756,6 +796,10 @@ class ECCVMFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
@@ -798,10 +842,19 @@ class ECCVMFlavor {
          */
         std::vector<fr> to_field_elements() const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
-        }
+            using namespace bb::field_conversion;
 
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<fr> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+            return elements;
+        }
         /**
          * @brief Adds the verification key hash to the transcript and returns the hash.
          * @details Needed to make sure the Origin Tag system works. See the base class function for
@@ -814,12 +867,16 @@ class ECCVMFlavor {
         fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
-            throw_or_abort("Not implemented yet!");
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            }
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,

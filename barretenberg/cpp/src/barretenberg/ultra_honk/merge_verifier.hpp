@@ -36,8 +36,10 @@ class MergeVerifier {
 
     std::shared_ptr<Transcript> transcript;
     std::array<Commitment, NUM_WIRES> T_commitments;
+    MergeSettings settings;
 
-    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                           MergeSettings settings = MergeSettings::PREPEND);
     bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments);
 };
 
