@@ -72,7 +72,7 @@ const LocalGovernanceConfiguration = {
   executionDelay: 60n,
   gracePeriod: 60n * 60n * 24n * 7n,
   quorum: 1n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  requiredYeaMargin: 4n * 10n ** 16n,
   minimumVotes: 400n * 10n ** 18n,
 };
 
@@ -86,7 +86,7 @@ const TestnetGovernanceConfiguration = {
   executionDelay: 60n * 60n * 24n,
   gracePeriod: 60n * 60n * 24n * 7n,
   quorum: 3n * 10n ** 17n,
-  voteDifferential: 4n * 10n ** 16n,
+  requiredYeaMargin: 4n * 10n ** 16n,
   minimumVotes: DefaultL1ContractsConfig.minimumStake * 200n,
 };
 

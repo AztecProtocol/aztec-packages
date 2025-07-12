@@ -227,9 +227,9 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     }
     logger.info(`Voted [${inFavor ? 'yea' : 'nay'}] on proposal [${proposalId}]`);
     const proposal = await this.getProposal(proposalId);
-    logger.info(`Proposal [${proposalId}] has state [${proposal.state}]`);
+    logger.info(`Proposal [${proposalId}] has cached state [${proposal.cachedState}]`);
     logger.info(`Proposal [${proposalId}] has summedBallot yea [${proposal.summedBallot.yea}]`);
-    logger.info(`Proposal [${proposalId}] has summedBallot nea [${proposal.summedBallot.nea}]`);
+    logger.info(`Proposal [${proposalId}] has summedBallot nay [${proposal.summedBallot.nay}]`);
   }
 
   public async executeProposal({

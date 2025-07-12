@@ -13,10 +13,10 @@ contract DropProposalTest is GovernanceBase {
   function test_GivenProposalIsDropped(address _governanceProposer) external givenProposalIsStable {
     // it revert
     _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Pending);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
     assertTrue(governance.dropProposal(proposalId));
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Dropped);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalAlreadyDropped.selector));
     governance.dropProposal(proposalId);
@@ -31,7 +31,7 @@ contract DropProposalTest is GovernanceBase {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertTrue(governance.execute(proposalId));
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Executed);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Executed);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalCannotBeDropped.selector));
     governance.dropProposal(proposalId);
@@ -130,10 +130,10 @@ contract DropProposalTest is GovernanceBase {
     // it return true
 
     _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Pending);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Pending);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
     assertTrue(governance.dropProposal(proposalId));
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Dropped);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 }

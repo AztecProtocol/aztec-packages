@@ -138,7 +138,7 @@ contract GovernanceBase is TestBase {
     uint256 votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
     uint256 votesCast = bound(_votesCast, votesNeeded, totalPower);
 
-    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.voteDifferential, 2);
+    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.requiredYeaMargin, 2);
     uint256 yeaLimit = Math.mulDiv(votesCast, yeaLimitFraction, 1e18, Math.Rounding.Ceil);
 
     uint256 yeas = yeaLimit == votesCast ? votesCast : bound(_yeas, yeaLimit + 1, votesCast);

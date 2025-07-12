@@ -10,7 +10,7 @@ library ConfigurationLib {
   uint256 internal constant QUORUM_LOWER = 1;
   uint256 internal constant QUORUM_UPPER = 1e18;
 
-  uint256 internal constant DIFFERENTIAL_UPPER = 1e18;
+  uint256 internal constant REQUIRED_APPROVAL_MARGIN_UPPER = 1e18;
 
   uint256 internal constant VOTES_LOWER = 1;
 
@@ -32,8 +32,8 @@ library ConfigurationLib {
     require(_self.quorum <= QUORUM_UPPER, Errors.Governance__ConfigurationLib__QuorumTooBig());
 
     require(
-      _self.voteDifferential <= DIFFERENTIAL_UPPER,
-      Errors.Governance__ConfigurationLib__DifferentialTooBig()
+      _self.requiredYeaMargin <= REQUIRED_APPROVAL_MARGIN_UPPER,
+      Errors.Governance__ConfigurationLib__RequiredApprovalMarginTooBig()
     );
 
     require(

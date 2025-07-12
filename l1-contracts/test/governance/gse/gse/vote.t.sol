@@ -51,7 +51,7 @@ contract VoteTest is WithGSE {
 
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);
-    assertEq(proposal.summedBallot.nea, 0);
+    assertEq(proposal.summedBallot.nay, 0);
 
     (address voter, uint256 availablePower) = _prepare(_instance, _attester, _delegatee, _delegate);
     uint256 amount = bound(_amount, 0, availablePower);
@@ -62,7 +62,7 @@ contract VoteTest is WithGSE {
 
     proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, _support ? amount : 0);
-    assertEq(proposal.summedBallot.nea, _support ? 0 : amount);
+    assertEq(proposal.summedBallot.nay, _support ? 0 : amount);
 
     assertEq(gse.getPowerUsed(voter, 0), amount);
   }
