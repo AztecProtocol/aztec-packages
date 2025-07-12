@@ -18,7 +18,7 @@ pub(crate) unconstrained fn create_note() -> (&mut TestEnvironment, RetrievedNot
     let context = &mut env.private();
 
     // We sanity check that we are building block 2, thus block 2 is where the note will be added.
-    assert_eq(env.pending_block_number(), NOTE_CREATED_AT);
+    assert_eq(env.next_block_number(), NOTE_CREATED_AT);
 
     let contract_address = get_contract_address();
 
@@ -34,7 +34,7 @@ pub(crate) unconstrained fn create_note() -> (&mut TestEnvironment, RetrievedNot
 
     // TODO(#12226): FIX
     // context.push_note_hash(retrieved_note.note.compute_note_hash(15));
-    env.advance_block_by(1);
+    env.mine_block();
 
     (&mut env, retrieved_note)
 }
@@ -46,11 +46,11 @@ pub(crate) unconstrained fn create_note_and_nullify_it() -> (&mut TestEnvironmen
     let context = &mut env.private();
 
     // We sanity check that we are building block 3, thus block 3 is where the note will be nullified.
-    assert_eq(env.pending_block_number(), NOTE_NULLIFIED_AT);
+    assert_eq(env.next_block_number(), NOTE_NULLIFIED_AT);
 
     destroy_note(context, retrieved_note, NOTE_STORAGE_SLOT);
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     (env, retrieved_note)
 }

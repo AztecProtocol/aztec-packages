@@ -115,10 +115,10 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     env.impersonate(owner);
 
     // TODO(#12276): This is here because we are testing historical proofs, and we cannot get a valid block_header at 1 due to a bug in world state.
-    env.advance_block_by(1);
+    env.mine_block();
 
     // We sanity check that we are building block 3, thus block 3 is where the contract will be deployed.
-    assert_eq(env.pending_block_number(), CONTRACT_DEPLOYED_AT);
+    assert_eq(env.next_block_number(), CONTRACT_DEPLOYED_AT);
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();

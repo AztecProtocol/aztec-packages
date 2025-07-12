@@ -2,39 +2,55 @@ use crate::Router;
 use dep::aztec::test::helpers::test_environment::TestEnvironment;
 use aztec::utils::comparison::Comparator;
 
+// For both block number and timestamp we only test one success and one failure case, as the rest are more thoroughly
+// covered in the comparator unit tests.
+
 #[test]
-unconstrained fn test_check_block_number() {
+unconstrained fn check_block_number() {
     let mut env = TestEnvironment::new();
 
     let router_contract = env.deploy_self("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    env.advance_block_by(8);
-
-    // First we sanity-check that current block number is as expected
-    let current_block_number = env.pending_block_number();
-    assert(current_block_number == 10, "Expected pending block number to be 10");
-
-    // We test just one success case and 1 failure case in this test as the rest is tested in the comparator unit tests
-    router.check_block_number(Comparator.LT, 11).call(&mut env.private());
+    let expected_next_block_number = env.next_block_number();
+    router.check_block_number(Comparator.LT, expected_next_block_number + 1).call(&mut env.private());
 }
 
 #[test(should_fail_with = "Block number mismatch.")]
-unconstrained fn test_fail_check_block_number() {
+unconstrained fn check_block_number_fail() {
     let mut env = TestEnvironment::new();
 
     let router_contract = env.deploy_self("Router").without_initializer();
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    env.advance_block_by(8);
-
-    // First we sanity-check that current block number is as expected
-    let current_block_number = env.pending_block_number();
-    assert(current_block_number == 10, "Expected block number to be 10");
-
-    router.check_block_number(Comparator.LT, 5).call(&mut env.private());
+    let expected_next_block_number = env.next_block_number();
+    router.check_block_number(Comparator.LT, expected_next_block_number).call(&mut env.private());
 }
 
-// TODO(#8372): Add test for check_timestamp --> setting timestamp currently not supported by TXE
+#[test]
+unconstrained fn check_timestamp() {
+    let mut env = TestEnvironment::new();
+
+    let router_contract = env.deploy_self("Router").without_initializer();
+    let router_contract_address = router_contract.to_address();
+    let router = Router::at(router_contract_address);
+
+    let expected_next_block_timestamp = 99999999999999999;
+    env.set_next_block_timestamp(expected_next_block_timestamp);
+    router.check_timestamp(Comparator.LT, expected_next_block_timestamp + 1).call(&mut env.private());
+}
+
+#[test(should_fail_with = "Timestamp mismatch.")]
+unconstrained fn check_timestamp_fail() {
+    let mut env = TestEnvironment::new();
+
+    let router_contract = env.deploy_self("Router").without_initializer();
+    let router_contract_address = router_contract.to_address();
+    let router = Router::at(router_contract_address);
+
+    let expected_next_block_timestamp = 99999999999999999;
+    env.set_next_block_timestamp(expected_next_block_timestamp);
+    router.check_timestamp(Comparator.LT, expected_next_block_timestamp).call(&mut env.private());
+}
