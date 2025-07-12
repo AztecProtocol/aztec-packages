@@ -10,6 +10,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
 
+const FORCE_LOCAL_ENTRY_QUEUE_CONFIG = process.env.FORCE_LOCAL_ENTRY_QUEUE_CONFIG === 'true';
+
 export type GenesisStateConfig = {
   /** Whether to populate the genesis state with initial fee juice for the test accounts */
   testAccounts: boolean;
@@ -158,7 +160,9 @@ const TestnetEntryQueueConfig = {
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
+  if (FORCE_LOCAL_ENTRY_QUEUE_CONFIG) {
+    return LocalEntryQueueConfig;
+  } else if (networkName === 'alpha-testnet' || networkName === 'testnet') {
     return TestnetEntryQueueConfig;
   }
   return LocalEntryQueueConfig;
