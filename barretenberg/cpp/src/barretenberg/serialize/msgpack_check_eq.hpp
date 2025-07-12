@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/common/log.hpp"
 #include "msgpack.hpp"
 #include "msgpack_impl/drop_keys.hpp"
@@ -24,7 +25,7 @@ bool msgpack_check_eq(const T& v1, const T& v2, const std::string_view& error_me
             auto args2_tuple = std::tie(args2...);
             constexpr auto size1 = std::tuple_size<decltype(args1_tuple)>::value;
             const char* current_label = "";
-            constexpr_for<0, size1, 1>([&]<size_t i>() {
+            bb::constexpr_for<0, size1, 1>([&]<size_t i>() {
                 if constexpr (i % 2 == 0) {
                     current_label = std::get<i>(args1_tuple);
                 } else {
