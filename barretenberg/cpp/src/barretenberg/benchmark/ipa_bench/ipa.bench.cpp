@@ -1,4 +1,5 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <benchmark/benchmark.h>
 
@@ -63,7 +64,7 @@ void ipa_verify(State& state) noexcept
 
         state.ResumeTiming();
         auto result = IPA<Curve>::reduce_verify(vk, opening_claim, verifier_transcript);
-        ASSERT(result);
+        ASSERT_RELEASE(result);
     }
 }
 } // namespace

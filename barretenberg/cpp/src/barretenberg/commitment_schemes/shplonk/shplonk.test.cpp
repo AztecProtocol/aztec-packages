@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/common/assert.hpp"
 #include <algorithm>
 #include <gtest/internal/gtest-internal.h>
 #include <iterator>
@@ -127,7 +128,7 @@ TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
         // KZG verifier
         auto final_proof_points =
             KZG<curve::BN254>::reduce_verify_batch_opening_claim(batched_verifier_claim, verifier_transcript);
-        ASSERT(this->vk().pairing_check(final_proof_points[0], final_proof_points[1]));
+        ASSERT_RELEASE(this->vk().pairing_check(final_proof_points[0], final_proof_points[1]));
     } else {
         // Verify IPA proof
         auto vk = create_verifier_commitment_key<VerifierCommitmentKey<curve::Grumpkin>>();
