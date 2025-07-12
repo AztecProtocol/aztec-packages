@@ -11,6 +11,7 @@ include "poseidon2_perm.pil";
 include "scalar_mul.pil";
 include "to_radix.pil";
 include "ff_gt.pil";
+include "gt.pil";
 include "context.pil";
 include "context_stack.pil";
 include "public_inputs.pil";

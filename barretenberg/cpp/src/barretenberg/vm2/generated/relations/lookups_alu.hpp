@@ -62,46 +62,46 @@ using lookup_alu_tag_max_bits_value_settings = lookup_settings<lookup_alu_tag_ma
 template <typename FF_>
 using lookup_alu_tag_max_bits_value_relation = lookup_relation_base<FF_, lookup_alu_tag_max_bits_value_settings>;
 
-/////////////////// lookup_alu_ff_lt ///////////////////
+/////////////////// lookup_alu_ff_gt ///////////////////
 
-struct lookup_alu_ff_lt_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_FF_LT";
+struct lookup_alu_ff_gt_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_FF_GT";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::alu_sel_ff_lt_ops;
     static constexpr Column DST_SELECTOR = Column::ff_gt_sel_gt;
-    static constexpr Column COUNTS = Column::lookup_alu_ff_lt_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_ff_lt_inv;
+    static constexpr Column COUNTS = Column::lookup_alu_ff_gt_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_ff_gt_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::alu_lt_ops_input_b, ColumnAndShifts::alu_lt_ops_input_a, ColumnAndShifts::alu_lt_ops_result_c
+        ColumnAndShifts::alu_lt_ops_input_a, ColumnAndShifts::alu_lt_ops_input_b, ColumnAndShifts::alu_lt_ops_result_c
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
                                                                                     ColumnAndShifts::ff_gt_result };
 };
 
-using lookup_alu_ff_lt_settings = lookup_settings<lookup_alu_ff_lt_settings_>;
-template <typename FF_> using lookup_alu_ff_lt_relation = lookup_relation_base<FF_, lookup_alu_ff_lt_settings>;
+using lookup_alu_ff_gt_settings = lookup_settings<lookup_alu_ff_gt_settings_>;
+template <typename FF_> using lookup_alu_ff_gt_relation = lookup_relation_base<FF_, lookup_alu_ff_gt_settings>;
 
-/////////////////// lookup_alu_lt_range ///////////////////
+/////////////////// lookup_alu_int_gt ///////////////////
 
-struct lookup_alu_lt_range_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_LT_RANGE";
+struct lookup_alu_int_gt_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_INT_GT";
     static constexpr std::string_view RELATION_NAME = "alu";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_lt_ops;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_alu_lt_range_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_lt_range_inv;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_int_lt_ops;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_alu_int_gt_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_int_gt_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::alu_lt_ops_abs_diff, ColumnAndShifts::alu_max_bits
+        ColumnAndShifts::alu_lt_ops_input_a, ColumnAndShifts::alu_lt_ops_input_b, ColumnAndShifts::alu_lt_ops_result_c
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_alu_lt_range_settings = lookup_settings<lookup_alu_lt_range_settings_>;
-template <typename FF_> using lookup_alu_lt_range_relation = lookup_relation_base<FF_, lookup_alu_lt_range_settings>;
+using lookup_alu_int_gt_settings = lookup_settings<lookup_alu_int_gt_settings_>;
+template <typename FF_> using lookup_alu_int_gt_relation = lookup_relation_base<FF_, lookup_alu_int_gt_settings>;
 
 } // namespace bb::avm2
