@@ -155,8 +155,7 @@ class ECCVMRecursiveFlavor {
          * @param domain_separator
          * @param transcript
          */
-        FF add_hash_to_transcript(const std::string& domain_separator,
-                                  Transcript& transcript) const override
+        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
         {
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
@@ -165,7 +164,8 @@ class ECCVMRecursiveFlavor {
             return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
-        void fix_witness() {
+        void fix_witness()
+        {
             for (Commitment& commitment : this->get_all()) {
                 commitment.fix_witness();
             }

@@ -162,7 +162,8 @@ class TranslatorRecursiveFlavor {
             return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
-        void fix_witness() {
+        void fix_witness()
+        {
             for (Commitment& commitment : this->get_all()) {
                 commitment.fix_witness();
             }

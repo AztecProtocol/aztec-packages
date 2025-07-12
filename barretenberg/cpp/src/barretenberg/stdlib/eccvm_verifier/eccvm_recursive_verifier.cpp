@@ -20,7 +20,7 @@ ECCVMRecursiveVerifier::ECCVMRecursiveVerifier(Builder* builder,
     , builder(builder)
     , transcript(transcript)
 {
-    key->fix_witness(); // fixed to a constant
+    key->fix_witness();                                 // fixed to a constant
     vk_hash.convert_constant_to_fixed_witness(builder); // fixed to a constant
 }
 

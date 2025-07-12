@@ -21,11 +21,11 @@ TranslatorRecursiveVerifier::TranslatorRecursiveVerifier(
     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
-     , vk_hash(native_verifier_key->hash())
+    , vk_hash(native_verifier_key->hash())
     , transcript(transcript)
     , builder(builder)
 {
-    key->fix_witness(); // fixed to a constant
+    key->fix_witness();                                 // fixed to a constant
     vk_hash.convert_constant_to_fixed_witness(builder); // fixed to a constant
 }
 
