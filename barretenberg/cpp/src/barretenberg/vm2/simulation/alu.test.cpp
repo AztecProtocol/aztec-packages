@@ -82,7 +82,7 @@ TEST(AvmSimulationAluTest, LT)
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
 
-    EXPECT_CALL(gt, gt(2, 1));
+    EXPECT_CALL(gt, gt(b, a));
 
     auto c = alu.lt(a, b);
 
@@ -101,7 +101,7 @@ TEST(AvmSimulationAluTest, LTFF)
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
     auto b = MemoryValue::from<FF>(2);
 
-    EXPECT_CALL(gt, gt(FF(2), FF(FF::modulus - 3)));
+    EXPECT_CALL(gt, gt(b, a));
 
     auto c = alu.lt(a, b);
 
@@ -140,7 +140,7 @@ TEST(AvmSimulationAluTest, LTE)
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
 
-    EXPECT_CALL(gt, gt(1, 2));
+    EXPECT_CALL(gt, gt(a, b));
 
     auto c = alu.lte(a, b);
 
@@ -159,7 +159,7 @@ TEST(AvmSimulationAluTest, LTEEq)
     auto a = MemoryValue::from<uint128_t>(2);
     auto b = MemoryValue::from<uint128_t>(2);
 
-    EXPECT_CALL(gt, gt(2, 2));
+    EXPECT_CALL(gt, gt(a, b));
 
     auto c = alu.lte(a, b);
 
@@ -178,7 +178,7 @@ TEST(AvmSimulationAluTest, LTEFF)
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
     auto b = MemoryValue::from<FF>(2);
 
-    EXPECT_CALL(gt, gt(FF(FF::modulus - 3), FF(2)));
+    EXPECT_CALL(gt, gt(a, b));
 
     auto c = alu.lte(a, b);
 

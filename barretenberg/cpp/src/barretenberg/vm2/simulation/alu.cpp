@@ -44,18 +44,11 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
-    FF a_ff = a.as_ff();
-    FF b_ff = b.as_ff();
     // NOTE: We cannot do a_ff < b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a_ff) < static_cast<uint256_t>(b_ff);
+    bool res = static_cast<uint256_t>(a.as_ff()) < static_cast<uint256_t>(b.as_ff());
     MemoryValue c = MemoryValue::from<uint1_t>(res);
     // Emit the gt check event required (see lookup FF_GT or INT_GT) - note that we check b > a:
-    // TODO(MW): There must be a better way of doing this, right? Without static casting?
-    if (a.get_tag() == ValueTag::FF) {
-        greater_than.gt(b_ff, a_ff);
-    } else {
-        greater_than.gt(static_cast<uint128_t>(b_ff), static_cast<uint128_t>(a_ff));
-    }
+    greater_than.gt(b, a);
     events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     return c;
 }
@@ -67,19 +60,12 @@ MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
-    FF a_ff = a.as_ff();
-    FF b_ff = b.as_ff();
     // NOTE: We cannot do a_ff <= b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a_ff) <= static_cast<uint256_t>(b_ff);
+    bool res = static_cast<uint256_t>(a.as_ff()) <= static_cast<uint256_t>(b.as_ff());
     MemoryValue c = MemoryValue::from<uint1_t>(res);
     // Emit the gt check event required (see lookup FF_GT or INT_GT) - note that we check a > b, and in the circuit
     // check this against !c:
-    // TODO(MW): There must be a better way of doing this, right? Without static casting?
-    if (a.get_tag() == ValueTag::FF) {
-        greater_than.gt(a_ff, b_ff);
-    } else {
-        greater_than.gt(static_cast<uint128_t>(a_ff), static_cast<uint128_t>(b_ff));
-    }
+    greater_than.gt(a, b);
     events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .c = c });
     return c;
 }
