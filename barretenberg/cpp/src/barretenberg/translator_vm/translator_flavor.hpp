@@ -815,8 +815,7 @@ class TranslatorFlavor {
          * @param transcript
          * @returns The hash of the verification key
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr add_hash_to_transcript(const std::string& domain_separator,  Transcript& transcript) const override
         {
             for (const Commitment& commitment : this->get_all()) {
                 transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);

@@ -21,9 +21,13 @@ TranslatorRecursiveVerifier::TranslatorRecursiveVerifier(
     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+     , vk_hash(native_verifier_key->hash())
     , transcript(transcript)
     , builder(builder)
-{}
+{
+    key->fix_witness(); // fixed to a constant
+    vk_hash.convert_constant_to_fixed_witness(builder); // fixed to a constant
+}
 
 // Relation params used in sumcheck which is done over FF but the received data is from BF
 void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
