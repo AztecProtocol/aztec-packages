@@ -9,6 +9,11 @@ namespace bb::avm2::simulation {
 
 void AddressDerivation::assert_derivation(const AztecAddress& address, const ContractInstance& instance)
 {
+    if (derived_addresses.contains(address)) {
+        // Deduplicated! This was previously computed and cached.
+        return;
+    }
+
     // TODO: Cache and deduplicate.
     FF salted_initialization_hash = poseidon2.hash(
         { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr });

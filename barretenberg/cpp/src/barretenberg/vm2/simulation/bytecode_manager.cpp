@@ -14,7 +14,10 @@ namespace bb::avm2::simulation {
 
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
-    auto bytecode_id = next_bytecode_id++;
+    // Note: this function cannot be deduplicated because its results depend on
+    // latest tree state, but some inner components it interacts with can be deduplicated.
+    // In particular, class id derivation, bytecode hashing, address derivation can all
+    // be deduplicated.
 
     // Use shared ContractInstanceManager for contract instance retrieval and validation
     // This handles nullifier checks, address derivation, and update validation
@@ -23,15 +26,16 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     if (!maybe_instance.has_value()) {
         // Contract instance not found - emit error event and throw
         retrieval_events.emit({
-            .bytecode_id = bytecode_id,
+            .bytecode_id = 0,
             .address = address,
             .error = true,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
-        throw BytecodeNotFoundError(bytecode_id, "Contract " + field_to_string(address) + " is not deployed");
+        throw BytecodeNotFoundError("Contract " + field_to_string(address) + " is not deployed");
     }
 
     ContractClassId current_class_id = maybe_instance.value().current_class_id;
+    BytecodeId bytecode_id = BytecodeId(current_class_id);
 
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
