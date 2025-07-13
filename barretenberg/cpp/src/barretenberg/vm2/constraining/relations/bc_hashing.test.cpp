@@ -61,7 +61,7 @@ TEST(BytecodeHashingConstrainingTest, SingleBytecodeHash)
     BytecodeTraceBuilder builder;
 
     builder.process_hashing(
-        { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) /* 62 bytes */ } }, trace);
+        { { .class_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) /* 62 bytes */ } }, trace);
 
     check_relation<bc_hashing>(trace);
 }
@@ -74,8 +74,8 @@ TEST(BytecodeHashingConstrainingTest, MultipleBytecodeHash)
     BytecodeTraceBuilder builder;
 
     builder.process_hashing(
-        { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) /* 62 bytes */ },
-          { .bytecode_id = 2, .bytecode_length = 62000, .bytecode_fields = random_fields(2000) /* 62k bytes */ } },
+        { { .class_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) /* 62 bytes */ },
+          { .class_id = 2, .bytecode_length = 62000, .bytecode_fields = random_fields(2000) /* 62k bytes */ } },
         trace);
 
     check_relation<bc_hashing>(trace);
@@ -110,7 +110,7 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     bytecode_builder.process_hashing(
-        { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = fields /* 62 bytes */ } }, trace);
+        { { .class_id = 1, .bytecode_length = 62, .bytecode_fields = fields /* 62 bytes */ } }, trace);
 
     // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
     // check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
@@ -128,9 +128,9 @@ TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
     std::vector<FF> fields = simulation::encode_bytecode(bytecode);
     BytecodeTraceBuilder builder;
 
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
-    builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+    builder.process_hashing({ { .class_id = 1, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
+    builder.process_decomposition({ { .class_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } },
+                                  trace);
 
     check_interaction<BytecodeTraceBuilder,
                       lookup_bc_hashing_get_packed_field_settings,
@@ -146,8 +146,8 @@ TEST(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)
     });
 
     BytecodeTraceBuilder builder;
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
-                              { .bytecode_id = 2, .bytecode_length = 93, .bytecode_fields = random_fields(3) } },
+    builder.process_hashing({ { .class_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
+                              { .class_id = 2, .bytecode_length = 93, .bytecode_fields = random_fields(3) } },
                             trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_START_AFTER_LATCH);
 
@@ -165,7 +165,7 @@ TEST(BytecodeHashingConstrainingTest, NegativeInvalidPCIncrement)
     BytecodeTraceBuilder builder;
     builder.process_hashing(
         {
-            { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
+            { .class_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
         },
         trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_PC_INCREMENTS);
@@ -184,7 +184,7 @@ TEST(BytecodeHashingConstrainingTest, NegativeChainOutput)
     BytecodeTraceBuilder builder;
     builder.process_hashing(
         {
-            { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
+            { .class_id = 1, .bytecode_length = 62, .bytecode_fields = random_fields(2) },
         },
         trace);
     check_relation<bc_hashing>(trace, bc_hashing::SR_CHAIN_OUTPUT_TO_INCR);
@@ -222,9 +222,9 @@ TEST(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
 
     BytecodeTraceBuilder builder;
 
-    builder.process_hashing({ { .bytecode_id = 1, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
-    builder.process_decomposition(
-        { { .bytecode_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } }, trace);
+    builder.process_hashing({ { .class_id = 1, .bytecode_length = 40, .bytecode_fields = fields } }, trace);
+    builder.process_decomposition({ { .class_id = 1, .bytecode = std::make_shared<std::vector<uint8_t>>(bytecode) } },
+                                  trace);
 
     // Row = 3 is the start of the hashing for bytecode id = 2
     // Modify the pc index for the lookup of the second packed field

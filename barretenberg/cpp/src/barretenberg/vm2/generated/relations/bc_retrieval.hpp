@@ -13,7 +13,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 3 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -45,24 +45,17 @@ template <typename FF_> class bc_retrievalImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::bc_retrieval_sel)) * in.get(C::bc_retrieval_sel_shift) *
-                       in.get(C::bc_retrieval_bytecode_id);
+            auto tmp = (in.get(C::bc_retrieval_error) -
+                        in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * in.get(C::bc_retrieval_sel_shift) *
-                       (in.get(C::bc_retrieval_bytecode_id_shift) - in.get(C::bc_retrieval_bytecode_id));
+            auto tmp = in.get(C::bc_retrieval_sel) * in.get(C::bc_retrieval_instance_exists) *
+                       (in.get(C::bc_retrieval_class_id) - in.get(C::bc_retrieval_current_class_id));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::bc_retrieval_error) -
-                        in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_instance_exists)));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

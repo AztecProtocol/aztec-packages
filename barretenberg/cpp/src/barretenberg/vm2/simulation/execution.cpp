@@ -793,14 +793,22 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
         try {
             // State before doing anything.
+            // Issue is that if this serialize_context_event() throws (because of the call to get_class_id()),
+            // we won't have a `before_context_event`. Does that matter? Probably.... Because we'd need to be proving
+            // that this before_context corresponds to a bytecode retrieval failure. So, we need to be able to
+            // generate a before_context_event in the case of a bytecode retrieval failure.
+            // This can be fixed by having the serialize function catch the exception and return a default of 0.
+            // But will this actually tracegen two failing bytecode retrievals? Each time, get_class_id() will throw
+            // and therefore will likely not populate any "cached" fields. So it will likely generate the retrieval
+            // event here and then again below.
             ex_event.before_context_event = context.serialize_context_event();
             ex_event.next_context_id = context_provider.get_next_context_id();
             auto pc = context.get_pc();
 
             //// Temporality group 1 starts ////
 
-            // We try to get the bytecode id. This can throw if the contract is not deployed.
-            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
+            // We try to get the class id. This can throw if the contract is not deployed.
+            ex_event.class_id = context.get_bytecode_manager().get_class_id();
 
             //// Temporality group 2 starts ////
 
@@ -826,7 +834,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
-            ex_event.bytecode_id = e.bytecode_id;
+            ex_event.class_id = 0;                         // No class
             context.set_gas_used(context.get_gas_limit()); // Consume all gas.
             context.halt();
             set_execution_result({ .success = false });
@@ -891,6 +899,10 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
     ctx_stack_events.emit({ .id = parent_context.get_context_id(),
                             .parent_id = parent_context.get_parent_id(),
                             .entered_context_id = context_provider.get_next_context_id(),
+                            // even though get_class_id() can technically fail, we know it won't
+                            // because this happens during execution of an opcode which means that its
+                            // bytecode must already been retrieved since it's mid-execution.
+                            .parent_class_id = parent_context.get_bytecode_manager().get_class_id(),
                             .next_pc = parent_context.get_next_pc(),
                             .msg_sender = parent_context.get_msg_sender(),
                             .contract_addr = parent_context.get_address(),

@@ -35,7 +35,7 @@ void BytecodeTraceBuilder::process_decomposition(
 
     for (const auto& event : events) {
         const auto& bytecode = *event.bytecode;
-        const auto id = event.bytecode_id;
+        const auto id = event.class_id;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
         const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
@@ -134,7 +134,7 @@ void BytecodeTraceBuilder::process_hashing(
     uint32_t row = 1;
 
     for (const auto& event : events) {
-        const auto id = event.bytecode_id;
+        const auto id = event.class_id;
         const auto& fields = event.bytecode_fields;
 
         uint32_t pc_index = 0;
@@ -146,7 +146,7 @@ void BytecodeTraceBuilder::process_hashing(
                       { { { C::bc_hashing_sel, 1 },
                           { C::bc_hashing_start, i == 0 ? 1 : 0 },
                           { C::bc_hashing_latch, end_of_bytecode },
-                          { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_class_id, id },
                           { C::bc_hashing_pc_index, pc_index },
                           { C::bc_hashing_packed_field, fields[i] },
                           { C::bc_hashing_incremental_hash, incremental_hash },
@@ -169,7 +169,7 @@ void BytecodeTraceBuilder::process_retrieval(
         trace.set(row,
                   { {
                       { C::bc_retrieval_sel, 1 },
-                      { C::bc_retrieval_bytecode_id, event.bytecode_id },
+                      { C::bc_retrieval_class_id, event.class_id },
                       { C::bc_retrieval_address, event.address },
                       { C::bc_retrieval_error, event.error ? 1 : 0 },
 
@@ -198,7 +198,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     TraceContainer& trace)
 {
     using C = Column;
-    using simulation::BytecodeId;
+    using bb::avm2::ContractClassId;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
     using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
@@ -209,7 +209,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     uint32_t row = 1;
 
     for (const auto& event : events) {
-        const auto bytecode_id = event.bytecode_id;
+        const auto class_id = event.class_id;
         const auto bytecode_size = event.bytecode->size();
 
         auto get_operand = [&](size_t i) -> FF {
@@ -267,7 +267,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         trace.set(row,
                   { {
                       { C::instr_fetching_sel, 1 },
-                      { C::instr_fetching_bytecode_id, bytecode_id },
+                      { C::instr_fetching_class_id, class_id },
                       { C::instr_fetching_pc, event.pc },
                       // indirect + operands.
                       { C::instr_fetching_indirect, event.instruction.indirect },

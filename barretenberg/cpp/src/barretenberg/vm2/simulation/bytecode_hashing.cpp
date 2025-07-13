@@ -5,9 +5,14 @@
 
 namespace bb::avm2::simulation {
 
-FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const BytecodeId bytecode_id,
+FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const ContractClassId class_id,
                                                       const std::vector<uint8_t>& bytecode)
 {
+    if (bytecode_commitments.contains(class_id)) {
+        // Deduplicated! This was previously computed and cached.
+        return bytecode_commitments[class_id];
+    }
+
     [[maybe_unused]] auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
     std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
@@ -16,9 +21,12 @@ FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const Byt
 
     FF hash = hasher.hash(inputs);
 
-    // events.emit({ .bytecode_id = bytecode_id,
-    //               .bytecode_length = bytecode_length_in_bytes,
-    //               .bytecode_fields = std::move(bytecode_as_fields) });
+    // Cache the computed hash for deduplication
+    bytecode_commitments[class_id] = hash;
+
+    events.emit({ .class_id = class_id,
+                  .bytecode_length = bytecode_length_in_bytes,
+                  .bytecode_fields = std::move(bytecode_as_fields) });
     return hash;
 }
 

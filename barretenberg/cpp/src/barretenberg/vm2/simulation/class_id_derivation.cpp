@@ -10,13 +10,21 @@ namespace bb::avm2::simulation {
 
 void ClassIdDerivation::assert_derivation(const ContractClassId& class_id, const ContractClass& klass)
 {
-    // TODO: Cache and deduplicate.
+    if (derived_class_ids.contains(class_id)) {
+        // Deduplicated! This was previously computed and cached.
+        return;
+    }
+
     FF computed_class_id = poseidon2.hash({ GENERATOR_INDEX__CONTRACT_LEAF,
                                             klass.artifact_hash,
                                             klass.private_function_root,
                                             klass.public_bytecode_commitment });
     (void)computed_class_id; // Silence unused variable warning when assert is stripped out
     assert(computed_class_id == class_id);
+
+    // Mark this class ID as successfully derived in the cache
+    derived_class_ids.insert(class_id);
+
     events.emit({ .class_id = class_id, .klass = klass });
 }
 

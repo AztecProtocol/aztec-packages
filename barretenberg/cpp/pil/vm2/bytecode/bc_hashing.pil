@@ -80,13 +80,13 @@ namespace bc_hashing;
     #[PC_INCREMENTS]
     sel * (pc_index' - ((1 - LATCH_CONDITION) * (31 + pc_index))) = 0;
 
-    pol commit bytecode_id;
+    pol commit class_id;
     #[ID_CONSISTENCY]
-    (1 - LATCH_CONDITION) * (bytecode_id' - bytecode_id) = 0;
+    (1 - LATCH_CONDITION) * (class_id' - class_id) = 0;
 
     pol commit packed_field;
     #[GET_PACKED_FIELD]
-    sel { pc_index, bytecode_id, packed_field }
+    sel { pc_index, class_id, packed_field }
     in
     bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
 
@@ -97,7 +97,7 @@ namespace bc_hashing;
     // At the start of a new bytecode hash, the initial incremental hash has to be the length of the bytecode
     // Note the looked up PC = 0 (enforced by the PC_INCREMENTS relation), i.e. the initial incremental hash value == bytecode length
     #[IV_IS_LEN]
-    start { pc_index, bytecode_id, incremental_hash }
+    start { pc_index, class_id, incremental_hash }
     in
     bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
 

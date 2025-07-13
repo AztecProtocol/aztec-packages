@@ -25,6 +25,8 @@ class ClassIdDerivation : public ClassIdDerivationInterface {
   private:
     EventEmitterInterface<ClassIdDerivationEvent>& events;
     Poseidon2Interface& poseidon2;
+
+    unordered_flat_set<ContractClassId> derived_class_ids;
 };
 
 } // namespace bb::avm2::simulation

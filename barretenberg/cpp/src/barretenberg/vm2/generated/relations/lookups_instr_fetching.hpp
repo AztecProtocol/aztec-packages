@@ -92,7 +92,7 @@ struct lookup_instr_fetching_bytecode_size_from_bc_dec_settings_ {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytecode_size_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytecode_size_from_bc_dec_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bytecode_id,
+        ColumnAndShifts::instr_fetching_class_id,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::instr_fetching_bytecode_size
     };
@@ -120,7 +120,7 @@ struct lookup_instr_fetching_bytes_from_bc_dec_settings_ {
     static constexpr Column COUNTS = Column::lookup_instr_fetching_bytes_from_bc_dec_counts;
     static constexpr Column INVERSES = Column::lookup_instr_fetching_bytes_from_bc_dec_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::instr_fetching_bytecode_id,   ColumnAndShifts::instr_fetching_pc,
+        ColumnAndShifts::instr_fetching_class_id,      ColumnAndShifts::instr_fetching_pc,
         ColumnAndShifts::instr_fetching_bytes_to_read, ColumnAndShifts::instr_fetching_bd0,
         ColumnAndShifts::instr_fetching_bd1,           ColumnAndShifts::instr_fetching_bd2,
         ColumnAndShifts::instr_fetching_bd3,           ColumnAndShifts::instr_fetching_bd4,

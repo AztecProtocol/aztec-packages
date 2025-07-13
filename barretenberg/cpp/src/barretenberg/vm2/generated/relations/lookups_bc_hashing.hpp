@@ -23,7 +23,7 @@ struct lookup_bc_hashing_get_packed_field_settings_ {
     static constexpr Column INVERSES = Column::lookup_bc_hashing_get_packed_field_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_hashing_pc_index,
-        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_class_id,
         ColumnAndShifts::bc_hashing_packed_field
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -50,7 +50,7 @@ struct lookup_bc_hashing_iv_is_len_settings_ {
     static constexpr Column INVERSES = Column::lookup_bc_hashing_iv_is_len_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_hashing_pc_index,
-        ColumnAndShifts::bc_hashing_bytecode_id,
+        ColumnAndShifts::bc_hashing_class_id,
         ColumnAndShifts::bc_hashing_incremental_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
