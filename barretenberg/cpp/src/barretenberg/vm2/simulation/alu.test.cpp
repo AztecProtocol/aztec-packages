@@ -15,6 +15,7 @@
 namespace bb::avm2::simulation {
 
 using ::testing::ElementsAre;
+using ::testing::Return;
 using ::testing::StrictMock;
 
 namespace {
@@ -82,7 +83,7 @@ TEST(AvmSimulationAluTest, LT)
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
 
-    EXPECT_CALL(gt, gt(b, a));
+    EXPECT_CALL(gt, gt(b, a)).WillOnce(Return(true));
 
     auto c = alu.lt(a, b);
 
@@ -101,7 +102,7 @@ TEST(AvmSimulationAluTest, LTFF)
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
     auto b = MemoryValue::from<FF>(2);
 
-    EXPECT_CALL(gt, gt(b, a));
+    EXPECT_CALL(gt, gt(b, a)).WillOnce(Return(false));
 
     auto c = alu.lt(a, b);
 
@@ -140,7 +141,7 @@ TEST(AvmSimulationAluTest, LTE)
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
 
-    EXPECT_CALL(gt, gt(a, b));
+    EXPECT_CALL(gt, gt(a, b)).WillOnce(Return(false));
 
     auto c = alu.lte(a, b);
 
@@ -159,7 +160,7 @@ TEST(AvmSimulationAluTest, LTEEq)
     auto a = MemoryValue::from<uint128_t>(2);
     auto b = MemoryValue::from<uint128_t>(2);
 
-    EXPECT_CALL(gt, gt(a, b));
+    EXPECT_CALL(gt, gt(a, b)).WillOnce(Return(false));
 
     auto c = alu.lte(a, b);
 
@@ -178,7 +179,7 @@ TEST(AvmSimulationAluTest, LTEFF)
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
     auto b = MemoryValue::from<FF>(2);
 
-    EXPECT_CALL(gt, gt(a, b));
+    EXPECT_CALL(gt, gt(a, b)).WillOnce(Return(true));
 
     auto c = alu.lte(a, b);
 
