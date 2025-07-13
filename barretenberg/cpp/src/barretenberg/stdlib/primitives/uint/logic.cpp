@@ -279,28 +279,29 @@ uint<Builder, Native> uint<Builder, Native>::logic_operator(const uint& other, c
         return uint<Builder, Native>(ctx, out);
     }
 
-    ReadData<field_t<Builder>> lookup;
-    if (op_type == XOR) {
-        if constexpr (std::is_same_v<Native, uint64_t>) {
-            // use the 64-bit XOR lookup
-            lookup = plookup_read<Builder>::get_lookup_accumulators(
-                MultiTableId::UINT64_XOR, field_t<Builder>(*this), field_t<Builder>(other), true);
-        } else {
-            // use the 32-bit XOR lookup
-            lookup = plookup_read<Builder>::get_lookup_accumulators(
-                MultiTableId::UINT32_XOR, field_t<Builder>(*this), field_t<Builder>(other), true);
-        }
+    // We need to decide which lookup table to use based on the native type and operation type.
+    MultiTableId multi_table_id;
+    if constexpr (std::is_same_v<Native, uint64_t>) {
+        multi_table_id = (op_type == XOR) ? MultiTableId::UINT64_XOR : MultiTableId::UINT64_AND;
+    } else if constexpr (std::is_same_v<Native, uint32_t>) {
+        multi_table_id = (op_type == XOR) ? MultiTableId::UINT32_XOR : MultiTableId::UINT32_AND;
+    } else if constexpr (std::is_same_v<Native, uint16_t>) {
+        multi_table_id = (op_type == XOR) ? MultiTableId::UINT16_XOR : MultiTableId::UINT16_AND;
+    } else if constexpr (std::is_same_v<Native, uint8_t>) {
+        multi_table_id = (op_type == XOR) ? MultiTableId::UINT8_XOR : MultiTableId::UINT8_AND;
     } else {
-        if constexpr (std::is_same_v<Native, uint64_t>) {
-            // use the 64-bit AND lookup
-            lookup = plookup_read<Builder>::get_lookup_accumulators(
-                MultiTableId::UINT64_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
-        } else {
-            // use the 32-bit AND lookup
-            lookup = plookup_read<Builder>::get_lookup_accumulators(
-                MultiTableId::UINT32_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
-        }
+        throw_or_abort("unsupported native type for stdlib uint operation.");
     }
+
+    // We allow the uint types to contain unbounded values (for example, uint32_t can hold values > 2^32),
+    // so when looking them up in the lookup tables, we need to ensure that the values are range-constrained
+    // to the appropriate bit-size. This is done by using the `field_t<Builder>` operator, which normalizes
+    // (i.e., creates range constraint on the accumulators) before looking them up in the tables.
+    const field_t<Builder> key_left = field_t<Builder>(*this);
+    const field_t<Builder> key_right = field_t<Builder>(other);
+    ReadData<field_t<Builder>> lookup =
+        plookup_read<Builder>::get_lookup_accumulators(multi_table_id, key_left, key_right, true);
+
     uint<Builder, Native> result(ctx);
     // result.accumulators.resize(num_accumulators());
     field_t<Builder> scaling_factor(context, bb::fr(1ULL << bits_per_limb));
