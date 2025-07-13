@@ -1,7 +1,7 @@
 import {
   AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MEGA_HONK_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
@@ -83,10 +83,10 @@ export async function getVkAsFields({
   keyAsFields,
 }: {
   keyAsFields: string[];
-}): Promise<VerificationKey<typeof CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>> {
+}): Promise<VerificationKey<typeof MEGA_HONK_VK_LENGTH_IN_FIELDS>> {
   const key = keyAsFields.map(f => Fr.fromString(f));
   const vk = await VerificationKeyAsFields.fromKey(key);
-  return mapVerificationKeyToNoir(vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+  return mapVerificationKeyToNoir(vk, MEGA_HONK_VK_LENGTH_IN_FIELDS);
 }
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;

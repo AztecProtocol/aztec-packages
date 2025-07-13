@@ -7,9 +7,9 @@ pub use protocol_types::{
     abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,
     constants::{
         AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+        MEGA_HONK_VK_LENGTH_IN_FIELDS, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
         PROOF_TYPE_AVM, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROOF_TYPE_ROLLUP_HONK,
-        PROOF_TYPE_ROOT_ROLLUP_HONK, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        PROOF_TYPE_ROOT_ROLLUP_HONK, ULTRA_HONK_VK_LENGTH_IN_FIELDS,
         TUBE_PROOF_LENGTH,
     },
     proof::verification_key::{RollupHonkVerificationKey, VerificationKey},
@@ -176,7 +176,7 @@ impl PreviousRollupData {
 pub struct TubeData {
     pub public_inputs: KernelPublicInputs,
     pub proof: [Field; TUBE_PROOF_LENGTH],
-    pub vk_data: VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VerificationKey<ULTRA_HONK_VK_LENGTH_IN_FIELDS>,
 }
 
 impl TubeData {

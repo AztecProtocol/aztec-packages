@@ -4,7 +4,7 @@ use crate::{
     },
     constants::{
         PRIVATE_TUBE_VK_INDEX, PROOF_TYPE_ROLLUP_HONK, PUBLIC_TUBE_VK_INDEX,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        ULTRA_HONK_VK_LENGTH_IN_FIELDS,
     },
     proof::{traits::Verifiable, tube_proof::TubeProof, vk_data::VkData},
     traits::Serialize,
@@ -13,7 +13,7 @@ use crate::{
 pub struct PublicTubeData {
     pub public_inputs: PrivateToPublicKernelCircuitPublicInputs,
     pub proof: TubeProof,
-    pub vk_data: VkData<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<ULTRA_HONK_VK_LENGTH_IN_FIELDS>,
 }
 
 impl Verifiable for PublicTubeData {
@@ -43,7 +43,7 @@ impl PublicTubeData {
 pub struct PrivateTubeData {
     pub public_inputs: PrivateToRollupKernelCircuitPublicInputs,
     pub proof: TubeProof,
-    pub vk_data: VkData<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<ULTRA_HONK_VK_LENGTH_IN_FIELDS>,
 }
 
 impl Verifiable for PrivateTubeData {

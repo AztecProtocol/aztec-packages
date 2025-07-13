@@ -1,12 +1,12 @@
 use dep::mock_types::{
-    CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, KernelPublicInputs,
+    MEGA_HONK_VK_LENGTH_IN_FIELDS, KernelPublicInputs,
     MAX_COMMITMENT_READ_REQUESTS_PER_TX, PrivateKernelPublicInputs, PROOF_TYPE_PG, VerificationKey,
 };
 
 // The tail kernel finishes the client IVC chain exposing the final public inputs with no remaining calls or unfulfilled read requests.
 fn main(
     prev_kernel_public_inputs: call_data(0) PrivateKernelPublicInputs,
-    kernel_vk: VerificationKey<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    kernel_vk: VerificationKey<MEGA_HONK_VK_LENGTH_IN_FIELDS>,
 ) -> pub KernelPublicInputs {
     std::verify_proof_with_type(kernel_vk.key, [], [], kernel_vk.hash, PROOF_TYPE_PG);
 

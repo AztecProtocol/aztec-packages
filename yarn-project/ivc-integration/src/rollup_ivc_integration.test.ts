@@ -1,7 +1,7 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ULTRA_HONK_VK_LENGTH_IN_FIELDS,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
@@ -117,7 +117,7 @@ describe('Rollup IVC Integration', () => {
         proof: mapRecursiveProofToNoir(tubeProof.proof),
         vk_data: mapVerificationKeyToNoir(
           tubeProof.verificationKey.keyAsFields,
-          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+          ULTRA_HONK_VK_LENGTH_IN_FIELDS,
         ),
       },
     });
@@ -136,7 +136,7 @@ describe('Rollup IVC Integration', () => {
       proof: mapRecursiveProofToNoir(privateBaseProof.proof),
       vk: mapVerificationKeyToNoir(
         privateBaseProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        ULTRA_HONK_VK_LENGTH_IN_FIELDS,
       ),
     };
 
@@ -146,7 +146,7 @@ describe('Rollup IVC Integration', () => {
         proof: mapRecursiveProofToNoir(tubeProof.proof),
         vk_data: mapVerificationKeyToNoir(
           tubeProof.verificationKey.keyAsFields,
-          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+          ULTRA_HONK_VK_LENGTH_IN_FIELDS,
         ),
       },
       verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
@@ -168,7 +168,7 @@ describe('Rollup IVC Integration', () => {
       proof: mapRecursiveProofToNoir(publicBaseProof.proof),
       vk: mapVerificationKeyToNoir(
         publicBaseProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        ULTRA_HONK_VK_LENGTH_IN_FIELDS,
       ),
     };
 
@@ -191,7 +191,7 @@ describe('Rollup IVC Integration', () => {
       proof: mapRecursiveProofToNoir(mergeProof.proof),
       vk: mapVerificationKeyToNoir(
         mergeProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        ULTRA_HONK_VK_LENGTH_IN_FIELDS,
       ),
     };
 

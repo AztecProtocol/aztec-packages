@@ -1,5 +1,5 @@
 import {
-  CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  MEGA_HONK_VK_LENGTH_IN_FIELDS,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
@@ -582,7 +582,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
  */
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateCallData.vk, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_HONK_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
@@ -646,7 +646,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_HONK_VK_LENGTH_IN_FIELDS),
   };
 }
 

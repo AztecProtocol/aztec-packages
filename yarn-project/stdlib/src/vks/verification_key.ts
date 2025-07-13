@@ -1,6 +1,5 @@
 import {
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ULTRA_HONK_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -151,12 +150,12 @@ export class VerificationKeyAsFields {
   }
 
   static makeFakeHonk(seed = 1): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+    return new VerificationKeyAsFields(makeTuple(ULTRA_HONK_VK_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
   }
 
   static makeFakeRollupHonk(seed = 1): VerificationKeyAsFields {
     return new VerificationKeyAsFields(
-      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, i => new Fr(i), seed),
+      makeTuple(ULTRA_HONK_VK_LENGTH_IN_FIELDS, i => new Fr(i), seed),
       new Fr(seed + 1),
     );
   }
@@ -293,7 +292,7 @@ export class VerificationKeyData {
     );
   }
 
-  static makeFake(len = ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+  static makeFake(len = ULTRA_HONK_VK_LENGTH_IN_FIELDS): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
   }
 

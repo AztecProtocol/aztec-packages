@@ -13,11 +13,10 @@ import {
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  ULTRA_HONK_VK_LENGTH_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
   RECURSIVE_PROOF_LENGTH,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -463,7 +462,7 @@ export function mapRootParityInputToNoir(
 ): ParityRootParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, ULTRA_HONK_VK_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -703,7 +702,7 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
       previousRollupData.baseOrMergeRollupPublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk_data: mapVkDataToNoir(previousRollupData.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(previousRollupData.vkData, ULTRA_HONK_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -720,7 +719,7 @@ export function mapPreviousRollupBlockDataToNoir(
       previousRollupData.blockRootOrBlockMergePublicInputs,
     ),
     proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk_data: mapVkDataToNoir(previousRollupData.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(previousRollupData.vkData, ULTRA_HONK_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -729,7 +728,7 @@ export function mapRootRollupParityInputToNoir(
 ): RootRollupParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, ULTRA_HONK_VK_LENGTH_IN_FIELDS),
     vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
@@ -883,7 +882,7 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
   return {
     public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(data.vkData, ULTRA_HONK_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -911,7 +910,7 @@ function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
   return {
     public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(data.publicInputs),
     proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(data.vkData, ULTRA_HONK_VK_LENGTH_IN_FIELDS),
   };
 }
 
