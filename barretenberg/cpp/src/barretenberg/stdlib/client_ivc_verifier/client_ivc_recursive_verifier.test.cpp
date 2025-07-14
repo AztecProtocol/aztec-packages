@@ -52,8 +52,9 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc{ trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+    size_t NUM_CIRCUITS = 2;
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, NUM_CIRCUITS);
 
     // Confirm that the IVC proof can be natively verified
     EXPECT_TRUE(ivc.verify(proof));
@@ -68,8 +69,10 @@ TEST_F(ClientIVCRecursionTests, Basic)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+    size_t NUM_CIRCUITS = 2;
+
+    ClientIVC ivc{ 2, trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, NUM_CIRCUITS);
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
@@ -92,8 +95,10 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc{ trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
+    size_t NUM_CIRCUITS = 2;
+
+    ClientIVC ivc{ 2, trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, NUM_CIRCUITS);
 
     // Construct the ClientIVC recursive verifier
     auto tube_builder = std::make_shared<Builder>();
@@ -154,7 +159,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
     auto get_blocks = [](size_t inner_size)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
-        ClientIVC ivc{ trace_settings };
+        ClientIVC ivc{ inner_size, trace_settings };
 
         auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, inner_size);
 

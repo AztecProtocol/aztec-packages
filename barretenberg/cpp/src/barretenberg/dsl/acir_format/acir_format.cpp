@@ -590,6 +590,8 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  * @param program constraints and optionally a witness
  * @param metadata additional data needed to construct the circuit
  */
+
+/// HEREEEEEEEEEEEEE, but let's do it in unit tests first
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
     PROFILE_THIS();

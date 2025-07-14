@@ -32,12 +32,12 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    size_t NUM_CIRCUITS = 6;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
     // Construct and accumulate a series of mocked private function execution circuits
-    size_t NUM_CIRCUITS = 6;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
@@ -55,12 +55,12 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
  */
 TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    size_t NUM_CIRCUITS = 4;
+    ClientIVC ivc{ NUM_CIRCUITS + 2, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
     // Accumulate a series of mocked circuits (app, kernel, app, kernel)
-    size_t NUM_CIRCUITS = 4;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit);
@@ -82,9 +82,8 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
-
     size_t NUM_CIRCUITS = 6;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Precompute the verification keys for each circuit in the IVC
     std::vector<std::shared_ptr<VerificationKey>> precomputed_vks;
@@ -115,12 +114,12 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
  */
 TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    size_t NUM_CIRCUITS = 6;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
     // Construct and accumulate a series of mocked private function execution circuits
-    size_t NUM_CIRCUITS = 6;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 

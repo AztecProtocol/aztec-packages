@@ -14,12 +14,13 @@
 namespace bb {
 
 // Constructor
-ClientIVC::ClientIVC(TraceSettings trace_settings, size_t num_circuits)
+ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
     , num_circuits(num_circuits)
     , trace_settings(trace_settings)
     , goblin(bn254_commitment_key)
 {
+    BB_ASSERT_GTE(num_circuits, num_circuits, "Number of circuits must be specified and greater than 0.");
     // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
     size_t commitment_key_size =
@@ -221,6 +222,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
+    num_circuits -= 1;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
     // the circuit VK
     if (circuit.is_kernel) {
@@ -319,6 +321,7 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
+    BB_ASSERT_EQ(num_circuits, static_cast<size_t>(0));
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
 

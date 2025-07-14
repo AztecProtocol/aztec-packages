@@ -80,7 +80,7 @@ void write_vk_for_ivc(const std::string& output_format,
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
     }
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    ClientIVC ivc{ /*num_circuits=*/2, { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
@@ -296,11 +296,11 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
 
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    size_t NUM_CIRCUITS = 2;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
-    size_t NUM_CIRCUITS = 2;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         auto circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit);

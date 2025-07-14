@@ -187,7 +187,7 @@ class ClientIVC {
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    ClientIVC(TraceSettings trace_settings = {}, size_t num_circuits = 0);
+    ClientIVC(size_t num_circuits = 0, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
