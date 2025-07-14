@@ -159,7 +159,7 @@ function test_cmds {
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
   if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }
 

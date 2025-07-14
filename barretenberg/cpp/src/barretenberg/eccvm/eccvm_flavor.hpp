@@ -44,8 +44,8 @@ class ECCVMFlavor {
     using Commitment = typename G1::affine_element;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using RelationSeparator = FF;
     using MSM = bb::eccvm::MSM<CycleGroup>;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -95,6 +95,9 @@ class ECCVMFlavor {
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupRelation<FF>;
 
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
@@ -104,6 +107,46 @@ class ECCVMFlavor {
     // Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fq = bb::field_conversion::calc_num_bn254_frs<FF>();
+
+    // Proof length formula
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fq) +
+        /* 4. CONST_ECCVM_LOG_N sumcheck univariates commitments */
+        (CONST_ECCVM_LOG_N * num_frs_comm) +
+        /* 5. 2 * CONST_ECCVM_LOG_N sumcheck univariate evaluations */
+        (2 * CONST_ECCVM_LOG_N * num_frs_fq) +
+        /* 6. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fq) +
+        /* 7. Libra claimed evaluation */ (num_frs_fq) +
+        /* 8. Libra grand sum commitment */ (num_frs_comm) +
+        /* 9. Libra quotient commitment */ (num_frs_comm) +
+        /* 10. Gemini masking commitment */ (num_frs_comm) +
+        /* 11. Gemini masking evaluation */ (num_frs_fq) +
+        /* 12. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
+        ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
+        /* 13. CONST_ECCVM_LOG_N Gemini a evaluations */
+        (CONST_ECCVM_LOG_N * num_frs_fq) +
+        /* 14. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
+        /* 15. Shplonk Q commitment */ (num_frs_comm) +
+        /* 16. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 17 Translator op evaluation */ (num_frs_fq) +
+        /* 18 Translator Px evaluation */ (num_frs_fq) +
+        /* 19 Translator Py evaluation */ (num_frs_fq) +
+        /* 20 Translator z1 evaluation */ (num_frs_fq) +
+        /* 21 Translator z2 evaluation */ (num_frs_fq) +
+        /* 22 Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 23 Translator grand sum commitment */ (num_frs_comm) +
+        /* 24 Translator quotient commitment */ (num_frs_comm) +
+        /* 25 Translator concatenation eval */ (num_frs_fq) +
+        /* 26 Translator grand sum shift eval */ (num_frs_fq) +
+        /* 27 Translator grand sum eval */ (num_frs_fq) +
+        /* 28 Translator quotient eval */ (num_frs_fq) +
+        /* 29 Shplonk Q commitment */ (num_frs_comm) +
+        /* 30 IPA proof */ IPA_PROOF_LENGTH;
 
     // Instantiate the BarycentricData needed to extend each Relation Univariate
 
@@ -725,20 +768,20 @@ class ECCVMFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = ECCVM_FIXED_SIZE; // The circuit size is fixed for the ECCVM.
+        size_t log_circuit_size = CONST_ECCVM_LOG_N;
+
         // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key;
 
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
-            : Base(ECCVM_FIXED_SIZE, 0)
-            , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
+            : real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
             , polynomials(builder)
         {}
     };
@@ -751,8 +794,12 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
@@ -779,8 +826,8 @@ class ECCVMFlavor {
         {
             this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
@@ -803,19 +850,33 @@ class ECCVMFlavor {
             };
 
             std::vector<fr> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
-
             return elements;
         }
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         * @returns The hash of the verification key
+         */
+        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            }
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -996,8 +1057,6 @@ class ECCVMFlavor {
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }
     };
-
-    using Transcript = NativeTranscript;
 };
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)

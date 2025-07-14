@@ -53,6 +53,12 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     transcript->load_proof(proof.pre_ipa_proof);
 
+    // Fiat-Shamir the vk hash
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
+    // in-circuit hashing.
+    typename Flavor::BF vkey_hash = key->add_hash_to_transcript("", *transcript);
+    vinfo("ECCVM vk hash in recursive verifier: ", vkey_hash);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
@@ -79,8 +85,11 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    Sumcheck sumcheck(transcript, alpha);
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -91,7 +100,7 @@ ECCVMRecursiveVerifier::IpaClaimAndProof ECCVMRecursiveVerifier::verify_proof(co
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");

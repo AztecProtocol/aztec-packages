@@ -93,6 +93,23 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     }
 }
 
+/**
+ * @brief Check that size of a ECCVM proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in eccvm_flavor.hpp, etc...
+ * - eccvm_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+ */
+TEST_F(ECCVMTests, ProofLengthCheck)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+}
+
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
@@ -151,19 +168,19 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 
     // Run Sumcheck on the ECCVM Prover polynomials
     using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
-    SumcheckProver sumcheck_prover(pk->circuit_size, prover_transcript);
+    SumcheckProver sumcheck_prover(
+        pk->circuit_size, pk->polynomials, prover_transcript, alpha, gate_challenges, relation_parameters);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
 
-    auto prover_output =
-        sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
-    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript, alpha);
+    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier

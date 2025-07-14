@@ -27,6 +27,7 @@ import {
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
@@ -119,6 +120,22 @@ export class ReqResp implements ReqRespInterface {
     this.rateLimiter.start();
   }
 
+  async addSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol] = DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol],
+  ): Promise<void> {
+    this.subProtocolHandlers[subProtocol] = handler;
+    this.subProtocolValidators[subProtocol] = validator;
+    await this.libp2p.handle(
+      subProtocol,
+      (data: IncomingStreamData) =>
+        void this.streamHandler(subProtocol as ReqRespSubProtocol, data).catch(err =>
+          this.logger.error(`Error on libp2p subprotocol ${subProtocol} handler`, err),
+        ),
+    );
+  }
+
   /**
    * Stop the reqresp service
    */
@@ -178,9 +195,9 @@ export class ReqResp implements ReqRespInterface {
     timeoutMs = 10000,
     maxPeers = Math.max(10, Math.ceil(requests.length / 3)),
     maxRetryAttempts = 3,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
     const responseValidator = this.subProtocolValidators[subProtocol];
-    const responses: (InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[] = new Array(requests.length);
+    const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
 
     const requestFunction = async (signal: AbortSignal) => {
@@ -311,7 +328,7 @@ export class ReqResp implements ReqRespInterface {
     };
 
     try {
-      return await executeTimeout<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>(
+      return await executeTimeout<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>(
         requestFunction,
         timeoutMs,
         () => new CollectiveReqRespTimeoutError(),
@@ -446,7 +463,7 @@ export class ReqResp implements ReqRespInterface {
     }
 
     // Do not punish if we are stopping the service
-    if (e instanceof AbortError) {
+    if (e instanceof AbortError || e?.code == 'ABORT_ERR') {
       this.logger.debug(`Request aborted: ${e.message}`, logTags);
       return undefined;
     }
@@ -481,6 +498,11 @@ export class ReqResp implements ReqRespInterface {
 
     if (e?.code === 'ERR_UNEXPECTED_EOF') {
       this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL') {
+      this.logger.debug(`Sub protocol not supported by peer: ${peerId.toString()}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 

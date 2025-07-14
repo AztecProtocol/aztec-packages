@@ -102,7 +102,11 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
         );
       }
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${this.values.timestamp}.`,
+        `Rejecting tx ${await Tx.getHash(
+          tx,
+        )} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp}, timestamp: ${
+          this.values.timestamp
+        }.`,
       );
       return false;
     } else {

@@ -73,6 +73,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
 
+    // Fiat-Shamir the vk hash
+    typename Flavor::FF vkey_hash = key->add_hash_to_transcript("", *transcript);
+    vinfo("Translator vk hash in verifier: ", vkey_hash);
+
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
@@ -97,9 +101,13 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(transcript);
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    Sumcheck sumcheck(transcript, alpha);
+
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -112,7 +120,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
     std::ranges::fill(padding_indicator_array, FF{ 1 });
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {

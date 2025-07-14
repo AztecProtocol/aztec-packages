@@ -27,6 +27,13 @@ pub fn pad_end<T, let N: u32, let M: u32>(items: [T; N], emptyItem: T) -> [T; M]
     output
 }
 
+pub fn pad_end_with_empty<T, let N: u32, let M: u32>(items: [T; N]) -> [T; M]
+where
+    T: Empty,
+{
+    pad_end(items, T::empty())
+}
+
 pub fn make_fixture<T, let N: u32>(seed: Field) -> T
 where
     T: Deserialize<N>,

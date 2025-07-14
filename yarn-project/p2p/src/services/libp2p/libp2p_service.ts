@@ -27,7 +27,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import { ENR } from '@chainsafe/enr';
 import {
   type GossipSub,
   type GossipSubComponents,
@@ -68,10 +68,15 @@ import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolValidators,
   type SubProtocolMap,
+  ValidationError,
 } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
+  AuthRequest,
+  StatusMessage,
   pingHandler,
   reqRespBlockHandler,
   reqRespStatusHandler,
@@ -231,6 +236,27 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
     const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
 
+    const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+    const directPeers = (
+      await Promise.all(
+        preferredPeersEnrs.map(async enr => {
+          const peerId = await enr.peerId();
+          const address = enr.getLocationMultiaddr('tcp');
+          if (address === undefined) {
+            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          }
+          return {
+            id: peerId,
+            addrs: [address],
+          };
+        }),
+      )
+    ).filter(peer => peer !== undefined);
+
+    if (directPeers.length > 0) {
+      logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
+    }
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -267,6 +293,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          directPeers,
           debugName: 'gossipsub',
           globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
@@ -329,6 +356,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       reqresp,
       worldStateSynchronizer,
       protocolVersion,
+      epochCache,
     );
 
     // Update gossipsub score params
@@ -373,7 +401,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.jobQueue.start();
 
     await this.peerManager.initializePeers();
-    await this.peerDiscoveryService.start();
+    if (!this.config.p2pDiscoveryDisabled) {
+      await this.peerDiscoveryService.start();
+    }
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
@@ -387,7 +417,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
-    const requestResponseHandlers = {
+    const requestResponseHandlers: Partial<Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
@@ -446,6 +476,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.logger.info('LibP2P service stopped');
   }
 
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return this.reqresp.addSubProtocol(subProtocol, handler, validator);
+  }
+
   public getPeers(includePending?: boolean): PeerInfo[] {
     return this.peerManager.getPeers(includePending);
   }
@@ -473,7 +511,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     protocol: SubProtocol,
     requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
     pinnedPeerId: PeerId | undefined,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]> {
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
     return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
@@ -782,40 +820,56 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   /**
-   * Validate a tx that has been requested from a peer.
+   * Validate a collection of txs that has been requested from a peer.
    *
-   * The core component of this validator is that the tx hash MUST match the requested tx hash,
+   * The core component of this validator is that each tx hash MUST match the requested tx hash,
    * In order to perform this check, the tx proof must be verified.
    *
    * Note: This function is called from within `ReqResp.sendRequest` as part of the
    * ReqRespSubProtocol.TX subprotocol validation.
    *
-   * @param requestedTxHash - The hash of the tx that was requested.
-   * @param responseTx - The tx that was received as a response to the request.
+   * @param requestedTxHash - The collection of the txs that was requested.
+   * @param responseTx - The collectin of txs that was received as a response to the request.
    * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the tx is valid, false otherwise.
+   * @returns True if the whole collection of txs is valid, false otherwise.
    */
+  //TODO: (mralj) - this is somewhat naive implementation, if single tx is invlid we consider the whole response invalid.
+  // I think we should still extract the valid txs and return them, so that we can still use the response.
   @trackSpan('Libp2pService.validateRequestedTx', (requestedTxHash, _responseTx) => ({
     [Attributes.TX_HASH]: requestedTxHash.toString(),
   }))
-  private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
+  private async validateRequestedTx(requestedTxHash: TxHash[], responseTx: Tx[], peerId: PeerId): Promise<boolean> {
+    const requested = new Set(requestedTxHash.map(h => h.toString()));
+
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const validProof = await proofValidator.validateTx(responseTx);
 
-    // If the node returns the wrong data, we penalize it
-    if (!requestedTxHash.equals(await responseTx.getTxHash())) {
-      // Returning the wrong data is a low tolerance error
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+    try {
+      await Promise.all(
+        responseTx.map(async tx => {
+          if (!requested.has((await tx.getTxHash()).toString())) {
+            this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+            throw new ValidationError(
+              `Received tx with hash ${(await tx.getTxHash()).toString()} that was not requested.`,
+            );
+          }
+
+          const { result } = await proofValidator.validateTx(tx);
+          if (result === 'invalid') {
+            this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+            throw new ValidationError(`Received tx with hash ${(await tx.getTxHash()).toString()} that is invalid.`);
+          }
+        }),
+      );
+      return true;
+    } catch (e: any) {
+      if (e instanceof ValidationError) {
+        this.logger.debug(`Failed to validate requested txs from peer ${peerId.toString()}, reason ${e.message}`);
+      } else {
+        this.logger.warn(`Error during validation of requested txs`, e);
+      }
+
       return false;
     }
-
-    if (validProof.result === 'invalid') {
-      // If the proof is invalid, but the txHash is correct, then this is an active attack and we severly punish
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-      return false;
-    }
-
-    return true;
   }
 
   @trackSpan('Libp2pService.validatePropagatedTx', async tx => ({
@@ -1024,6 +1078,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public getPeerScore(peerId: PeerId): number {
     return this.node.services.pubsub.score.score(peerId.toString());
+  }
+
+  public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.peerManager.handleAuthRequestFromPeer(authRequest, peerId);
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

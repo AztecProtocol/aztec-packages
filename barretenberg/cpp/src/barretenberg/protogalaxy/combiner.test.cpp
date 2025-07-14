@@ -40,7 +40,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const DeciderPKs& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
-        const UnivariateRelationSeparator& alphas)
+        const UnivariateSubrelationSeparators& alphas)
     {
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
         return compute_combiner_no_optimistic_skipping(
@@ -62,7 +62,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const DeciderPKs& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
-        const UnivariateRelationSeparator& alphas,
+        const UnivariateSubrelationSeparators& alphas,
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators)
     {
         PROFILE_THIS();
@@ -70,7 +70,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
         // the incoming key which could have nontrivial values on the larger domain in case of overflow.
-        const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
+        const size_t common_polynomial_size = keys[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
@@ -202,14 +202,13 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                key->proving_key.polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->polynomials = std::move(prover_polynomials);
+                key->set_dyadic_size(2);
                 keys_data[idx] = key;
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
             PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
@@ -237,14 +236,13 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                key->proving_key.polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->polynomials = std::move(prover_polynomials);
+                key->set_dyadic_size(2);
                 keys_data[idx] = key;
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -264,13 +262,13 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 polys.q_o.at(idx) = -1;
             };
 
-            create_add_gate(keys[0]->proving_key.polynomials, 0, 1, 2);
-            create_add_gate(keys[0]->proving_key.polynomials, 1, 0, 4);
-            create_add_gate(keys[1]->proving_key.polynomials, 0, 3, 4);
-            create_mul_gate(keys[1]->proving_key.polynomials, 1, 1, 4);
+            create_add_gate(keys[0]->polynomials, 0, 1, 2);
+            create_add_gate(keys[0]->polynomials, 1, 0, 4);
+            create_add_gate(keys[1]->polynomials, 0, 3, 4);
+            create_mul_gate(keys[1]->polynomials, 1, 1, 4);
 
-            restrict_to_standard_arithmetic_relation(keys[0]->proving_key.polynomials);
-            restrict_to_standard_arithmetic_relation(keys[1]->proving_key.polynomials);
+            restrict_to_standard_arithmetic_relation(keys[0]->polynomials);
+            restrict_to_standard_arithmetic_relation(keys[1]->polynomials);
 
             /* DeciderProvingKey 0                            DeciderProvingKey 1
                 w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c
@@ -342,14 +340,13 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                key->proving_key.polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->polynomials = std::move(prover_polynomials);
+                key->set_dyadic_size(2);
                 keys_data[idx] = key;
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, UNIVARIATE_LENGTH>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
 
@@ -361,14 +358,14 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
                 UltraArithmeticRelation::accumulate(std::get<0>(temporary_accumulator),
-                                                    keys_data[NUM_KEYS - 1]->proving_key.polynomials.get_row(i),
+                                                    keys_data[NUM_KEYS - 1]->polynomials.get_row(i),
                                                     relation_parameters,
                                                     gate_separators[i]);
             }
             // Get the result of the 0th subrelation of the arithmetic relation
             FF key_offset = std::get<0>(temporary_accumulator)[0];
             // Subtract it from q_c[0] (it directly affect the target sum, making it zero and enabling the optimisation)
-            keys_data[1]->proving_key.polynomials.q_c.at(0) -= key_offset;
+            keys_data[1]->polynomials.q_c.at(0) -= key_offset;
             std::vector<typename Flavor::ProverPolynomials>
                 extended_polynomials; // These hold the extensions of prover polynomials
 
@@ -378,8 +375,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 auto key = std::make_shared<DeciderProvingKey>();
                 auto prover_polynomials = get_zero_prover_polynomials<Flavor>(1);
                 for (auto [key_0_polynomial, key_1_polynomial, new_polynomial] :
-                     zip_view(keys_data[0]->proving_key.polynomials.get_all(),
-                              keys_data[1]->proving_key.polynomials.get_all(),
+                     zip_view(keys_data[0]->polynomials.get_all(),
+                              keys_data[1]->polynomials.get_all(),
                               prover_polynomials.get_all())) {
                     for (size_t i = 0; i < /*circuit_size*/ 2; i++) {
                         new_polynomial.at(i) =
@@ -396,7 +393,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 if (idx < NUM_KEYS) {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),
-                                                            keys_data[idx]->proving_key.polynomials.get_row(i),
+                                                            keys_data[idx]->polynomials.get_row(i),
                                                             relation_parameters,
                                                             gate_separators[i]);
                     }
@@ -428,14 +425,13 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
-                key->proving_key.polynomials = std::move(prover_polynomials);
-                key->proving_key.circuit_size = 2;
-                key->proving_key.log_circuit_size = 1;
+                key->polynomials = std::move(prover_polynomials);
+                key->set_dyadic_size(2);
                 keys_data[idx] = key;
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternalTest::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -455,13 +451,13 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 polys.q_o.at(idx) = -1;
             };
 
-            create_add_gate(keys[0]->proving_key.polynomials, 0, 1, 2);
-            create_add_gate(keys[0]->proving_key.polynomials, 1, 0, 4);
-            create_add_gate(keys[1]->proving_key.polynomials, 0, 3, 4);
-            create_mul_gate(keys[1]->proving_key.polynomials, 1, 1, 4);
+            create_add_gate(keys[0]->polynomials, 0, 1, 2);
+            create_add_gate(keys[0]->polynomials, 1, 0, 4);
+            create_add_gate(keys[1]->polynomials, 0, 3, 4);
+            create_mul_gate(keys[1]->polynomials, 1, 1, 4);
 
-            restrict_to_standard_arithmetic_relation(keys[0]->proving_key.polynomials);
-            restrict_to_standard_arithmetic_relation(keys[1]->proving_key.polynomials);
+            restrict_to_standard_arithmetic_relation(keys[0]->polynomials);
+            restrict_to_standard_arithmetic_relation(keys[1]->polynomials);
 
             /* DeciderProvingKey 0                            DeciderProvingKey 1
                 w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c

@@ -294,26 +294,12 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                       i < exec_instruction_spec.num_addresses ? 1 : 0);
         }
 
-        // Gadget / Subtrace Selectors
+        // Gadget / Subtrace Selectors / Decomposable selectors
         auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
-        uint8_t alu_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0;
-        uint8_t bitwise_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0;
-        uint8_t poseidon_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0;
-        uint8_t to_radix_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0;
-        uint8_t ecc_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0;
-        uint8_t keccak_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0;
-        uint8_t data_copy_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::DATACOPY ? 1 : 0;
-        uint8_t execution_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION ? 1 : 0;
         trace.set(static_cast<uint32_t>(exec_opcode),
-                  { { { C::precomputed_sel_dispatch_alu, alu_sel },
-                      { C::precomputed_sel_dispatch_bitwise, bitwise_sel },
-                      { C::precomputed_sel_dispatch_poseidon_perm, poseidon_sel },
-                      { C::precomputed_sel_dispatch_to_radix, to_radix_sel },
-                      { C::precomputed_sel_dispatch_ecc, ecc_sel },
-                      { C::precomputed_sel_dispatch_data_copy, data_copy_sel },
-                      { C::precomputed_sel_dispatch_keccakf1600, keccak_sel },
-                      { C::precomputed_sel_dispatch_execution, execution_sel },
-                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
+                  { { { C::precomputed_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
+                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                      { C::precomputed_dyn_gas_id, exec_instruction_spec.dyn_gas_id } } });
     }
 }
 

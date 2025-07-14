@@ -1,5 +1,5 @@
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
@@ -44,7 +44,7 @@ describe('prover/orchestrator/public-functions', () => {
       // Note: skip nullifier insertion above so it can be performed during the constructor
       // TX (via firstNullifier). We want all tree operations to end up in txEffects!
       const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
         token.address.toField(),
       );
 

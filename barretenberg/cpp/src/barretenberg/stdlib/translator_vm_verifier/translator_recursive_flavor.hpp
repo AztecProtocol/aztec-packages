@@ -40,7 +40,8 @@ class TranslatorRecursiveFlavor {
     using Commitment = Curve::AffineElement;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = TranslatorFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -121,6 +122,45 @@ class TranslatorRecursiveFlavor {
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
+        }
+
+        /**
+         * @brief Serialize verification key to field elements.
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const override
+        {
+            using namespace bb::stdlib::field_conversion;
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
     };
 

@@ -101,8 +101,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
@@ -130,7 +130,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
-            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
@@ -160,8 +159,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->pairing_inputs_public_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);

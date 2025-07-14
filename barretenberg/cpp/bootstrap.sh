@@ -299,14 +299,19 @@ case "$cmd" in
       "build_preset $native_preset --target bb_cli_bench --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("build_preset wasm-threads --target bb_cli_bench --target bb")
+      builds+=("build_preset wasm-threads --target bb_cli_bench")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
     # Download cached flow inputs from the specified commit
     export AZTEC_CACHE_COMMIT=$commit_hash
-    export DOWNLOAD_ONLY=1
+    export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
+    echo "Running with FORCE_CACHE_DOWNLOAD=1. This should work, but as a workaround you can set FORCE_CACHE_DOWNLOAD=0 before the bench_ivc call to build some parts."
+    ../../noir/bootstrap.sh
+    USE_CIRCUITS_CACHE=1 ../../noir-projects/noir-protocol-circuits/bootstrap.sh
     yarn --cwd ../../yarn-project/bb-prover generate
+
+    rm -rf bench-out
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench

@@ -28,23 +28,6 @@ template <typename Curve> class OpeningPair {
 };
 
 /**
- * @brief Opening vector \f$(r,\{a_1, \dots, a_m\}, {v_1, \dots, v_m})\f$ for some witness polynomials \f$\{p_1(X),
- * p_m(X)\}\f$ such that \f$\sum_i a_i p_i(r) = \sum_i a_i v_i\f$.
- *
- * @tparam Params for the given commitment scheme
- */
-template <typename Curve> class OpeningVector {
-    using Fr = typename Curve::ScalarField;
-
-  public:
-    Fr challenge;                 // r
-    std::vector<Fr> coefficients; // (a_1, \dots, a_m)
-    std::vector<Fr> evaluations;  // \sum_i a_i p_i(r) = \sum_i a_i v_i
-
-    bool operator==(const OpeningVector& other) const = default;
-};
-
-/**
  * @brief Polynomial p and an opening pair (r,v) such that p(r) = v
  *
  * @tparam Params for the given commitment scheme
@@ -96,9 +79,6 @@ template <typename Curve> class OpeningClaim {
         opening_pair.evaluation.set_public();
         commitment.set_public();
 
-        Builder* ctx = commitment.get_context();
-        ctx->ipa_claim_public_input_key.start_idx = start_idx;
-
         return start_idx;
     }
 
@@ -122,6 +102,39 @@ template <typename Curve> class OpeningClaim {
         auto challenge = Fr::reconstruct_from_public(challenge_limbs);
         auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
         auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
+
+        return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
+    }
+
+    /**
+     * @brief Reconstruct a native opening claim from native field elements
+     * @note Implemented for native curve::Grumpkin for use with IPA.
+     *
+     */
+    static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
+        requires(std::is_same_v<Curve, curve::Grumpkin>)
+    {
+        constexpr size_t NUM_LIMBS = 4;
+
+        const auto recover_fq_from_limbs = [](std::array<bb::fr, NUM_LIMBS> limbs) {
+            const uint256_t limb = uint256_t(limbs[0]) +
+                                   (uint256_t(limbs[1]) << stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                                   (uint256_t(limbs[2]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                                   (uint256_t(limbs[3]) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+            return typename Curve::ScalarField(limb);
+        };
+
+        std::array<bb::fr, NUM_LIMBS> challenge_limbs;
+        std::array<bb::fr, NUM_LIMBS> evaluation_limbs;
+
+        for (size_t k = 0; k < NUM_LIMBS; k++) {
+            challenge_limbs[k] = ipa_claim_limbs[k];
+            evaluation_limbs[k] = ipa_claim_limbs[NUM_LIMBS + k];
+        }
+
+        auto challenge = recover_fq_from_limbs(challenge_limbs);
+        auto evaluation = recover_fq_from_limbs(evaluation_limbs);
+        typename Curve::AffineElement commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
@@ -161,6 +174,8 @@ template <typename Curve> class OpeningClaim {
  * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
  *
  * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
+ *
+ * @note This structure always represents a zero evaluation claim.
  *
  * @tparam Curve: BN254 or Grumpkin.
  */

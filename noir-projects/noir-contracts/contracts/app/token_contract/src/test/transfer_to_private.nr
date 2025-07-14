@@ -36,7 +36,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
         &mut env.public(),
     );
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Recipient's private balance should be equal to the amount
     utils::check_private_balance(token_contract_address, recipient, amount);
@@ -65,7 +65,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 //         0,
 //     ).call(&mut env.private());
 
-//     env.advance_block_by(1);
+//     env.mine_block();
 
 //     // Recipient's private balance should be equal to the amount
 //     utils::check_private_balance(token_contract_address, recipient, amount);

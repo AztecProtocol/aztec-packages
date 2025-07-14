@@ -108,7 +108,6 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
     honk_verification_key->circuit_size = dyadic_size;
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
-    honk_verification_key->pairing_inputs_public_input_key.start_idx = 0;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
@@ -237,13 +236,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     std::shared_ptr<MegaVerificationKey> verification_key =
         create_mock_honk_vk(dyadic_size, num_public_inputs, pub_inputs_offset);
 
-    // If the verification queue entry corresponds to a kernel circuit, set the databus data to indicate the presence of
-    // propagated return data commitments on the public inputs
-    if (is_kernel) {
-        verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
-    }
-
-    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
+    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
 }
 
 /**
