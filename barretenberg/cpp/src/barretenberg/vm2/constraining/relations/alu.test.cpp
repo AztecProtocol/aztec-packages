@@ -101,7 +101,7 @@ auto process_basic_add_trace(MemoryTag input_tag)
             .execution_register_0_ = a,                                // = ia
             .execution_register_1_ = b,                                // = ib
             .execution_register_2_ = c,                                // = ic
-            .execution_sel_alu = 1,                                    // = sel
+            .execution_sel_execute_alu = 1,                            // = sel
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD, // = alu_op_id
         },
     });
@@ -161,7 +161,7 @@ auto process_carry_add_trace(MemoryTag input_tag)
             .execution_register_0_ = a,                                // = ia
             .execution_register_1_ = b,                                // = ib
             .execution_register_2_ = c,                                // = ic
-            .execution_sel_alu = 1,                                    // = sel
+            .execution_sel_execute_alu = 1,                            // = sel
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_ADD, // = alu_op_id
         },
     });
@@ -237,7 +237,7 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
             .execution_register_0_ = a,                                      // = ia
             .execution_register_1_ = b,                                      // = ib
             .execution_register_2_ = c,                                      // = ic
-            .execution_sel_alu = 1,                                          // = sel
+            .execution_sel_execute_alu = 1,                                  // = sel
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LT,        // = alu_op_id
         },
     });
@@ -332,7 +332,7 @@ TestTraceContainer process_lte_trace(MemoryTag input_tag, bool eq = false)
             .execution_register_0_ = a,                                      // = ia
             .execution_register_1_ = b,                                      // = ib
             .execution_register_2_ = c,                                      // = ic
-            .execution_sel_alu = 1,                                          // = sel
+            .execution_sel_execute_alu = 1,                                  // = sel
             .execution_subtrace_operation_id = AVM_EXEC_OP_ID_ALU_LTE,       // = alu_op_id
         },
     });
