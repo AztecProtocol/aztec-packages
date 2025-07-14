@@ -97,7 +97,7 @@ function build_bench {
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
-  if [ -n "${DOWNLOAD_ONLY:-}" ]; then
+  if [ -n "${FORCE_CACHE_DOWNLOAD:-}" ]; then
     echo "Could not find ivc inputs cached!"
     exit 1
   fi
