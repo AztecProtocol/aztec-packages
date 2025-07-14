@@ -161,7 +161,7 @@ class ClientIVC {
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
   public:
-    // The number of circuits expected to be accumulated in an iteration of the IVC, it indicates how many accumulate
+    // The number of circuits to be accumulated in the current iteration of the IVC, it indicates how many accumulate
     // calls should be expected before calling prove.
     size_t num_circuits;
 
