@@ -122,7 +122,9 @@ impl TestEnvironment {
         let ret_value = f(&mut context);
         cheatcodes::set_top_level_txe_context();
 
-        // todo: should commit the context to mine a block with the side effects of the context
+        // todo: should commit the context to mine a block with the side effects of the context. we should have an
+        // oracle that receives the context we produced probably
+        self.mine_block();
 
         ret_value
     }

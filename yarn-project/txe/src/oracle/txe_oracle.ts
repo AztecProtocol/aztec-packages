@@ -1239,8 +1239,11 @@ export class TXE implements TypedOracle {
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = await siloNullifier(targetAddress, innerNullifier!);
     const db = this.baseFork;
-    const index = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    return index !== undefined;
+
+    const treeIndex = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
+    const transientIndex = this.siloedNullifiersFromPublic.find(n => n.equals(nullifier));
+
+    return treeIndex !== undefined || transientIndex !== undefined;
   }
 
   async avmOpcodeEmitNullifier(nullifier: Fr) {

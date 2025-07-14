@@ -1,9 +1,6 @@
-use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct};
+use crate::test::helpers::test_environment::TestEnvironment;
 
-use dep::std::mem::zeroed;
-
-global storage_slot: Field = 13;
-global value: MockStruct = MockStruct { a: 17, b: 42 };
+mod public_context;
 
 #[test(should_fail_with = "cannot be before next timestamp")]
 unconstrained fn set_next_block_timestamp_to_past_fails() {
@@ -96,34 +93,6 @@ unconstrained fn public_context_advances_timestamp() {
     let second_timestamp = env.public_context(|context| context.timestamp());
 
     assert(second_timestamp > first_timestamp);
-}
-
-#[test]
-unconstrained fn public_context_default_storage_value() {
-    let mut env = TestEnvironment::_new();
-
-    env.public_context(|context| {
-        assert_eq(context.storage_read::<MockStruct, _>(storage_slot), zeroed());
-    });
-}
-
-#[test]
-unconstrained fn public_context_storage_write_in_same_context() {
-    let mut env = TestEnvironment::_new();
-
-    env.public_context(|context| {
-        context.storage_write(storage_slot, value);
-        assert_eq(context.storage_read(storage_slot), value);
-    });
-}
-
-#[test]
-unconstrained fn public_context_storage_write_in_future_context() {
-    let mut env = TestEnvironment::_new();
-
-    env.public_context(|context| { context.storage_write(storage_slot, value); });
-
-    env.public_context(|context| { assert_eq(context.storage_read(storage_slot), value); });
 }
 
 #[test]
