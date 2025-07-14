@@ -381,6 +381,8 @@ template <typename Curve> class ShplonkVerifier_ {
 
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
         scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
+        // The first two powers of nu have already been initialized, we need another `num_claims - 2` powers to batch
+        // all the claims
         for (size_t idx = 0; idx < num_claims - 2; idx++) {
             pows_of_nu.emplace_back(pows_of_nu.back() * pows_of_nu[1]);
         }
@@ -481,6 +483,7 @@ template <typename Curve> class ShplonkVerifier_ {
      * @param g1_identity
      * @return BatchOpeningClaim<Curve>
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1475): Compute g1_identity inside the function body
     BatchOpeningClaim<Curve> export_batch_opening_claim(const Commitment& g1_identity)
     {
         commitments.emplace_back(g1_identity);

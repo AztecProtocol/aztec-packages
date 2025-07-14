@@ -5,6 +5,7 @@
 // =====================
 
 #include "merge_verifier.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 
@@ -16,14 +17,38 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that
- * \f$\deg(l_j) < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
- * claims by:
- * - the Schwartz-Zippel check:
- *      \f[ m_j(\kappa) = l_j(\kappa) + \kappa^k * r_j(\kappa) \f]
- * - the degree check a la Thakur:
- *      \f[ \kappa^{l-1} l_j(1/\kappa) = g_j(\kappa) \f]
- *   where \f$g_j(X) = X^{k-1} l_j(1 / X)\f$.
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge wants to convince the verifier that the
+ * polynomials l_j, r_j, m_j for which they have sent commitments [l_j], [r_j], [m_j] satisfy
+ *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
+ *      - deg(l_j(X)) < k                   (2)
+ * where k = shift_size.
+ *
+ * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
+ * the polynomial
+ *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
+ * opens to 0 at kappa.
+ *
+ * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
+ * then requests proofs that
+ *      l_j(1/kappa) = c     g_j(kappa) = d
+ * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
+ * g_j(X) = X^{l-1} l_j(1/X), which means that deg(l_j(X)) < l.
+ *
+ * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
+ * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]
+ * and then open it). We initialize the Shplonk verifier with the following commitments:
+ *      [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
+ * Then, we verify the various claims:
+ *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
+ *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
+ *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
+ *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
+ *                           evaluation: 0.
+ *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
+ *                           v_j.
+ *     - g_j(kappa) = w_j:   The index is {3 + 4 * (j-1)}, the coefficient is { 1 }, and the evaluation is w_j.
+ * The claims are passed in the following order:
+ *   {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0}, {1/kappa, v_1}, {kappa, w_1}, .., {1/kappa, v_4}, {kappa, w_4}
  *
  * In the Goblin scenario, we have:
  * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
@@ -36,44 +61,12 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
  */
 bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
 {
-    /**
-     * The prover wants to convince the verifier that the polynomials l_j, r_j, m_j for which they have sent commitments
-     * [l_j], [r_j], [m_j] satisfy
-     *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
-     *      - deg(l_j(X)) < k                   (2)
-     * where l = shift_size.
-     *
-     * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
-     * the polynomial
-     *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
-     * opens to 0 at kappa.
-     *
-     * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
-     * then requests proofs that
-     *      l_j(1/kappa) = c     g_j(kappa) = d
-     * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
-     * g_j(X) = X^{l-1} l_j(1/X), which means that deg(l_j(X)) < l.
-     *
-     * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
-     * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]
-     * and then open it). We initialize the Shplonk verifier with the following commitments:
-     *      [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
-     * Then, we verify the various claims:
-     *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
-     *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
-     *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
-     *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
-     *                           evaluation: 0.
-     *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
-     *                           v_j.
-     *     - g_j(kappa) = w_j:   The index is {3 + 4 * (j-1)}, the coefficient is { 1 }, and the evaluation is w_j.
-     * The claims are passed in the following order:
-     *   {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0}, {1/kappa, v_1}, {kappa, w_1}, .., {1/kappa, v_4}, {kappa, w_4}
-     */
+    using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
     transcript->load_proof(proof);
 
     const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
+    ASSERT(shift_size > 0, "Shift size should always be bigger than 0");
 
     // Vector of commitments to be passed to the Shplonk verifier
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
@@ -97,9 +90,9 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     }
 
     // Store T_commitments of the verifier
-    size_t commitment_idx = 2;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        T_commitments[idx] = table_commitments[commitment_idx];
+    size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
+    for (auto& commitment : T_commitments) {
+        commitment = table_commitments[commitment_idx];
         commitment_idx += NUM_WIRES;
     }
 
@@ -107,7 +100,6 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
     const FF pow_kappa = kappa.pow(shift_size);
-    const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
@@ -153,11 +145,11 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
         commitment_idx += 1;
 
         // Degree identity
-        degree_check_verified &= (left_table_eval_kappa_inv * pow_kappa_minus_one == left_table_reversed_eval);
+        degree_check_verified &= (left_table_eval_kappa_inv * kappa.pow(shift_size - 1) == left_table_reversed_eval);
     }
 
     // Initialize Shplonk verifier
-    ShplonkVerifier verifier(table_commitments, transcript, opening_claims.size());
+    ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
     verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
 
     // Export batched claim

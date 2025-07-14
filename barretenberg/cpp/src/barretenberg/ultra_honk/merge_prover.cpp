@@ -5,6 +5,7 @@
 // =====================
 
 #include "merge_prover.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -24,14 +25,23 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that
- * \f$\deg(l_j) < k\f$, and that \f$m_j = l_j + right_shift(r_j, k)\f$. The protocol demonstrates the validity of these
- * claims by:
- * - the Schwartz-Zippel check:
- *      \f[ m_j(\kappa) = l_j(\kappa) + \kappa^k * r_j(\kappa) \f]
- * - the degree check a la Thakur:
- *      \f[ \kappa^{l-1} l_j(1/\kappa) = g_j(\kappa) \f]
- *   where \f$g_j(X) = X^{l-1} l_j(1 / X)\f$.
+ * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
+ * for j = 1, 2, 3, 4:
+ *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
+ *      - deg(l_j(X)) < k                   (2)
+ * where k = shift_size.
+ *
+ * Condition (1) is equivalent, up to negligible probability, to:
+ *      l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa) = 0
+ * so the prover constructs the polynomial
+ *      p_j(X) := l_j(X) + kappa^{k-1} r_j(X) - m_j(X)
+ * and proves that it opens to 0 at kappa.
+ *
+ * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{k-1} l_j(1/X)) and provides
+ * openings:
+ *      c = l_j(1/kappa)     d = g_j(kappa)
+ * The verifier then checks that: c * kappa^{k-1} = d. This check is equivalent, up to negligible probability, to
+ * \f$g_j(X) = X^{k-1} l_j(1/X)\f$, which implies \f$deg(l_j) < k$.
  *
  * In the Goblin scenario, we have:
  * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
@@ -44,24 +54,6 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
-    /**
-     * The prover wants to convince the verifier that, for j = 1, 2, 3, 4:
-     *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
-     *      - deg(l_j(X)) < k                   (2)
-     * where l = shift_size.
-     *
-     * Condition (1) is equivalent, up to negligible probability, to:
-     *      l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa) = 0
-     * so the prover constructs the polynomial
-     *      p_j(X) := l_j(X) + kappa^{k-1} r_j(X) - m_j(X)
-     * and proves that it opens to 0 at kappa.
-     *
-     * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{k-1} l_j(1/X)) and provides
-     * openings:
-     *      c = l_j(1/kappa)     d = g_j(kappa)
-     * The verifier then checks that: c * kappa^{k-1} = d. This check is equivalent, up to negligible probability, to
-     * \f$g_j(X) = X^{k-1} l_j(1/X)\f$, which implies \f$deg(l_j) < k$.
-     */
 
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
@@ -93,11 +85,9 @@ MergeProver::MergeProof MergeProver::construct_proof()
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Note: This is hacky at the moment because the prover still needs to commit to T_prev. Once we connect two
         // steps of the Merge, T_prev will not be sent by the Merge prover, so the following lines will be removed
-        if (op_queue->get_current_settings() == MergeSettings::PREPEND) {
-            transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(right_table[idx]));
-        } else {
-            transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(left_table[idx]));
-        }
+        auto previous_table =
+            op_queue->get_current_settings() == MergeSettings::PREPEND ? right_table[idx] : left_table[idx];
+        transcript->send_to_verifier("T_PREV" + std::to_string(idx), pcs_commitment_key.commit(previous_table));
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
                                      pcs_commitment_key.commit(merged_table[idx]));
         transcript->send_to_verifier("LEFT_TABLE_REVERSED_" + std::to_string(idx),
@@ -144,7 +134,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     }
 
     // Shplonk prover
-    OpeningClaim shplonk_opening_claim = ShplonkProver::prove(pcs_commitment_key, opening_claims, transcript);
+    OpeningClaim shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
 
     // KZG prover
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
