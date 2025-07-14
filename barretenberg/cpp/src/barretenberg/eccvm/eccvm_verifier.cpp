@@ -29,6 +29,10 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     ipa_transcript->load_proof(proof.ipa_proof);
     transcript->load_proof(proof.pre_ipa_proof);
 
+    // Fiat-Shamir the vk hash
+    typename Flavor::BF vkey_hash = key->add_hash_to_transcript("", *transcript);
+    vinfo("ECCVM vk hash in verifier: ", vkey_hash);
+
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 

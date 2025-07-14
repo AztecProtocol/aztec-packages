@@ -116,7 +116,6 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             .poseidon2_constraints = {},
             .multi_scalar_mul_constraints = {},
             .ec_add_constraints = {},
-            .recursion_constraints = {},
             .honk_recursion_constraints = {},
             .avm_recursion_constraints = {},
             .ivc_recursion_constraints = {},
@@ -174,7 +173,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             fr key_hash_witness = verification_key->hash();
             std::vector<fr> proof_witnesses = inner_proof;
-            size_t num_public_inputs_to_extract = inner_circuit.get_public_inputs().size() - bb::PAIRING_POINTS_SIZE;
+            size_t num_public_inputs_to_extract = inner_circuit.num_public_inputs() - bb::PAIRING_POINTS_SIZE;
             acir_format::PROOF_TYPE proof_type = acir_format::HONK;
             if constexpr (HasIPAAccumulator<InnerFlavor>) {
                 num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
