@@ -271,6 +271,7 @@ export const AVM_EXEC_OP_ID_SUCCESSCOPY = 2048;
 export const AVM_EXEC_OP_ID_RETURNDATASIZE = 4096;
 export const AVM_EXEC_OP_ID_DEBUGLOG = 8192;
 export const AVM_EXEC_OP_ID_SLOAD = 16384;
+export const AVM_EXEC_OP_ID_SSTORE = 32768;
 export const AVM_EXEC_OP_ID_ALU_ADD = 1;
 export const AVM_EXEC_OP_ID_ALU_SUB = 2;
 export const AVM_EXEC_OP_ID_ALU_MUL = 4;

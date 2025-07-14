@@ -888,5 +888,61 @@ TEST(ExecutionTraceGenTest, SLoad)
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SLOAD))));
 }
 
+TEST(ExecutionTraceGenTest, SStore)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t slot_offset = 1234;
+    uint16_t value_offset = 4567;
+
+    FF slot = 42;
+    FF value = 27;
+
+    const auto instr =
+        InstructionBuilder(WireOpCode::SSTORE).operand<uint16_t>(value_offset).operand<uint16_t>(slot_offset).build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(value), MemoryValue::from<FF>(slot) },
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = {
+                                  { .resolved_operand = MemoryValue::from<uint16_t>(value_offset) },
+                                  { .resolved_operand = MemoryValue::from<uint16_t>(slot_offset) },
+                              } },
+        .before_context_event = {
+            .tree_states = {
+                .publicDataTree = {
+                    .counter = 5,
+                },
+            }
+        },
+        .gas_event = {
+            .dynamic_gas_factor = { .daGas = 1 },
+        },
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the sload
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_sstore, 1),
+                          ROW_FIELD_EQ(execution_should_check_sstore_gas, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, value_offset),
+                          ROW_FIELD_EQ(execution_rop_1_, slot_offset),
+                          ROW_FIELD_EQ(execution_register_0_, value),
+                          ROW_FIELD_EQ(execution_register_1_, slot),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF), // Memory tag for value
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_FF), // Memory tag for slot
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE),
+                          ROW_FIELD_EQ(execution_max_data_writes_reached, 0),
+                          ROW_FIELD_EQ(execution_remaining_data_writes_inv,
+                                       FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - 5).invert()),
+                          ROW_FIELD_EQ(execution_sel_should_sstore, 1))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen

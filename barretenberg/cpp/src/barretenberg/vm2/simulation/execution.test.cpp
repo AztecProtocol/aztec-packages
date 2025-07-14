@@ -30,6 +30,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -381,6 +382,73 @@ TEST_F(ExecutionSimulationTest, Sload)
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     execution.sload(context, slot_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SStore)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    TreeStates tree_state = {};
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
+
+    EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
+
+    execution.sstore(context, value_addr, slot_addr);
+}
+
+TEST_F(ExecutionSimulationTest, SStoreLimitReached)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    TreeStates tree_state = {};
+    tree_state.publicDataTree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(false));
+    EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_state));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 1 }));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.sstore(context, value_addr, slot_addr),
+                              "SSTORE: Maximum number of data writes reached");
+}
+
+TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
+{
+    MemoryAddress slot_addr = 27;
+    MemoryAddress value_addr = 10;
+    AztecAddress address = 0xdeadbeef;
+    auto slot = MemoryValue::from<FF>(42);
+    auto value = MemoryValue::from<FF>(7);
+    TreeStates tree_state = {};
+    tree_state.publicDataTree.counter = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
+    EXPECT_CALL(context, get_memory);
+
+    EXPECT_CALL(memory, get(slot_addr)).WillOnce(ReturnRef(slot));
+    EXPECT_CALL(memory, get(value_addr)).WillOnce(ReturnRef(value));
+    EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(address));
+    // has been written before, so it does not count against the limit.
+    EXPECT_CALL(merkle_db, was_storage_written(address, slot.as<FF>())).WillOnce(Return(true));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
+
+    execution.sstore(context, value_addr, slot_addr);
 }
 
 } // namespace
