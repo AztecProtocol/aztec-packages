@@ -288,6 +288,8 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
+  logger.info(`Deploying shared contracts. Network configration: ${networkName}`);
+
   const txHashes: Hex[] = [];
 
   const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, [
@@ -625,6 +627,8 @@ export const deployRollup = async (
   if (!addresses.gseAddress) {
     throw new Error('GSE address is required when deploying');
   }
+
+  logger.info(`Deploying rollup using network configuration: ${networkName}`);
 
   const txHashes: Hex[] = [];
 
