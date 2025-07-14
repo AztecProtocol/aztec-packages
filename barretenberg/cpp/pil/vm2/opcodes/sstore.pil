@@ -2,12 +2,30 @@ include "../constants_gen.pil";
 include "../trees/public_data_check.pil";
 include "../trees/written_public_data_slots_tree_check.pil";
 
+// SSTORE opcode: Writes a value to storage at the provided slot
+//
+// This opcode interacts with the public data check gadget to write a value at the specified slot.
+// The execution trace reads the slot and value from memory into register[1] and register[0] respectively,
+// performs dynamic gas calculation based on whether the slot was previously written to,
+// validates against maximum data write limits, and updates the public data tree.
+//
+// Register usage:
+// - register[0]: Contains the value to write to storage
+// - register[1]: Contains the storage slot to write to
+//
+// The opcode leverages the public_data_check gadget to verify the storage write operation
+// and the written_public_data_slots_tree_check gadget to track written slots for gas calculation.
+//
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
     #[skippable_if]
     sel_sstore = 0; // from execution.pil.
 
     // =========== DYNAMIC GAS ===========
+    // In the gas temporality group, we compute dynamic da gas for this opcode.
+    // Dynamic gas factor is 1 if we haven't written to this slot before, 0 otherwise.
+    // This one will get multiplied by the cost of publishing one data write.
+    // We leverage the leaf_not_exists column of the written_public_data_slots_tree to compute this.
 
     pol commit should_check_sstore_gas;
     should_check_sstore_gas = sel_sstore * sel_should_check_gas;
@@ -19,7 +37,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[CHECK_WRITTEN_STORAGE_SLOT]
     should_check_sstore_gas {
         contract_address,
-        register[1],
+        register[1], // slot
         dynamic_da_gas_factor,
         prev_written_public_data_slots_tree_root
     } in written_public_data_slots_tree_check.sel {
@@ -63,7 +81,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[RECORD_WRITTEN_STORAGE_SLOT]
     sel_should_sstore {
         contract_address,
-        register[1],
+        register[1], // slot
         sel_should_sstore,
         prev_written_public_data_slots_tree_root,
         prev_written_public_data_slots_tree_size,
@@ -82,9 +100,9 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // This should be a multipermutation
     #[STORAGE_WRITE]
     sel_should_sstore {
-        register[0],
+        register[0], // value
         contract_address,
-        register[1],
+        register[1], // slot
         prev_public_data_tree_root,
         prev_public_data_tree_size,
         public_data_tree_root,
