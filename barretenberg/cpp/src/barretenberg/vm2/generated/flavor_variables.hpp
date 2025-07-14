@@ -40,6 +40,7 @@
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
 #include "relations/sload.hpp"
+#include "relations/sstore.hpp"
 #include "relations/to_radix.hpp"
 #include "relations/tx.hpp"
 #include "relations/update_check.hpp"
@@ -76,6 +77,7 @@
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_sload.hpp"
+#include "relations/lookups_sstore.hpp"
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_update_check.hpp"
@@ -88,10 +90,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 120;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2303;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2313;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2671;
+    static constexpr size_t NUM_ALL_ENTITIES = 2681;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -135,6 +137,7 @@ struct AvmFlavorVariables {
         avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>,
         avm2::sload<FF_>,
+        avm2::sstore<FF_>,
         avm2::to_radix<FF_>,
         avm2::tx<FF_>,
         avm2::update_check<FF_>,
@@ -403,6 +406,9 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_to_radix_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
+        lookup_sstore_check_written_storage_slot_relation<FF_>,
+        lookup_sstore_record_written_storage_slot_relation<FF_>,
+        lookup_sstore_storage_write_relation<FF_>,
         lookup_to_radix_fetch_p_limb_relation<FF_>,
         lookup_to_radix_fetch_safe_limbs_relation<FF_>,
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
