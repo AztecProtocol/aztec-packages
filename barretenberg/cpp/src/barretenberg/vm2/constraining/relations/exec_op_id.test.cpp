@@ -34,16 +34,16 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-constexpr std::array<WireOpCode, 22> WIRE_OPCODES = {
+constexpr std::array<WireOpCode, 23> WIRE_OPCODES = {
     WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::SET_16,    WireOpCode::SET_32,
     WireOpCode::SET_64,       WireOpCode::SET_128,        WireOpCode::SET_FF,    WireOpCode::MOV_8,
     WireOpCode::MOV_16,       WireOpCode::JUMP_32,        WireOpCode::JUMPI_32,  WireOpCode::CALL,
     WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,    WireOpCode::SUCCESSCOPY,
     WireOpCode::STATICCALL,   WireOpCode::REVERT_8,       WireOpCode::REVERT_16, WireOpCode::RETURNDATASIZE,
-    WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,
+    WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,          WireOpCode::SSTORE,
 };
 
-constexpr std::array<uint32_t, 22> OPERATION_IDS = {
+constexpr std::array<uint32_t, 23> OPERATION_IDS = {
     AVM_EXEC_OP_ID_GETENVVAR,    AVM_EXEC_OP_ID_SET,
     AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
     AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
@@ -55,9 +55,10 @@ constexpr std::array<uint32_t, 22> OPERATION_IDS = {
     AVM_EXEC_OP_ID_STATICCALL,   AVM_EXEC_OP_ID_REVERT,
     AVM_EXEC_OP_ID_REVERT,       AVM_EXEC_OP_ID_RETURNDATASIZE,
     AVM_EXEC_OP_ID_DEBUGLOG,     AVM_EXEC_OP_ID_SLOAD,
+    AVM_EXEC_OP_ID_SSTORE,
 };
 
-constexpr std::array<C, 22> SELECTOR_COLUMNS = {
+constexpr std::array<C, 23> SELECTOR_COLUMNS = {
     C::execution_sel_get_env_var,   C::execution_sel_set,
     C::execution_sel_set,           C::execution_sel_set,
     C::execution_sel_set,           C::execution_sel_set,
@@ -69,6 +70,7 @@ constexpr std::array<C, 22> SELECTOR_COLUMNS = {
     C::execution_sel_static_call,   C::execution_sel_revert,
     C::execution_sel_revert,        C::execution_sel_returndata_size,
     C::execution_sel_debug_log,     C::execution_sel_sload,
+    C::execution_sel_sstore,
 };
 
 // Ensure that WIRE_OPCODES contains all wire opcodes which have an execution opcode belonging

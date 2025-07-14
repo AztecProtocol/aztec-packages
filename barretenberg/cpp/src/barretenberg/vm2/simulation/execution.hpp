@@ -116,6 +116,7 @@ class Execution : public ExecutionInterface {
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
+    void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
