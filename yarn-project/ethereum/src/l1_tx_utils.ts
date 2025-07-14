@@ -105,6 +105,8 @@ export interface L1TxUtilsConfig {
    * Whether to attempt to cancel a tx if it's not mined after txTimeoutMs
    */
   cancelTxOnTimeout?: boolean;
+  /** True to replace the previous pending tx (if any) by using its same nonce. */
+  replacePreviousPendingTx?: boolean;
 }
 
 export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
@@ -167,6 +169,10 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: "Whether to attempt to cancel a tx if it's not mined after txTimeoutMs",
     env: 'L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT',
     ...booleanConfigHelper(true),
+  },
+  replacePreviousPendingTx: {
+    description: 'True to replace the previous pending tx (if any) by using its same nonce.',
+    ...booleanConfigHelper(false),
   },
 };
 
@@ -535,7 +541,17 @@ export class ReadOnlyL1TxUtils {
   }
 }
 
+type L1PendingTx = {
+  request: L1TxRequest;
+  attempts: number;
+  nonce: number;
+  gasPrice: GasPrice;
+  txHash?: Hex;
+};
+
 export class L1TxUtils extends ReadOnlyL1TxUtils {
+  private pendingRequest: L1PendingTx | undefined;
+
   constructor(
     public override client: ExtendedViemWalletClient,
     protected override logger: Logger = createLogger('L1TxUtils'),
@@ -566,11 +582,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    */
   public async sendTransaction(
     request: L1TxRequest,
-    _gasConfig?: L1GasConfig,
+    gasConfigOverrides?: L1GasConfig,
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
-      const gasConfig = { ...this.config, ..._gasConfig };
+      const gasConfig = { ...this.config, ...gasConfigOverrides };
       const account = this.client.account;
       let gasLimit: bigint;
 
@@ -582,32 +598,34 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         gasLimit = await this.estimateGas(account, request, gasConfig);
       }
 
-      this.logger?.debug('Gas limit', { gasLimit });
-
-      const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
+      this.logger?.debug('Computed gas limit for L1 tx request', { gasLimit, request });
 
       if (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) {
         throw new Error('Transaction timed out before sending');
       }
 
-      let txHash: Hex;
-      if (blobInputs) {
-        txHash = await this.client.sendTransaction({
-          ...request,
-          ...blobInputs,
-          gas: gasLimit,
-          maxFeePerGas: gasPrice.maxFeePerGas,
-          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-          maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
-        });
-      } else {
-        txHash = await this.client.sendTransaction({
-          ...request,
-          gas: gasLimit,
-          maxFeePerGas: gasPrice.maxFeePerGas,
-          maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-        });
+      const { gasPrice, nonce } = await this.getTxOpts(request, gasConfig, blobInputs);
+
+      const baseTxRequestOpts = {
+        ...request,
+        gas: gasLimit,
+        maxFeePerGas: gasPrice.maxFeePerGas,
+        maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+        nonce,
+      };
+
+      const txRequestOpts = blobInputs
+        ? { ...blobInputs, ...baseTxRequestOpts, maxFeePerBlobGas: gasPrice.maxFeePerBlobGas! }
+        : baseTxRequestOpts;
+
+      const viemRequest = await this.client.prepareTransactionRequest(txRequestOpts);
+      this.pendingRequest = { request, attempts: 0, nonce: viemRequest.nonce, gasPrice };
+
+      const txHash = await this.client.sendTransaction(viemRequest);
+      if (this.pendingRequest?.request === request) {
+        this.pendingRequest.txHash = txHash;
       }
+
       const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
       this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
         gasLimit,
@@ -625,6 +643,54 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       });
       throw viemError;
     }
+  }
+
+  private async getTxOpts(request: L1TxRequest, gasConfig?: L1GasConfig, blobInputs?: L1BlobInputs) {
+    const getDefaultTxOpts = async () => ({
+      gasPrice: await this.getGasPrice(gasConfig, !!blobInputs),
+      nonce: undefined,
+    });
+
+    // If we dont care about replacing the previous pending tx, just return the gas price
+    if (!this.config.replacePreviousPendingTx) {
+      return getDefaultTxOpts();
+    }
+
+    // Otherwise, first check if the pending request is still pending; if not, clear it.
+    // TODO(palla/txs): It could be the case that, if we rebooted the node recently, we lost track of the pendingRequest.
+    // We could detect that by comparing the latest and pending nonces, if they differ, it means there are outstanding pending txs.
+    // Issue is we have no way of retrieving that pending tx (since eth_getTransactionBySenderAndNonce is not standard yet), so
+    // we should persist the tx request to db.
+    if (this.pendingRequest) {
+      const currentNonce = await this.client.getTransactionCount({
+        address: this.client.account.address,
+        blockTag: 'latest',
+      });
+      if (currentNonce > this.pendingRequest.nonce) {
+        this.logger?.debug(
+          `Clearing pending tx request with nonce ${this.pendingRequest.nonce} since current nonce is ${currentNonce}`,
+          { pending: this.pendingRequest, currentNonce },
+        );
+        this.pendingRequest = undefined;
+      }
+    }
+
+    // If there is indeed a pending request, then replace it with the new one.
+    if (this.pendingRequest) {
+      this.logger?.debug(
+        `Replacing previous pending transaction ${this.pendingRequest.txHash ?? this.pendingRequest.nonce} with new request`,
+        { pending: this.pendingRequest, request },
+      );
+      const gasPrice = await this.getGasPrice(
+        gasConfig,
+        !!blobInputs,
+        this.pendingRequest.attempts + 1,
+        this.pendingRequest.gasPrice,
+      );
+      return { gasPrice, nonce: this.pendingRequest.nonce };
+    }
+
+    return getDefaultTxOpts();
   }
 
   /**
@@ -699,6 +765,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
                 } else {
                   this.logger?.debug(`L1 transaction ${hash} mined`);
                 }
+                if (this.pendingRequest && this.pendingRequest.request === request) {
+                  this.pendingRequest = undefined; // Clear pending request if we find the receipt
+                }
                 return receipt;
               }
             } catch (err) {
@@ -707,6 +776,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
               }
             }
           }
+          // If the nonce has changed but we cannot find the receipt, it means the transaction was replaced by another transaction
+          // not sent as part of this monitoring process, so we throw an error, since the original request could not be fulfilled.
+          throw new ReplacedL1TxError(
+            `L1 transaction ${currentTxHash} was replaced by a different tx with nonce ${currentNonce}.`,
+            currentNonce,
+          );
         }
 
         // Retry a few times, in case the tx is not yet propagated.
@@ -783,6 +858,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
+        if (err instanceof ReplacedL1TxError) {
+          this.logger?.debug(`L1 transaction ${currentTxHash} replaced by a different tx with nonce ${err.nonce}`);
+          throw err;
+        }
         const viemError = formatViemError(err);
         this.logger?.warn(`Error monitoring L1 transaction ${currentTxHash}:`, viemError.message);
         if (viemError.message?.includes('reverted')) {
@@ -797,10 +876,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     if (!isCancelTx && gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
       this.attemptTxCancellation(currentTxHash, nonce, isBlobTx, lastGasPrice, attempts).catch(err => {
-        const viemError = formatViemError(err);
-        this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
-          metaMessages: viemError.metaMessages,
-        });
+        if (!(err instanceof ReplacedL1TxError)) {
+          const viemError = formatViemError(err);
+          this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
+            metaMessages: viemError.metaMessages,
+          });
+        }
       });
 
       this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
@@ -931,4 +1012,14 @@ export function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecu
  */
 export function getCalldataGasUsage(data: Uint8Array) {
   return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
+}
+
+export class ReplacedL1TxError extends Error {
+  constructor(
+    message: string,
+    public readonly nonce?: number,
+  ) {
+    super(message);
+    this.name = 'ReplacedL1TxError';
+  }
 }

@@ -30,7 +30,7 @@ export type PendingTransaction = {
   maxPriorityFeePerGas: bigint;
 };
 
-describe('GasUtils', () => {
+describe('L1TxUtils', () => {
   let gasUtils: L1TxUtilsWithBlobs;
   let l1Client: ExtendedViemWalletClient;
   let anvil: Anvil;
@@ -802,4 +802,332 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
       new L1TxUtils(publicClient as any, logger);
     }).toThrow();
   });
+});
+
+describe('With replacePreviousPendingTx', () => {
+  let gasUtils: L1TxUtils;
+  let l1Client: ExtendedViemWalletClient;
+  let anvil: Anvil;
+  let cheatCodes: EthCheatCodes;
+  const initialBaseFee = WEI_CONST; // 1 gwei
+
+  beforeAll(async () => {
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1, log: true });
+    anvil = anvilInstance;
+    cheatCodes = new EthCheatCodes([rpcUrl]);
+    const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+    const privKeyRaw = hdAccount.getHdKey().privateKey;
+    if (!privKeyRaw) {
+      throw new Error('Failed to get private key');
+    }
+    const privKey = Buffer.from(privKeyRaw).toString('hex');
+    const account = privateKeyToAccount(`0x${privKey}`);
+
+    l1Client = createExtendedL1Client([rpcUrl], account, foundry);
+
+    // set base fee
+    await l1Client.transport.request({
+      method: 'anvil_setNextBlockBaseFeePerGas',
+      params: [initialBaseFee.toString()],
+    });
+    await cheatCodes.evmMine();
+  });
+
+  afterEach(async () => {
+    // Reset base fee
+    await cheatCodes.setNextBlockBaseFeePerGas(initialBaseFee);
+    await cheatCodes.evmMine();
+    // Re-enable mining
+    await cheatCodes.setAutomine(true);
+    await cheatCodes.setIntervalMining(0);
+  });
+
+  afterAll(async () => {
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
+  }, 5_000);
+
+  it('replaces pending transaction when replacePreviousPendingTx is true', async () => {
+    // Create gas utils with replacePreviousPendingTx enabled
+    gasUtils = new L1TxUtils(l1Client, logger, {
+      ...defaultL1TxUtilsConfig,
+      replacePreviousPendingTx: true,
+      checkIntervalMs: 100,
+      stallTimeMs: 10000,
+    });
+
+    // Disable mining to keep transactions pending
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Send first transaction
+    const request1 = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x1234' as `0x${string}`,
+      value: 1n,
+    };
+
+    const { txHash: txHash1 } = await gasUtils.sendTransaction(request1);
+    const tx1 = await l1Client.getTransaction({ hash: txHash1 });
+
+    // Send second transaction (should replace the first one)
+    const request2 = {
+      to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as `0x${string}`,
+      data: '0x5678' as `0x${string}`,
+      value: 2n,
+    };
+
+    const { txHash: txHash2 } = await gasUtils.sendTransaction(request2);
+    const tx2 = await l1Client.getTransaction({ hash: txHash2 });
+
+    // Verify both transactions have the same nonce
+    expect(tx2.nonce).toBe(tx1.nonce);
+
+    // Verify the second transaction has higher gas prices
+    expect(tx2.maxFeePerGas!).toBeGreaterThan(tx1.maxFeePerGas!);
+    expect(tx2.maxPriorityFeePerGas!).toBeGreaterThan(tx1.maxPriorityFeePerGas!);
+
+    // Verify the transaction details match the second request
+    expect(tx2.to!.toLowerCase()).toBe(request2.to.toLowerCase());
+    expect(tx2.input).toBe(request2.data);
+    expect(tx2.value).toBe(request2.value);
+
+    // Mine a block to process the transaction
+    await cheatCodes.evmMine();
+
+    // Only the second transaction should be mined
+    const receipt2 = await l1Client.getTransactionReceipt({ hash: txHash2 });
+    expect(receipt2.status).toBe('success');
+
+    // The first transaction should not exist anymore
+    await expect(l1Client.getTransaction({ hash: txHash1 })).rejects.toThrow();
+  }, 20_000);
+
+  it('does not replace pending transaction when replacePreviousPendingTx is false', async () => {
+    // Create gas utils with replacePreviousPendingTx disabled (default)
+    gasUtils = new L1TxUtils(l1Client, logger, {
+      ...defaultL1TxUtilsConfig,
+      replacePreviousPendingTx: false,
+    });
+
+    // Disable mining to keep transactions pending
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Send first transaction
+    const request1 = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x1234' as `0x${string}`,
+      value: 1n,
+    };
+
+    const { txHash: txHash1 } = await gasUtils.sendTransaction(request1);
+    const tx1 = await l1Client.getTransaction({ hash: txHash1 });
+
+    // Send second transaction (should NOT replace the first one)
+    const request2 = {
+      to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as `0x${string}`,
+      data: '0x5678' as `0x${string}`,
+      value: 2n,
+    };
+
+    const { txHash: txHash2 } = await gasUtils.sendTransaction(request2);
+    const tx2 = await l1Client.getTransaction({ hash: txHash2 });
+
+    // Verify transactions have different nonces
+    expect(tx2.nonce).toBe(tx1.nonce + 1);
+
+    // Mine blocks to process both transactions
+    await cheatCodes.evmMine();
+    await cheatCodes.evmMine();
+
+    // Both transactions should be mined
+    const receipt1 = await l1Client.getTransactionReceipt({ hash: txHash1 });
+    const receipt2 = await l1Client.getTransactionReceipt({ hash: txHash2 });
+    expect(receipt1.status).toBe('success');
+    expect(receipt2.status).toBe('success');
+  }, 20_000);
+
+  it('clears stale pending request when nonce has advanced', async () => {
+    // Create gas utils with replacePreviousPendingTx enabled
+    gasUtils = new L1TxUtils(l1Client, logger, {
+      ...defaultL1TxUtilsConfig,
+      replacePreviousPendingTx: true,
+    });
+
+    // Disable mining to keep first transaction pending
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Send first transaction
+    const request1 = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x1234' as `0x${string}`,
+      value: 1n,
+    };
+
+    const { txHash: txHash1 } = await gasUtils.sendTransaction(request1);
+    const tx1 = await l1Client.getTransaction({ hash: txHash1 });
+
+    // Mine the transaction
+    await cheatCodes.evmMine();
+
+    // Wait for receipt
+    const receipt1 = await l1Client.getTransactionReceipt({ hash: txHash1 });
+    expect(receipt1.status).toBe('success');
+
+    // Send second transaction (should get a new nonce since first is mined)
+    const request2 = {
+      to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as `0x${string}`,
+      data: '0x5678' as `0x${string}`,
+      value: 2n,
+    };
+
+    const { txHash: txHash2 } = await gasUtils.sendTransaction(request2);
+    const tx2 = await l1Client.getTransaction({ hash: txHash2 });
+
+    // Verify the second transaction has a new nonce
+    expect(tx2.nonce).toBe(tx1.nonce + 1);
+  }, 20_000);
+
+  it('throws ReplacedL1TxError when transaction is replaced externally', async () => {
+    // Create gas utils
+    gasUtils = new L1TxUtils(l1Client, logger, {
+      ...defaultL1TxUtilsConfig,
+      checkIntervalMs: 100,
+      stallTimeMs: 10000,
+    });
+
+    // Disable mining to keep transactions pending
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Send first transaction
+    const request1 = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x1234' as `0x${string}`,
+      value: 1n,
+    };
+
+    const { txHash: txHash1 } = await gasUtils.sendTransaction(request1);
+    const tx1 = await l1Client.getTransaction({ hash: txHash1 });
+
+    const monitorPromise = gasUtils.monitorTransaction(request1, txHash1, { gasLimit: tx1.gas! });
+
+    // Manually send a replacement transaction with the same nonce but different request
+    await l1Client.sendTransaction({
+      to: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as `0x${string}`,
+      data: '0xdead' as `0x${string}`,
+      value: 10n,
+      nonce: tx1.nonce,
+      maxFeePerGas: tx1.maxFeePerGas! * 2n,
+      maxPriorityFeePerGas: tx1.maxPriorityFeePerGas! * 2n,
+      gas: 100_000n,
+    });
+
+    // Mine the replacement transaction
+    await cheatCodes.evmMine();
+
+    // Monitor should throw ReplacedL1TxError
+    await expect(monitorPromise).rejects.toThrow('was replaced by a different tx');
+  }, 20_000);
+
+  it('correctly handles multiple replacements with blob transactions', async () => {
+    // Create gas utils with replacePreviousPendingTx enabled
+    const blobGasUtils = new L1TxUtilsWithBlobs(l1Client, logger, {
+      ...defaultL1TxUtilsConfig,
+      replacePreviousPendingTx: true,
+      checkIntervalMs: 100,
+      stallTimeMs: 10000,
+    });
+
+    // Disable mining to keep transactions pending
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(0);
+
+    // Create blob data
+    const blobData = new Uint8Array(131072).fill(1);
+    const kzg = Blob.getViemKzgInstance();
+
+    // Send first blob transaction
+    const request1 = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x1234' as `0x${string}`,
+      value: 1n,
+    };
+
+    const { txHash: txHash1 } = await blobGasUtils.sendTransaction(request1, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: 100n * WEI_CONST,
+    });
+    const tx1 = await l1Client.getTransaction({ hash: txHash1 });
+
+    // Send second blob transaction (should replace the first one)
+    const request2 = {
+      to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as `0x${string}`,
+      data: '0x5678' as `0x${string}`,
+      value: 2n,
+    };
+
+    const { txHash: txHash2 } = await blobGasUtils.sendTransaction(request2, undefined, {
+      blobs: [blobData],
+      kzg,
+      maxFeePerBlobGas: 100n * WEI_CONST,
+    });
+    const tx2 = await l1Client.getTransaction({ hash: txHash2 });
+
+    // Verify both transactions have the same nonce
+    expect(tx2.nonce).toBe(tx1.nonce);
+
+    // Verify the second transaction has higher gas prices (including blob gas)
+    expect(tx2.maxFeePerGas!).toBeGreaterThan(tx1.maxFeePerGas!);
+    expect(tx2.maxPriorityFeePerGas!).toBeGreaterThan(tx1.maxPriorityFeePerGas!);
+    expect(tx2.maxFeePerBlobGas!).toBeGreaterThan(tx1.maxFeePerBlobGas!);
+
+    // Mine a block to process the transaction
+    await cheatCodes.evmMine();
+
+    // Only the second transaction should be mined
+    const receipt2 = await l1Client.getTransactionReceipt({ hash: txHash2 });
+    expect(receipt2.status).toBe('success');
+    expect(receipt2.blobGasUsed).toBeDefined();
+
+    // The first transaction should not exist anymore
+    await expect(l1Client.getTransaction({ hash: txHash1 })).rejects.toThrow();
+  }, 20_000);
+
+  it('clears pending request after successful monitoring', async () => {
+    // Create gas utils with replacePreviousPendingTx enabled
+    gasUtils = new L1TxUtils(l1Client, logger, {
+      ...defaultL1TxUtilsConfig,
+      replacePreviousPendingTx: true,
+    });
+
+    await cheatCodes.evmMine();
+    await cheatCodes.setAutomine(false);
+    await cheatCodes.setIntervalMining(1);
+
+    // Send and monitor a transaction
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x1234' as `0x${string}`,
+      value: 1n,
+    };
+
+    const { receipt } = await gasUtils.sendAndMonitorTransaction(request);
+    expect(receipt.status).toBe('success');
+
+    // Send another transaction - should get a new nonce
+    const request2 = {
+      to: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as `0x${string}`,
+      data: '0x5678' as `0x${string}`,
+      value: 2n,
+    };
+
+    const { txHash: txHash2 } = await gasUtils.sendTransaction(request2);
+    const tx2 = await l1Client.getTransaction({ hash: txHash2 });
+
+    // Verify it got a new nonce (not replacing anything)
+    expect(tx2.nonce).toBeGreaterThan(0);
+  }, 20_000);
 });
