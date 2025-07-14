@@ -78,7 +78,7 @@ function test_cmds {
 }
 
 function start_env {
-  if [ "$CI_NIGHTLY" -eq 1 ]; then
+  if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
     export MONITOR_DEPLOYMENT=false
     export WAIT_FOR_DEPLOYMENT=false
