@@ -155,7 +155,8 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   );
 
   p2pNode.services.pubsub.score.params.appSpecificWeight = 10;
-  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
+    peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
   return new LibP2PService<T>(
     clientType,

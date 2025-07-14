@@ -65,6 +65,7 @@ describe('p2p client integration', () => {
 
     //@ts-expect-error - we want to mock the getEpochAndSlotInNextL1Slot method, mocking ts is enough
     epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({ ts: BigInt(0) });
+    epochCache.getRegisteredValidators.mockResolvedValue([]);
 
     txPool.hasTxs.mockResolvedValue([]);
     txPool.getAllTxs.mockImplementation(() => {
@@ -724,11 +725,16 @@ describe('p2p client integration', () => {
     const realSend = c1PeerManager.reqresp.sendRequestToPeer;
 
     // @ts-expect-error arguments not expected
-    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(function (peerId: PeerId, ...rest) {
-      if (peerId.toString() === badPeerId.toString()) {
-        return { status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') };
+    jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async function (
+      peerId: PeerId,
+      protocol: ReqRespSubProtocol,
+      ...rest
+    ) {
+      if (peerId.toString() === badPeerId.toString() && protocol === ReqRespSubProtocol.STATUS) {
+        return Promise.resolve({ status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') });
       }
-      return realSend.apply(c1PeerManager.reqresp, [peerId, ...rest]); // no bound closure
+
+      return await realSend.apply(c1PeerManager.reqresp, [peerId, protocol, ...rest]);
     });
 
     await startTestP2PClients(clients);
