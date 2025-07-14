@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dotnet /nethermind/Nethermind.Runner.dll \
+/nethermind \
   --datadir=/data \
   --Init.ChainSpecPath=/genesis/genesis.json \
   --Merge.PoS=true \
