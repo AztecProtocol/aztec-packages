@@ -1,8 +1,10 @@
 use crate::{
     context::inputs::PrivateContextInputs,
-    oracle::execution::{get_block_number, get_timestamp},
+    oracle::execution::get_block_number,
     test::{helpers::utils::TestAccount, txe_constants::AZTEC_SLOT_DURATION},
 };
+
+pub use crate::oracle::execution::get_timestamp;
 
 use protocol_types::{
     abis::function_selector::FunctionSelector,
