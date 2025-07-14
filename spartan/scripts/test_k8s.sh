@@ -36,7 +36,7 @@ fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
 install_metrics=${INSTALL_METRICS:-false}
-project_id=${PROJECT_ID:-}
+project_id=${GCP_PROJECT_ID:-"testnet-440309"}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
 sepolia_run=${SEPOLIA_RUN:-false}
