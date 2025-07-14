@@ -41,6 +41,7 @@ include "opcodes/internal_call.pil";
 include "opcodes/external_call.pil";
 include "opcodes/sload.pil";
 include "opcodes/sstore.pil";
+include "opcodes/notehash_exists.pil";
 
 namespace execution;
 
@@ -317,6 +318,7 @@ pol commit sel_returndata_size;
 pol commit sel_debug_log; // unused but we are forced to have it
 pol commit sel_sload;
 pol commit sel_sstore;
+pol commit sel_notehash_exists;
 
 #[SUBTRACE_ID_DECOMPOSITION]
 sel_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
@@ -346,7 +348,8 @@ sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
 sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
 sel_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG +
 sel_sload * constants.AVM_EXEC_OP_ID_SLOAD +
-sel_sstore * constants.AVM_EXEC_OP_ID_SSTORE
+sel_sstore * constants.AVM_EXEC_OP_ID_SSTORE +
+sel_notehash_exists * constants.AVM_EXEC_OP_ID_NOTEHASH_EXISTS
 // We force the selectors to be 0 if we are not executing an opcode
 // or when we are not in the execution subtrace.
 = sel_should_execute_opcode * sel_execution * subtrace_operation_id;
@@ -368,6 +371,7 @@ sel_returndata_size * (1 - sel_returndata_size) = 0;
 sel_debug_log * (1 - sel_debug_log) = 0;
 sel_sload * (1 - sel_sload) = 0;
 sel_sstore * (1 - sel_sstore) = 0;
+sel_notehash_exists * (1 - sel_notehash_exists) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;

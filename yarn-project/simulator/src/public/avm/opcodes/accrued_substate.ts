@@ -36,7 +36,8 @@ export class NoteHashExists extends Instruction {
     );
     const operands = [this.noteHashOffset, this.leafIndexOffset, this.existsOffset];
     const [noteHashOffset, leafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
-    memory.checkTags(TypeTag.FIELD, noteHashOffset, leafIndexOffset);
+    memory.checkTag(TypeTag.FIELD, noteHashOffset);
+    memory.checkTag(TypeTag.UINT64, leafIndexOffset);
 
     // Note that this instruction accepts any type in memory, and converts to Field.
     const noteHash = memory.get(noteHashOffset).toFr();

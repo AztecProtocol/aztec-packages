@@ -58,6 +58,7 @@ class Execution : public ExecutionInterface {
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
               KeccakF1600Interface& keccakf1600,
+              RangeCheckInterface& range_check,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
@@ -67,6 +68,7 @@ class Execution : public ExecutionInterface {
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
+        , range_check(range_check)
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
@@ -117,6 +119,10 @@ class Execution : public ExecutionInterface {
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
     void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
+    void note_hash_exists(ContextInterface& context,
+                          MemoryAddress unique_note_hash_addr,
+                          MemoryAddress leaf_index_addr,
+                          MemoryAddress dst_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -153,6 +159,7 @@ class Execution : public ExecutionInterface {
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
+    RangeCheckInterface& range_check;
     HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;

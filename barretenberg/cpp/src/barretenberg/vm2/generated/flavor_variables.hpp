@@ -30,6 +30,7 @@
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
 #include "relations/note_hash_tree_check.hpp"
+#include "relations/notehash_exists.hpp"
 #include "relations/nullifier_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
@@ -69,6 +70,7 @@
 #include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
+#include "relations/lookups_notehash_exists.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_public_data_check.hpp"
@@ -90,10 +92,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 120;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2313;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2322;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2681;
+    static constexpr size_t NUM_ALL_ENTITIES = 2690;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -127,6 +129,7 @@ struct AvmFlavorVariables {
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
         avm2::note_hash_tree_check<FF_>,
+        avm2::notehash_exists<FF_>,
         avm2::nullifier_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
@@ -362,6 +365,8 @@ struct AvmFlavorVariables {
         lookup_note_hash_tree_check_silo_poseidon2_relation<FF_>,
         lookup_note_hash_tree_check_unique_note_hash_poseidon2_relation<FF_>,
         lookup_note_hash_tree_check_write_note_hash_to_public_inputs_relation<FF_>,
+        lookup_notehash_exists_note_hash_index_range_relation<FF_>,
+        lookup_notehash_exists_note_hash_read_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
         lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,
         lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF_>,

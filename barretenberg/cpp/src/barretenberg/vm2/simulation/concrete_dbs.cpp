@@ -187,13 +187,12 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
     return !present;
 }
 
-FF MerkleDB::note_hash_read(index_t leaf_index) const
+bool MerkleDB::note_hash_exists(index_t leaf_index, const FF& unique_note_hash) const
 {
-    auto note_hash = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
+    auto leaf_value = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
     auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
-    note_hash_tree_check.assert_read(note_hash, leaf_index, path, raw_merkle_db.get_tree_roots().noteHashTree);
-
-    return note_hash;
+    return note_hash_tree_check.note_hash_exists(
+        unique_note_hash, leaf_value, leaf_index, path, raw_merkle_db.get_tree_roots().noteHashTree);
 }
 
 void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)

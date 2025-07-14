@@ -50,7 +50,7 @@ using C = Column;
 using note_hash_tree_check = bb::avm2::note_hash_tree_check<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-TEST(NoteHashTreeCheckConstrainingTests, PositiveRead)
+TEST(NoteHashTreeCheckConstrainingTests, PositiveExists)
 {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
@@ -76,8 +76,12 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveRead)
     }
     FF root = unconstrained_root_from_path(note_hash, leaf_index, sibling_path);
 
-    note_hash_tree_check_simulator.assert_read(
-        note_hash, leaf_index, sibling_path, AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 });
+    EXPECT_TRUE(note_hash_tree_check_simulator.note_hash_exists(
+        note_hash,
+        note_hash,
+        leaf_index,
+        sibling_path,
+        AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 }));
 
     note_hash_tree_check_builder.process(note_hash_tree_check_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);

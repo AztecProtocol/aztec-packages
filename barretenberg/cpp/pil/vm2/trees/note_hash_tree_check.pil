@@ -14,9 +14,9 @@ include "../public_inputs.pil";
  * For reading, we enforce that the note hash is already unique.
  *
  * Read usage (lookup):
- * sel { precomputed.zero, unique_note_hash, leaf_index, note_hash_tree_root }
+ * sel { precomputed.zero, unique_note_hash, leaf_index, note_hash_tree_root, exists }
  * in note_hash_tree_check.sel { note_hash_tree_check.write, note_hash_tree_check.note_hash,
- *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root };
+ *     note_hash_tree_check.leaf_index, note_hash_tree_check.prev_root, note_hash_tree_check.exists };
  *
  * Write usage (permutation):
  * sel { note_hash, note_hash_next_available_leaf_index, prev_note_hash_tree_root,
@@ -38,6 +38,7 @@ namespace note_hash_tree_check;
     pol commit write;
     write * (1 - write) = 0;
     pol READ = 1 - write;
+    pol commit exists;
 
     pol commit note_hash;
     pol commit leaf_index;
@@ -129,7 +130,10 @@ namespace note_hash_tree_check;
 
     // ====== TREE CHECK ======
     pol commit prev_leaf_value;
-    prev_leaf_value = (1 - write) * unique_note_hash;
+
+    pol PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF = prev_leaf_value - unique_note_hash;
+    pol commit prev_leaf_value_unique_note_hash_diff_inv;
+    sel * (PREV_LEAF_VALUE_UNIQUE_NOTE_HASH_DIFF * (exists * (1 - prev_leaf_value_unique_note_hash_diff_inv) + prev_leaf_value_unique_note_hash_diff_inv) - 1 + exists) = 0;
 
     pol commit next_leaf_value;
     // If reading, next_leaf_value is unconstrained

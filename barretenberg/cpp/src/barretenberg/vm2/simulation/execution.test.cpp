@@ -78,6 +78,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionIdManager> execution_id_manager;
     StrictMock<MockGasTracker> gas_tracker;
     StrictMock<MockHighLevelMerkleDB> merkle_db;
+    StrictMock<MockRangeCheck> range_check;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -88,6 +89,7 @@ class ExecutionSimulationTest : public ::testing::Test {
                                                   execution_event_emitter,
                                                   context_stack_event_emitter,
                                                   keccakf1600,
+                                                  range_check,
                                                   merkle_db);
 };
 
@@ -449,6 +451,52 @@ TEST_F(ExecutionSimulationTest, SStoreLimitReachedSquashed)
     EXPECT_CALL(merkle_db, storage_write(address, slot.as<FF>(), value.as<FF>(), false));
 
     execution.sstore(context, value_addr, slot_addr);
+}
+
+TEST_F(ExecutionSimulationTest, NoteHashExists)
+{
+    MemoryAddress unique_note_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto unique_note_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(7);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(unique_note_hash_addr)).WillOnce(ReturnRef(unique_note_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(range_check, assert_range(NOTE_HASH_TREE_LEAF_COUNT - 1 - leaf_index.as<uint64_t>(), 64));
+
+    EXPECT_CALL(merkle_db, note_hash_exists(leaf_index.as<uint64_t>(), unique_note_hash.as<FF>()))
+        .WillOnce(Return(true));
+
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(1)));
+
+    execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr);
+}
+
+TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
+{
+    MemoryAddress unique_note_hash_addr = 10;
+    MemoryAddress leaf_index_addr = 11;
+    MemoryAddress dst_addr = 12;
+
+    auto unique_note_hash = MemoryValue::from<FF>(42);
+    auto leaf_index = MemoryValue::from<uint64_t>(NOTE_HASH_TREE_LEAF_COUNT + 1);
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get(unique_note_hash_addr)).WillOnce(ReturnRef(unique_note_hash));
+    EXPECT_CALL(memory, get(leaf_index_addr)).WillOnce(ReturnRef(leaf_index));
+
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+
+    EXPECT_CALL(range_check, assert_range(leaf_index.as<uint64_t>() - NOTE_HASH_TREE_LEAF_COUNT, 64));
+
+    EXPECT_THROW_WITH_MESSAGE(execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr),
+                              "NOTEHASHEXISTS: Leaf index out of range");
 }
 
 } // namespace

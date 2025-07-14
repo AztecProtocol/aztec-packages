@@ -944,5 +944,59 @@ TEST(ExecutionTraceGenTest, SStore)
                           ROW_FIELD_EQ(execution_sel_should_sstore, 1))));
 }
 
+TEST(ExecutionTraceGenTest, NoteHashExists)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    uint16_t unique_note_hash_offset = 1234;
+    uint16_t leaf_index_offset = 4567;
+    uint16_t dst_offset = 8901;
+
+    FF unique_note_hash = 42;
+    uint64_t leaf_index = 27;
+    uint1_t dst_value = 1;
+
+    const auto instr = InstructionBuilder(WireOpCode::NOTEHASHEXISTS)
+                           .operand<uint16_t>(unique_note_hash_offset)
+                           .operand<uint16_t>(leaf_index_offset)
+                           .operand<uint16_t>(dst_offset)
+                           .build();
+
+    ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<FF>(unique_note_hash), MemoryValue::from<uint64_t>(leaf_index) },
+        .output = MemoryValue::from<uint1_t>(dst_value),
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(unique_note_hash_offset) },
+                                                   { .resolved_operand =
+                                                         MemoryValue::from<uint16_t>(leaf_index_offset) },
+                                                   { .resolved_operand = MemoryValue::from<uint16_t>(dst_offset) } } },
+    };
+
+    builder.process({ ex_event }, trace);
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the sload
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_notehash_exists, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, unique_note_hash_offset),
+                          ROW_FIELD_EQ(execution_rop_1_, leaf_index_offset),
+                          ROW_FIELD_EQ(execution_rop_2_, dst_offset),
+                          ROW_FIELD_EQ(execution_register_0_, unique_note_hash),
+                          ROW_FIELD_EQ(execution_register_1_, leaf_index),
+                          ROW_FIELD_EQ(execution_register_2_, FF(dst_value)),
+                          ROW_FIELD_EQ(execution_mem_tag_reg_0_, MEM_TAG_FF),  // Memory tag for unique_note_hash
+                          ROW_FIELD_EQ(execution_mem_tag_reg_1_, MEM_TAG_U64), // Memory tag for leaf_index
+                          ROW_FIELD_EQ(execution_mem_tag_reg_2_, MEM_TAG_U1),  // Memory tag for dst
+                          ROW_FIELD_EQ(execution_note_hash_leaf_in_range, 1),
+                          ROW_FIELD_EQ(execution_note_hash_leaf_index_leaf_count_cmp_diff,
+                                       NOTE_HASH_TREE_LEAF_COUNT - leaf_index - 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_NOTEHASH_EXISTS))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen
