@@ -929,8 +929,8 @@ TEST(ExecutionTraceGenTest, SStore)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the sload
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_sstore, 1),
-                          ROW_FIELD_EQ(execution_should_check_sstore_gas, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_sstore, 1),
+                          ROW_FIELD_EQ(execution_sel_gas_sstore, 1),
                           ROW_FIELD_EQ(execution_rop_0_, value_offset),
                           ROW_FIELD_EQ(execution_rop_1_, slot_offset),
                           ROW_FIELD_EQ(execution_register_0_, value),

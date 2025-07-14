@@ -60,6 +60,7 @@ using testing::ReturnRef;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sstore = bb::avm2::sstore<FF>;
+using execution = bb::avm2::execution<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 TEST(SStoreConstrainingTest, PositiveTest)
@@ -86,7 +87,7 @@ TEST(SStoreConstrainingTest, NegativeDynamicL2GasIsZero)
         { C::execution_sel_execute_sstore, 1 },
         { C::execution_dynamic_l2_gas_factor, 1 },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_DYN_L2_GAS_IS_ZERO),
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SSTORE_DYN_L2_GAS_IS_ZERO),
                               "SSTORE_DYN_L2_GAS_IS_ZERO");
 }
 
@@ -226,7 +227,7 @@ TEST(SStoreConstrainingTest, Interactions)
 
     check_relation<sstore>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      lookup_sstore_check_written_storage_slot_settings,
+                      lookup_execution_check_written_storage_slot_settings,
                       lookup_sstore_record_written_storage_slot_settings,
                       lookup_sstore_storage_write_settings>(trace);
 }

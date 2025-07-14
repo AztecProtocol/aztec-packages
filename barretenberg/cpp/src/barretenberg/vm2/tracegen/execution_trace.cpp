@@ -451,7 +451,7 @@ void ExecutionTraceBuilder::process(
         bool oog = ex_event.error == ExecutionError::GAS;
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
-            process_gas(ex_event.gas_event, exec_opcode, trace, row);
+            process_gas(ex_event.gas_event, *exec_opcode, trace, row);
         }
 
         /**************************************************************************************************
@@ -549,7 +549,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
-                              { C::execution_sel_should_sstore, !opcode_execution_failed },
                           } });
             }
         }
@@ -714,7 +713,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 }
 
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
-                                        std::optional<ExecutionOpCode> exec_opcode,
+                                        ExecutionOpCode exec_opcode,
                                         TraceContainer& trace,
                                         uint32_t row)
 {
@@ -735,7 +734,8 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
               } });
 
     if (gas_event.dynamic_gas_factor.l2Gas != 0 || gas_event.dynamic_gas_factor.daGas != 0) {
-        trace.set(get_dyn_gas_selector(gas_event.dynamic_gas_factor.l2Gas), row, 1);
+        const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+        trace.set(get_dyn_gas_selector(exec_spec.dyn_gas_id), row, 1);
     }
 }
 
@@ -994,6 +994,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Bytecode retrieval
         .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
@@ -1043,7 +1044,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // Sload
         .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
         // Sstore
-        .add<lookup_sstore_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
         .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>();
 
