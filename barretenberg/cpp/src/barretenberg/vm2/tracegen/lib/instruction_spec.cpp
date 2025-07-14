@@ -80,6 +80,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
     { ExecutionOpCode::SLOAD,
       { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SLOAD } },
+    { ExecutionOpCode::SSTORE,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SSTORE } },
 };
 
 FF get_subtrace_id(SubtraceSel subtrace_sel)
