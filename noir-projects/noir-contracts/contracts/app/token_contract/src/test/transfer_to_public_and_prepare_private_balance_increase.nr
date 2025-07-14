@@ -48,7 +48,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // We need to advance the block by 1 for the partial note validity commitment to be committed to the nullifier
     // tree.
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Now we finalize the partial change note by impersonating the AMM contract and calling the finalize function
     // --> this should send the `change_amount` from AMM's public balance to liquidity provider's private balance
@@ -59,7 +59,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
         .finalize_transfer_to_private(change_amount, partial_note)
         .call(&mut env.public());
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Check balances after the partial note is finalized
     utils::check_private_balance(

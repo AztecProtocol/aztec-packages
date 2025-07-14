@@ -34,7 +34,7 @@ pub unconstrained fn setup(
     let token_contract =
         env.deploy_self("Token").with_public_void_initializer(owner, initializer_call_interface);
     let token_contract_address = token_contract.to_address();
-    env.advance_block_by(1);
+    env.mine_block();
     (&mut env, token_contract_address, owner, recipient)
 }
 
@@ -81,7 +81,7 @@ pub unconstrained fn mint_to_private(
         &mut env.private(),
     );
 
-    env.advance_block_by(1);
+    env.mine_block();
 }
 
 // docs:start:txe_test_read_public

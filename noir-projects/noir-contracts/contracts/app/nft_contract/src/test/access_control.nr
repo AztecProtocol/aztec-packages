@@ -11,7 +11,7 @@ unconstrained fn access_control() {
     // Set a new admin
     NFT::at(nft_contract_address).set_admin(recipient).call(&mut env.public());
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Check it worked
     let admin = NFT::at(nft_contract_address).get_admin().view(&mut env.public());
@@ -27,7 +27,7 @@ unconstrained fn access_control() {
     // Set admin as minter
     NFT::at(nft_contract_address).set_minter(recipient, true).call(&mut env.public());
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Check it worked
     let is_minter = is_minter_call_interface.view(&mut env.public());
@@ -36,7 +36,7 @@ unconstrained fn access_control() {
     // Revoke minter as admin
     NFT::at(nft_contract_address).set_minter(recipient, false).call(&mut env.public());
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Check it worked
     let is_minter = is_minter_call_interface.view(&mut env.public());

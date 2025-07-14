@@ -57,7 +57,7 @@ unconstrained fn test_cast_vote() {
     env.impersonate(alice);
 
     let candidate = 1;
-    env.advance_block_by(6);
+    env.mine_block();
     EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
 
     // Read vote count from storage
@@ -78,11 +78,11 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
     let candidate = 101;
 
     env.impersonate(alice);
-    env.advance_block_by(1);
+    env.mine_block();
     EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
 
     env.impersonate(bob);
-    env.advance_block_by(1);
+    env.mine_block();
     EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
 
     // Read vote count from storage
@@ -102,10 +102,10 @@ unconstrained fn test_fail_vote_twice() {
     let candidate = 101;
 
     env.impersonate(alice);
-    env.advance_block_by(1);
+    env.mine_block();
     EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
 
     // Vote again as alice
-    env.advance_block_by(1);
+    env.mine_block();
     EasyPrivateVoting::at(voting_contract_address).cast_vote(candidate).call(&mut env.private());
 }

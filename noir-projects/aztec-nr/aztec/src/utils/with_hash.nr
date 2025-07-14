@@ -170,7 +170,7 @@ mod test {
         );
 
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.advance_block_by(1);
+        env.mine_block();
 
         let result = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,
@@ -185,7 +185,7 @@ mod test {
     unconstrained fn test_bad_hint_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(6);
+        env.mine_block();
 
         let value_packed = MockStruct { a: 1, b: 1 }.pack();
 
@@ -228,7 +228,7 @@ mod test {
         );
 
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.advance_block_by(1);
+        env.mine_block();
 
         let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,

@@ -196,7 +196,7 @@ pub contract Counter {
         assert(get_counter(owner) == 7);
 
         // Checking that the note was discovered from private logs
-        env.advance_block_by(1);
+        env.mine_block();
         sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
@@ -212,7 +212,7 @@ pub contract Counter {
         assert(notes.len() == 4);
 
         // Checking that the note was discovered from private logs
-        env.advance_block_by(1);
+        env.mine_block();
         sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
@@ -227,7 +227,7 @@ pub contract Counter {
         assert(notes.len() == 4);
 
         // Checking that the note was discovered from private logs
-        env.advance_block_by(1);
+        env.mine_block();
         sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);

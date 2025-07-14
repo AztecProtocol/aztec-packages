@@ -53,7 +53,7 @@ mod tests {
         test_contract.initialize_value(x).call(&mut env.public());
 
         // We advance block to commit state and have the nullifier available for reading.
-        env.advance_block_by(1);
+        env.mine_block();
 
         // Read value and verify it matches
         let read_value = test_contract.read_value().call(&mut env.public());

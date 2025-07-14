@@ -51,9 +51,9 @@ unconstrained fn nullifier_inclusion() {
 
     notify_created_nullifier(unsiloed_nullifier);
 
-    let nullifier_created_at = env.pending_block_number();
+    let nullifier_created_at = env.next_block_number();
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     let context = &mut env.private_at(nullifier_created_at);
 

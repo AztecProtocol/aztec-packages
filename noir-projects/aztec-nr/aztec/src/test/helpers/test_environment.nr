@@ -137,25 +137,14 @@ impl TestEnvironment {
         ret_value
     }
 
-    /// Returns the block number of the block currently being built. Since sequencer is executing the public part
-    /// of transactions when building blocks, this block number is also returned by public_context.block_number().
-    pub unconstrained fn pending_block_number(_self: Self) -> u32 {
-        // TODO: This oracle when used in PXE returns the latest synched block number by the node and not the pending
-        // block number! But TXE handles this in some messed up custom way so this might actually be kinda correct.
-        // Terrible.
+    /// Returns the number of the next block to be built.
+    pub unconstrained fn next_block_number(_self: Self) -> u32 {
         get_block_number()
     }
 
-    /// Returns the timestamp of the block currently being built. Since sequencer is executing the public part
-    /// of transactions when building blocks, this timestamp is also returned by public_context.timestamp().
-    pub unconstrained fn pending_timestamp(_self: Self) -> u64 {
-        // TODO: This has the same behavior as pending_block_number() so it's also messed up.
-        get_timestamp()
-    }
-
-    /// This does what the above does but should be considered deprecated as the naming is subpar.
-    pub unconstrained fn block_number(self: Self) -> u32 {
-        self.pending_block_number()
+    /// Returns the number of the last mined block. This is the default historical block for private transactions.
+    pub unconstrained fn last_block_number(_self: Self) -> u32 {
+        get_block_number() - 1
     }
 
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
@@ -177,42 +166,34 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(address)
     }
 
-    /// Advances the internal TXe state to specified block number.
-    /// Note that this block number describes the block being built. i.e. If you advance the block to 5 from 1,
-    /// the pending block number will be 5, and your last committed block number will be 4.
-    pub unconstrained fn advance_block_to(&mut self, block_number: u32) {
-        let pending_block_number = self.pending_block_number();
-        assert(pending_block_number <= block_number, "Cannot advance block to a previous block.");
-
-        let difference = block_number - pending_block_number;
-        self.advance_block_by(difference);
+    pub unconstrained fn mine_block_at(&mut self, timestamp: u64) {
+        self.set_next_block_timestamp(timestamp);
+        self.mine_block();
     }
 
     /// Advances the internal TXe timestamp to the specified timestamp.
-    pub unconstrained fn advance_timestamp_to(&mut self, timestamp: u64) {
-        let pending_timestamp = self.pending_timestamp();
+    pub unconstrained fn set_next_block_timestamp(&mut self, timestamp: u64) {
+        let pending_timestamp = get_timestamp();
         assert(
             pending_timestamp <= timestamp,
-            "Cannot go back in time. Timestamp cannot be less than current timestamp.",
+            "Cannot go back in time. Timestamp cannot be before next timestamp.",
         );
         let difference: u64 = timestamp - pending_timestamp;
-        self.advance_timestamp_by(difference);
+        self.advance_next_block_timestamp_by(difference);
     }
 
-    /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
-    /// block advanced, and we are able to fetch historical data from warped over blocks.
-    // TODO(benesjan): Fix naming inconsistency between advance_block_by and advance_blockS_by.
-    pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
-        cheatcodes::advance_blocks_by(blocks);
+    /// Advances the internal TXe state by one valid block.
+    pub unconstrained fn mine_block(_self: &mut Self) {
+        cheatcodes::advance_blocks_by(1);
     }
 
     /// Advances the internal TXe timestamp by the specified duration in seconds.
-    pub unconstrained fn advance_timestamp_by(_self: &mut Self, duration: u64) {
+    pub unconstrained fn advance_next_block_timestamp_by(_self: &mut Self, duration: u64) {
         cheatcodes::advance_timestamp_by(duration);
     }
 
     /// Instantiates a public context. The block number returned from public_context.block_number() will be the
-    /// block number of the block currently being built (same as the one returned by self.pending_block_number()).
+    /// block number of the block currently being built (same as the one returned by self.next_block_number()).
     pub unconstrained fn public(_self: Self) -> PublicContext {
         PublicContext::new(|| 0)
     }
@@ -226,7 +207,7 @@ impl TestEnvironment {
     /// Instantiates a private context at the latest committed block number - this is the block number that gets used
     /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(self.pending_block_number() - 1)
+        self.private_at(self.last_block_number())
     }
 
     pub unconstrained fn utility(_self: Self) -> UtilityContext {
@@ -235,8 +216,8 @@ impl TestEnvironment {
 
     /// Instantiates a private context at a specific historical block number.
     pub unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
-        if historical_block_number >= get_block_number() {
-            self.advance_block_to(historical_block_number + 1);
+        if historical_block_number > self.next_block_number() {
+            cheatcodes::advance_blocks_by(1 + historical_block_number - self.next_block_number())
         }
 
         let mut inputs = cheatcodes::get_private_context_inputs_at_block(historical_block_number);
