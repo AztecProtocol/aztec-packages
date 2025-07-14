@@ -19,7 +19,7 @@ template <typename FF_> class sloadImpl {
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::execution_sel_sload)).is_zero();
+        return (in.get(C::execution_sel_execute_sload)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -34,13 +34,14 @@ template <typename FF_> class sloadImpl {
 
         { // SLOAD_SUCCESS
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_sload) * in.get(C::execution_sel_opcode_error);
+            auto tmp = in.get(C::execution_sel_execute_sload) * in.get(C::execution_sel_opcode_error);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         { // SLOAD_FF_OUTPUT_TAG
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
+            auto tmp =
+                in.get(C::execution_sel_execute_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }

@@ -22,7 +22,7 @@ TEST(SuccessCopyConstrainingTest, SuccessCopyTrue)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_success_copy, 1 },
+          { C::execution_sel_execute_success_copy, 1 },
           { C::execution_register_0_, /*true=*/1 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1) },
           { C::execution_last_child_success, /*true=*/1 } },
@@ -34,7 +34,7 @@ TEST(SuccessCopyConstrainingTest, SuccessCopyFalse)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_success_copy, 1 },
+          { C::execution_sel_execute_success_copy, 1 },
           { C::execution_register_0_, /*false=*/0 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1) },
           { C::execution_last_child_success, /*false=*/0 } },
@@ -46,7 +46,7 @@ TEST(SuccessCopyConstrainingTest, NegativeInvalidMemTag)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_success_copy, 1 },
+          { C::execution_sel_execute_success_copy, 1 },
           { C::execution_register_0_, /*true=*/1 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U16) },
           { C::execution_last_child_success, 1 } },
@@ -59,7 +59,7 @@ TEST(SuccessCopyConstrainingTest, NegativeInvalidLastChildSuccess)
 {
     TestTraceContainer trace({
         { { C::execution_sel, 1 },
-          { C::execution_sel_success_copy, 1 },
+          { C::execution_sel_execute_success_copy, 1 },
           { C::execution_register_0_, /*false=*/0 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U1) },
           { C::execution_last_child_success, /*true=*/1 } },

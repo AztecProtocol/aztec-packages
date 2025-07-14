@@ -20,7 +20,7 @@ class ExecutionTraceBuilder final {
     void process_instr_fetching(const simulation::Instruction& instruction, TraceContainer& trace, uint32_t row);
     void process_execution_spec(const simulation::ExecutionEvent& ex_event, TraceContainer& trace, uint32_t row);
     void process_gas(const simulation::GasEvent& gas_event,
-                     std::optional<ExecutionOpCode> exec_opcode,
+                     ExecutionOpCode exec_opcode,
                      TraceContainer& trace,
                      uint32_t row);
     void process_addressing(const simulation::AddressingEvent& addr_event,

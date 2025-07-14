@@ -19,36 +19,7 @@ include "../trees/written_public_data_slots_tree_check.pil";
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
     #[skippable_if]
-    sel_sstore = 0; // from execution.pil.
-
-    // =========== DYNAMIC GAS ===========
-    // In the gas temporality group, we compute dynamic da gas for this opcode.
-    // Dynamic gas factor is 1 if we haven't written to this slot before, 0 otherwise.
-    // This one will get multiplied by the cost of publishing one data write.
-    // We leverage the leaf_not_exists column of the written_public_data_slots_tree to compute this.
-
-    pol commit should_check_sstore_gas;
-    should_check_sstore_gas = sel_sstore * sel_should_check_gas;
-
-    // We can probably unconditionally write to the written_public_data_slots_tree here
-    // to avoid writing later in opcode execution, since the root would be reverted if it errors before
-    // the opcode execution. However, this feels like an early optimization
-    // since the simulator would need to write at the gas step which is a bit weird.
-    #[CHECK_WRITTEN_STORAGE_SLOT]
-    should_check_sstore_gas {
-        contract_address,
-        register[1], // slot
-        dynamic_da_gas_factor,
-        prev_written_public_data_slots_tree_root
-    } in written_public_data_slots_tree_check.sel {
-        written_public_data_slots_tree_check.address,
-        written_public_data_slots_tree_check.slot,
-        written_public_data_slots_tree_check.leaf_not_exists,
-        written_public_data_slots_tree_check.root
-    };
-
-    #[SSTORE_DYN_L2_GAS_IS_ZERO]
-    sel_sstore * dynamic_l2_gas_factor = 0;
+    sel_execute_sstore = 0; // from execution.pil.
 
     // =========== VALIDATION ===========
 
@@ -62,27 +33,27 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     pol commit remaining_data_writes_inv;
     #[SSTORE_MAX_DATA_WRITES_REACHED]
-    sel_sstore * (REMAINING_DATA_WRITES * (max_data_writes_reached * (1 - remaining_data_writes_inv) + remaining_data_writes_inv) - 1 + max_data_writes_reached) = 0;
+    sel_execute_sstore * (REMAINING_DATA_WRITES * (max_data_writes_reached * (1 - remaining_data_writes_inv) + remaining_data_writes_inv) - 1 + max_data_writes_reached) = 0;
 
     // If we are at the maximum number of data writes,
     // and the dynamic gas factor is 1 (which means that we haven't written to this slot before),
     // the opcode should fail since we can't write to this slot anymore.
     #[SSTORE_ERROR_TOO_MANY_WRITES]
-    sel_sstore * (max_data_writes_reached * dynamic_da_gas_factor - sel_opcode_error) = 0;
+    sel_execute_sstore * (max_data_writes_reached * dynamic_da_gas_factor - sel_opcode_error) = 0;
 
     // Commited since it's used in the lookup
     // Note: we could perform the work unconditionally here, since the roots will be reverted if sel_opcode_error is one.
     // We'd save one column, but we'd perform more work in the error case, both in simulation and proving.
-    pol commit sel_should_sstore;
-    sel_sstore * ((1 - sel_opcode_error) - sel_should_sstore) = 0;
+    pol commit sel_write_public_data;
+    sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
 
     // =========== OPCODE EXECUTION ===========
 
     #[RECORD_WRITTEN_STORAGE_SLOT]
-    sel_should_sstore {
+    sel_write_public_data {
         contract_address,
         register[1], // slot
-        sel_should_sstore,
+        sel_write_public_data/*=1*/,
         prev_written_public_data_slots_tree_root,
         prev_written_public_data_slots_tree_size,
         written_public_data_slots_tree_root,
@@ -99,7 +70,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // This should be a multipermutation
     #[STORAGE_WRITE]
-    sel_should_sstore {
+    sel_write_public_data {
         register[0], // value
         contract_address,
         register[1], // slot

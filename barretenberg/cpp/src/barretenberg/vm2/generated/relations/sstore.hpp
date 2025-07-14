@@ -13,13 +13,13 @@ template <typename FF_> class sstoreImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 4, 3 };
+    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::execution_sel_sstore)).is_zero();
+        return (in.get(C::execution_sel_execute_sstore)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -38,50 +38,37 @@ template <typename FF_> class sstoreImpl {
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_should_check_sstore_gas) -
-                        in.get(C::execution_sel_sstore) * in.get(C::execution_sel_should_check_gas));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SSTORE_DYN_L2_GAS_IS_ZERO
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_sstore) * in.get(C::execution_dynamic_l2_gas_factor);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::execution_max_data_writes_reached) * (FF(1) - in.get(C::execution_max_data_writes_reached));
             tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
+            std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         { // SSTORE_MAX_DATA_WRITES_REACHED
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_sel_sstore) *
+                in.get(C::execution_sel_execute_sstore) *
                 ((execution_REMAINING_DATA_WRITES * (in.get(C::execution_max_data_writes_reached) *
                                                          (FF(1) - in.get(C::execution_remaining_data_writes_inv)) +
                                                      in.get(C::execution_remaining_data_writes_inv)) -
                   FF(1)) +
                  in.get(C::execution_max_data_writes_reached));
             tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
+            std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // SSTORE_ERROR_TOO_MANY_WRITES
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_sstore) *
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_sstore) *
                        (in.get(C::execution_max_data_writes_reached) * in.get(C::execution_dynamic_da_gas_factor) -
                         in.get(C::execution_sel_opcode_error));
             tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
+            std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_sstore) *
-                       ((FF(1) - in.get(C::execution_sel_opcode_error)) - in.get(C::execution_sel_should_sstore));
+            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execute_sstore) *
+                       ((FF(1) - in.get(C::execution_sel_opcode_error)) - in.get(C::execution_sel_write_public_data));
             tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
+            std::get<3>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -94,19 +81,16 @@ template <typename FF> class sstore : public Relation<sstoreImpl<FF>> {
     {
         switch (index) {
         case 1:
-            return "SSTORE_DYN_L2_GAS_IS_ZERO";
-        case 3:
             return "SSTORE_MAX_DATA_WRITES_REACHED";
-        case 4:
+        case 2:
             return "SSTORE_ERROR_TOO_MANY_WRITES";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SSTORE_DYN_L2_GAS_IS_ZERO = 1;
-    static constexpr size_t SR_SSTORE_MAX_DATA_WRITES_REACHED = 3;
-    static constexpr size_t SR_SSTORE_ERROR_TOO_MANY_WRITES = 4;
+    static constexpr size_t SR_SSTORE_MAX_DATA_WRITES_REACHED = 1;
+    static constexpr size_t SR_SSTORE_ERROR_TOO_MANY_WRITES = 2;
 };
 
 } // namespace bb::avm2

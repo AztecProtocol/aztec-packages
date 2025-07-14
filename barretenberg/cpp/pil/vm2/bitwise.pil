@@ -18,9 +18,9 @@ include "constants_gen.pil";
  *
  * N.B The "controlling" selector that drives the computation of the bitwise operation
  * is NOT the `sel` column but in fact the `start` column, which is in turn driven by `ctr` !=0.
- * For error handling, err = 1, we do the following:  
+ * For error handling, err = 1, we do the following:
  * (1) Set last = 1, this turns off the propagation / decrementing of values to subsequent rows
- * (2) Set ctr = 0, this turns off `sel` which turns off most constraints including the lookups 
+ * (2) Set ctr = 0, this turns off `sel` which turns off most constraints including the lookups
  *
  * N.B for (2), ctr is technically left unconstrained (although 0 is optimal for the prover).
  * Since it is unconstrained, a prover is free to set ctr to any value, but
@@ -181,7 +181,7 @@ precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a
 **************************************************/
 // This can be moved to execution.pil if the number of dispatches don't clutter that file
 #[DISPATCH_EXEC_BITWISE]
-execution.sel_bitwise {
+execution.sel_execute_bitwise {
     execution.subtrace_operation_id, execution.sel_opcode_error,
     execution.register[0], execution.mem_tag_reg[0],
     execution.register[1], execution.mem_tag_reg[1],

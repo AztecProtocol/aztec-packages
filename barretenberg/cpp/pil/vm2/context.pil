@@ -10,17 +10,17 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
-    // Guaranteed to be boolean because sel_call & sel_static_call are mutually exclusive
+    // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
     pol commit sel_enter_call;
     // Handle error separately since it takes priority and may occur during an sel_x_call
-    sel_enter_call = (sel_call + sel_static_call) * (1 - sel_error);
+    sel_enter_call = (sel_execute_call + sel_execute_static_call) * (1 - sel_error);
     // CALL & precomputed.first_row are mutually exclusive
     sel_enter_call * precomputed.first_row = 0;
 
     // sel_exit_call is used to flag if we are returning or reverting or we error
-    // sel_revert & sel_return are mutually exclusive
+    // sel_execute_revert & sel_execute_return are mutually exclusive
     pol commit sel_exit_call;
-    sel_exit_call = 1 - (1 - sel_revert - sel_return) * (1 - sel_error);
+    sel_exit_call = 1 - (1 - sel_execute_revert - sel_execute_return) * (1 - sel_error);
 
     // Context columns
     pol commit context_id;
@@ -94,6 +94,8 @@ namespace execution;
     // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call
     pol DEFAULT_CTX_ROW = (1 - SWITCH_CTX);
 
+    pol PC_JUMP = sel_execute_internal_call + sel_execute_internal_return + sel_execute_jump + sel_execute_jumpi;
+
     pol commit has_parent_ctx; // == 1 if parent_id != 0;
     has_parent_ctx * (1 - has_parent_ctx) = 0;
     pol commit is_parent_id_inv; // For zero-check of has_parent_ctx
@@ -162,7 +164,7 @@ namespace execution;
     // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_static_call) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_execute_static_call) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
@@ -281,7 +283,7 @@ namespace execution;
     pol commit rollback_context;
     rollback_context * (1 - rollback_context) = 0;
     // Constrained to be boolean based on previous relations
-    rollback_context = nested_exit_call * (1 - sel_return);
+    rollback_context = nested_exit_call * (1 - sel_execute_return);
 
     #[CTX_STACK_ROLLBACK]
     rollback_context {
@@ -320,7 +322,7 @@ namespace execution;
     };
 
     pol commit nested_return;
-    nested_return = nested_exit_call * sel_return;
+    nested_return = nested_exit_call * sel_execute_return;
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,

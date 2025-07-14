@@ -17,7 +17,7 @@ struct lookup_alu_register_tag_value_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_REGISTER_TAG_VALUE";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_alu;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_alu;
     static constexpr Column DST_SELECTOR = Column::alu_sel;
     static constexpr Column COUNTS = Column::lookup_alu_register_tag_value_counts;
     static constexpr Column INVERSES = Column::lookup_alu_register_tag_value_inv;

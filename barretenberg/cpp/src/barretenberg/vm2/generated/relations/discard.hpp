@@ -35,8 +35,9 @@ template <typename FF_> class discardImpl {
 
         { // SEL_FAILURE
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_sel_failure) -
-                        (FF(1) - (FF(1) - in.get(C::execution_sel_error)) * (FF(1) - in.get(C::execution_sel_revert))));
+            auto tmp =
+                (in.get(C::execution_sel_failure) - (FF(1) - (FF(1) - in.get(C::execution_sel_error)) *
+                                                                 (FF(1) - in.get(C::execution_sel_execute_revert))));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
