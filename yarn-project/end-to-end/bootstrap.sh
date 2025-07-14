@@ -97,10 +97,6 @@ function build_bench {
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
-  if [ -n "${FORCE_CACHE_DOWNLOAD:-}" ]; then
-    echo "Could not find ivc inputs cached!"
-    exit 1
-  fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
     client_flows/account_deployments \
     client_flows/deployments \
