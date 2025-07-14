@@ -237,7 +237,7 @@ impl TestEnvironment {
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
-        let mut context = self.private_at(get_block_number());
+        let mut context = self.private_at(self.last_block_number());
         let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
         let _ = context.call_private_function(address, selector, args);
 
