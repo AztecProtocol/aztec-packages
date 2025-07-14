@@ -25,6 +25,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -176,6 +177,8 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_debug_log;
     case ExecutionOpCode::SLOAD:
         return C::execution_sel_sload;
+    case ExecutionOpCode::SSTORE:
+        return C::execution_sel_sstore;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -448,7 +451,7 @@ void ExecutionTraceBuilder::process(
         bool oog = ex_event.error == ExecutionError::GAS;
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
-            process_gas(ex_event.gas_event, trace, row);
+            process_gas(ex_event.gas_event, exec_opcode, trace, row);
         }
 
         /**************************************************************************************************
@@ -537,6 +540,17 @@ void ExecutionTraceBuilder::process(
                           ex_event.before_context_event.internal_call_return_id != 0
                               ? FF(ex_event.before_context_event.internal_call_return_id).invert()
                               : 0);
+            } else if (exec_opcode == ExecutionOpCode::SSTORE) {
+                uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
+                                                 ex_event.before_context_event.tree_states.publicDataTree.counter;
+
+                trace.set(row,
+                          { {
+                              { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
+                              { C::execution_remaining_data_writes_inv,
+                                remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
+                              { C::execution_sel_should_sstore, !opcode_execution_failed },
+                          } });
             }
         }
 
@@ -697,12 +711,14 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               } });
 }
 
-void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
+void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
+                                        std::optional<ExecutionOpCode> exec_opcode,
+                                        TraceContainer& trace,
+                                        uint32_t row)
 {
     bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
-              { {
-                  { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
+              { { { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
@@ -713,7 +729,10 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, T
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
-              } });
+                  {
+                      C::execution_should_check_sstore_gas,
+                      exec_opcode.has_value() && exec_opcode.value() == ExecutionOpCode::SSTORE,
+                  } } });
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
@@ -1018,6 +1037,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
         // Sload
-        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>();
+        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
+        // Sstore
+        .add<lookup_sstore_check_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
