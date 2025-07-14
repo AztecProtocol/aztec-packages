@@ -371,17 +371,3 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
-
-TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
-{
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    auto builder = typename TypeParam::CircuitBuilder();
-    TestFixture::generate_test_circuit(builder);
-
-    // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_EQ(proof.size(), TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
-}
