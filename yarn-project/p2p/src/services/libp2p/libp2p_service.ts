@@ -241,11 +241,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       },
       transports: [
         tcp({
-          // It's better to have this number a bit higher than our maxPeerCount because it's sets the limit on transport (TPC) layer
+          // It's better to have this number a bit higher than our maxPeerCount because it's sets the limit on transport (TCP) layer
           // The connection attempts to the node on TCP layer are not necessarily valid Aztec peers so we want to have a bit of leeway here
           // If we hit the limit, the connection will be temporarily accepted and immediately dropped.
           // Docs: https://nodejs.org/api/net.html#servermaxconnections
-          maxConnections: maxPeerCount * 1.5,
+          maxConnections: Math.ceil(maxPeerCount * 1.5),
           // socket option: the maximum length of the queue of pending connections
           // https://nodejs.org/dist/latest-v22.x/docs/api/net.html#serverlisten
           // it's not safe if we increase this number
@@ -257,7 +257,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
             // It's important that there is enough difference between closeAbove and listenAbove,
             // otherwise the server.listener will flap between being closed and open potentially degrading perf even more
             closeAbove: maxPeerCount * 2,
-            listenBelow: maxPeerCount * 0.9,
+            listenBelow: Math.floor(maxPeerCount * 0.9),
           },
         }),
       ],
