@@ -106,8 +106,8 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa_minus_one = kappa.pow(shift_size - 1);
-    const FF pow_kappa = pow_kappa_minus_one * kappa;
+    const FF pow_kappa = kappa.pow(shift_size);
+    const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;

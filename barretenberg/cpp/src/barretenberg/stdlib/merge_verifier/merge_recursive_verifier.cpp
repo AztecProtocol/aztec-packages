@@ -80,7 +80,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     transcript->load_proof(proof);
 
-    FF subtable_size = transcript->template receive_from_prover<FF>("shift_size");
+    FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
 
     // Vector of commitments to be passed to the Shplonk verifier
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
@@ -113,8 +113,8 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa_minus_one = kappa.pow(subtable_size - 1);
-    const FF pow_kappa = pow_kappa_minus_one * kappa;
+    const FF pow_kappa = kappa.pow(shift_size);
+    const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
