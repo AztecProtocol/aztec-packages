@@ -32,12 +32,12 @@ class ClientIVCRecursionTests : public testing::Test {
      * @brief Construct a genuine ClientIVC prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc, const size_t NUM_CIRCUITS = 2)
+    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
         // Construct and accumulate a series of mocked private function execution circuits
         MockCircuitProducer circuit_producer;
 
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        for (size_t idx = 0; idx < ivc.num_circuits; ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc);
             ivc.accumulate(circuit);
         }
@@ -54,7 +54,7 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
     size_t NUM_CIRCUITS = 2;
     ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, NUM_CIRCUITS);
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Confirm that the IVC proof can be natively verified
     EXPECT_TRUE(ivc.verify(proof));
@@ -69,10 +69,10 @@ TEST_F(ClientIVCRecursionTests, Basic)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    size_t NUM_CIRCUITS = 2;
+    const size_t NUM_CIRCUITS = 2;
 
-    ClientIVC ivc{ 2, trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, NUM_CIRCUITS);
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
     auto builder = std::make_shared<Builder>();
@@ -95,10 +95,10 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
 
     // Generate a genuine ClientIVC prover output
-    size_t NUM_CIRCUITS = 2;
+    const size_t NUM_CIRCUITS = 2;
 
-    ClientIVC ivc{ 2, trace_settings };
-    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, NUM_CIRCUITS);
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
     auto tube_builder = std::make_shared<Builder>();
@@ -161,7 +161,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
         ClientIVC ivc{ inner_size, trace_settings };
 
-        auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc, inner_size);
+        auto [proof, ivc_vk] = construct_client_ivc_prover_output(ivc);
 
         auto tube_builder = std::make_shared<Builder>();
         ClientIVCVerifier verifier{ tube_builder, ivc_vk };

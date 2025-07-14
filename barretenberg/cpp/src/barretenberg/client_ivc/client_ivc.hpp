@@ -160,10 +160,11 @@ class ClientIVC {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
-    // The number of circuits folded in an iteration of ClientIVC
+  public:
+    // The number of circuits expected to be accumulated in an iteration of the IVC, it indicates how many accumulate
+    // calls should be expected before calling prove.
     size_t num_circuits;
 
-  public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
     HonkProof mega_proof;
 

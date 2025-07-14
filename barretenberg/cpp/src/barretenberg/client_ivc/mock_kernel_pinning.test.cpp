@@ -23,7 +23,7 @@ class MockKernelTest : public ::testing::Test {
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
-    size_t NUM_CIRCUITS = 4;
+    const size_t NUM_CIRCUITS = 4;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;

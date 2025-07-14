@@ -110,7 +110,7 @@ TEST_F(ClientIVCTests, BasicFour)
  */
 TEST_F(ClientIVCTests, BadProofFailure)
 {
-    size_t NUM_CIRCUITS = 4;
+    const size_t NUM_CIRCUITS = 4;
     // Confirm that the IVC verifies if nothing is tampered with
     {
         ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE } };
@@ -191,7 +191,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
  */
 TEST_F(ClientIVCTests, BasicLarge)
 {
-    size_t NUM_CIRCUITS = 6;
+    coonst size_t NUM_CIRCUITS = 6;
     ClientIVC ivc{ NUM_CIRCUITS };
 
     ClientIVCMockCircuitProducer circuit_producer;
@@ -212,7 +212,7 @@ TEST_F(ClientIVCTests, BasicLarge)
  */
 TEST_F(ClientIVCTests, BasicStructured)
 {
-    size_t NUM_CIRCUITS = 4;
+    const size_t NUM_CIRCUITS = 4;
     ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE } };
 
     ClientIVCMockCircuitProducer circuit_producer;
@@ -235,7 +235,7 @@ TEST_F(ClientIVCTests, BasicStructured)
 TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 {
 
-    size_t NUM_CIRCUITS = 4;
+    const size_t NUM_CIRCUITS = 4;
     ClientIVC ivc{ NUM_CIRCUITS };
 
     ClientIVCMockCircuitProducer circuit_producer;
@@ -257,7 +257,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
  */
 TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 {
-    size_t NUM_CIRCUITS = 4;
+    const size_t NUM_CIRCUITS = 4;
     ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE } };
 
     size_t log2_num_gates = 5; // number of gates in baseline mocked circuit
@@ -431,7 +431,7 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    size_t total_num_circuits{ 12 };
+    const size_t total_num_circuits{ 12 };
     ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vks = circuit_producer.precompute_vks(total_num_circuits, ivc.trace_settings);
@@ -449,7 +449,7 @@ HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
     const auto run_test = []() {
         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-        size_t total_num_circuits{ 12 };
+        const size_t total_num_circuits{ 12 };
         ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         auto mocked_vks = mock_vks(total_num_circuits);
@@ -496,7 +496,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 {
 
     // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
-    size_t NUM_CIRCUITS = 4;
+    const size_t NUM_CIRCUITS = 4;
     ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
 
     ClientIVCMockCircuitProducer circuit_producer;

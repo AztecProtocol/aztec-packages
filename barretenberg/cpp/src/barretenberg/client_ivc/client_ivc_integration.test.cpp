@@ -32,7 +32,7 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    size_t NUM_CIRCUITS = 6;
+    const size_t NUM_CIRCUITS = 6;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
@@ -55,13 +55,13 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
  */
 TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 {
-    size_t NUM_CIRCUITS = 4;
-    ClientIVC ivc{ NUM_CIRCUITS + 2, { AZTEC_TRACE_STRUCTURE } };
+    const size_t NUM_CIRCUITS = 6;
+    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
     // Accumulate a series of mocked circuits (app, kernel, app, kernel)
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+    for (size_t idx = 0; idx < NUM_CIRCUITS - 2; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit);
     }
@@ -82,7 +82,7 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
-    size_t NUM_CIRCUITS = 6;
+    const size_t NUM_CIRCUITS = 6;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Precompute the verification keys for each circuit in the IVC
