@@ -548,7 +548,7 @@ type L1PendingTx = {
   attempts: number;
   nonce: number;
   gasPrice: GasPrice;
-  txHash?: Hex;
+  txHash: Hex | undefined;
 };
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
@@ -623,7 +623,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         : baseTxRequestOpts;
 
       const viemRequest = await this.client.prepareTransactionRequest(txRequestOpts);
-      this.pendingRequest = { request, attempts: 0, nonce: viemRequest.nonce, gasPrice };
+      this.pendingRequest = { request, attempts: 0, nonce: viemRequest.nonce, gasPrice, txHash: undefined };
 
       const txHash = await this.client.sendTransaction(viemRequest);
       if (this.pendingRequest?.request === request) {
@@ -868,6 +868,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           });
 
+          if (this.pendingRequest && this.pendingRequest.request === request) {
+            this.pendingRequest.txHash = newHash;
+            this.pendingRequest.attempts = attempts;
+            this.pendingRequest.gasPrice = newGasPrice;
+          }
+
           const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
           this.logger?.verbose(`Sent L1 speed-up tx ${newHash}, replacing ${currentTxHash}`, {
             gasLimit: params.gasLimit,
@@ -1018,6 +1024,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxFeePerGas: cancelGasPrice.maxFeePerGas,
       maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
     });
+    this.pendingRequest = {
+      request,
+      attempts: attempts + 1,
+      nonce,
+      gasPrice: cancelGasPrice,
+      txHash: cancelTxHash,
+    };
 
     this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
 
