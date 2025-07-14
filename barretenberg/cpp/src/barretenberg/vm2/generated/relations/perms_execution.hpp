@@ -17,7 +17,7 @@ struct perm_execution_dispatch_keccakf1600_settings_ {
     static constexpr std::string_view NAME = "PERM_EXECUTION_DISPATCH_KECCAKF1600";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t COLUMNS_PER_SET = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_keccakf1600;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_keccakf1600;
     static constexpr Column DST_SELECTOR = Column::keccakf1600_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_keccakf1600_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
