@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -201,7 +202,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
  */
 TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 {
-    Goblin::MergeProof merge_proof = create_dummy_merge_proof();
+    Goblin::MergeProof merge_proof = create_mock_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
 }
 
