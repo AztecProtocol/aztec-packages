@@ -191,7 +191,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
  */
 TEST_F(ClientIVCTests, BasicLarge)
 {
-    coonst size_t NUM_CIRCUITS = 6;
+    const size_t NUM_CIRCUITS = 6;
     ClientIVC ivc{ NUM_CIRCUITS };
 
     ClientIVCMockCircuitProducer circuit_producer;
