@@ -23,7 +23,6 @@ using Command = NamedUnion<CircuitProve,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
                            CircuitProveAndVerify,
-                           CircuitValidate,
                            CircuitBenchmark,
                            ClientIvcCheckPrecomputedVk>;
 
@@ -42,7 +41,6 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    CircuitProveAndVerify::Response,
-                                   CircuitValidate::Response,
                                    CircuitBenchmark::Response,
                                    ClientIvcCheckPrecomputedVk::Response>;
 
