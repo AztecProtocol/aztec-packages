@@ -294,11 +294,12 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
                       i < exec_instruction_spec.num_addresses ? 1 : 0);
         }
 
-        // Gadget / Subtrace Selectors
+        // Gadget / Subtrace Selectors / Decomposable selectors
         auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
         trace.set(static_cast<uint32_t>(exec_opcode),
                   { { { C::precomputed_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
-                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id } } });
+                      { C::precomputed_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                      { C::precomputed_dyn_gas_id, exec_instruction_spec.dyn_gas_id } } });
     }
 }
 

@@ -1866,7 +1866,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     PROFILE_THIS_NAME("populate_public_inputs_block");
 
     // Update the public inputs block
-    for (const auto& idx : this->public_inputs) {
+    for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
         blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
         for (auto& selector : this->blocks.pub_inputs.selectors) {
@@ -2456,8 +2456,8 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     cir.modulus = buf.str();
 
-    for (uint32_t i = 0; i < this->get_num_public_inputs(); i++) {
-        cir.public_inps.push_back(this->real_variable_index[this->public_inputs[i]]);
+    for (uint32_t i = 0; i < this->num_public_inputs(); i++) {
+        cir.public_inps.push_back(this->real_variable_index[this->public_inputs()[i]]);
     }
 
     for (auto& tup : base::variable_names) {

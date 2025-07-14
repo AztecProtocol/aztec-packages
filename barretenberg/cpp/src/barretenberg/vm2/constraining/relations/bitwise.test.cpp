@@ -428,7 +428,7 @@ TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
         .execution_register_0_ = 0x01,
         .execution_register_1_ = 0x01,
         .execution_register_2_ = 0x00,
-        .execution_sel_bitwise = 1,
+        .execution_sel_execute_bitwise = 1,
         .execution_sel_opcode_error = 1,
         .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
     } });
@@ -456,7 +456,7 @@ TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
         .execution_register_0_ = 0x01,
         .execution_register_1_ = 0x01,
         .execution_register_2_ = 0x00,
-        .execution_sel_bitwise = 1,
+        .execution_sel_execute_bitwise = 1,
         .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
     } });
 
