@@ -15,9 +15,7 @@ pub contract SimulatedAccount {
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
         context::PrivateContext,
-        macros::functions::{private, view},
-        messages::discovery::NoteHashAndNullifier,
-        protocol_types::address::AztecAddress,
+        macros::functions::{private, utility, view},
     };
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
@@ -38,18 +36,6 @@ pub contract SimulatedAccount {
         true
     }
 
-    #[contract_library_method]
-    unconstrained fn _compute_note_hash_and_nullifier(
-        _packed_note: BoundedVec<Field, 12>,
-        _storage_slot: Field,
-        note_type_id: Field,
-        _contract_address: AztecAddress,
-        _note_nonce: Field,
-    ) -> Option<NoteHashAndNullifier> {
-        if note_type_id == 0 {
-            Option::some(NoteHashAndNullifier { note_hash: 0, inner_nullifier: 0 })
-        } else {
-            Option::<NoteHashAndNullifier>::none()
-        }
-    }
+    #[utility]
+    unconstrained fn sync_private_state() {}
 }

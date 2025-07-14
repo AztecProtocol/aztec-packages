@@ -411,8 +411,8 @@ export async function generateSimulatedProvingResult(
     // add it as the first non-revertible nullifier (we can't have dupes!)
     // This is because public processor will use that first non-revertible nullifier
     // as the nonce generator for the note hashes in the revertible part of the tx.
-    sortedNullifiers = sortedNullifiers.slice(1);
-    nonRevertibleData.nullifiers[0] = nonceGenerator;
+    const [firstNullifier] = sortedNullifiers.splice(0, 1);
+    nonRevertibleData.nullifiers[0] = firstNullifier;
 
     const revertibleData = new PrivateToPublicAccumulatedData(
       padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),

@@ -26,11 +26,19 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
+    let sync_private_state = if !m.functions().any(|f| f.name() == quote { sync_private_state }) {
+        generate_sync_private_state()
+    } else {
+        quote {}
+    };
+    let process_message = if !m.functions().any(|f| f.name() == quote { process_message }) {
+        generate_process_message()
+    } else {
+        quote {}
+    };
 
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
-    let sync_private_state = generate_sync_private_state();
-    let process_message = generate_process_message();
 
     quote {
         $note_exports
