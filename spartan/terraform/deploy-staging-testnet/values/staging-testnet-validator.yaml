@@ -1,7 +1,4 @@
 global:
-  aztecRollupVersion: "canonical"
-  aztecNetwork: "alpha-testnet"
-
   l1ExecutionUrls: []
   l1ConsensusUrls: []
   l1ConsensusHostApiKeys: []
@@ -9,11 +6,12 @@ global:
 
   aztecImage:
     repository: aztecprotocol/aztec
-    tag: latest
+    tag: staging
     pullPolicy: Always
 
 validator:
   replicaCount: 1
+  validatorsPerNode: 100
 
   nodeSelector:
     local-ssd: "false"
@@ -32,6 +30,22 @@ validator:
           namespaceSelector: {}
 
   node:
+    logLevel: "debug; info: aztec:simulator, json-rpc"
+    preStartScript: |
+      source /scripts/get-private-key.sh
+
+      until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+        echo "Waiting for boot node..."
+        sleep 1
+      done
+      echo "Boot node is ready!"
+
+      export BOOTSTRAP_NODES=$(curl -X POST --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
+
+    env:
+      SPONSORED_FPC: true
+      SEQ_MIN_TX_PER_BLOCK: 0
+      SEQ_MAX_TX_PER_BLOCK: 8
     resources:
       requests:
         cpu: "3"
@@ -47,7 +61,7 @@ validator:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 128Gi
+              storage: 16Gi
 
   service:
     headless:
