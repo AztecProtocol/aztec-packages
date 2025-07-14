@@ -23,11 +23,11 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
 
-    request.last_circuit_name = circuit.name;
-    request.last_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
-    request.last_circuit_vk = circuit.verification_key;
+    request.loaded_circuit_name = circuit.name;
+    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    request.loaded_circuit_vk = circuit.verification_key;
 
-    info("ClientIvcLoad - loaded circuit '", request.last_circuit_name, "'");
+    info("ClientIvcLoad - loaded circuit '", request.loaded_circuit_name, "'");
 
     return Response{};
 }
@@ -38,27 +38,27 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
 
-    if (!request.last_circuit_constraints.has_value()) {
+    if (!request.loaded_circuit_constraints.has_value()) {
         throw_or_abort("No circuit loaded. Call ClientIvcLoad first.");
     }
 
     acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
-    acir_format::AcirProgram program{ std::move(request.last_circuit_constraints.value()), std::move(witness_data) };
+    acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
 
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-    if (!request.last_circuit_vk.empty()) {
-        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.last_circuit_vk);
+    if (!request.loaded_circuit_vk.empty()) {
+        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
     }
 
-    info("ClientIvcAccumulate - accumulating circuit '", request.last_circuit_name, "'");
+    info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
     request.ivc_in_progress->accumulate(circuit, precomputed_vk);
     request.ivc_stack_depth++;
 
-    request.last_circuit_constraints.reset();
-    request.last_circuit_vk.clear();
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
 
     return Response{};
 }
@@ -100,7 +100,7 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
+ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit)
 {
     ClientIVC ivc{ request.trace_settings };
     ClientIVCMockCircuitProducer circuit_producer;
@@ -147,7 +147,7 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(const BBApiReques
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
-    auto vk = compute_vk_for_ivc(request, constraint_system.public_inputs.size());
+    auto vk = compute_civc_vk(request, constraint_system.public_inputs.size());
 
     Response response;
     response.bytes = to_buffer(vk);

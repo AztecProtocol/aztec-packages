@@ -20,7 +20,7 @@ namespace bb::bbapi {
  * @param num_public_inputs_in_final_circuit Number of public inputs in the final circuit
  * @return The computed IVC verification key
  */
-ClientIVC::VerificationKey compute_vk_for_ivc(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit);
+ClientIVC::VerificationKey compute_civc_vk(const BBApiRequest& request, size_t num_public_inputs_in_final_circuit);
 
 /**
  * @struct ClientIvcStart
