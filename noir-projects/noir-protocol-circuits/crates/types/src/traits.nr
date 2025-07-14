@@ -83,7 +83,7 @@ impl Empty for u128 {
 
 impl<T, let N: u32> Empty for [T; N]
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     #[inline_always]
     fn empty() -> Self {
@@ -101,7 +101,7 @@ where
 
 impl<T> Empty for [T]
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     #[inline_always]
     fn empty() -> Self {
@@ -118,8 +118,8 @@ where
 }
 impl<A, B> Empty for (A, B)
 where
-    A: Empty + Eq,
-    B: Empty + Eq,
+    A: Empty,
+    B: Empty,
 {
     #[inline_always]
     fn empty() -> Self {
@@ -139,28 +139,28 @@ where
 
 // pub fn is_empty<T>(item: T) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     item.eq(T::empty())
 // }
 
 // pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     array.all(|elem| is_empty(elem))
 // }
 
 // pub fn assert_empty<T>(item: T) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     assert(item.eq(T::empty()))
 // }
 
 // pub fn assert_empty_array<T, let N: u32>(array: [T; N]) -> ()
 // where
-//     T: Empty + Eq,
+//     T: Empty,
 // {
 //     // A cheaper option than `is_empty_array` for if you don't need to gracefully
 //     // handle a bool result.
