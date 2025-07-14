@@ -288,6 +288,8 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
+  logger.info(`Deploying shared contracts. Network configration: ${networkName}`);
+
   const txHashes: Hex[] = [];
 
   const feeAssetAddress = await deployer.deploy(l1Artifacts.feeAsset, [
@@ -626,6 +628,8 @@ export const deployRollup = async (
     throw new Error('GSE address is required when deploying');
   }
 
+  logger.info(`Deploying rollup using network configuration: ${networkName}`);
+
   const txHashes: Hex[] = [];
 
   let epochProofVerifier = EthAddress.ZERO;
@@ -655,6 +659,7 @@ export const deployRollup = async (
     rewardConfig: rewardConfig,
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
+    exitDelaySeconds: args.exitDelaySeconds,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
