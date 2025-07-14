@@ -632,6 +632,46 @@ describe('GasUtils', () => {
     await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow();
   }, 10_000);
 
+  it('does not attempt to cancel a timed out tx when cancelTxOnTimeout is false', async () => {
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    const { txHash } = await gasUtils.sendTransaction(request);
+    const initialTx = await l1Client.getTransaction({ hash: txHash });
+
+    // monitor with a short timeout and cancellation disabled
+    const monitorPromise = gasUtils.monitorTransaction(
+      request,
+      txHash,
+      { gasLimit: initialTx.gas! },
+      { txTimeoutMs: 100, checkIntervalMs: 10, cancelTxOnTimeout: false }, // Disable cancellation
+    );
+
+    // Wait for timeout and catch the error
+    await expect(monitorPromise).rejects.toThrow('timed out');
+
+    // Wait to ensure no cancellation tx is sent
+    await sleep(100);
+
+    // Get the nonce that was used
+    const nonce = initialTx.nonce;
+
+    // Get pending transactions
+    const pendingBlock = await l1Client.getBlock({ blockTag: 'pending' });
+
+    // Check no additional transactions were sent (only the initial tx should be present)
+    expect(pendingBlock.transactions.length).toBe(1);
+    expect(pendingBlock.transactions[0]).toBe(txHash);
+
+    // Original tx should still be available
+    const tx = await l1Client.getTransaction({ hash: txHash });
+    expect(tx).toBeDefined();
+    expect(tx!.nonce).toBe(nonce);
+  }, 10_000);
+
   it('ensures block gas limit is set when using LARGE_GAS_LIMIT', async () => {
     const request = {
       to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
