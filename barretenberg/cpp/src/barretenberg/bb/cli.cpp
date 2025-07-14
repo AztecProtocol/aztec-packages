@@ -286,6 +286,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                     "Include gates_per_opcode in the output of the gates command.");
     };
 
+    const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (Slow).");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -348,6 +352,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
     add_honk_recursion_option(prove);
+    add_slow_low_memory_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -578,6 +583,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
+    slow_low_memory = flags.slow_low_memory;
 
     print_active_subcommands(app);
     info("Scheme is: ", flags.scheme, ", num threads: ", get_num_cpus());

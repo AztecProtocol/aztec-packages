@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <atomic>
 #include <cstring>
@@ -14,13 +15,48 @@
 #include <memory>
 #include <sys/mman.h>
 
-template <typename T> struct FileBackedMemory {
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern bool slow_low_memory;
 
-    using Value = FileBackedMemory;
+template <typename T> struct AlignedMemory;
 
-    static std::string generate_unique_filename() {}
+template <typename T> struct FileBackedMemory;
 
-    static std::shared_ptr<Value> allocate(size_t size) { return std::shared_ptr<Value>(new FileBackedMemory(size)); }
+template <typename Fr> struct BackingMemory {
+    BackingMemory() = default;
+
+    BackingMemory(const BackingMemory&) = delete;            // delete copy constructor
+    BackingMemory& operator=(const BackingMemory&) = delete; // delete copy assignment
+
+    BackingMemory(BackingMemory&& other) = delete;            // delete move constructor
+    BackingMemory& operator=(const BackingMemory&&) = delete; // delete move assignment
+
+    virtual Fr* raw_data() = 0;
+
+    static std::shared_ptr<BackingMemory<Fr>> allocate(size_t size)
+    {
+        return slow_low_memory ? static_pointer_cast<BackingMemory<Fr>>(std::make_shared<FileBackedMemory<Fr>>(size))
+                               : static_pointer_cast<BackingMemory<Fr>>(std::make_shared<AlignedMemory<Fr>>(size));
+    }
+
+    virtual ~BackingMemory() = default;
+};
+
+template <typename T> struct AlignedMemory : public BackingMemory<T> {
+    AlignedMemory(size_t size)
+        : BackingMemory<T>()
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+        , data(std::static_pointer_cast<T[]>(std::move(bb::get_mem_slab(sizeof(T) * size))))
+    {}
+
+    T* raw_data() { return data.get(); }
+
+  private:
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    std::shared_ptr<T[]> data;
+};
+
+template <typename T> struct FileBackedMemory : public BackingMemory<T> {
 
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
     FileBackedMemory& operator=(const FileBackedMemory&) = delete; // delete copy assignment
@@ -28,7 +64,7 @@ template <typename T> struct FileBackedMemory {
     FileBackedMemory(FileBackedMemory&& other) = delete;            // delete move constructor
     FileBackedMemory& operator=(const FileBackedMemory&&) = delete; // delete move assignment
 
-    static T* get_data(const std::shared_ptr<Value> backing_memory) { return backing_memory->memory; }
+    T* raw_data() { return memory; }
 
     ~FileBackedMemory()
     {
@@ -46,10 +82,10 @@ template <typename T> struct FileBackedMemory {
         }
     }
 
-  private:
     // Create a new file-backed memory region
     FileBackedMemory(size_t size)
-        : file_size(size * sizeof(T))
+        : BackingMemory<T>()
+        , file_size(size * sizeof(T))
     {
         if (file_size == 0) {
             return;
@@ -79,6 +115,7 @@ template <typename T> struct FileBackedMemory {
         memory = static_cast<T*>(addr);
     }
 
+  private:
     size_t file_size;
     std::string filename;
     int fd;

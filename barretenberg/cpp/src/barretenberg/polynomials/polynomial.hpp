@@ -132,7 +132,7 @@ template <typename Fr> class Polynomial {
      */
     Polynomial share() const;
 
-    void clear() { coefficients_ = SharedShiftedVirtualZeroesArray<Fr, BackingMemory<Fr>>{}; }
+    void clear() { coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{}; }
 
     /**
      * @brief Check whether or not a polynomial is identically zero
@@ -445,7 +445,7 @@ template <typename Fr> class Polynomial {
 
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
-    SharedShiftedVirtualZeroesArray<Fr, BackingMemory<Fr>> coefficients_;
+    SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
@@ -460,7 +460,7 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
  */
 template <typename Fr_>
 Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
-                  const SharedShiftedVirtualZeroesArray<Fr_, BackingMemory<Fr_>>& coefficients,
+                  const SharedShiftedVirtualZeroesArray<Fr_>& coefficients,
                   bool shift)
 {
     constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
@@ -531,7 +531,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
  */
 template <typename Fr_>
 Fr_ generic_evaluate_mle(std::span<const Fr_> evaluation_points,
-                         const SharedShiftedVirtualZeroesArray<Fr_, BackingMemory<Fr_>>& coefficients)
+                         const SharedShiftedVirtualZeroesArray<Fr_>& coefficients)
 {
     return _evaluate_mle(evaluation_points, coefficients, false);
 }

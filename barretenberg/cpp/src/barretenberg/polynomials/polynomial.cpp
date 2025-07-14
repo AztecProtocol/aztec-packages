@@ -10,6 +10,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
@@ -26,24 +27,22 @@ namespace bb {
 
 // Note: This function is pretty gnarly, but we try to make it the only function that deals
 // with copying polynomials. It should be scrutinized thusly.
-template <typename Fr, typename BackingMemory>
-SharedShiftedVirtualZeroesArray<Fr, BackingMemory> _clone(
-    const SharedShiftedVirtualZeroesArray<Fr, BackingMemory>& array,
-    size_t right_expansion = 0,
-    size_t left_expansion = 0)
+template <typename Fr>
+SharedShiftedVirtualZeroesArray<Fr> _clone(const SharedShiftedVirtualZeroesArray<Fr>& array,
+                                           size_t right_expansion = 0,
+                                           size_t left_expansion = 0)
 {
     size_t expanded_size = array.size() + right_expansion + left_expansion;
-    std::shared_ptr<typename BackingMemory::Value> backing_clone = BackingMemory::allocate(expanded_size);
+    std::shared_ptr<BackingMemory<Fr>> backing_clone = BackingMemory<Fr>::allocate(expanded_size);
     // zero any left extensions to the array
-    memset(static_cast<void*>(BackingMemory::get_data(backing_clone)), 0, sizeof(Fr) * left_expansion);
+    memset(static_cast<void*>(backing_clone->raw_data()), 0, sizeof(Fr) * left_expansion);
     // copy our cloned array over
-    memcpy(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion),
+    memcpy(static_cast<void*>(backing_clone->raw_data() + left_expansion),
            static_cast<const void*>(array.data()),
            sizeof(Fr) * array.size());
     // zero any right extensions to the array
-    memset(static_cast<void*>(BackingMemory::get_data(backing_clone) + left_expansion + array.size()),
-           0,
-           sizeof(Fr) * right_expansion);
+    memset(
+        static_cast<void*>(backing_clone->raw_data() + left_expansion + array.size()), 0, sizeof(Fr) * right_expansion);
     return { array.start_ - left_expansion, array.end_ + right_expansion, array.virtual_size_, backing_clone };
 }
 
@@ -51,7 +50,7 @@ template <typename Fr>
 void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, size_t start_index)
 {
     BB_ASSERT_LTE(start_index + size, virtual_size);
-    coefficients_ = SharedShiftedVirtualZeroesArray<Fr, BackingMemory<Fr>>{
+    coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
         virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
