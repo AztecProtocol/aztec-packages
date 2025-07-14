@@ -550,7 +550,8 @@ type L1PendingTx = {
 };
 
 export class L1TxUtils extends ReadOnlyL1TxUtils {
-  private pendingRequest: L1PendingTx | undefined;
+  /** Latest pending tx. Exposed for testing purposes. */
+  public pendingRequest: L1PendingTx | undefined;
 
   constructor(
     public override client: ExtendedViemWalletClient,

@@ -1,12 +1,13 @@
 import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger, retryUntil } from '@aztec/aztec.js';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type ExtendedViemWalletClient,
+  FormattedViemError,
   GovernanceProposerContract,
   type L1ContractAddresses,
   RollupContract,
@@ -188,7 +189,7 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, config);
+    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, { ...config, replacePreviousPendingTx: true });
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
@@ -532,32 +533,32 @@ describe('L1Publisher integration', () => {
     );
   });
 
+  const buildSingleBlock = async (opts: { blockNumber?: number; l1ToL2Messages?: Fr[] } = {}) => {
+    const archiveInRollup = await rollup.archive();
+    expect(hexToBuffer(archiveInRollup.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
+
+    const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
+
+    const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
+    const ts = (await l1Client.getBlock()).timestamp;
+    const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
+    const timestamp = await rollup.getTimestampForSlot(slot);
+    const globalVariables = new GlobalVariables(
+      new Fr(chainId),
+      new Fr(version),
+      opts.blockNumber ?? 1,
+      new Fr(slot),
+      timestamp,
+      coinbase,
+      feeRecipient,
+      new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
+    );
+    const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
+    blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
+    return block;
+  };
+
   describe('error handling', () => {
-    const buildSingleBlock = async (opts: { l1ToL2Messages?: Fr[] } = {}) => {
-      const archiveInRollup = await rollup.archive();
-      expect(hexToBuffer(archiveInRollup.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
-
-      const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
-
-      const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
-      const ts = (await l1Client.getBlock()).timestamp;
-      const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
-      const timestamp = await rollup.getTimestampForSlot(slot);
-      const globalVariables = new GlobalVariables(
-        new Fr(chainId),
-        new Fr(version),
-        1, // block number
-        new Fr(slot),
-        timestamp,
-        coinbase,
-        feeRecipient,
-        new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
-      );
-      const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
-      return block;
-    };
-
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
       publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
@@ -593,6 +594,48 @@ describe('L1Publisher integration', () => {
         undefined,
         expect.objectContaining({ blockNumber: 1 }),
       );
+    });
+  });
+
+  describe('replacements', () => {
+    it('replaces the latest L1 tx with a new block if previous one never landed', async () => {
+      publisher.l1TxUtils.config.cancelTxOnTimeout = false;
+      await ethCheatCodes.setAutomine(false);
+      await ethCheatCodes.setIntervalMining(0);
+
+      const blockForSlot1 = await buildSingleBlock();
+      await publisher.enqueueProposeL2Block(blockForSlot1);
+
+      logger.warn(`Sending request for block for first slot`);
+      const requestPromise1 = publisher.sendRequests();
+      requestPromise1.catch(err => logger.error(`Expected error sending request`, err));
+
+      logger.warn(`Sent request for block for first slot`);
+      await retryUntil(() => publisher.l1TxUtils.pendingRequest?.txHash !== undefined, 'block1', 10, 0.1);
+      const txHash1 = publisher.l1TxUtils.pendingRequest?.txHash;
+      const nonce1 = await l1Client.getTransaction({ hash: txHash1! }).then(tx => tx.nonce);
+
+      logger.warn(`Dropping tx for first slot ${txHash1}`);
+      await ethCheatCodes.dropTransaction(txHash1!);
+      await ethCheatCodes.mine(config.aztecSlotDuration / config.ethereumSlotDuration + 1);
+      await ethCheatCodes.setIntervalMining(1);
+
+      logger.warn(`Sending request for block for next slot`);
+      const blockForSlot2 = await buildSingleBlock();
+      await publisher.enqueueProposeL2Block(blockForSlot2);
+      const result2 = await publisher.sendRequests();
+
+      expect((await requestPromise1)?.failedActions).toEqual(['propose']);
+      expect(result2?.successfulActions).toEqual(['propose']);
+
+      if (result2?.result instanceof FormattedViemError) {
+        throw new Error(`Expected successful propose, got error: ${result2.result.message}`);
+      }
+
+      const nonce2 = await l1Client
+        .getTransaction({ hash: result2!.result.receipt.transactionHash! })
+        .then(tx => tx.nonce);
+      expect(nonce2).toEqual(nonce1);
     });
   });
 });
