@@ -38,12 +38,17 @@ void write_standalone_vk(const std::string& output_format,
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
 
+    bool wrote_file = false;
     if (output_format == "bytes" || output_format == "bytes_and_fields") {
         write_file(output_path / "vk", response.bytes);
-    } else if (output_format == "fields" || output_format == "bytes_and_fields") {
+        wrote_file = true;
+    }
+    if (output_format == "fields" || output_format == "bytes_and_fields") {
         std::string json = field_elements_to_json(response.fields);
         write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
-    } else {
+        wrote_file = true;
+    }
+    if (!wrote_file) {
         throw_or_abort("Unsupported output format for standalone vk: " + output_format);
     }
 }
