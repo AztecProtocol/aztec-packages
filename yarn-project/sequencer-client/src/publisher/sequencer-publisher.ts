@@ -398,11 +398,6 @@ export class SequencerPublisher {
     return ts;
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
-    const committee = await this.rollupContract.getCurrentEpochCommittee();
-    return committee?.map(EthAddress.fromString);
-  }
-
   private async enqueueCastVoteHelper(
     slotNumber: bigint,
     timestamp: bigint,

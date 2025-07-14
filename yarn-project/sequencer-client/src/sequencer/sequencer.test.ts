@@ -1,6 +1,6 @@
 import { Body, L2Block } from '@aztec/aztec.js';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -31,7 +31,7 @@ import type { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
-import { expect, jest } from '@jest/globals';
+import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -41,6 +41,7 @@ import { SequencerState } from './utils.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<SequencerPublisher>;
+  let epochCache: MockProxy<EpochCache>;
   let validatorClient: MockProxy<ValidatorClient>;
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
@@ -162,13 +163,13 @@ describe('sequencer', () => {
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
-    const epochCache = mockDeep<EpochCache>();
+    epochCache = mockDeep<EpochCache>();
     epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n, now: 1000n }));
+    epochCache.getCommittee.mockResolvedValue({ committee } as EpochCommitteeInfo);
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
@@ -566,11 +567,8 @@ describe('sequencer', () => {
 
   it('should proceed with block proposal when there is no proposer yet', async () => {
     // Mock that there is no official proposer yet
-    publisher.epochCache.getProposerAttesterAddressInNextSlot = jest
-      .fn()
-      .mockImplementationOnce(() => Promise.resolve(undefined)) as jest.Mock<() => Promise<EthAddress | undefined>>;
-
-    publisher.getCurrentEpochCommittee.mockResolvedValueOnce([]);
+    epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValueOnce(undefined);
+    epochCache.getCommittee.mockResolvedValueOnce({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
     // Mock that we have some pending transactions
     const txs = [await makeTx(1), await makeTx(2)];
