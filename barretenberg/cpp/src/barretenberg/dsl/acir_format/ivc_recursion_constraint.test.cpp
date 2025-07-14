@@ -191,20 +191,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
     /**
-     * @brief Generate an acir program {constraints, witness} for a mock hiding kernel
-     * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
-     * Construct an AcirProgram with a RecursionConstraint for each entry in the ivc verification queue. (In
-     * practice these constraints would come directly from calls to verify_proof in noir).
-     * @note This method needs the number of public inputs in each proof-to-be-verified so they can be extracted and
-     * provided separately as is required in the acir constraint system.
-     *
-     * @param ivc
-     * @param inner_circuit_num_pub_inputs Num pub inputs for each circuit whose accumulation is recursively
-     * verified
-     * @return Builder
-     */
-
-    /**
      * @brief Construct a kernel circuit VK from an acir program with IVC recursion constraints
      *
      * @param program Acir program representing a kernel circuit
@@ -219,25 +205,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
-        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
-        return verification_key;
-    }
-
-    /**
-     * @brief Construct a hiding kernel VK from an acir program with IVC recursion constraints
-     *
-     * @param program Acir program representing a kernel circuit
-     * @param trace_settings needed for construction of the VK
-     * @return std::shared_ptr<ClientIVC::MegaVerificationKey>
-     */
-    static std::shared_ptr<ClientIVC::MegaVerificationKey> construct_hiding_kernel_vk_from_acir_program(
-        AcirProgram& program, const TraceSettings& trace_settings)
-    {
-        // Create kernel circuit from the kernel program
-        Builder hiding_kernel = acir_format::create_circuit<Builder>(program);
-
-        // manually construct the VK for the hiding kernel
-        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(hiding_kernel, trace_settings);
         auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
         return verification_key;
     }
@@ -493,19 +460,16 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
             EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-            ivc->accumulate(kernel, nullptr, false, ClientIVC::QUEUE_TYPE::PG);
+            ivc->accumulate(kernel, nullptr, false, ClientIVC::QUEUE_TYPE::PG_FINAL); // WORKTODO: should be PG_FINAL?
         }
 
         {
-            // construct and accumulate a mock HIDING kernel (PG_FINAL recursion for kernel accumulation)
+            // Check the verificaiton queue contains a single PG_FINAL entry
             EXPECT_TRUE(ivc->verification_queue.size() == 1);
-            // EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
-            AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
-            Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-            ivc->accumulate(kernel, nullptr, false, ClientIVC::QUEUE_TYPE::PG_FINAL);
+            EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG_FINAL);
         }
-        auto mega_proof = ivc->construct_and_prove_hiding_circuit();
-        expected_hiding_kernel_vk = ivc->verification_queue.back().honk_vk;
+        ivc->construct_hiding_circuit_key();
+        expected_hiding_kernel_vk = ivc->honk_vk;
     }
     // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
@@ -519,7 +483,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
 
         program.witness = {}; // remove the witness to mimick VK construction context
 
-        kernel_vk = construct_hiding_kernel_vk_from_acir_program(program, trace_settings);
+        kernel_vk = construct_kernel_vk_from_acir_program(program, trace_settings);
     }
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking

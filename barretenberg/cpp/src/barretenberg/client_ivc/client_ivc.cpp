@@ -53,19 +53,19 @@ void ClientIVC::instantiate_stdlib_verification_queue(
 
     size_t key_idx = 0;
     while (!verification_queue.empty()) {
-        QUEUE_TYPE intended_queue_type;
-        if (!queue_types.empty()) {
-            intended_queue_type = queue_types[key_idx];
-        } else {
-            intended_queue_type = verification_queue.front().type;
-        }
+        // QUEUE_TYPE intended_queue_type;
+        // if (!queue_types.empty()) {
+        //     intended_queue_type = queue_types[key_idx];
+        // } else {
+        //     intended_queue_type = verification_queue.front().type;
+        // }
 
-        if (intended_queue_type != verification_queue.front().type) {
-            info("Invalid queue type!");
-        }
-        // info("intended_queue_type: ", intended_queue_type);
-        // info("verification_queue.front().type: ", verification_queue.front().type);
-        // BB_ASSERT_EQ(intended_queue_type, verification_queue.front().type, "Invalid queue type!");
+        // if (intended_queue_type != verification_queue.front().type) {
+        //     info("Invalid queue type!");
+        // }
+        // // info("intended_queue_type: ", intended_queue_type);
+        // // info("verification_queue.front().type: ", verification_queue.front().type);
+        // // BB_ASSERT_EQ(intended_queue_type, verification_queue.front().type, "Invalid queue type!");
 
         auto& [proof, vk, type] = verification_queue.front();
 
@@ -81,6 +81,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
             stdlib_vk_and_hash = std::make_shared<RecursiveVKAndHash>(circuit, vk);
         }
 
+        // stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vk_and_hash, intended_queue_type });
         stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vk_and_hash, intended_queue_type });
 
         verification_queue.pop_front(); // the native data is not needed beyond this point
@@ -148,6 +149,9 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
 
     case QUEUE_TYPE::PG_FINAL: {
+
+        // WORKTODO: (roughly) just call construct_hiding_circuit_key() here
+
         // create the input for the hiding circuit recursive verification
         // the hiding circuit will perform a recursive verification of the the last folding proof and a decider proof
 
@@ -320,6 +324,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
+    // WORKTODO: maybe a switch based on type: OINK, PG, PG_FINAL, where PG_FINAL additionally performs decider proving.
+    // When the circuit counter indicates a tail, set type = PG_FINAL, otherwise set type = PG.
+
     if (queue_type == QUEUE_TYPE::NULL_TYPE) {
         // this would be coming from a test so the first elements will be of type OINK and the rest will be of type
         // PG
@@ -420,7 +427,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
 
-    FoldProof& fold_proof = verification_queue[0].proof;
+    FoldProof& fold_proof = verification_queue[0].proof; // SHould have type PG_FINAL
     HonkProof decider_proof = decider_prove();
 
     fold_output.accumulator = nullptr;

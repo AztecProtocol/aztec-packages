@@ -43,6 +43,7 @@ namespace {
  * @param key_fields
  * @param proof_fields
  */
+// WORKTODO: make this a sepearte proof mocking method to be reused elsewhere
 template <typename Flavor>
 void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
                                  size_t proof_size,

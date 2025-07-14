@@ -173,16 +173,9 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     }
 
     // Case: RESET or TAIL kernel; single PG recursive verification of a kernel
-    if (constraints.size() == 2 && constraints[0].proof_type == pg_type && constraints[1].proof_type == pg_final_type) {
+    if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
         ivc->verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        return ivc;
-    }
-
-    // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
-    if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-        ivc->verifier_accumulator = create_mock_decider_vk();
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -192,6 +185,13 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
         ivc->verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        return ivc;
+    }
+
+    // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
+    if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
+        ivc->verifier_accumulator = create_mock_decider_vk();
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -230,7 +230,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     } else if (verification_type == ClientIVC::QUEUE_TYPE::PG || verification_type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
         proof = create_mock_pg_proof(num_public_inputs);
     } else {
-        throw_or_abort("Invalid verification type!");
+        throw_or_abort("Invalid verification type! Only OINK, PG and PG_FINAL are supported");
     }
 
     // Construct a mock MegaHonk verification key
@@ -259,6 +259,10 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
+    if (type == ClientIVC::QUEUE_TYPE::PG) {
+        // WORKTODO: implement this (should just be a honk proof which we already have mocking for)
+        // ivc->decider_proof = create_mock_decider_proof(); // maybe jsut a honk proof?
+    }
     ivc->initialized = true;
 }
 

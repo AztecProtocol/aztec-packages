@@ -157,7 +157,8 @@ class ClientIVC {
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof mega_proof;
+    HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
+    HonkProof mega_proof;         // proof of the hiding circuit
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
