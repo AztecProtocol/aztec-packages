@@ -27,6 +27,7 @@ library TestConstants {
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
+  uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
 
   // Genesis state
@@ -87,6 +88,7 @@ library TestConstants {
       manaTarget: AZTEC_MANA_TARGET,
       entryQueueFlushSizeMin: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN,
       entryQueueFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT,
+      exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig()

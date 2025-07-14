@@ -65,6 +65,7 @@ struct RollupConfigInput {
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
+  uint256 exitDelaySeconds;
   uint256 entryQueueFlushSizeMin;
   uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;

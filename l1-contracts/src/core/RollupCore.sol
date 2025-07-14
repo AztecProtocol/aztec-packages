@@ -84,7 +84,7 @@ contract RollupCore is
       _config.aztecProofSubmissionEpochs
     );
 
-    Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
+    Timestamp exitDelay = Timestamp.wrap(_config.exitDelaySeconds);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher));
     ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
