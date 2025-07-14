@@ -37,18 +37,18 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @param proof
  * @param t_commitments The commitments to t_j read from the transcript by the PG recursive verifier with which
  * the Merge recursive verifier shares a transcript
- * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
+ * @return MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints Inputs to final pairing
  */
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
     const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
 {
     /**
-     * The prover wants to convince the verifier that the polynomials l_j, r_j, m_j for which they have sent
+     * The prover wants to convince the verifier that the polynomials l_j, r_j, m_j for which they have sent commitments
+     * [l_j], [r_j], [m_j] satisfy
      *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
      *      - deg(l_j(X)) < k                   (2)
      * where l = shift_size.
-     *
      *
      * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
      * the polynomial
@@ -59,7 +59,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
      * then requests proofs that
      *      l_j(1/kappa) = c     g_j(kappa) = d
      * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
-     * g_j(X) = X^{l-1} t_j(1/X), which means that deg(l_j(X)) < l.
+     * g_j(X) = X^{l-1} l_j(1/X), which means that deg(l_j(X)) < l.
      *
      * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
      * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]

@@ -37,11 +37,11 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript, Merg
 bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
 {
     /**
-     * The prover wants to convince the verifier that the polynomials l_j, r_j, m_j for which they have sent
+     * The prover wants to convince the verifier that the polynomials l_j, r_j, m_j for which they have sent commitments
+     * [l_j], [r_j], [m_j] satisfy
      *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
      *      - deg(l_j(X)) < k                   (2)
      * where l = shift_size.
-     *
      *
      * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
      * the polynomial
@@ -52,7 +52,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitme
      * then requests proofs that
      *      l_j(1/kappa) = c     g_j(kappa) = d
      * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
-     * g_j(X) = X^{l-1} t_j(1/X), which means that deg(l_j(X)) < l.
+     * g_j(X) = X^{l-1} l_j(1/X), which means that deg(l_j(X)) < l.
      *
      * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
      * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]

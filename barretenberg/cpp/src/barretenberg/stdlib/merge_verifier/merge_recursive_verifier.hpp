@@ -22,7 +22,6 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     using GroupElement = typename Curve::Element;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using KZG = ::bb::KZG<Curve>;
-    using BatchOpeningClaim = ::bb::BatchOpeningClaim<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
     using PairingPoints = stdlib::recursion::PairingPoints<CircuitBuilder>;
     using Claims = typename ShplonkVerifier::LinearCombinationOfClaims;
