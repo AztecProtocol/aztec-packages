@@ -141,7 +141,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "sync"');
   }
 
-  public requestTxsByHash(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  public requestTxsByHash(_txHashes: TxHash[]): Promise<Tx[]> {
     throw new Error('DummyP2P does not implement "requestTxsByHash"');
   }
 

@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { L2Block } from '@aztec/stdlib/block';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -97,6 +97,14 @@ export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.BLOCK]: noopValidator,
   [ReqRespSubProtocol.AUTH]: noopValidator,
 };
+
+/*
+ * Helper class to sub-protocol validation error*/
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
 
 /**
  * Sub protocol map determines the request and response types for each
@@ -196,8 +204,8 @@ export const subProtocolMap = {
     response: StatusMessage,
   },
   [ReqRespSubProtocol.TX]: {
-    request: TxHash,
-    response: Tx,
+    request: TxHashArray,
+    response: TxArray,
   },
   [ReqRespSubProtocol.GOODBYE]: {
     request: RequestableBuffer,
@@ -231,7 +239,7 @@ export interface ReqRespInterface {
     timeoutMs?: number,
     maxPeers?: number,
     maxRetryAttempts?: number,
-  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>;
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]>;
   sendRequestToPeer(
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,

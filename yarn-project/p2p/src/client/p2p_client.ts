@@ -38,6 +38,7 @@ import {
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolValidators,
 } from '../services/reqresp/interface.js';
+import { chunkTxHashesRequest } from '../services/reqresp/protocols/tx.js';
 import type { P2PBlockReceivedCallback, P2PService } from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { TxProvider } from '../services/tx_provider.js';
@@ -386,27 +387,28 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
+  public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<Tx[]> {
     const timeoutMs = 8000; // Longer timeout for now
-    const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
     const maxRetryAttempts = 10; // Keep retrying within the timeout
+    const requests = chunkTxHashesRequest(txHashes);
+    const maxPeers = Math.min(Math.ceil(requests.length / 3), 10);
 
-    const txs = await this.p2pService.sendBatchRequest(
+    const txBatches = await this.p2pService.sendBatchRequest(
       ReqRespSubProtocol.TX,
-      txHashes,
+      requests,
       pinnedPeerId,
       timeoutMs,
       maxPeers,
       maxRetryAttempts,
     );
 
-    // Some transactions may return undefined, so we filter them out
-    const filteredTxs = txs.filter((tx): tx is Tx => !!tx);
-    if (filteredTxs.length > 0) {
-      await this.txPool.addTxs(filteredTxs);
+    const txs = txBatches.flat();
+    if (txs.length > 0) {
+      await this.txPool.addTxs(txs);
     }
+
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}) from peers`);
+    this.log.debug(`Requested txs ${txHashesStr} (${txs.length} / ${txHashes.length}) from peers`);
 
     // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
     return txs;
@@ -527,8 +529,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     const missingTxs = await this.requestTxsByHash(missingTxHashes, pinnedPeerId);
-    const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
-
     // TODO: optimize
     // Merge the found txs in order
     const mergingTxsPromises = txHashes.map(async txHash => {
@@ -540,8 +540,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       }
 
       // Is it in the fetched missing txs?
-      for (const tx of fetchedMissingTxs) {
-        if (tx !== undefined && (await tx.getTxHash()).equals(txHash)) {
+      // Note: this is an O(n^2) operation, but we expect the number of missing txs to be small.
+      for (const tx of missingTxs) {
+        if ((await tx.getTxHash()).equals(txHash)) {
           return tx;
         }
       }

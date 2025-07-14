@@ -31,7 +31,7 @@ export class BarretenbergVerifier {
     await this.instantiate();
 
     const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
-    return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(verificationKey));
+    return await this.api.acirVerifyUltraZKHonk(proof, new RawBuffer(verificationKey));
   }
 
   async destroy(): Promise<void> {

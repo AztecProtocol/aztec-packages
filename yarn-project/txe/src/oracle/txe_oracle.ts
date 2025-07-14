@@ -338,7 +338,10 @@ export class TXE implements TypedOracle {
     // If blockNumber or timestamp is null, use the values corresponding to the latest historical block (number of
     // the block being built - 1)
     blockNumber = blockNumber ?? this.blockNumber - 1;
-    timestamp = timestamp ?? this.timestamp - AZTEC_SLOT_DURATION;
+
+    // TODO: we can't just request a timestamp! we always build contexts off of blocks. if anything we'd need to ensure
+    // a block at a given timestamp exists
+    timestamp = timestamp ?? this.timestamp;
 
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
     const previousBlockState = this.nativeWorldStateService.getSnapshot(blockNumber - 1);
@@ -787,6 +790,8 @@ export class TXE implements TypedOracle {
     header.globalVariables.blockNumber = blockNumber;
     header.globalVariables.timestamp = await this.getTimestamp();
 
+    this.logger.info(`Created block ${blockNumber} with timestamp ${header.globalVariables.timestamp}`);
+
     l2Block.header = header;
 
     await fork.updateArchive(l2Block.header);
@@ -950,9 +955,11 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
+    const historicalBlockNumber = this.blockNumber - 1; // i.e. latest
+
     const privateContextInputs = await this.getPrivateContextInputs(
-      this.blockNumber - 1,
-      this.timestamp - AZTEC_SLOT_DURATION,
+      historicalBlockNumber,
+      await this.getBlockTimestamp(historicalBlockNumber),
       sideEffectCounter,
       isStaticCall,
     );
@@ -1667,5 +1674,14 @@ export class TXE implements TypedOracle {
       returnsHash: returnValuesHash ?? Fr.ZERO,
       txHash: txRequestHash,
     };
+  }
+
+  private async getBlockTimestamp(blockNumber: number) {
+    const blockHeader = await this.stateMachine.archiver.getBlockHeader(blockNumber);
+    if (!blockHeader) {
+      throw new Error(`Requested timestamp for block ${blockNumber}, which does not exist`);
+    }
+
+    return blockHeader.globalVariables.timestamp;
   }
 }

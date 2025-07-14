@@ -66,7 +66,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
    * @returns A list of transactions or undefined if the transactions are not found.
    */
-  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<(Tx | undefined)[]>;
+  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<Tx[]>;
 
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.

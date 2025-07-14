@@ -1,5 +1,5 @@
 mod context;
-mod deploy;
+mod publish_contract_instance;
 mod hash;
 mod history;
 mod keys;

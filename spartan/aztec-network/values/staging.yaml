@@ -1,0 +1,11 @@
+# this file is only used to calculate indices to fund
+
+proverNode:
+  replicas: 1
+
+validator:
+  replicas: 8
+  keysPerNode: 100
+
+bot:
+  replicas: 0

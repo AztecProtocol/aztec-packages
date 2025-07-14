@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
 import { Offense } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
@@ -116,19 +115,15 @@ describe('e2e_p2p_data_withholding_slash', () => {
     );
 
     await debugRollup();
-    await sleep(4000);
-    await debugRollup();
-
     const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
     await debugRollup();
 
     // Jump forward more time to ensure we're at the beginning of an epoch.
     // This should reduce flake, since we need to have the transaction included
     // and the nodes recreated, prior to the reorg.
-    // Considering the epoch duration is 1,
-    // the proof submission window is 1,
-    // and the aztec slot duration is 20,
-    // we have ~20 seconds to do this.
+    // Considering the slot duration is 32 seconds,
+    // Considering the epoch duration is 2 slots,
+    // we have ~64 seconds to do this.
     {
       const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
       t.ctx.dateProvider.setTime(Number(newTime * 1000n));
@@ -137,15 +132,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
       await debugRollup();
     }
 
-    // Sleep for a few seconds to allow the *previous* epoch to be pruned.
-    await sleep(4000);
-
     // Send Aztec txs
     t.logger.info('Setup account');
     await t.setupAccount();
-    t.logger.info('Deploy spam contract');
-    await t.deploySpamContract();
-
     t.logger.info('Stopping nodes');
     // Note, we needed to keep the initial node running, as that is the one the txs were sent to.
     await t.removeInitialNode();
