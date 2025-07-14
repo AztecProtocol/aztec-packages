@@ -155,7 +155,8 @@ export async function createTestLibP2PService<T extends P2PClientType>(
   );
 
   p2pNode.services.pubsub.score.params.appSpecificWeight = 10;
-  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+  p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
+    peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
   return new LibP2PService<T>(
     clientType,
@@ -190,6 +191,7 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
   [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
   [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(Buffer.from('auth')),
+  [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
 };
 
 // By default, all requests are valid
@@ -201,6 +203,7 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
   [ReqRespSubProtocol.BLOCK]: noopValidator,
   [ReqRespSubProtocol.AUTH]: noopValidator,
+  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
 };
 
 /**
