@@ -376,7 +376,7 @@ export async function generateSimulatedProvingResult(
   const sortByCounter = <T>(a: OrderedSideEffect<T>, b: OrderedSideEffect<T>) => a.counter - b.counter;
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
-  let sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+  const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
 
   // If the tx generated no nullifiers, the nonce generator (txRequest hash)
   // is injected as the first nullifier as per protocol rules.
