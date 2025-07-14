@@ -36,6 +36,9 @@ pub contract SimulatedAccount {
         true
     }
 
+    /// Since this contract normally emulates an account that uses a note to store the public key,
+    /// we completely bypass message discovery here to avoid losing time on useless processing
+    /// and also enabling the emulation of different accounts with differently sized public key notes.
     #[utility]
     unconstrained fn sync_private_state() {}
 }
