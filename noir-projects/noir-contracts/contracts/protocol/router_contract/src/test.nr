@@ -37,7 +37,7 @@ unconstrained fn check_timestamp() {
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    let expected_next_block_timestamp = 99999999999999999;
+    let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
     router.check_timestamp(Comparator.LT, expected_next_block_timestamp + 1).call(&mut env.private());
 }
@@ -50,7 +50,7 @@ unconstrained fn check_timestamp_fail() {
     let router_contract_address = router_contract.to_address();
     let router = Router::at(router_contract_address);
 
-    let expected_next_block_timestamp = 99999999999999999;
+    let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
     router.check_timestamp(Comparator.LT, expected_next_block_timestamp).call(&mut env.private());
 }

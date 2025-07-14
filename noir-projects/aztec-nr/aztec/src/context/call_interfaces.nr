@@ -10,7 +10,7 @@ use crate::context::{
 };
 use crate::hash::{hash_args, hash_calldata};
 use crate::oracle::execution_cache;
-use crate::test::helpers::cheatcodes;
+use crate::test::helpers::txe_oracles;
 
 pub trait CallInterface<let N: u32> {
     fn get_args(self) -> [Field];
@@ -831,7 +831,7 @@ where
     T: Deserialize<N>,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -850,7 +850,7 @@ where
     T: Deserialize<N>,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -869,7 +869,7 @@ where
     T: Deserialize<N>,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -888,7 +888,7 @@ where
     T: Deserialize<N>,
 {
     unconstrained fn call_with_txe(self, from: AztecAddress) -> (T, Field) {
-        let (returns_hash, tx_hash) = cheatcodes::public_call_new_flow(
+        let (returns_hash, tx_hash) = txe_oracles::public_call_new_flow(
             from,
             self.target_contract,
             self.selector,
@@ -914,7 +914,7 @@ where
         let args = self.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -938,7 +938,7 @@ where
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -962,7 +962,7 @@ where
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
@@ -986,7 +986,7 @@ where
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             self.get_contract_address(),
             self.get_selector(),
