@@ -84,7 +84,6 @@ export type EnvVar =
   | 'LOG_MULTILINE'
   | 'LOG_LEVEL'
   | 'MNEMONIC'
-  | 'NETWORK_NAME'
   | 'NETWORK'
   | 'NO_PXE'
   | 'COIN_ISSUER_CONTRACT_ADDRESS'
