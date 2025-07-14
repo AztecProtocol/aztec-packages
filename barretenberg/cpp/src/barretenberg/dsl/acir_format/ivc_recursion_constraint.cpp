@@ -157,7 +157,7 @@ std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
 std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
                                                             const TraceSettings& trace_settings)
 {
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+    auto ivc = std::make_shared<ClientIVC>(constraints.size(), trace_settings);
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
@@ -256,7 +256,7 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
         // WORKTODO: implement this (should just be a honk proof which we already have mocking for)
         // ivc->decider_proof = create_mock_decider_proof(); // maybe jsut a honk proof?
     }
-    ivc->initialized = true;
+    ivc->num_circuits_accumulated++;
 }
 
 /**

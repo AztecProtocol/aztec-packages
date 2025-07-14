@@ -182,7 +182,7 @@ mod test {
     }
 
     #[test(should_fail_with = "Non-zero hint for zero hash")]
-    unconstrained fn test_bad_hint_uninitialized_value() {
+    unconstrained fn bad_hint_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
         env.mine_block();
@@ -210,7 +210,7 @@ mod test {
     }
 
     #[test(should_fail_with = "Hint values do not match hash")]
-    unconstrained fn test_bad_hint_initialized_value() {
+    unconstrained fn bad_hint_initialized_value() {
         let mut env = TestEnvironment::new();
 
         let value_packed = MockStruct { a: 5, b: 3 }.pack();
