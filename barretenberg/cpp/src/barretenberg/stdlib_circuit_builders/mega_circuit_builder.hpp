@@ -180,7 +180,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         size_t total = count + romcount + ramcount + rangecount + num_goblin_ecc_op_gates;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
                   << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_goblin_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << num_goblin_ecc_op_gates << "), pubinp = " << this->num_public_inputs() << std::endl;
     }
 
     /**

@@ -13,7 +13,7 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 2, 3, 3, 3, 5, 3, 3, 5 };
+    static constexpr std::array<size_t, 13> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 2, 3, 3, 3, 5, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -32,6 +32,8 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
 
         const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
+        const auto written_public_data_slots_tree_check_EXISTS =
+            (FF(1) - in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
         const auto written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF =
             (in.get(C::written_public_data_slots_tree_check_leaf_slot) -
              in.get(C::written_public_data_slots_tree_check_low_leaf_slot));
@@ -54,8 +56,8 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::written_public_data_slots_tree_check_exists) *
-                       (FF(1) - in.get(C::written_public_data_slots_tree_check_exists));
+            auto tmp = in.get(C::written_public_data_slots_tree_check_leaf_not_exists) *
+                       (FF(1) - in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
@@ -71,14 +73,14 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = (in.get(C::written_public_data_slots_tree_check_should_insert) -
                         in.get(C::written_public_data_slots_tree_check_write) *
-                            (FF(1) - in.get(C::written_public_data_slots_tree_check_exists)));
+                            in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = in.get(C::written_public_data_slots_tree_check_write) *
-                       in.get(C::written_public_data_slots_tree_check_exists) *
+                       written_public_data_slots_tree_check_EXISTS *
                        (in.get(C::written_public_data_slots_tree_check_root) -
                         in.get(C::written_public_data_slots_tree_check_write_root));
             tmp *= scaling_factor;
@@ -121,31 +123,23 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
             auto tmp =
                 in.get(C::written_public_data_slots_tree_check_sel) *
                 ((written_public_data_slots_tree_check_SLOT_LOW_LEAF_SLOT_DIFF *
-                      (in.get(C::written_public_data_slots_tree_check_exists) *
+                      (written_public_data_slots_tree_check_EXISTS *
                            (FF(1) - in.get(C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv)) +
                        in.get(C::written_public_data_slots_tree_check_slot_low_leaf_slot_diff_inv)) -
                   FF(1)) +
-                 in.get(C::written_public_data_slots_tree_check_exists));
+                 written_public_data_slots_tree_check_EXISTS);
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = in.get(C::written_public_data_slots_tree_check_sel) *
-                       ((FF(1) - in.get(C::written_public_data_slots_tree_check_exists)) -
-                        in.get(C::written_public_data_slots_tree_check_leaf_not_exists));
-            tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = in.get(C::written_public_data_slots_tree_check_next_slot_is_nonzero) *
                        (FF(1) - in.get(C::written_public_data_slots_tree_check_next_slot_is_nonzero));
             tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
+            std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_SLOT_IS_ZERO_CHECK
-            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = in.get(C::written_public_data_slots_tree_check_leaf_not_exists) *
                        ((in.get(C::written_public_data_slots_tree_check_low_leaf_next_slot) *
                              (written_public_data_slots_tree_check_NEXT_SLOT_IS_ZERO *
@@ -154,7 +148,7 @@ template <typename FF_> class written_public_data_slots_tree_checkImpl {
                          FF(1)) +
                         written_public_data_slots_tree_check_NEXT_SLOT_IS_ZERO);
             tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
+            std::get<12>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -169,7 +163,7 @@ class written_public_data_slots_tree_check : public Relation<written_public_data
         switch (index) {
         case 10:
             return "EXISTS_CHECK";
-        case 13:
+        case 12:
             return "NEXT_SLOT_IS_ZERO_CHECK";
         }
         return std::to_string(index);
@@ -177,7 +171,7 @@ class written_public_data_slots_tree_check : public Relation<written_public_data
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_EXISTS_CHECK = 10;
-    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 13;
+    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 12;
 };
 
 } // namespace bb::avm2

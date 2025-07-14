@@ -1,9 +1,7 @@
 terraform {
   backend "gcs" {
-    # Use terraform init -backend-config to set appropriate location
-    # These are the values for the default alpha-testnet deployment
-    # bucket = "aztec-terraform"
-    # prefix = "terraform/state/alpha-testnet"
+    bucket = "aztec-terraform"
+    prefix = "network-deploy/us-west1-a/aztec-gke-public/alpha-testnet/terraform.tfstate"
   }
   required_providers {
     helm = {
@@ -221,7 +219,7 @@ resource "helm_release" "prover" {
   }
 
   set {
-    name  = "validator.mnemonic"
+    name  = "node.mnemonic"
     value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
   }
 

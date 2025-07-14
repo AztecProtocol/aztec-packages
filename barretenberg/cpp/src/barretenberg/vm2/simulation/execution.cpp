@@ -9,6 +9,7 @@
 
 #include "barretenberg/common/log.hpp"
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -93,6 +94,43 @@ void Execution::lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddres
         set_output(opcode, c);
     } catch (AluException& e) {
         throw OpcodeExecutionException("Alu lt operation failed");
+    }
+}
+
+void Execution::lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::LT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.lte(a, b);
+        memory.set(dst_addr, c);
+        set_output(opcode, c);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu lte operation failed");
+    }
+}
+
+void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::NOT;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { a });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue b = alu.op_not(a);
+        memory.set(dst_addr, b);
+        set_output(opcode, b);
+    } catch (AluException& e) {
+        throw OpcodeExecutionException("Alu not operation failed");
     }
 }
 
@@ -494,6 +532,28 @@ void Execution::sload(ContextInterface& context, MemoryAddress slot_addr, Memory
     set_output(opcode, value);
 }
 
+void Execution::sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SSTORE;
+
+    auto& memory = context.get_memory();
+
+    auto slot = memory.get(slot_addr);
+    auto value = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { value, slot });
+
+    bool was_slot_written_before = merkle_db.was_storage_written(context.get_address(), slot.as_ff());
+    uint32_t da_gas_factor = static_cast<uint32_t>(!was_slot_written_before);
+    get_gas_tracker().consume_gas({ .l2Gas = 0, .daGas = da_gas_factor });
+
+    if (!was_slot_written_before &&
+        merkle_db.get_tree_state().publicDataTree.counter == MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX) {
+        throw OpcodeExecutionException("SSTORE: Maximum number of data writes reached");
+    }
+
+    merkle_db.storage_write(context.get_address(), slot.as_ff(), value.as_ff(), false);
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -657,6 +717,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::LT:
         call_with_operands(&Execution::lt, context, resolved_operands);
         break;
+    case ExecutionOpCode::LTE:
+        call_with_operands(&Execution::lte, context, resolved_operands);
+        break;
+    case ExecutionOpCode::NOT:
+        call_with_operands(&Execution::op_not, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
@@ -712,6 +778,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SLOAD:
         call_with_operands(&Execution::sload, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SSTORE:
+        call_with_operands(&Execution::sstore, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.
