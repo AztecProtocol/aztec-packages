@@ -698,6 +698,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
+    "@types/lodash.pickby": "npm:^4"
     "@types/node": "npm:^22.15.17"
     "@viem/anvil": "npm:^0.0.10"
     dotenv: "npm:^16.0.3"
@@ -705,6 +706,7 @@ __metadata:
     jest: "npm:^30.0.0"
     jest-mock-extended: "npm:^4.0.0"
     lodash.omit: "npm:^4.5.0"
+    lodash.pickby: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -6544,6 +6546,15 @@ __metadata:
   dependencies:
     "@types/lodash": "npm:*"
   checksum: 10/007c298133b5bc2157f13d6641b139d2782b4af7b6a942cc4b1a427c6ebc6020e46b32ee2e782607389b0c63a5211d51152606424fdfe25f3eeac8afea0bdf02
+  languageName: node
+  linkType: hard
+
+"@types/lodash.pickby@npm:^4":
+  version: 4.6.9
+  resolution: "@types/lodash.pickby@npm:4.6.9"
+  dependencies:
+    "@types/lodash": "npm:*"
+  checksum: 10/569a1cf94ca933ce265ae8ecdf4c1026589b48aeefc731f0981be3d6e4e396d222e21c6d4299c21f89da86602f325cb63246c58e3b1f7643a1e281afaf59dcf0
   languageName: node
   linkType: hard
 
@@ -16761,6 +16772,13 @@ __metadata:
   version: 4.4.0
   resolution: "lodash.pick@npm:4.4.0"
   checksum: 10/5a76778aa1c245ce081d19c5a625a44cdf4853f421c8789ec962cb5d73dd21be7cf11ae3bc2123ff5f432326ed0176d674d22ca6e0e8f9eaba5b74b00f632c12
+  languageName: node
+  linkType: hard
+
+"lodash.pickby@npm:^4.5.0":
+  version: 4.6.0
+  resolution: "lodash.pickby@npm:4.6.0"
+  checksum: 10/694ec55e0df6bb683e84606eae87f69302b49c28b50988264b2f2f333bd9f008e91c2092f1c14e770f0398b2fa2a2e8d19efb6c4c54b40a8e7951ed2929fd1ba
   languageName: node
   linkType: hard
 
