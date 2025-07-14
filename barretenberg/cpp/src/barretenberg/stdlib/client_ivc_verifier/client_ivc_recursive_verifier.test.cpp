@@ -37,7 +37,7 @@ class ClientIVCRecursionTests : public testing::Test {
         // Construct and accumulate a series of mocked private function execution circuits
         MockCircuitProducer circuit_producer;
 
-        while (ivc.num_circuits > 0) {
+        for (size_t idx = 0; idx < ivc.get_num_circuits(); ++idx) {
             auto circuit = circuit_producer.create_next_circuit(ivc);
             ivc.accumulate(circuit);
         }

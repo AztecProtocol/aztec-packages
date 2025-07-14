@@ -160,8 +160,8 @@ class ClientIVC {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
+    size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
-    size_t num_circuits;                 // total number of circuits to be accumulated in the IVC
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
     ProverFoldOutput fold_output; // prover accumulator and fold proof
@@ -184,6 +184,8 @@ class ClientIVC {
     typename MegaFlavor::CommitmentKey bn254_commitment_key;
 
     Goblin goblin;
+
+    size_t get_num_circuits() const { return num_circuits; }
 
     ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
