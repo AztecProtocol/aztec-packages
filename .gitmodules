@@ -20,3 +20,6 @@
 [submodule "l1-contracts/lib/circuits"]
 	path = l1-contracts/lib/circuits
 	url = https://github.com/zkpassport/circuits
+[submodule "noir/noir-repo"]
+	path = noir/noir-repo
+	url = https://github.com/noir-lang/noir.git
