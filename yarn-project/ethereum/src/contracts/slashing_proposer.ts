@@ -164,7 +164,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
         {
           // Gas estimation is way off for this, likely because we are creating the contract/selector to call
           // for the actual slashing dynamically.
-          gasLimitBufferPercentage: 1000,
+          gasLimitBufferPercentage: 50, // +50% gas
         },
       )
       .catch(err => {
@@ -187,7 +187,9 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
       if (error?.includes('ProposalAlreadyExecuted')) {
         throw new ProposalAlreadyExecutedError(round);
       }
-      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${error ?? 'Unknown error'}`;
+      const errorMessage = `Failed to execute round ${round}, TxHash: ${response.receipt.transactionHash}, Error: ${
+        error ?? 'Unknown error'
+      }`;
       throw new Error(errorMessage);
     }
     return response;

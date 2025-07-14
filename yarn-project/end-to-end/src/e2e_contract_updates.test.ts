@@ -1,6 +1,6 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
 import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
-import { registerContractClass } from '@aztec/aztec.js/deployment';
+import { publishContractClass } from '@aztec/aztec.js/deployment';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
@@ -9,7 +9,7 @@ import { UpdatedContract, UpdatedContractArtifact } from '@aztec/noir-test-contr
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
@@ -35,7 +35,7 @@ describe('e2e_contract_updates', () => {
   let aztecNode: AztecNode;
 
   const setupScheduledDelay = async (constructorArgs: any[], salt: Fr, deployer: AztecAddress) => {
-    const predictedInstance = await getContractInstanceFromDeployParams(UpdatableContract.artifact, {
+    const predictedInstance = await getContractInstanceFromInstantiationParams(UpdatableContract.artifact, {
       constructorArgs,
       salt,
       deployer,
@@ -48,7 +48,7 @@ describe('e2e_contract_updates', () => {
     const writeToTree = async (storageSlot: Fr, value: Fr) => {
       leaves.push(
         new PublicDataTreeLeaf(
-          await computePublicDataTreeLeafSlot(ProtocolContractAddress.ContractInstanceDeployer, storageSlot),
+          await computePublicDataTreeLeafSlot(ProtocolContractAddress.ContractInstanceRegistry, storageSlot),
           value,
         ),
       );
@@ -101,7 +101,7 @@ describe('e2e_contract_updates', () => {
       .send({ contractAddressSalt: salt })
       .deployed();
 
-    const registerMethod = await registerContractClass(wallet, UpdatedContractArtifact);
+    const registerMethod = await publishContractClass(wallet, UpdatedContractArtifact);
     await registerMethod.send().wait();
 
     updatedContractClassId = (await getContractClassFromArtifact(UpdatedContractArtifact)).id;

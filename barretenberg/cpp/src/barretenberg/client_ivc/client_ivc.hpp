@@ -16,6 +16,7 @@
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -73,6 +74,8 @@ class ClientIVC {
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
+    using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**
@@ -132,6 +135,7 @@ class ClientIVC {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -140,6 +144,7 @@ class ClientIVC {
         StdlibProof proof; // oink or PG
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 

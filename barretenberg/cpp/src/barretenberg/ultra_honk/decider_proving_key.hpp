@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
@@ -34,7 +35,6 @@ namespace bb {
 
 template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
-    using ProvingKey = typename Flavor::ProvingKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -44,26 +44,55 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
     bool is_structured;
 
+    MetaData metadata;                 // circuit size and public inputs metadata
+    size_t overflow_size{ 0 };         // size of the structured execution trace overflow
+    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+
   public:
     using Trace = TraceToPolynomials<Flavor>;
 
-    ProvingKey proving_key;
-
-    bool is_accumulator = false;
-    SubrelationSeparators alphas; // a challenge for each subrelation
+    std::vector<FF> public_inputs;
+    ProverPolynomials polynomials; // the multilinear polynomials used by the prover
+    SubrelationSeparators alphas;  // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
-    FF target_sum{ 0 };
-    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
-    size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
+    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accmumulator
 
-    size_t overflow_size{ 0 }; // size of the structured execution trace overflow
+    HonkProof ipa_proof; // utilized only for UltraRollupFlavor
+
+    bool is_accumulator = false;
+    std::vector<uint32_t> memory_read_records;
+    std::vector<uint32_t> memory_write_records;
+
+    CommitmentKey commitment_key;
+
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
+
+    void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
+    void set_overflow_size(size_t size) { overflow_size = size; }
+    void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
+    size_t dyadic_size() const { return metadata.dyadic_size; }
+    size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
+    size_t pub_inputs_offset() const { return metadata.pub_inputs_offset; }
+    size_t num_public_inputs() const
+    {
+        BB_ASSERT_EQ(metadata.num_public_inputs, public_inputs.size());
+        return metadata.num_public_inputs;
+    }
+    MetaData get_metadata() const { return metadata; }
+    size_t get_overflow_size() const { return overflow_size; }
+    size_t get_final_active_wire_idx() const { return final_active_wire_idx; }
+
+    Flavor::PrecomputedData get_precomputed()
+    {
+        return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
+    }
 
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
-                       CommitmentKey commitment_key = CommitmentKey())
+                       const CommitmentKey& commitment_key = CommitmentKey())
         : is_structured(trace_settings.structure.has_value())
+        , commitment_key(commitment_key)
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
         vinfo("Constructing DeciderProvingKey");
@@ -73,7 +102,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
-            dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+            metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
@@ -82,9 +111,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
                 }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
-                dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
+                metadata.dyadic_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
             } else {
-                dyadic_circuit_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
+                metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
             }
         }
 
@@ -101,13 +130,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         {
             PROFILE_THIS_NAME("allocating proving key");
 
-            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
+            populate_memory_records(circuit);
+
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
             // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
-                proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
+                polynomials = ProverPolynomials(dyadic_size());
             } else { // Allocate only a correct amount of memory for each polynomial
                 allocate_wires();
 
@@ -128,12 +158,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
-            proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
+            polynomials.set_shifted(); // Ensure shifted wires are set correctly
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, proving_key);
+        Trace::populate(circuit, polynomials, active_region_data);
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
@@ -146,95 +176,32 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
         }
         // Set the lagrange polynomials
-        proving_key.polynomials.lagrange_first.at(0) = 1;
-        proving_key.polynomials.lagrange_last.at(final_active_wire_idx) = 1;
+        polynomials.lagrange_first.at(0) = 1;
+        polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
+                polynomials.get_tables(), circuit, dyadic_size(), NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {
             PROFILE_THIS_NAME("constructing lookup read counts");
 
-            construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
-                                                 proving_key.polynomials.lookup_read_tags,
-                                                 circuit,
-                                                 dyadic_circuit_size);
+            construct_lookup_read_counts<Flavor>(
+                polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_size());
         }
         { // Public inputs handling
-            // Construct the public inputs array
-            for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
-                size_t idx = i + proving_key.pub_inputs_offset;
-                proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
+            metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
+            metadata.pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
+            for (size_t i = 0; i < metadata.num_public_inputs; ++i) {
+                size_t idx = i + metadata.pub_inputs_offset;
+                public_inputs.emplace_back(polynomials.w_r[idx]);
             }
-
-            // Set the pairing point accumulator indices. This should exist for all flavors.
-            ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
-                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
-                   default one through a method in PairingPoints.");
-            proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
             if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-                ASSERT(circuit.ipa_claim_public_input_key.is_set() && "Rollup Honk circuit must output a IPA claim.");
-                ASSERT(circuit.ipa_proof.size() &&
-                       "Rollup Honk circuit must produce an IPA proof to go with its claim.");
-                proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
-                proving_key.ipa_proof = circuit.ipa_proof;
-            }
-
-            if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
-                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
-                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
-                             "Mega circuit must output databus commitments.");
-                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
-                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
-                             "Mega circuit must output databus commitments.");
-
-                proving_key.databus_propagation_data = circuit.databus_propagation_data;
-            }
-
-            // Based on the flavor, we can check the locations of each backend-added public input object.
-            if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
-                                                       // [user-public-inputs][pairing-point-object][ipa-claim]
-                BB_ASSERT_EQ(proving_key.ipa_claim_public_input_key.start_idx,
-                             proving_key.num_public_inputs - IPA_CLAIM_SIZE,
-                             "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
-                BB_ASSERT_EQ(
-                    proving_key.pairing_inputs_public_input_key.start_idx,
-                    proving_key.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
-                    "Pairing point accumulator must be the second to last public input object before the IPA claim.");
-            } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
-                                                        // [user-public-inputs][pairing-point-object]
-                BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
-                             proving_key.num_public_inputs - PAIRING_POINTS_SIZE,
-                             "Pairing point accumulator must be the last public input object.");
-            } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
-                                                         // [user-public-inputs][pairing-point-object][databus-comms]
-                if (proving_key.databus_propagation_data.is_kernel) {
-
-                    BB_ASSERT_EQ(
-                        proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
-                        proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENT_SIZE,
-                        "Databus commitments must be the second to last public input object.");
-                    BB_ASSERT_EQ(
-                        proving_key.databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx,
-                        proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
-                        "Databus commitments must be the last public input object.");
-                    BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
-                                 proving_key.num_public_inputs - PAIRING_POINTS_SIZE -
-                                     PROPAGATED_DATABUS_COMMITMENTS_SIZE,
-                                 "Pairing point accumulator must be the second to last public input object.");
-                } else {
-                    BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
-                                 proving_key.num_public_inputs - PAIRING_POINTS_SIZE,
-                                 "Pairing point accumulator must be the last public input object.");
-                }
-            } else {
-                // static_assert(false);
-                ASSERT(false && "Dealing with unexpected flavor.");
+                ipa_proof = circuit.ipa_proof;
             }
         }
         auto end = std::chrono::steady_clock::now();
@@ -280,6 +247,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
         requires IsMegaFlavor<Flavor>;
+
+    void populate_memory_records(const Circuit& circuit);
 };
 
 } // namespace bb

@@ -44,6 +44,8 @@ export type L1ContractsConfig = {
   manaTarget: bigint;
   /** The proving cost per mana */
   provingCostPerMana: bigint;
+  /** The number of seconds to wait for an exit */
+  exitDelaySeconds: number;
 } & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
@@ -54,12 +56,13 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   depositAmount: BigInt(100e18),
   minimumStake: BigInt(50e18),
-  slashingQuorum: 6,
-  slashingRoundSize: 10,
-  governanceProposerQuorum: 51,
-  governanceProposerRoundSize: 100,
+  slashingQuorum: 101,
+  slashingRoundSize: 200,
+  governanceProposerQuorum: 151,
+  governanceProposerRoundSize: 300,
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
+  exitDelaySeconds: 2 * 24 * 60 * 60,
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -229,6 +232,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_PROVING_COST_PER_MANA',
     description: 'The proving cost per mana',
     ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
+  },
+  exitDelaySeconds: {
+    env: 'AZTEC_EXIT_DELAY_SECONDS',
+    description: 'The delay before a validator can exit the set',
+    ...numberConfigHelper(DefaultL1ContractsConfig.exitDelaySeconds),
   },
   ...l1TxUtilsConfigMappings,
 };

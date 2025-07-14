@@ -43,6 +43,63 @@ TEST(pairing, ReducedAtePairingCheckAgainstConstants)
     EXPECT_EQ(result, expected);
 }
 
+TEST(pairing, PisInfinity)
+{
+    g1::affine_element P = g1::element::infinity();
+    g2::affine_element Q = g2::element::random_element();
+
+    fq12 result = pairing::reduced_ate_pairing(P, Q).from_montgomery_form();
+    fq12 expected = fq12::one().from_montgomery_form();
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(pairing, QisInfinity)
+{
+    g1::affine_element P = g1::element::random_element();
+    g2::affine_element Q = g2::element::infinity();
+
+    fq12 result = pairing::reduced_ate_pairing(P, Q).from_montgomery_form();
+    fq12 expected = fq12::one().from_montgomery_form();
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(pairing, ReduceAtePairingBatchWithPointsAtInfinity)
+{
+
+    g1::affine_element P1 = g1::element::random_element();
+    g1::affine_element P2 = g1::element::random_element();
+    g1::affine_element P3 = g1::element::infinity();
+    g2::affine_element Q1 = g2::element::random_element();
+    g2::affine_element Q2 = g2::element::infinity();
+    g2::affine_element Q3 = g2::element::random_element();
+
+    std::vector<g1::affine_element> P{ P1, P2, P3 };
+    std::vector<g2::affine_element> Q{ Q1, Q2, Q3 };
+
+    fq12 result = pairing::reduced_ate_pairing_batch(&P[0], &Q[0], 3).from_montgomery_form();
+    fq12 expected = pairing::reduced_ate_pairing(P1, Q1).from_montgomery_form();
+
+    EXPECT_EQ(result, expected);
+}
+
+TEST(pairing, ReduceAtePairingBatchOnlyPointsAtInfinity)
+{
+    g1::affine_element P1 = g1::element::infinity();
+    g1::affine_element P2 = g1::element::infinity();
+    g2::affine_element Q1 = g2::element::infinity();
+    g2::affine_element Q2 = g2::element::infinity();
+
+    std::vector<g1::affine_element> P{ P1, P2 };
+    std::vector<g2::affine_element> Q{ Q1, Q2 };
+
+    fq12 result = pairing::reduced_ate_pairing_batch(&P[0], &Q[0], 2).from_montgomery_form();
+    fq12 expected = fq12::one().from_montgomery_form();
+
+    EXPECT_EQ(result, expected);
+}
+
 TEST(pairing, ReducedAtePairingConsistencyCheck)
 {
     g1::affine_element P = g1::element::random_element();

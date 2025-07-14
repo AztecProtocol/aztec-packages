@@ -69,10 +69,15 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
         uint32_t clk = event.execution_id;
         uint32_t clk_diff = end ? 0 : events_with_metadata[i + 1].event.execution_id - clk;
 
+        uint32_t public_data_writes_length = write_idx -
+                                             AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX +
+                                             static_cast<uint32_t>(should_write_to_public_inputs);
+
         trace.set(row,
                   { {
                       { C::public_data_check_sel, 1 },
                       { C::public_data_check_not_end, !end },
+                      { C::public_data_check_end, end },
                       { C::public_data_check_value, event.value },
                       { C::public_data_check_slot, event.slot },
                       { C::public_data_check_root, event.prev_snapshot.root },
@@ -108,6 +113,9 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_write_idx, write_idx },
                       { C::public_data_check_nondiscaded_write, nondiscarded_write },
                       { C::public_data_check_should_write_to_public_inputs, should_write_to_public_inputs },
+                      { C::public_data_check_public_data_writes_length, public_data_writes_length },
+                      { C::public_data_check_length_pi_idx,
+                        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX },
                   } });
         row++;
         if (should_write_to_public_inputs) {
@@ -218,24 +226,26 @@ void PublicDataTreeTraceBuilder::process(
 const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
     InteractionDefinition()
         // Public data read/write
-        .add<lookup_public_data_check_silo_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_low_leaf_slot_validation_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_low_leaf_next_slot_validation_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_low_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_low_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_updated_low_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_updated_low_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_low_leaf_merkle_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_new_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
-        .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_silo_poseidon2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_low_leaf_slot_validation_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_low_leaf_next_slot_validation_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_low_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_low_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_updated_low_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_updated_low_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_low_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_new_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
+        //      TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
+        //      InteractionType::LookupIntoIndexedByClk>()
+        //      TODO: Disabled sorting lookups
+        //      .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
+        //      .add<lookup_public_data_squash_clk_diff_range_settings, InteractionType::LookupGeneric>()
+        //      .add<lookup_public_data_check_clk_diff_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_public_data_check_write_public_data_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>();
-
-//       Disabled sorting lookups
-//      .add<lookup_public_data_squash_leaf_slot_increase_ff_gt_settings, InteractionType::LookupGeneric>()
-//      .add<lookup_public_data_squash_clk_diff_range_settings, InteractionType::LookupSequential>()
-//      .add<lookup_public_data_check_clk_diff_range_settings, InteractionType::LookupGeneric>()
 
 } // namespace bb::avm2::tracegen

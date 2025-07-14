@@ -24,7 +24,7 @@ ssh $BOX "
 	cd ~/tracy/capture ;
 	git fetch origin 5d542dc09f3d9378d005092a4ad446bd405f819a ;
   git checkout 5d542dc09f3d9378d005092a4ad446bd405f819a ;
-	mkdir -p build && cd build && cmake -DNO_FILESELECTOR=ON -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
+	mkdir -p build && cd build && cmake --fresh -DNO_FILESELECTOR=ON -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
 	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $TARGET ;
 	cd ~/tracy/capture/build ;

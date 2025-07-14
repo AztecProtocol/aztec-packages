@@ -24,6 +24,8 @@
 #include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -136,38 +138,6 @@ constexpr std::array<Column, AVM_MAX_REGISTERS> REGISTER_OP_REG_EFFECTIVE_COLUMN
 };
 
 /**
- * @brief Get the column selector for a given subtrace selector.
- *
- * @param subtrace_sel The subtrace selector.
- * @return The corresponding column selector.
- */
-Column get_subtrace_selector(SubtraceSel subtrace_sel)
-{
-    switch (subtrace_sel) {
-    case SubtraceSel::ALU:
-        return C::execution_sel_alu;
-    case SubtraceSel::BITWISE:
-        return C::execution_sel_bitwise;
-    case SubtraceSel::TORADIXBE:
-        return C::execution_sel_to_radix;
-    case SubtraceSel::POSEIDON2PERM:
-        return C::execution_sel_poseidon2_perm;
-    case SubtraceSel::ECC:
-        return C::execution_sel_ecc_add;
-    case SubtraceSel::DATACOPY:
-        return C::execution_sel_data_copy;
-    case SubtraceSel::EXECUTION:
-        return C::execution_sel_execution;
-    case SubtraceSel::KECCAKF1600:
-        return C::execution_sel_keccakf1600;
-    }
-
-    // clangd will complain if we miss a case.
-    // This is just to please gcc.
-    __builtin_unreachable();
-}
-
-/**
  * @brief Get the column selector for a given execution opcode.
  *
  * @param exec_opcode The execution opcode.
@@ -205,6 +175,10 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
         return C::execution_sel_returndata_size;
     case ExecutionOpCode::DEBUGLOG:
         return C::execution_sel_debug_log;
+    case ExecutionOpCode::SLOAD:
+        return C::execution_sel_sload;
+    case ExecutionOpCode::SSTORE:
+        return C::execution_sel_sstore;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -375,6 +349,23 @@ void ExecutionTraceBuilder::process(
                       // Context - gas.
                       { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
                       { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      // Context - tree states
+                      { C::execution_prev_written_public_data_slots_tree_root,
+                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.root },
+                      { C::execution_prev_written_public_data_slots_tree_size,
+                        ex_event.before_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                      { C::execution_written_public_data_slots_tree_root,
+                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.root },
+                      { C::execution_written_public_data_slots_tree_size,
+                        ex_event.after_context_event.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+                      { C::execution_prev_public_data_tree_root,
+                        ex_event.before_context_event.tree_states.publicDataTree.tree.root },
+                      { C::execution_prev_public_data_tree_size,
+                        ex_event.before_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
+                      { C::execution_public_data_tree_root,
+                        ex_event.after_context_event.tree_states.publicDataTree.tree.root },
+                      { C::execution_public_data_tree_size,
+                        ex_event.after_context_event.tree_states.publicDataTree.tree.nextAvailableLeafIndex },
                       // Other.
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                       // Helpers for identifying parent context
@@ -460,7 +451,7 @@ void ExecutionTraceBuilder::process(
         bool oog = ex_event.error == ExecutionError::GAS;
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
-            process_gas(ex_event.gas_event, trace, row);
+            process_gas(ex_event.gas_event, exec_opcode, trace, row);
         }
 
         /**************************************************************************************************
@@ -471,7 +462,7 @@ void ExecutionTraceBuilder::process(
 
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
-        // temporality group (e..g in recomputing discard)
+        // temporality group (e.g. in recomputing discard)
         bool is_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
         bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
         bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
@@ -484,11 +475,19 @@ void ExecutionTraceBuilder::process(
         bool should_execute_opcode = should_check_gas && !oog;
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
+            // At this point we can assume instruction fetching succeeded, so this should never fail.
+            const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
             trace.set(row,
                       { {
                           { C::execution_sel_should_execute_opcode, 1 },
                           { C::execution_sel_opcode_error, opcode_execution_failed ? 1 : 0 },
+                          { get_subtrace_selector(dispatch_to_subtrace.subtrace_selector), 1 },
                       } });
+
+            // Execution Trace opcodes - separating for clarity
+            if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
+                trace.set(get_execution_opcode_selector(*exec_opcode), row, 1);
+            }
 
             // Call specific logic
             if (sel_enter_call) {
@@ -541,6 +540,17 @@ void ExecutionTraceBuilder::process(
                           ex_event.before_context_event.internal_call_return_id != 0
                               ? FF(ex_event.before_context_event.internal_call_return_id).invert()
                               : 0);
+            } else if (exec_opcode == ExecutionOpCode::SSTORE) {
+                uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
+                                                 ex_event.before_context_event.tree_states.publicDataTree.counter;
+
+                trace.set(row,
+                          { {
+                              { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
+                              { C::execution_remaining_data_writes_inv,
+                                remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
+                              { C::execution_sel_should_sstore, !opcode_execution_failed },
+                          } });
             }
         }
 
@@ -694,28 +704,21 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
-
-    // Subtrace dispatching.
     trace.set(row,
               { {
-                  // Selector Id
+                  { C::execution_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
                   { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
-                  // Selectors
-                  { get_subtrace_selector(dispatch_to_subtrace.subtrace_selector), 1 },
               } });
-
-    // Execution Trace opcodes - separating for clarity
-    if (dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION) {
-        trace.set(get_execution_opcode_selector(exec_opcode), row, 1);
-    }
 }
 
-void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
+void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
+                                        std::optional<ExecutionOpCode> exec_opcode,
+                                        TraceContainer& trace,
+                                        uint32_t row)
 {
     bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
-              { {
-                  { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
+              { { { C::execution_out_of_gas_l2, gas_event.oog_l2 ? 1 : 0 },
                   { C::execution_out_of_gas_da, gas_event.oog_da ? 1 : 0 },
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
@@ -726,7 +729,10 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, T
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
-              } });
+                  {
+                      C::execution_should_check_sstore_gas,
+                      exec_opcode.has_value() && exec_opcode.value() == ExecutionOpCode::SSTORE,
+                  } } });
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
@@ -1029,6 +1035,12 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // GetEnvVar opcode
         .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Sload
+        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
+        // Sstore
+        .add<lookup_sstore_check_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

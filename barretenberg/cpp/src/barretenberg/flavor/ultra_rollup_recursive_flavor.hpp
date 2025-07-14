@@ -62,8 +62,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
       public:
         using NativeVerificationKey = NativeFlavor::VerificationKey;
 
-        PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
-
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -77,8 +75,6 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
-            this->ipa_claim_public_input_key = native_key->ipa_claim_public_input_key;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -107,80 +103,8 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 
-            this->pairing_inputs_public_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-
-            this->ipa_claim_public_input_key.start_idx =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
-            }
-        }
-
-        /**
-         * @brief Serialize verification key to field elements. Overrides the base class definition to include
-         * ipa_claim_public_input_key.
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-
-            CircuitBuilder* builder = this->circuit_size.context;
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-
-            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            pairing_points_start_idx.convert_constant_to_fixed_witness(
-                builder); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1413): We can't use poseidon2
-                          // with constants.
-            serialize_to_field_buffer(pairing_points_start_idx, elements);
-
-            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
-            serialize_to_field_buffer(ipa_claim_start_idx, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
-         * implementation to include the ipa claim public input key.
-         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
-         * and submitting that, we want to submit the values directly to the transcript.
-         *
-         * @param domain_separator
-         * @param transcript
-         */
-        void add_to_transcript(const std::string& domain_separator, Transcript& transcript) override
-        {
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-            transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
-            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
-            CircuitBuilder* builder = this->circuit_size.context;
-            pairing_points_start_idx.convert_constant_to_fixed_witness(
-                builder); // We can't use poseidon2 with constants.
-            transcript.add_to_hash_buffer(domain_separator + "vk_pairing_points_start_idx", pairing_points_start_idx);
-            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
-            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
-            transcript.add_to_hash_buffer(domain_separator + "vk_ipa_claim_start_idx", ipa_claim_start_idx);
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_hash_buffer(domain_separator + "vk_commitment", commitment);
             }
         }
 
