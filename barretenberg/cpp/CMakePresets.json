@@ -215,8 +215,8 @@
     },
     {
       "name": "clang16-no-avm",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "displayName": "Build with Clang-16 without Aztec VM",
+      "description": "Build with globally installed Clang-16, but without Aztec VM",
       "inherits": "clang16",
       "binaryDir": "build-no-avm",
       "cacheVariables": {
@@ -225,8 +225,8 @@
     },
     {
       "name": "clang16-dbg-no-avm",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "displayName": "Optimized debug build with Clang-16 without Aztec VM",
+      "description": "Build with globally installed Clang-16 optimized debug mode, but without Aztec VM",
       "inherits": "clang16-dbg",
       "binaryDir": "build-debug-no-avm",
       "cacheVariables": {

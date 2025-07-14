@@ -24,7 +24,8 @@ void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
     MergeProver merge_prover{ op_queue, commitment_key, transcript };
-    merge_verification_queue.push_back(merge_prover.construct_proof());
+    auto merge_proof = merge_prover.construct_proof();
+    merge_verification_queue.push_back(merge_proof);
 }
 
 void Goblin::prove_eccvm()

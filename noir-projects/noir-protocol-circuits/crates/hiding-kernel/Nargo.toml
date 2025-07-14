@@ -1,0 +1,8 @@
+[package]
+name = "hiding_kernel"
+type = "bin"
+authors = [""]
+
+[dependencies]
+private_kernel_lib = { path = "../private-kernel-lib" }
+types = { path = "../types" }

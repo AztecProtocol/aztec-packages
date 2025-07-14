@@ -747,6 +747,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     break;
                 case OINK:
                 case PG:
+                case PG_FINAL:
                     af.ivc_recursion_constraints.push_back(c);
                     af.original_opcode_indices.ivc_recursion_constraints.push_back(opcode_index);
                     break;

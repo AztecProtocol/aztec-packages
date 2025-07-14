@@ -162,6 +162,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
+    uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::PG_FINAL);
 
     // There are only three valid combinations of IVC recursion constraints for Aztec kernel circuits:
 
@@ -172,9 +173,16 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     }
 
     // Case: RESET or TAIL kernel; single PG recursive verification of a kernel
-    if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
+    if (constraints.size() == 2 && constraints[0].proof_type == pg_type && constraints[1].proof_type == pg_final_type) {
         ivc->verifier_accumulator = create_mock_decider_vk();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        return ivc;
+    }
+
+    // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
+    if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
+        ivc->verifier_accumulator = create_mock_decider_vk();
+        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -219,8 +227,10 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     std::vector<FF> proof;
     if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
         proof = create_mock_oink_proof(num_public_inputs);
-    } else { // ClientIVC::QUEUE_TYPE::PG)
+    } else if (verification_type == ClientIVC::QUEUE_TYPE::PG || verification_type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
         proof = create_mock_pg_proof(num_public_inputs);
+    } else {
+        throw_or_abort("Invalid verification type!");
     }
 
     // Construct a mock MegaHonk verification key

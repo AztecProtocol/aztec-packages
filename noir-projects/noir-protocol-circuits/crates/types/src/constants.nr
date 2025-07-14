@@ -1041,6 +1041,7 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
+pub global PROOF_TYPE_PG_FINAL: u32 = 7;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
 

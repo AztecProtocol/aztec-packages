@@ -460,7 +460,7 @@ process_honk_recursion_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
     ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2) &&
-           "Root rollup must accumulate two IPA proofs.");
+           "Root rollup  must accumulate two IPA proofs.");
     return output;
 }
 
@@ -481,6 +481,8 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     }
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
+    info("ivc->verification_queue.size(): ", ivc->verification_queue.size());
+    info("constraints.ivc_recursion_constraints.size(): ", constraints.ivc_recursion_constraints.size());
     BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),
                  ivc->verification_queue.size(),
                  "WARNING: Mismatch in number of recursive verifications during kernel creation!");
@@ -499,14 +501,33 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
     std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
     stdlib_vk_and_hashs.reserve(constraints.ivc_recursion_constraints.size());
+    std::vector<ClientIVC::QUEUE_TYPE> queue_types;
     for (const auto& constraint : constraints.ivc_recursion_constraints) {
         stdlib_vk_and_hashs.push_back(
             std::make_shared<StdlibVKAndHash>(std::make_shared<StdlibVerificationKey>(
                                                   StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
                                               StdlibFF::from_witness_index(&builder, constraint.key_hash)));
+        switch (constraint.proof_type) {
+        case 3: /* PG */ {
+            queue_types.push_back(ClientIVC::QUEUE_TYPE::PG);
+            break;
+        }
+        case 8: /* PG_FINAL */ {
+            queue_types.push_back(ClientIVC::QUEUE_TYPE::PG_FINAL);
+            break;
+        }
+        case 2: /* OINK */ {
+            queue_types.push_back(ClientIVC::QUEUE_TYPE::OINK);
+            break;
+        }
+        default: {
+            info("the proof type is: ", static_cast<PROOF_TYPE>(constraint.proof_type));
+            throw_or_abort("Invalid proof type");
+        }
+        }
     }
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
+    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs, queue_types);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
     // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
