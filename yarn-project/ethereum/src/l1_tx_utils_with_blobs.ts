@@ -36,7 +36,8 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
     this.logger?.debug(`Attempting to cancel blob L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
-      maxFeePerBlobGas: formatGwei(cancelGasPrice.maxFeePerBlobGas!),
+      maxFeePerBlobGas:
+        cancelGasPrice.maxFeePerBlobGas === undefined ? undefined : formatGwei(cancelGasPrice.maxFeePerBlobGas),
     });
     const request = {
       to: account.address,

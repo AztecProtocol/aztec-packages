@@ -905,7 +905,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
     });
 
-    this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+    this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
 
     const receipt = await this.monitorTransaction(
       request,

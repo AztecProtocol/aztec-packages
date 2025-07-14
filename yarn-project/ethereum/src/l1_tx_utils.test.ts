@@ -519,7 +519,7 @@ describe('GasUtils', () => {
     const request = {
       to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
       data: '0x' as `0x${string}`,
-      value: 0n,
+      value: 1n,
     };
 
     // Send initial transaction
@@ -548,7 +548,7 @@ describe('GasUtils', () => {
     const pendingTxHash = pendingBlock.transactions[0];
     const cancelTx = await l1Client.getTransaction({ hash: pendingTxHash });
 
-    // // Verify cancellation tx
+    // Verify cancellation tx
     expect(cancelTx).toBeDefined();
     expect(cancelTx!.nonce).toBe(nonce);
     expect(cancelTx!.to!.toLowerCase()).toBe(l1Client.account.address.toLowerCase());
