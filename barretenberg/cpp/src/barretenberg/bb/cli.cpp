@@ -572,7 +572,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Immediately after parsing, we can init the global CRS factory. Note this does not yet read or download any
     // points; that is done on-demand.
     srs::init_net_crs_factory(flags.crs_path);
-    if (prove->parsed() || write_vk->parsed()) {
+    if ((prove->parsed() || write_vk->parsed()) && output_path != "-") {
         // If writing to an output folder, make sure it exists.
         std::filesystem::create_directories(output_path);
     }
