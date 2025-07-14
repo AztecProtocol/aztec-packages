@@ -76,4 +76,8 @@ inline std::vector<CommandResponse> execute_request(BBApiRequest&& request, std:
     return responses;
 }
 
+// The msgpack scheme is an ad-hoc format that allows for cbind/compiler.ts to
+// generate TypeScript bindings for the API.
+std::string get_msgpack_schema_as_json();
+
 } // namespace bb::bbapi

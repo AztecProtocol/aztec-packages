@@ -2,6 +2,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <concepts>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -139,7 +140,7 @@ template <HasName... Types> class NamedUnion {
         packer.pack("named_union");
         packer.pack_array(sizeof...(Types));
         (
-            [&packer, this]() {
+            [&packer]() {
                 packer.pack_array(2);
                 packer.pack(Types::NAME);
                 // Abitrary mutable object.

@@ -35,6 +35,9 @@ struct CircuitInputNoVK {
      * is determined by examining the first byte of the bytecode.
      */
     std::vector<uint8_t> bytecode;
+
+    MSGPACK_FIELDS(name, bytecode);
+    bool operator==(const CircuitInputNoVK& other) const = default;
 };
 
 /**
@@ -63,6 +66,9 @@ struct CircuitInput {
      * time. As well, this guards against unexpected changes in the verification key.
      */
     std::vector<uint8_t> verification_key;
+
+    MSGPACK_FIELDS(name, bytecode, verification_key);
+    bool operator==(const CircuitInput& other) const = default;
 };
 
 struct ProofSystemSettings {
@@ -97,6 +103,9 @@ struct ProofSystemSettings {
      * @brief Flag to indicate if this circuit will be recursively verified.
      */
     bool recursive = false;
+
+    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, honk_recursion, recursive);
+    bool operator==(const ProofSystemSettings& other) const = default;
 };
 
 /**

@@ -9,6 +9,7 @@
 #include "barretenberg/api/bbapi_shared.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include <map>
 #include <vector>
 
@@ -39,12 +40,16 @@ struct CircuitProve {
 
         PublicInputsVector public_inputs;
         HonkProof proof;
+        MSGPACK_FIELDS(public_inputs, proof);
+        bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, witness, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitProve&) const = default;
 };
 
 struct CircuitComputeVk {
@@ -54,11 +59,15 @@ struct CircuitComputeVk {
         static constexpr const char* NAME = "CircuitComputeVkResponse";
 
         std::vector<uint8_t> bytes; // Serialized verification key
+        MSGPACK_FIELDS(bytes);
+        bool operator==(const Response&) const = default;
     };
 
     CircuitInputNoVK circuit;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitComputeVk&) const = default;
 };
 
 /**
@@ -75,12 +84,16 @@ struct CircuitInfo {
         uint32_t total_gates;
         uint32_t subgroup_size;
         std::map<std::string, uint32_t> gates_per_opcode; // Optional: gate counts per opcode
+        MSGPACK_FIELDS(total_gates, subgroup_size, gates_per_opcode);
+        bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
     bool include_gates_per_opcode = false;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, include_gates_per_opcode, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitInfo&) const = default;
 };
 
 /**
@@ -95,12 +108,16 @@ struct CircuitCheck {
         static constexpr const char* NAME = "CircuitCheckResponse";
 
         bool satisfied;
+        MSGPACK_FIELDS(satisfied);
+        bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, witness, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitCheck&) const = default;
 };
 
 /**
@@ -114,13 +131,17 @@ struct CircuitVerify {
         static constexpr const char* NAME = "CircuitVerifyResponse";
 
         bool verified;
+        MSGPACK_FIELDS(verified);
+        bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> verification_key;
     PublicInputsVector public_inputs;
     HonkProof proof;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(verification_key, public_inputs, proof, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitVerify&) const = default;
 };
 
 /**
@@ -134,10 +155,14 @@ struct ProofAsFields {
         static constexpr const char* NAME = "ProofAsFieldsResponse";
 
         std::vector<bb::fr> fields;
+        MSGPACK_FIELDS(fields);
+        bool operator==(const Response&) const = default;
     };
 
     HonkProof proof;
+    MSGPACK_FIELDS(proof);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const ProofAsFields&) const = default;
 };
 
 /**
@@ -151,11 +176,15 @@ struct VkAsFields {
         static constexpr const char* NAME = "VkAsFieldsResponse";
 
         std::vector<bb::fr> fields;
+        MSGPACK_FIELDS(fields);
+        bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> verification_key;
     bool is_mega_honk = false;
+    MSGPACK_FIELDS(verification_key, is_mega_honk);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const VkAsFields&) const = default;
 };
 
 /**
@@ -168,11 +197,15 @@ struct CircuitWriteSolidityVerifier {
         static constexpr const char* NAME = "CircuitWriteSolidityVerifierResponse";
 
         std::string solidity_code;
+        MSGPACK_FIELDS(solidity_code);
+        bool operator==(const Response&) const = default;
     };
 
     std::vector<uint8_t> verification_key;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(verification_key, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitWriteSolidityVerifier&) const = default;
 };
 
 /**
@@ -187,12 +220,16 @@ struct CircuitProveAndVerify {
         bool verified;
         HonkProof proof;
         PublicInputsVector public_inputs;
+        MSGPACK_FIELDS(verified, proof, public_inputs);
+        bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
     std::vector<uint8_t> witness;
     ProofSystemSettings settings;
+    MSGPACK_FIELDS(circuit, witness, settings);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitProveAndVerify&) const = default;
 };
 
 /**
@@ -208,6 +245,8 @@ struct CircuitBenchmark {
         double proving_time_ms;
         double verification_time_ms;
         uint64_t peak_memory_bytes;
+        MSGPACK_FIELDS(witness_generation_time_ms, proving_time_ms, verification_time_ms, peak_memory_bytes);
+        bool operator==(const Response&) const = default;
     };
 
     CircuitInput circuit;
@@ -216,7 +255,9 @@ struct CircuitBenchmark {
     uint32_t num_iterations = 1;
     bool benchmark_witness_generation = true;
     bool benchmark_proving = true;
+    MSGPACK_FIELDS(circuit, witness, settings, num_iterations, benchmark_witness_generation, benchmark_proving);
     Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const CircuitBenchmark&) const = default;
 };
 
 // OracleHashType enum and parse_oracle_hash_type are defined in bbapi_shared.hpp
