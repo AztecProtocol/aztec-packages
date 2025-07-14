@@ -223,6 +223,7 @@ export const subProtocolMap = {
   [ReqRespSubProtocol.AUTH]: {
     request: AuthRequest,
     response: AuthResponse,
+  },
   [ReqRespSubProtocol.BLOCK_TXS]: {
     request: BlockTxsRequest,
     response: BlockTxsResponse,

@@ -68,18 +68,19 @@ import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   ValidationError,
 } from '../reqresp/interface.js';
+import { reqRespBlockTxsHandler } from '../reqresp/protocols/block_txs/block_txs_handler.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
   AuthRequest,
   StatusMessage,
   pingHandler,
   reqRespBlockHandler,
-  reqRespBlockTxsHandler,
   reqRespStatusHandler,
   reqRespTxHandler,
 } from '../reqresp/protocols/index.js';
