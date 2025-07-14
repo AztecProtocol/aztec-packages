@@ -69,10 +69,12 @@ import {
   type ReqRespInterface,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   ValidationError,
 } from '../reqresp/interface.js';
+import { reqRespBlockTxsHandler } from '../reqresp/protocols/block_txs/block_txs_handler.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
   AuthRequest,
@@ -361,7 +363,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Update gossipsub score params
     node.services.pubsub.score.params.appSpecificWeight = 10;
-    node.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+    node.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
+      peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
     return new LibP2PService(
       clientType,
@@ -416,14 +419,24 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
+    // In case P2P client doesnt'have attestation pool,
+    // const blockTxsHandler = this.mempools.attestationPool
+    //   ? reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool)
+    //   : def;
 
-    const requestResponseHandlers: Partial<Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>> = {
+    const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
     };
+
+    // Only handle block transactions request if attestation pool is available to the client
+    if (this.mempools.attestationPool) {
+      const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
+      requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
+    }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
@@ -769,6 +782,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Mark the txs in this proposal as non-evictable
     await this.mempools.txPool.markTxsAsNonEvictable(block.txHashes);
+    await this.mempools.attestationPool?.addBlockProposal(block);
     const attestations = await this.blockReceivedCallback(block, sender);
 
     // TODO: fix up this pattern - the abstraction is not nice
