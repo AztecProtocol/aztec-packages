@@ -200,7 +200,11 @@ class UltraEccOpsTable {
   public:
     size_t size() const { return table.size(); }
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
-    size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
+    size_t current_ultra_subtable_size() const
+    {
+        const size_t subtable_idx = table.settings == MergeSettings::PREPEND ? 0 : table.num_subtables() - 1;
+        return table.get()[subtable_idx].size() * NUM_ROWS_PER_OP;
+    }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(MergeSettings settings = MergeSettings::PREPEND, size_t size_hint = 0)
     {
