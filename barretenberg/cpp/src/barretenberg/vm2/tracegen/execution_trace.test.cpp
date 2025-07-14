@@ -131,7 +131,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_alu, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_alu, 1),
                           ROW_FIELD_EQ(execution_register_0_, 5),
                           ROW_FIELD_EQ(execution_register_1_, 3),
                           ROW_FIELD_EQ(execution_register_2_, 8),
@@ -202,7 +202,7 @@ TEST(ExecutionTraceGenTest, Call)
             AllOf(ROW_FIELD_EQ(execution_sel, 0)),
             // First real row
             AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                  ROW_FIELD_EQ(execution_sel_call, 1),
+                  ROW_FIELD_EQ(execution_sel_execute_call, 1),
                   ROW_FIELD_EQ(execution_sel_enter_call, 1),
                   ROW_FIELD_EQ(execution_rop_3_, 10),
                   ROW_FIELD_EQ(execution_rop_4_, 20),
@@ -262,7 +262,7 @@ TEST(ExecutionTraceGenTest, Return)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_return, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_return, 1),
                           ROW_FIELD_EQ(execution_sel_exit_call, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 4),
                           ROW_FIELD_EQ(execution_rop_1_, 5),
@@ -530,7 +530,7 @@ TEST(ExecutionTraceGenTest, InternalCall)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the internal call
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_internal_call, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_internal_call, 1),
                           ROW_FIELD_EQ(execution_next_internal_call_id, 2),
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
@@ -565,7 +565,7 @@ TEST(ExecutionTraceGenTest, InternalRetError)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the internal call
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_internal_return, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_internal_return, 1),
                           ROW_FIELD_EQ(execution_next_internal_call_id, 2),
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
@@ -598,7 +598,7 @@ TEST(ExecutionTraceGenTest, Jump)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jump
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_jump, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jump, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 120),
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMP))));
 }
@@ -633,7 +633,7 @@ TEST(ExecutionTraceGenTest, JumpI)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jumpi
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jumpi, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
@@ -675,7 +675,7 @@ TEST(ExecutionTraceGenTest, JumpiWrongTag)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the jumpi
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_jumpi, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 654),
                           ROW_FIELD_EQ(execution_rop_1_, 9876),
                           ROW_FIELD_EQ(execution_register_0_, 1),
@@ -720,7 +720,7 @@ TEST(ExecutionTraceGenTest, Mov16)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the mov
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_mov, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 1000),
                           ROW_FIELD_EQ(execution_rop_1_, 1001),
                           ROW_FIELD_EQ(execution_register_0_, 100),
@@ -765,7 +765,7 @@ TEST(ExecutionTraceGenTest, Mov8)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the mov
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_mov, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 10),
                           ROW_FIELD_EQ(execution_rop_1_, 11),
                           ROW_FIELD_EQ(execution_register_0_, 100),
@@ -805,7 +805,7 @@ TEST(ExecutionTraceGenTest, SuccessCopy)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the success copy
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_success_copy, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_success_copy, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 45), // Dst Offset
                           ROW_FIELD_EQ(execution_register_0_, 1),
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U1=*/1), // Memory tag for dst
@@ -840,7 +840,7 @@ TEST(ExecutionTraceGenTest, RdSize)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the rd_size
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_returndata_size, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_returndata_size, 1),
                           ROW_FIELD_EQ(execution_rop_0_, 1234),                    // Dst Offset
                           ROW_FIELD_EQ(execution_register_0_, 100),                // RdSize output
                           ROW_FIELD_EQ(execution_mem_tag_reg_0_, /*U32=*/4),       // Memory tag for dst
@@ -878,7 +878,7 @@ TEST(ExecutionTraceGenTest, SLoad)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // Second row is the sload
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_sel_sload, 1),
+                          ROW_FIELD_EQ(execution_sel_execute_sload, 1),
                           ROW_FIELD_EQ(execution_rop_0_, slot_offset),
                           ROW_FIELD_EQ(execution_rop_1_, dst_offset),
                           ROW_FIELD_EQ(execution_register_0_, slot),
