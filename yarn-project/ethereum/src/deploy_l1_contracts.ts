@@ -659,6 +659,7 @@ export const deployRollup = async (
     rewardConfig: rewardConfig,
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
+    exitDelaySeconds: args.exitDelaySeconds,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
