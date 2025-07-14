@@ -1,6 +1,14 @@
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import type { BlockAttestation } from '@aztec/stdlib/p2p';
+import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
+import {
+  BlockProposal as BlockProposalClass,
+  ConsensusPayload,
+  SignatureDomainSeparator,
+  getHashedSignaturePayloadEthSignedMessage,
+} from '@aztec/stdlib/p2p';
+import { makeHeader } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -30,6 +38,19 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   const createAttestationsForSlot = (slotNumber: number) => {
     const archive = Fr.random();
     return signers.map(signer => mockAttestation(signer, slotNumber, archive));
+  };
+
+  const mockBlockProposal = (signer: Secp256k1Signer, slotNumber: number, archive: Fr = Fr.random()): BlockProposal => {
+    const blockNumber = 1;
+    const header = makeHeader(1, 2, slotNumber);
+    const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
+
+    const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+    const signature = signer.sign(hash);
+
+    const txHashes = [TxHash.random(), TxHash.random()]; // Mock tx hashes
+
+    return new BlockProposalClass(blockNumber, payload, signature, txHashes);
   };
 
   // We compare buffers as the objects can have cached values attached to them which are not serialised
@@ -230,5 +251,138 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(3));
     expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(69));
     expect(deleteAttestationsSpy).toHaveBeenCalledWith(BigInt(72));
+  });
+
+  describe('BlockProposal in attestation pool', () => {
+    it('should add and retrieve block proposal', async () => {
+      const slotNumber = 420;
+      const archive = Fr.random();
+      const proposal = mockBlockProposal(signers[0], slotNumber, archive);
+      const proposalId = proposal.archive.toString();
+
+      await ap.addBlockProposal(proposal);
+
+      const retrievedProposal = await ap.getBlockProposal(proposalId);
+
+      // This are cached values, so we need to call them to ensure they are not undefined
+      retrievedProposal!.payload.getSize();
+      retrievedProposal!.signature.getSize();
+
+      expect(retrievedProposal).toBeDefined();
+      expect(retrievedProposal!).toEqual(proposal);
+    });
+
+    it('should return undefined for non-existent block proposal', async () => {
+      const nonExistentId = Fr.random().toString();
+      const retrievedProposal = await ap.getBlockProposal(nonExistentId);
+      expect(retrievedProposal).toBeUndefined();
+    });
+
+    it('should update block proposal if added twice with same id', async () => {
+      const slotNumber = 420;
+      const archive = Fr.random();
+      const proposal1 = mockBlockProposal(signers[0], slotNumber, archive);
+      const proposalId = proposal1.archive.toString();
+
+      await ap.addBlockProposal(proposal1);
+
+      // Create a new proposal with same archive but different signer
+      const proposal2 = mockBlockProposal(signers[1], slotNumber, archive);
+
+      await ap.addBlockProposal(proposal2);
+
+      const retrievedProposal = await ap.getBlockProposal(proposalId);
+      expect(retrievedProposal).toBeDefined();
+      // Should have the second proposal
+      expect(retrievedProposal!.toBuffer()).toEqual(proposal2.toBuffer());
+      expect(retrievedProposal!.getSender().toString()).toBe(signers[1].address.toString());
+    });
+
+    it('should handle block proposals with different slots and same archive', async () => {
+      const archive = Fr.random();
+      const proposal1 = mockBlockProposal(signers[0], 100, archive);
+      const proposal2 = mockBlockProposal(signers[1], 200, archive);
+      const proposalId = archive.toString();
+
+      await ap.addBlockProposal(proposal1);
+      await ap.addBlockProposal(proposal2);
+
+      // Should get the latest one added
+      const retrievedProposal = await ap.getBlockProposal(proposalId);
+      expect(retrievedProposal).toBeDefined();
+      expect(retrievedProposal!.toBuffer()).toEqual(proposal2.toBuffer());
+      expect(retrievedProposal!.slotNumber.toBigInt()).toBe(BigInt(200));
+    });
+
+    it('should delete block proposal when deleting attestations for slot and proposal', async () => {
+      const slotNumber = 420;
+      const archive = Fr.random();
+      const proposal = mockBlockProposal(signers[0], slotNumber, archive);
+      const proposalId = proposal.archive.toString();
+
+      // Add proposal and some attestations
+      await ap.addBlockProposal(proposal);
+      const attestations = signers.map(signer => mockAttestation(signer, slotNumber, archive));
+      await ap.addAttestations(attestations);
+
+      // Verify proposal exists
+      let retrievedProposal = await ap.getBlockProposal(proposalId);
+      expect(retrievedProposal).toBeDefined();
+
+      // Delete attestations for slot and proposal
+      await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
+
+      // Proposal should be deleted
+      retrievedProposal = await ap.getBlockProposal(proposalId);
+      expect(retrievedProposal).toBeUndefined();
+    });
+
+    it('should delete block proposal when deleting attestations for slot', async () => {
+      const slotNumber = 420;
+      const archive = Fr.random();
+      const proposal = mockBlockProposal(signers[0], slotNumber, archive);
+      const proposalId = proposal.archive.toString();
+
+      // Add proposal
+      await ap.addBlockProposal(proposal);
+
+      // Verify proposal exists
+      let retrievedProposal = await ap.getBlockProposal(proposalId);
+      expect(retrievedProposal).toBeDefined();
+
+      // Delete attestations for slot
+      await ap.deleteAttestationsForSlot(BigInt(slotNumber));
+
+      // Proposal should be deleted
+      retrievedProposal = await ap.getBlockProposal(proposalId);
+      expect(retrievedProposal).toBeUndefined();
+    });
+
+    it('should be able to fetch both block proposal and attestations', async () => {
+      const slotNumber = 420;
+      const archive = Fr.random();
+      const proposal = mockBlockProposal(signers[0], slotNumber, archive);
+      const proposalId = proposal.archive.toString();
+
+      // Add proposal first
+      await ap.addBlockProposal(proposal);
+
+      // Add attestations for the same proposal
+      const attestations = signers.slice(1).map(signer => mockAttestation(signer, slotNumber, archive));
+      await ap.addAttestations(attestations);
+
+      // Retrieve both proposal and attestations
+      const retrievedProposal = await ap.getBlockProposal(proposalId);
+      const retrievedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
+
+      expect(retrievedProposal).toBeDefined();
+      // This are cached values, so we need to call them to ensure they are not undefined
+      retrievedProposal!.payload.getSize();
+      retrievedProposal!.signature.getSize();
+
+      expect(retrievedProposal).toEqual(proposal);
+
+      compareAttestations(retrievedAttestations, attestations);
+    });
   });
 }

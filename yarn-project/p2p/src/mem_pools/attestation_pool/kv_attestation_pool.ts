@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
-import { BlockAttestation } from '@aztec/stdlib/p2p';
+import { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
@@ -12,6 +12,10 @@ export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
   private attestations: AztecAsyncMap<string, Buffer>;
+  private proposals: AztecAsyncMap<
+    /*  proposal.payload.archive  */ string,
+    /* buffer representation of proposal */ Buffer
+  >;
   private proposalsForSlot: AztecAsyncMultiMap<string, string>;
   private attestationsForProposal: AztecAsyncMultiMap<string, string>;
 
@@ -21,6 +25,7 @@ export class KvAttestationPool implements AttestationPool {
     private log = createLogger('aztec:attestation_pool'),
   ) {
     this.attestations = store.openMap('attestations');
+    this.proposals = store.openMap('proposals');
     this.proposalsForSlot = store.openMultiMap('proposals_for_slot');
     this.attestationsForProposal = store.openMultiMap('attestations_for_proposal');
 
@@ -137,6 +142,7 @@ export class KvAttestationPool implements AttestationPool {
           await this.attestations.delete(attestation);
         }
 
+        await this.proposals.delete(proposalId);
         await this.attestationsForProposal.delete(this.getProposalKey(slotFr, proposalId));
       }
 
@@ -157,6 +163,7 @@ export class KvAttestationPool implements AttestationPool {
         await this.attestations.delete(attestation);
       }
 
+      await this.proposals.delete(proposalId);
       await this.proposalsForSlot.deleteValue(slotString, proposalId);
       await this.attestationsForProposal.delete(this.getProposalKey(slotString, proposalId));
 
@@ -183,6 +190,26 @@ export class KvAttestationPool implements AttestationPool {
 
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }
+    });
+  }
+
+  public async getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+    const buffer = await this.proposals.getAsync(id);
+    try {
+      if (buffer && buffer.length > 0) {
+        return BlockProposal.fromBuffer(buffer);
+      }
+    } catch {
+      return Promise.resolve(undefined);
+    }
+
+    return Promise.resolve(undefined);
+  }
+
+  public async addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+    await this.store.transactionAsync(async () => {
+      await this.proposalsForSlot.set(blockProposal.slotNumber.toString(), blockProposal.archive.toString());
+      await this.proposals.set(blockProposal.payload.archive.toString(), blockProposal.toBuffer());
     });
   }
 }
