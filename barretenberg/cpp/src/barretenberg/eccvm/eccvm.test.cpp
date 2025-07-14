@@ -93,6 +93,23 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     }
 }
 
+/**
+ * @brief Check that size of a ECCVM proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in eccvm_flavor.hpp, etc...
+ * - eccvm_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+ */
+TEST_F(ECCVMTests, ProofLengthCheck)
+{
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+    EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+}
+
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);

@@ -21,7 +21,6 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
-        .recursion_constraints = {},
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
@@ -73,9 +72,6 @@ void mock_opcode_indices(acir_format::AcirFormat& constraint_system)
     }
     for (size_t i = 0; i < constraint_system.ec_add_constraints.size(); i++) {
         constraint_system.original_opcode_indices.ec_add_constraints.push_back(current_opcode++);
-    }
-    for (size_t i = 0; i < constraint_system.recursion_constraints.size(); i++) {
-        constraint_system.original_opcode_indices.recursion_constraints.push_back(current_opcode++);
     }
     for (size_t i = 0; i < constraint_system.honk_recursion_constraints.size(); i++) {
         constraint_system.original_opcode_indices.honk_recursion_constraints.push_back(current_opcode++);

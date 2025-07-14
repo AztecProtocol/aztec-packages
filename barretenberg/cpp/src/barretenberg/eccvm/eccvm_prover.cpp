@@ -36,6 +36,20 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
 }
 
 /**
+ * @brief Fiat-Shamir the VK
+ *
+ */
+void ECCVMProver::execute_preamble_round()
+{
+    using VerificationKey = Flavor::VerificationKey;
+
+    // Fiat-Shamir the vk hash
+    VerificationKey vk;
+    typename Flavor::BF vkey_hash = vk.add_hash_to_transcript("", *transcript);
+    vinfo("ECCVM vk hash in prover: ", vkey_hash);
+}
+
+/**
  * @brief Compute commitments to the first three wires
  *
  */
@@ -186,6 +200,7 @@ ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
+    execute_preamble_round();
     execute_wire_commitments_round();
     execute_log_derivative_commitments_round();
     execute_grand_product_computation_round();

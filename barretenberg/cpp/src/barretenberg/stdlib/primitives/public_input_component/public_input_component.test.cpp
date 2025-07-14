@@ -51,7 +51,7 @@ TEST(PublicInputsTest, GoblinBigGroup)
         builder.add_public_variable(FrNative::random_element());
 
         // Store the public inputs from the builder
-        for (const auto& idx : builder.public_inputs) {
+        for (const auto& idx : builder.public_inputs()) {
             public_inputs.push_back(builder.get_variable(idx));
         }
     }
