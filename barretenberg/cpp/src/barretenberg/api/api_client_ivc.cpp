@@ -58,9 +58,9 @@ void write_vk_for_ivc(const std::string& output_format,
 
     // Since we need to specify the number of public inputs but ClientIvcComputeIvcVk derives it from bytecode,
     // we need to create a mock circuit with the correct number of public inputs
-    // For now, we'll use the compute_vk_for_ivc function directly as it was designed for this purpose
+    // For now, we'll use the compute_civc_vk function directly as it was designed for this purpose
     bbapi::BBApiRequest request;
-    auto vk = bbapi::compute_vk_for_ivc(request, num_public_inputs_in_final_circuit);
+    auto vk = bbapi::compute_civc_vk(request, num_public_inputs_in_final_circuit);
     const auto buf = to_buffer(vk);
 
     const bool output_to_stdout = output_dir == "-";
@@ -105,13 +105,13 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::ClientIvcStart{}.execute(request);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    size_t last_circuit_public_inputs_size = 0;
+    size_t loaded_circuit_public_inputs_size = 0;
     for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
-        last_circuit_public_inputs_size = request.last_circuit_constraints->public_inputs.size();
+        loaded_circuit_public_inputs_size = request.loaded_circuit_constraints->public_inputs.size();
         info("ClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
@@ -137,7 +137,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_vk_for_ivc("bytes", last_circuit_public_inputs_size, output_dir);
+        write_vk_for_ivc("bytes", loaded_circuit_public_inputs_size, output_dir);
     }
 }
 
