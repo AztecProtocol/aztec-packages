@@ -1,9 +1,21 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { allSameExcept, initContext } from './fixtures/index.js';
+import { initContext } from './fixtures/initializers.js';
+import { allSameExcept } from './fixtures/utils.js';
 
 describe('Avm Context', () => {
+  // A helper function to stringify a value that includes bigints.
+  const stringify = (value: any) => {
+    const replacer = (_key: string, value: any) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    };
+    return JSON.stringify(value, replacer);
+  };
+
   it('New call should fork context correctly', async () => {
     const context = initContext();
     context.machineState.pc = 20;
@@ -29,8 +41,7 @@ describe('Avm Context', () => {
       }),
     );
 
-    // We stringify to remove circular references (parentJournal)
-    expect(JSON.stringify(newContext.persistableState)).toEqual(JSON.stringify(await context.persistableState.fork()));
+    expect(stringify(newContext.persistableState)).toEqual(stringify(await context.persistableState.fork()));
   });
 
   it('New static call should fork context correctly', async () => {
@@ -63,7 +74,6 @@ describe('Avm Context', () => {
       }),
     );
 
-    // We stringify to remove circular references (parentJournal)
-    expect(JSON.stringify(newContext.persistableState)).toEqual(JSON.stringify(await context.persistableState.fork()));
+    expect(stringify(newContext.persistableState)).toEqual(stringify(await context.persistableState.fork()));
   });
 });

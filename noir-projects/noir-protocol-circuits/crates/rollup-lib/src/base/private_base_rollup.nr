@@ -1,12 +1,7 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        tx_effect::TxEffect,
-    },
+    abis::{base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect},
     base::{
         components::{
-            archive::perform_archive_membership_check,
-            constants::validate_tx_constant_data,
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
             nullifier_tree::nullifier_tree_batch_insert,
             PrivateTubeDataValidator,
@@ -18,14 +13,14 @@ use crate::{
 };
 use dep::types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
         contract_class_log::ContractClassLog, log::Log, public_data_write::PublicDataWrite,
         public_log::PublicLog, sponge_blob::SpongeBlob, tube::PrivateTubeData,
     },
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
+        NOTE_HASH_SUBTREE_HEIGHT,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -35,8 +30,6 @@ use dep::types::{
     partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
-
-global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -49,28 +42,17 @@ pub struct PrivateBaseRollupInputs {
 
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
-    constants: ConstantRollupData,
+    constants: BlockConstantData,
 }
 
 impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        tube_data_validator.validate_with_rollup_data(self.constants);
-
-        validate_tx_constant_data(self.tube_data.public_inputs.constants, self.constants);
-
-        let rollup_validation_requests = self.tube_data.public_inputs.rollup_validation_requests;
-
-        // Verify the max block number
-        // TODO #5345: why is block_number a Field and not u32?
-        if rollup_validation_requests.max_block_number.is_some() {
-            assert(
-                self.constants.global_variables.block_number as u32
-                    <= rollup_validation_requests.max_block_number.unwrap_unchecked(),
-                "kernel max_block_number is smaller than block number",
-            );
-        }
+        tube_data_validator.validate_proof_and_vk();
+        tube_data_validator.validate_with_block_constant_data(
+            self.constants,
+            self.archive_root_membership_witness,
+        );
 
         let commitments_tree_subroot = self.calculate_commitments_subtree();
 
@@ -141,15 +123,7 @@ impl PrivateBaseRollupInputs {
         };
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
-        // Perform membership checks that the notes provided exist within the historical trees data
-        perform_archive_membership_check(
-            self.constants.last_archive.root,
-            self.archive_root_membership_witness,
-            self.tube_data.public_inputs.constants.historical_header,
-        );
-
         BaseOrMergeRollupPublicInputs {
-            rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
             constants: self.constants,
             start: self.start,
@@ -192,7 +166,11 @@ impl PrivateBaseRollupInputs {
         read_hint.validate(self.start.public_data_tree.root);
 
         let balance = read_hint.value;
-        assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
+        assert_eq(
+            read_hint.leaf_slot,
+            leaf_slot,
+            "Wrong leaf slot for Fee Juice balance read hint",
+        );
         assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
         let value = compute_public_data_tree_value(balance - tx_fee);
@@ -227,22 +205,21 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData, gas::Gas, gas_fees::GasFees,
+            block_constant_data::BlockConstantData, gas::Gas, gas_fees::GasFees,
             kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob,
         },
         address::AztecAddress,
         constants::{
-            ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-            MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_SUBTREE_HEIGHT,
-            NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT, NOTES_PREFIX,
-            NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
-            NULLIFIERS_PREFIX, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT,
-            PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX,
+            CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+            MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+            MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+            NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+            NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOGS_PREFIX, PRIVATE_TUBE_VK_INDEX,
+            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
@@ -255,11 +232,12 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::get_sorted_tuple::get_sorted_tuple,
             field::{field_from_bytes, full_field_less_than},
         },
     };
 
+    #[derive(Eq)]
     struct NullifierInsertion {
         existing_index: u32,
         value: Field,
@@ -314,10 +292,9 @@ mod tests {
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; PRE_EXISTING_PUBLIC_DATA_LEAVES],
-        pre_existing_blocks: [Field; 2],
 
         nullifiers: BoundedVec<NullifierInsertion, MAX_NULLIFIERS_PER_TEST>,
-        constants: ConstantRollupData,
+        constants: BlockConstantData,
 
         fee_payer: AztecAddress,
         // Index of the low leaf for the leaf that contains the fee payer's Fee Juice balance.
@@ -329,9 +306,10 @@ mod tests {
 
     impl PrivateBaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX);
+            let mut tube_data =
+                FixtureBuilder::new().in_vk_tree(PRIVATE_TUBE_VK_INDEX).use_last_archive();
 
-            let mut constants = ConstantRollupData::empty();
+            let mut constants = BlockConstantData::empty();
             constants.global_variables.chain_id = fixtures::CHAIN_ID;
             constants.global_variables.version = fixtures::VERSION;
             constants.vk_tree_root = tube_data.vk_tree_root;
@@ -342,9 +320,6 @@ mod tests {
             let gas_fees = GasFees { fee_per_da_gas: 1, fee_per_l2_gas: 2 };
             tube_data.tx_context.gas_settings.max_fees_per_gas = gas_fees;
             constants.global_variables.gas_fees = gas_fees;
-
-            let mut pre_existing_blocks = [0; 2];
-            pre_existing_blocks[0] = tube_data.historical_header.hash();
 
             let fee_payer = AztecAddress::from_field(234234);
             tube_data.set_fee_payer(fee_payer);
@@ -375,7 +350,6 @@ mod tests {
                 pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX],
                 pre_existing_contracts: [0; 2],
                 pre_existing_public_data,
-                pre_existing_blocks,
                 nullifiers: BoundedVec::new(),
                 constants,
                 fee_payer,
@@ -427,8 +401,7 @@ mod tests {
                 .map(|leaf_preimage: PublicDataTreeLeafPreimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 });
-            res.public_data_writes = array_concat(
-                all_public_data_update_requests,
+            res.public_data_writes = all_public_data_update_requests.concat(
                 [
                     PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
                         - PRE_EXISTING_PUBLIC_DATA_LEAVES
@@ -519,7 +492,7 @@ mod tests {
         // Exists separately to allow us to append correct log preimages and hashes
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+                log_fields.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
             self.contract_class_log_fields.push(padded_log_fields);
 
             let log_hash = compute_contract_class_log_hash(padded_log_fields);
@@ -572,16 +545,7 @@ mod tests {
                 next_available_leaf_index: self.pre_existing_public_data.len(),
             };
 
-            let start_archive = NonEmptyMerkleTree::new(
-                self.pre_existing_blocks,
-                [0; ARCHIVE_HEIGHT],
-                [0; ARCHIVE_HEIGHT - 1],
-                [0; 1],
-            );
-            self.constants.last_archive = AppendOnlyTreeSnapshot {
-                root: start_archive.get_root(),
-                next_available_leaf_index: start_archive.get_next_available_index() as u32,
-            };
+            self.constants.last_archive = self.tube_data.archive_tree;
 
             let (nullifier_predecessor_preimages, nullifier_predecessor_membership_witnesses, sorted_nullifiers, sorted_nullifier_indexes) = self
                 .update_nullifier_tree_with_new_leaves(
@@ -637,10 +601,7 @@ mod tests {
                 start,
                 start_sponge_blob,
                 state_diff_hints,
-                archive_root_membership_witness: MembershipWitness {
-                    leaf_index: 0,
-                    sibling_path: start_archive.get_sibling_path(0),
-                },
+                archive_root_membership_witness: self.tube_data.archive_root_membership_witness,
                 constants: self.constants,
                 fee_payer_fee_juice_balance_read_hint,
                 contract_class_log_fields: self.contract_class_log_fields.storage(),
@@ -862,10 +823,15 @@ mod tests {
         //   - Public data write prefix
         //   - 1 public data write (2 fields)
         tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                0,
+                tx_effects.len() as u8,
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -875,7 +841,7 @@ mod tests {
         // Transaction fee.
         let transaction_fee = builder.compute_transaction_fee();
         tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+            [TX_FEE_PREFIX, 0].concat(transaction_fee.to_be_bytes::<29>()),
             true,
         );
 
@@ -941,10 +907,8 @@ mod tests {
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
-        reconstructed_tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
-            true,
-        );
+        reconstructed_tx_effects[2] =
+            field_from_bytes([TX_FEE_PREFIX, 0].concat(tx_fee.to_be_bytes::<29>()), true);
         // notes
         let mut offset = 3;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
@@ -1020,10 +984,15 @@ mod tests {
         // revert code = 0
         let length_bytes = (offset as Field).to_be_bytes::<2>();
         reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                length_bytes[0],
+                length_bytes[1],
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -1086,27 +1055,27 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with = "kernel max_block_number is smaller than block number")]
-    unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
+    #[test(should_fail_with = "tx include_by_timestamp is smaller than block timestamp")]
+    unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(5);
+        builder.constants.global_variables.timestamp = 42;
+        builder.tube_data.include_by_timestamp = 5;
         builder.fails();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_equal_max_block_number() {
+    unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(42);
+        builder.constants.global_variables.timestamp = 42;
+        builder.tube_data.include_by_timestamp = 42;
         builder.succeeds();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_larger_max_block_number() {
+    unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(4294967295);
+        builder.constants.global_variables.timestamp = 42;
+        builder.tube_data.include_by_timestamp = 4294967295;
         builder.succeeds();
     }
 

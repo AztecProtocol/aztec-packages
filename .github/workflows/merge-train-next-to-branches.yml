@@ -1,0 +1,35 @@
+name: Merge Train Auto-Pull
+
+on:
+  push:
+    branches:
+      - next
+
+jobs:
+  merge-to-train:
+    name: Merge next to ${{ matrix.train-branch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        train-branch:
+          - merge-train/barretenberg
+          - merge-train/spartan
+          - merge-train/docs
+          - merge-train/avm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Run merge-next script
+        continue-on-error: true
+        run: |
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/merge-next.sh "${{ matrix.train-branch }}"
+

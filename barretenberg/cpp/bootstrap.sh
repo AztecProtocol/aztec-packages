@@ -10,6 +10,9 @@ export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
   export DISABLE_AZTEC_VM=1
+fi
+
+if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   # Make sure the different envs don't read from each other's caches.
   export hash="$hash-no-avm"
 fi
@@ -242,18 +245,14 @@ function build_bench {
 }
 
 function bench_cmds {
-  prefix="$hash:CPUS=16"
-  # arch name bin filter
-  benches=(
-    "native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
-    "native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
-    "wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
-  )
-  for args in "${benches[@]}"; do
-    echo "$prefix barretenberg/cpp/scripts/run_bench.sh $args"
-  done
+  prefix="$hash:CPUS=8"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
+  prefix="$hash:CPUS=1"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.
@@ -288,35 +287,44 @@ case "$cmd" in
     ;;
   bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
-    # Download the inputs for the private flows.
-    # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
-    git fetch origin master
+    # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
+    # CI=1 NO_WASM=1 NATIVE_PRESET=op-count-time ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
+    git fetch origin next
 
-    # build the benchmarked benches
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
+    flow_filter="${1:-}"               # optional string-match filter for flow names
+    commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
-    # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-    if [ -n "${1:-}" ]; then
-      echo "Downloading inputs from commit $1."
-      export AZTEC_CACHE_COMMIT=$1
-      export DOWNLOAD_ONLY=1
-      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
-      # This generates the client IVC verification keys.
-      yarn --cwd ../../yarn-project/bb-prover generate
+    # Build both native and wasm benchmark binaries
+    builds=(
+      "build_preset $native_preset --target bb_cli_bench --target bb"
+    )
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      builds+=("build_preset wasm-threads --target bb_cli_bench --target bb")
     fi
+    parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
+
+    # Download cached flow inputs from the specified commit
+    export AZTEC_CACHE_COMMIT=$commit_hash
+    export DOWNLOAD_ONLY=1
+    yarn --cwd ../../yarn-project/bb-prover generate
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
+
+    # Extract and filter benchmark commands by flow name and wasm/no-wasm
     function ivc_bench_cmds {
-      if [ "${NO_WASM:-}" == "1" ]; then
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
-      else
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
-      fi
+      local flow_filter="$1"  # select only flows containing this string
+
+      ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
+        grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
+        { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
+        { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
     }
-    ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
+
+    echo "Running commands:"
+    ivc_bench_cmds "$flow_filter"
+
+    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash

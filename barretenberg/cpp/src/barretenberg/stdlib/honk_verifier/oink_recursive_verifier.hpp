@@ -18,7 +18,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using OinkProof = std::vector<FF>;
@@ -34,7 +34,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      * @param domain_separator string used for differentiating verification_keys in the transcript (PG only)
      */
     explicit OinkRecursiveVerifier_(Builder* builder,
-                                    const std::shared_ptr<RecursiveDeciderVK>& verification_key,
+                                    const std::shared_ptr<RecursiveDeciderVK>& decider_vk,
                                     const std::shared_ptr<Transcript>& transcript,
                                     std::string domain_separator = "");
 
@@ -46,7 +46,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      * @param domain_separator string used for differentiating verification_keys in the transcript (PG only)
      */
     explicit OinkRecursiveVerifier_(Builder* builder,
-                                    const std::shared_ptr<RecursiveDeciderVK>& verification_key,
+                                    const std::shared_ptr<RecursiveDeciderVK>& decider_vk,
                                     std::string domain_separator = "");
 
     /**
@@ -61,9 +61,9 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      */
     void verify_proof(const OinkProof& proof);
 
-    std::shared_ptr<RecursiveDeciderVK> verification_key;
+    std::shared_ptr<RecursiveDeciderVK> decider_vk;
     Builder* builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::string domain_separator; // used in PG to distinguish between verification_keys in transcript
 };
 

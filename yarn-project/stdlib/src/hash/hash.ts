@@ -1,17 +1,18 @@
 import { GeneratorIndex } from '@aztec/constants';
-import { poseidon2Hash, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
+import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
-import type { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 
 /**
  * Computes a hash of a given verification key.
- * @param vkBuf - The verification key as fields.
+ * @param keyAsFields - The verification key as fields.
  * @returns The hash of the verification key.
  */
-export function hashVK(keyAsFields: Fr[]): Promise<Fr> {
-  return poseidon2Hash(keyAsFields);
+export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
+  // Should match the implementation in barretenberg/cpp/src/barretenberg/flavor/flavor.hpp > hash()
+  return await poseidon2Hash(keyAsFields);
 }
 
 /**
@@ -54,6 +55,17 @@ export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promis
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+}
+
+/**
+ * Computes a siloed private log tag, given the contract address and the unsiloed tag.
+ * A siloed private log tag effectively namespaces a log to a specific contract.
+ * @param contract - The contract address.
+ * @param unsiloedTag - The unsiloed tag.
+ * @returns A siloed private log tag.
+ */
+export function siloPrivateLog(contract: AztecAddress, unsiloedTag: Fr): Promise<Fr> {
+  return poseidon2Hash([contract, unsiloedTag]);
 }
 
 /**
@@ -126,21 +138,18 @@ export async function computeL1ToL2MessageNullifier(contract: AztecAddress, mess
  * Calculates a siloed hash of a scoped l2 to l1 message.
  * @returns Fr containing 248 bits of information of sha256 hash.
  */
-export function siloL2ToL1Message(l2ToL1Message: ScopedL2ToL1Message, version: Fr, chainId: Fr): Fr {
-  if (l2ToL1Message.contractAddress.isZero()) {
-    return Fr.ZERO;
-  }
-  // Left-pad recipient to 32 bytes to match what the circuit is doing
-  // TODO: Only hash 20 bytes for l2l1 recipient everywhere.
-  const paddedRecipient = Buffer.alloc(32);
-  l2ToL1Message.message.recipient.toBuffer().copy(paddedRecipient, 12);
-
-  const preimage = Buffer.concat([
-    l2ToL1Message.contractAddress.toBuffer(),
-    version.toBuffer(),
-    paddedRecipient,
-    chainId.toBuffer(),
-    l2ToL1Message.message.content.toBuffer(),
-  ]);
-  return Fr.fromBuffer(sha256Trunc(preimage));
+export function computeL2ToL1MessageHash({
+  l2Sender,
+  l1Recipient,
+  content,
+  rollupVersion,
+  chainId,
+}: {
+  l2Sender: AztecAddress;
+  l1Recipient: EthAddress;
+  content: Fr;
+  rollupVersion: Fr;
+  chainId: Fr;
+}) {
+  return sha256ToField([l2Sender, rollupVersion, l1Recipient, chainId, content]);
 }

@@ -4,15 +4,11 @@ import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type {
-  ContractClassLog,
-  IndexedTaggingSecret,
-  PrivateLogWithTxData,
-  PublicLogWithTxData,
-} from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -62,6 +58,10 @@ export abstract class TypedOracle {
 
   getBlockNumber(): Promise<number> {
     return Promise.reject(new OracleMethodNotAvailableError('getBlockNumber'));
+  }
+
+  getTimestamp(): Promise<UInt64> {
+    return Promise.reject(new OracleMethodNotAvailableError('getTimestamp'));
   }
 
   getContractAddress(): Promise<AztecAddress> {
@@ -231,12 +231,12 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotesAndEvents'));
   }
 
-  getPublicLogByTag(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPublicLogByTag');
-  }
-
-  getPrivateLogByTag(_siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPrivateLogByTag');
+  bulkRetrieveLogs(
+    _contractAddress: AztecAddress,
+    _logRetrievalRequestsArrayBaseSlot: Fr,
+    _logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError('bulkRetrieveLogs');
   }
 
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
@@ -261,5 +261,9 @@ export abstract class TypedOracle {
 
   getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
+  }
+
+  emitOffchainEffect(_data: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainEffect'));
   }
 }

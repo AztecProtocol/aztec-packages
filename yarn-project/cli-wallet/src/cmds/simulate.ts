@@ -4,6 +4,7 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 
+import { printAuthorizations } from '../utils/authorizations.js';
 import type { IFeeOpts } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 
@@ -25,9 +26,24 @@ export async function simulate(
   const simulationResult = await call.simulate({
     ...(await feeOpts.toSendOpts(wallet)),
     authWitnesses,
-    includeStats: true,
+    includeMetadata: true,
   });
   if (verbose) {
+    await printAuthorizations(
+      simulationResult.offchainEffects!,
+      async (address: AztecAddress) => {
+        const metadata = await wallet.getContractMetadata(address);
+        if (!metadata.contractInstance) {
+          return undefined;
+        }
+        const classMetadata = await wallet.getContractClassMetadata(
+          metadata.contractInstance.currentContractClassId,
+          true,
+        );
+        return classMetadata.artifact;
+      },
+      log,
+    );
     printProfileResult(simulationResult.stats!, log);
   }
   log(format('\nSimulation result: ', simulationResult.result, '\n'));

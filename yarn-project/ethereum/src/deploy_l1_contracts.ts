@@ -1,9 +1,12 @@
+import { getActiveNetworkName } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  ExtRollupLib2Abi,
+  ExtRollupLib2Bytecode,
   ExtRollupLibAbi,
   ExtRollupLibBytecode,
   FeeAssetHandlerAbi,
@@ -66,7 +69,14 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import type { L1ContractsConfig } from './config.js';
+import {
+  type L1ContractsConfig,
+  getEntryQueueConfig,
+  getGovernanceConfiguration,
+  getRewardBoostConfig,
+  getRewardConfig,
+} from './config.js';
+import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -79,9 +89,11 @@ import {
   getL1TxUtilsConfigEnvVars,
 } from './l1_tx_utils.js';
 import type { ExtendedViemWalletClient } from './types.js';
-import { ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
+import { ZK_PASSPORT_SCOPE, ZK_PASSPORT_SUB_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+
+const networkName = getActiveNetworkName();
 
 export type Operator = {
   attester: EthAddress;
@@ -92,14 +104,12 @@ export type Operator = {
  * Return type of the deployL1Contract function.
  */
 export type DeployL1ContractsReturnType = {
-  /**
-   * Extended Wallet Client Type.
-   */
+  /** Extended Wallet Client Type. */
   l1Client: ExtendedViemWalletClient;
-  /**
-   * The currently deployed l1 contract addresses
-   */
+  /** The currently deployed l1 contract addresses */
   l1ContractAddresses: L1ContractAddresses;
+  /** Version of the current rollup contract. */
+  rollupVersion: number;
 };
 
 export interface LinkReferences {
@@ -161,6 +171,10 @@ export const l1Artifacts = {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
         },
+        ExtRollupLib2: {
+          contractAbi: ExtRollupLib2Abi,
+          contractBytecode: ExtRollupLib2Bytecode as Hex,
+        },
       },
     },
   },
@@ -216,10 +230,16 @@ export const l1Artifacts = {
     contractAbi: GSEAbi,
     contractBytecode: GSEBytecode as Hex,
   },
+};
+
+export const l1ArtifactsVerifiers = {
   honkVerifier: {
     contractAbi: HonkVerifierAbi,
     contractBytecode: HonkVerifierBytecode as Hex,
   },
+};
+
+const mockVerifiers = {
   mockVerifier: {
     contractAbi: MockVerifierAbi,
     contractBytecode: MockVerifierBytecode as Hex,
@@ -249,8 +269,17 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   feeJuicePortalInitialBalance?: bigint;
   /** Whether to deploy the real verifier or the mock verifier */
   realVerifier: boolean;
+  /** The zk passport args */
+  zkPassportArgs?: ZKPassportArgs;
+}
+
+export interface ZKPassportArgs {
   /** Whether to use the mock zk passport verifier */
   mockZkPassportVerifier?: boolean;
+  /** The scope of the zk passport - domain (url) */
+  zkPassportScope?: string;
+  /** The sub-scope of the zk passport - domain seperator (personhood, etc) */
+  zkPassportSubScope?: string;
 }
 
 export const deploySharedContracts = async (
@@ -301,6 +330,7 @@ export const deploySharedContracts = async (
     stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
     gseAddress.toString(),
+    getGovernanceConfiguration(networkName),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
@@ -414,16 +444,28 @@ export const deploySharedContracts = async (
     if ([11155111, foundry.id].includes(l1Client.chain.id)) {
       const AMIN = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
       zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
+      const [scope, subscope] = getZkPassportScopes(args);
+
+      const stakingAssetHandlerDeployArgs = {
+        owner: l1Client.account.address,
+        stakingAsset: stakingAssetAddress.toString(),
+        registry: registryAddress.toString(),
+        withdrawer: AMIN.toString(),
+        mintInterval: BigInt(60 * 60 * 24),
+        depositsPerMint: BigInt(10),
+        depositMerkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        zkPassportVerifier: zkPassportVerifierAddress.toString(),
+        unhinged: [AMIN.toString()], // isUnhinged,
+        // Scopes
+        scope: scope,
+        subscope: subscope,
+        // Skip checks
+        skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
+        skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
+      };
 
       stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
-        l1Client.account.address,
-        stakingAssetAddress.toString(),
-        registryAddress.toString(),
-        AMIN.toString(), // withdrawer,
-        BigInt(60 * 60 * 24), // mintInterval,
-        BigInt(10), // depositsPerMint,
-        zkPassportVerifierAddress.toString(),
-        [AMIN.toString()], // isUnhinged,
+        stakingAssetHandlerDeployArgs,
       ]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
@@ -500,10 +542,21 @@ export const deploySharedContracts = async (
 };
 
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
-  if (args.mockZkPassportVerifier) {
-    return await deployer.deploy(l1Artifacts.mockZkPassportVerifier);
+  if (args.zkPassportArgs?.mockZkPassportVerifier) {
+    return await deployer.deploy(mockVerifiers.mockZkPassportVerifier);
   }
   return ZK_PASSPORT_VERIFIER_ADDRESS;
+};
+
+/**
+ * Get the zk passport scopes - default to testnet values if not provided
+ * @param args - The deployment arguments
+ * @returns The zk passport scopes
+ */
+const getZkPassportScopes = (args: DeployL1ContractsArgs): [string, string] => {
+  const scope = args.zkPassportArgs?.zkPassportScope ?? ZK_PASSPORT_SCOPE;
+  const subscope = args.zkPassportArgs?.zkPassportSubScope ?? ZK_PASSPORT_SUB_SCOPE;
+  return [scope, subscope];
 };
 
 /**
@@ -516,7 +569,10 @@ const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1
  */
 export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
-  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake'>,
+  args: Omit<
+    DeployL1ContractsArgs,
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+  >,
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
@@ -556,7 +612,10 @@ export const deployUpgradePayload = async (
 export const deployRollup = async (
   extendedClient: ExtendedViemWalletClient,
   deployer: L1Deployer,
-  args: Omit<DeployL1ContractsArgs, 'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake'>,
+  args: Omit<
+    DeployL1ContractsArgs,
+    'governanceProposerQuorum' | 'governanceProposerRoundSize' | 'minimumStake' | 'depositAmount'
+  >,
   addresses: Pick<
     L1ContractAddresses,
     'feeJuiceAddress' | 'registryAddress' | 'rewardDistributorAddress' | 'stakingAssetAddress' | 'gseAddress'
@@ -572,22 +631,30 @@ export const deployRollup = async (
   let epochProofVerifier = EthAddress.ZERO;
 
   if (args.realVerifier) {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.honkVerifier);
+    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.honkVerifier);
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.mockVerifier);
+    epochProofVerifier = await deployer.deploy(mockVerifiers.mockVerifier);
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
+
+  const rewardConfig = {
+    ...getRewardConfig(networkName),
+    rewardDistributor: addresses.rewardDistributorAddress.toString(),
+  };
 
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
+    aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
     provingCostPerMana: args.provingCostPerMana,
+    rewardConfig: rewardConfig,
+    rewardBoostConfig: getRewardBoostConfig(networkName),
+    stakingQueueConfig: getEntryQueueConfig(networkName),
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -598,7 +665,6 @@ export const deployRollup = async (
 
   const rollupArgs = [
     addresses.feeJuiceAddress.toString(),
-    addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
     addresses.gseAddress.toString(),
     epochProofVerifier.toString(),
@@ -801,7 +867,7 @@ export const addMultipleValidators = async (
   logger: Logger,
 ) => {
   const rollup = new RollupContract(extendedClient, rollupAddress);
-  const minimumStake = await rollup.getMinimumStake();
+  const depositAmount = await rollup.getDepositAmount();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
@@ -835,7 +901,7 @@ export const addMultipleValidators = async (
       }));
 
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
-      const stakeNeeded = minimumStake * BigInt(validators.length);
+      const stakeNeeded = depositAmount * BigInt(validators.length);
       const { txHash } = await deployer.sendTransaction({
         to: stakingAssetAddress,
         data: encodeFunctionData({
@@ -922,6 +988,9 @@ export const deployL1Contracts = async (
 ): Promise<DeployL1ContractsReturnType> => {
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
+  // Deploy multicall3 if it does not exist in this network
+  await deployMulticall3(l1Client, logger);
+
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s
 
@@ -1004,6 +1073,7 @@ export const deployL1Contracts = async (
   }
 
   return {
+    rollupVersion: Number(await rollup.getVersion()),
     l1Client: l1Client,
     l1ContractAddresses: {
       ...l1Contracts,
@@ -1176,9 +1246,10 @@ export async function deployL1Contract(
   }
 
   if (maybeSalt) {
+    logger?.info(`Deploying contract with salt ${maybeSalt}`);
     const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, maybeSalt);
     resultingAddress = address;
-    const existing = await extendedClient.getBytecode({ address: resultingAddress });
+    const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
       const res = await l1TxUtils.sendTransaction({
         to: DEPLOYER_ADDRESS,

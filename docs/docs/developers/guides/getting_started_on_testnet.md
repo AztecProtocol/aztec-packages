@@ -37,12 +37,12 @@ bash -i <(curl -s https://install.aztec.network)
 Then install the version of the network running the testnet:
 
 ```bash
-aztec-up alpha-testnet
+aztec-up -v latest
 ```
 
 :::warning
 
-The testnet is version dependent. It is currently running version `alpha-testnet`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is most likely running the latest released version. Updates are backwards compatible so regularly check for updates when interacting with the testnet to reduce errors.
 
 :::
 
@@ -52,8 +52,8 @@ Aztec uses account abstraction, which means:
 
 - All accounts are smart contracts (no EOAs)
 - Account signature schemes are private
-- Accounts only need deployment if they interact with public components
-- Private contract interactions don't require account deployment
+- Accounts only need to be published if they interact with public components
+- Private contract interactions don't require account publication
 
 0. Set some variables that we need:
 

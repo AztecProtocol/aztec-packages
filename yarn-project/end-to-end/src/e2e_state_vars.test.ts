@@ -1,4 +1,5 @@
-import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, type PXE, type Wallet } from '@aztec/aztec.js';
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
 
@@ -11,6 +12,7 @@ const TIMEOUT = 180_000;
 describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);
 
+  let aztecNode: AztecNode;
   let pxe: PXE;
   let wallet: Wallet;
 
@@ -21,7 +23,7 @@ describe('e2e_state_vars', () => {
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet, pxe } = await setup(2));
+    ({ teardown, pxe, aztecNode, wallet } = await setup(2));
     contract = await StateVarsContract.deploy(wallet).send().deployed();
   });
 
@@ -218,6 +220,8 @@ describe('e2e_state_vars', () => {
   describe('SharedMutable', () => {
     let authContract: AuthContract;
 
+    const aztecSlotDuration = DefaultL1ContractsConfig.aztecSlotDuration;
+
     const delay = async (blocks: number) => {
       for (let i = 0; i < blocks; i++) {
         await authContract.methods.get_authorized().send().wait();
@@ -227,25 +231,33 @@ describe('e2e_state_vars', () => {
     beforeAll(async () => {
       // We use the auth contract here because has a nice, clear, simple implementation of Shared Mutable
       authContract = await AuthContract.deploy(wallet, wallet.getAddress()).send().deployed();
+
+      if (aztecSlotDuration !== 36) {
+        throw new Error(
+          'Aztec slot duration changed and this will break this test. Update CHANGE_AUTHORIZED_DELAY constant in the Auth contract to be 5 slots again.',
+        );
+      }
     });
 
-    it('sets the max block number property', async () => {
-      // We change the SharedMutable authorized delay here to 2, this means that a change to the "authorized" value can
-      // only be applied 2 blocks after it is initiated, and thus read requests on a historical state without an
-      // initiated change is valid for at least 2 blocks.
-      await authContract.methods.set_authorized_delay(2).send().wait();
+    it('sets the include by timestamp property', async () => {
+      const newDelay = BigInt(aztecSlotDuration * 2);
+      // We change the SharedMutable authorized delay here to 2 slots, this means that a change to the "authorized"
+      // value can only be applied 2 slots after it is initiated, and thus read requests on a historical state without
+      // an initiated change is valid for at least 2 slots.
+      await authContract.methods.set_authorized_delay(newDelay).send().wait();
 
-      // Note: Because we are decreasing the delay, we must first wait for the full previous delay - 1 (5 -1).
+      // Note: Because we are decreasing the delay, we must first wait for the (full previous delay - 1 slot).
+      // Since the CHANGE_AUTHORIZED_DELAY in the Auth contract is equal to 5 slots we just wait for 4 blocks.
       await delay(4);
 
-      const expectedModifiedMaxBlockNumber = (await pxe.getBlockNumber()) + 2;
+      // The validity of our SharedMutable read request should be limited to the new delay
+      const expectedModifiedIncludeByTimestamp =
+        (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay;
 
-      // We now call our AuthContract to see if the change in max block number has reflected our delay change
+      // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
       const tx = await authContract.methods.get_authorized_in_private().prove();
 
-      // The validity of our SharedMutable read request should be limited to 2 blocks
-      expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedModifiedMaxBlockNumber));
+      expect(tx.data.includeByTimestamp).toEqual(expectedModifiedIncludeByTimestamp);
     });
   });
 });

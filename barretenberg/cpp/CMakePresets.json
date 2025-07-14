@@ -339,20 +339,42 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
-      "description": "Build default preset but with fuzzing enabled",
+      "description": "Build default preset but with fuzzing and asan enabled",
       "inherits": "clang16-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
-        "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
+        "FUZZING_SHOW_INFORMATION": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
+      "name": "fuzzing-coverage",
+      "displayName": "Build with coverage flags",
+      "description": "Build default preset but with fuzzing and coverage enabled",
+      "inherits": "clang16",
+      "binaryDir": "build-fuzzing-cov",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_ASM": "ON",
+        "DISABLE_AZTEC_VM": "ON"
+      },
+      "environment": {
+        "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping",
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -707,6 +729,11 @@
       "configurePreset": "fuzzing-asan"
     },
     {
+      "name": "fuzzing-coverage",
+      "inherits": "clang16",
+      "configurePreset": "fuzzing-coverage"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang16",
       "configurePreset": "gperftools"
@@ -834,7 +861,7 @@
     },
     {
       "name": "fuzzing",
-      "inherits": "default",
+      "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
     {

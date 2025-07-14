@@ -7,16 +7,16 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import { type Serializable, type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
+  ClaimedLengthArray,
   CountedLogHash,
   LogHash,
   OptionalNumber,
@@ -43,20 +43,19 @@ import {
   BlockHeader,
   ContentCommitment,
   GlobalVariables,
-  MaxBlockNumber,
-  NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,
   TxContext,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
+  ClaimedLengthArray as ClaimedLengthArrayNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
-  Field,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
   GasFees as GasFeesNoir,
@@ -67,7 +66,6 @@ import type {
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
-  MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
@@ -86,6 +84,7 @@ import type {
   Scoped,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
+  u64 as U64Noir,
   VerificationKey as VerificationKeyNoir,
   VkData as VkDataNoir,
 } from '../types/index.js';
@@ -136,6 +135,14 @@ export function mapWrappedFieldToNoir(field: Fr): { inner: NoirField } {
 /** Maps a noir wrapped field type (ie any type implemented as struct with an inner Field) to a typescript field. */
 export function mapWrappedFieldFromNoir(wrappedField: { inner: NoirField }): Fr {
   return mapFieldFromNoir(wrappedField.inner);
+}
+
+export function mapU64ToNoir(u64: UInt64): U64Noir {
+  return mapBigIntToNoir(u64);
+}
+
+export function mapU64FromNoir(u64: U64Noir): UInt64 {
+  return mapBigIntFromNoir(u64);
 }
 
 /**
@@ -341,6 +348,25 @@ export function mapFieldArrayToNoir<N extends number>(
   return mapTupleToNoir(assertLength(array, length), mapFieldToNoir);
 }
 
+export function mapClaimedLengthArrayFromNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArrayNoir<N, S>,
+  mapper: (item: S) => T,
+): ClaimedLengthArray<T, N> {
+  const array = mapTupleFromNoir(claimedLengthArray.array, claimedLengthArray.array.length, mapper) as Tuple<T, N>;
+  const claimedLength = mapNumberFromNoir(claimedLengthArray.length);
+  return new ClaimedLengthArray(array, claimedLength);
+}
+
+export function mapClaimedLengthArrayToNoir<T extends Serializable, N extends number, S>(
+  claimedLengthArray: ClaimedLengthArray<T, N>,
+  mapper: (item: T) => S,
+): ClaimedLengthArrayNoir<N, S> {
+  return {
+    array: mapTupleToNoir(claimedLengthArray.array, mapper),
+    length: mapNumberToNoir(claimedLengthArray.claimedLength),
+  };
+}
+
 /**
  * Maps a AOT snapshot to noir.
  * @param snapshot - The stdlib AOT snapshot.
@@ -371,10 +397,9 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
  */
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
-    num_txs: mapFieldToNoir(contentCommitment.numTxs),
-    blobs_hash: mapSha256HashToNoir(contentCommitment.blobsHash),
-    in_hash: mapSha256HashToNoir(contentCommitment.inHash),
-    out_hash: mapSha256HashToNoir(contentCommitment.outHash),
+    blobs_hash: mapFieldToNoir(contentCommitment.blobsHash),
+    in_hash: mapFieldToNoir(contentCommitment.inHash),
+    out_hash: mapFieldToNoir(contentCommitment.outHash),
   };
 }
 
@@ -384,10 +409,9 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  */
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.num_txs),
-    mapSha256HashFromNoir(contentCommitment.blobs_hash),
-    mapSha256HashFromNoir(contentCommitment.in_hash),
-    mapSha256HashFromNoir(contentCommitment.out_hash),
+    mapFieldFromNoir(contentCommitment.blobs_hash),
+    mapFieldFromNoir(contentCommitment.in_hash),
+    mapFieldFromNoir(contentCommitment.out_hash),
   );
 }
 
@@ -423,24 +447,6 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-/**
- * Maps a SHA256 hash from noir to the parsed type.
- * @param hash - The hash as it is represented in Noir (1 fields).
- * @returns The hash represented as a 31 bytes long buffer.
- */
-export function mapSha256HashFromNoir(hash: Field): Buffer {
-  return toBufferBE(mapFieldFromNoir(hash).toBigInt(), NUM_BYTES_PER_SHA256);
-}
-
-/**
- * Maps a sha256 to the representation used in noir.
- * @param hash - The hash represented as a 32 bytes long buffer.
- * @returns The hash as it is represented in Noir (1 field, truncated).
- */
-export function mapSha256HashToNoir(hash: Buffer): Field {
-  return mapFieldToNoir(toTruncField(hash));
-}
-
 export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
   return {
     _is_some: option.isSome,
@@ -450,19 +456,6 @@ export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberN
 
 export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
-}
-
-export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBlockNumberNoir {
-  return {
-    _opt: {
-      _is_some: maxBlockNumber.isSome,
-      _value: mapFieldToNoir(maxBlockNumber.value),
-    },
-  };
-}
-
-export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
-  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapFieldFromNoir(maxBlockNumber._opt._value));
 }
 
 /**
@@ -600,9 +593,9 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
   return {
     chain_id: mapFieldToNoir(globalVariables.chainId),
     version: mapFieldToNoir(globalVariables.version),
-    block_number: mapFieldToNoir(globalVariables.blockNumber),
+    block_number: mapNumberToNoir(globalVariables.blockNumber),
     slot_number: mapFieldToNoir(globalVariables.slotNumber),
-    timestamp: mapFieldToNoir(globalVariables.timestamp),
+    timestamp: mapBigIntToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
     fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
     gas_fees: mapGasFeesToNoir(globalVariables.gasFees),
@@ -618,9 +611,9 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
   return new GlobalVariables(
     mapFieldFromNoir(globalVariables.chain_id),
     mapFieldFromNoir(globalVariables.version),
-    mapFieldFromNoir(globalVariables.block_number),
+    mapNumberFromNoir(globalVariables.block_number),
     mapFieldFromNoir(globalVariables.slot_number),
-    mapFieldFromNoir(globalVariables.timestamp),
+    mapBigIntFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),
     mapAztecAddressFromNoir(globalVariables.fee_recipient),
     mapGasFeesFromNoir(globalVariables.gas_fees),

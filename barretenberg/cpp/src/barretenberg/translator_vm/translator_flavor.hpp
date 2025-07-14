@@ -40,7 +40,7 @@ class TranslatorFlavor {
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
-    using RelationSeparator = FF;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -110,10 +110,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 186;
+    static constexpr size_t NUM_ALL_ENTITIES = 187;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -152,6 +152,9 @@ class TranslatorFlavor {
                                   TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
@@ -187,7 +190,8 @@ class TranslatorFlavor {
                               lagrange_result_row,          // column 5
                               lagrange_last_in_minicircuit, // column 6
                               lagrange_masking,             // column 7
-                              lagrange_real_last);          // column 8
+                              lagrange_mini_masking,        // column 8
+                              lagrange_real_last);          // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -700,15 +704,16 @@ class TranslatorFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+        size_t log_circuit_size = CONST_TRANSLATOR_LOG_N;
 
-        ProvingKey(std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key = CommitmentKey();
+
+        ProvingKey(const CommitmentKey& commitment_key = CommitmentKey())
+            : commitment_key(commitment_key)
         {}
     };
 
@@ -720,11 +725,11 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
-            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+            : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
@@ -739,14 +744,42 @@ class TranslatorFlavor {
         {
             this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
+
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<fr> to_field_elements() const override
+        {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
+        }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         * @returns The hash of the verification key
+         */
+        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement this function.
+            throw_or_abort("Not implemented yet!");
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
         // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
@@ -761,6 +794,7 @@ class TranslatorFlavor {
                        lagrange_result_row,
                        lagrange_last_in_minicircuit,
                        lagrange_masking,
+                       lagrange_mini_masking,
                        lagrange_real_last);
     };
 
@@ -902,6 +936,7 @@ class TranslatorFlavor {
             this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_mini_masking = "__LAGRANGE_MINI_MASKING";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
@@ -920,11 +955,10 @@ class TranslatorFlavor {
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     }; // namespace bb
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = NativeTranscript;
 };
 } // namespace bb

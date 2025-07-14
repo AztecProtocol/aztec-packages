@@ -1,4 +1,6 @@
-use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use dep::aztec::{
+    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+};
 
 use crate::EasyPrivateVoting;
 
@@ -13,6 +15,6 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
         initializer_call_interface,
     );
 
-    env.advance_block_by(1);
+    env.mine_block();
     (&mut env, voting_contract.to_address(), admin)
 }

@@ -16,6 +16,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
+    using StdlibProof = ClientIVCRecursiveVerifier::StdlibProof;
 
     std::string proof_path = output_path + "/proof";
 
@@ -25,29 +26,33 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     auto builder = std::make_shared<Builder>();
 
-    // Preserve the public inputs that should be passed to the base rollup by making them public inputs to the tube
-    // circuit
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
-    // these public inputs by turning proof into witnesses and calling set_public on each witness
-    auto num_inner_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(vk.mega->num_public_inputs));
-    num_inner_public_inputs -= bb::PAIRING_POINTS_SIZE; // don't add the agg object
-
-    for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder->add_public_variable(proof.mega_proof[i]);
-    }
     ClientIVCRecursiveVerifier verifier{ builder, vk };
 
-    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
+    StdlibProof stdlib_proof(*builder, proof);
+    ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
+
+    // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
+    // Exclude the pairing points which are handled separately.
+    auto num_inner_public_inputs = vk.mega->num_public_inputs - bb::PAIRING_POINTS_SIZE;
+    for (size_t i = 0; i < num_inner_public_inputs; i++) {
+        stdlib_proof.mega_proof[i].set_public();
+    }
 
     client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     client_ivc_rec_verifier_output.opening_claim.set_public();
-    builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+    builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
     BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
-    Prover tube_prover{ *builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*builder);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
+    info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
+    auto tube_verification_key =
+        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
+
+    Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
@@ -73,8 +78,6 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = output_path + "/vk";
-    auto tube_verification_key =
-        std::make_shared<typename UltraRollupFlavor::VerificationKey>(tube_prover.proving_key->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
     std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
@@ -84,7 +87,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     Verifier tube_verifier(tube_verification_key, ipa_verification_key);
 
     // Break up the tube proof into the honk portion and the ipa portion

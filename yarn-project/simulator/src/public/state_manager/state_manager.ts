@@ -1,9 +1,9 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  DEPLOYER_CONTRACT_ADDRESS,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -19,6 +19,7 @@ import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 
@@ -50,7 +51,7 @@ export class PublicPersistableStateManager {
     private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
-    private readonly blockNumber: number, // Needed for contract updates.
+    private readonly timestamp: UInt64, // Needed for contract updates.
     private readonly doMerkleOperations: boolean = false,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
@@ -65,14 +66,14 @@ export class PublicPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
-    blockNumber: number,
+    timestamp: UInt64,
   ): PublicPersistableStateManager {
     return new PublicPersistableStateManager(
       treesDB,
       contractsDB,
       trace,
       firstNullifier,
-      blockNumber,
+      timestamp,
       doMerkleOperations,
     );
   }
@@ -87,7 +88,7 @@ export class PublicPersistableStateManager {
       this.contractsDB,
       this.trace.fork(),
       this.firstNullifier,
-      this.blockNumber,
+      this.timestamp,
       this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
@@ -335,7 +336,7 @@ export class PublicPersistableStateManager {
    */
   public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
     this.log.trace(`Getting contract instance for address ${contractAddress}`);
-    const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
+    const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
@@ -352,7 +353,7 @@ export class PublicPersistableStateManager {
 
     // This will decide internally whether to check the nullifier tree or not depending on doMerkleOperations.
     const nullifierExistsInTree = await this.checkNullifierExists(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
     );
     assert(
@@ -386,7 +387,7 @@ export class PublicPersistableStateManager {
         instance.address,
       );
       const readDeployerStorage = async (storageSlot: Fr) =>
-        await this.readStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
+        await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
       const hash = await readDeployerStorage(sharedMutableHashSlot);
       const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readDeployerStorage);
@@ -413,7 +414,7 @@ export class PublicPersistableStateManager {
       );
 
       // We now check that, depending on the current block, the current class id is correct.
-      const expectedClassIdRaw = sharedMutableValues.svc.getCurrentAt(this.blockNumber).at(0)!;
+      const expectedClassIdRaw = sharedMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
       const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
       assert(
         instance.currentContractClassId.equals(expectedClassId),
@@ -492,8 +493,8 @@ export class PublicPersistableStateManager {
 function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
   return (
     contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))

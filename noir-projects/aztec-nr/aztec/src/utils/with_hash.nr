@@ -55,7 +55,7 @@ where
         address: AztecAddress,
         storage_slot: Field,
     ) -> T {
-        let historical_block_number = header.global_variables.block_number as u32;
+        let historical_block_number = header.global_variables.block_number;
 
         // We could simply produce historical inclusion proofs for each field in `packed`, but that would require one
         // full sibling path per storage slot (since due to kernel siloing the storage is not contiguous). Instead, we
@@ -170,7 +170,7 @@ mod test {
         );
 
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.advance_block_by(1);
+        env.mine_block();
 
         let result = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,
@@ -185,7 +185,7 @@ mod test {
     unconstrained fn test_bad_hint_uninitialized_value() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_to(6);
+        env.mine_block();
 
         let value_packed = MockStruct { a: 1, b: 1 }.pack();
 
@@ -195,7 +195,7 @@ mod test {
         // Mock the oracle to return a non-zero hint/packed value
         let _ = OracleMock::mock("storageRead")
             .with_params((
-                address.to_field(), storage_slot, block_header.global_variables.block_number as u32,
+                address.to_field(), storage_slot, block_header.global_variables.block_number,
                 value_packed.len(),
             ))
             .returns(value_packed)
@@ -228,7 +228,7 @@ mod test {
         );
 
         // We advance block by 1 because env.private() currently returns context at latest_block - 1
-        env.advance_block_by(1);
+        env.mine_block();
 
         let _ = WithHash::<MockStruct, _>::historical_public_storage_read(
             env.private().historical_header,

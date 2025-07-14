@@ -7,17 +7,21 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract PendingNoteHashes {
     // Libs
+    use dep::aztec::{
+        context::PrivateContext,
+        note::note_getter_options::NoteGetterOptions,
+        state_vars::{Map, PrivateSet},
+    };
     use dep::aztec::macros::{functions::private, storage::storage};
     use dep::aztec::messages::logs::note::encode_and_encrypt_note;
     use dep::aztec::note::note_emission::NoteEmission;
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateContext, PrivateSet,
-    };
     use dep::aztec::protocol_types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
     };
     use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
-    use aztec::protocol_types::traits::ToField;
+    use aztec::protocol_types::{
+        abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
+    };
 
     #[storage]
     struct Storage<Context> {

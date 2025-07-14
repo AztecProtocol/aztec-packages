@@ -26,9 +26,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
-    transcript->enable_manifest();
-    ipa_transcript->enable_manifest();
+    ipa_transcript->load_proof(proof.ipa_proof);
     transcript->load_proof(proof.pre_ipa_proof);
 
     VerifierCommitments commitments{ key };
@@ -55,9 +53,13 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
+    // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
+    //  i = 0, ..., NUM_SUBRELATIONS- 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript);
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript, alpha);
+
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -68,7 +70,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -88,7 +90,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_verification_key->get_g1_identity(),
+                                               key->pcs_verification_key.get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
@@ -115,7 +117,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // Construct and verify the combined opening claim
     const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
+        Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);

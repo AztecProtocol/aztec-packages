@@ -7,7 +7,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -26,6 +26,7 @@ import { NoteDataProvider } from '../storage/note_data_provider/note_data_provid
 import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 import { PXEOracleInterface } from './pxe_oracle_interface.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
@@ -486,7 +487,7 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was stored
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, contractAddress });
       expect(notes).toHaveLength(1);
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
@@ -536,7 +537,7 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was removed
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, contractAddress });
       expect(notes).toHaveLength(0);
     });
 
@@ -606,9 +607,92 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was stored and not removed
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, status: NoteStatus.ACTIVE });
+      const notes = await noteDataProvider.getNotes({
+        recipient: recipient.address,
+        contractAddress,
+        status: NoteStatus.ACTIVE,
+      });
       expect(notes).toHaveLength(1);
       expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+    });
+  });
+
+  describe('bulkRetrieveLogs', () => {
+    const unsiloedTag = Fr.random();
+    const REQUEST_SLOT = Fr.random();
+    const RESPONSE_SLOT = Fr.random();
+
+    beforeEach(() => {
+      aztecNode.getLogsByTags.mockReset();
+      aztecNode.getTxEffect.mockReset();
+    });
+
+    it('returns no logs if none are found', async () => {
+      aztecNode.getLogsByTags.mockResolvedValue([[]]);
+
+      const request = new LogRetrievalRequest(contractAddress, unsiloedTag);
+
+      await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
+      await pxeOracleInterface.bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+
+      expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
+
+      const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
+      expect(responses.length).toEqual(1);
+
+      // Check Option::none
+      expect(responses[0][0]).toEqual(new Fr(0)); // TODO: deserialize into option and check properly
+    });
+
+    it('returns a public log if one is found', async () => {
+      const scopedLog = await TxScopedL2Log.random(true);
+      (scopedLog.log as PublicLog).contractAddress = contractAddress;
+
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+      const indexedTxEffect = await randomIndexedTxEffect();
+
+      aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
+        txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
+      );
+
+      const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
+
+      await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
+      await pxeOracleInterface.bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+
+      expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
+
+      const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
+      expect(responses.length).toEqual(1);
+
+      // Check Option::some
+      expect(responses[0][0]).toEqual(new Fr(1)); // TODO: deserialize into option and check properly
+    });
+
+    it('returns a private log if one is found', async () => {
+      const scopedLog = await TxScopedL2Log.random(false);
+      scopedLog.log.fields[0] = await siloPrivateLog(contractAddress, Fr.random());
+
+      aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+      const indexedTxEffect = await randomIndexedTxEffect();
+      aztecNode.getTxEffect.mockResolvedValue(indexedTxEffect);
+
+      aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
+        txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
+      );
+
+      const request = new LogRetrievalRequest(contractAddress, scopedLog.log.fields[0]);
+
+      await capsuleDataProvider.setCapsuleArray(contractAddress, REQUEST_SLOT, [request.toFields()]);
+      await pxeOracleInterface.bulkRetrieveLogs(contractAddress, REQUEST_SLOT, RESPONSE_SLOT);
+
+      expect((await capsuleDataProvider.readCapsuleArray(contractAddress, REQUEST_SLOT)).length).toEqual(0);
+
+      const responses = await capsuleDataProvider.readCapsuleArray(contractAddress, RESPONSE_SLOT);
+      expect(responses.length).toEqual(1);
+
+      // Check Option::some
+      expect(responses[0][0]).toEqual(new Fr(1)); // TODO: deserialize into option and check properly
     });
   });
 
@@ -743,7 +827,7 @@ describe('PXEOracleInterface', () => {
 
     beforeEach(async () => {
       // Check that there are no notes in the database
-      const notes = await noteDataProvider.getNotes({});
+      const notes = await noteDataProvider.getNotes({ contractAddress });
       expect(notes).toHaveLength(0);
 
       // Check that the expected number of accounts is present
@@ -856,7 +940,7 @@ describe('PXEOracleInterface', () => {
   const setSyncedBlockNumber = (blockNumber: number) => {
     return syncDataProvider.setHeader(
       BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
+        globalVariables: GlobalVariables.empty({ blockNumber }),
       }),
     );
   };

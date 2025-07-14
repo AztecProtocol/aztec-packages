@@ -10,6 +10,7 @@ import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { TXEArchiver } from './archiver.js';
 import { DummyP2P } from './dummy_p2p_client.js';
 import { TXEGlobalVariablesBuilder } from './global_variable_builder.js';
+import { MockEpochCache } from './mock_epoch_cache.js';
 import { TXESynchronizer } from './synchronizer.js';
 
 export class TXEStateMachine {
@@ -38,10 +39,13 @@ export class TXEStateMachine {
       synchronizer,
       undefined,
       undefined,
+      undefined,
+      undefined,
       // version and chainId should match the ones in txe oracle
       1,
       1,
       new TXEGlobalVariablesBuilder(),
+      new MockEpochCache(),
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       undefined,
@@ -58,9 +62,9 @@ export class TXEStateMachine {
         {
           block,
           l1: {
-            blockHash: block.header.globalVariables.blockNumber.toNumber().toString(),
-            blockNumber: block.header.globalVariables.blockNumber.toBigInt(),
-            timestamp: block.header.globalVariables.blockNumber.toBigInt(),
+            blockHash: block.header.globalVariables.blockNumber.toString(),
+            blockNumber: BigInt(block.header.globalVariables.blockNumber),
+            timestamp: block.header.globalVariables.timestamp,
           },
           attestations: [],
         },

@@ -18,7 +18,6 @@ pub contract AvmTest {
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
-    use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
@@ -31,6 +30,7 @@ pub contract AvmTest {
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
+    use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
@@ -198,6 +198,13 @@ pub contract AvmTest {
         } else {
             y
         }
+    }
+
+    #[public]
+    fn bitwise_ops(x: u32, y: u32) -> u32 {
+        let mut result = x & y;
+        result = result | x;
+        result ^ y
     }
 
     /************************************************************************
@@ -393,7 +400,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_block_number() -> Field {
+    fn get_block_number() -> u32 {
         context.block_number()
     }
 
@@ -404,12 +411,12 @@ pub contract AvmTest {
 
     #[public]
     fn get_fee_per_l2_gas() -> u128 {
-        context.fee_per_l2_gas()
+        context.base_fee_per_l2_gas()
     }
 
     #[public]
     fn get_fee_per_da_gas() -> u128 {
-        context.fee_per_da_gas()
+        context.base_fee_per_da_gas()
     }
 
     #[public]
@@ -608,6 +615,17 @@ pub contract AvmTest {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
     }
 
+    // function with large array as calldata (for benchmarking call interface macros)
+    #[public]
+    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+        // do nothing and return...
+        5
+    }
+    #[public]
+    fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
+        AvmTest::at(context.this_address()).fn_w_large_calldata(arr).call(&mut context)
+    }
+
     /**
      * Enqueue a public call from private
      */
@@ -632,6 +650,9 @@ pub contract AvmTest {
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
     ) {
+        dep::aztec::oracle::debug_log::debug_log("biwise_ops");
+        let num = get_block_number();
+        let _ = bitwise_ops(num, num);
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");

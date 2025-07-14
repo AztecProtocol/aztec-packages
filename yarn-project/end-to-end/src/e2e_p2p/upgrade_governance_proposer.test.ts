@@ -49,7 +49,8 @@ describe('e2e_p2p_governance_proposer', () => {
         listenAddress: '127.0.0.1',
         governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
-        minimumStake: 10n ** 22n,
+        depositAmount: 10n ** 22n,
+        minimumStake: 5n ** 22n,
       },
     });
 
@@ -122,17 +123,17 @@ describe('e2e_p2p_governance_proposer', () => {
       const slot = await rollup.getSlotNumber();
       const round = await governanceProposer.read.computeRound([slot]);
 
-      const info = await governanceProposer.read.rounds([
+      const info = await governanceProposer.read.getRoundData([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
       const leaderVotes = await governanceProposer.read.yeaCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info[1],
+        info.leader,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info[1]} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.leader} have ${leaderVotes} votes`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -173,7 +174,7 @@ describe('e2e_p2p_governance_proposer', () => {
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
       ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
     );
-    t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
+    t.logger.info(`Warping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
     await waitL1Block();

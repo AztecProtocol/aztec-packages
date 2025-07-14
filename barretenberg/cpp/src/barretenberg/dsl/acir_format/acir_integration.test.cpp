@@ -61,18 +61,19 @@ class AcirIntegrationTest : public ::testing::Test {
         using Verifier = UltraVerifier_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
 
-        Prover prover{ builder };
+        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        Prover prover{ proving_key, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
         info("num gates          = ", builder.get_estimated_num_finalized_gates());
         info("total circuit size = ", builder.get_estimated_total_circuit_size());
-        info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
-        info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
+        info("circuit size       = ", prover.proving_key->dyadic_size());
+        info("log circuit size   = ", prover.proving_key->log_dyadic_size());
 #endif
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }
@@ -136,16 +137,16 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
-                         testing::Values("1327_concrete_in_generic",
-                                         "1_mul",
-                                         "2_div",
-                                         "3_add",
-                                         "4_sub",
-                                         "5_over",
-                                         "6",
-                                         "6_array",
-                                         "7",
-                                         "7_function",
+                         testing::Values("a_1327_concrete_in_generic",
+                                         "a_1_mul",
+                                         "a_2_div",
+                                         "a_3_add",
+                                         "a_4_sub",
+                                         "a_5_over",
+                                         "a_6",
+                                         "a_6_array",
+                                         "a_7",
+                                         "a_7_function",
                                          "aes128_encrypt",
                                          "arithmetic_binary_operations",
                                          "array_dynamic",

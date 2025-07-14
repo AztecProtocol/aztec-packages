@@ -18,6 +18,10 @@ impl<let N: u32> Reader<N> {
         self.read() as u32
     }
 
+    pub fn read_u64(&mut self) -> u64 {
+        self.read() as u64
+    }
+
     pub fn read_bool(&mut self) -> bool {
         self.read() != 0
     }
@@ -48,6 +52,6 @@ impl<let N: u32> Reader<N> {
     }
 
     pub fn finish(self) {
-        assert(self.offset == self.data.len(), "Reader did not read all data");
+        assert_eq(self.offset, self.data.len(), "Reader did not read all data");
     }
 }

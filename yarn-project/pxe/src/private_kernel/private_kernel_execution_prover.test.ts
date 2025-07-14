@@ -1,11 +1,17 @@
-import { MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASHES_PER_TX, VK_TREE_HEIGHT } from '@aztec/constants';
-import { makeTuple } from '@aztec/foundation/array';
+import {
+  MAX_INCLUDE_BY_TIMESTAMP_DURATION,
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  ClaimedLengthArray,
   NoteHash,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
@@ -31,6 +37,8 @@ describe('Private Kernel Sequencer', () => {
   let dependencies: { [name: string]: string[] } = {};
 
   const contractAddress = AztecAddress.fromBigInt(987654n);
+  const blockTimestamp = 12345n;
+  const includeByTimestamp = blockTimestamp + BigInt(MAX_INCLUDE_BY_TIMESTAMP_DURATION);
 
   const notesAndSlots: NoteAndSlot[] = Array(10)
     .fill(null)
@@ -46,13 +54,13 @@ describe('Private Kernel Sequencer', () => {
 
   const createCallExecutionResult = (fnName: string, newNoteIndices: number[] = []): PrivateCallExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.noteHashes = makeTuple(
-      MAX_NOTE_HASHES_PER_CALL,
-      i =>
-        i < newNoteIndices.length
-          ? new NoteHash(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), 0)
-          : NoteHash.empty(),
-      0,
+    publicInputs.noteHashes = new ClaimedLengthArray(
+      padArrayEnd(
+        newNoteIndices.map(newNoteIndex => new NoteHash(generateFakeCommitment(notesAndSlots[newNoteIndex]), 0)),
+        NoteHash.empty(),
+        MAX_NOTE_HASHES_PER_CALL,
+      ),
+      newNoteIndices.length,
     );
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
     publicInputs.callContext.contractAddress = contractAddress;
@@ -65,6 +73,7 @@ describe('Private Kernel Sequencer', () => {
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
+      [],
       (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
     );
@@ -72,14 +81,19 @@ describe('Private Kernel Sequencer', () => {
 
   const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
-    for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
-        contractAddress,
-      );
-    }
+    publicInputs.constants.historicalHeader.globalVariables.timestamp = blockTimestamp;
+    publicInputs.includeByTimestamp = includeByTimestamp;
+    publicInputs.end.noteHashes = new ClaimedLengthArray(
+      padArrayEnd(
+        newNoteIndices.map(newNoteIndex =>
+          new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndex]), 0).scope(contractAddress),
+        ),
+        ScopedNoteHash.empty(),
+        MAX_NOTE_HASHES_PER_TX,
+      ),
+      newNoteIndices.length,
+    );
 
-    publicInputs.end.noteHashes = noteHashes;
     return {
       publicInputs,
       verificationKey: VerificationKeyData.empty(),
@@ -90,11 +104,11 @@ describe('Private Kernel Sequencer', () => {
 
   const simulateProofOutputFinal = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, () => Fr.ZERO);
-    for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]);
-    }
-    publicInputs.forRollup!.end.noteHashes = noteHashes;
+    publicInputs.forRollup!.end.noteHashes = padArrayEnd(
+      newNoteIndices.map(newNoteIndex => generateFakeSiloedCommitment(notesAndSlots[newNoteIndex])),
+      Fr.ZERO,
+      MAX_NOTE_HASHES_PER_TX,
+    );
 
     return {
       publicInputs,

@@ -8,7 +8,7 @@ import {
   createLogger,
   sleep,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
@@ -43,7 +43,7 @@ import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import {
   type BalancesFn,
   type SetupOptions,
-  ensureAccountsPubliclyDeployed,
+  ensureAccountContractsPublished,
   getBalancesFn,
   setupSponsoredFPC,
 } from '../fixtures/utils.js';
@@ -125,7 +125,7 @@ export class FeesTest {
     await context.aztecNode.setConfig({ feeRecipient: this.sequencerAddress, coinbase: this.coinbase });
 
     const rollupContract = RollupContract.getFromConfig(context.aztecNodeConfig);
-    this.chainMonitor = new ChainMonitor(rollupContract, this.logger, 200).start();
+    this.chainMonitor = new ChainMonitor(rollupContract, context.dateProvider, this.logger, 200).start();
 
     return this;
   }
@@ -216,7 +216,7 @@ export class FeesTest {
 
   async applyPublicDeployAccountsSnapshot() {
     await this.snapshotManager.snapshot('public_deploy_accounts', () =>
-      ensureAccountsPubliclyDeployed(this.aliceWallet, this.wallets),
+      ensureAccountContractsPublished(this.aliceWallet, this.wallets),
     );
   }
 
@@ -271,7 +271,7 @@ export class FeesTest {
       'fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const bananaCoin = this.bananaCoin;
         const bananaFPC = await FPCContract.deploy(this.aliceWallet, bananaCoin.address, this.fpcAdmin)
@@ -325,7 +325,7 @@ export class FeesTest {
           // We round up
           const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
 
-          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp.toBigInt());
+          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp);
           const proverCost =
             mulDiv(
               mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),
@@ -347,7 +347,7 @@ export class FeesTest {
       'sponsored_fpc_setup',
       async context => {
         const feeJuiceContract = this.feeJuiceBridgeTestHarness.feeJuice;
-        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPubliclyDeployed).toBe(true);
+        expect((await context.pxe.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
         const sponsoredFPC = await setupSponsoredFPC(context.pxe);
         this.logger.info(`SponsoredFPC at ${sponsoredFPC.address}`);

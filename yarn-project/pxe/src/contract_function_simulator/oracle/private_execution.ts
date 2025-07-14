@@ -23,7 +23,8 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
+import { BlockHeader, PrivateCallExecutionResult } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { Oracle } from './oracle.js';
@@ -31,6 +32,11 @@ import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
 /**
  * Execute a private function and return the execution result.
+ * This does not execute any kernel circuits; only the user functions.
+ *
+ * If this private function execution results in any nested private function calls,
+ * those nested calls are made via oracle calls to the `callPrivateFunction` oracle,
+ * which in turn makes corresponding further calls to this function.
  */
 export async function executePrivateFunction(
   simulator: CircuitSimulator,
@@ -81,15 +87,16 @@ export async function executePrivateFunction(
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
-  const nestedExecutions = privateExecutionOracle.getNestedExecutions();
+  const offchainEffects = privateExecutionOracle.getOffchainEffects();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
-  let timerSubtractionList = nestedExecutions;
+  let timerSubtractionList = nestedExecutionResults;
   let witgenTime = duration;
 
   // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
   while (timerSubtractionList.length > 0) {
     witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
-    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutions ?? []);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutionResults ?? []);
   }
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
@@ -103,7 +110,8 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
-    nestedExecutions,
+    offchainEffects,
+    nestedExecutionResults,
     contractClassLogs,
     {
       timings: {
@@ -138,31 +146,67 @@ export function extractPrivateCircuitPublicInputs(
   return PrivateCircuitPublicInputs.fromFields(returnData);
 }
 
+/**
+ * Read the current class id of a contract from the execution data provider or AztecNode. If not found, class id
+ * from the instance is used.
+ * @param contractAddress - The address of the contract to read the class id for.
+ * @param instance - The instance of the contract.
+ * @param executionDataProvider - The execution data provider.
+ * @param blockNumber - The block number at which to load the SharedMutable storing the class id.
+ * @param timestamp - The timestamp at which to obtain the class id from the SharedMutable.
+ * @returns The current class id.
+ */
 export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
   executionDataProvider: ExecutionDataProvider | AztecNode,
   blockNumber: number,
+  timestamp: UInt64,
 ) {
   const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
-    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceDeployer, slot),
+    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceRegistry, slot),
   );
-  let currentClassId = sharedMutableValues.svc.getCurrentAt(blockNumber)[0];
+  let currentClassId = sharedMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }
   return currentClassId;
 }
 
+/**
+ * Verify that the current class id of a contract obtained from AztecNode is the same as the one in the execution data
+ * provider (i.e. PXE).
+ * @param contractAddress - The address of the contract to verify class id for.
+ * @param executionDataProvider - The execution data provider.
+ * @param header - The header of the block at which to verify the current class id. If not provided, the current block
+ * number and timestamp from the execution data provider will be used.
+ */
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
-  blockNumber?: number,
+  header?: BlockHeader,
 ) {
+  let blockNumber: number;
+  let timestamp: UInt64;
+  if (header) {
+    blockNumber = header.globalVariables.blockNumber;
+    timestamp = header.globalVariables.timestamp;
+  } else {
+    [blockNumber, timestamp] = await Promise.all([
+      executionDataProvider.getBlockNumber(),
+      executionDataProvider.getTimestamp(),
+    ]);
+  }
+
   const instance = await executionDataProvider.getContractInstance(contractAddress);
-  blockNumber = blockNumber ?? (await executionDataProvider.getBlockNumber());
-  const currentClassId = await readCurrentClassId(contractAddress, instance, executionDataProvider, blockNumber);
+  const currentClassId = await readCurrentClassId(
+    contractAddress,
+    instance,
+    executionDataProvider,
+    blockNumber,
+    timestamp,
+  );
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(
       `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,

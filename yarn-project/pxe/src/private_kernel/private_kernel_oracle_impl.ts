@@ -22,10 +22,10 @@ import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.
+
 /**
  * A data oracle that provides information needed for simulating a transaction.
  */
-
 export class PrivateKernelOracleImpl implements PrivateKernelOracle {
   constructor(
     private contractDataProvider: ContractDataProvider,
@@ -103,7 +103,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
       await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
 
     const hashLeafSlot = await computePublicDataTreeLeafSlot(
-      ProtocolContractAddress.ContractInstanceDeployer,
+      ProtocolContractAddress.ContractInstanceRegistry,
       sharedMutableHashSlot,
     );
     const updatedClassIdWitness = await this.node.getPublicDataWitness(this.blockNumber, hashLeafSlot);
@@ -113,7 +113,7 @@ export class PrivateKernelOracleImpl implements PrivateKernelOracle {
     }
 
     const readStorage = (storageSlot: Fr) =>
-      this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
+      this.node.getPublicStorageAt(this.blockNumber, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
     const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readStorage);
 
     return new UpdatedClassIdHints(

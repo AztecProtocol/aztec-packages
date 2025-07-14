@@ -8,12 +8,12 @@ use dep::aztec::macros::aztec;
 pub contract AppSubscription {
     use crate::{config::Config, dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
-    use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
+        authwit::auth::assert_current_call_valid_authwit,
         macros::{functions::{initializer, private, public, utility}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
-        protocol_types::{constants::MAX_FIELD_VALUE, traits::ToField},
+        protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
+        state_vars::{Map, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
@@ -25,17 +25,19 @@ pub contract AppSubscription {
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
     }
 
-    global SUBSCRIPTION_DURATION_IN_BLOCKS: Field = 5;
-    global SUBSCRIPTION_TXS: Field = 5;
+    global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
+    global SUBSCRIPTION_TXS: u32 = 5;
 
     #[private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
         assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
-        assert_current_call_valid_authwit(&mut context, user_address);
+        // This function takes a generic argument that corresponds to the number of params
+        // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
+        assert_current_call_valid_authwit::<2>(&mut context, user_address);
 
         let mut note = storage.subscriptions.at(user_address).get_note().note;
-        assert(note.remaining_txs as u64 > 0, "you're out of txs");
+        assert(note.remaining_txs > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
 
@@ -85,10 +87,10 @@ pub contract AppSubscription {
     fn subscribe(
         subscriber: AztecAddress,
         authwit_nonce: Field,
-        expiry_block_number: Field,
-        tx_count: Field,
+        expiry_block_number: u32,
+        tx_count: u32,
     ) {
-        assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
+        assert(tx_count <= SUBSCRIPTION_TXS);
 
         let config = storage.config.read();
 

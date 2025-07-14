@@ -7,13 +7,14 @@ import {
   L1TxUtils,
   type Operator,
   RollupContract,
+  type ViemClient,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
@@ -22,7 +23,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
-import { getContract } from 'viem';
+import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
@@ -99,8 +100,9 @@ export class P2PNetworkTest {
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-        aztecProofSubmissionWindow:
-          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecProofSubmissionEpochs:
+          initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+        aztecTargetCommitteeSize: numberOfNodes,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
@@ -111,10 +113,13 @@ export class P2PNetworkTest {
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
-        aztecProofSubmissionWindow:
-          initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecProofSubmissionEpochs:
+          initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+        aztecTargetCommitteeSize: numberOfNodes,
         initialValidators: [],
-        mockZkPassportVerifier,
+        zkPassportArgs: {
+          mockZkPassportVerifier,
+        },
       },
     );
   }
@@ -227,7 +232,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.minimumStake * BigInt(this.numberOfNodes);
+        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfNodes);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -249,7 +254,7 @@ export class P2PNetworkTest {
           ]),
         });
 
-        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n);
+        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);
@@ -330,7 +335,8 @@ export class P2PNetworkTest {
     const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
     this.prefilledPublicData = prefilledPublicData;
 
-    this.monitor = new ChainMonitor(RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues)).start();
+    const rollupContract = RollupContract.getFromL1ContractsValues(this.ctx.deployL1ContractsValues);
+    this.monitor = new ChainMonitor(rollupContract, this.ctx.dateProvider).start();
     this.monitor.on('l1-block', ({ timestamp }) => this.ctx.dateProvider.setTime(Number(timestamp) * 1000));
   }
 
@@ -351,5 +357,41 @@ export class P2PNetworkTest {
     await this.monitor.stop();
     await tryStop(this.bootstrapNode, this.logger);
     await this.snapshotManager.teardown();
+  }
+
+  async getContracts(): Promise<{
+    rollup: RollupContract;
+    slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
+    slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+    slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
+  }> {
+    if (!this.ctx.deployL1ContractsValues) {
+      throw new Error('DeployL1ContractsValues not set');
+    }
+
+    const rollup = new RollupContract(
+      this.ctx.deployL1ContractsValues!.l1Client,
+      this.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
+
+    const slasherContract = getContract({
+      address: getAddress(await rollup.getSlasher()),
+      abi: SlasherAbi,
+      client: this.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    const slashingProposer = getContract({
+      address: getAddress(await slasherContract.read.PROPOSER()),
+      abi: SlashingProposerAbi,
+      client: this.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    const slashFactory = getContract({
+      address: getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+      abi: SlashFactoryAbi,
+      client: this.ctx.deployL1ContractsValues.l1Client,
+    });
+
+    return { rollup, slasherContract, slashingProposer, slashFactory };
   }
 }

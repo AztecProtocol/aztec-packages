@@ -17,40 +17,37 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract TokenBlacklist {
     // Libs
-    use dep::aztec::{
+    use aztec::{
         hash::compute_secret_hash,
         macros::{
-            functions::{initializer, internal, private, public, utility, view},
+            functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
         messages::{
             discovery::private_notes::attempt_note_discovery,
             logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
-        prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
+        note::{
+            note_getter_options::NoteGetterOptions,
+            note_interface::{NoteHash, NoteProperties, NoteType},
+        },
+        protocol_types::traits::ToField,
+        state_vars::{Map, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
 
-    use aztec::note::note_interface::NoteHash;
-    use aztec::note::note_interface::NoteProperties;
-    use aztec::note::note_interface::NoteType;
-    use aztec::protocol_types::traits::ToField;
     use std::ops::{Add, Sub};
-
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-    };
 
     use crate::types::{
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
         transparent_note::TransparentNote,
     };
     use aztec::protocol_types::{
-        constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
+        address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
     };
 
-    // Changing an address' roles has a certain block delay before it goes into effect.
-    global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
+    // Changing an address' roles has a certain delay before it goes into effect. Here set to 1 day.
+    global CHANGE_ROLES_DELAY: u64 = 86400;
 
     #[storage]
     struct Storage<Context> {
@@ -58,7 +55,7 @@ pub contract TokenBlacklist {
         total_supply: PublicMutable<u128, Context>,
         pending_shields: PrivateSet<TransparentNote, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
 
     // docs:start:constructor
@@ -128,17 +125,11 @@ pub contract TokenBlacklist {
         context.push_note_hash(note_hash);
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn shield(from: AztecAddress, amount: u128, secret_hash: Field, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-
-        if (!from.eq(context.msg_sender())) {
-            // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
 
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
@@ -154,18 +145,13 @@ pub contract TokenBlacklist {
         context.push_note_hash(note_hash);
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
-
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
 
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -174,16 +160,11 @@ pub contract TokenBlacklist {
         storage.public_balances.at(to).write(to_balance);
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[public]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
 
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -218,18 +199,13 @@ pub contract TokenBlacklist {
         ));
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
-
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
 
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
 
@@ -239,18 +215,13 @@ pub contract TokenBlacklist {
     }
 
     // docs:start:transfer_private
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
-
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
 
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
@@ -264,16 +235,11 @@ pub contract TokenBlacklist {
         ));
     }
 
+    #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit(&mut context, from);
-        } else {
-            assert(authwit_nonce == 0, "invalid authwit nonce");
-        }
 
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
 
@@ -302,6 +268,10 @@ pub contract TokenBlacklist {
     }
 
     // docs:start:deliver_note_contract_method
+    // We cannot replace this function with the standard `process_message` function because the transparent note
+    // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
+    // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
+    // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
     #[utility]
     unconstrained fn deliver_transparent_note(
         contract_address: AztecAddress,

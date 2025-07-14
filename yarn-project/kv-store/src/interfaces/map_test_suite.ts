@@ -64,6 +64,15 @@ export function describeAztecMap(
       expect(await get('quux')).to.equal(undefined);
     });
 
+    it('should be able to set many values', async () => {
+      const pairs = Array.from({ length: 100 }, (_, i) => ({ key: `key${i}`, value: `value${i}` }));
+      await map.setMany(pairs);
+
+      for (const { key, value } of pairs) {
+        expect(await get(key)).to.equal(value);
+      }
+    });
+
     it('should be able to overwrite values', async () => {
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
@@ -126,10 +135,18 @@ export function describeAztecMap(
       expect(await keys()).to.deep.equal(['baz', 'foo']);
     });
 
+    it('should be able to iterate over string keys that represent numbers', async () => {
+      await map.set('0x22', 'bar');
+      await map.set('0x31', 'qux');
+
+      expect(await keys()).to.deep.equal(['0x22', '0x31']);
+    });
+
     for (const [name, data] of [
       ['chars', ['a', 'b', 'c', 'd']],
       ['numbers', [1, 2, 3, 4]],
-      ['negative numbers', [-4, -3, -2, -1]],
+      // disabled because indexeddb sorts lexigographically
+      // ['negative numbers', [-4, -3, -2, -1]],
       ['strings', ['aaa', 'bbb', 'ccc', 'ddd']],
       ['zero-based numbers', [0, 1, 2, 3]],
     ]) {

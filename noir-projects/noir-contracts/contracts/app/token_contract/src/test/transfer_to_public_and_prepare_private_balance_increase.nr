@@ -1,7 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 // Tests the typical scenario in which transfer_to_public_and_prepare_private_balance_increase is to be used:
 // 1. The liquidity provider calls private AMM::add_liquidity function,
@@ -27,7 +28,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // Add authwit such that the AMM can transfer the deposit amount of the liquidity provider to the public balance of
     // itself.
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
+    add_private_authwit_from_call_interface(
         liquidity_provider,
         amm_contract,
         transfer_call_interface,
@@ -47,7 +48,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // We need to advance the block by 1 for the partial note validity commitment to be committed to the nullifier
     // tree.
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Now we finalize the partial change note by impersonating the AMM contract and calling the finalize function
     // --> this should send the `change_amount` from AMM's public balance to liquidity provider's private balance
@@ -58,7 +59,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
         .finalize_transfer_to_private(change_amount, partial_note)
         .call(&mut env.public());
 
-    env.advance_block_by(1);
+    env.mine_block();
 
     // Check balances after the partial note is finalized
     utils::check_private_balance(
@@ -90,7 +91,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_failure
         .call(&mut env.private());
 }
 
-#[test(should_fail_with = "invalid authwit nonce")]
+#[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_to_public_and_prepare_private_balance_increase_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, sender, recipient, mint_amount) =

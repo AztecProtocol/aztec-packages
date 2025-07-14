@@ -21,6 +21,11 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
 pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
+    // The `include_by_timestamp` set by the wallet. The wallet should take the value aggregated during the transaction
+    // and decide whether to keep it or lower it.
+    // For example, it may round the value down to the nearest hour to improve privacy.
+    // If this value is higher than the `include_by_timestamp` requested during tx execution, it will be ignored.
+    include_by_timestamp_upper_bound: u64,
 }
 
 impl PrivateKernelTailToPublicCircuitPrivateInputs {
@@ -28,10 +33,12 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
+        include_by_timestamp_upper_bound: u64,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
             padded_side_effect_amounts,
+            include_by_timestamp_upper_bound,
         }
     }
 
@@ -39,19 +46,22 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
         TailToPublicOutputComposer::new(
             self.previous_kernel.public_inputs,
             self.padded_side_effect_amounts,
+            self.include_by_timestamp_upper_bound,
         )
             .finish()
     }
 
     pub fn execute(self) -> PrivateToPublicKernelCircuitPublicInputs {
+        // Validate inputs.
+        let mut previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+
+        previous_kernel_validator.validate_for_private_tail_to_public();
+
         // Generate output.
         // Safety: The output is validated below by TailToPublicOutputValidator.
         let output = unsafe { self.generate_output() };
-
-        // Validate inputs.
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        previous_kernel_validator.validate_for_private_tail_to_public();
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -59,6 +69,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
                 output,
                 self.previous_kernel.public_inputs,
                 self.padded_side_effect_amounts,
+                self.include_by_timestamp_upper_bound,
             )
                 .validate();
         }
@@ -96,6 +107,7 @@ mod tests {
     struct PrivateKernelTailToPublicInputsBuilder {
         previous_kernel: FixtureBuilder,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
+        include_by_timestamp_upper_bound: u64,
     }
 
     impl PrivateKernelTailToPublicInputsBuilder {
@@ -109,13 +121,18 @@ mod tests {
 
             let padded_side_effect_amounts = PaddedSideEffectAmounts::empty();
 
-            PrivateKernelTailToPublicInputsBuilder { previous_kernel, padded_side_effect_amounts }
+            PrivateKernelTailToPublicInputsBuilder {
+                previous_kernel,
+                padded_side_effect_amounts,
+                include_by_timestamp_upper_bound: previous_kernel.include_by_timestamp,
+            }
         }
 
         pub fn execute(&mut self) -> PrivateToPublicKernelCircuitPublicInputs {
             let kernel = PrivateKernelTailToPublicCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
                 padded_side_effect_amounts: self.padded_side_effect_amounts,
+                include_by_timestamp_upper_bound: self.include_by_timestamp_upper_bound,
             };
             kernel.execute()
         }

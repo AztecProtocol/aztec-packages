@@ -36,8 +36,6 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
   function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer)
     external
   {
-    vm.assume(_newWithdrawer != address(0));
-
     // it uses the new withdrawer
     vm.assume(_newWithdrawer != address(0));
 
@@ -51,7 +49,7 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(rollup, attester, _newWithdrawer);
-    stakingAssetHandler.addValidatorToQueue(attester, realProof);
+    stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
     assertEq(staking.getAttesterView(attester).config.withdrawer, _newWithdrawer);
   }
 }

@@ -37,9 +37,8 @@ describe('e2e_simple', () => {
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
         aztecEpochDuration: 4,
-        aztecProofSubmissionWindow: 8,
         aztecSlotDuration: 12,
-        ethereumSlotDuration: 4,
+        aztecTargetCommitteeSize: 0,
         startProverNode: true,
       }));
     });
@@ -53,12 +52,12 @@ describe('e2e_simple', () => {
       const sender = ownerAddress;
       const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
         contractAddressSalt: new Fr(BigInt(1)),
-        skipClassRegistration: true,
-        skipPublicDeployment: true,
+        skipClassPublication: true,
+        skipInstancePublication: true,
       });
       const tx = await provenTx.send().wait();
       await waitForProven(aztecNode, tx, {
-        provenTimeout: config.aztecProofSubmissionWindow * config.aztecSlotDuration,
+        provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
       });
       expect(tx.blockNumber).toBeDefined();
     });

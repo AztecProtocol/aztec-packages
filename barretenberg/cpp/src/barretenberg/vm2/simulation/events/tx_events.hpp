@@ -8,11 +8,21 @@
 
 namespace bb::avm2::simulation {
 
+struct TxStartupEvent {
+    Gas tx_gas_limit;
+    Gas private_gas_used;
+    TreeStates tree_state;
+};
+
 struct EnqueuedCallEvent {
-    FF msg_sender;
+    FF msg_sender; // TODO(dbanks12): order sender and address to match other functions/types
     FF contract_address;
+    FF transaction_fee;
     bool is_static;
     FF calldata_hash;
+    Gas prev_gas_used;
+    Gas gas_used;
+    Gas gas_limit;
     bool success;
 };
 
@@ -26,30 +36,28 @@ struct PrivateEmitL2L1MessageEvent {
 };
 
 struct CollectGasFeeEvent {
-    uint128_t fee_per_da_gas;
-    uint128_t fee_per_l2_gas;
-
-    uint128_t max_fee_per_da_gas;
-    uint128_t max_fee_per_l2_gas;
-
-    uint128_t max_priority_fees_per_l2_gas;
-    uint128_t max_priority_fees_per_da_gas;
+    uint128_t effective_fee_per_da_gas;
+    uint128_t effective_fee_per_l2_gas;
+    AztecAddress fee_payer;
+    FF fee_payer_balance;
+    FF fee_juice_balance_slot;
+    FF fee;
 };
 
-using TxEventType =
+using TxPhaseEventType =
     std::variant<EnqueuedCallEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
 
-struct TxEvent {
+struct TxPhaseEvent {
     TransactionPhase phase;
     TreeStates prev_tree_state;
     TreeStates next_tree_state;
-    Gas prev_gas_used;
-    Gas gas_used;
-    Gas gas_limit;
+    // TODO: Add written public data slots tree snapshot, ideally via a TxContextEvent
 
     bool reverted;
 
-    TxEventType event;
+    TxPhaseEventType event;
 };
+
+using TxEvent = std::variant<TxStartupEvent, TxPhaseEvent>;
 
 } // namespace bb::avm2::simulation

@@ -5,8 +5,7 @@
 
 // use aztec::{
 //     oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
-//     prelude::AztecAddress,
-//     protocol_types::storage::map::derive_storage_slot_in_map,
+//     protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
 //     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 // };
 
@@ -56,7 +55,7 @@
 //         .deploy("./@token_contract", "Token")
 //         .with_public_void_initializer(donation_token_initializer_call_interface);
 //     let token_contract_address = donation_token_contract.to_address();
-//     env.advance_block_by(1);
+//     env.mine_block();
 
 //     // Deploy Escrow contract with public keys
 //     let escrow_contract_initializer_call_interface =
@@ -66,13 +65,13 @@
 //         .with_private_initializer(escrow_contract_initializer_call_interface);
 //     let escrow_contract_address = escrow_contract.to_address();
 
-//     env.advance_block_by(1);
+//     env.mine_block();
 
 //     Token::at(token_contract_address)
 //         .mint_to_private(admin_and_owner, admin_and_owner, MINT_AMOUNT)
 //         .call(&mut env.private());
 
-//     env.advance_block_by(1);
+//     env.mine_block();
 
 //     let private_balance_after_mint = get_private_balance(token_contract_address, admin_and_owner);
 //     assert(private_balance_after_mint == MINT_AMOUNT);
@@ -93,7 +92,7 @@
 //     Token::at(token_contract_address).transfer(escrow_contract_address, TRANSFER_AMOUNT).call(
 //         &mut env.private(),
 //     );
-//     env.advance_block_by(1);
+//     env.mine_block();
 
 //     let balance_of_escrow_after_transfer =
 //         get_private_balance(token_contract_address, escrow_contract_address);
@@ -109,7 +108,7 @@
 //     Escrow::at(escrow_contract_address)
 //         .withdraw(token_contract_address, WITHDRAWAL_AMOUNT, account_2)
 //         .call(&mut env.private());
-//     env.advance_block_by(1);
+//     env.mine_block();
 
 //     let balance_of_account_2_after_withdrawal =
 //         get_private_balance(token_contract_address, account_2);

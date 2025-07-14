@@ -7,7 +7,7 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import { initPersistableStateManager } from '../avm/fixtures/index.js';
+import { initPersistableStateManager } from '../avm/fixtures/initializers.js';
 import {
   mockCheckNullifierExists,
   mockGetBytecodeCommitment,
@@ -126,7 +126,7 @@ describe('state_manager', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = SerializableContractInstance.default();
-      const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceDeployer, address.toField());
+      const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceRegistry, address.toField());
 
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
       mockCheckNullifierExists(treesDB, true, leafIndex);
@@ -134,10 +134,11 @@ describe('state_manager', () => {
       await persistableState.getContractInstance(address);
 
       expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
-      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address, /*blockNumber=*/ expect.any(Number));
+      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address, /*timestamp=*/ expect.any(BigInt));
       expect(treesDB.checkNullifierExists).toHaveBeenCalledTimes(1);
       expect(treesDB.checkNullifierExists).toHaveBeenCalledWith(siloedNullifier);
     });
+
     it('Can get undefined contract instance', async () => {
       await persistableState.getContractInstance(address);
     });

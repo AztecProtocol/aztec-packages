@@ -12,8 +12,6 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -26,11 +24,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bitwise = bb::avm2::bitwise<FF>;
 
-using tracegen::LookupIntoBitwise;
-using tracegen::LookupIntoIndexedByClk;
 using tracegen::PrecomputedTraceBuilder;
-using lookup_bitwise_byte_operations = bb::avm2::lookup_bitwise_byte_operations_relation<FF>;
-using lookup_bitwise_integral_tag_length = bb::avm2::lookup_bitwise_integral_tag_length_relation<FF>;
 
 TEST(BitwiseConstrainingTest, EmptyRow)
 {
@@ -46,28 +40,28 @@ TEST(BitwiseConstrainingTest, AndWithTracegen)
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from(uint1_t(1)),
           .b = MemoryValue::from(uint1_t(1)),
-          .res = MemoryValue::from(uint1_t(1)) },
+          .res = 1 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
-          .res = MemoryValue::from<uint8_t>(5) },
+          .res = 5 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint16_t>(5323),
           .b = MemoryValue::from<uint16_t>(321),
-          .res = MemoryValue::from<uint16_t>(65) },
+          .res = 65 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(4481) },
+          .res = 4481 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint64_t>(0x7bff744e3cdf79LLU),
           .b = MemoryValue::from<uint64_t>(0x14ccccccccb6LLU),
-          .res = MemoryValue::from<uint64_t>(0x14444c0ccc30LLU) },
+          .res = 0x14444c0ccc30LLU },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint128_t>((uint128_t{ 0xb900000000000001 } << 64)),
           .b = MemoryValue::from<uint128_t>((uint128_t{ 0x1006021301080000 } << 64) +
                                             uint128_t{ 0x000000000000001080876844827 }),
-          .res = MemoryValue::from<uint128_t>((uint128_t{ 0x1000000000000000 } << 64)) },
+          .res = uint128_t{ 0x1000000000000000 } << 64 }
     };
 
     builder.process(events, trace);
@@ -85,29 +79,28 @@ TEST(BitwiseConstrainingTest, OrWithTracegen)
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from(uint1_t(1)),
           .b = MemoryValue::from(uint1_t(0)),
-          .res = MemoryValue::from(uint1_t(1)) },
+          .res = 1 },
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from<uint8_t>(128),
           .b = MemoryValue::from<uint8_t>(127),
-          .res = MemoryValue::from<uint8_t>(255) },
+          .res = 255 },
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from<uint16_t>(5323),
           .b = MemoryValue::from<uint16_t>(321),
-          .res = MemoryValue::from<uint16_t>(5579) },
+          .res = 5579 },
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(10599929) },
+          .res = 10599929 },
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from<uint64_t>(0x7bff744e3cdf79LLU),
           .b = MemoryValue::from<uint64_t>(0x14ccccccccb6LLU),
-          .res = MemoryValue::from<uint64_t>(0x7bfffccefcdfffLLU) },
+          .res = 0x7bfffccefcdfffLLU },
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from<uint128_t>((uint128_t{ 0xb900000000000000 } << 64)),
           .b = MemoryValue::from<uint128_t>((uint128_t{ 0x1006021301080000 } << 64) +
                                             uint128_t{ 0x000000000000001080876844827 }),
-          .res =
-              MemoryValue::from<uint128_t>((uint128_t{ 0xb906021301080000 } << 64) + uint128_t{ 0x0001080876844827 }) },
+          .res = (uint128_t{ 0xb906021301080000 } << 64) + uint128_t{ 0x0001080876844827 } },
     };
 
     builder.process(events, trace);
@@ -126,29 +119,28 @@ TEST(BitwiseConstrainingTest, XorWithTracegen)
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from(uint1_t(1)),
           .b = MemoryValue::from(uint1_t(1)),
-          .res = MemoryValue::from(uint1_t(0)) },
+          .res = 0 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
-          .res = MemoryValue::from<uint8_t>(250) },
+          .res = 250 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint16_t>(5323),
           .b = MemoryValue::from<uint16_t>(321),
-          .res = MemoryValue::from<uint16_t>(5514) },
+          .res = 5514 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(10595448) },
+          .res = 10595448 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint64_t>(0x7bff744e3cdf79LLU),
           .b = MemoryValue::from<uint64_t>(0x14ccccccccb6LLU),
-          .res = MemoryValue::from<uint64_t>(0x7bebb882f013cfLLU) },
+          .res = 0x7bebb882f013cfLLU },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint128_t>((uint128_t{ 0xb900000000000001 } << 64)),
           .b = MemoryValue::from<uint128_t>((uint128_t{ 0x1006021301080000 } << 64) +
                                             uint128_t{ 0x000000000000001080876844827 }),
-          .res =
-              MemoryValue::from<uint128_t>((uint128_t{ 0xa906021301080001 } << 64) + uint128_t{ 0x0001080876844827 }) },
+          .res = (uint128_t{ 0xa906021301080001 } << 64) + uint128_t{ 0x0001080876844827 } },
     };
 
     builder.process(events, trace);
@@ -165,27 +157,27 @@ TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from(uint1_t(1)),
           .b = MemoryValue::from(uint1_t(0)),
-          .res = MemoryValue::from(uint1_t(1)) },
+          .res = 1 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(4481) },
+          .res = 4481 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint16_t>(5323),
           .b = MemoryValue::from<uint16_t>(321),
-          .res = MemoryValue::from<uint16_t>(5514) },
+          .res = 5514 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(10595448) },
+          .res = 10595448 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
-          .res = MemoryValue::from<uint8_t>(5) },
+          .res = 5 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
-          .res = MemoryValue::from<uint8_t>(5) },
+          .res = 5 },
     };
 
     builder.process(events, trace);
@@ -382,37 +374,145 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from(uint1_t(1)),
           .b = MemoryValue::from(uint1_t(0)),
-          .res = MemoryValue::from(uint1_t(1)) },
+          .res = 1 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(4481) },
+          .res = 4481 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint16_t>(5323),
           .b = MemoryValue::from<uint16_t>(321),
-          .res = MemoryValue::from<uint16_t>(5514) },
+          .res = 5514 },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
-          .res = MemoryValue::from<uint32_t>(10595448) },
+          .res = 10595448 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
-          .res = MemoryValue::from<uint8_t>(5) },
+          .res = 5 },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
-          .res = MemoryValue::from<uint8_t>(5) },
+          .res = 5 },
     };
 
     builder.process(events, trace);
 
     precomputed_builder.process_misc(trace, 256 * 256 * 3);
     precomputed_builder.process_bitwise(trace);
-    precomputed_builder.process_integral_tag_length(trace);
+    precomputed_builder.process_tag_parameters(trace);
 
-    LookupIntoBitwise<lookup_bitwise_byte_operations::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length::Settings>().process(trace);
+    check_all_interactions<BitwiseTraceBuilder>(trace);
+    check_relation<bitwise>(trace);
+}
+
+TEST(BitwiseConstrainingTest, BitwiseExecInteraction)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({ {
+        // Bitwise Entry
+        .bitwise_acc_ia = 0x01,
+        .bitwise_acc_ib = 0x01,
+        .bitwise_acc_ic = 0x00,
+        .bitwise_err = 1,
+        .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        .bitwise_sel = 1,
+        .bitwise_tag_a = static_cast<uint8_t>(ValueTag::FF),
+        .bitwise_tag_b = static_cast<uint8_t>(ValueTag::U8),
+        .bitwise_tag_c = static_cast<uint8_t>(ValueTag::U8),
+
+        // Execution Entry
+        .execution_mem_tag_reg_0_ = static_cast<uint8_t>(ValueTag::FF),
+        .execution_mem_tag_reg_1_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_mem_tag_reg_2_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_register_0_ = 0x01,
+        .execution_register_1_ = 0x01,
+        .execution_register_2_ = 0x00,
+        .execution_sel_bitwise = 1,
+        .execution_sel_opcode_error = 1,
+        .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
+    } });
+
+    check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace);
+}
+
+TEST(BitwiseConstrainingTest, InvalidBitwiseExecInteraction)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({ {
+        // Bitwise Entry
+        .bitwise_acc_ia = 0x01,
+        .bitwise_acc_ib = 0x01,
+        .bitwise_acc_ic = 0x00,
+        .bitwise_op_id = static_cast<uint8_t>(BitwiseOperation::AND),
+        .bitwise_sel = 1,
+        .bitwise_tag_a = static_cast<uint8_t>(ValueTag::U8),
+        .bitwise_tag_b = static_cast<uint8_t>(ValueTag::U8),
+        .bitwise_tag_c = static_cast<uint8_t>(ValueTag::U8),
+
+        // Execution Entry
+        .execution_mem_tag_reg_0_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_mem_tag_reg_1_ = static_cast<uint8_t>(ValueTag::U16), // Mismatch
+        .execution_mem_tag_reg_2_ = static_cast<uint8_t>(ValueTag::U8),
+        .execution_register_0_ = 0x01,
+        .execution_register_1_ = 0x01,
+        .execution_register_2_ = 0x00,
+        .execution_sel_bitwise = 1,
+        .execution_subtrace_operation_id = static_cast<uint8_t>(BitwiseOperation::AND),
+    } });
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<BitwiseTraceBuilder, lookup_bitwise_dispatch_exec_bitwise_settings>(trace)),
+        "Failed.*BITWISE_DISPATCH_EXEC_BITWISE. Could not find tuple in destination.");
+}
+
+TEST(BitwiseConstrainingTest, ErrorHandlingInputFF)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::XOR,
+          .a = MemoryValue::from_tag(ValueTag::FF, 1),
+          .b = MemoryValue::from_tag(ValueTag::FF, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+    precomputed_builder.process_bitwise(trace);
+    precomputed_builder.process_tag_parameters(trace);
+
+    check_relation<bitwise>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ErrorHandlingInputTagMismatch)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from_tag(ValueTag::U8, 1),
+          .b = MemoryValue::from_tag(ValueTag::U16, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
+
+    check_relation<bitwise>(trace);
+    check_all_interactions<BitwiseTraceBuilder>(trace);
+}
+
+TEST(BitwiseConstrainingTest, ErrorHandlingMultiple)
+{
+    TestTraceContainer trace;
+    BitwiseTraceBuilder builder;
+
+    std::vector<simulation::BitwiseEvent> events = {
+        { .operation = BitwiseOperation::AND,
+          .a = MemoryValue::from_tag(ValueTag::FF, 1),
+          .b = MemoryValue::from_tag(ValueTag::U32, 1),
+          .res = 0 },
+    };
+    builder.process(events, trace);
 
     check_relation<bitwise>(trace);
 }

@@ -1,5 +1,6 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -15,9 +16,10 @@ import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';
+import { type MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from './mock-pubsub.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from './reqresp-nodes.js';
 
-interface MakeTestP2PClientOptions {
+export interface MakeTestP2PClientOptions {
   mockAttestationPool: AttestationPool;
   mockTxPool: TxPool;
   mockEpochCache: EpochCache;
@@ -26,6 +28,7 @@ interface MakeTestP2PClientOptions {
   p2pBaseConfig: P2PConfig;
   p2pConfigOverrides?: Partial<P2PConfig>;
   logger?: Logger;
+  mockGossipSubNetwork?: MockGossipSubNetwork;
 }
 
 /**
@@ -68,6 +71,7 @@ export async function makeTestP2PClient(
     mockTxPool,
     mockEpochCache,
     mockWorldState,
+    mockGossipSubNetwork,
     logger = createLogger('p2p-test-client'),
   }: MakeTestP2PClientOptions,
 ) {
@@ -75,7 +79,7 @@ export async function makeTestP2PClient(
   const config: P2PConfig & DataStoreConfig = {
     ...p2pBaseConfig,
     p2pEnabled: true,
-    peerIdPrivateKey,
+    peerIdPrivateKey: new SecretValue(peerIdPrivateKey),
     p2pIp: `127.0.0.1`,
     listenAddress: `127.0.0.1`,
     p2pPort: port,
@@ -91,12 +95,7 @@ export async function makeTestP2PClient(
 
   const proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
   const kvStore = await openTmpStore('test');
-  const deps = {
-    txPool: mockTxPool as unknown as TxPool,
-    attestationPool: mockAttestationPool as unknown as AttestationPool,
-    store: kvStore,
-    logger,
-  };
+
   const client = await createP2PClient(
     P2PClientType.Full,
     config,
@@ -106,7 +105,14 @@ export async function makeTestP2PClient(
     mockEpochCache,
     'test-p2p-client',
     undefined,
-    deps,
+    undefined,
+    {
+      txPool: mockTxPool as unknown as TxPool,
+      attestationPool: mockAttestationPool as unknown as AttestationPool,
+      store: kvStore,
+      logger,
+      p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork),
+    },
   );
 
   return client;
@@ -143,6 +149,12 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
   }
 
   await Promise.all(clients.map(client => client.isReady()));
+  testConfig.logger?.info(`Created and started ${clients.length} P2P clients at ports ${ports.join(',')}`, {
+    ports,
+    peerEnrs,
+    peerIdPrivateKeys,
+  });
+
   return clients.map((client, index) => {
     return {
       client,

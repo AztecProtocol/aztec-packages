@@ -1,16 +1,19 @@
 import { createLogger } from '@aztec/foundation/log';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
+
+import EventEmitter from 'node:events';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import type { TxPool, TxPoolOptions } from './tx_pool.js';
+import type { TxPool, TxPoolEvents, TxPoolOptions } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.
  */
-export class InMemoryTxPool implements TxPool {
+export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter<TxPoolEvents>) implements TxPool {
   /**
    * Our tx pool, stored as a Map in-memory, with K: tx hash and V: the transaction.
    */
@@ -28,6 +31,7 @@ export class InMemoryTxPool implements TxPool {
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p:tx_pool'),
   ) {
+    super();
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
@@ -47,10 +51,10 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(this.txs.size === 0);
   }
 
-  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
+  public markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {
-      this.minedTxs.set(key, blockNumber);
+      this.minedTxs.set(key, blockHeader.globalVariables.blockNumber);
       this.pendingTxs.delete(key);
     }
     return Promise.resolve();
@@ -129,8 +133,8 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<number> {
-    let pending = 0;
+  public async addTxs(txs: Tx[], opts: { source?: string } = {}): Promise<number> {
+    const added: TxWithHash[] = [];
     for (const tx of txs) {
       const txHash = await tx.getTxHash();
       this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
@@ -139,14 +143,20 @@ export class InMemoryTxPool implements TxPool {
       } satisfies TxAddedToPoolStats);
 
       const key = txHash.toBigInt();
-      this.txs.set(key, tx);
+      if (!this.txs.has(key)) {
+        added.push(tx as TxWithHash);
+        this.txs.set(key, tx);
+      }
+
       if (!this.minedTxs.has(key)) {
-        pending++;
         this.metrics.recordSize(tx);
         this.pendingTxs.add(key);
       }
     }
-    return pending;
+    if (added.length > 0) {
+      this.emit('txs-added', { ...opts, txs: added });
+    }
+    return added.length;
   }
 
   /**

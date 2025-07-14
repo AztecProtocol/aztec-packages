@@ -31,10 +31,12 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     uint256 _newMintInterval,
     uint256 _jump
   ) external {
+    // the "last mint timestamp" is 0 before the first mint
+
     _newMintInterval = bound(_newMintInterval, mintInterval + 1, 1e18);
     _jump = bound(_jump, 1, _newMintInterval);
     stakingAssetHandler.setMintInterval(_newMintInterval);
-    // the "last mint timestamp" is 0 before the first mint
+
     vm.warp(_newMintInterval - _jump);
 
     uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
@@ -47,29 +49,27 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.dripQueue();
+    stakingAssetHandler.addValidator(address(1), validMerkleProof, fakeProof);
   }
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
-    _newMintInterval = bound(_newMintInterval, mintInterval + 1, type(uint24).max);
-    setMockZKPassportVerifier();
-
-    stakingAssetHandler.setMintInterval(_newMintInterval);
-    vm.warp(block.timestamp + _newMintInterval);
     // it mints
     // it emits a {Minted} event
     // it updates the last mint timestamp
 
-    address rollup = stakingAssetHandler.getRollup();
+    _newMintInterval = bound(_newMintInterval, mintInterval + 1, type(uint24).max);
+    setMockZKPassportVerifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(1));
+    emit IStakingAssetHandler.IntervalUpdated(_newMintInterval);
+    stakingAssetHandler.setMintInterval(_newMintInterval);
+
+    vm.warp(block.timestamp + _newMintInterval);
+
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), address(1), WITHDRAWER);
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidatorToQueue(address(1), realProof);
-
-    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(rollup, address(1), WITHDRAWER);
-    stakingAssetHandler.dripQueue();
+    stakingAssetHandler.addValidator(address(1), validMerkleProof, realProof);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }

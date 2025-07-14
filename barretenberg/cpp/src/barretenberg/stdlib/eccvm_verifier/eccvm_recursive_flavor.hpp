@@ -10,7 +10,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp"
@@ -26,15 +25,14 @@
 
 namespace bb {
 
-template <typename BuilderType> class ECCVMRecursiveFlavor_ {
+class ECCVMRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType; // determines the arithmetisation of recursive verifier
+    using CircuitBuilder = UltraCircuitBuilder; // determines the arithmetisation of recursive verifier
     using Curve = stdlib::grumpkin<CircuitBuilder>;
     using Commitment = Curve::AffineElement;
     using GroupElement = Curve::Element;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
     using NativeFlavor = ECCVMFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using PCS = IPA<Curve>;
@@ -62,6 +60,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from ECCVM
     using Relations = ECCVMFlavor::Relations_<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = ECCVMFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = ECCVMFlavor::MAX_PARTIAL_RELATION_LENGTH;
 
@@ -96,9 +97,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * portability of our circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, ECCVMFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>> {
       public:
-        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+        VerifierCommitmentKey pcs_verification_key;
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -108,21 +109,29 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
+            : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
         {
-            pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
-                builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key);
+
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
             // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = FF{ 1UL << CONST_ECCVM_LOG_N };
+            this->circuit_size = BF{ 1UL << CONST_ECCVM_LOG_N };
             this->circuit_size.convert_constant_to_fixed_witness(builder);
-            this->log_circuit_size = FF{ uint64_t(CONST_ECCVM_LOG_N) };
+            this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = BF::from_witness(builder, native_key->pub_inputs_offset);
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
             }
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1466): Implement these functions.
+        std::vector<BF> to_field_elements() const override { throw_or_abort("Not implemented yet!"); }
+        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
+                                  [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not implemented yet!");
         }
     };
 
@@ -136,6 +145,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
     using VerifierCommitments = ECCVMFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from ECCVM
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 
 }; // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 

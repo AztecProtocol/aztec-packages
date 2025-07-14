@@ -23,19 +23,19 @@ export type DeployTxReceipt<TContract extends ContractBase = Contract> = FieldsO
 };
 
 /**
- * A contract deployment transaction sent to the network, extending SentTx with methods to create a contract instance.
+ * A contract deployment transaction sent to the network, extending SentTx with methods to publish a contract instance.
  */
 export class DeploySentTx<TContract extends Contract = Contract> extends SentTx {
   private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
     wallet: Wallet,
-    txHashPromise: Promise<TxHash>,
+    sendTx: () => Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** A getter for the deployed contract instance */
     public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
-    super(wallet, txHashPromise);
+    super(wallet, sendTx);
   }
 
   /**

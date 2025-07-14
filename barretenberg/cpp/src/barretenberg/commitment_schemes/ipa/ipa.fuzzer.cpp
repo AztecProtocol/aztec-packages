@@ -16,8 +16,8 @@ namespace bb {
 // We actually only use 4, because fuzzing is very slow
 constexpr size_t COMMITMENT_TEST_NUM_POINTS = 32;
 using Curve = curve::Grumpkin;
-std::shared_ptr<CommitmentKey<Curve>> ck;
-std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
+CommitmentKey<Curve> ck;
+VerifierCommitmentKey<Curve> vk;
 /**
  * @brief Class that allows us to call internal IPA methods, because it's friendly
  *
@@ -25,18 +25,31 @@ std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
 class ProxyCaller {
   public:
     template <typename Transcript>
-    static void compute_opening_proof_internal(const std::shared_ptr<CommitmentKey<Curve>>& ck,
+    static void compute_opening_proof_internal(const CommitmentKey<Curve>& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
-                                               const std::shared_ptr<Transcript>& transcript)
+                                               const std::shared_ptr<Transcript>& transcript,
+                                               size_t poly_log_size)
     {
-        IPA<Curve>::compute_opening_proof_internal(ck, opening_claim, transcript);
+        if (poly_log_size == 1) {
+            IPA<Curve, 1>::compute_opening_proof_internal(ck, opening_claim, transcript);
+        }
+        if (poly_log_size == 2) {
+            IPA<Curve, 2>::compute_opening_proof_internal(ck, opening_claim, transcript);
+        }
     }
     template <typename Transcript>
-    static bool verify_internal(const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
+    static bool verify_internal(const VerifierCommitmentKey<Curve>& vk,
                                 const OpeningClaim<Curve>& opening_claim,
-                                const std::shared_ptr<Transcript>& transcript)
+                                const std::shared_ptr<Transcript>& transcript,
+                                size_t poly_log_size)
     {
-        return IPA<Curve>::reduce_verify_internal_native(vk, opening_claim, transcript);
+        if (poly_log_size == 1) {
+            return IPA<Curve, 1>::reduce_verify_internal_native(vk, opening_claim, transcript);
+        }
+        if (poly_log_size == 2) {
+            return IPA<Curve, 2>::reduce_verify_internal_native(vk, opening_claim, transcript);
+        }
+        return false;
     }
 };
 } // namespace bb
@@ -50,13 +63,28 @@ using namespace bb;
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
     srs::init_file_crs_factory(srs::bb_crs_path());
-    ck = std::make_shared<CommitmentKey<Curve>>(COMMITMENT_TEST_NUM_POINTS);
-    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS);
+    ck = CommitmentKey<Curve>(COMMITMENT_TEST_NUM_POINTS);
+    vk = VerifierCommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_POINTS);
 }
 
 // This define is needed to make ProxyClass a friend of IPA
 #define IPA_FUZZ_TEST
 #include "ipa.hpp"
+
+// Read uint256_t from raw bytes.
+// Don't use dereference casts, since the data may be not aligned and it causes segfault
+uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
+{
+    ASSERT(buffer_size <= 32);
+
+    uint64_t parts[4] = { 0, 0, 0, 0 };
+
+    for (size_t i = 0; i < (buffer_size + 7) / 8; i++) {
+        size_t to_read = (buffer_size - i * 8) < 8 ? buffer_size - i * 8 : 8;
+        std::memcpy(&parts[i], data + i * 8, to_read);
+    }
+    return uint256_t(parts[0], parts[1], parts[2], parts[3]);
+}
 
 /**
  * @brief A fuzzer for the IPA primitive
@@ -88,7 +116,9 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     // Bytes controlling montgomery switching for polynomial coefficients
     const size_t polynomial_control_bytes = (polynomial_size < 8 ? 1 : polynomial_size / 8);
     const size_t expected_size =
-        sizeof(uint256_t) * (num_challenges + polynomial_size + 1) + 3 + polynomial_control_bytes;
+        1 /* log_size */ + 1 /* control_byte */ + num_challenges * sizeof(uint256_t) /* challenges */
+        + polynomial_size * sizeof(uint256_t) /* polynomial coefficients */ + sizeof(uint256_t) /* evaluation */ +
+        1 /* eval montgomery switch */ + polynomial_control_bytes;
     if (size < expected_size) {
         return 0;
     }
@@ -102,9 +132,9 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     offset++;
     // Get challenges one by one
     for (size_t i = 0; i < num_challenges; i++) {
-        auto challenge = *(uint256_t*)(offset);
+        auto challenge = read_uint256(offset);
 
-        if ((control_byte >> i) & 1) {
+        if (((control_byte >> i) & 1) == 1) {
             // If control byte says so, parse the value from input as if it's internal state of the field (already
             // converted to montgomery). This allows modifying the state directly
             auto field_challenge = Fr(challenge);
@@ -125,7 +155,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     // Parse polynomial
     std::vector<uint256_t> polynomial_coefficients(polynomial_size);
     for (size_t i = 0; i < polynomial_size; i++) {
-        polynomial_coefficients[i] = *(uint256_t*)(offset);
+        polynomial_coefficients[i] = read_uint256(offset);
         offset += sizeof(uint256_t);
     }
     Polynomial poly(polynomial_size);
@@ -135,27 +165,27 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
         auto b = offset[i / 8];
 
         poly.at(i) = polynomial_coefficients[i];
-        if ((b >> (i % 8)) & 1) {
+        if (((b >> (i % 8)) & 1) == 1) {
             poly.at(i).self_from_montgomery_form();
         }
     }
 
     offset += polynomial_control_bytes;
     // Parse the x we are evaluating on
-    auto x = Fr(*(uint256_t*)offset);
+    auto x = Fr(read_uint256(offset));
     offset += sizeof(uint256_t);
     if ((offset[0] & 1) != 0) {
         x.self_from_montgomery_form();
     }
     auto const opening_pair = OpeningPair<Curve>{ x, poly.evaluate(x) };
-    auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck->commit(poly) };
-    ProxyCaller::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript);
+    auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck.commit(poly) };
+    ProxyCaller::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript, log_size);
 
     // Reset challenge indices
     transcript->reset_indices();
 
     // Should verify
-    if (!ProxyCaller::verify_internal(vk, opening_claim, transcript)) {
+    if (!ProxyCaller::verify_internal(vk, opening_claim, transcript, log_size)) {
         return 1;
     }
     return 0;

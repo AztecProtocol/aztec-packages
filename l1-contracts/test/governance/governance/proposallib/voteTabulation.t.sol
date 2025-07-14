@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "../base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Configuration, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {
   ProposalLib,
   VoteTabulationReturn,
@@ -13,8 +13,8 @@ import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol
 import {Math, Panic} from "@oz/utils/math/Math.sol";
 
 contract VoteTabulationTest is GovernanceBase {
-  using ProposalLib for DataStructures.Proposal;
-  using ConfigurationLib for DataStructures.Configuration;
+  using ProposalLib for Proposal;
+  using ConfigurationLib for Configuration;
 
   uint256 internal totalPower;
   uint256 internal votes;
@@ -28,16 +28,16 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.MinimumEqZero, "invalid info value");
   }
 
-  modifier whenMinimumGt0(DataStructures.Configuration memory _config) {
+  modifier whenMinimumGt0(Configuration memory _config) {
     proposal.config.minimumVotes =
       bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, type(uint256).max);
     _;
   }
 
-  function test_WhenTotalPowerLtMinimum(
-    DataStructures.Configuration memory _config,
-    uint256 _totalPower
-  ) external whenMinimumGt0(_config) {
+  function test_WhenTotalPowerLtMinimum(Configuration memory _config, uint256 _totalPower)
+    external
+    whenMinimumGt0(_config)
+  {
     // it return (Rejected, TotalPowerLtMinimum)
     totalPower = bound(_totalPower, 0, proposal.config.minimumVotes - 1);
     (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
@@ -54,7 +54,7 @@ contract VoteTabulationTest is GovernanceBase {
     _;
   }
 
-  function test_WhenVotesNeededEq0(DataStructures.Configuration memory _config, uint256 _totalPower)
+  function test_WhenVotesNeededEq0(Configuration memory _config, uint256 _totalPower)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)
@@ -66,10 +66,12 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.VotesNeededEqZero, "invalid info value");
   }
 
-  function test_WhenVotesNeededGtTotal(
-    DataStructures.Configuration memory _config,
-    uint256 _totalPower
-  ) external whenMinimumGt0(_config) whenTotalPowerGteMinimum(_totalPower) whenQuorumConfigInvalid {
+  function test_WhenVotesNeededGtTotal(Configuration memory _config, uint256 _totalPower)
+    external
+    whenMinimumGt0(_config)
+    whenTotalPowerGteMinimum(_totalPower)
+    whenQuorumConfigInvalid
+  {
     // it return (Invalid, VotesNeededGtTotalPower)
 
     proposal.config.quorum = 1e18 + 1;
@@ -85,10 +87,12 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.VotesNeededGtTotalPower, "invalid info value");
   }
 
-  function test_WhenVotesNeededGtUint256Max(
-    DataStructures.Configuration memory _config,
-    uint256 _totalPower
-  ) external whenMinimumGt0(_config) whenTotalPowerGteMinimum(_totalPower) whenQuorumConfigInvalid {
+  function test_WhenVotesNeededGtUint256Max(Configuration memory _config, uint256 _totalPower)
+    external
+    whenMinimumGt0(_config)
+    whenTotalPowerGteMinimum(_totalPower)
+    whenQuorumConfigInvalid
+  {
     // it revert
     totalPower = type(uint256).max;
     proposal.config.quorum = 1e18 + 1;
@@ -96,7 +100,7 @@ contract VoteTabulationTest is GovernanceBase {
     this.callVoteTabulation(totalPower);
   }
 
-  modifier whenQuorumConfigValid(DataStructures.Configuration memory _config) {
+  modifier whenQuorumConfigValid(Configuration memory _config) {
     proposal.config.quorum =
       bound(_config.quorum, ConfigurationLib.QUORUM_LOWER, ConfigurationLib.QUORUM_UPPER);
     votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
@@ -105,7 +109,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   function test_WhenVotesCastLtVotesNeeded(
-    DataStructures.Configuration memory _config,
+    Configuration memory _config,
     uint256 _totalPower,
     uint256 _votes,
     uint256 _yea
@@ -141,11 +145,7 @@ contract VoteTabulationTest is GovernanceBase {
     _;
   }
 
-  function test_WhenYeaLimitEq0(
-    DataStructures.Configuration memory _config,
-    uint256 _totalPower,
-    uint256 _votes
-  )
+  function test_WhenYeaLimitEq0(Configuration memory _config, uint256 _totalPower, uint256 _votes)
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)
@@ -160,7 +160,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   function test_WhenYeaLimitGtUint256Max(
-    DataStructures.Configuration memory _config,
+    Configuration memory _config,
     uint256 _totalPower,
     uint256 _votes
   )
@@ -181,7 +181,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   function test_WhenYeaLimitGtVotesCast(
-    DataStructures.Configuration memory _config,
+    Configuration memory _config,
     uint256 _totalPower,
     uint256 _votes
   )
@@ -209,7 +209,7 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.YeaLimitGtVotesCast, "invalid info value");
   }
 
-  modifier whenDifferentialConfigValid(DataStructures.Configuration memory _config) {
+  modifier whenDifferentialConfigValid(Configuration memory _config) {
     proposal.config.voteDifferential =
       bound(_config.voteDifferential, 0, ConfigurationLib.DIFFERENTIAL_UPPER);
     uint256 yeaFraction = Math.ceilDiv(1e18 + proposal.config.voteDifferential, 2);
@@ -219,7 +219,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   function test_WhenYeaVotesEqVotesCast(
-    DataStructures.Configuration memory _config,
+    Configuration memory _config,
     uint256 _totalPower,
     uint256 _votes
   )
@@ -239,7 +239,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   function test_WhenYeaVotesLteYeaLimit(
-    DataStructures.Configuration memory _config,
+    Configuration memory _config,
     uint256 _totalPower,
     uint256 _votes,
     uint256 _yea
@@ -271,7 +271,7 @@ contract VoteTabulationTest is GovernanceBase {
   }
 
   function test_WhenYeaVotesGtYeaLimit(
-    DataStructures.Configuration memory _config,
+    Configuration memory _config,
     uint256 _totalPower,
     uint256 _votes,
     uint256 _yea

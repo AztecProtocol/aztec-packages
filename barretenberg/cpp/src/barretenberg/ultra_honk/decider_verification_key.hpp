@@ -17,20 +17,20 @@ namespace bb {
  *
  * @details This is ϕ in the paper.
  */
-template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
+template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
-    std::shared_ptr<VerificationKey> verification_key;
+    std::shared_ptr<VerificationKey> vk;
 
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
-    RelationSeparator alphas; // a challenge for each subrelation
+    SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
@@ -41,10 +41,10 @@ template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
 
     DeciderVerificationKey_() = default;
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
-        : verification_key(vk)
+        : vk(vk)
     {}
 
-    MSGPACK_FIELDS(verification_key,
+    MSGPACK_FIELDS(vk,
                    relation_parameters,
                    alphas,
                    is_accumulator,

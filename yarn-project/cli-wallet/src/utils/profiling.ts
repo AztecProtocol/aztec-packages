@@ -4,7 +4,7 @@ import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings }
 
 import { format } from 'util';
 
-const FN_NAME_PADDING = 50;
+const FN_NAME_PADDING = 60;
 const COLUMN_MIN_WIDTH = 13;
 const COLUMN_MAX_WIDTH = 15;
 
@@ -13,6 +13,7 @@ const ORACLE_NAME_PADDING = 50;
 export function printProfileResult(
   stats: ProvingStats | SimulationStats,
   log: LogFn,
+  printOracles: boolean = false,
   executionSteps?: PrivateExecutionStep[],
 ) {
   log(format('\nPer circuit breakdown:\n'));
@@ -58,7 +59,7 @@ export function printProfileResult(
         currentExecutionStep ? acc.toLocaleString().padStart(COLUMN_MAX_WIDTH) : '',
       ),
     );
-    if (fn.oracles) {
+    if (printOracles && fn.oracles) {
       log('');
       for (const [oracleName, { times }] of Object.entries(fn.oracles)) {
         const calls = times.length;

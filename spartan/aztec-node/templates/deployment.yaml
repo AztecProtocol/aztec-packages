@@ -1,0 +1,20 @@
+{{- if not .Values.statefulSet.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "chart.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  podManagementPolicy: {{ .Values.podManagementPolicy }}
+  updateStrategy:
+    {{- toYaml .Values.node.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "chart.selectorLabels" . | nindent 6 }}
+      app: node
+  template:
+    {{- include "chart.podTemplate" . | nindent 4 }}
+{{- end }}

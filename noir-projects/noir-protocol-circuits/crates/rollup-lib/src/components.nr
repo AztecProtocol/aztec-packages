@@ -1,6 +1,3 @@
-use crate::abis::block_root_or_block_merge_public_inputs::{
-    BlockRootOrBlockMergePublicInputs, FeeRecipient,
-};
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
     abis::{
@@ -9,105 +6,19 @@ use dep::types::{
         sponge_blob::SpongeBlob,
     },
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-        L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX,
-        NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
-        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX,
-        REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+        PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+        TX_START_PREFIX,
     },
     hash::compute_contract_class_log_hash,
     merkle_tree::VariableMerkleTree,
-    traits::{Empty, ToField},
-    utils::arrays::{array_length, array_length_until, array_merge, array_padded_with},
+    traits::ToField,
+    utils::arrays::{array_length, array_length_until, array_padded_with},
 };
-use blob::blob_public_inputs::BlockBlobPublicInputs;
-
-pub fn assert_prev_block_rollups_follow_on_from_each_other(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) {
-    assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
-    assert(
-        left.protocol_contract_tree_root == right.protocol_contract_tree_root,
-        "input blocks have different protocol contract tree roots",
-    );
-    assert(
-        left.new_archive.eq(right.previous_archive),
-        "input blocks have different archive tree snapshots",
-    );
-    assert(
-        left.end_global_variables.chain_id == right.start_global_variables.chain_id,
-        "input blocks have different chain id",
-    );
-    assert(
-        left.end_global_variables.version == right.start_global_variables.version,
-        "input blocks have different chain version",
-    );
-
-    if right.is_padding() {
-        assert(
-            left.end_global_variables.block_number == right.start_global_variables.block_number,
-            "input block numbers do not match",
-        );
-        assert(
-            left.end_global_variables.timestamp == right.start_global_variables.timestamp,
-            "input block timestamps do not match",
-        );
-    } else {
-        assert(
-            left.end_global_variables.block_number + 1 == right.start_global_variables.block_number,
-            "input block numbers do not follow on from each other",
-        );
-        assert(
-            left.end_global_variables.timestamp < right.start_global_variables.timestamp,
-            "input block timestamps do not follow on from each other",
-        );
-    }
-}
-
-pub fn accumulate_proposed_block_header_hashes(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) -> [Field; AZTEC_MAX_EPOCH_DURATION] {
-    array_merge(
-        left.proposed_block_header_hashes,
-        right.proposed_block_header_hashes,
-    )
-}
-
-pub fn accumulate_blocks_fees(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
-    // TODO(Miranda): combine fees with same recipient depending on rollup structure
-    // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
-    // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
-    array_merge(left.fees, right.fees)
-}
-
-// TODO: This fn will be obselete once we have integrated accumulation of blob PIs
-// The goal is to acc. the commitments and openings s.t. one set verifies the opening of many blobs
-// How we accumulate is being worked on by @Mike
-pub fn accumulate_blob_public_inputs(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) -> [BlockBlobPublicInputs; AZTEC_MAX_EPOCH_DURATION] {
-    let left_len = array_length(left.blob_public_inputs);
-    // NB: The below is cheaper than array_merge because assigning BlockBlobPublicInputs is cheaper than calling .equals
-    let mut add_from_left = true;
-    let mut result = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-    for i in 0..result.len() {
-        add_from_left &= i != left_len;
-        if (add_from_left) {
-            result[i] = left.blob_public_inputs[i];
-        } else {
-            result[i] = right.blob_public_inputs[i - left_len];
-        }
-    }
-    result
-}
 
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
     let non_empty_items = array_length(l2_to_l1_msgs);

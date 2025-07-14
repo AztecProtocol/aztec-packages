@@ -6,8 +6,8 @@
 
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
@@ -22,7 +22,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
@@ -30,8 +30,10 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys)
-        : keys_to_fold(DeciderVerificationKeys(keys)){};
+    ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys,
+                         const std::shared_ptr<Transcript>& transcript)
+        : keys_to_fold(DeciderVerificationKeys(keys))
+        , transcript(transcript){};
     ~ProtogalaxyVerifier_() = default;
 
     /**

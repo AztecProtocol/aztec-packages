@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
 import {Rollup, GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
@@ -8,11 +9,13 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Test} from "forge-std/Test.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -40,6 +43,7 @@ struct Config {
   RollupConfigInput rollupConfigInput;
   ConfigValues values;
   ConfigFlags flags;
+  CheatDepositArgs[] validators;
 }
 
 /**
@@ -161,8 +165,8 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setProofSubmissionWindow(uint256 _proofSubmissionWindow) public returns (RollupBuilder) {
-    config.rollupConfigInput.aztecProofSubmissionWindow = _proofSubmissionWindow;
+  function setProofSubmissionEpochs(uint256 _proofSubmissionEpochs) public returns (RollupBuilder) {
+    config.rollupConfigInput.aztecProofSubmissionEpochs = _proofSubmissionEpochs;
     return this;
   }
 
@@ -178,6 +182,21 @@ contract RollupBuilder is Test {
 
   function setTargetCommitteeSize(uint256 _targetCommitteeSize) public returns (RollupBuilder) {
     config.rollupConfigInput.targetCommitteeSize = _targetCommitteeSize;
+    return this;
+  }
+
+  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
+    return this;
+  }
+
+  function setValidators(CheatDepositArgs[] memory _validators) public returns (RollupBuilder) {
+    for (uint256 i = 0; i < _validators.length; i++) {
+      config.validators.push(_validators[i]);
+    }
     return this;
   }
 
@@ -200,13 +219,20 @@ contract RollupBuilder is Test {
       config.testERC20.mint(
         address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
       );
+    } else {
+      config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
     }
 
     if (config.flags.makeGovernance) {
       GovernanceProposer proposer = new GovernanceProposer(
         config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
       );
-      config.governance = new Governance(config.testERC20, address(proposer), address(config.gse));
+      config.governance = new Governance(
+        config.testERC20,
+        address(proposer),
+        address(config.gse),
+        TestConstants.getGovernanceConfiguration()
+      );
       vm.label(address(config.governance), "Governance");
       vm.label(address(proposer), "GovernanceProposer");
 
@@ -221,9 +247,10 @@ contract RollupBuilder is Test {
       }
     }
 
+    config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;
+
     config.rollup = new Rollup(
       config.testERC20,
-      config.rewardDistributor,
       config.testERC20,
       config.gse,
       new MockVerifier(),
@@ -231,6 +258,8 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
+
+    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
@@ -243,6 +272,14 @@ contract RollupBuilder is Test {
 
       vm.prank(config.gse.owner());
       config.gse.addRollup(address(config.rollup));
+    }
+
+    if (config.validators.length > 0) {
+      MultiAdder multiAdder = new MultiAdder(address(config.rollup), address(this));
+      config.testERC20.mint(
+        address(multiAdder), config.gse.DEPOSIT_AMOUNT() * config.validators.length
+      );
+      multiAdder.addValidators(config.validators);
     }
 
     if (config.flags.updateOwnerships) {

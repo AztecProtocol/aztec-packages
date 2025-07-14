@@ -1,11 +1,11 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
+import { Fr, type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorClient } from '@aztec/validator-client';
-import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -40,15 +40,9 @@ describe('e2e_p2p_reex', () => {
         enforceTimeTable: true,
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
-        aztecProofSubmissionWindow: 640,
+        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       },
     });
-
-    t.logger.info('Setup account');
-    await t.setupAccount();
-
-    t.logger.info('Deploy spam contract');
-    await t.deploySpamContract();
 
     t.logger.info('Apply base snapshots');
     await t.applyBaseSnapshots();
@@ -68,7 +62,7 @@ describe('e2e_p2p_reex', () => {
       {
         ...t.ctx.aztecNodeConfig,
         validatorReexecute: true,
-        minTxsPerBlock: NUM_TXS_PER_NODE + 1,
+        minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
       t.ctx.dateProvider,
@@ -83,7 +77,13 @@ describe('e2e_p2p_reex', () => {
 
     // Wait a bit for peers to discover each other
     t.logger.info('Waiting for peer discovery');
-    await sleep(4000);
+    await sleep(8000);
+
+    t.logger.info('Setup account');
+    await t.setupAccount();
+
+    t.logger.info('Deploy spam contract');
+    await t.deploySpamContract();
 
     // Submit the txs to the mempool. We submit a single set of txs, and then inject different behaviors
     // into the validator nodes to cause them to fail in different ways.
@@ -123,10 +123,10 @@ describe('e2e_p2p_reex', () => {
       jest.spyOn((node as any).p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
         // We remove one of the transactions, therefore the block root will be different!
         const proposal = args[0] as BlockProposal;
-        const { txHashes } = proposal.payload;
+        const txHashes = proposal.txHashes;
 
         // We need to mutate the proposal, so we cast to any
-        (proposal.payload as any).txHashes = txHashes.slice(0, txHashes.length - 1);
+        (proposal as any).txHashes = txHashes.slice(0, txHashes.length - 1);
 
         // We sign over the proposal using the node's signing key
         // Abusing javascript to access the nodes signing key
@@ -135,6 +135,7 @@ describe('e2e_p2p_reex', () => {
           proposal.blockNumber,
           proposal.payload,
           await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
+          proposal.txHashes,
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
@@ -193,7 +194,7 @@ describe('e2e_p2p_reex', () => {
     };
 
     it.each([
-      ['ReExStateMismatchError', new ReExStateMismatchError().message, interceptBroadcastProposal],
+      ['ReExStateMismatchError', new ReExStateMismatchError(Fr.ZERO, Fr.ZERO).message, interceptBroadcastProposal],
       ['ReExTimeoutError', new ReExTimeoutError().message, interceptTxProcessorWithTimeout],
       ['ReExFailedTxsError', new ReExFailedTxsError(1).message, interceptTxProcessorWithFailure],
     ])(

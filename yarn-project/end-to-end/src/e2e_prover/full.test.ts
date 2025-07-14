@@ -14,7 +14,7 @@ import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
-import { FullProverTest } from './e2e_prover_test.js';
+import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 
 // Set a very long 20 minute timeout.
 const TIMEOUT = 1_200_000;
@@ -306,22 +306,22 @@ describe('full_prover', () => {
 
       // Verify the tx proof
       logger.info(`Verifying the valid tx proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.toBeTrue();
+      const verificationResult = await t.circuitProofVerifier?.verifyProof(provenTx);
+      expect(verificationResult?.valid).toBeTrue();
 
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
-      const invalidTxPromises = [];
       const data = provenTx.data;
-      for (let i = 0; i < NUM_INVALID_TXS; i++) {
+      const invalidTxs = Array.from({ length: NUM_INVALID_TXS }, (_, i) => {
         // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
         const invalidProvenTx = new ProvenTx(
           wallet,
           new Tx(
             new PrivateKernelTailCircuitPublicInputs(
               data.constants,
-              data.rollupValidationRequests,
               data.gasUsed.add(new Gas(i + 1, 0)),
               data.feePayer,
+              data.includeByTimestamp,
               data.forPublic,
               data.forRollup,
             ),
@@ -329,11 +329,10 @@ describe('full_prover', () => {
             provenTx.contractClassLogFields,
             provenTx.publicFunctionCalldata,
           ),
+          [],
         );
-
-        const sentTx = invalidProvenTx.send();
-        invalidTxPromises.push(sentTx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true }));
-      }
+        return invalidProvenTx.send();
+      });
 
       logger.info(`Sending proven tx`);
       const validTx = provenTx.send();
@@ -346,7 +345,10 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const results = await Promise.allSettled([...invalidTxPromises, validTx.wait({ timeout: 300, interval: 10 })]);
+      const results = await Promise.allSettled([
+        ...invalidTxs.map(tx => tx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true })),
+        validTx.wait({ timeout: 300, interval: 10 }),
+      ]);
 
       // Assert that the large influx of invalid txs are rejected and do not ddos the node
       for (let i = 0; i < NUM_INVALID_TXS; i++) {

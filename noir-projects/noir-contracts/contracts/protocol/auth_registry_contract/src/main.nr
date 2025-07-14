@@ -8,10 +8,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract AuthRegistry {
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
-    };
     use dep::aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
+        },
         macros::{functions::{internal, private, public, utility, view}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PublicMutable},
@@ -91,7 +91,7 @@ pub contract AuthRegistry {
      */
     #[private]
     fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
-        assert_current_call_valid_authwit(&mut context, approver);
+        assert_current_call_valid_authwit::<3>(&mut context, approver);
         AuthRegistry::at(context.this_address())
             ._set_authorized(approver, message_hash, authorize)
             .enqueue(&mut context);

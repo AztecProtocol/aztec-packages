@@ -12,9 +12,8 @@ use crate::{
         },
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         avm_circuit_public_inputs::{AvmCircuitPublicInputs, AvmProofData},
+        block_constant_data::BlockConstantData,
         call_context::CallContext,
-        combined_constant_data::CombinedConstantData,
-        constant_rollup_data::ConstantRollupData,
         function_data::FunctionData,
         gas::Gas,
         gas_fees::GasFees,
@@ -26,7 +25,6 @@ use crate::{
         },
         log::Log,
         log_hash::LogHash,
-        max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
         private_call_request::PrivateCallRequest,
@@ -45,15 +43,16 @@ use crate::{
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-            RollupValidationRequests, ScopedKeyValidationRequestAndGenerator,
+            ScopedKeyValidationRequestAndGenerator,
         },
     },
     address::{AztecAddress, EthAddress, SaltedInitializationHash},
     block_header::BlockHeader,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, DEFAULT_UPDATE_DELAY,
-        DEPLOYER_CONTRACT_ADDRESS, FUNCTION_TREE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-        MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        ARCHIVE_HEIGHT, CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+        CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, DEFAULT_UPDATE_DELAY, FUNCTION_TREE_HEIGHT,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_FIELD_VALUE,
+        MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
@@ -86,14 +85,19 @@ use crate::{
         shared_mutable_values::SharedMutableValues, with_hash::compute_with_hash_hash_storage_slot,
     },
     storage::map::derive_storage_slot_in_map,
-    tests::fixtures::{
-        self, contract_functions::ContractFunction, contracts::ContractData,
-        public_data_tree::empty_public_data_tree,
+    tests::{
+        fixtures::{
+            self, contract_functions::ContractFunction, contracts::ContractData,
+            public_data_tree::empty_public_data_tree,
+        },
+        merkle_tree_utils::NonEmptyMerkleTree,
     },
-    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
+    utils::arrays::ClaimedLengthArray,
 };
 
+/// For testing only.
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
     assert(N >= M, "cannot call subarray on a smaller array");
     let mut new_arr = [arr[0]; M];
@@ -103,6 +107,7 @@ fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
     new_arr
 }
 
+/// For testing only.
 fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     let mut reversed = BoundedVec::new();
     let len = vec.len();
@@ -114,12 +119,23 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     reversed
 }
 
+/// For testing only. Not safe.
+/// Not part of the ClaimedLengthArray methods, because we don't want it
+/// to be accidentally called in production code.
+pub fn claimed_length_array_from_bounded_vec<T, let N: u32>(
+    vec: BoundedVec<T, N>,
+) -> ClaimedLengthArray<T, N> {
+    ClaimedLengthArray { array: vec.storage(), length: vec.len() }
+}
+
+#[derive(Eq)]
 pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
     pub is_static_call: bool,
     pub is_private_only: bool,
     pub claimed_first_nullifier: Field,
+    pub include_by_timestamp: u64,
 
     // Fees.
     pub is_fee_payer: bool,
@@ -150,7 +166,6 @@ pub struct FixtureBuilder {
     pub reverted: bool,
 
     // Validation requests.
-    pub max_block_number: MaxBlockNumber,
     pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -194,6 +209,7 @@ pub struct FixtureBuilder {
 
     // Tree snapshots.
     pub archive_tree: AppendOnlyTreeSnapshot,
+    pub archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     pub start_snapshots: TreeSnapshots,
     pub end_snapshots: TreeSnapshots,
 
@@ -216,6 +232,16 @@ impl FixtureBuilder {
 
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
+
+        builder.historical_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+
+        builder.global_variables.chain_id = fixtures::CHAIN_ID;
+        builder.global_variables.version = fixtures::VERSION;
+        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
+
+        let max_allowed_include_by_timestamp = builder.historical_header.global_variables.timestamp
+            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+        builder.include_by_timestamp = max_allowed_include_by_timestamp;
 
         builder.tx_context = TxContext {
             chain_id: fixtures::CHAIN_ID,
@@ -325,6 +351,28 @@ impl FixtureBuilder {
         *self
     }
 
+    pub fn use_last_archive(&mut self) -> Self {
+        let random_block_hash = 38127689;
+        let previous_block_hash = self.historical_header.hash();
+        let pre_existing_block_hashes = [random_block_hash, previous_block_hash];
+        let archive_tree = NonEmptyMerkleTree::new(
+            pre_existing_block_hashes,
+            [0; ARCHIVE_HEIGHT],
+            [0; ARCHIVE_HEIGHT - 1],
+            [0; 1],
+        );
+
+        self.archive_tree = AppendOnlyTreeSnapshot {
+            root: archive_tree.get_root(),
+            next_available_leaf_index: archive_tree.get_next_available_index() as u32,
+        };
+
+        self.archive_root_membership_witness =
+            MembershipWitness { leaf_index: 1, sibling_path: archive_tree.get_sibling_path(1) };
+
+        *self
+    }
+
     pub fn is_static_call(&mut self) -> Self {
         self.is_static_call = true;
         *self
@@ -344,19 +392,10 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn to_constant_data(self) -> CombinedConstantData {
-        CombinedConstantData {
-            historical_header: self.historical_header,
-            tx_context: self.tx_context,
-            vk_tree_root: self.vk_tree_root,
-            protocol_contract_tree_root: self.protocol_contract_tree_root,
-            global_variables: self.global_variables,
-        }
-    }
-
-    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
-        ConstantRollupData {
+    pub fn to_block_constant_data(self) -> BlockConstantData {
+        BlockConstantData {
             last_archive: self.archive_tree,
+            last_l1_to_l2: self.start_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
@@ -399,41 +438,69 @@ impl FixtureBuilder {
             returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            max_block_number: self.max_block_number,
-            note_hash_read_requests: subarray(self
-                .note_hash_read_requests
-                .storage()
-                .map(|r: ScopedReadRequest| r.read_request)),
-            nullifier_read_requests: subarray(self
-                .nullifier_read_requests
-                .storage()
-                .map(|r: ScopedReadRequest| r.read_request)),
-            key_validation_requests_and_generators: subarray(self
-                .scoped_key_validation_requests_and_generators
-                .storage()
-                .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
-            note_hashes: subarray(
-                self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
-            ),
-            nullifiers: subarray(
-                self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
-            ),
-            private_call_requests: subarray(self.private_call_requests.storage()),
-            public_call_requests: subarray(self.public_call_requests.storage()),
+            include_by_timestamp: self.include_by_timestamp,
+            note_hash_read_requests: ClaimedLengthArray {
+                array: subarray(self.note_hash_read_requests.storage().map(|r: ScopedReadRequest| {
+                    r.read_request
+                })),
+                length: self.note_hash_read_requests.len(),
+            },
+            nullifier_read_requests: ClaimedLengthArray {
+                array: subarray(self.nullifier_read_requests.storage().map(|r: ScopedReadRequest| {
+                    r.read_request
+                })),
+                length: self.nullifier_read_requests.len(),
+            },
+            key_validation_requests_and_generators: ClaimedLengthArray {
+                array: subarray(self
+                    .scoped_key_validation_requests_and_generators
+                    .storage()
+                    .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
+                length: self.scoped_key_validation_requests_and_generators.len(),
+            },
+            note_hashes: ClaimedLengthArray {
+                array: subarray(
+                    self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
+                ),
+                length: self.note_hashes.len(),
+            },
+            nullifiers: ClaimedLengthArray {
+                array: subarray(
+                    self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
+                ),
+                length: self.nullifiers.len(),
+            },
+            private_call_requests: ClaimedLengthArray {
+                array: subarray(self.private_call_requests.storage()),
+                length: self.private_call_requests.len(),
+            },
+            public_call_requests: ClaimedLengthArray {
+                array: subarray(self.public_call_requests.storage()),
+                length: self.public_call_requests.len(),
+            },
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self
-                .l2_to_l1_msgs
-                .storage()
-                .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+            l2_to_l1_msgs: ClaimedLengthArray {
+                array: subarray(self
+                    .l2_to_l1_msgs
+                    .storage()
+                    .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+                length: self.l2_to_l1_msgs.len(),
+            },
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.inner
-            })),
-            contract_class_logs_hashes: subarray(self
-                .contract_class_logs_hashes
-                .storage()
-                .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+            private_logs: ClaimedLengthArray {
+                array: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
+                    l.inner
+                })),
+                length: self.private_logs.len(),
+            },
+            contract_class_logs_hashes: ClaimedLengthArray {
+                array: subarray(self
+                    .contract_class_logs_hashes
+                    .storage()
+                    .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+                length: self.contract_class_logs_hashes.len(),
+            },
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -463,8 +530,8 @@ impl FixtureBuilder {
         let public_data_prefill = 2;
         let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
 
-        if is_empty(self.updated_class_id_value_change)
-            & is_empty(self.updated_class_id_delay_change) {
+        if self.updated_class_id_value_change.is_empty()
+            & self.updated_class_id_delay_change.is_empty() {
             self.historical_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
@@ -491,8 +558,10 @@ impl FixtureBuilder {
             let hash_slot = compute_with_hash_hash_storage_slot::<SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY>, _>(
                 shared_mutable_slot,
             );
-            let hash_leaf_slot =
-                compute_public_data_tree_index(DEPLOYER_CONTRACT_ADDRESS, hash_slot);
+            let hash_leaf_slot = compute_public_data_tree_index(
+                CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+                hash_slot,
+            );
             public_data_tree.update_leaf(
                 public_data_prefill - 1,
                 PublicDataTreeLeafPreimage {
@@ -535,13 +604,17 @@ impl FixtureBuilder {
 
     pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
         PrivateAccumulatedDataBuilder {
-            note_hashes: self.note_hashes,
-            nullifiers: self.nullifiers,
-            l2_to_l1_msgs: self.l2_to_l1_msgs,
-            private_logs: self.private_logs,
-            contract_class_logs_hashes: self.contract_class_logs_hashes,
-            public_call_requests: self.public_call_requests,
-            private_call_stack: vec_reverse(self.private_call_requests),
+            note_hashes: claimed_length_array_from_bounded_vec(self.note_hashes),
+            nullifiers: claimed_length_array_from_bounded_vec(self.nullifiers),
+            l2_to_l1_msgs: claimed_length_array_from_bounded_vec(self.l2_to_l1_msgs),
+            private_logs: claimed_length_array_from_bounded_vec(self.private_logs),
+            contract_class_logs_hashes: claimed_length_array_from_bounded_vec(
+                self.contract_class_logs_hashes,
+            ),
+            public_call_requests: claimed_length_array_from_bounded_vec(self.public_call_requests),
+            private_call_stack: claimed_length_array_from_bounded_vec(vec_reverse(
+                self.private_call_requests,
+            )),
         }
     }
 
@@ -603,12 +676,15 @@ impl FixtureBuilder {
 
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
-            for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: self.note_hash_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
-            scoped_key_validation_requests_and_generators: self
-                .scoped_key_validation_requests_and_generators
-                .storage(),
+            note_hash_read_requests: claimed_length_array_from_bounded_vec(
+                self.note_hash_read_requests,
+            ),
+            nullifier_read_requests: claimed_length_array_from_bounded_vec(
+                self.nullifier_read_requests,
+            ),
+            scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
+                self.scoped_key_validation_requests_and_generators,
+            ),
             split_counter: self.validation_requests_split_counter,
         }
     }
@@ -626,6 +702,7 @@ impl FixtureBuilder {
             validation_requests,
             public_teardown_call_request,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
             is_private_only: self.is_private_only,
             claimed_first_nullifier: self.claimed_first_nullifier,
         }
@@ -648,7 +725,6 @@ impl FixtureBuilder {
     ) -> PrivateToPublicKernelCircuitPublicInputs {
         PrivateToPublicKernelCircuitPublicInputs {
             constants: self.to_tx_constant_data(),
-            rollup_validation_requests: self.to_rollup_validation_requests(),
             non_revertible_accumulated_data: self.to_private_to_public_accumulated_data(
                 false, /* revertible */
             ),
@@ -658,26 +734,22 @@ impl FixtureBuilder {
             public_teardown_call_request: self.public_teardown_call_request,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
         }
-    }
-
-    pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
-        RollupValidationRequests { max_block_number: self.max_block_number }
     }
 
     pub fn to_private_to_rollup_kernel_circuit_public_inputs(
         self,
     ) -> PrivateToRollupKernelCircuitPublicInputs {
-        let rollup_validation_requests = self.to_rollup_validation_requests();
         let end = self.to_private_to_rollup_accumulated_data();
         let constants = self.to_tx_constant_data();
 
         PrivateToRollupKernelCircuitPublicInputs {
-            rollup_validation_requests,
             end,
             constants,
             gas_used: self.gas_used,
             fee_payer: self.fee_payer,
+            include_by_timestamp: self.include_by_timestamp,
         }
     }
 
@@ -1233,10 +1305,6 @@ impl FixtureBuilder {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
-    pub fn set_max_block_number(&mut self, max_block_number: u32) {
-        self.max_block_number = MaxBlockNumber::new(max_block_number);
-    }
-
     fn get_split_side_effects<T, let N: u32>(
         self,
         array: BoundedVec<Counted<T>, N>,
@@ -1439,7 +1507,7 @@ impl Empty for FixtureBuilder {
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: 0,
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
@@ -1468,7 +1536,8 @@ impl Empty for FixtureBuilder {
             updated_class_id_leaf: PublicDataTreeLeafPreimage::empty(),
             updated_class_id_value_change: ScheduledValueChange::empty(),
             updated_class_id_delay_change: ScheduledDelayChange::empty(),
-            archive_tree: AppendOnlyTreeSnapshot::zero(),
+            archive_tree: AppendOnlyTreeSnapshot::empty(),
+            archive_root_membership_witness: MembershipWitness::empty(),
             start_snapshots: TreeSnapshots::empty(),
             end_snapshots: TreeSnapshots::empty(),
             revert_code: 0,

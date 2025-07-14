@@ -14,11 +14,13 @@ AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
     : key(std::move(other.key))
+    , transcript(std::move(other.transcript))
 {}
 
 AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 {
     key = other.key;
+    transcript = other.transcript;
     commitments.clear();
     return *this;
 }
@@ -51,7 +53,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
 
     VerifierCommitments commitments{ key };
 
@@ -83,17 +85,18 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
         padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
     }
-    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha);
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    SumcheckOutput<Flavor> output =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {

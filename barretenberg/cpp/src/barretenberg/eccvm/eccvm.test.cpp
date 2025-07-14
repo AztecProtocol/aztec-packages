@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+#include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
@@ -149,18 +151,19 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 
     // Run Sumcheck on the ECCVM Prover polynomials
     using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
-    SumcheckProver sumcheck_prover(pk->circuit_size, prover_transcript);
+    SumcheckProver sumcheck_prover(
+        pk->circuit_size, pk->polynomials, prover_transcript, alpha, gate_challenges, relation_parameters);
 
     ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
 
-    auto prover_output =
-        sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
+    auto prover_output = sumcheck_prover.prove(zk_sumcheck_data);
 
-    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
-    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript, alpha);
+    SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier
@@ -201,8 +204,8 @@ TEST_F(ECCVMTests, FixedVK)
     ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
 
     // Set verifier PCS key to null in both the fixed VK and the generated VK
-    fixed_vk.pcs_verification_key = nullptr;
-    vk_computed_by_prover.pcs_verification_key = nullptr;
+    fixed_vk.pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
+    vk_computed_by_prover.pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
     auto labels = verifier.key->get_labels();
     size_t index = 0;

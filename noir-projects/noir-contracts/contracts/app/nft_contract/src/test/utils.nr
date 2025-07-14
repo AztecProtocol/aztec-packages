@@ -1,8 +1,7 @@
 use crate::NFT;
 use dep::aztec::{
     oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
-    prelude::AztecAddress,
-    protocol_types::storage::map::derive_storage_slot_in_map,
+    protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
 
@@ -45,7 +44,7 @@ pub unconstrained fn setup_and_mint(
     let minted_token_id = 615;
 
     NFT::at(nft_contract_address).mint(owner, minted_token_id).call(&mut env.public());
-    env.advance_block_by(1);
+    env.mine_block();
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }

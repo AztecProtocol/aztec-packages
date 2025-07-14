@@ -1,0 +1,161 @@
+include "../poseidon2_hash.pil";
+include "../range_check.pil";
+include "../constants_gen.pil";
+
+include "../trees/public_data_check.pil";
+
+// Validates current class id taking into account contract updates.
+// Contract updates are written to the public data tree using the `shared mutable` structure.
+// The shared mutable structure looks like this:
+// +-------+---------------------+-----------------------+-----------------------+-------------------------+
+// | slot  | shared_mutable_slot | shared_mutable_slot+1 | shared_mutable_slot+2 |  shared_mutable_slot+3  |
+// +-------+---------------------+-----------------------+-----------------------+-------------------------+
+// | value | metadata            | pre                   | post                  | hash(metadata,pre,post) |
+// +-------+---------------------+-----------------------+-----------------------+-------------------------+
+// The metadata field includes some information about the delay that we don't care about in the AVM,
+// but the timestamp of change is the last 32 bits of the metadata.
+//
+// This gadget reads the shared mutable hash, and requires the metadata, pre and post to be passed as hints.
+// NOTE: if hash is zero, then the shared mutable has never been written to. In that case no update applies (current_class_id = original_class_id)
+// Once we constrain the read, we truncate the metadata to 32 bits and compare it with the timestamp.
+// If the timestamp is less than the timestamp of change, then the update is a future update.
+// NOTE: zeroes can appear in pre and post. In those cases, zero means original_class_id.
+//
+// Usage:
+// sel { address, current_class_id, original_class_id, public_data_tree_root, timestamp }
+// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
+//
+namespace update_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs to update check
+    pol commit address;
+    pol commit current_class_id;
+    pol commit original_class_id;
+    pol commit public_data_tree_root;
+    pol commit timestamp;
+
+    // ======== SHARED MUTABLE HASH READ ========
+
+    pol commit update_hash;
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit updated_class_ids_slot;
+    sel * (constants.UPDATED_CLASS_IDS_SLOT - updated_class_ids_slot) = 0;
+
+    pol commit shared_mutable_slot;
+
+    #[SHARED_MUTABLE_SLOT_POSEIDON2]
+    sel { updated_class_ids_slot, address, precomputed.zero, shared_mutable_slot }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit shared_mutable_hash_slot;
+    sel * (shared_mutable_slot + constants.UPDATES_SHARED_MUTABLE_VALUES_LEN - shared_mutable_hash_slot) = 0;
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit public_leaf_index_domain_separator;
+    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - public_leaf_index_domain_separator) = 0;
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit deployer_protocol_contract_address;
+    sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+
+    #[UPDATE_HASH_PUBLIC_DATA_READ]
+    sel {
+        deployer_protocol_contract_address,
+        shared_mutable_hash_slot,
+        update_hash,
+        public_data_tree_root
+    } in public_data_check.sel {
+        public_data_check.address,
+        public_data_check.slot,
+        public_data_check.value,
+        public_data_check.root
+    };
+
+    // ======== SHARED MUTABLE PREIMAGE CONSTRAINING ========
+
+    pol commit update_hash_inv;
+    pol commit hash_not_zero;
+    hash_not_zero * (1 - hash_not_zero) = 0;
+    pol HASH_IS_ZERO = 1 - hash_not_zero;
+
+    #[HASH_IS_ZERO_CHECK]
+    update_hash * (HASH_IS_ZERO * (1 - update_hash_inv) + update_hash_inv) - 1 + HASH_IS_ZERO = 0;
+
+    // Early return: If update hash is zero, then current_class_id must be original_class_id
+    // Everything after this can be skipped if update hash is zero
+    #[NEVER_UPDATED_CHECK]
+    (1 - hash_not_zero) * (current_class_id - original_class_id) = 0;
+
+    pol commit update_preimage_metadata;
+    pol commit update_preimage_pre_class_id;
+    pol commit update_preimage_post_class_id;
+
+    #[UPDATE_HASH_POSEIDON2]
+    hash_not_zero { update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id, update_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    // ======== TIMESTAMP OF CHANGE READ ========
+
+    // Timestamp of change is the last 32 bits of the update metadata
+    // update_metadata = (update_hi_metadata: u112 << 32) + timestamp_of_change: u32
+    pol commit timestamp_of_change;
+    pol commit update_hi_metadata;
+    pol TWO_POW_32 = 2**32;
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit update_hi_metadata_bit_size;
+    hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - update_hi_metadata_bit_size) = 0;
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit timestamp_of_change_bit_size; // 32
+    hash_not_zero * (constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - timestamp_of_change_bit_size) = 0;
+
+    #[UPDATE_HI_METADATA_RANGE]
+    hash_not_zero { update_hi_metadata, update_hi_metadata_bit_size }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    #[UPDATE_LO_METADATA_RANGE]
+    hash_not_zero { timestamp_of_change, timestamp_of_change_bit_size }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    // Overflow safe since update_hi_metadata_bit_size + timestamp_of_change_bit_size < field bit size (254)
+    #[UPDATE_METADATA_DECOMPOSITION]
+    update_hi_metadata * TWO_POW_32 + timestamp_of_change - update_preimage_metadata = 0;
+
+    // ======== CLASS ID CHECK ========
+    // We are going to use the standard way to compare integers.
+    // We request the boolean as a hint, and then we constrain it by subtracting in one direction or the other depending on it.
+    // If the boolean hint is incorrect, then the subtraction will overflow the field and the range constraint will fail.
+    pol commit timestamp_is_lt_timestamp_of_change;
+    timestamp_is_lt_timestamp_of_change * (1 - timestamp_is_lt_timestamp_of_change) = 0;
+    pol commit timestamp_of_change_subtraction;
+    pol TIMESTAMP_LT_TIMESTAMP_OF_CHANGE = timestamp_of_change - 1 - timestamp;
+    pol TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =  timestamp - timestamp_of_change;
+    (TIMESTAMP_LT_TIMESTAMP_OF_CHANGE - TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) * timestamp_is_lt_timestamp_of_change + TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE - timestamp_of_change_subtraction = 0;
+
+    #[TIMESTAMP_OF_CHANGE_CMP_RANGE]
+    hash_not_zero { timestamp_of_change_subtraction, timestamp_of_change_bit_size }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    pol commit update_pre_class_id_is_zero;
+    update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;
+    pol commit update_pre_class_inv;
+    #[UPDATE_PRE_CLASS_IS_ZERO]
+    hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_id_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_id_is_zero) = 0;
+
+    pol commit update_post_class_id_is_zero;
+    update_post_class_id_is_zero * (1 - update_post_class_id_is_zero) = 0;
+    pol commit update_post_class_inv;
+    #[UPDATE_POST_CLASS_IS_ZERO]
+    hash_not_zero * (update_preimage_post_class_id * (update_post_class_id_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_id_is_zero) = 0;
+
+    // If update hasn't applied yet, then the class id should be the pre_class_id == 0 ? original_class_id : pre_class_id
+    #[FUTURE_UPDATE_CLASS_ID_ASSIGNMENT]
+    hash_not_zero * timestamp_is_lt_timestamp_of_change * (original_class_id * update_pre_class_id_is_zero + update_preimage_pre_class_id - current_class_id) = 0;
+
+    // Else, the post_class_id == 0 ? original_class_id : post_class_id
+    #[PAST_UPDATE_CLASS_ID_ASSIGNMENT]
+    hash_not_zero * (1 - timestamp_is_lt_timestamp_of_change) * (original_class_id * update_post_class_id_is_zero + update_preimage_post_class_id - current_class_id) = 0;

@@ -31,7 +31,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH,
-        AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
+        AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
@@ -43,7 +43,6 @@ use crate::{
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_COINBASE_ROW_IDX,
-        AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_FEE_RECIPIENT_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX,
@@ -73,7 +72,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
+        AVM_VK_INDEX, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
@@ -377,7 +376,7 @@ impl AvmCircuitPublicInputs {
             self.global_variables.chain_id;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX] = self.global_variables.version;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX] =
-            self.global_variables.block_number;
+            self.global_variables.block_number as Field;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX] =
             self.global_variables.slot_number;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX] =
@@ -448,7 +447,7 @@ impl AvmCircuitPublicInputs {
         set_gas_fees_in_cols(
             self.global_variables.gas_fees,
             &mut cols,
-            AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX,
+            AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX,
         );
 
         // Fee payer
@@ -628,14 +627,25 @@ pub struct AvmProofData {
 }
 
 impl Verifiable for AvmProofData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     fn verify(self) {
         std::verify_proof_with_type(
             self.vk_data.vk.key,
             self.proof.fields,
             self.public_inputs.to_columns_flat(),
-            0,
+            self.vk_data.vk.hash,
             PROOF_TYPE_AVM,
         );
+    }
+}
+
+impl AvmProofData {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
+    pub fn validate_vk_in_vk_tree(self, vk_tree_root: Field) {
+        assert_eq(self.vk_data.leaf_index, AVM_VK_INDEX);
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
+        self.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }
 

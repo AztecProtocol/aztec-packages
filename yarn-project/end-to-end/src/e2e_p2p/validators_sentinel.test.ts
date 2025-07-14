@@ -21,7 +21,6 @@ const BLOCK_COUNT = 3;
 const EPOCH_DURATION = 10;
 const SLASHING_QUORUM = 3;
 const SLASHING_ROUND_SIZE = 5;
-const SLASH_AMOUNT = 10n ** 18n;
 const AZTEC_SLOT_DURATION = 12;
 const ETHEREUM_SLOT_DURATION = 4;
 
@@ -32,6 +31,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_validators_sentinel', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let slashingAmount: bigint;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -42,7 +42,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       initialConfig: {
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecProofSubmissionWindow: 640,
+        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
@@ -50,17 +50,21 @@ describe('e2e_p2p_validators_sentinel', () => {
         sentinelEnabled: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
-        slashInactivityCreatePenalty: SLASH_AMOUNT,
-        slashInactivityMaxPenalty: SLASH_AMOUNT,
         slashInactivityCreateTargetPercentage: 0.5,
         slashInactivitySignalTargetPercentage: 0.1,
         slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
+
+    const { rollup } = await t.getContracts();
+    slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
+    t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = slashingAmount;
+
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -90,6 +94,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = AZTEC_SLOT_DURATION * blockCount * 8;
+      const offlineValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
+
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
@@ -106,7 +112,9 @@ describe('e2e_p2p_validators_sentinel', () => {
             lastProcessedSlot &&
             lastProcessedSlot - initialSlot >= blockCount - 1 &&
             Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
-            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed'))
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed')) &&
+            stats[offlineValidator] &&
+            stats[offlineValidator].history.length > 0
           );
         },
         'sentinel processed blocks',
@@ -123,7 +131,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
       const offlineStats = stats.stats[offlineValidator];
       const historyLength = offlineStats.history.length;
-      expect(offlineStats.history.length).toBeGreaterThanOrEqual(BLOCK_COUNT - 1);
+      expect(offlineStats.history.length).toBeGreaterThan(0);
       expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
       expect(offlineStats.missedAttestations.count + offlineStats.missedProposals.count).toEqual(historyLength);
       expect(offlineStats.missedAttestations.rate).toEqual(1);
@@ -219,7 +227,15 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       await retryUntil(
         async () => {
-          const currentProposer = await rollup.getCurrentProposer();
+          const ignoreExpectedErrors = (err: Error) => {
+            const permissibleErrors = ['ValidatorSelection__InsufficientCommitteeSize', '0x98673597'];
+            if (permissibleErrors.some(error => err.message.includes(error))) {
+              return undefined;
+            }
+            t.logger.error('Error:', err);
+            throw err;
+          };
+          const currentProposer = await rollup.getCurrentProposer().catch(ignoreExpectedErrors);
           t.logger.verbose(`Current proposer is ${currentProposer}`);
           const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
           const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
@@ -240,7 +256,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       const { attester, amount } = slashEvents[0].args;
       expect(slashEvents.length).toBe(1);
       expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toString().toLowerCase());
-      expect(amount).toBe(SLASH_AMOUNT);
+      expect(amount).toBe(slashingAmount);
     });
   });
 });

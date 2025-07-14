@@ -71,7 +71,7 @@ mod tests {
     #[test]
     unconstrained fn single_tx_block_root_rollup_output_propagated_from_base() {
         let builder = TestBuilder::new();
-        builder.inputs.mock_evaluate_blobs();
+        builder.inputs.mock_evaluate_blobs_and_batch();
 
         let output = builder.execute();
 

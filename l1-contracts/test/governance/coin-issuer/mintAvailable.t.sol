@@ -7,7 +7,7 @@ contract MintAvailableTest is CoinIssuerBase {
   function test_GivenRateIs0(uint256 _time) external {
     // it returns 0
     _deploy(0);
-    uint256 timeJump = bound(_time, 0, type(uint128).max);
+    uint256 timeJump = bound(_time, 0, type(uint64).max - block.timestamp - 1);
     vm.warp(block.timestamp + timeJump);
 
     assertEq(nom.mintAvailable(), 0);
@@ -29,7 +29,7 @@ contract MintAvailableTest is CoinIssuerBase {
   function test_GivenAfterDeployment(uint256 _rate, uint256 _time) external givenRateIsNot0(_rate) {
     // it returns >0
 
-    uint256 timeJump = bound(_time, 1, type(uint128).max);
+    uint256 timeJump = bound(_time, 1, type(uint64).max - block.timestamp - 1);
     vm.warp(block.timestamp + timeJump);
 
     assertGt(nom.mintAvailable(), 0);

@@ -3,7 +3,6 @@ title: CLI Reference
 tags: [sandbox]
 sidebar_position: 2
 ---
-
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This reference guide provides documentation for the Aztec CLI commands (`aztec`) and their options. The CLI is a powerful tool for interacting with the Aztec network, managing accounts, deploying contracts, and more.
@@ -387,9 +386,9 @@ aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-conse
 - `--bot.l1-mnemonic <value>`: The mnemonic for the account to bridge fee juice from L1.
 - `--bot.l1-private-key <value>`: The private key for the account to bridge fee juice from L1.
 - `--bot.sender-private-key <value>`: Signing private key for the sender account.
-- `--bot.sender-salt <value>`: The salt to use to deploys the sender account.
+- `--bot.sender-salt <value>`: The salt to use to instantiate the sender account.
 - `--bot.recipient-encryption-secret <value>`: Encryption secret for a recipient account (default: 0x00000000000000000000000000000000000000000000000000000000cafecafe).
-- `--bot.token-salt <value>`: Salt for the token contract deployment (default: 0x0000000000000000000000000000000000000000000000000000000000000001).
+- `--bot.token-salt <value>`: The salt to use to instantiate the token contract (default: 0x0000000000000000000000000000000000000000000000000000000000000001).
 - `--bot.tx-interval-seconds <value>`: Every how many seconds should a new tx be sent (default: 60).
 - `--bot.private-transfers-per-tx <value>`: How many private token transfers are executed per tx (default: 1).
 - `--bot.public-transfers-per-tx <value>`: How many public token transfers are executed per tx (default: 1).
@@ -456,7 +455,7 @@ aztec create-account [options]
 Options:
 
 - `--skip-initialization`: Skip initializing the account contract. Useful for publicly deploying an existing account.
-- `--public-deploy`: Publicly deploys the account and registers the class if needed.
+- `--public-deploy`: Publishes the account contract instance (and the class, if needed). Needed if the contract contains public functions.
 - `-p, --public-key <string>`: Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.
 - `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
 - `-sk, --secret-key <string>`: Secret key for account. Uses random by default. (env: SECRET_KEY)
@@ -1006,7 +1005,6 @@ Options:
 - `--test-accounts`: Populate genesis state with initial fee juice for test accounts
 - `--sponsored-fpc`: Populate genesis state with a testing sponsored FPC contract
 - `--accelerated-test-deployments`: Fire and forget deployment transactions, use in testing only (default: false)
-- `--real-verifier`: Deploy the real verifier (default: false)
 
 ### deploy-l1-verifier
 
@@ -1020,6 +1018,8 @@ Options:
 
 - `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"], env: ETHEREUM_HOSTS)
 - `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
+- `--rollup-address <string>`: The address of the rollup contract (env: ROLLUP_CONTRACT_ADDRESS)
 - `--l1-private-key <string>`: The L1 private key to use for deployment
 - `-m, --mnemonic <string>`: The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
 - `--verifier <verifier>`: Either mock or real (default: "real")
@@ -1045,7 +1045,6 @@ Options:
 - `--json`: Output the contract addresses in JSON format
 - `--test-accounts`: Populate genesis state with initial fee juice for test accounts
 - `--sponsored-fpc`: Populate genesis state with a testing sponsored FPC contract
-- `--real-verifier`: Deploy the real verifier (default: false)
 
 ### get-l1-addresses
 

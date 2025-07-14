@@ -1,7 +1,11 @@
-import { elapsed } from '@aztec/aztec.js';
+import { MerkleTreeId, elapsed } from '@aztec/aztec.js';
+import { pick } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightBlockFactory } from '@aztec/prover-client/block-factory';
 import {
   GuardedMerkleTreeOperations,
@@ -9,31 +13,30 @@ import {
   PublicProcessor,
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
-import type { ChainConfig } from '@aztec/stdlib/config';
+import type { ChainConfig, SequencerConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
-  BuildBlockOptions,
   BuildBlockResult,
   IFullNodeBlockBuilder,
   MerkleTreeWriteOperations,
+  PublicProcessorLimits,
   PublicProcessorValidator,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 
-const log = createLogger('sequencer:block-builder');
+const log = createLogger('block-builder');
 
 export async function buildBlock(
   pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+  l1ToL2Messages: Fr[],
   newGlobalVariables: GlobalVariables,
-  opts: BuildBlockOptions = {},
-  l1ToL2MessageSource: L1ToL2MessageSource,
+  opts: PublicProcessorLimits = {},
   worldStateFork: MerkleTreeWriteOperations,
   processor: PublicProcessor,
   validator: PublicProcessorValidator,
@@ -42,11 +45,11 @@ export async function buildBlock(
   telemetryClient: TelemetryClient = getTelemetryClient(),
 ): Promise<BuildBlockResult> {
   const blockBuildingTimer = new Timer();
-  const blockNumber = newGlobalVariables.blockNumber.toNumber();
+  const blockNumber = newGlobalVariables.blockNumber;
   const slot = newGlobalVariables.slotNumber.toBigInt();
-  log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
-  const l1ToL2Messages = await l1ToL2MessageSource.getL1ToL2Messages(BigInt(blockNumber));
   const msgCount = l1ToL2Messages.length;
+  const stateReference = await worldStateFork.getStateReference();
+  const archiveTree = await worldStateFork.getTreeInfo(MerkleTreeId.ARCHIVE);
 
   log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
     slot,
@@ -54,76 +57,71 @@ export async function buildBlock(
     now: new Date(dateProvider.now()),
     blockNumber,
     msgCount,
+    initialStateReference: stateReference.toInspect(),
+    initialArchiveRoot: bufferToHex(archiveTree.root),
     opts,
   });
+  const blockFactory = new LightweightBlockFactory(worldStateFork, telemetryClient);
+  await blockFactory.startNewBlock(newGlobalVariables, l1ToL2Messages);
 
-  try {
-    const blockFactory = new LightweightBlockFactory(worldStateFork, telemetryClient);
-    await blockFactory.startNewBlock(newGlobalVariables, l1ToL2Messages);
+  const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
+    processor.process(pendingTxs, opts, validator),
+  );
 
-    const [publicProcessorDuration, [processedTxs, failedTxs, usedTxs]] = await elapsed(() =>
-      processor.process(pendingTxs, opts, validator),
-    );
+  // All real transactions have been added, set the block as full and pad if needed
+  await blockFactory.addTxs(processedTxs);
+  const block = await blockFactory.setBlockCompleted();
 
-    // All real transactions have been added, set the block as full and pad if needed
-    await blockFactory.addTxs(processedTxs);
-    const block = await blockFactory.setBlockCompleted();
+  // How much public gas was processed
+  const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
 
-    // How much public gas was processed
-    const publicGas = processedTxs.reduce((acc, tx) => acc.add(tx.gasUsed.publicGas), Gas.empty());
-
-    const res = {
-      block,
-      publicGas,
-      publicProcessorDuration,
-      numMsgs: l1ToL2Messages.length,
-      numTxs: processedTxs.length,
-      failedTxs: failedTxs,
-      blockBuildingTimer,
-      usedTxs,
-    };
-    log.trace('Built block', res.block.header);
-    return res;
-  } finally {
-    // We wait a bit to close the forks since the processor may still be working on a dangling tx
-    // which was interrupted due to the processingDeadline being hit.
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    setTimeout(async () => {
-      try {
-        await worldStateFork.close();
-      } catch (err) {
-        // This can happen if the sequencer is stopped before we hit this timeout.
-        log.warn(`Error closing forks for block processing`, err);
-      }
-    }, 5000);
-  }
+  const res = {
+    block,
+    publicGas,
+    publicProcessorDuration,
+    numMsgs: l1ToL2Messages.length,
+    numTxs: processedTxs.length,
+    failedTxs: failedTxs,
+    blockBuildingTimer,
+    usedTxs,
+  };
+  log.trace('Built block', res.block.header);
+  return res;
 }
+
+type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
+  Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
 
 export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   constructor(
-    private config: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
-      Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>,
-    private l1ToL2MessageSource: L1ToL2MessageSource,
+    private config: FullNodeBlockBuilderConfig,
     private worldState: WorldStateSynchronizer,
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
-  public getConfig() {
-    return {
-      l1GenesisTime: this.config.l1GenesisTime,
-      slotDuration: this.config.slotDuration,
-      l1ChainId: this.config.l1ChainId,
-      rollupVersion: this.config.rollupVersion,
-    };
+  public getConfig(): FullNodeBlockBuilderConfig {
+    return pick(
+      this.config,
+      'l1GenesisTime',
+      'slotDuration',
+      'l1ChainId',
+      'rollupVersion',
+      'txPublicSetupAllowList',
+      'fakeProcessingDelayPerTxMs',
+    );
   }
 
-  public async makeBlockBuilderDeps(globalVariables: GlobalVariables, opts: BuildBlockOptions) {
-    const blockNumber = globalVariables.blockNumber.toNumber();
-    const publicProcessorDBFork = await this.worldState.fork(blockNumber - 1);
+  public updateConfig(config: FullNodeBlockBuilderConfig) {
+    this.config = config;
+  }
+
+  public async makeBlockBuilderDeps(globalVariables: GlobalVariables, fork: MerkleTreeWriteOperations) {
+    const txPublicSetupAllowList = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
     const contractsDB = new PublicContractsDB(this.contractDataSource);
-    const guardedFork = new GuardedMerkleTreeOperations(publicProcessorDBFork);
+    const guardedFork = new GuardedMerkleTreeOperations(fork);
 
     const publicTxSimulator = new TelemetryPublicTxSimulator(
       guardedFork,
@@ -142,16 +140,18 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
+      undefined,
+      this.config,
     );
+
     const validator = createValidatorForBlockBuilding(
-      publicProcessorDBFork,
+      fork,
       this.contractDataSource,
       globalVariables,
-      opts.txPublicSetupAllowList ?? [],
+      txPublicSetupAllowList,
     );
 
     return {
-      publicProcessorDBFork,
       processor,
       validator,
     };
@@ -169,25 +169,51 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
 
   async buildBlock(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
+    l1ToL2Messages: Fr[],
     globalVariables: GlobalVariables,
-    opts: BuildBlockOptions,
+    opts: PublicProcessorLimits,
+    suppliedFork?: MerkleTreeWriteOperations,
   ): Promise<BuildBlockResult> {
-    const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
+    const parentBlockNumber = globalVariables.blockNumber - 1;
     const syncTimeout = opts.deadline ? (opts.deadline.getTime() - this.dateProvider.now()) / 1000 : undefined;
     await this.syncToPreviousBlock(parentBlockNumber, syncTimeout);
-    const { publicProcessorDBFork, processor, validator } = await this.makeBlockBuilderDeps(globalVariables, opts);
+    const fork = suppliedFork ?? (await this.worldState.fork(parentBlockNumber));
 
-    return buildBlock(
-      pendingTxs,
-      globalVariables,
-      opts,
-      this.l1ToL2MessageSource,
-      publicProcessorDBFork,
-      processor,
-      validator,
-      this.config,
-      this.dateProvider,
-      this.telemetryClient,
-    );
+    try {
+      const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, fork);
+      const res = await buildBlock(
+        pendingTxs,
+        l1ToL2Messages,
+        globalVariables,
+        opts,
+        fork,
+        processor,
+        validator,
+        this.config,
+        this.dateProvider,
+        this.telemetryClient,
+      );
+      return res;
+    } finally {
+      // If the fork was supplied, we don't close it.
+      // Otherwise, we wait a bit to close the fork we just created,
+      // since the processor may still be working on a dangling tx
+      // which was interrupted due to the processingDeadline being hit.
+      if (!suppliedFork) {
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        setTimeout(async () => {
+          try {
+            await fork.close();
+          } catch (err) {
+            // This can happen if the sequencer is stopped before we hit this timeout.
+            log.warn(`Error closing forks for block processing`, err);
+          }
+        }, 5000);
+      }
+    }
+  }
+
+  getFork(blockNumber: number): Promise<MerkleTreeWriteOperations> {
+    return this.worldState.fork(blockNumber);
   }
 }

@@ -1,4 +1,4 @@
-import { MAX_ENQUEUED_CALLS_PER_TX } from '@aztec/constants';
+import { MAX_ENQUEUED_CALLS_PER_TX, MAX_INCLUDE_BY_TIMESTAMP_DURATION } from '@aztec/constants';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
@@ -41,7 +41,7 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from './factories.js';
+import { makeGas, makeGlobalVariables, makeHeader, makePublicCallRequest } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
@@ -126,6 +126,9 @@ export const mockTx = async (
   data.constants.vkTreeRoot = vkTreeRoot;
   data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
+  // Set includeByTimestamp to the maximum allowed duration from the current time.
+  data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
+
   const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {
     data.forRollup!.end.nullifiers[0] = firstNullifier.value;
@@ -181,6 +184,7 @@ const emptyPrivateCallExecutionResult = () =>
     [],
     [],
     [],
+    [],
   );
 
 const emptyPrivateExecutionResult = () => new PrivateExecutionResult(emptyPrivateCallExecutionResult(), Fr.zero(), []);
@@ -190,7 +194,7 @@ export const mockSimulatedTx = async (seed = 1) => {
   const tx = await mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
-    makeCombinedConstantData(),
+    makeGlobalVariables(),
     await TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
     {
@@ -251,18 +255,12 @@ const makeAndSignConsensusPayload = (
   options?: MakeConsensusPayloadOptions,
 ) => {
   const header = options?.header ?? makeHeader(1);
-  const {
-    signer = Secp256k1Signer.random(),
-    archive = Fr.random(),
-    stateReference = header.state,
-    txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
-  } = options ?? {};
+  const { signer = Secp256k1Signer.random(), archive = Fr.random(), stateReference = header.state } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
     header: header.toPropose(),
     archive,
     stateReference,
-    txHashes,
   });
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, domainSeparator);
@@ -276,7 +274,8 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
     SignatureDomainSeparator.blockProposal,
     options,
   );
-  return new BlockProposal(blockNumber, payload, signature, options?.txs ?? []);
+  const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+  return new BlockProposal(blockNumber, payload, signature, txHashes, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
@@ -295,7 +294,7 @@ export async function randomPublishedL2Block(
   const block = await L2Block.random(l2BlockNumber);
   const l1 = {
     blockNumber: BigInt(block.number),
-    timestamp: block.header.globalVariables.timestamp.toBigInt(),
+    timestamp: block.header.globalVariables.timestamp,
     blockHash: Buffer32.random().toString(),
   };
 

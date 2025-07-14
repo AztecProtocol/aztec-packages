@@ -1,25 +1,38 @@
-use dep::protocol_types::{
+use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::PUBLIC_DISPATCH_SELECTOR,
     traits::{Deserialize, FromField, Packable, ToField},
 };
 
-use crate::context::{
-    call_interfaces::CallInterface, PrivateCallInterface, PrivateContext, PrivateVoidCallInterface,
-    PublicCallInterface, PublicContext, PublicVoidCallInterface, ReturnsHash, UtilityCallInterface,
-    UtilityContext,
+use crate::{
+    context::{
+        call_interfaces::{
+            CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+        },
+        PrivateCallInterface,
+        PrivateContext,
+        PrivateVoidCallInterface,
+        PublicCallInterface,
+        PublicContext,
+        PublicVoidCallInterface,
+        ReturnsHash,
+        UtilityCallInterface,
+        UtilityContext,
+    },
+    hash::hash_args,
+    note::note_interface::{NoteHash, NoteType},
+    oracle::{
+        execution::{get_block_number, get_contract_address, get_timestamp},
+        execution_cache,
+        notes::notify_created_note,
+    },
+    test::helpers::{cheatcodes, utils::Deployer},
 };
-use crate::hash::hash_args;
-use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::note_interface::{NoteHash, NoteType};
-use crate::oracle::{
-    execution::{get_block_number, get_contract_address},
-    execution_cache,
-    notes::notify_created_note,
-};
 use super::cheatcodes::public_call_new_flow;
+
+mod test;
 
 pub struct TestEnvironment {}
 
@@ -36,25 +49,102 @@ impl TestEnvironment {
 
     pub unconstrained fn _new() -> Self {
         cheatcodes::reset();
-        cheatcodes::disable_oracles();
+        cheatcodes::enable_context_checks();
         Self {}
     }
 
-    /// Returns the block number of the block currently being built. Since sequencer is executing the public part
-    /// of transactions when building blocks, this block number is also returned by public_context.block_number().
-    pub unconstrained fn pending_block_number(_self: Self) -> u32 {
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    ///
+    /// Creates a `PublicContext`, which allows using aztec-nr features as if inside a public contract function. Useful
+    /// for low-level testing of public state variables and utilities.
+    ///
+    /// Receives a function which is called with the created `PublicContext`. Any value returned by said function is
+    /// bubbled up to the caller of `public_context`. Do *NOT* return or use the `PublicContext` value in any way
+    /// outside of the passed function, since it will become invalid once `public_context` returns.
+    ///
+    /// A new block is automatically mined once `public_context` returns, containing all of the side-effects caused by
+    /// its execution (e.g. public storage writes).
+    ///
+    /// ---
+    /// Sample usage:
+    /// ```noir
+    /// env.public_context(|context| {
+    ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
+    ///   state_var.write(some_value);
+    ///   assert_eq(state_var.read(), some_value);
+    /// });
+    /// ```
+    ///
+    /// ---
+    /// Advanced usage with returns:
+    /// ```noir
+    /// let read_value = env.public_context(|context| {
+    ///   let state_var = PublicMutable::new(context, STORAGE_SLOT);
+    ///   state_var.read()
+    /// });
+    pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
+        cheatcodes::set_public_txe_context();
+
+        let mut context = self.public();
+        let ret_value = f(&mut context);
+
+        // merge calls below into 'exit public txe context' -> this mines a block
+        // 36 is the slot duration - for some reason we need to advance by at least this much in order to get a block to
+        // get mined. note that this may cause the block we just mined to not have the timestamp we thought it did - we
+        // need to test this.
+        cheatcodes::advance_timestamp_by(36);
+        cheatcodes::advance_blocks_by(1);
+        cheatcodes::set_top_level_txe_context();
+
+        ret_value
+    }
+
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    ///
+    /// Creates a `PrivateContext`, which allows using aztec-nr features as if inside a private contract function.
+    /// Useful for low-level testing of public state variables and utilities.
+    ///
+    /// Receives a function which is called with the created `PrivateContext`. Any value returned by said function is
+    /// bubbled up to the caller of `private_context`. Do *NOT* return or use the `PrivateContext` value in any way
+    /// outside of the passed function, since it will become invalid once `private_context` returns.
+    ///
+    /// The historical block is set to the latest block.
+    pub unconstrained fn private_context<Env, T>(
+        &mut self,
+        f: fn[Env](&mut PrivateContext) -> T,
+    ) -> T {
+        // merge the two oracles below - the creation of a context implies a transition to a private txe context. right
+        // now we have them in this order because creating the private context requires reading the latest block number,
+        // which we only allow for top level and utility
+        let mut context = self.private();
+        cheatcodes::set_private_txe_context();
+
+        let ret_value = f(&mut context);
+        cheatcodes::set_top_level_txe_context();
+
+        // todo: should commit the context to mine a block with the side effects of the context
+
+        ret_value
+    }
+
+    /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
+    pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
+        cheatcodes::set_utility_txe_context();
+        let context = self.utility();
+        let ret_value = f(context);
+        cheatcodes::set_top_level_txe_context();
+
+        ret_value
+    }
+
+    /// Returns the number of the next block to be built.
+    pub unconstrained fn next_block_number(_self: Self) -> u32 {
         get_block_number()
     }
 
-    /// This does what the above does but should be considered deprecated as the naming is subpar.
-    pub unconstrained fn block_number(self: Self) -> u32 {
-        self.pending_block_number()
-    }
-
-    /// Returns the block number of the last committed block - this is the block number that gets used in production
-    /// to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
-    pub unconstrained fn committed_block_number(self: Self) -> u32 {
-        self.pending_block_number() - 1
+    /// Returns the number of the last mined block. This is the default historical block for private transactions.
+    pub unconstrained fn last_block_number(_self: Self) -> u32 {
+        get_block_number() - 1
     }
 
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
@@ -76,25 +166,34 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(address)
     }
 
-    /// Advances the internal TXe state to specified block number.
-    /// Note that this block number describes the block being built. i.e. If you advance the block to 5 from 1,
-    /// the pending block number will be 5, and your last committed block number will be 4.
-    pub unconstrained fn advance_block_to(&mut self, block_number: u32) {
-        let pending_block_number = self.pending_block_number();
-        assert(pending_block_number <= block_number, "Cannot advance block to a previous block.");
-
-        let difference = block_number - pending_block_number;
-        self.advance_block_by(difference);
+    pub unconstrained fn mine_block_at(&mut self, timestamp: u64) {
+        self.set_next_block_timestamp(timestamp);
+        self.mine_block();
     }
 
-    /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
-    /// block advanced, and we are able to fetch historical data from warped over blocks.
-    pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
-        cheatcodes::advance_blocks_by(blocks);
+    /// Advances the internal TXe timestamp to the specified timestamp.
+    pub unconstrained fn set_next_block_timestamp(&mut self, timestamp: u64) {
+        let pending_timestamp = get_timestamp();
+        assert(
+            pending_timestamp <= timestamp,
+            "Cannot go back in time. Timestamp cannot be before next timestamp.",
+        );
+        let difference: u64 = timestamp - pending_timestamp;
+        self.advance_next_block_timestamp_by(difference);
+    }
+
+    /// Advances the internal TXe state by one valid block.
+    pub unconstrained fn mine_block(_self: &mut Self) {
+        cheatcodes::advance_blocks_by(1);
+    }
+
+    /// Advances the internal TXe timestamp by the specified duration in seconds.
+    pub unconstrained fn advance_next_block_timestamp_by(_self: &mut Self, duration: u64) {
+        cheatcodes::advance_timestamp_by(duration);
     }
 
     /// Instantiates a public context. The block number returned from public_context.block_number() will be the
-    /// block number of the block currently being built (same as the one returned by self.pending_block_number()).
+    /// block number of the block currently being built (same as the one returned by self.next_block_number()).
     pub unconstrained fn public(_self: Self) -> PublicContext {
         PublicContext::new(|| 0)
     }
@@ -108,7 +207,7 @@ impl TestEnvironment {
     /// Instantiates a private context at the latest committed block number - this is the block number that gets used
     /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(self.committed_block_number())
+        self.private_at(self.last_block_number())
     }
 
     pub unconstrained fn utility(_self: Self) -> UtilityContext {
@@ -117,11 +216,11 @@ impl TestEnvironment {
 
     /// Instantiates a private context at a specific historical block number.
     pub unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
-        if historical_block_number >= get_block_number() {
-            self.advance_block_to(historical_block_number + 1);
+        if historical_block_number > self.next_block_number() {
+            cheatcodes::advance_blocks_by(1 + historical_block_number - self.next_block_number())
         }
 
-        let mut inputs = cheatcodes::get_private_context_inputs(historical_block_number);
+        let mut inputs = cheatcodes::get_private_context_inputs_at_block(historical_block_number);
 
         PrivateContext::new(inputs, 0)
     }
@@ -207,7 +306,7 @@ impl TestEnvironment {
     pub unconstrained fn call_private<T, let N: u32, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateCallInterface<M, T>,
+        call_interface: PrivateCallInterface<M, T, N>,
     ) -> CallResult<T>
     where
         T: Deserialize<N>,
@@ -228,10 +327,10 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32>(
+    pub unconstrained fn call_private_void<let M: u32, T, let N: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M>,
+        call_interface: PrivateVoidCallInterface<M, T, N>,
     ) -> CallResult<()> {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -253,7 +352,7 @@ impl TestEnvironment {
 
     pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
+        call_interface: UtilityCallInterface<M, T, N>,
     ) -> T
     where
         T: Deserialize<N>,
@@ -274,7 +373,7 @@ impl TestEnvironment {
 
     pub unconstrained fn simulate_void_utility<T, let N: u32, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
+        call_interface: UtilityCallInterface<M, T, N>,
     ) {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -292,7 +391,7 @@ impl TestEnvironment {
     pub unconstrained fn call_public<T, let N: u32, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicCallInterface<M, T>,
+        call_interface: PublicCallInterface<M, T, N>,
     ) -> CallResult<T>
     where
         T: Deserialize<N>,
@@ -310,10 +409,10 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_public_void<T, let M: u32>(
+    pub unconstrained fn call_public_void<T, let N: u32, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicVoidCallInterface<M>,
+        call_interface: PublicVoidCallInterface<M, T, N>,
     ) -> CallResult<()> {
         let (returns_hash, tx_hash) = public_call_new_flow(
             from,
@@ -326,6 +425,47 @@ impl TestEnvironment {
         ReturnsHash::new(returns_hash).assert_empty();
 
         CallResult { return_value: (), tx_hash }
+    }
+
+    pub unconstrained fn call_private_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: TXEPrivateCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let (returns, tx_hash) = call_interface.call_with_txe(from);
+
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn simulate_utility_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        call_interface: X,
+    ) -> T
+    where
+        X: TXEUtilityCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let returns = call_interface.call_with_txe();
+
+        returns
+    }
+
+    pub unconstrained fn call_public_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: TXEPublicCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let (returns, tx_hash) = call_interface.call_with_txe(from);
+
+        CallResult { return_value: returns, tx_hash }
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note

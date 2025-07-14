@@ -3,11 +3,13 @@
 #include <utility>
 #include <vector>
 
+#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
 using bb::avm2::tracegen::TestTraceContainer;
@@ -55,16 +57,18 @@ std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
     return messages;
 }
 
-std::vector<EnqueuedCallHint> random_enqueued_calls(size_t n)
+std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n)
 {
-    std::vector<EnqueuedCallHint> calls;
+    std::vector<PublicCallRequestWithCalldata> calls;
     calls.reserve(n);
     for (size_t i = 0; i < n; ++i) {
-        calls.push_back(EnqueuedCallHint{
-            .msgSender = FF::random_element(),
-            .contractAddress = FF::random_element(),
+        calls.push_back(PublicCallRequestWithCalldata{
+            .request{
+                .msgSender = FF::random_element(),
+                .contractAddress = FF::random_element(),
+                .isStaticCall = rand() % 2 == 0,
+            },
             .calldata = random_fields(5),
-            .isStaticCall = rand() % 2 == 0,
         });
     }
     return calls;
@@ -169,39 +173,19 @@ ContractInstance random_contract_instance()
 
 std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
+    // cwd is expected to be barretenberg/cpp/build.
+    auto data = read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin");
+    AvmProvingInputs inputs = AvmProvingInputs::from(data);
+
+    AvmSimulationHelper simulation_helper(inputs.hints);
+
+    auto events = simulation_helper.simulate();
+
     AvmTraceGenHelper trace_gen_helper;
 
-    PublicInputs public_inputs = {
-        .globalVariables = {
-            .blockNumber = 42,
-        },
-        .startTreeSnapshots = {
-            .l1ToL2MessageTree = {
-                .root = 111,
-                .nextAvailableLeafIndex = 222,
-            },
-            .noteHashTree = {
-                .root = 333,
-                .nextAvailableLeafIndex = 444,
-            },
-            .nullifierTree = {
-                .root = 555,
-                .nextAvailableLeafIndex = 666,
-            },
-            .publicDataTree = {
-                .root = 777,
-                .nextAvailableLeafIndex = 888,
-            },
-        },
-        .reverted = false,
-    };
+    auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.publicInputs);
 
-    auto trace = trace_gen_helper.generate_trace({
-            .alu = { { .operation = simulation::AluOperation::ADD, .a = MemoryValue::from<uint16_t>(1), .b = MemoryValue::from<uint16_t>(2), .c = MemoryValue::from<uint16_t>(3) }, },
-        },
-        public_inputs);
-
-    return { std::move(trace), std::move(public_inputs) };
+    return { std::move(trace), inputs.publicInputs };
 }
 
 bool skip_slow_tests()

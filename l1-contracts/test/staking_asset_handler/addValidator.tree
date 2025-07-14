@@ -9,7 +9,7 @@ AddValidatorTest
     │   ├── when insufficient time passed
     │   │   └── it reverts
     │   └── when sufficient time passed
-    │       ├── it emits an {AddedToQueue} event
+    │       ├── it emits an {ValidatorAdded} event
     │       ├── it adds validator to the queue
     │       ├── it mints staking asset
     │       ├── it emits a {ToppedUp} event
@@ -31,8 +31,6 @@ AddValidatorTest
         │   │   └── it reverts
         │   └── when passport proof is in the past
         │       └── it reverts
-        └── given the deposit call fails
-                ├── it deposits into the rollup
-                ├── it does not revert if the deposit call fails
-                ├── it emits a {ValidatorAdded} event for the first attester
-                └── it emits a {ValidatorAdded} event for the third attester
+        └── given call to flushEntryQueue reverts
+            ├── it exits the attester if needed
+            └── it adds the validator to the queue

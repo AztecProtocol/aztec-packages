@@ -1,34 +1,34 @@
 # Import the existing bucket with the same settings
 resource "google_storage_bucket" "snapshots-bucket" {
-    name = "aztec-testnet"
-    location = "us-west1"
+  name     = "aztec-testnet"
+  location = "us-west1"
 
-    autoclass {
-        enabled = true
-        terminal_storage_class = "ARCHIVE"
+  autoclass {
+    enabled                = true
+    terminal_storage_class = "ARCHIVE"
+  }
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
     }
 
-    lifecycle_rule {
-        action {
-            type = "Delete"
-        }
+    condition {
+      num_newer_versions = 3
+      with_state         = "ARCHIVED"
+    }
+  }
 
-        condition {
-            num_newer_versions = 3
-            with_state = "ARCHIVED"
-        }
+  lifecycle_rule {
+    action {
+      type = "Delete"
     }
 
-    lifecycle_rule {
-      action {
-        type = "Delete"
-      }
-
-      condition {
-        days_since_noncurrent_time = 15
-        with_state = "ANY"
-      }
+    condition {
+      days_since_noncurrent_time = 15
+      with_state                 = "ANY"
     }
+  }
 }
 
 resource "google_storage_managed_folder" "aztec_testnet_auto_update_folder" {
@@ -44,16 +44,16 @@ resource "google_storage_managed_folder_iam_policy" "aztec_testnet_auto_update_f
 }
 
 resource "google_storage_bucket_object" "alpha_testnet_json" {
-  bucket = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
-  name   = "${google_storage_managed_folder.aztec_testnet_auto_update_folder.name}alpha-testnet.json"
-  content_type = "application/json"
+  bucket        = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
+  name          = "${google_storage_managed_folder.aztec_testnet_auto_update_folder.name}alpha-testnet.json"
+  content_type  = "application/json"
   cache_control = "no-store"
   # see yarn-project/foundation/src/update-checker/update-checker.ts for latest schema
   content = jsonencode({
-    version = ""
+    version = "0.87.9"
     config = {
-      maxTxsPerBlock = 8
-      publishTxsWithProposals = true
+      maxTxsPerBlock            = 8
+      publishTxsWithProposals   = false
       governanceProposerPayload = "0x0000000000000000000000000000000000000000"
     }
   })

@@ -15,7 +15,7 @@ unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader 
 
 pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockHeader {
     let historical_header = context.historical_header;
-    let historical_block_number = historical_header.global_variables.block_number as u32;
+    let historical_block_number = historical_header.global_variables.block_number;
 
     if (block_number == historical_block_number) {
         // If the block number we want to prove against is the same as the block number in the historical header we
@@ -74,7 +74,7 @@ fn constrain_get_block_header_at_internal(
 
     // 4) Check that the header hint has the same block number as the block number we are looking for, ensuring we are actually grabbing the header we specify
     assert_eq(
-        header_hint.global_variables.block_number as u32,
+        header_hint.global_variables.block_number,
         block_number,
         "Block number provided is not the same as the block number from the header hint",
     );
@@ -88,7 +88,10 @@ mod test {
     unconstrained fn fetching_a_valid_but_different_header_should_fail() {
         let mut env = TestEnvironment::new();
 
-        env.advance_block_by(4);
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
+        env.mine_block();
 
         // We get our current header for the last archive values.
         let current_header = env.private().historical_header;
@@ -100,7 +103,7 @@ mod test {
         constrain_get_block_header_at_internal(
             bad_header,
             target_block_number - 1,
-            current_header.global_variables.block_number as u32 - 1,
+            current_header.global_variables.block_number - 1,
             current_header.last_archive.root,
         );
     }

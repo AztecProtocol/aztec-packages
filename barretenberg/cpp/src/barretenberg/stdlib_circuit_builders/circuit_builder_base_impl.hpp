@@ -218,8 +218,9 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     uint32_t a_real_idx = real_variable_index[a_variable_idx];
     uint32_t b_real_idx = real_variable_index[b_variable_idx];
     // If a==b is already enforced, exit method
-    if (a_real_idx == b_real_idx)
+    if (a_real_idx == b_real_idx) {
         return;
+    }
     // Otherwise update the real_idx of b-chain members to that of a
 
     auto b_start_idx = get_first_variable_in_class(b_variable_idx);
@@ -263,10 +264,12 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
+#ifndef FUZZING_DISABLE_WARNINGS
     if (!has_dummy_witnesses) {
         // We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
     }
+#endif
     _failed = true;
     set_err(std::move(msg));
 }

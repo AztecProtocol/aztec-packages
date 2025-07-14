@@ -1,18 +1,27 @@
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import { bigintConfigHelper, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  bigintConfigHelper,
+  booleanConfigHelper,
+  floatConfigHelper,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 export enum Offense {
   UNKNOWN = 0,
-  EPOCH_PRUNE = 1,
-  INACTIVITY = 2,
+  DATA_WITHHOLDING = 1,
+  VALID_EPOCH_PRUNED = 2,
+  INACTIVITY = 3,
+  INVALID_BLOCK = 4,
 }
 
 export const OffenseToBigInt: Record<Offense, bigint> = {
   [Offense.UNKNOWN]: 0n,
-  [Offense.EPOCH_PRUNE]: 1n,
-  [Offense.INACTIVITY]: 2n,
+  [Offense.DATA_WITHHOLDING]: 1n,
+  [Offense.VALID_EPOCH_PRUNED]: 2n,
+  [Offense.INACTIVITY]: 3n,
+  [Offense.INVALID_BLOCK]: 4n,
 };
 
 export function bigIntToOffense(offense: bigint): Offense {
@@ -20,9 +29,13 @@ export function bigIntToOffense(offense: bigint): Offense {
     case 0n:
       return Offense.UNKNOWN;
     case 1n:
-      return Offense.EPOCH_PRUNE;
+      return Offense.DATA_WITHHOLDING;
     case 2n:
+      return Offense.VALID_EPOCH_PRUNED;
+    case 3n:
       return Offense.INACTIVITY;
+    case 4n:
+      return Offense.INVALID_BLOCK;
     default:
       throw new Error(`Unknown offense: ${offense}`);
   }
@@ -58,9 +71,12 @@ export interface SlasherConfig {
   slashPruneEnabled: boolean;
   slashPrunePenalty: bigint;
   slashPruneMaxPenalty: bigint;
+  slashInvalidBlockEnabled: boolean;
+  slashInvalidBlockPenalty: bigint;
+  slashInvalidBlockMaxPenalty: bigint;
   slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%
-  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%
+  slashInactivityCreateTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
+  slashInactivitySignalTargetPercentage: number; // 0-1, 0.6 means 60%. Must be greater than 0
   slashInactivityCreatePenalty: bigint;
   slashInactivityMaxPenalty: bigint;
   slashProposerRoundPollingIntervalSeconds: number;
@@ -73,6 +89,9 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashPruneEnabled: true,
   slashPrunePenalty: 1n,
   slashPruneMaxPenalty: 100n,
+  slashInvalidBlockEnabled: true,
+  slashInvalidBlockPenalty: 1n,
+  slashInvalidBlockMaxPenalty: 100n,
   slashInactivityEnabled: true,
   slashInactivityCreateTargetPercentage: 0.9,
   slashInactivitySignalTargetPercentage: 0.6,
@@ -82,11 +101,6 @@ export const DefaultSlasherConfig: SlasherConfig = {
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
-  slashInactivityEnabled: {
-    env: 'SLASH_INACTIVITY_ENABLED',
-    description: 'Enable creation of inactivity slash payloads.',
-    ...booleanConfigHelper(DefaultSlasherConfig.slashInactivityEnabled),
-  },
   slashPayloadTtlSeconds: {
     env: 'SLASH_PAYLOAD_TTL_SECONDS',
     description: 'Time-to-live for slash payloads in seconds.',
@@ -113,15 +127,45 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'Maximum penalty amount for slashing validators of a pruned epoch.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashPruneMaxPenalty),
   },
+  slashInvalidBlockEnabled: {
+    env: 'SLASH_INVALID_BLOCK_ENABLED',
+    description: 'Enable creation of slash payloads for invalid blocks.',
+    ...booleanConfigHelper(DefaultSlasherConfig.slashInvalidBlockEnabled),
+  },
+  slashInvalidBlockPenalty: {
+    env: 'SLASH_INVALID_BLOCK_PENALTY',
+    description: 'Penalty amount for slashing a validator for an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashInvalidBlockPenalty),
+  },
+  slashInvalidBlockMaxPenalty: {
+    env: 'SLASH_INVALID_BLOCK_MAX_PENALTY',
+    description: 'Maximum penalty amount for slashing a validator for an invalid block.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashInvalidBlockMaxPenalty),
+  },
+  slashInactivityEnabled: {
+    env: 'SLASH_INACTIVITY_ENABLED',
+    description: 'Enable creation of inactivity slash payloads.',
+    ...booleanConfigHelper(DefaultSlasherConfig.slashInactivityEnabled),
+  },
   slashInactivityCreateTargetPercentage: {
     env: 'SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE',
-    description: 'Missed attestation percentage to trigger creation of inactivity slash payload (0-100).',
-    ...numberConfigHelper(DefaultSlasherConfig.slashInactivityCreateTargetPercentage),
+    description:
+      'Missed attestation percentage to trigger creation of inactivity slash payload (0, 1]. Must be greater than 0',
+    ...floatConfigHelper(DefaultSlasherConfig.slashInactivityCreateTargetPercentage, v => {
+      if (v <= 0 || v > 1) {
+        throw new RangeError(`SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE out of range. Expected (0, 1] got ${v}`);
+      }
+    }),
   },
   slashInactivitySignalTargetPercentage: {
     env: 'SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE',
-    description: 'Missed attestation percentage to trigger voting for an inactivity slash payload (0-100).',
-    ...numberConfigHelper(DefaultSlasherConfig.slashInactivitySignalTargetPercentage),
+    description:
+      'Missed attestation percentage to trigger voting for an inactivity slash payload (0, 1]. Must be greater than 0',
+    ...floatConfigHelper(DefaultSlasherConfig.slashInactivitySignalTargetPercentage, v => {
+      if (v <= 0 || v > 1) {
+        throw new RangeError(`SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE out of range. Expected (0, 1] got ${v}`);
+      }
+    }),
   },
   slashInactivityCreatePenalty: {
     env: 'SLASH_INACTIVITY_CREATE_PENALTY',

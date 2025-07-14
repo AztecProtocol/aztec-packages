@@ -24,10 +24,10 @@ using FF = Flavor::FF;
  *
  * @tparam settings Settings class.
  */
-AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key)
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCommitmentKey& commitment_key)
     : key(std::move(input_key))
     , prover_polynomials(*key)
-    , commitment_key(std::move(commitment_key))
+    , commitment_key(commitment_key)
 {}
 
 /**
@@ -52,7 +52,7 @@ void AvmProver::execute_wire_commitments_round()
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], commitment_key.commit(wire_polys[idx]));
     }
 }
 
@@ -79,7 +79,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
     // Commit to all logderivative inverse polynomials
     for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
-        commitment = commitment_key->commit(key_poly);
+        commitment = commitment_key.commit(key_poly);
     }
 
     // Send all commitments to the verifier
@@ -97,15 +97,18 @@ void AvmProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
 
-    auto sumcheck = Sumcheck(key->circuit_size, transcript);
+    // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
 
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha, gate_challenges);
+
+    Sumcheck sumcheck(key->circuit_size, prover_polynomials, transcript, alpha, gate_challenges, relation_parameters);
+
+    sumcheck_output = sumcheck.prove();
 }
 
 void AvmProver::execute_pcs_rounds()
@@ -125,8 +128,7 @@ void AvmProver::execute_pcs_rounds()
 
 HonkProof AvmProver::export_proof()
 {
-    proof = transcript->proof_data;
-    return proof;
+    return transcript->export_proof();
 }
 
 HonkProof AvmProver::construct_proof()
