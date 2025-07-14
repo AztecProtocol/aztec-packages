@@ -20,14 +20,6 @@ where
     serialized_option.map(|arr| Deserialize::deserialize(arr))
 }
 
-// TODO(https://github.com/noir-lang/noir/issues/9130): Nuke this - it's a workaround for a weird Noir bug.
-pub unconstrained fn very_sad_load<let N: u32>(
-    contract_address: AztecAddress,
-    slot: Field,
-) -> Option<[Field; N]> {
-    load_oracle(contract_address, slot, N)
-}
-
 /// Deletes data in the per-contract non-volatile database. Does nothing if no data was present.
 pub unconstrained fn delete(contract_address: AztecAddress, slot: Field) {
     delete_oracle(contract_address, slot);
