@@ -16,11 +16,6 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
-  [ -n "$NOIR_HASH" ]
-fi
-
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }

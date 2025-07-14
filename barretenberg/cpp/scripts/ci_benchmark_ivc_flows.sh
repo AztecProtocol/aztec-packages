@@ -77,7 +77,7 @@ function client_ivc_flow {
   local output="bench-out/$name_path"
   rm -rf "$output"
   mkdir -p "$output"
-  export MEMUSAGE_OUT="$output/peak-memory-kb.txt"
+  export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v"
 
@@ -88,10 +88,9 @@ function client_ivc_flow {
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 ))
-  local memory_mb=$(cat "$MEMUSAGE_OUT")
-  memory_mb=$(( memory_mb / 1024 )) # Convert from KB to MB
+  local memory_taken_mb=$(cat "$MEMUSAGE_OUT")
 
-  echo "$flow ($runtime) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_mb}MB."
+  echo "$flow ($runtime) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow $output/proof"
   echo "$flow ($runtime) has verified."
 
@@ -105,7 +104,7 @@ function client_ivc_flow {
   {
     "name": "$name_path/memory",
     "unit": "MB",
-    "value": ${memory_mb}
+    "value": ${memory_taken_mb}
   }
 ]
 EOF
