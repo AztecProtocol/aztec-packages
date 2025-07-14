@@ -1,6 +1,6 @@
 use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 use dep::types::{
-    constants::ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+    constants::ULTRA_HONK_VK_LENGTH_IN_FIELDS,
     proof::{rollup_recursive_proof::NestedRecursiveProof, vk_data::VkData},
     traits::{Empty, Serialize},
 };
@@ -9,7 +9,7 @@ use dep::types::{
 pub struct PreviousRollupBlockData {
     pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     pub proof: NestedRecursiveProof,
-    pub vk_data: VkData<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<ULTRA_HONK_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PreviousRollupBlockData {

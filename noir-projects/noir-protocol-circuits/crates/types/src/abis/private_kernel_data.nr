@@ -1,7 +1,7 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG,
+        MEGA_HONK_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG,
     },
     proof::{traits::Verifiable, vk_data::VkData},
     utils::arrays::find_index_hint,
@@ -9,7 +9,7 @@ use crate::{
 
 pub struct PrivateKernelData {
     pub public_inputs: PrivateKernelCircuitPublicInputs,
-    pub vk_data: VkData<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<MEGA_HONK_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelData {
@@ -58,7 +58,7 @@ impl Verifiable for PrivateKernelData {
 }
 
 pub struct PrivateKernelDataWithoutPublicInputs {
-    vk_data: VkData<CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    vk_data: VkData<MEGA_HONK_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelDataWithoutPublicInputs {
