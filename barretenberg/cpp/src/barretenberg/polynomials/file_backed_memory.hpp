@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <atomic>
+#include <cstring>
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
@@ -60,18 +62,18 @@ template <typename T> struct FileBackedMemory {
         fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         // Create file
         if (fd < 0) {
-            throw std::runtime_error("Failed to create backing file: " + filename);
+            throw_or_abort("Failed to create backing file: " + filename);
         }
 
         // Set file size
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            throw std::runtime_error("Failed to set file size");
+            throw_or_abort("Failed to set file size");
         }
 
         // Memory map the file
         void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
-            throw std::runtime_error("Failed to mmap file");
+            throw_or_abort("Failed to mmap file: " + std::string(std::strerror(errno)));
         }
 
         memory = static_cast<T*>(addr);
