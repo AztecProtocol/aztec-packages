@@ -1,6 +1,6 @@
 #!/bin/bash
 
-/nethermind \
+/nethermind/nethermind \
   --datadir=/data \
   --Init.ChainSpecPath=/genesis/genesis.json \
   --Merge.PoS=true \
