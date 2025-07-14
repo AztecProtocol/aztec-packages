@@ -955,9 +955,11 @@ export class TXE implements TypedOracle {
       throw new Error('Invalid arguments size');
     }
 
+    const historicalBlockNumber = this.blockNumber - 1; // i.e. latest
+
     const privateContextInputs = await this.getPrivateContextInputs(
-      this.blockNumber - 1,
-      this.timestamp - AZTEC_SLOT_DURATION,
+      historicalBlockNumber,
+      await this.getBlockTimestamp(historicalBlockNumber),
       sideEffectCounter,
       isStaticCall,
     );
@@ -1672,5 +1674,14 @@ export class TXE implements TypedOracle {
       returnsHash: returnValuesHash ?? Fr.ZERO,
       txHash: txRequestHash,
     };
+  }
+
+  private async getBlockTimestamp(blockNumber: number) {
+    const blockHeader = await this.stateMachine.archiver.getBlockHeader(blockNumber);
+    if (!blockHeader) {
+      throw new Error(`Requested timestamp for block ${blockNumber}, which does not exist`);
+    }
+
+    return blockHeader.globalVariables.timestamp;
   }
 }

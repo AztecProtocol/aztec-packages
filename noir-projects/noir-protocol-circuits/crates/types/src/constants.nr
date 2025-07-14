@@ -658,6 +658,9 @@ pub global AVM_EXEC_OP_ID_ALU_FDIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_DIV;
 pub global AVM_EXEC_OP_ID_ALU_EQ: u32 = 2 * AVM_EXEC_OP_ID_ALU_FDIV;
 pub global AVM_EXEC_OP_ID_ALU_LT: u32 = 2 * AVM_EXEC_OP_ID_ALU_EQ;
 pub global AVM_EXEC_OP_ID_ALU_LTE: u32 = 2 * AVM_EXEC_OP_ID_ALU_LT;
+pub global AVM_EXEC_OP_ID_ALU_NOT: u32 = 2 * AVM_EXEC_OP_ID_ALU_LTE;
+pub global AVM_EXEC_OP_ID_ALU_SHL: u32 = 2 * AVM_EXEC_OP_ID_ALU_NOT;
+pub global AVM_EXEC_OP_ID_ALU_SHR: u32 = 2 * AVM_EXEC_OP_ID_ALU_SHL;
 
 // AvmCircuitPublicInputs - row indices
 // Global Variables
