@@ -161,9 +161,8 @@ class ClientIVC {
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
   public:
-    // The number of circuits to be accumulated in the current iteration of the IVC, it indicates how many accumulate
-    // calls should be expected before calling prove.
-    size_t num_circuits;
+    size_t num_circuits;                 // total number of circuits to be accumulated in the IVC
+    size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
     ProverFoldOutput fold_output; // prover accumulator and fold proof
     HonkProof mega_proof;
@@ -186,9 +185,7 @@ class ClientIVC {
 
     Goblin goblin;
 
-    bool initialized = false; // Is the IVC accumulator initialized
-
-    ClientIVC(size_t num_circuits = 0, TraceSettings trace_settings = {});
+    ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});

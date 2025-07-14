@@ -242,7 +242,7 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
-    ivc->initialized = true;
+    ivc->num_circuits_accumulated++;
 }
 
 /**
