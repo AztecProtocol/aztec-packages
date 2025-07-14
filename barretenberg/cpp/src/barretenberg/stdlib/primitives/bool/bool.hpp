@@ -125,6 +125,8 @@ template <typename Builder> class bool_t {
     mutable bool witness_inverted = false;
     mutable uint32_t witness_index = IS_CONSTANT;
     mutable OriginTag tag{};
+
+    void convert_constant_to_fixed_witness(Builder* ctx);
 };
 
 template <typename T> inline std::ostream& operator<<(std::ostream& os, bool_t<T> const& v)

@@ -506,6 +506,19 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     return *this;
 }
 
+/**
+ * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
+ * value becomes hard-coded as an element of the q_c selector vector).
+ */
+template <typename Builder> void bool_t<Builder>::convert_constant_to_fixed_witness(Builder* ctx)
+{
+    ASSERT(is_constant() && ctx);
+    context = ctx;
+    (*this) = bool_t<Builder>(witness_t<Builder>(context, get_value()));
+    context->fix_witness(witness_index, get_value());
+    unset_free_witness_tag();
+}
+
 template class bool_t<bb::UltraCircuitBuilder>;
 template class bool_t<bb::MegaCircuitBuilder>;
 
