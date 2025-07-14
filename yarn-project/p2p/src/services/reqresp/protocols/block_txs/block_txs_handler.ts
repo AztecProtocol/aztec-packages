@@ -1,4 +1,4 @@
-import { TxArray, type TxWithHash } from '@aztec/stdlib/tx';
+import { TxArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
