@@ -436,7 +436,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
     {
-        auto ivc = std::make_shared<ClientIVC>(trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/3, trace_settings);
         const ProgramMetadata metadata{ ivc };
 
         {
@@ -472,7 +472,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
     std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
     {
         // construct a mock init kernel
-        auto ivc = std::make_shared<ClientIVC>(trace_settings);
+        auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/3, trace_settings);
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         acir_format::mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
