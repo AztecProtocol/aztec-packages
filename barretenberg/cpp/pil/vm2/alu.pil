@@ -160,13 +160,13 @@ sel_int_lt_ops - IS_NOT_FF * sel_lt_ops = 0;
 //      LTE: lt_ops_input_a = ia, lt_ops_input_b = ib, lt_ops_result_c = !ic
 pol commit lt_ops_input_a, lt_ops_input_b, lt_ops_result_c;
 
-#[LT_OPS_SWAP_INPUTS_A]
+#[LT_SWAP_INPUTS_A]
 sel_op_lt * (lt_ops_input_a - ib) + sel_op_lte * (lt_ops_input_a - ia) = 0;
 
-#[LT_OPS_SWAP_INPUTS_B]
+#[LT_SWAP_INPUTS_B]
 sel_op_lt * (lt_ops_input_b - ia) + sel_op_lte * (lt_ops_input_b - ib) = 0;
 
-#[LT_OPS_NEGATE_RESULT_C]
+#[LTE_NEGATE_RESULT_C]
 sel_op_lt * (lt_ops_result_c - ic) + sel_op_lte * (1 - sel_tag_err) * ((1 - lt_ops_result_c) - ic) = 0;
 
 #[FF_GT]

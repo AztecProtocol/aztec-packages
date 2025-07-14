@@ -167,21 +167,21 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_OPS_SWAP_INPUTS_A
+        { // LT_SWAP_INPUTS_A
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ib)) +
                         in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_a) - in.get(C::alu_ia)));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_OPS_SWAP_INPUTS_B
+        { // LT_SWAP_INPUTS_B
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ia)) +
                         in.get(C::alu_sel_op_lte) * (in.get(C::alu_lt_ops_input_b) - in.get(C::alu_ib)));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        { // LT_OPS_NEGATE_RESULT_C
+        { // LTE_NEGATE_RESULT_C
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = (in.get(C::alu_sel_op_lt) * (in.get(C::alu_lt_ops_result_c) - in.get(C::alu_ic)) +
                         in.get(C::alu_sel_op_lte) * (FF(1) - in.get(C::alu_sel_tag_err)) *
@@ -231,11 +231,11 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
         case 10:
             return "EQ_OP_MAIN";
         case 16:
-            return "LT_OPS_SWAP_INPUTS_A";
+            return "LT_SWAP_INPUTS_A";
         case 17:
-            return "LT_OPS_SWAP_INPUTS_B";
+            return "LT_SWAP_INPUTS_B";
         case 18:
-            return "LT_OPS_NEGATE_RESULT_C";
+            return "LTE_NEGATE_RESULT_C";
         case 20:
             return "NOT_OP_MAIN";
         case 21:
@@ -251,9 +251,9 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_AB_TAGS_CHECK = 6;
     static constexpr size_t SR_ALU_ADD = 8;
     static constexpr size_t SR_EQ_OP_MAIN = 10;
-    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_A = 16;
-    static constexpr size_t SR_LT_OPS_SWAP_INPUTS_B = 17;
-    static constexpr size_t SR_LT_OPS_NEGATE_RESULT_C = 18;
+    static constexpr size_t SR_LT_SWAP_INPUTS_A = 16;
+    static constexpr size_t SR_LT_SWAP_INPUTS_B = 17;
+    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 18;
     static constexpr size_t SR_NOT_OP_MAIN = 20;
     static constexpr size_t SR_NOT_OP_TAG_ERROR = 21;
 };

@@ -215,6 +215,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         keccakf1600_emitter.dump_events(),
         to_radix_emitter.dump_events(),
         field_gt_emitter.dump_events(),
+        greater_than_emitter.dump_events(),
         merkle_check_emitter.dump_events(),
         range_check_emitter.dump_events(),
         context_stack_emitter.dump_events(),

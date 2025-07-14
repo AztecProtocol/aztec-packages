@@ -1,10 +1,10 @@
 #include "barretenberg/vm2/simulation/alu.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 
 #include <cstdint>
 #include <memory>
+
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -44,28 +44,26 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
-    // NOTE: We cannot do a_ff < b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a.as_ff()) < static_cast<uint256_t>(b.as_ff());
+    // Use the greater_than interface to check if b > a, which is the same as a < b.
+    bool res = greater_than.gt(b, a);
     MemoryValue c = MemoryValue::from<uint1_t>(res);
-    // Emit the gt check event required (see lookup FF_GT or INT_GT) - note that we check b > a:
-    greater_than.gt(b, a);
     events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     return c;
 }
 
 MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
 {
+    // Brillig semantic enforces that tags match for LTE.
     if (a.get_tag() != b.get_tag()) {
         debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
         events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
-    // NOTE: We cannot do a_ff <= b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a.as_ff()) <= static_cast<uint256_t>(b.as_ff());
-    MemoryValue c = MemoryValue::from<uint1_t>(res);
-    // Emit the gt check event required (see lookup FF_GT or INT_GT) - note that we check a > b, and in the circuit
-    // check this against !c:
-    greater_than.gt(a, b);
+    // Note: the result of LTE is the opposite of GT
+    // Use the greater_than interface to check if a > b
+    bool res = greater_than.gt(a, b);
+    // The result of LTE is the opposite of the result of GT
+    MemoryValue c = MemoryValue::from<uint1_t>(!res);
     events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .c = c });
     return c;
 }

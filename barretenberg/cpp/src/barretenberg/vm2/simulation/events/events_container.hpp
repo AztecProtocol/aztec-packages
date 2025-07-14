@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
@@ -51,6 +52,7 @@ struct EventsContainer {
     EventEmitterInterface<KeccakF1600Event>::Container keccakf1600;
     EventEmitterInterface<ToRadixEvent>::Container to_radix;
     EventEmitterInterface<FieldGreaterThanEvent>::Container field_gt;
+    EventEmitterInterface<GreaterThanEvent>::Container gt_events;
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
     EventEmitterInterface<RangeCheckEvent>::Container range_check;
     EventEmitterInterface<ContextStackEvent>::Container context_stack;
