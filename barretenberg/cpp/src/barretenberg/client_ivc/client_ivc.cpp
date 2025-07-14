@@ -181,8 +181,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
     circuit.is_kernel = true;
 
-    // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1}
-    // (app),
+    // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
     // .., A_{i, n} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
@@ -199,8 +198,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             circuit, verifier_input, accumulation_recursive_transcript);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems
-        // we can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS
-        // security.
+        // we can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
 
         stdlib_verification_queue.pop_front();
@@ -217,9 +215,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
 /**
  * @brief Execute prover work for accumulation
- * @details Construct an proving key for the provided circuit. If this is the first step in the IVC, simply
- * initialize the folding accumulator. Otherwise, execute the PG prover to fold the proving key into the accumulator
- * and produce a folding proof. Also execute the merge protocol to produce a merge proof.
+ * @details Construct an proving key for the provided circuit. If this is the first step in the IVC, simply initialize
+ * the folding accumulator. Otherwise, execute the PG prover to fold the proving key into the accumulator and produce a
+ * folding proof. Also execute the merge protocol to produce a merge proof.
  *
  * @param circuit
  * this case, just produce a Honk proof for that circuit and do no folding.
@@ -229,8 +227,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part
-    // of the circuit VK
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
+    // the circuit VK
     if (circuit.is_kernel) {
         // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
         accumulation_transcript = std::make_shared<Transcript>();
@@ -307,13 +305,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 /**
  * @brief Add a random operation to the op queue to hide its content in Translator computation.
  *
- * @details Translator circuit builder computes the evaluation at some random challenge x of a batched
- * polynomial derived from processing the ultra_op version of op_queue. This result (referred to as
- * accumulated_result in translator) is included in the translator proof and, on the verifier side, checked
- * against the same computation performed by ECCVM (this is done in verify_translation). To prevent leaking
- * information about the actual accumulated_result (and implicitly about the ops) when the proof is sent to the
- * rollup, a random but valid operation is added to the op queue, to ensure the polynomial over Grumpkin, whose
- * evaluation is accumulated_result, has at least one random coefficient.
+ * @details Translator circuit builder computes the evaluation at some random challenge x of a batched polynomial
+ * derived from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in
+ * translator) is included in the translator proof and, on the verifier side, checked against the same computation
+ * performed by ECCVM (this is done in verify_translation). To prevent leaking information about the actual
+ * accumulated_result (and implicitly about the ops) when the proof is sent to the rollup, a random but valid operation
+ * is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is accumulated_result, has at
+ * least one random coefficient.
  */
 void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
@@ -324,8 +322,8 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 }
 
 /**
- * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and
- * the decider proof.
+ * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
+ * decider proof.
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
@@ -340,12 +338,12 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     ClientCircuit builder{ goblin.op_queue };
 
     // Shared transcript between PG and Merge
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge
-    // need to share a transcript
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
+    // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
 
-    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in
-    // translator circuit are well formed to allow correctly representing shiftable polynomials (which are
+    // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
+    // circuit are well formed to allow correctly representing shiftable polynomials (which are
     // expected to start with 0).
     builder.queue_ecc_no_op();
 
