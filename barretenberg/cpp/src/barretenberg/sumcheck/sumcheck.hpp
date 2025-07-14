@@ -158,7 +158,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
     // separate linearly independent subrelation.
     SubrelationSeparators alphas;
     // pow_β(X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ ⋅ βₖ)
-    bb::GateSeparatorPolynomial<FF> gate_separators;
+    std::vector<FF> gate_challenges;
     // Contains various challenges, such as `beta` and `gamma` used in the Grand Product argument.
     bb::RelationParameters<FF> relation_parameters;
 
@@ -196,7 +196,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , transcript(std::move(transcript))
         , round(multivariate_n)
         , alphas(relation_separator)
-        , gate_separators(gate_challenges, multivariate_d)
+        , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters){};
 
     // SumcheckProver constructor for the Flavors that generate a single challeng `alpha` and use its powers as
@@ -213,7 +213,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         , transcript(std::move(transcript))
         , round(multivariate_n)
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
-        , gate_separators(gate_challenges, multivariate_d)
+        , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters){};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
@@ -223,6 +223,11 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
      */
     SumcheckOutput<Flavor> prove()
     {
+        // Given gate challenges β = (β₀, ..., β_{d−1}) and d = `multivariate_d`, compute the evaluations of
+        // GateSeparator_β (X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ · βₖ)
+        // on the boolean hypercube.
+        GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
+
         multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
@@ -306,6 +311,10 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         }
 
         vinfo("starting sumcheck rounds...");
+        // Given gate challenges β = (β₀, ..., β_{d−1}) and d = `multivariate_d`, compute the evaluations of
+        // GateSeparator_β (X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ · βₖ)
+        // on the boolean hypercube.
+        GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         multivariate_challenge.reserve(multivariate_d);
         size_t round_idx = 0;
@@ -403,14 +412,8 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
         for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
-            if constexpr (!IsGrumpkinFlavor<Flavor>) {
-                transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
-            } else {
-                transcript->send_to_verifier("Sumcheck:univariate_comm_" + std::to_string(idx),
-                                             ck.commit(Polynomial<FF>(std::span(zero_univariate))));
-                transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx) + "_eval_0", FF(0));
-                transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx) + "_eval_1", FF(0));
-            }
+            transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
+
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
         }
