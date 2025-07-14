@@ -43,7 +43,7 @@ TEST_F(SpecialPublicInputsTests, Basic)
         kernel_output.set_public();
 
         // Store the public inputs from this circuit for use in the second circuit
-        for (const auto& idx : builder.public_inputs) {
+        for (const auto& idx : builder.public_inputs()) {
             public_inputs.push_back(builder.get_variable(idx));
         }
     }

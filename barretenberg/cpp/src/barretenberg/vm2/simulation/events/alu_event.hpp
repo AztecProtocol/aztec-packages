@@ -11,8 +11,10 @@ namespace bb::avm2::simulation {
 
 enum class AluOperation {
     ADD,
-    LT,
     EQ,
+    LT,
+    LTE,
+    NOT,
 };
 
 // TODO(MW): Expand when adding new ops (e.g. when using max_bits for mul, we would cover bits related errors)

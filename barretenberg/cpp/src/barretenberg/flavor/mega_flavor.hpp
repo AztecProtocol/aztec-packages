@@ -429,8 +429,7 @@ class MegaFlavor {
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
-            /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
-            /* 3. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
@@ -445,7 +444,6 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = metadata.num_public_inputs;
             this->pub_inputs_offset = metadata.pub_inputs_offset;
-            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
         }
 
         VerificationKey(const PrecomputedData& precomputed)
@@ -458,68 +456,12 @@ class MegaFlavor {
             }
         }
 
-        /**
-         * @brief Serialize verification key to field elements
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-
-            serialize_to_field_buffer(this->circuit_size, elements);
-            serialize_to_field_buffer(this->num_public_inputs, elements);
-            serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            BB_ASSERT_EQ(elements.size(),
-                         VERIFICATION_KEY_LENGTH,
-                         "Verification key length did not match expected length from formula.");
-
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
-         *
-         * @param domain_separator
-         * @param transcript
-         * @returns The hash of the verification key
-         */
-        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
-        {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
-                                                      this->num_public_inputs);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
-                                                      this->pub_inputs_offset);
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
-                                                      this->pairing_inputs_public_input_key.start_idx);
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
-        }
-
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       pairing_inputs_public_input_key,
                        q_m,
                        q_c,
                        q_l,
@@ -574,12 +516,7 @@ class MegaFlavor {
             }
         }
     };
-
-    /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    * / template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
 
     /**
      * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation

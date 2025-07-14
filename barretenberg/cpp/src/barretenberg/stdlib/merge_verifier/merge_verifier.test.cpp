@@ -112,10 +112,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         MergeVerifier native_verifier;
         native_verifier.transcript->enable_manifest();
         native_verifier.settings = op_queue->get_current_settings();
-        bool verified_native = native_verifier.verify_proof(merge_proof, t_commitments);
         VerifierCommitmentKey pcs_verification_key;
-        auto verified_recursive =
-            pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(verified_native, verified_recursive);
         EXPECT_EQ(verified_recursive, expected);
 

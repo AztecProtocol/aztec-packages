@@ -78,6 +78,8 @@ class Execution : public ExecutionInterface {
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void eq(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void lt(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void lte(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void op_not(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
@@ -114,6 +116,7 @@ class Execution : public ExecutionInterface {
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
+    void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
