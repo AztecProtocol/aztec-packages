@@ -15,6 +15,8 @@
 namespace acir_format {
 
 template <typename Flavor> bb::HonkProof create_mock_oink_proof(const size_t num_public_inputs);
+template <typename Flavor> bb::HonkProof create_mock_decider_proof();
+template <typename Flavor> bb::HonkProof create_mock_honk_proof(const size_t num_public_inputs);
 template <typename Flavor> bb::HonkProof create_mock_pg_proof(const size_t num_public_inputs);
 bb::Goblin::MergeProof create_mock_merge_proof();
 

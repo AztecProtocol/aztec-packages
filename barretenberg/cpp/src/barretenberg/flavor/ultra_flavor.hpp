@@ -107,6 +107,16 @@ class UltraFlavor {
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     // Proof length formula
+    static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm);
+    static constexpr size_t DECIDER_PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
+        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
+        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
+        /* 6. Shplonk Q commitment */ (num_frs_comm) +
+        /* 7. KZG W commitment */ (num_frs_comm);
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
         /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */

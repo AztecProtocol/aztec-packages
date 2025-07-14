@@ -22,13 +22,28 @@ namespace acir_format {
 using namespace bb;
 
 /**
+ * @brief Helper to populate a field buffer with fields corresponding to some number of mock commitment values
+ *
+ * @param fields field buffer to append mock commitment values to
+ * @param num_commitments number of mock commitments to append
+ */
+void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
+{
+    auto mock_commitment = curve::BN254::AffineElement::one();
+    std::vector<fr> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
+    for (size_t i = 0; i < num_commitments; ++i) {
+        for (const fr& val : mock_commitment_frs) {
+            fields.emplace_back(val);
+        }
+    }
+}
+
+/**
  * @brief Create a mock oink proof that has the correct structure but is not in general valid
  *
  */
 template <typename Flavor> HonkProof create_mock_oink_proof(const size_t num_public_inputs)
 {
-    using FF = typename Flavor::FF;
-
     HonkProof proof;
 
     // Populate mock public inputs
@@ -59,14 +74,63 @@ template <typename Flavor> HonkProof create_mock_oink_proof(const size_t num_pub
     BB_ASSERT_EQ(public_input_count, num_public_inputs, "Mock oink proof has the wrong number of public inputs.");
 
     // Populate mock witness polynomial commitments
-    auto mock_commitment = curve::BN254::AffineElement::one();
-    std::vector<FF> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
-    for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; ++i) {
-        for (const FF& val : mock_commitment_frs) {
-            proof.emplace_back(val);
-        }
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_WITNESS_ENTITIES);
+
+    return proof;
+}
+
+/**
+ * @brief Create a mock decider proof that has the correct structure but is not in general valid
+ *
+ */
+template <typename Flavor> HonkProof create_mock_decider_proof()
+{
+    using FF = typename Flavor::FF;
+
+    HonkProof proof;
+
+    // Sumcheck univariates
+    const size_t TOTAL_SIZE_SUMCHECK_UNIVARIATES = CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    for (size_t i = 0; i < TOTAL_SIZE_SUMCHECK_UNIVARIATES; ++i) {
+        proof.emplace_back(FF::random_element());
     }
 
+    // Sumcheck multilinear evaluations
+    for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; ++i) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // Gemini fold commitments
+    const size_t NUM_GEMINI_FOLD_COMMITMENTS = CONST_PROOF_SIZE_LOG_N - 1;
+    populate_field_elements_for_mock_commitments(proof, NUM_GEMINI_FOLD_COMMITMENTS);
+
+    // Gemini fold evaluations
+    const size_t NUM_GEMINI_FOLD_EVALUATIONS = CONST_PROOF_SIZE_LOG_N;
+    for (size_t i = 0; i < NUM_GEMINI_FOLD_EVALUATIONS; ++i) {
+        proof.emplace_back(FF::random_element());
+    }
+
+    // Shplonk batched quotient commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+    // KZG quotient commitment
+    populate_field_elements_for_mock_commitments(proof, /*num_commitments=*/1);
+
+    return proof;
+}
+
+/**
+ * @brief Create a mock honk proof that has the correct structure but is not in general valid
+ *
+ */
+template <typename Flavor> HonkProof create_mock_honk_proof(const size_t num_public_inputs)
+{
+    // Construct a Honk proof as the concatenation of an Oink proof and a Decider proof
+    HonkProof oink_proof = create_mock_oink_proof<Flavor>(num_public_inputs);
+    HonkProof decider_proof = create_mock_decider_proof<Flavor>();
+    HonkProof proof;
+    proof.reserve(oink_proof.size() + decider_proof.size());
+    proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
+    proof.insert(proof.end(), decider_proof.begin(), decider_proof.end());
     return proof;
 }
 
@@ -186,6 +250,14 @@ template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> crea
 
 // Explicitly instantiate template functions
 template HonkProof create_mock_oink_proof<MegaFlavor>(const size_t);
+template HonkProof create_mock_oink_proof<UltraFlavor>(const size_t);
+
+template HonkProof create_mock_decider_proof<MegaFlavor>();
+template HonkProof create_mock_decider_proof<UltraFlavor>();
+
+template HonkProof create_mock_honk_proof<MegaFlavor>(const size_t);
+template HonkProof create_mock_honk_proof<UltraFlavor>(const size_t);
+
 template HonkProof create_mock_pg_proof<MegaFlavor>(const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor>(const size_t,
                                                                                       const size_t,
