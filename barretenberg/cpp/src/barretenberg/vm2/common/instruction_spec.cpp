@@ -430,6 +430,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::EQ,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_EQ_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
     { ExecutionOpCode::LT,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_LT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -437,6 +444,17 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::LTE,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_LTE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::NOT,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_NOT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /*a*/ RegisterInfo::ANY_TAG }).add_output(/*b*/) } },
     { ExecutionOpCode::GETENVVAR,
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_GETENVVAR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -468,7 +486,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .gas_cost = { .opcode_gas = AVM_JUMPI_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_input(/*cond*/ ValueTag::U1) } },
     { ExecutionOpCode::CALLDATACOPY,
-      { .num_addresses = 2,
+      { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS,
                       .base_da = 0,
                       .dyn_l2 = AVM_CALLDATACOPY_DYN_L2_GAS,
@@ -533,6 +551,10 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .register_info = RegisterInfo()
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::SLOAD,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_SLOAD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*slot*/ ValueTag::FF).add_output(/*dst*/) } },
 };
 
 } // namespace bb::avm2

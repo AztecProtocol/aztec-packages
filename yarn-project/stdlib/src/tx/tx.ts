@@ -222,7 +222,7 @@ export class Tx extends Gossipable {
       noteHashCount: this.data.getNonEmptyNoteHashes().length,
       nullifierCount: this.data.getNonEmptyNullifiers().length,
       privateLogCount: this.data.getNonEmptyPrivateLogs().length,
-      classRegisteredCount: this.data.getNonEmptyContractClassLogsHashes().length,
+      classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
       proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
@@ -332,3 +332,23 @@ function hasHash(tx: Tx | HasHash): tx is HasHash {
 }
 
 export type TxWithHash = Tx & { txHash: TxHash };
+
+/**
+ * Helper class to handle Serialization and Deserialization of Txs array.
+ **/
+export class TxArray extends Array<Tx> {
+  static fromBuffer(buffer: Buffer | BufferReader): TxArray {
+    try {
+      const reader = BufferReader.asReader(buffer);
+      const txs = reader.readVector(Tx);
+
+      return new TxArray(...txs);
+    } catch {
+      return new TxArray();
+    }
+  }
+
+  public toBuffer(): Buffer {
+    return serializeArrayOfBufferableToVector(this);
+  }
+}

@@ -27,7 +27,7 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     return Promise.resolve(SchnorrHardcodedAccountContractArtifact);
   }
 
-  getDeploymentFunctionAndArgs() {
+  getInitializationFunctionAndArgs() {
     // This contract has no constructor
     return Promise.resolve(undefined);
   }
@@ -61,7 +61,7 @@ describe('guides/writing_an_account_contract', () => {
     const secretKey = Fr.random();
     const account = await AccountManager.create(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
 
-    if (await account.isDeployable()) {
+    if (await account.hasInitializer()) {
       // The account has no funds. Use a funded wallet to pay for the fee for the deployment.
       await account.deploy({ deployWallet: fundedWallet }).wait();
     } else {

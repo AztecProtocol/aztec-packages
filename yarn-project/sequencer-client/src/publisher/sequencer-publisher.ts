@@ -27,7 +27,7 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
@@ -35,7 +35,7 @@ import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
+import { type TransactionReceipt, encodeFunctionData, getAbiItem, toEventSelector, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -71,10 +71,10 @@ interface RequestWithExpiry {
   lastValidL2Slot: bigint;
   gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
-  onResult?: (
+  checkSuccess: (
     request: L1TxRequest,
     result?: { receipt: TransactionReceipt; gasPrice: GasPrice; stats?: TransactionStats; errorMsg?: string },
-  ) => void;
+  ) => boolean;
 }
 
 export class SequencerPublisher {
@@ -119,7 +119,7 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
       blobSinkClient?: BlobSinkClientInterface;
@@ -235,9 +235,7 @@ export class SequencerPublisher {
     const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
     try {
-      this.log.debug('Forwarding transactions', {
-        validRequests: validRequests.map(request => request.action),
-      });
+      this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
       const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
@@ -246,8 +244,8 @@ export class SequencerPublisher {
         this.rollupContract.address,
         this.log,
       );
-      this.callbackBundledTransactions(validRequests, result);
-      return { result, expiredActions, validActions };
+      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(validRequests, result);
+      return { result, expiredActions, sentActions: validActions, successfulActions, failedActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -265,17 +263,22 @@ export class SequencerPublisher {
     requests: RequestWithExpiry[],
     result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
   ) {
-    const isError = result instanceof FormattedViemError;
-    const success = isError ? false : result?.receipt.status === 'success';
-    const logger = success ? this.log.info : this.log.error;
-    for (const request of requests) {
-      logger(`Bundled [${request.action}] transaction [${success ? 'succeeded' : 'failed'}]`);
-      if (!isError) {
-        request.onResult?.(request.request, result);
+    const actionsListStr = requests.map(r => r.action).join(', ');
+    if (result instanceof FormattedViemError) {
+      this.log.error(`Failed to publish bundled transactions (${actionsListStr})`, result);
+      return { failedActions: requests.map(r => r.action) };
+    } else {
+      this.log.verbose(`Published bundled transactions (${actionsListStr})`, { result, requests });
+      const successfulActions: Action[] = [];
+      const failedActions: Action[] = [];
+      for (const request of requests) {
+        if (request.checkSuccess(request.request, result)) {
+          successfulActions.push(request.action);
+        } else {
+          failedActions.push(request.action);
+        }
       }
-    }
-    if (isError) {
-      this.log.error('Failed to publish bundled transactions', result);
+      return { successfulActions, failedActions };
     }
   }
 
@@ -395,17 +398,13 @@ export class SequencerPublisher {
     return ts;
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
-    const committee = await this.rollupContract.getCurrentEpochCommittee();
-    return committee?.map(EthAddress.fromString);
-  }
-
   private async enqueueCastVoteHelper(
     slotNumber: bigint,
     timestamp: bigint,
     voteType: VoteType,
     payload: EthAddress,
     base: IEmpireBase,
+    signerAddress: EthAddress,
     signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (this.myLastVotes[voteType] >= slotNumber) {
@@ -426,7 +425,12 @@ export class SequencerPublisher {
 
     const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
 
-    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client, signer);
+    const request = await base.createVoteRequestWithSignature(
+      payload.toString(),
+      this.config.l1ChainId,
+      signerAddress.toString(),
+      signer,
+    );
     this.log.debug(`Created ${action} request with signature`, {
       request,
       round,
@@ -434,16 +438,42 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
+    try {
+      await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi);
+      this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
+    } catch (err) {
+      this.log.warn(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, err);
+      // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
+    }
+
     this.addRequest({
       gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
       request,
       lastValidL2Slot: slotNumber,
-      onResult: (_request, result) => {
-        if (!result || result.receipt.status !== 'success') {
+      checkSuccess: (_request, result) => {
+        const success =
+          result &&
+          result.receipt &&
+          result.receipt.status === 'success' &&
+          result.receipt.logs.find(
+            log => log.topics[0] === toEventSelector(getAbiItem({ abi: EmpireBaseAbi, name: 'VoteCast' })),
+          );
+
+        const logData = { ...result, slotNumber, round, payload: payload.toString() };
+        if (!success) {
+          this.log.error(
+            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
+            logData,
+          );
           this.myLastVotes[voteType] = cachedLastVote;
+          return false;
         } else {
-          this.log.info(`Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round}`);
+          this.log.info(
+            `Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
+            logData,
+          );
+          return true;
         }
       },
     });
@@ -466,8 +496,10 @@ export class SequencerPublisher {
       }
       this.log.info(`Slash payload: ${slashPayload}`);
       return { payload: slashPayload, base: this.slashingProposerContract };
+    } else {
+      const _: never = voteType;
+      throw new Error('Unreachable: Invalid vote type');
     }
-    throw new Error('Unreachable: Invalid vote type');
   }
 
   /**
@@ -481,6 +513,7 @@ export class SequencerPublisher {
     slotNumber: bigint,
     timestamp: bigint,
     voteType: VoteType,
+    signerAddress: EthAddress,
     signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     const voteConfig = await this.getVoteConfig(slotNumber, voteType);
@@ -488,7 +521,7 @@ export class SequencerPublisher {
       return false;
     }
     const { payload, base } = voteConfig;
-    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base, signer);
+    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base, signerAddress, signer);
   }
 
   /**
@@ -707,12 +740,18 @@ export class SequencerPublisher {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,
       },
-      onResult: (request, result) => {
+      checkSuccess: (request, result) => {
         if (!result) {
-          return;
+          return false;
         }
         const { receipt, stats, errorMsg } = result;
-        if (receipt.status === 'success') {
+        const success =
+          receipt &&
+          receipt.status === 'success' &&
+          receipt.logs.find(
+            log => log.topics[0] === toEventSelector(getAbiItem({ abi: RollupAbi, name: 'L2BlockProposed' })),
+          );
+        if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
           const publishStats: L1PublishBlockStats = {
@@ -727,23 +766,23 @@ export class SequencerPublisher {
             blobCount: encodedData.blobs.length,
             inclusionBlocks,
           };
-          this.log.verbose(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
+          this.log.info(`Published L2 block to L1 rollup contract`, { ...stats, ...block.getStats(), ...receipt });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
           // Send the blobs to the blob sink
           this.sendBlobsToBlobSink(receipt.blockHash, encodedData.blobs).catch(_err => {
             this.log.error('Failed to send blobs to blob sink');
           });
-
           return true;
         } else {
           this.metrics.recordFailedTx('process');
-
-          this.log.error(`Rollup process tx reverted. ${errorMsg ?? 'No error message'}`, undefined, {
+          this.log.error(`Rollup process tx failed. ${errorMsg ?? 'No error message'}`, undefined, {
             ...block.getStats(),
+            receipt,
             txHash: receipt.transactionHash,
             slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
           });
+          return false;
         }
       },
     });

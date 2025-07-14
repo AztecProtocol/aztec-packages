@@ -19,14 +19,14 @@ import { Timer, elapsed } from '@aztec/foundation/timer';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
-  ContractClassRegisteredEvent,
+  ContractClassPublishedEvent,
   PrivateFunctionBroadcastedEvent,
   UtilityFunctionBroadcastedEvent,
-} from '@aztec/protocol-contracts/class-registerer';
+} from '@aztec/protocol-contracts/class-registry';
 import {
-  ContractInstanceDeployedEvent,
+  ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
-} from '@aztec/protocol-contracts/instance-deployer';
+} from '@aztec/protocol-contracts/instance-registry';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -1282,15 +1282,15 @@ export class ArchiverStoreHelper
   constructor(protected readonly store: ArchiverDataStore) {}
 
   /**
-   * Extracts and stores contract classes out of ContractClassRegistered events emitted by the class registerer contract.
+   * Extracts and stores contract classes out of ContractClassPublished events emitted by the class registry contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
-  async #updateRegisteredContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
-    const contractClassRegisteredEvents = allLogs
-      .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
-      .map(log => ContractClassRegisteredEvent.fromLog(log));
+  async #updatePublishedContractClasses(allLogs: ContractClassLog[], blockNum: number, operation: Operation) {
+    const contractClassPublishedEvents = allLogs
+      .filter(log => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+      .map(log => ContractClassPublishedEvent.fromLog(log));
 
-    const contractClasses = await Promise.all(contractClassRegisteredEvents.map(e => e.toContractClassPublic()));
+    const contractClasses = await Promise.all(contractClassPublishedEvents.map(e => e.toContractClassPublic()));
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.#log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
       if (operation == Operation.Store) {
@@ -1307,13 +1307,13 @@ export class ArchiverStoreHelper
   }
 
   /**
-   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * Extracts and stores contract instances out of ContractInstancePublished events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    */
   async #updateDeployedContractInstances(allLogs: PrivateLog[], blockNum: number, operation: Operation) {
     const contractInstances = allLogs
-      .filter(log => ContractInstanceDeployedEvent.isContractInstanceDeployedEvent(log))
-      .map(log => ContractInstanceDeployedEvent.fromLog(log))
+      .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
+      .map(log => ContractInstancePublishedEvent.fromLog(log))
       .map(e => e.toContractInstance());
     if (contractInstances.length > 0) {
       contractInstances.forEach(c =>
@@ -1329,7 +1329,7 @@ export class ArchiverStoreHelper
   }
 
   /**
-   * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
+   * Extracts and stores contract instances out of ContractInstancePublished events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
    * @param timestamp - Timestamp at which the updates were scheduled.
    * @param operation - The operation to perform on the contract instance updates (Store or Delete).
@@ -1428,12 +1428,12 @@ export class ArchiverStoreHelper
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...blocks.map(async block => {
           const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-          // ContractInstanceDeployed event logs are broadcast in privateLogs.
+          // ContractInstancePublished event logs are broadcast in privateLogs.
           const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
           const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
           return (
             await Promise.all([
-              this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Store),
+              this.#updatePublishedContractClasses(contractClassLogs, block.block.number, Operation.Store),
               this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Store),
               this.#updateUpdatedContractInstances(
                 publicLogs,
@@ -1466,13 +1466,13 @@ export class ArchiverStoreHelper
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
       ...blocks.map(async block => {
         const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
-        // ContractInstanceDeployed event logs are broadcast in privateLogs.
+        // ContractInstancePublished event logs are broadcast in privateLogs.
         const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
         const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
 
         return (
           await Promise.all([
-            this.#updateRegisteredContractClasses(contractClassLogs, block.block.number, Operation.Delete),
+            this.#updatePublishedContractClasses(contractClassLogs, block.block.number, Operation.Delete),
             this.#updateDeployedContractInstances(privateLogs, block.block.number, Operation.Delete),
             this.#updateUpdatedContractInstances(
               publicLogs,

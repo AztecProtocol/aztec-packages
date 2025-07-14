@@ -17,7 +17,10 @@ class AluInterface {
   public:
     virtual ~AluInterface() = default;
     virtual MemoryValue add(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue eq(const MemoryValue& a, const MemoryValue& b) = 0;
     virtual MemoryValue lt(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue lte(const MemoryValue& a, const MemoryValue& b) = 0;
+    virtual MemoryValue op_not(const MemoryValue& a) = 0;
 };
 
 class Alu : public AluInterface {
@@ -31,7 +34,10 @@ class Alu : public AluInterface {
     {}
 
     MemoryValue add(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue eq(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lt(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue lte(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue op_not(const MemoryValue& a) override;
 
   private:
     RangeCheckInterface& range_check;

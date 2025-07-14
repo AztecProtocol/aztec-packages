@@ -1,6 +1,7 @@
 use dep::protocol_types::{
-    address::AztecAddress, block_header::BlockHeader, constants::DEPLOYER_CONTRACT_ADDRESS,
-    hash::compute_siloed_nullifier, traits::ToField,
+    address::AztecAddress, block_header::BlockHeader,
+    constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, hash::compute_siloed_nullifier,
+    traits::ToField,
 };
 
 use crate::history::{
@@ -18,8 +19,10 @@ pub trait ProveContractDeployment {
 impl ProveContractDeployment for BlockHeader {
     fn prove_contract_deployment(self, contract_address: AztecAddress) {
         // Compute deployment nullifier
-        let nullifier =
-            compute_siloed_nullifier(DEPLOYER_CONTRACT_ADDRESS, contract_address.to_field());
+        let nullifier = compute_siloed_nullifier(
+            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+            contract_address.to_field(),
+        );
 
         self.prove_nullifier_inclusion(nullifier);
     }
@@ -32,8 +35,10 @@ pub trait ProveContractNonDeployment {
 impl ProveContractNonDeployment for BlockHeader {
     fn prove_contract_non_deployment(self, contract_address: AztecAddress) {
         // Compute deployment nullifier
-        let nullifier =
-            compute_siloed_nullifier(DEPLOYER_CONTRACT_ADDRESS, contract_address.to_field());
+        let nullifier = compute_siloed_nullifier(
+            CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+            contract_address.to_field(),
+        );
 
         // docs:start:prove_nullifier_non_inclusion
         self.prove_nullifier_non_inclusion(nullifier);

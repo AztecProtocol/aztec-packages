@@ -101,8 +101,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
     // combiner) too much.
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
@@ -166,6 +166,67 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
+        }
+
+        /**
+         * @brief Serialize verification key to field elements.
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const override
+        {
+            using namespace bb::stdlib::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            CircuitBuilder* builder = this->circuit_size.context;
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(
+                builder); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1413): We can't use poseidon2
+                          // with constants.
+            serialize_to_field_buffer(pairing_points_start_idx, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
+         * @brief Adds the verification key hash to the transcript and returns the hash.
+         * @details Needed to make sure the Origin Tag system works. See the base class function for
+         * more details.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override
+        {
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs",
+                                                      this->num_public_inputs);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset",
+                                                      this->pub_inputs_offset);
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            CircuitBuilder* builder = this->circuit_size.context;
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript.add_to_independent_hash_buffer(domain_separator + "vk_pairing_points_start_idx",
+                                                      pairing_points_start_idx);
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            }
+
+            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
         }
 
         /**
