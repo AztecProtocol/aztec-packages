@@ -103,7 +103,6 @@ export class PeerManager implements PeerManagerInterface {
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
   }
-
   /**
    * Initializes the trusted peers.
    *
@@ -323,11 +322,12 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public getPeerScore(peerId: string): number {
-    const isAuthenticated = this.isAuthenticatedPeer(peerIdFromString(peerId));
-    if (this.config.p2pAllowOnlyValidators && !isAuthenticated) {
-      return -Infinity;
-    }
     return this.peerScoring.getScore(peerId);
+  }
+
+  public shouldDisableP2PGossip(peerId: string): boolean {
+    const isAuthenticated = this.isAuthenticatedPeer(peerIdFromString(peerId));
+    return (this.config.p2pAllowOnlyValidators ?? false) && !isAuthenticated;
   }
 
   public getPeers(includePending = false): PeerInfo[] {

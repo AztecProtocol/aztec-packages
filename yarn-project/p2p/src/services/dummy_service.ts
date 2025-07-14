@@ -195,6 +195,11 @@ export class DummyPeerManager implements PeerManagerInterface {
   public getPeerScore(_peerId: string): number {
     return 0;
   }
+
+  public shouldDisableP2PGossip(_peerId: string): boolean {
+    return false;
+  }
+
   public stop(): Promise<void> {
     return Promise.resolve();
   }
