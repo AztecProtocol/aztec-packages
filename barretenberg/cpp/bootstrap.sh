@@ -294,14 +294,12 @@ case "$cmd" in
     flow_filter="${1:-}"               # optional string-match filter for flow names
     commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
-    if [ -n "${1:-}" ]; then
-      echo "Downloading inputs from commit $1."
-      # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-      export AZTEC_CACHE_COMMIT=$1
-      export DOWNLOAD_ONLY=1
-      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
-      # This generates the client IVC verification keys.
-      yarn --cwd ../../yarn-project/bb-prover generate
+    # Build both native and wasm benchmark binaries
+    builds=(
+      "build_preset $native_preset --target bb_cli_bench --target bb"
+    )
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      builds+=("build_preset wasm-threads --target bb_cli_bench --target bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
