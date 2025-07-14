@@ -495,6 +495,7 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
                 for i in 0..<$param_type as Deserialize>::N {
                     member_fields[i] = serialized[i + offset];
                 }
+                // wut?
                 let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
                 offset += <$param_type as Deserialize>::N;
             }
