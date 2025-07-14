@@ -352,7 +352,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
 
       const l1Client = createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo);
-      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, config);
+      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, dateProvider, {
+        ...config,
+        replacePreviousPendingTx: true,
+      });
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,
