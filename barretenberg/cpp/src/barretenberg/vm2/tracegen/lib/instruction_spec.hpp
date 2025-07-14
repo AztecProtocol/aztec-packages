@@ -45,4 +45,12 @@ FF get_subtrace_id(SubtraceSel subtrace_sel);
  */
 Column get_subtrace_selector(SubtraceSel subtrace_sel);
 
+/**
+ * @brief Get the column selector for a given dynamic gas ID.
+ *
+ * @param dyn_gas_id The dynamic gas ID.
+ * @return The corresponding column selector.
+ */
+Column get_dyn_gas_selector(uint32_t dyn_gas_id);
+
 } // namespace bb::avm2::tracegen

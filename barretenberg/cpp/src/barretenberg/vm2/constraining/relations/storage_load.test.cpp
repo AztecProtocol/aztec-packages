@@ -54,7 +54,7 @@ using sload = bb::avm2::sload<FF>;
 TEST(SLoadConstrainingTest, PositiveTest)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -67,7 +67,7 @@ TEST(SLoadConstrainingTest, PositiveTest)
 TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -80,7 +80,7 @@ TEST(SLoadConstrainingTest, NegativeInvalidOutputTag)
 TEST(SLoadConstrainingTest, NegativeSloadSuccess)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, /*slot=*/42 },
           { C::execution_register_1_, /*dst=*/27 },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -122,7 +122,7 @@ TEST(SLoadConstrainingTest, Interactions)
     FF value = merkle_db.storage_read(contract_address, slot);
 
     TestTraceContainer trace({
-        { { C::execution_sel_sload, 1 },
+        { { C::execution_sel_execute_sload, 1 },
           { C::execution_register_0_, slot },
           { C::execution_register_1_, value },
           { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
