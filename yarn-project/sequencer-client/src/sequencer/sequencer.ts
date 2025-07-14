@@ -671,8 +671,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     txs: Tx[],
     proposerAddress: EthAddress | undefined,
   ): Promise<CommitteeAttestation[] | undefined> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
-    const committee = await this.publisher.getCurrentEpochCommittee();
+    const { committee } = await this.publisher.epochCache.getCommittee(block.header.getSlot());
 
     // We checked above that the committee is defined, so this should never happen.
     if (!committee) {
