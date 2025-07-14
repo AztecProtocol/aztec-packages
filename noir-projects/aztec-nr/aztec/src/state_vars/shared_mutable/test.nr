@@ -79,7 +79,7 @@ unconstrained fn get_current_value_in_public_before_scheduled_change() {
         (original_value, timestamp_of_change)
     });
 
-    env.advance_timestamp_to(timestamp_of_change - 1);
+    env.set_next_block_timestamp(timestamp_of_change - 1);
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -99,7 +99,7 @@ unconstrained fn get_current_value_in_public_at_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change);
+    env.set_next_block_timestamp(timestamp_of_change);
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -119,7 +119,7 @@ unconstrained fn get_current_value_in_public_after_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change + 10);
+    env.set_next_block_timestamp(timestamp_of_change + 10);
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -172,7 +172,7 @@ unconstrained fn get_current_delay_in_public_before_scheduled_change() {
     });
 
     // The current delay still does not change right before the timestamp of change
-    env.advance_timestamp_to(timestamp_of_change - 1);
+    env.set_next_block_timestamp(timestamp_of_change - 1);
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -192,7 +192,7 @@ unconstrained fn get_current_delay_in_public_at_scheduled_change() {
         state_var.get_scheduled_delay()
     });
 
-    env.advance_timestamp_to(timestamp_of_change);
+    env.set_next_block_timestamp(timestamp_of_change);
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -212,7 +212,7 @@ unconstrained fn get_current_delay_in_public_after_scheduled_change() {
         state_var.get_scheduled_delay()
     });
 
-    env.advance_timestamp_to(timestamp_of_change + 10);
+    env.set_next_block_timestamp(timestamp_of_change + 10);
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -267,7 +267,7 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change - 1);
+    env.set_next_block_timestamp(timestamp_of_change - 1);
     cheatcodes::advance_blocks_by(1);
 
     env.private_context(|context| {
@@ -295,7 +295,7 @@ unconstrained fn get_current_value_in_private_at_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change);
+    env.set_next_block_timestamp(timestamp_of_change);
     cheatcodes::advance_blocks_by(1);
 
     env.private_context(|context| {
@@ -324,7 +324,7 @@ unconstrained fn get_current_value_in_private_after_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change + 10);
+    env.set_next_block_timestamp(timestamp_of_change + 10);
     cheatcodes::advance_blocks_by(1);
 
     env.private_context(|context| {
@@ -356,7 +356,7 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
         });
 
     let historical_timestamp = std::cmp::max(value_timestamp_of_change, delay_timestamp_of_change);
-    env.advance_timestamp_to(historical_timestamp);
+    env.set_next_block_timestamp(historical_timestamp);
     cheatcodes::advance_blocks_by(1);
 
     env.private_context(|context| {
@@ -391,7 +391,7 @@ unconstrained fn get_current_value_in_utility_before_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change - 1);
+    env.set_next_block_timestamp(timestamp_of_change - 1);
     cheatcodes::advance_blocks_by(1);
 
     env.utility_context(|context| {
@@ -415,8 +415,7 @@ unconstrained fn get_current_value_in_utility_at_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-        state_var.get_scheduled_value()
-    });
+    env.set_next_block_timestamp(timestamp_of_change);
 
     env.utility_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -439,7 +438,7 @@ unconstrained fn get_current_value_in_utility_after_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.advance_timestamp_to(timestamp_of_change + 10);
+    env.set_next_block_timestamp(timestamp_of_change + 10);
 
     env.utility_context(|context| {
         // Make sure we're at a block with the expected timestamp
