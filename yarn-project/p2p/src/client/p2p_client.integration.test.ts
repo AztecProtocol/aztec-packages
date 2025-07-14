@@ -787,9 +787,9 @@ describe('p2p client integration', () => {
       });
     };
 
-    const sendBlockTxsRequest = (blockNumber: number, blockHash: Fr, requestedIndices: number[], txCount: number) => {
+    const sendBlockTxsRequest = (blockHash: Fr, requestedIndices: number[], txCount: number) => {
       const txIndices = BitVector.init(txCount, requestedIndices);
-      const request = new BlockTxsRequest(blockNumber, blockHash, txIndices);
+      const request = new BlockTxsRequest(blockHash, txIndices);
       return client1.p2pService.reqresp.sendRequestToPeer(
         client2.p2pService.node.peerId,
         ReqRespSubProtocol.BLOCK_TXS,
@@ -818,21 +818,9 @@ describe('p2p client integration', () => {
     it('responds with NOT_FOUND when peer does not have the requested block proposal', async () => {
       attestationPool.getBlockProposal.mockResolvedValue(undefined);
 
-      const response = await sendBlockTxsRequest(1, Fr.random(), [0, 2, 5], 10);
+      const response = await sendBlockTxsRequest(Fr.random(), [0, 2, 5], 10);
 
       expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
-    });
-
-    it("responds with FAILURE when block numbers don't match", async () => {
-      const requestBlockNumber = 5;
-      const actualBlockNumber = 10;
-      const txHashes = await Promise.all(times(5, () => mockTx().then(tx => tx.getTxHash())));
-      const blockProposal = createBlockProposal(actualBlockNumber, Fr.random(), txHashes);
-      attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
-
-      const response = await sendBlockTxsRequest(requestBlockNumber, blockProposal.archive, [0, 2], 5);
-
-      expect(response.status).toBe(ReqRespStatus.FAILURE);
     });
 
     describe('when the peer has the block proposal', () => {
@@ -854,12 +842,16 @@ describe('p2p client integration', () => {
           Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
         );
 
+        txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+          const txsInPool = new Set(hashToTx.keys());
+          return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+        });
+
         const requestedIndices = [0, 2, 4];
-        const response = await sendBlockTxsRequest(blockNumber, blockHash, requestedIndices, txs.length);
+        const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
 
         expect(response.status).toBe(ReqRespStatus.SUCCESS);
         const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-        expect(blockTxsResponse.blockNumber).toBe(blockNumber);
         expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
         expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
         expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
@@ -871,25 +863,28 @@ describe('p2p client integration', () => {
 
       it('responds with partial txs when the peer has only some of them', async () => {
         const availableIndices = new Set([0, 2, 3]);
-        const txHashesToTxs = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+        const hashToTx: Map<string, Tx> = new Map(
+          txs.map((tx, i) => [txHashes[i].toString(), tx] as [string, Tx]).filter((_, i) => availableIndices.has(i)),
+        );
 
         txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) => {
           return Promise.resolve(
-            hashes.map((hash, i) => {
-              if (availableIndices.has(i)) {
-                return txHashesToTxs.get(hash.toString());
-              }
-              return undefined;
+            hashes.map(hash => {
+              return hashToTx.get(hash.toString());
             }),
           );
         });
 
+        txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+          const txsInPool = new Set(hashToTx.keys());
+          return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+        });
+
         const requestedIndices = [0, 1, 2, 4];
-        const response = await sendBlockTxsRequest(blockNumber, blockHash, requestedIndices, txs.length);
+        const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
 
         expect(response.status).toBe(ReqRespStatus.SUCCESS);
         const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-        expect(blockTxsResponse.blockNumber).toBe(blockNumber);
         expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
         expect(blockTxsResponse.txs.length).toBe(2); // Only txs at indices 0 and 2 are returned
         expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 2, 3]);
@@ -902,12 +897,15 @@ describe('p2p client integration', () => {
       it('responds with empty txs when the peer has none of the requested txs', async () => {
         txPool.getTxsByHash.mockResolvedValue([]);
 
+        txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+          return Promise.resolve(hashes.map(_ => false));
+        });
+
         const requestedIndices = [0, 2, 4];
-        const response = await sendBlockTxsRequest(blockNumber, blockHash, requestedIndices, txs.length);
+        const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
 
         expect(response.status).toBe(ReqRespStatus.SUCCESS);
         const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
-        expect(blockTxsResponse.blockNumber).toBe(blockNumber);
         expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
         expect(blockTxsResponse.txs.length).toBe(0);
         expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([]);

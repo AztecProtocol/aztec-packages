@@ -68,7 +68,7 @@ import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   ReqRespSubProtocol,
-  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   ValidationError,
@@ -417,16 +417,24 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
-    const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
+    // In case P2P client doesnt'have attestation pool,
+    // const blockTxsHandler = this.mempools.attestationPool
+    //   ? reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool)
+    //   : def;
 
-    const requestResponseHandlers: Partial<Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>> = {
+    const requestResponseHandlers: Partial<ReqRespSubProtocolHandlers> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
       [ReqRespSubProtocol.GOODBYE]: goodbyeHandler.bind(this),
       [ReqRespSubProtocol.BLOCK]: blockHandler.bind(this),
-      [ReqRespSubProtocol.BLOCK_TXS]: blockTxsHandler.bind(this),
     };
+
+    // Only handle block transactions request if attestation pool is available to the client
+    if (this.mempools.attestationPool) {
+      const blockTxsHandler = reqRespBlockTxsHandler(this.mempools.attestationPool, this.mempools.txPool);
+      requestResponseHandlers[ReqRespSubProtocol.BLOCK_TXS] = blockTxsHandler.bind(this);
+    }
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);

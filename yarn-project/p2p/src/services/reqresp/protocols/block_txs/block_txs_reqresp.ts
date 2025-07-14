@@ -9,7 +9,6 @@ import { BitVector } from './bitvector.js';
  */
 export class BlockTxsRequest {
   constructor(
-    readonly blockNumber: number,
     readonly blockHash: Fr, // 32 byte hash of the proposed block header
     // BitVector indicating which txs from the proposal we are requesting
     // 1 means we want the tx, 0 means we don't
@@ -23,11 +22,10 @@ export class BlockTxsRequest {
    */
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsRequest {
     const reader = BufferReader.asReader(buffer);
-    const blockNumber = reader.readNumber();
     const blockHash = Fr.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
-    return new BlockTxsRequest(blockNumber, blockHash, txIndices);
+    return new BlockTxsRequest(blockHash, txIndices);
   }
 
   /**
@@ -35,7 +33,7 @@ export class BlockTxsRequest {
    * @returns Buffer representation of the BlockTxRequest object
    */
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockNumber, this.blockHash, this.txIndices.toBuffer()]);
+    return serializeToBuffer([this.blockHash, this.txIndices.toBuffer()]);
   }
 }
 
@@ -44,7 +42,6 @@ export class BlockTxsRequest {
  */
 export class BlockTxsResponse {
   constructor(
-    readonly blockNumber: number,
     readonly blockHash: Fr,
     readonly txs: TxArray, // List of transactions we requested and peer has
     // BitVector indicating which txs from the proposal are available at the peer
@@ -59,12 +56,11 @@ export class BlockTxsResponse {
    */
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsResponse {
     const reader = BufferReader.asReader(buffer);
-    const blockNumber = reader.readNumber();
     const blockHash = Fr.fromBuffer(reader);
     const txs = TxArray.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
-    return new BlockTxsResponse(blockNumber, blockHash, txs, txIndices);
+    return new BlockTxsResponse(blockHash, txs, txIndices);
   }
 
   /**
@@ -74,10 +70,10 @@ export class BlockTxsResponse {
    * @returns Buffer representation of the BlockTxResponse object
    */
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockNumber, this.blockHash, this.txs.toBuffer(), this.txIndices.toBuffer()]);
+    return serializeToBuffer([this.blockHash, this.txs.toBuffer(), this.txIndices.toBuffer()]);
   }
 
   static empty(): BlockTxsResponse {
-    return new BlockTxsResponse(0, Fr.ZERO, new TxArray(), BitVector.init(0, []));
+    return new BlockTxsResponse(Fr.ZERO, new TxArray(), BitVector.init(0, []));
   }
 }
