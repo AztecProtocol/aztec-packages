@@ -27,7 +27,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import { ENR } from '@chainsafe/enr';
 import {
   type GossipSub,
   type GossipSubComponents,
@@ -68,11 +68,15 @@ import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   ValidationError,
 } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
+  AuthRequest,
+  StatusMessage,
   pingHandler,
   reqRespBlockHandler,
   reqRespStatusHandler,
@@ -232,6 +236,27 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
     const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
 
+    const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+    const directPeers = (
+      await Promise.all(
+        preferredPeersEnrs.map(async enr => {
+          const peerId = await enr.peerId();
+          const address = enr.getLocationMultiaddr('tcp');
+          if (address === undefined) {
+            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+          }
+          return {
+            id: peerId,
+            addrs: [address],
+          };
+        }),
+      )
+    ).filter(peer => peer !== undefined);
+
+    if (directPeers.length > 0) {
+      logger.info(`Setting up direct peer connections to: ${directPeers.map(peer => peer.id.toString()).join(', ')}`);
+    }
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -268,6 +293,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          directPeers,
           debugName: 'gossipsub',
           globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
@@ -330,6 +356,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       reqresp,
       worldStateSynchronizer,
       protocolVersion,
+      epochCache,
     );
 
     // Update gossipsub score params
@@ -374,7 +401,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.jobQueue.start();
 
     await this.peerManager.initializePeers();
-    await this.peerDiscoveryService.start();
+    if (!this.config.p2pDiscoveryDisabled) {
+      await this.peerDiscoveryService.start();
+    }
     await this.node.start();
 
     // Subscribe to standard GossipSub topics by default
@@ -388,7 +417,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
-    const requestResponseHandlers = {
+    const requestResponseHandlers: Partial<Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
@@ -445,6 +474,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
+  }
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return this.reqresp.addSubProtocol(subProtocol, handler, validator);
   }
 
   public getPeers(includePending?: boolean): PeerInfo[] {
@@ -1041,6 +1078,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public getPeerScore(peerId: PeerId): number {
     return this.node.services.pubsub.score.score(peerId.toString());
+  }
+
+  public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.peerManager.handleAuthRequestFromPeer(authRequest, peerId);
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

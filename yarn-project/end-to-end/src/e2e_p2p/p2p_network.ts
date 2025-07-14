@@ -77,8 +77,9 @@ export class P2PNetworkTest {
     testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
-    private numberOfNodes: number,
+    public numberOfValidators: number,
     initialValidatorConfig: AztecNodeConfig,
+    public numberOfNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
@@ -89,7 +90,10 @@ export class P2PNetworkTest {
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
-    this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.attesterPrivateKeys = generatePrivateKeys(
+      ATTESTER_PRIVATE_KEYS_START_INDEX + numberOfNodes,
+      numberOfValidators,
+    );
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
     this.snapshotManager = createSnapshotManager(
@@ -102,7 +106,7 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionEpochs:
           initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-        aztecTargetCommitteeSize: numberOfNodes,
+        aztecTargetCommitteeSize: numberOfValidators,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
@@ -115,7 +119,7 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionEpochs:
           initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-        aztecTargetCommitteeSize: numberOfNodes,
+        aztecTargetCommitteeSize: numberOfValidators,
         initialValidators: [],
         zkPassportArgs: {
           mockZkPassportVerifier,
@@ -127,6 +131,7 @@ export class P2PNetworkTest {
   static async create({
     testName,
     numberOfNodes,
+    numberOfValidators,
     basePort,
     metricsPort,
     initialConfig,
@@ -135,6 +140,7 @@ export class P2PNetworkTest {
   }: {
     testName: string;
     numberOfNodes: number;
+    numberOfValidators: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
@@ -155,8 +161,9 @@ export class P2PNetworkTest {
       testName,
       bootstrapNodeEnr,
       port,
-      numberOfNodes,
+      numberOfValidators,
       initialValidatorConfig,
+      numberOfNodes,
       metricsPort,
       startProverNode,
       mockZkPassportVerifier,
@@ -187,8 +194,9 @@ export class P2PNetworkTest {
   getValidators() {
     const validators: Operator[] = [];
 
-    for (let i = 0; i < this.numberOfNodes; i++) {
-      const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
+    for (let i = 0; i < this.numberOfValidators; i++) {
+      const keyIndex = i;
+      const attester = privateKeyToAccount(this.attesterPrivateKeys[keyIndex]!);
 
       validators.push({
         attester: EthAddress.fromString(attester.address),
@@ -211,7 +219,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+        this.logger.info(`Adding ${this.numberOfValidators} validators`);
 
         const stakingAsset = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
@@ -232,7 +240,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfNodes);
+        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -300,7 +308,7 @@ export class P2PNetworkTest {
 
   async removeInitialNode() {
     await this.snapshotManager.snapshot(
-      'remove-inital-validator',
+      'remove-initial-validator',
       async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         const { receipt } = await this._sendDummyTx(deployL1ContractsValues.l1Client);
