@@ -1,6 +1,6 @@
 use crate::keys::getters::get_public_keys;
 
-use crate::test::helpers::{cheatcodes, test_environment::TestEnvironment, utils::TestAccount};
+use crate::test::helpers::{test_environment::TestEnvironment, txe_oracles, utils::TestAccount};
 use dep::std::test::OracleMock;
 use protocol_types::traits::Serialize;
 
@@ -8,7 +8,7 @@ global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one fiel
 
 unconstrained fn setup() -> TestAccount {
     let _ = TestEnvironment::new();
-    let account = cheatcodes::create_account(1);
+    let account = txe_oracles::create_account(1);
 
     account
 }
