@@ -47,9 +47,13 @@ MergeProver::MergeProof MergeProver::construct_proof()
     std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
     const size_t current_table_size = T_current[0].size();
-    const size_t current_subtable_size = t_current[0].size();
 
-    transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
+    // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
+    // subtable when sending a merge proof to the rollup.
+    const size_t shift_size =
+        op_queue->get_current_settings() == MergeSettings::PREPEND ? t_current[0].size() : T_prev[0].size();
+    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
