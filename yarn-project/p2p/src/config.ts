@@ -124,6 +124,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** A list of private peers. */
   privatePeers: string[];
 
+  /** A list of preferred peers. */
+  preferredPeers: string[];
+
   /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB. */
   p2pStoreMapSizeKb?: number;
 
@@ -141,6 +144,12 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
+
+  /** True to only permit validators to connect */
+  p2pAllowOnlyValidators?: boolean;
+
+  /** True to disable participating in discovery */
+  p2pDiscoveryDisabled?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -150,6 +159,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
     ...booleanConfigHelper(),
+  },
+  p2pDiscoveryDisabled: {
+    env: 'P2P_DISCOVERY_DISABLED',
+    description: 'A flag dictating whether the P2P discovery system should be disabled.',
+    ...booleanConfigHelper(false),
   },
   blockCheckIntervalMS: {
     env: 'P2P_BLOCK_CHECK_INTERVAL_MS',
@@ -322,6 +336,13 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
   },
+  preferredPeers: {
+    env: 'P2P_PREFERRED_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description:
+      'A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
+    defaultValue: [],
+  },
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
@@ -352,6 +373,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pDisableStatusHandshake: {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',
     description: 'True to disable the status handshake on peer connected.',
+    ...booleanConfigHelper(false),
+  },
+  p2pAllowOnlyValidators: {
+    env: 'P2P_ALLOW_ONLY_VALIDATORS',
+    description: 'True to only permit validators to connect.',
     ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,
