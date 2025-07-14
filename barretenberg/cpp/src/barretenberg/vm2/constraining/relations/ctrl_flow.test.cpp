@@ -25,7 +25,7 @@ TEST(CtrlFlowConstrainingTest, Jump)
         { { C::precomputed_first_row, 1 } },
         {
             { C::execution_sel, 1 },
-            { C::execution_sel_jump, 1 },
+            { C::execution_sel_execute_jump, 1 },
             { C::execution_rop_0_, 120 },
         },
         { { C::execution_sel, 1 }, { C::execution_last, 1 }, { C::execution_pc, 120 } },
@@ -44,7 +44,7 @@ TEST(CtrlFlowConstrainingTest, JumpiTrueCondition)
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
         { { C::execution_sel, 1 },
-          { C::execution_sel_jumpi, 1 },
+          { C::execution_sel_execute_jumpi, 1 },
           { C::execution_rop_1_, 120 },
           { C::execution_next_pc, 220 },
           { C::execution_register_0_, 1 } }, // True condition
@@ -63,7 +63,7 @@ TEST(CtrlFlowConstrainingTest, JumpiFalseCondition)
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
         { { C::execution_sel, 1 },
-          { C::execution_sel_jumpi, 1 },
+          { C::execution_sel_execute_jumpi, 1 },
           { C::execution_rop_1_, 120 },
           { C::execution_next_pc, 220 },
           { C::execution_register_0_, 0 } }, // False condition
