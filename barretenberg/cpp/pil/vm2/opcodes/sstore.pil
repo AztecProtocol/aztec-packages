@@ -44,16 +44,16 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // Commited since it's used in the lookup
     // Note: we could perform the work unconditionally here, since the roots will be reverted if sel_opcode_error is one.
     // We'd save one column, but we'd perform more work in the error case, both in simulation and proving.
-    pol commit sel_should_sstore;
-    sel_execute_sstore * ((1 - sel_opcode_error) - sel_should_sstore) = 0;
+    pol commit sel_write_public_data;
+    sel_execute_sstore * ((1 - sel_opcode_error) - sel_write_public_data) = 0;
 
     // =========== OPCODE EXECUTION ===========
 
     #[RECORD_WRITTEN_STORAGE_SLOT]
-    sel_should_sstore {
+    sel_write_public_data {
         contract_address,
         register[1], // slot
-        sel_should_sstore/*=1*/,
+        sel_write_public_data/*=1*/,
         prev_written_public_data_slots_tree_root,
         prev_written_public_data_slots_tree_size,
         written_public_data_slots_tree_root,
@@ -70,7 +70,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // This should be a multipermutation
     #[STORAGE_WRITE]
-    sel_should_sstore {
+    sel_write_public_data {
         register[0], // value
         contract_address,
         register[1], // slot

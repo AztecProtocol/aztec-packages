@@ -941,7 +941,7 @@ TEST(ExecutionTraceGenTest, SStore)
                           ROW_FIELD_EQ(execution_max_data_writes_reached, 0),
                           ROW_FIELD_EQ(execution_remaining_data_writes_inv,
                                        FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX - 5).invert()),
-                          ROW_FIELD_EQ(execution_sel_should_sstore, 1))));
+                          ROW_FIELD_EQ(execution_sel_write_public_data, 1))));
 }
 
 } // namespace

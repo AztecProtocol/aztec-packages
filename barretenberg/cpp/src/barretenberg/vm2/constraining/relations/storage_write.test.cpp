@@ -75,7 +75,7 @@ TEST(SStoreConstrainingTest, PositiveTest)
           { C::execution_max_data_writes_reached, 0 },
           { C::execution_remaining_data_writes_inv,
             FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE - 5).invert() },
-          { C::execution_sel_should_sstore, 1 },
+          { C::execution_sel_write_public_data, 1 },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE } },
     });
     check_relation<sstore>(trace);
@@ -208,7 +208,7 @@ TEST(SStoreConstrainingTest, Interactions)
                  written_slots_tree_before.nextAvailableLeafIndex)
                   .invert() },
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE },
-            { C::execution_sel_should_sstore, 1 },
+            { C::execution_sel_write_public_data, 1 },
             { C::execution_prev_public_data_tree_root, public_data_tree_before.root },
             { C::execution_prev_public_data_tree_size, public_data_tree_before.nextAvailableLeafIndex },
             { C::execution_public_data_tree_root, public_data_tree_after.root },

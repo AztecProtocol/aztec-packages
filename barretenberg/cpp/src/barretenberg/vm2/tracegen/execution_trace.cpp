@@ -549,7 +549,7 @@ void ExecutionTraceBuilder::process(
                               { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
                               { C::execution_remaining_data_writes_inv,
                                 remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
-                              { C::execution_sel_should_sstore, !opcode_execution_failed },
+                              { C::execution_sel_write_public_data, !opcode_execution_failed },
                           } });
             }
         }

@@ -66,7 +66,7 @@ template <typename FF_> class sstoreImpl {
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_execute_sstore) *
-                       ((FF(1) - in.get(C::execution_sel_opcode_error)) - in.get(C::execution_sel_should_sstore));
+                       ((FF(1) - in.get(C::execution_sel_opcode_error)) - in.get(C::execution_sel_write_public_data));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
