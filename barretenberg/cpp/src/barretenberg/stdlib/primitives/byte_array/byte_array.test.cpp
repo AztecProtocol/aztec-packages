@@ -72,7 +72,7 @@ TYPED_TEST(ByteArrayTest, test_string_constructor)
     EXPECT_EQ(arr.get_string(), a);
 }
 
-TYPED_TEST(ByteArrayTest, test_into_byte_decomposition)
+TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition)
 {
     STDLIB_TYPE_ALIASES
 
@@ -122,6 +122,50 @@ TYPED_TEST(ByteArrayTest, test_into_byte_decomposition)
 
         EXPECT_FALSE(CircuitChecker::check(builder));
         EXPECT_TRUE(builder.err() == "byte_array: y_overlap is not a bit");
+    }
+}
+
+TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_const_cases)
+{
+    STDLIB_TYPE_ALIASES
+
+    auto check_byte_decomposition = [](const byte_array_ct& arr, const field_ct& original_val) {
+        STDLIB_TYPE_ALIASES
+        size_t num_bytes = arr.size();
+        fr reconstructed = 0;
+
+        for (size_t i = 0; i < num_bytes; ++i) {
+            auto byte = arr[i].get_value();
+            reconstructed += byte * fr(uint256_t(1) << ((num_bytes - 1 - i) * 8));
+        }
+        EXPECT_TRUE(original_val.get_value() == reconstructed);
+    };
+
+    field_ct test_val = fr::random_element();
+
+    byte_array_ct arr(test_val, 32);
+
+    check_byte_decomposition(arr, test_val);
+
+    {
+        // Produce a 256 bit value `x` such that the high limb of (r-1) - x is overflowing.
+        uint256_t overflowing_value(fr::modulus + 100);
+
+        test_val = bb::fr(overflowing_value);
+#ifndef NDEBUG
+        EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, overflowing_value),
+                     "byte_array: y_hi doesn't fit in 128 bits");
+#endif
+    }
+
+    {
+        // Test the case when (r-1).lo - x.lo + 2^128 is not a 129 bit integer, i.e. is negative.
+        uint256_t y_overlap_not_bit("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
+        test_val = bb::fr(y_overlap_not_bit);
+#ifndef NDEBUG
+        EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, y_overlap_not_bit),
+                     "byte_array: y_overlap is not a bit");
+#endif
     }
 }
 
@@ -256,4 +300,37 @@ TYPED_TEST(ByteArrayTest, set_bit)
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
+}
+TYPED_TEST(ByteArrayTest, convert_to_field)
+{
+    STDLIB_TYPE_ALIASES
+
+    for (size_t arr_length = 1; arr_length < 32; arr_length++) {
+
+        Builder builder;
+        byte_array_ct test_array(&builder, arr_length);
+
+        std::vector<uint8_t> native_bytes(arr_length);
+        for (size_t idx = 0; idx < arr_length; idx++) {
+            uint8_t byte = engine.get_random_uint8();
+            native_bytes[idx] = byte;
+            test_array[idx] = witness_ct(&builder, byte);
+        }
+
+        // Convert to field_t using the byte_array conversion
+        field_ct represented_field_elt = static_cast<field_ct>(test_array);
+
+        // Compute the expected value manually (big-endian)
+        uint256_t expected_value = 0;
+        for (size_t i = 0; i < arr_length; ++i) {
+            expected_value = (expected_value << 8) + native_bytes[i];
+        }
+
+        // Assert values match
+        EXPECT_EQ(represented_field_elt.get_value(), fr(expected_value));
+
+        // Check that the circuit is valid
+        bool result = CircuitChecker::check(builder);
+        EXPECT_TRUE(result);
+    }
 }

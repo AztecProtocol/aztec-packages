@@ -8,7 +8,6 @@
 
 #include "../bigfield/bigfield.hpp"
 #include "../bigfield/goblin_field.hpp"
-#include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../memory/rom_table.hpp"

@@ -8,12 +8,11 @@
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
-#include "../safe_uint/safe_uint.hpp"
 namespace bb::stdlib {
 
 template <typename Builder> class byte_array {
   public:
-    typedef std::vector<field_t<Builder>> bytes_t;
+    using bytes_t = typename std::vector<field_t<Builder>>;
 
     byte_array(Builder* parent_context = nullptr);
     byte_array(Builder* parent_context, size_t const n);
@@ -24,7 +23,6 @@ template <typename Builder> class byte_array {
     byte_array(const field_t<Builder>& input,
                const size_t num_bytes = 32,
                std::optional<uint256_t> test_val = std::nullopt);
-    byte_array(const safe_uint_t<Builder>& input, const size_t num_bytes = 32);
 
     template <typename ItBegin, typename ItEnd>
     byte_array(Builder* parent_context, ItBegin const& begin, ItEnd const& end)
@@ -50,6 +48,12 @@ template <typename Builder> class byte_array {
         return values[index];
     }
 
+    field_t<Builder>& operator[](const size_t index)
+    {
+        ASSERT(index < values.size());
+        return values[index];
+    }
+
     byte_array& write(byte_array const& other);
     byte_array& write_at(byte_array const& other, size_t index);
 
@@ -65,11 +69,11 @@ template <typename Builder> class byte_array {
 
     void set_bit(size_t index, bool_t<Builder> const& value);
 
-    void set_byte(size_t index, const field_t<Builder>& byte_val)
-    {
-        ASSERT(index < values.size());
-        values[index] = byte_val;
-    }
+    // void set_byte(size_t index, const field_t<Builder>& byte_val)
+    // {
+    //     ASSERT(index < values.size());
+    //     values[index] = byte_val;
+    // }
 
     void set_context(Builder* ctx)
     {
