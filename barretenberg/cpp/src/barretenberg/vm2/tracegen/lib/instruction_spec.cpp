@@ -155,9 +155,10 @@ Column get_dyn_gas_selector(uint32_t dyn_gas_id)
         return C::execution_sel_gas_emit_unencrypted_log;
     case AVM_DYN_GAS_ID_SSTORE:
         return C::execution_sel_gas_sstore;
+    default:
+        assert(false && "Invalid dynamic gas id");
     }
 
-    // clangd will complain if we miss a case.
     // This is just to please gcc.
     __builtin_unreachable();
 }

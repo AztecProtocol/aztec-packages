@@ -17,14 +17,14 @@ struct lookup_sstore_record_written_storage_slot_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SSTORE_RECORD_WRITTEN_STORAGE_SLOT";
     static constexpr std::string_view RELATION_NAME = "sstore";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_sstore;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_sstore;
     static constexpr Column DST_SELECTOR = Column::written_public_data_slots_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_sstore_record_written_storage_slot_counts;
     static constexpr Column INVERSES = Column::lookup_sstore_record_written_storage_slot_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_sel_execute_sstore,
+        ColumnAndShifts::execution_sel_should_sstore,
         ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
         ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
         ColumnAndShifts::execution_written_public_data_slots_tree_root,
@@ -53,7 +53,7 @@ struct lookup_sstore_storage_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SSTORE_STORAGE_WRITE";
     static constexpr std::string_view RELATION_NAME = "sstore";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_sstore;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_sstore;
     static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_sstore_storage_write_counts;
     static constexpr Column INVERSES = Column::lookup_sstore_storage_write_inv;

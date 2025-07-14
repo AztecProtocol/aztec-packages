@@ -281,7 +281,7 @@ TEST(ExecutionTraceGenTest, Gas)
     ExecutionTraceBuilder builder;
 
     // Use the instruction builder - we can make the operands more complex
-    const auto instr = InstructionBuilder(WireOpCode::ADD_8)
+    const auto instr = InstructionBuilder(WireOpCode::AND_8)
                            // All operands are direct - for simplicity
                            .operand<uint8_t>(0)
                            .operand<uint8_t>(0)

@@ -50,10 +50,10 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // =========== OPCODE EXECUTION ===========
 
     #[RECORD_WRITTEN_STORAGE_SLOT]
-    sel_execute_sstore {
+    sel_should_sstore {
         contract_address,
         register[1], // slot
-        sel_execute_sstore/*=1*/,
+        sel_should_sstore/*=1*/,
         prev_written_public_data_slots_tree_root,
         prev_written_public_data_slots_tree_size,
         written_public_data_slots_tree_root,
@@ -70,7 +70,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // This should be a multipermutation
     #[STORAGE_WRITE]
-    sel_execute_sstore {
+    sel_should_sstore {
         register[0], // value
         contract_address,
         register[1], // slot

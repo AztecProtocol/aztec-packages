@@ -566,6 +566,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .base_da = 0,
                       .dyn_l2 = 0,
                       .dyn_da = AVM_SSTORE_DYN_DA_GAS },
+        .dyn_gas_id = AVM_DYN_GAS_ID_SSTORE,
         .register_info = RegisterInfo().add_inputs({ /*src*/ ValueTag::FF, /*slot*/ ValueTag::FF }) } },
 };
 

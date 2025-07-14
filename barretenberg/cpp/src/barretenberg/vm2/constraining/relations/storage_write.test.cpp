@@ -208,6 +208,7 @@ TEST(SStoreConstrainingTest, Interactions)
                  written_slots_tree_before.nextAvailableLeafIndex)
                   .invert() },
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE },
+            { C::execution_sel_should_sstore, 1 },
             { C::execution_prev_public_data_tree_root, public_data_tree_before.root },
             { C::execution_prev_public_data_tree_size, public_data_tree_before.nextAvailableLeafIndex },
             { C::execution_public_data_tree_root, public_data_tree_after.root },
