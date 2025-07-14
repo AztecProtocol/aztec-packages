@@ -140,9 +140,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         case QUEUE_TYPE::PG_FINAL:
             proof_type = PG_FINAL;
             break;
-        case QUEUE_TYPE::NULL_TYPE:
-            proof_type = OINK;
-            break;
         default:
             throw std::runtime_error("Invalid proof type");
         }
@@ -460,7 +457,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
             EXPECT_TRUE(ivc->verification_queue[0].type == bb::ClientIVC::QUEUE_TYPE::PG);
             AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
             Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
-            ivc->accumulate(kernel, nullptr, false, ClientIVC::QUEUE_TYPE::PG_FINAL); // WORKTODO: should be PG_FINAL?
+            ivc->accumulate(kernel, nullptr, false); // WORKTODO: should be PG_FINAL?
         }
 
         {

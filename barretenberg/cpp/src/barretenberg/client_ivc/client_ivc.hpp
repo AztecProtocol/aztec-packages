@@ -128,7 +128,7 @@ class ClientIVC {
         MSGPACK_FIELDS(mega, eccvm, translator);
     };
 
-    enum class QUEUE_TYPE { OINK, PG, PG_FINAL, NULL_TYPE }; // for specifying type of proof in the verification queue
+    enum class QUEUE_TYPE { OINK, PG, PG_FINAL }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
     struct VerifierInputs {
@@ -188,8 +188,7 @@ class ClientIVC {
     ClientIVC(TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
-                                               const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {},
-                                               const std::vector<QUEUE_TYPE>& queue_types = {});
+                                               const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints
     perform_recursive_verification_and_databus_consistency_checks(
@@ -210,8 +209,7 @@ class ClientIVC {
      */
     void accumulate(ClientCircuit& circuit,
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
-                    const bool mock_vk = false,
-                    const QUEUE_TYPE queue_type = QUEUE_TYPE::NULL_TYPE);
+                    const bool mock_vk = false);
 
     Proof prove();
 
