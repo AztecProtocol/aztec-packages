@@ -2,7 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {UserLibBase} from "./base.t.sol";
-import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {User, UserLib, DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
@@ -29,7 +29,7 @@ contract PowerAtTest is UserLibBase {
 
   modifier whenTimeInPast() {
     time = Timestamp.wrap(1e6);
-    vm.warp(Timestamp.unwrap(time) + 12);
+    vm.warp(Timestamp.unwrap(time) + DEPOSIT_GRANULARITY_SECONDS);
 
     _;
   }
@@ -60,28 +60,28 @@ contract PowerAtTest is UserLibBase {
     // it return power at last checkpoint with time < time
 
     if (insertions == 1) {
-      vm.warp(block.timestamp + 12);
+      vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
       user.add(1);
     }
 
-    vm.warp(block.timestamp + 12);
+    vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
 
     uint32 index = bound(_index, 0, user.checkpoints.length() - (_between ? 2 : 1)).toUint32();
 
     Checkpoints.Checkpoint224 memory first = user.checkpoints.at(index);
 
+    uint32 checkpoint;
+
+    // if the time is between two checkpoints, we need to find the middle checkpoint
     if (_between) {
       Checkpoints.Checkpoint224 memory second = user.checkpoints.at(index + 1);
-      time = Timestamp.wrap(first._key) + Timestamp.wrap((second._key - first._key) / 2);
+      checkpoint = first._key + (second._key - first._key) / 2;
     } else {
-      if (index == user.checkpoints.length() && _index % 2 == 0) {
-        time = Timestamp.wrap(block.timestamp - 12);
-      } else {
-        time = Timestamp.wrap(first._key);
-      }
+      // if the time is after the last checkpoint, we need to find the last checkpoint
+      checkpoint = first._key;
     }
 
-    assertEq(user.powerAt(time), first._value);
+    assertEq(user.powerAt(UserLib.toTimestamp(checkpoint)), first._value);
     assertGt(first._value, 0);
   }
 }

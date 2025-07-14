@@ -75,7 +75,7 @@ contract Test15050 is StakingBase {
     // the accounting. And then we see that the proposal is marked as executed, so we cannot
     // execute it again, but at the same time, the attester was not actually slashes!
     // It can require a bit of fiddling here to get the correct one going gas-wise.
-    caller.executeProposal{gas: 200000}(0);
+    caller.executeProposal{gas: 100000}(0);
 
     r = caller.getRoundData(address(staking), 0);
     assertFalse(r.executed);

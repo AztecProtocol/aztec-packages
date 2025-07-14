@@ -15,6 +15,7 @@ import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 struct Timestamps {
   uint256 ts1;
@@ -57,18 +58,21 @@ contract MinimalDelegationTest is GSEBase {
 
     uint256 votingTime =
       Timestamp.unwrap(ProposalLib.pendingThroughMemory(governance.getProposal(0)));
+    uint256 activeTime =
+      Timestamp.unwrap(ProposalLib.activeThroughMemory(governance.getProposal(0)));
 
     Timestamps memory ts;
 
     ts.ts1 = block.timestamp;
-    ts.ts2 = ts.ts1 + EPOCH_DURATION_SECONDS;
-    ts.ts3 = ts.ts2 + EPOCH_DURATION_SECONDS;
+    ts.ts2 = ts.ts1 + DEPOSIT_GRANULARITY_SECONDS;
+    ts.ts3 = ts.ts2 + DEPOSIT_GRANULARITY_SECONDS;
 
     require(votingTime > ts.ts3, "voting time not long enough");
-    ts.ts4 = votingTime + EPOCH_DURATION_SECONDS;
-    ts.ts5 = ts.ts4 + EPOCH_DURATION_SECONDS;
-    ts.ts6 = ts.ts5 + EPOCH_DURATION_SECONDS;
-    ts.ts7 = ts.ts6 + EPOCH_DURATION_SECONDS;
+    ts.ts4 = votingTime + DEPOSIT_GRANULARITY_SECONDS;
+    ts.ts5 = ts.ts4 + DEPOSIT_GRANULARITY_SECONDS;
+    ts.ts6 = ts.ts5 + DEPOSIT_GRANULARITY_SECONDS;
+    ts.ts7 = ts.ts6 + DEPOSIT_GRANULARITY_SECONDS;
+    require(activeTime > ts.ts7, "active time not long enough");
 
     // Lets start
     assertEq(gse.getVotingPower(canonical), 0, "votingPowerCanonical");

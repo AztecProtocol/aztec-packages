@@ -16,6 +16,8 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
+import {Math} from "@oz/utils/math/Math.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -44,9 +46,9 @@ library TestConstants {
         lockDelay: Timestamp.wrap(60 * 60 * 24 * 30),
         lockAmount: 1e24
       }),
-      votingDelay: Timestamp.wrap(60),
-      votingDuration: Timestamp.wrap(60 * 60),
-      executionDelay: Timestamp.wrap(60),
+      votingDelay: Timestamp.wrap(Math.max(DEPOSIT_GRANULARITY_SECONDS * 3, 60)),
+      votingDuration: Timestamp.wrap(Math.max(DEPOSIT_GRANULARITY_SECONDS * 6, 60 * 60)),
+      executionDelay: Timestamp.wrap(Math.max(DEPOSIT_GRANULARITY_SECONDS * 3, 60)),
       gracePeriod: Timestamp.wrap(60 * 60 * 24 * 7),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,

@@ -6,6 +6,7 @@ import {IPayload, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract VoteWithCanonicalTest is WithGSE {
   using ProposalLib for Proposal;
@@ -87,7 +88,7 @@ contract VoteWithCanonicalTest is WithGSE {
     cheat_deposit(_instance, _attester, _attester, true);
 
     Proposal memory proposal = governance.getProposal(0);
-    vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + DEPOSIT_GRANULARITY_SECONDS);
 
     uint256 availablePower = gse.getVotingPowerAt(MAGIC_ADDRESS, proposal.pendingThroughMemory());
 

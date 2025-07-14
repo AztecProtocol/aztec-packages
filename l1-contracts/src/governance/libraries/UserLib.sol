@@ -7,6 +7,8 @@ import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
+uint32 constant DEPOSIT_GRANULARITY_SECONDS = 1;
+
 struct User {
   Checkpoints.Trace224 checkpoints;
 }
@@ -28,7 +30,7 @@ library UserLib {
       return (current, current);
     }
     uint224 amount = _amount.toUint224();
-    _self.checkpoints.push(block.timestamp.toUint32(), current + amount);
+    _self.checkpoints.push(toDepositCheckpoint(Timestamp.wrap(block.timestamp)), current + amount);
     return (current, current + amount);
   }
 
@@ -39,7 +41,7 @@ library UserLib {
     }
     uint224 amount = _amount.toUint224();
     require(current >= amount, Errors.Governance__InsufficientPower(msg.sender, current, amount));
-    _self.checkpoints.push(block.timestamp.toUint32(), current - amount);
+    _self.checkpoints.push(toDepositCheckpoint(Timestamp.wrap(block.timestamp)), current - amount);
     return (current, current - amount);
   }
 
@@ -48,8 +50,18 @@ library UserLib {
   }
 
   function powerAt(User storage _self, Timestamp _time) internal view returns (uint256) {
+    uint32 requestedCheckpoint = toDepositCheckpoint(_time);
+    uint32 currentCheckpoint = toDepositCheckpoint(Timestamp.wrap(block.timestamp));
     // If not in the past, the values are not stable. We disallow using it to avoid potential misuse.
-    require(_time < Timestamp.wrap(block.timestamp), Errors.Governance__UserLib__NotInPast());
-    return _self.checkpoints.upperLookup(Timestamp.unwrap(_time).toUint32());
+    require(requestedCheckpoint < currentCheckpoint, Errors.Governance__UserLib__NotInPast());
+    return _self.checkpoints.upperLookupRecent(requestedCheckpoint);
+  }
+
+  function toDepositCheckpoint(Timestamp _timestamp) internal pure returns (uint32) {
+    return (Timestamp.unwrap(_timestamp) / DEPOSIT_GRANULARITY_SECONDS).toUint32();
+  }
+
+  function toTimestamp(uint32 _checkpoint) internal pure returns (Timestamp) {
+    return Timestamp.wrap(_checkpoint * DEPOSIT_GRANULARITY_SECONDS);
   }
 }

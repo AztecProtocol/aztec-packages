@@ -6,6 +6,8 @@ import {IGovernance, Configuration, Proposal} from "@aztec/governance/interfaces
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Math} from "@oz/utils/math/Math.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract UpdateConfigurationTest is GovernanceBase {
   using ConfigurationLib for Configuration;
@@ -133,15 +135,15 @@ contract UpdateConfigurationTest is GovernanceBase {
     governance.updateConfiguration(config);
   }
 
-  function test_WhenVotingDelayLtMinOrGtMax(uint256 _val)
+  function test_WhenVotingDelayLtMinOrLtDEPOSIT_GRANULARITY_SECONDSOrGtMax(uint256 _val)
     external
     whenCallerIsSelf
     whenConfigurationIsInvalid
   {
     // it revert
-
-    config.votingDelay =
-      Timestamp.wrap(bound(_val, 0, Timestamp.unwrap(ConfigurationLib.TIME_LOWER) - 1));
+    uint256 min =
+      Math.max(DEPOSIT_GRANULARITY_SECONDS, Timestamp.unwrap(ConfigurationLib.TIME_LOWER));
+    config.votingDelay = Timestamp.wrap(bound(_val, 0, min - 1));
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Governance__ConfigurationLib__TimeTooSmall.selector, "VotingDelay"
@@ -366,7 +368,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     config.proposeConfig.lockDelay = val;
   }
 
-  function test_WhenVotingDelayGeMinAndLeMax(uint256 _val)
+  function test_WhenVotingDelayGeMinAndGeDEPOSIT_GRANULARITY_SECONDSAndLeMax(uint256 _val)
     external
     whenCallerIsSelf
     whenConfigurationIsValid
@@ -376,7 +378,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     Timestamp val = Timestamp.wrap(
       bound(
         _val,
-        Timestamp.unwrap(ConfigurationLib.TIME_LOWER),
+        Math.max(Timestamp.unwrap(ConfigurationLib.TIME_LOWER), DEPOSIT_GRANULARITY_SECONDS),
         Timestamp.unwrap(ConfigurationLib.TIME_UPPER)
       )
     );

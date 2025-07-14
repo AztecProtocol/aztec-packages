@@ -126,4 +126,8 @@ library ProposalLib {
   function pendingThroughMemory(Proposal memory _self) internal pure returns (Timestamp) {
     return _self.creation + _self.config.votingDelay;
   }
+
+  function activeThroughMemory(Proposal memory _self) internal pure returns (Timestamp) {
+    return ProposalLib.pendingThroughMemory(_self) + _self.config.votingDuration;
+  }
 }

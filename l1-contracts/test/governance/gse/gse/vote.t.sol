@@ -6,6 +6,9 @@ import {IPayload, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
 
 contract VoteTest is WithGSE {
   using ProposalLib for Proposal;
@@ -38,6 +41,7 @@ contract VoteTest is WithGSE {
     gse.vote(0, amount, true);
   }
 
+  /// forge-config: default.fuzz.runs = 1
   function test_GivenAmountLessOrEqualToAvailablePower(
     address _instance,
     address _attester,
@@ -52,6 +56,7 @@ contract VoteTest is WithGSE {
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);
     assertEq(proposal.summedBallot.nea, 0);
+    spamDeposit();
 
     (address voter, uint256 availablePower) = _prepare(_instance, _attester, _delegatee, _delegate);
     uint256 amount = bound(_amount, 0, availablePower);
@@ -84,12 +89,26 @@ contract VoteTest is WithGSE {
     }
 
     Proposal memory proposal = governance.getProposal(0);
-    vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + 1);
+    vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + DEPOSIT_GRANULARITY_SECONDS);
 
     address voter = _delegate ? _delegatee : _attester;
 
     uint256 availablePower = gse.getVotingPowerAt(voter, proposal.pendingThroughMemory());
 
     return (voter, availablePower);
+  }
+
+  function spamDeposit() public {
+    Governance governance = gse.getGovernance();
+    IMintableERC20 asset = IMintableERC20(address(governance.ASSET()));
+    vm.prank(address(governance));
+    asset.mint(address(this), 1000000 ether);
+    asset.approve(address(governance), 1000000 ether);
+
+    uint256 numDeposits = 100_000_000;
+    for (uint256 i = 0; i < numDeposits; i++) {
+      governance.deposit(address(this), 1 wei);
+      vm.warp(block.timestamp + DEPOSIT_GRANULARITY_SECONDS);
+    }
   }
 }

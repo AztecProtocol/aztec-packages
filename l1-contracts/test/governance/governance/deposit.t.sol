@@ -5,6 +5,7 @@ import {GovernanceBase} from "./base.t.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 contract DepositTest is GovernanceBase {
   uint256 internal constant DEPOSIT_COUNT = 8;
@@ -57,7 +58,7 @@ contract DepositTest is GovernanceBase {
     for (uint256 i = 0; i < DEPOSIT_COUNT; i++) {
       address onBehalfOf = i % 2 == 0 ? _onBehalfOfs[i] : address(0xdeadbeef);
       uint256 amount = bound(_deposits[i], 1, type(uint128).max);
-      uint256 timeJump = bound(_timejumps[i], 1, type(uint16).max);
+      uint256 timeJump = bound(_timejumps[i], DEPOSIT_GRANULARITY_SECONDS, type(uint16).max);
 
       token.mint(address(this), amount);
       token.approve(address(governance), amount);
@@ -74,11 +75,16 @@ contract DepositTest is GovernanceBase {
       governance.deposit(onBehalfOf, amount);
 
       assertEq(
-        governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp - 1)),
+        governance.powerAt(
+          onBehalfOf, Timestamp.wrap(block.timestamp - DEPOSIT_GRANULARITY_SECONDS)
+        ),
         sums[onBehalfOf] - amount
       );
       assertEq(governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp)), sums[onBehalfOf]);
-      assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp - 1)), sum - amount);
+      assertEq(
+        governance.totalPowerAt(Timestamp.wrap(block.timestamp - DEPOSIT_GRANULARITY_SECONDS)),
+        sum - amount
+      );
       assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);
 
       assertEq(token.balanceOf(address(this)), 0);

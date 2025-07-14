@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 import {Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
+import {DEPOSIT_GRANULARITY_SECONDS} from "@aztec/governance/libraries/UserLib.sol";
 
 library ConfigurationLib {
   uint256 internal constant QUORUM_LOWER = 1;
@@ -14,6 +15,12 @@ library ConfigurationLib {
 
   uint256 internal constant VOTES_LOWER = 1;
 
+  /**
+   * @notice All the times must be between TIME_LOWER and TIME_UPPER
+   * @dev VotingDelay must also be greater than DEPOSIT_GRANULARITY_SECONDS.
+   *      This is to ensure that users can deposit and have enough time for their power to be
+   *      registered for the voting period.
+   */
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(60);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
@@ -57,7 +64,8 @@ library ConfigurationLib {
     );
 
     require(
-      _self.votingDelay >= TIME_LOWER,
+      _self.votingDelay >= TIME_LOWER
+        && _self.votingDelay >= Timestamp.wrap(DEPOSIT_GRANULARITY_SECONDS),
       Errors.Governance__ConfigurationLib__TimeTooSmall("VotingDelay")
     );
     require(
