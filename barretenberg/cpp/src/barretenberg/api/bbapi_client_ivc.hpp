@@ -38,8 +38,12 @@ struct ClientIvcStart {
     struct Response {
         static constexpr const char* NAME = "ClientIvcStartResponse";
         // Empty response - success indicated by no exception
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
     };
     Response execute(BBApiRequest& request) &&;
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    bool operator==(const ClientIvcStart&) const = default;
 };
 
 /**
@@ -56,11 +60,15 @@ struct ClientIvcLoad {
     struct Response {
         static constexpr const char* NAME = "ClientIvcLoadResponse";
         // Empty response - success indicated by no exception
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
     };
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
     Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(circuit);
+    bool operator==(const ClientIvcLoad&) const = default;
 };
 
 /**
@@ -77,11 +85,15 @@ struct ClientIvcAccumulate {
     struct Response {
         static constexpr const char* NAME = "ClientIvcAccumulateResponse";
         // Empty response - success indicated by no exception
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
     };
 
     /** @brief Serialized witness data for the last loaded circuit */
     std::vector<uint8_t> witness;
     Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(witness);
+    bool operator==(const ClientIvcAccumulate&) const = default;
 };
 
 /**
@@ -100,8 +112,12 @@ struct ClientIvcProve {
 
         /** @brief Complete IVC proof for all accumulated circuits */
         ClientIVC::Proof proof;
+        MSGPACK_FIELDS(proof);
+        bool operator==(const Response&) const = default;
     };
     Response execute(BBApiRequest& request) &&;
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    bool operator==(const ClientIvcProve&) const = default;
 };
 
 /**
@@ -122,11 +138,14 @@ struct ClientIvcComputeStandaloneVk {
         std::vector<uint8_t> bytes;
         /** @brief Verification key as array of field elements */
         std::vector<bb::fr> fields;
+        MSGPACK_FIELDS(bytes, fields);
+        bool operator==(const Response&) const = default;
     };
 
-    /** @brief Circuit bytecode without precomputed VK */
     CircuitInputNoVK circuit;
     Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(circuit);
+    bool operator==(const ClientIvcComputeStandaloneVk&) const = default;
 };
 
 /**
@@ -145,11 +164,14 @@ struct ClientIvcComputeIvcVk {
 
         /** @brief Serialized IVC verification key in binary format */
         std::vector<uint8_t> bytes;
+        MSGPACK_FIELDS(bytes);
+        bool operator==(const Response&) const = default;
     };
 
-    /** @brief Final circuit bytecode for IVC VK computation */
     CircuitInputNoVK circuit;
     Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(circuit);
+    bool operator==(const ClientIvcComputeIvcVk&) const = default;
 };
 
 /**
@@ -168,8 +190,8 @@ struct ClientIvcCheckPrecomputedVk {
 
         /** @brief True if the precomputed VK matches the circuit */
         bool valid;
-
-        std::vector<uint8_t> actual_vk;
+        MSGPACK_FIELDS(valid);
+        bool operator==(const Response&) const = default;
     };
 
     /** @brief Circuit with its precomputed verification key */
@@ -177,6 +199,8 @@ struct ClientIvcCheckPrecomputedVk {
     /** @brief Human-readable name for logging and error messages */
     std::string function_name;
     Response execute(const BBApiRequest& request = {}) &&;
+    MSGPACK_FIELDS(circuit, function_name);
+    bool operator==(const ClientIvcCheckPrecomputedVk&) const = default;
 };
 
 } // namespace bb::bbapi

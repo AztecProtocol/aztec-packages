@@ -124,6 +124,7 @@ class ClientIVC {
         static Proof from_file_msgpack(const std::string& filename);
 
         MSGPACK_FIELDS(mega_proof, goblin_proof);
+        bool operator==(const Proof& other) const = default;
     };
 
     struct VerificationKey {

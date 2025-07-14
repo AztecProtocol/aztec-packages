@@ -17,6 +17,7 @@
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
+#include "barretenberg/api/bbapi.hpp"
 #include "barretenberg/api/gate_count.hpp"
 #include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
@@ -552,6 +553,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
+     * Subcommand: msgpack_schema
+     ***************************************************************************************************************/
+    CLI::App* msgpack_schema_command =
+        app.add_subcommand("msgpack_schema", "Output a msgpack schema encoded as JSON to stdout.");
+    add_verbose_flag(msgpack_schema_command);
+
+    /***************************************************************************************************************
      * Subcommand: prove_tube
      ***************************************************************************************************************/
     CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
@@ -628,8 +636,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     try {
+        // MSGPACK SCHEMA
+        if (msgpack_schema_command->parsed()) {
+            std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            return 0;
+        }
         // TUBE
-        if (prove_tube_command->parsed()) {
+        else if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
             prove_tube(prove_tube_output_path, vk_path);
         } else if (verify_tube_command->parsed()) {

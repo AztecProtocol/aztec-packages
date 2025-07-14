@@ -13,6 +13,10 @@
  */
 template <typename T> std::string msgpack_schema_name(T const&)
 {
+    // If we have a T::NAME member, use that.
+    if constexpr (requires { T::NAME; }) {
+        return T::NAME;
+    }
     char* result_cstr = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr);
     std::string result = result_cstr;
     if (result.find("basic_string") != std::string::npos) {
