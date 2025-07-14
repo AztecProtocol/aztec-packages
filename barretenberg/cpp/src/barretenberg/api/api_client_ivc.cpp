@@ -39,13 +39,24 @@ void write_standalone_vk(const std::string& output_format,
     }.execute();
 
     bool wrote_file = false;
+    bool is_stdout = output_path == "-";
+    auto write_fn = [&](const std::filesystem::path& path, const auto& data) {
+        if (is_stdout) {
+            write_bytes_to_stdout(data);
+        } else {
+            write_file(path, data);
+        }
+    };
+    if (output_format == "bytes_and_fields" && is_stdout) {
+        throw_or_abort("Cannot write to stdout in bytes_and_fields format.");
+    }
     if (output_format == "bytes" || output_format == "bytes_and_fields") {
-        write_file(output_path / "vk", response.bytes);
+        write_fn(output_path / "vk", response.bytes);
         wrote_file = true;
     }
     if (output_format == "fields" || output_format == "bytes_and_fields") {
         std::string json = field_elements_to_json(response.fields);
-        write_file(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
+        write_fn(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
         wrote_file = true;
     }
     if (!wrote_file) {
@@ -53,9 +64,9 @@ void write_standalone_vk(const std::string& output_format,
     }
 }
 
-void write_vk_for_ivc(const std::string& output_format,
-                      size_t num_public_inputs_in_final_circuit,
-                      const std::filesystem::path& output_dir)
+void write_civc_vk(const std::string& output_format,
+                   size_t num_public_inputs_in_final_circuit,
+                   const std::filesystem::path& output_dir)
 {
     if (output_format != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
@@ -77,9 +88,9 @@ void write_vk_for_ivc(const std::string& output_format,
     }
 }
 
-void write_vk_for_ivc(const std::string& output_data_type,
-                      const std::string& bytecode_path,
-                      const std::filesystem::path& output_dir)
+void write_civc_vk(const std::string& output_data_type,
+                   const std::string& bytecode_path,
+                   const std::filesystem::path& output_dir)
 {
     if (output_data_type != "bytes") {
         throw_or_abort("Unsupported output format for ClientIVC vk: " + output_data_type);
@@ -142,7 +153,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_vk_for_ivc("bytes", loaded_circuit_public_inputs_size, output_dir);
+        write_civc_vk("bytes", loaded_circuit_public_inputs_size, output_dir);
     }
 }
 
@@ -210,7 +221,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
 {
 
     if (flags.verifier_type == "ivc") {
-        write_vk_for_ivc(flags.output_format, bytecode_path, output_path);
+        write_civc_vk(flags.output_format, bytecode_path, output_path);
     } else if (flags.verifier_type == "standalone") {
         write_standalone_vk(flags.output_format, bytecode_path, output_path);
     } else {
