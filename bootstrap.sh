@@ -235,8 +235,28 @@ function build {
     aztec-up/bootstrap.sh
   )
 
+  local start_building=false
   for project in "${serial_projects[@]}"; do
-    $project/bootstrap.sh ${1:-}
+    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
+    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
+    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+
+    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
+    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
+      start_building=true
+      continue
+    fi
+
+    # Build the project if we should be building
+    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
+      $project/bootstrap.sh ${1:-}
+    fi
+
+    # Stop the build if we've reached BOOTSTRAP_TO
+    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
+    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
+      return
+    fi
   done
 
   parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
