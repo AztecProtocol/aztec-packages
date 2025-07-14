@@ -196,25 +196,6 @@ struct CircuitProveAndVerify {
 };
 
 /**
- * @brief Command to validate circuit structure
- */
-struct CircuitValidate {
-    static constexpr const char* NAME = "CircuitValidate";
-
-    struct Response {
-        static constexpr const char* NAME = "CircuitValidateResponse";
-
-        bool is_valid;
-        std::vector<std::string> validation_errors;
-    };
-
-    CircuitInput circuit;
-    ProofSystemSettings settings;
-    bool check_recursive_structure = false;
-    Response execute(const BBApiRequest& request = {}) &&;
-};
-
-/**
  * @brief Command to benchmark circuit operations
  */
 struct CircuitBenchmark {

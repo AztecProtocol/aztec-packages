@@ -121,11 +121,11 @@ struct BBApiRequest {
     uint32_t ivc_stack_depth = 0;
     std::shared_ptr<ClientIVC> ivc_in_progress;
     // Name of the last loaded circuit
-    std::string last_circuit_name;
+    std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate
-    std::optional<acir_format::AcirFormat> last_circuit_constraints;
+    std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
-    std::vector<uint8_t> last_circuit_vk;
+    std::vector<uint8_t> loaded_circuit_vk;
 };
 
 } // namespace bb::bbapi
