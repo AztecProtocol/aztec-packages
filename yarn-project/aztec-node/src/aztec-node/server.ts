@@ -11,8 +11,8 @@ import {
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
-  type ExtendedViemWalletClient,
   type L1ContractAddresses,
+  L1TxUtils,
   NULL_KEY,
   RegistryContract,
   RollupContract,
@@ -323,27 +323,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClient | undefined;
-    let l1TxUtils: L1TxUtilsWithBlobs | undefined;
-    let l1Client: ExtendedViemWalletClient | undefined;
 
-    if (config.publisherPrivateKey?.getValue() && config.publisherPrivateKey.getValue() !== NULL_KEY) {
+    const { slasherPrivateKey, l1RpcUrls } = config;
+    if (slasherPrivateKey?.getValue() && slasherPrivateKey.getValue() !== NULL_KEY) {
       // we can still run a slasher client if a private key is provided
-      l1Client = createExtendedL1Client(
-        config.l1RpcUrls,
-        config.publisherPrivateKey.getValue(),
-        ethereumChain.chainInfo,
-      );
-      l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+      const l1Client = createExtendedL1Client(config.l1RpcUrls, slasherPrivateKey.getValue(), ethereumChain.chainInfo);
+      const l1TxUtils = new L1TxUtils(l1Client, log, config);
       slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
       slasherClient.start();
+    } else {
+      log.warn(`Slasher client not started, no slasher private key provided`);
     }
 
     // Validator enabled, create/start relevant service
     if (!config.disableValidator) {
       // This shouldn't happen, validators need a publisher private key.
-      if (!config.publisherPrivateKey?.getValue() || config.publisherPrivateKey?.getValue() === NULL_KEY) {
+      const { publisherPrivateKey } = config;
+      if (!publisherPrivateKey?.getValue() || publisherPrivateKey?.getValue() === NULL_KEY) {
         throw new Error('A publisher private key is required to run a validator');
       }
+
+      const l1Client = createExtendedL1Client(l1RpcUrls, publisherPrivateKey.getValue(), ethereumChain.chainInfo);
+      const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,

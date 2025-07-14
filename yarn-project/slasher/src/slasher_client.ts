@@ -69,7 +69,7 @@ export class SlasherClient {
   private overridePayloadActive = false;
 
   static async new(
-    config: SlasherConfig,
+    config: Omit<SlasherConfig, 'slasherPrivateKey'>,
     l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
     l1TxUtils: L1TxUtils,
     watchers: Watcher[],
@@ -94,7 +94,7 @@ export class SlasherClient {
   }
 
   constructor(
-    public config: SlasherConfig,
+    public config: Omit<SlasherConfig, 'slasherPrivateKey'>,
     protected slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ExtendedViemWalletClient>,
     private slashingProposer: SlashingProposerContract,
     private l1TxUtils: L1TxUtils,
@@ -108,7 +108,7 @@ export class SlasherClient {
   //////////////////// Public methods ////////////////////
 
   public start() {
-    this.log.info('Starting Slasher client...');
+    this.log.debug('Starting Slasher client...');
 
     // detect when new payloads are created
     this.unwatchCallbacks.push(this.watchSlashFactoryEvents());
@@ -125,6 +125,8 @@ export class SlasherClient {
       watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCb);
       this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCb));
     }
+
+    this.log.info(`Started Slasher client with publisher address ${this.l1TxUtils.client.account.address}`);
   }
 
   /**
