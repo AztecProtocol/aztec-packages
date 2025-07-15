@@ -497,7 +497,6 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
                 for i in 0..<$param_type as Deserialize>::N {
                     member_fields[i] = serialized[i + offset];
                 }
-                // wut?
                 let $param_name = <$param_type as Deserialize>::deserialize(member_fields);
                 offset += <$param_type as Deserialize>::N;
             }
@@ -532,37 +531,82 @@ pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
 /// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
 /// the note in the global `NOTES` map. There the length is used to generate partial note helper functions.
 pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted, u32) {
-    let packing_enabled = true;
-
     let typ = s.as_type();
-    let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, packing_enabled);
-    let aux_vars_for_packing = if aux_vars.len() > 0 {
-        let joint = aux_vars.join(quote {;});
-        quote { $joint; }
-    } else {
-        quote {}
-    };
+    let nested_struct = typ.as_data_type().unwrap();
+    let params = nested_struct.0.fields(nested_struct.1);
 
-    let (unpacked, _) =
-        generate_deserialize_from_fields(quote { self }, typ, quote { packed }, 0, packing_enabled);
+    // The following will give us <type_of_struct_member_1 as Packable>::N + <type_of_struct_member_2 as Packable>::N + ...
+    let right_hand_side_of_definition_of_n = params
+        .map(|(_, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+            <$param_type as $crate::traits::Packable>::N
+        }
+        })
+        .join(quote {+});
 
-    let field_packings = fields.join(quote {,});
-    let packed_len = fields.len();
-    let packable_trait: TraitConstraint = quote { Packable<$packed_len> }.as_trait_constraint();
+    // Generates packing code for each struct member that:
+    // 1. Packs the member
+    // 2. Copies packed fields into result array at correct offset
+    // 3. Updates offset for next member
+    let packing_of_struct_members = params
+        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+                let packed_member = $crate::traits::Packable::pack(self.$param_name);
+                let packed_member_len = <$param_type as $crate::traits::Packable>::N;
+                for i in 0..packed_member_len {
+                    result[i + offset] = packed_member[i];
+                }
+                offset += packed_member_len;
+            }
+        })
+        .join(quote {});
+
+    // This generates unpacking code for each struct member and concatenates them together.
+    let unpacking_of_struct_members = params
+        .map(|(param_name, param_type, _): (Quoted, Type, Quoted)| {
+            quote {
+                let mut member_fields = [0; <$param_type as Packable>::N];
+                for i in 0..<$param_type as Packable>::N {
+                    member_fields[i] = packed[i + offset];
+                }
+                let $param_name = <$param_type as Packable>::unpack(member_fields);
+                offset += <$param_type as Packable>::N;
+            }
+        })
+        .join(quote {});
+
+    // We join the struct member names with a comma to be used in the `Self { ... }` syntax
+    let struct_members = params
+        .map(|(param_name, _, _): (Quoted, Type, Quoted)| quote { $param_name })
+        .join(quote {,});
+
+    // let packed_len = right_hand_side_of_definition_of_n.as_constant().unwrap();
+
     (
         quote {
-        impl $packable_trait for $typ {
-            fn pack(self) -> [Field; $packed_len] {
-                $aux_vars_for_packing
-                [ $field_packings ]
+        impl $crate::traits::Packable for $typ {
+            let N: u32 = $right_hand_side_of_definition_of_n;
+
+            fn pack(self) -> [Field; Self::N] {
+                let mut result = [0; Self::N];
+                let mut offset = 0;
+
+                $packing_of_struct_members
+
+                result
             }
 
-            fn unpack(packed: [Field; $packed_len]) -> Self {
-                $unpacked
+            fn unpack(packed: [Field; Self::N]) -> Self {
+                let mut offset = 0;
+
+                $unpacking_of_struct_members
+
+                Self { $struct_members }
             }
         }
     },
-        packed_len,
+        // packed_len,
+        0, // TODO(benesjan): update this!
     )
 }
 
