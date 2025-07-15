@@ -20,7 +20,7 @@ pub fn validate_with_hash_hints<T, let N: u32>(
     leaf_preimage: PublicDataTreeLeafPreimage,
 )
 where
-    T: Packable<N> + Eq,
+    T: Packable + Eq,
 {
     let storage_hash = public_storage_historical_read(
         historical_header,
@@ -47,7 +47,7 @@ where
 
 pub fn compute_with_hash_hash_storage_slot<T, let N: u32>(with_hash_storage_slot: Field) -> Field
 where
-    T: Packable<N>,
+    T: Packable,
 {
     with_hash_storage_slot + N as Field
 }
