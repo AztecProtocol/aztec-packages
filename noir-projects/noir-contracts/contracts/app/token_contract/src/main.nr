@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Token {
     // Libs
-    use std::{meta::ctstring::AsCtString, ops::{Add, Sub}};
+    use std::ops::{Add, Sub};
 
     use dep::compressed_string::FieldCompressedString;
 
