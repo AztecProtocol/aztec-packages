@@ -4,7 +4,12 @@ pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
+import {
+  StakingQueueLib,
+  StakingQueue,
+  DepositArgs,
+  StakingQueueConfig
+} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
@@ -50,6 +55,7 @@ struct StakingStorage {
   GSE gse;
   Timestamp exitDelay;
   mapping(address attester => Exit) exits;
+  StakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
 }
@@ -62,14 +68,19 @@ library StakingLib {
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
-  function initialize(IERC20 _stakingAsset, GSE _gse, Timestamp _exitDelay, address _slasher)
-    internal
-  {
+  function initialize(
+    IERC20 _stakingAsset,
+    GSE _gse,
+    Timestamp _exitDelay,
+    address _slasher,
+    StakingQueueConfig memory _config
+  ) internal {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
     store.gse = _gse;
     store.exitDelay = _exitDelay;
     store.slasher = _slasher;
+    store.queueConfig = _config;
     store.entryQueue.init();
   }
 
@@ -215,6 +226,10 @@ library StakingLib {
   }
 
   function flushEntryQueue(uint256 _maxAddableValidators) internal {
+    if (_maxAddableValidators == 0) {
+      return;
+    }
+
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
     StakingStorage storage store = getStorage();
     require(
@@ -292,6 +307,11 @@ library StakingLib {
     return true;
   }
 
+  function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
+    getStorage().queueConfig = _config;
+    emit IStakingCore.StakingQueueConfigUpdated(_config);
+  }
+
   function getNextFlushableEpoch() internal view returns (Epoch) {
     return getStorage().nextFlushableEpoch;
   }
@@ -363,6 +383,42 @@ library StakingLib {
     }
 
     return status;
+  }
+
+  /**
+   * @notice Determines the maximum number of validators that can be flushed from the entry queue
+   * @dev Implements three-phase validator set management:
+   *      1. Bootstrap phase: When no validators exist, the queue must grow to the bootstrap validator set size
+   *      2. Growth phase: When validators are below target size, adds a large fixed batch size
+   *      3. Normal phase: When at target size, adds proportional amount based on current set size
+   *
+   *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
+   * @return - The maximum number of validators that can be flushed from the entry queue
+   */
+  function getEntryQueueFlushSize() internal view returns (uint256) {
+    StakingStorage storage store = getStorage();
+    StakingQueueConfig memory config = store.queueConfig;
+
+    uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    uint256 queueSize = store.entryQueue.length();
+
+    // Only if there is bootstrap values configured will we look into boostrap or growth phases.
+    if (config.bootstrapValidatorSetSize > 0) {
+      // If bootstrap:
+      if (activeAttesterCount == 0 && queueSize < config.bootstrapValidatorSetSize) {
+        return 0;
+      }
+
+      // If growth:
+      if (activeAttesterCount < config.bootstrapValidatorSetSize) {
+        return Math.min(config.bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+      }
+    }
+
+    return Math.min(
+      Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin),
+      StakingQueueLib.MAX_QUEUE_FLUSH_SIZE
+    );
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {

@@ -14,6 +14,7 @@ import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/r
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -66,11 +67,10 @@ struct RollupConfigInput {
   uint256 slashingRoundSize;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
-  uint256 entryQueueFlushSizeMin;
-  uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
+  StakingQueueConfig stakingQueueConfig;
 }
 
 struct RollupConfig {
@@ -84,8 +84,6 @@ struct RollupConfig {
   IInbox inbox;
   IOutbox outbox;
   uint256 version;
-  uint256 entryQueueFlushSizeMin;
-  uint256 entryQueueFlushSizeQuotient;
 }
 
 struct RollupStore {
