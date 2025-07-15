@@ -1,6 +1,6 @@
 use crate::{
+    abis::block_header::BlockHeader,
     address::aztec_address::AztecAddress,
-    block_header::BlockHeader,
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::{
         hash::compute_public_data_tree_index,
@@ -92,8 +92,8 @@ fn public_storage_historical_read(
 
 mod tests {
     use crate::{
+        abis::block_header::BlockHeader,
         address::aztec_address::AztecAddress,
-        block_header::BlockHeader,
         contract_class_id::ContractClassId,
         data::{
             hash::compute_public_data_tree_index,

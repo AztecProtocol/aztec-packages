@@ -79,10 +79,10 @@ export class TxExecutionRequest {
   toTxRequest(): TxRequest {
     return new TxRequest(
       this.origin,
-      // Entrypoints must be private as as defined by the protocol.
-      new FunctionData(this.functionSelector, true /* isPrivate */),
       this.firstCallArgsHash,
       this.txContext,
+      // Entrypoints must be private as as defined by the protocol.
+      new FunctionData(this.functionSelector, true /* isPrivate */),
       this.salt,
     );
   }

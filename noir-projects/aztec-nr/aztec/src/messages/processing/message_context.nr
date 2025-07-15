@@ -1,15 +1,11 @@
-use protocol_types::{
-    address::AztecAddress,
-    constants::MAX_NOTE_HASHES_PER_TX,
-    traits::{Deserialize, Serialize},
-};
+use protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Deserialize};
 
 /// Additional information needed to process a message.
 ///
 /// All messages exist in the context of a transaction, and information about that transaction is typically required
 /// in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note
 /// hashes and the first nullifier in order to find the note's nonce.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Eq)]
 pub struct MessageContext {
     pub tx_hash: Field,
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
@@ -19,7 +15,7 @@ pub struct MessageContext {
 
 mod test {
     use crate::messages::processing::message_context::MessageContext;
-    use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
+    use protocol_types::{address::AztecAddress, traits::{Deserialize, FromField}};
 
     #[test]
     unconstrained fn message_context_serialization_matches_typescript() {
@@ -36,9 +32,6 @@ mod test {
             first_nullifier_in_tx: first_nullifier,
             recipient,
         };
-
-        // Serialize the message context
-        let serialized = message_context.serialize();
 
         // Expected output generated from TypeScript's `MessageContext.toFields()`
         let serialized_message_context_from_typescript = [
@@ -112,7 +105,8 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000315,
         ];
 
-        // Assert equality with the expected serialization
-        assert_eq(serialized, serialized_message_context_from_typescript);
+        let deserialized = MessageContext::deserialize(serialized_message_context_from_typescript);
+
+        assert_eq(deserialized, message_context);
     }
 }

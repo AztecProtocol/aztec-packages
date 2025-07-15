@@ -1,5 +1,7 @@
-use crate::{traits::{Deserialize, Empty, Serialize}, utils::reader::Reader};
+use crate::traits::{Deserialize, Empty, Serialize};
+use std::meta::derive;
 
+#[derive(Eq)]
 pub struct Log<let N: u32> {
     pub fields: [Field; N],
     // The actual length (number of fields) of the log to be included in the blobs.
@@ -12,38 +14,48 @@ impl<let N: u32> Log<N> {
     }
 }
 
-impl<let N: u32> Eq for Log<N> {
-    fn eq(self, other: Log<N>) -> bool {
-        (self.fields == other.fields) & (self.length == other.length)
-    }
-}
-
 impl<let N: u32> Empty for Log<N> {
     fn empty() -> Log<N> {
         Log { fields: [0; N], length: 0 }
     }
 }
 
-impl<let N: u32> Serialize<N + 1> for Log<N> {
-    fn serialize(self) -> [Field; N + 1] {
-        self.fields.concat([self.length as Field])
+// Note: We currently don't support derivation of Serialize and Deserialize traits for types with generics so we have
+// the manual implementation below.
+impl<let N: u32> Serialize for Log<N> {
+    let N: u32 = N + 1; // +1 for length field
+
+    #[inline_always]
+    fn serialize(self) -> [Field; Self::N] {
+        let mut result = [0; Self::N];
+
+        // Copy log fields
+        for i in 0..N {
+            result[i] = self.fields[i];
+        }
+
+        // Store length as last field
+        result[N] = self.length as Field;
+
+        result
     }
 }
 
-impl<let N: u32> Deserialize<N + 1> for Log<N> {
-    fn deserialize(fields: [Field; N + 1]) -> Log<N> {
-        let mut reader = Reader::new(fields);
-        let fields = reader.read_array();
-        let length = reader.read_u32();
-        reader.finish();
-        Log { fields, length }
-    }
-}
+impl<let N: u32> Deserialize for Log<N> {
+    let N: u32 = N + 1; // +1 for length field
 
-#[test]
-fn serialization_of_empty_log() {
-    let item: Log<5> = Log::empty();
-    let serialized = item.serialize();
-    let deserialized = Log::deserialize(serialized);
-    assert(item.eq(deserialized));
+    #[inline_always]
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        let mut log_fields = [0; N];
+
+        // Copy log fields
+        for i in 0..N {
+            log_fields[i] = fields[i];
+        }
+
+        // Get length from last field
+        let length = fields[N] as u32;
+
+        Self { fields: log_fields, length }
+    }
 }

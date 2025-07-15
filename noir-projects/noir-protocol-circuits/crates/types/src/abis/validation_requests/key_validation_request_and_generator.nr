@@ -4,20 +4,14 @@ use crate::{
         scoped_key_validation_request_and_generator::ScopedKeyValidationRequestAndGenerator,
     },
     address::AztecAddress,
-    constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
     traits::{Deserialize, Empty, Serialize},
-    utils::reader::Reader,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct KeyValidationRequestAndGenerator {
     pub request: KeyValidationRequest,
     pub sk_app_generator: Field,
-}
-
-impl Eq for KeyValidationRequestAndGenerator {
-    fn eq(self, other: KeyValidationRequestAndGenerator) -> bool {
-        (self.request == other.request) & (self.sk_app_generator == other.sk_app_generator)
-    }
 }
 
 impl Empty for KeyValidationRequestAndGenerator {
@@ -29,34 +23,32 @@ impl Empty for KeyValidationRequestAndGenerator {
     }
 }
 
-impl Serialize<KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for KeyValidationRequestAndGenerator {
-    fn serialize(self) -> [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] {
-        self.request.serialize().concat([self.sk_app_generator])
-    }
-}
-
-impl Deserialize<KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for KeyValidationRequestAndGenerator {
-    fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH]) -> Self {
-        let mut reader = Reader::new(fields);
-        let res = Self {
-            request: reader.read_struct(KeyValidationRequest::deserialize),
-            sk_app_generator: reader.read(),
-        };
-        reader.finish();
-        res
-    }
-}
-
 impl KeyValidationRequestAndGenerator {
     pub fn scope(self, contract_address: AztecAddress) -> ScopedKeyValidationRequestAndGenerator {
         ScopedKeyValidationRequestAndGenerator { request: self, contract_address }
     }
 }
 
-#[test]
-fn serialization_of_empty() {
-    let item = KeyValidationRequestAndGenerator::empty();
-    let serialized = item.serialize();
-    let deserialized = KeyValidationRequestAndGenerator::deserialize(serialized);
-    assert(item.eq(deserialized));
+mod test {
+    use crate::{
+        abis::validation_requests::{
+            key_validation_request::KeyValidationRequest,
+            key_validation_request_and_generator::KeyValidationRequestAndGenerator,
+        },
+        constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+        point::Point,
+        traits::{Deserialize, Serialize},
+    };
+
+    #[test]
+    fn serialization_of_key_validation_request_and_generator() {
+        let non_empty_item = KeyValidationRequestAndGenerator {
+            request: KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 },
+            sk_app_generator: 789,
+        };
+        let serialized: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] =
+            non_empty_item.serialize();
+        let deserialized = KeyValidationRequestAndGenerator::deserialize(serialized);
+        assert_eq(non_empty_item, deserialized);
+    }
 }

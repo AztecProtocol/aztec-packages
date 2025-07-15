@@ -40,7 +40,7 @@ pub global PrivateLogContent: PrivateLogContentConstraintsEnum = PrivateLogConte
 ///
 /// The `constraints` value determines what parts of this computation will be constrained. See the documentation for
 /// each value in `PrivateLogContentConstraintsEnum` to learn more about the different variants.
-pub fn emit_event_in_private_log<Event, let N: u32>(
+pub fn emit_event_in_private_log<Event>(
     event: Event,
     context: &mut PrivateContext,
     sender: AztecAddress,
@@ -48,7 +48,7 @@ pub fn emit_event_in_private_log<Event, let N: u32>(
     constraints: u8,
 )
 where
-    Event: EventInterface + Serialize<N>,
+    Event: EventInterface + Serialize,
 {
     // This function relies on `constraints` being a constant in order to reduce circuit constraints when unconstrained
     // usage is requested. If `constraints` were a runtime value then performance would suffer.
@@ -84,13 +84,13 @@ where
 /// preventing tampering even in the absence of guaranteed delivery. See the description of the
 /// `messages::offchain_message::emit_offchain_message` function for more details on when a guaranteed delivery is
 /// valuable. If guaranteed delivery is required, the `emit_event_in_private_log` function should be used instead.
-pub fn emit_event_as_offchain_message<Event, let N: u32>(
+pub fn emit_event_as_offchain_message<Event>(
     event: Event,
     context: &mut PrivateContext,
     recipient: AztecAddress,
 )
 where
-    Event: EventInterface + Serialize<N>,
+    Event: EventInterface + Serialize,
 {
     // Safety: as explained above, this function places no constraints on the content of the message.
     let (message_ciphertext, randomness) =
@@ -114,11 +114,11 @@ where
     unsafe { emit_offchain_message(message_ciphertext, recipient) };
 }
 
-pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)
+pub fn emit_event_in_public_log<Event>(event: Event, context: &mut PublicContext)
 where
-    Event: EventInterface + Serialize<N>,
+    Event: EventInterface + Serialize,
 {
-    let mut log_content = [0; N + 1];
+    let mut log_content = [0; <Event as Serialize>::N + 1];
 
     let serialized_event = event.serialize();
     for i in 0..serialized_event.len() {

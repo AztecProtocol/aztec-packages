@@ -6,10 +6,7 @@ use bigcurve::{
 use bigint::{BigNum, BLS12_381_Fq as Q, BLS12_381_Fr as F};
 use std::ops::{Add, Mul};
 use types::{
-    constants::{
-        BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOCK_BLOB_PUBLIC_INPUTS, BLS12_FR_LIMBS,
-        BLS12_POINT_COMPRESSED_BYTES,
-    },
+    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLS12_FR_LIMBS, BLS12_POINT_COMPRESSED_BYTES},
     hash::{poseidon2_hash, sha256_to_field},
     traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_splice, field::{byte_to_bits_be, field_from_bytes}, reader::Reader},
@@ -154,6 +151,8 @@ impl Empty for BlobAccumulationInputs {
 *    and the blob's commitment (c_i).
 *
 * TODO(#14646): Compress F and Q values to reduce number of public inputs (BLOB_ACCUMULATOR_PUBLIC_INPUTS)
+* TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs instead of having manual implementations.
+* Not done here as F doesn't implement serde and orphan rule prevents me from implementing it here.
 */
 pub struct BlobAccumulatorPublicInputs {
     pub blob_commitments_hash_acc: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
@@ -284,7 +283,11 @@ impl Eq for BlobAccumulatorPublicInputs {
     }
 }
 
-impl Serialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
+// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs instead of having manual implementations.
+// Not done here as F doesn't implement serde and orphan rule prevents me from implementing it here.
+impl Serialize for BlobAccumulatorPublicInputs {
+    let N: u32 = BLOB_ACCUMULATOR_PUBLIC_INPUTS;
+
     fn serialize(self) -> [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS] {
         let mut fields: BoundedVec<Field, BLOB_ACCUMULATOR_PUBLIC_INPUTS> = BoundedVec::new();
         fields.push(self.blob_commitments_hash_acc);
@@ -299,8 +302,12 @@ impl Serialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
     }
 }
 
-impl Deserialize<BLOB_ACCUMULATOR_PUBLIC_INPUTS> for BlobAccumulatorPublicInputs {
-    fn deserialize(fields: [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS]) -> Self {
+// TODO: Derive Eq, Serialize, Deserialize for BlobAccumulatorPublicInputs. Not done here as F doesn't implement it
+// and orphan rule prevents me from implementing it here.
+impl Deserialize for BlobAccumulatorPublicInputs {
+    let N: u32 = BLOB_ACCUMULATOR_PUBLIC_INPUTS;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
         let mut item = Self {
             blob_commitments_hash_acc: reader.read(),
@@ -350,8 +357,10 @@ impl Eq for FinalBlobBatchingChallenges {
     }
 }
 
-impl Serialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
-    fn serialize(self) -> [Field; BLS12_FR_LIMBS + 1] {
+impl Serialize for FinalBlobBatchingChallenges {
+    let N: u32 = BLS12_FR_LIMBS + 1;
+
+    fn serialize(self) -> [Field; Self::N] {
         let mut fields: BoundedVec<Field, BLS12_FR_LIMBS + 1> = BoundedVec::new();
         fields.push(self.z);
         fields.extend_from_array(self.gamma.get_limbs().map(|l| l as Field));
@@ -359,8 +368,10 @@ impl Serialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
     }
 }
 
-impl Deserialize<BLS12_FR_LIMBS + 1> for FinalBlobBatchingChallenges {
-    fn deserialize(fields: [Field; BLS12_FR_LIMBS + 1]) -> Self {
+impl Deserialize for FinalBlobBatchingChallenges {
+    let N: u32 = BLS12_FR_LIMBS + 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         let mut reader = Reader::new(fields);
         let mut item =
             Self { z: reader.read(), gamma: F::from_limbs(reader.read_array().map(|e| e as u128)) };
@@ -399,6 +410,7 @@ impl Eq for FinalBlobAccumulatorPublicInputs {
 * - end_blob_accumulator: Accumulated opening proofs for all blobs after adding this block range.
 * - final_blob_challenges: Final values z and gamma, shared across the epoch.
 */
+#[derive(Deserialize, Eq, Serialize)]
 pub struct BlockBlobPublicInputs {
     pub start_blob_accumulator: BlobAccumulatorPublicInputs,
     pub end_blob_accumulator: BlobAccumulatorPublicInputs,
@@ -415,36 +427,6 @@ impl Empty for BlockBlobPublicInputs {
     }
 }
 
-impl Eq for BlockBlobPublicInputs {
-    fn eq(self, other: Self) -> bool {
-        (self.start_blob_accumulator.eq(other.start_blob_accumulator))
-            & (self.end_blob_accumulator.eq(other.end_blob_accumulator))
-            & (self.final_blob_challenges.eq(other.final_blob_challenges))
-    }
-}
-
-impl Serialize<BLOCK_BLOB_PUBLIC_INPUTS> for BlockBlobPublicInputs {
-    fn serialize(self) -> [Field; BLOCK_BLOB_PUBLIC_INPUTS] {
-        let mut fields: BoundedVec<Field, BLOCK_BLOB_PUBLIC_INPUTS> = BoundedVec::new();
-        fields.extend_from_array(self.start_blob_accumulator.serialize());
-        fields.extend_from_array(self.end_blob_accumulator.serialize());
-        fields.extend_from_array(self.final_blob_challenges.serialize());
-        fields.storage()
-    }
-}
-
-impl Deserialize<BLOCK_BLOB_PUBLIC_INPUTS> for BlockBlobPublicInputs {
-    fn deserialize(fields: [Field; BLOCK_BLOB_PUBLIC_INPUTS]) -> Self {
-        let mut reader = Reader::new(fields);
-        let mut item = Self {
-            start_blob_accumulator: reader.read_struct(BlobAccumulatorPublicInputs::deserialize),
-            end_blob_accumulator: reader.read_struct(BlobAccumulatorPublicInputs::deserialize),
-            final_blob_challenges: reader.read_struct(FinalBlobBatchingChallenges::deserialize),
-        };
-        item
-    }
-}
-
 mod tests {
     use crate::blob_batching_public_inputs::{
         BatchingBlobCommitment, BlockBlobPublicInputs, BLSPoint, compress_to_blob_commitment,
@@ -457,6 +439,7 @@ mod tests {
     };
     use bigint::{BigNum, BLS12_381_Fq as Q};
     use std::ops::{Add, Mul};
+    use types::constants::BLOCK_BLOB_PUBLIC_INPUTS;
     use types::traits::{Deserialize, Empty, Serialize};
 
     #[test]
@@ -558,7 +541,9 @@ mod tests {
     #[test]
     unconstrained fn serialization_of_empty() {
         let item = BlockBlobPublicInputs::empty();
-        let serialized = item.serialize();
+        // We use the BLOCK_BLOB_PUBLIC_INPUTS constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; BLOCK_BLOB_PUBLIC_INPUTS] = item.serialize();
         let deserialized = BlockBlobPublicInputs::deserialize(serialized);
         assert(item.eq(deserialized));
     }

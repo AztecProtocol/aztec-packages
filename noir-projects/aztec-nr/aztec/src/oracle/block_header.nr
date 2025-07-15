@@ -1,5 +1,5 @@
 use protocol_types::{
-    block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
+    abis::block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
 };
 
 use crate::{

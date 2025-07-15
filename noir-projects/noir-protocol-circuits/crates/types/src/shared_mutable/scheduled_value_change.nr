@@ -152,7 +152,7 @@ where
 
 impl<T> Empty for ScheduledValueChange<T>
 where
-    T: Empty + Eq,
+    T: Empty,
 {
     fn empty() -> Self {
         Self { pre: T::empty(), post: T::empty(), timestamp_of_change: 0 }

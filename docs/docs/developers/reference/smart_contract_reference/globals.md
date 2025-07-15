@@ -12,7 +12,7 @@ For developers coming from solidity, this concept will be similar to how the glo
 
 ## Private Global Variables
 
-#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr rust
+#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
 
 The private global variables are equal to the transaction context and contain:
 

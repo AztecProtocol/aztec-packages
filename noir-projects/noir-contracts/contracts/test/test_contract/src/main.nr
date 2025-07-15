@@ -428,9 +428,11 @@ pub contract Test {
     // 2. Strings become arrays of bytes (no strings here)
     // 4. Arrays become arrays of Fields following rules 2 and 3 (no arrays here)
     // 5. Structs become arrays of Fields, with every item defined in the same order as they are in Noir code, following rules 2, 3, 4 and 5 (recursive)
-    impl Serialize<10> for DeepStruct {
-        fn serialize(self) -> [Field; 10] {
-            let mut result = [0; 10];
+    impl Serialize for DeepStruct {
+        let N: u32 = 10;
+
+        fn serialize(self) -> [Field; Self::N] {
+            let mut result = [0; Self::N];
             result[0] = self.a_field;
             result[1] = self.a_bool as Field;
             result[2] = self.a_note.amount;

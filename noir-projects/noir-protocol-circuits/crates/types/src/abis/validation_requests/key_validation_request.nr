@@ -1,15 +1,10 @@
 use crate::{point::Point, traits::{Deserialize, Empty, Serialize}};
-pub use crate::constants::KEY_VALIDATION_REQUEST_LENGTH;
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct KeyValidationRequest {
     pub pk_m: Point,
     pub sk_app: Field, // not a grumpkin scalar because it's output of poseidon2
-}
-
-impl Eq for KeyValidationRequest {
-    fn eq(self, request: KeyValidationRequest) -> bool {
-        (request.pk_m.eq(self.pk_m)) & (request.sk_app.eq(self.sk_app))
-    }
 }
 
 impl Empty for KeyValidationRequest {
@@ -18,17 +13,21 @@ impl Empty for KeyValidationRequest {
     }
 }
 
-impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
-    fn serialize(self) -> [Field; KEY_VALIDATION_REQUEST_LENGTH] {
-        [self.pk_m.x, self.pk_m.y, self.pk_m.is_infinite as Field, self.sk_app]
-    }
-}
+mod test {
+    use crate::{
+        abis::validation_requests::key_validation_request::KeyValidationRequest,
+        constants::KEY_VALIDATION_REQUEST_LENGTH,
+        point::Point,
+        traits::{Deserialize, Serialize},
+    };
 
-impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
-    fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
-        Self {
-            pk_m: Point { x: fields[0], y: fields[1], is_infinite: fields[2] != 0 },
-            sk_app: fields[3],
-        }
+    #[test]
+    fn serialization_of_key_validation_request() {
+        let item = KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 };
+        // We use the KEY_VALIDATION_REQUEST_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; KEY_VALIDATION_REQUEST_LENGTH] = item.serialize();
+        let deserialized = KeyValidationRequest::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
 }

@@ -1,12 +1,11 @@
 use crate::{
-    block_header::BlockHeader,
-    constants::TX_CONSTANT_DATA_LENGTH,
+    abis::{block_header::BlockHeader, transaction::tx_context::TxContext},
     traits::{Deserialize, Empty, Serialize},
-    transaction::tx_context::TxContext,
-    utils::reader::Reader,
 };
+use std::meta::derive;
 
 // Constants used throughout the executions of both private and public.
+#[derive(Deserialize, Eq, Serialize)]
 pub struct TxConstantData {
     pub historical_header: BlockHeader,
     // Note: `chain_id` and `version` in tx_context are not redundant to the values in
@@ -29,49 +28,20 @@ impl Empty for TxConstantData {
     }
 }
 
-impl Eq for TxConstantData {
-    fn eq(self, other: Self) -> bool {
-        (self.historical_header.eq(other.historical_header))
-            & (self.tx_context.eq(other.tx_context))
-            & (self.vk_tree_root.eq(other.vk_tree_root))
-            & (self.protocol_contract_tree_root.eq(other.protocol_contract_tree_root))
+mod test {
+    use crate::{
+        abis::tx_constant_data::TxConstantData,
+        constants::TX_CONSTANT_DATA_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
+
+    #[test]
+    fn serialization_of_empty_tx_constant_data() {
+        let item = TxConstantData::empty();
+        // We use the TX_CONSTANT_DATA_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; TX_CONSTANT_DATA_LENGTH] = item.serialize();
+        let deserialized = TxConstantData::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-impl Serialize<TX_CONSTANT_DATA_LENGTH> for TxConstantData {
-    fn serialize(self) -> [Field; TX_CONSTANT_DATA_LENGTH] {
-        let mut fields: BoundedVec<Field, TX_CONSTANT_DATA_LENGTH> = BoundedVec::new();
-
-        fields.extend_from_array(self.historical_header.serialize());
-        fields.extend_from_array(self.tx_context.serialize());
-        fields.push(self.vk_tree_root);
-        fields.push(self.protocol_contract_tree_root);
-
-        assert_eq(fields.len(), TX_CONSTANT_DATA_LENGTH);
-
-        fields.storage()
-    }
-}
-
-impl Deserialize<TX_CONSTANT_DATA_LENGTH> for TxConstantData {
-    fn deserialize(fields: [Field; TX_CONSTANT_DATA_LENGTH]) -> TxConstantData {
-        let mut reader = Reader::new(fields);
-
-        let item = TxConstantData {
-            historical_header: reader.read_struct(BlockHeader::deserialize),
-            tx_context: reader.read_struct(TxContext::deserialize),
-            vk_tree_root: reader.read(),
-            protocol_contract_tree_root: reader.read(),
-        };
-        reader.finish();
-        item
-    }
-}
-
-#[test]
-fn serialization_of_empty_tx_constant_data() {
-    let item = TxConstantData::empty();
-    let serialized = item.serialize();
-    let deserialized = TxConstantData::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

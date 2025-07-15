@@ -23,14 +23,18 @@ impl Empty for MockStruct {
     }
 }
 
-impl Serialize<2> for MockStruct {
-    fn serialize(self) -> [Field; 2] {
+impl Serialize for MockStruct {
+    let N: u32 = 2;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self.a, self.b]
     }
 }
 
-impl Deserialize<2> for MockStruct {
-    fn deserialize(fields: [Field; 2]) -> Self {
+impl Deserialize for MockStruct {
+    let N: u32 = 2;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
         Self { a: fields[0], b: fields[1] }
     }
 }

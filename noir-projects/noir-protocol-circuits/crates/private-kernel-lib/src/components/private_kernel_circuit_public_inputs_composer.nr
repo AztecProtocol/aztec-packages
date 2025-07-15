@@ -12,12 +12,12 @@ use dep::types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         side_effect::{Ordered, OrderedValue},
+        transaction::tx_request::TxRequest,
         tx_constant_data::TxConstantData,
     },
     constants::MAX_U64_VALUE,
     debug::no_op,
     traits::Empty,
-    transaction::tx_request::TxRequest,
     utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
 };
 

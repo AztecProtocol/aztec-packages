@@ -2,21 +2,11 @@ use crate::{
     constants::{NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH},
     traits::{Deserialize, Empty, Serialize},
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct RecursiveProof {
     pub fields: [Field; RECURSIVE_ROLLUP_HONK_PROOF_LENGTH],
-}
-
-impl Serialize<RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> for RecursiveProof {
-    fn serialize(self) -> [Field; RECURSIVE_ROLLUP_HONK_PROOF_LENGTH] {
-        self.fields
-    }
-}
-
-impl Deserialize<RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> for RecursiveProof {
-    fn deserialize(fields: [Field; RECURSIVE_ROLLUP_HONK_PROOF_LENGTH]) -> Self {
-        RecursiveProof { fields }
-    }
 }
 
 impl Empty for RecursiveProof {
@@ -25,20 +15,9 @@ impl Empty for RecursiveProof {
     }
 }
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct NestedRecursiveProof {
     pub fields: [Field; NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH],
-}
-
-impl Serialize<NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> for NestedRecursiveProof {
-    fn serialize(self) -> [Field; NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH] {
-        self.fields
-    }
-}
-
-impl Deserialize<NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH> for NestedRecursiveProof {
-    fn deserialize(fields: [Field; NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH]) -> Self {
-        NestedRecursiveProof { fields }
-    }
 }
 
 impl Empty for NestedRecursiveProof {
@@ -47,30 +26,30 @@ impl Empty for NestedRecursiveProof {
     }
 }
 
-impl Eq for RecursiveProof {
-    fn eq(self, other: Self) -> bool {
-        (self.fields == other.fields)
+mod test {
+    use crate::{
+        constants::{NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH},
+        proof::rollup_recursive_proof::{NestedRecursiveProof, RecursiveProof},
+        traits::{Deserialize, Empty, Serialize},
+    };
+
+    #[test]
+    fn serialization_of_empty_recursive() {
+        let item = RecursiveProof::empty();
+        // We use the RECURSIVE_ROLLUP_HONK_PROOF_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; RECURSIVE_ROLLUP_HONK_PROOF_LENGTH] = item.serialize();
+        let deserialized = RecursiveProof::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
 
-impl Eq for NestedRecursiveProof {
-    fn eq(self, other: Self) -> bool {
-        (self.fields == other.fields)
+    #[test]
+    fn serialization_of_empty_nested() {
+        let item = NestedRecursiveProof::empty();
+        // We use the NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH constant to ensure that there is a match between the derived trait
+        // implementation and the constant.
+        let serialized: [Field; NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH] = item.serialize();
+        let deserialized = NestedRecursiveProof::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-#[test]
-fn serialization_of_empty_recursive() {
-    let item = RecursiveProof::empty();
-    let serialized = item.serialize();
-    let deserialized = RecursiveProof::deserialize(serialized);
-    assert(item.eq(deserialized));
-}
-
-#[test]
-fn serialization_of_empty_nested() {
-    let item = NestedRecursiveProof::empty();
-    let serialized = item.serialize();
-    let deserialized = NestedRecursiveProof::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

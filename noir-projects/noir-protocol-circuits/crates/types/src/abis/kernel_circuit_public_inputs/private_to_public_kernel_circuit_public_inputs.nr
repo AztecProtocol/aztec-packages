@@ -4,14 +4,13 @@ use crate::{
         public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
     },
     address::AztecAddress,
-    constants::{
-        GENERATOR_INDEX__PUBLIC_TX_HASH, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    },
+    constants::GENERATOR_INDEX__PUBLIC_TX_HASH,
     hash::poseidon2_hash_with_separator,
     traits::{Deserialize, Empty, Hash, Serialize},
-    utils::reader::Reader,
 };
+use std::meta::derive;
 
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PrivateToPublicKernelCircuitPublicInputs {
     pub constants: TxConstantData,
     pub non_revertible_accumulated_data: PrivateToPublicAccumulatedData,
@@ -36,71 +35,27 @@ impl Empty for PrivateToPublicKernelCircuitPublicInputs {
     }
 }
 
-impl Eq for PrivateToPublicKernelCircuitPublicInputs {
-    fn eq(self, other: Self) -> bool {
-        (self.constants == other.constants)
-            & (self.non_revertible_accumulated_data == other.non_revertible_accumulated_data)
-            & (self.revertible_accumulated_data == other.revertible_accumulated_data)
-            & (self.public_teardown_call_request == other.public_teardown_call_request)
-            & (self.gas_used == other.gas_used)
-            & (self.fee_payer == other.fee_payer)
-            & (self.include_by_timestamp == other.include_by_timestamp)
-    }
-}
-
-impl Serialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateToPublicKernelCircuitPublicInputs {
-    fn serialize(self) -> [Field; PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> =
-            BoundedVec::new();
-
-        fields.extend_from_array(self.constants.serialize());
-        fields.extend_from_array(self.non_revertible_accumulated_data.serialize());
-        fields.extend_from_array(self.revertible_accumulated_data.serialize());
-        fields.extend_from_array(self.public_teardown_call_request.serialize());
-        fields.extend_from_array(self.gas_used.serialize());
-        fields.extend_from_array(self.fee_payer.serialize());
-        fields.push(self.include_by_timestamp as Field);
-
-        assert_eq(fields.len(), PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
-
-        fields.storage()
-    }
-}
-
 impl Hash for PrivateToPublicKernelCircuitPublicInputs {
     fn hash(self) -> Field {
         poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_TX_HASH)
     }
 }
 
-impl Deserialize<PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateToPublicKernelCircuitPublicInputs {
-    fn deserialize(
-        fields: [Field; PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH],
-    ) -> PrivateToPublicKernelCircuitPublicInputs {
-        let mut reader = Reader::new(fields);
+mod test {
+    use crate::{
+        abis::kernel_circuit_public_inputs::private_to_public_kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
+        constants::PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+        traits::{Deserialize, Empty, Serialize},
+    };
 
-        let item = PrivateToPublicKernelCircuitPublicInputs {
-            constants: reader.read_struct(TxConstantData::deserialize),
-            non_revertible_accumulated_data: reader.read_struct(
-                PrivateToPublicAccumulatedData::deserialize,
-            ),
-            revertible_accumulated_data: reader.read_struct(
-                PrivateToPublicAccumulatedData::deserialize,
-            ),
-            public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
-            gas_used: reader.read_struct(Gas::deserialize),
-            fee_payer: reader.read_struct(AztecAddress::deserialize),
-            include_by_timestamp: reader.read_u64(),
-        };
-        reader.finish();
-        item
+    #[test]
+    fn serialization_of_empty_private_to_public_kernel_circuit_public_inputs() {
+        let item = PrivateToPublicKernelCircuitPublicInputs::empty();
+        // We use the PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH constant to ensure that there is a match
+        // between the derived trait implementation and the constant.
+        let serialized: [Field; PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] =
+            item.serialize();
+        let deserialized = PrivateToPublicKernelCircuitPublicInputs::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
-}
-
-#[test]
-fn serialization_of_empty() {
-    let item = PrivateToPublicKernelCircuitPublicInputs::empty();
-    let serialized = item.serialize();
-    let deserialized = PrivateToPublicKernelCircuitPublicInputs::deserialize(serialized);
-    assert(item.eq(deserialized));
 }

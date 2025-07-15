@@ -27,9 +27,9 @@ impl<T> CapsuleArray<T> {
     }
 
     /// Stores a value at the end of the array.
-    pub unconstrained fn push<let N: u32>(self, value: T)
+    pub unconstrained fn push(self, value: T)
     where
-        T: Serialize<N>,
+        T: Serialize,
     {
         let current_length = self.len();
 
@@ -43,9 +43,9 @@ impl<T> CapsuleArray<T> {
     }
 
     /// Retrieves the value stored in the array at `index`. Throws if the index is out of bounds.
-    pub unconstrained fn get<let N: u32>(self, index: u32) -> T
+    pub unconstrained fn get(self, index: u32) -> T
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
@@ -92,9 +92,9 @@ impl<T> CapsuleArray<T> {
     /// efficiency.
     ///
     /// It is **not** safe to push new elements into the array from inside the callback.
-    pub unconstrained fn for_each<Env, let N: u32>(self, f: unconstrained fn[Env](u32, T) -> ())
+    pub unconstrained fn for_each<Env>(self, f: unconstrained fn[Env](u32, T) -> ())
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         // Iterating over all elements is simple, but we want to do it in such a way that a) deleting the current
         // element is safe to do, and b) deleting *all* elements is optimally efficient. This is because CapsuleArrays

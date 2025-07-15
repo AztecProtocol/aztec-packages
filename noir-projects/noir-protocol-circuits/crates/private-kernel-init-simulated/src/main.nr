@@ -2,7 +2,7 @@ use dep::private_kernel_lib::PrivateKernelInitCircuitPrivateInputs;
 use dep::types::PrivateKernelCircuitPublicInputs;
 use types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 use types::abis::private_kernel::private_call_data::PrivateCallDataWithoutPublicInputs;
-use types::transaction::tx_request::TxRequest;
+use types::abis::transaction::tx_request::TxRequest;
 
 unconstrained fn main(
     tx_request: TxRequest,
