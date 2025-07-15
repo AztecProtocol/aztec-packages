@@ -47,6 +47,10 @@ else
   exit 1
 fi
 
+if [ -n "${AWS_INSTANCE:-}" ]; then
+  instances=("$AWS_INSTANCE")
+fi
+
 set +e
 IFS=',' read -ra cpu_list <<< "$cpus"
 for cpu in "${cpu_list[@]}"; do

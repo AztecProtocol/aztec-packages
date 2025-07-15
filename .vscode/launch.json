@@ -36,9 +36,19 @@
       "name": "Debug CIVC transaction",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/bb",
       "args": ["prove", "--scheme", "client_ivc", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack"],
       "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      "name": "Debug Commitment Schemes Tests",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/commitment_schemes_tests",
+      "args": [],
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
