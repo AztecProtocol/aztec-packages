@@ -594,11 +594,13 @@ ${checkerSyntax()};
     }
 
     // Generate a function for each command/response pair
-    const namedTypes = commandsSchema[1];
+    const commandNamedTypes = commandsSchema[1];
+    const responseNamedTypes = responsesSchema[1];
     for (let i = 0; i < commandTypeInfo.variantSubtypes.length; i++) {
       const cmdType = commandTypeInfo.variantSubtypes[i];
       const respType = responseTypeInfo.variantSubtypes[i];
-      const [commandName] = namedTypes[i] as [string, any];
+      const [commandName] = commandNamedTypes[i] as [string, any];
+      const [responseName] = responseNamedTypes[i] as [string, any];
       
       // Generate function name (lowercase version of command)
       const funcName = camelCase(commandName);
@@ -606,7 +608,10 @@ ${checkerSyntax()};
       // Generate the function
       this.funcDecls.push(`export async function ${funcName}(wasm: BarretenbergWasmBase, command: ${cmdType.typeName}): Promise<${respType.typeName}> {
   const msgpackCommand = from${cmdType.typeName}(command);
-  const result = await callCbind(wasm, '${commandName}', [msgpackCommand]);
+  const [variantName, result] = await callCbind(wasm, 'bbapi', [msgpackCommand]);
+  if (variantName !== '${responseName}') {
+    throw new Error(\`Expected variant name '${responseName}' but got '\${variantName}'\`);
+  }
   return to${respType.typeName}(result);
 }`);
     }
