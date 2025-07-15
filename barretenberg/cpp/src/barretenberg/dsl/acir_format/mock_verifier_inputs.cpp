@@ -219,7 +219,7 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
 {
     // Set relevant VK metadata and commitments
     auto honk_verification_key = std::make_shared<typename Flavor::VerificationKey>();
-    honk_verification_key->circuit_size = dyadic_size;
+    honk_verification_key->log_circuit_size = bb::numeric::get_msb(dyadic_size);
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
 

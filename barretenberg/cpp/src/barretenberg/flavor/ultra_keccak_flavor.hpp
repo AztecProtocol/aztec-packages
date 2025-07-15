@@ -55,8 +55,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
         VerificationKey(const PrecomputedData& precomputed)
         {
-            this->circuit_size = precomputed.metadata.dyadic_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->log_circuit_size = numeric::get_msb(precomputed.metadata.dyadic_size);
             this->num_public_inputs = precomputed.metadata.num_public_inputs;
             this->pub_inputs_offset = precomputed.metadata.pub_inputs_offset;
 
@@ -81,7 +80,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): We need to update this function to look
             // like UltraFlavor's add_hash_to_transcript. Alternatively, the VerificationKey class will go away when we
             // add pairing point aggregation to the solidity verifier.
-            transcript.add_to_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
             transcript.add_to_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
             transcript.add_to_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
             return 0;
@@ -91,8 +90,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
         // For serialising and deserialising data
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
+        MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
                        q_m,

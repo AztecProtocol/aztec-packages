@@ -50,19 +50,19 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
      * @return {max circuit size, max log circuit size}
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
      */
-    std::pair<FF, FF> get_max_circuit_size_and_log_size() const
+    FF get_max_log_circuit_size() const
     {
         // Find the key with the largest circuit size and reaturn its circuit size and log circuit size
         auto* max_key = _data[0].get();
-        size_t max_circuit_size =
-            static_cast<size_t>(static_cast<uint32_t>(max_key->vk_and_hash->vk->circuit_size.get_value()));
+        size_t max_log_circuit_size =
+            static_cast<size_t>(static_cast<uint32_t>(max_key->vk_and_hash->vk->log_circuit_size.get_value()));
         for (const auto& key : _data) {
-            if (static_cast<size_t>(static_cast<uint32_t>(key->vk_and_hash->vk->circuit_size.get_value())) >
-                max_circuit_size) {
+            if (static_cast<size_t>(static_cast<uint32_t>(key->vk_and_hash->vk->log_circuit_size.get_value())) >
+                max_log_circuit_size) {
                 max_key = key.get();
             }
         }
-        return { max_key->vk_and_hash->vk->circuit_size, max_key->vk_and_hash->vk->log_circuit_size };
+        return max_key->vk_and_hash->vk->log_circuit_size;
     }
 
     /**

@@ -116,7 +116,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     // Set the accumulator circuit size data based on the max of the keys being accumulated
     const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
     next_accumulator->vk->log_circuit_size = accumulator_log_circuit_size;
-    next_accumulator->vk->circuit_size = 1 << accumulator_log_circuit_size;
 
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =

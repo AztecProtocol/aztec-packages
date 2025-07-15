@@ -824,7 +824,6 @@ class ECCVMFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
             this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = 0;
             this->pub_inputs_offset = 0;
@@ -877,13 +876,8 @@ class ECCVMFlavor {
         // from MSGPACK and the verification key.
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       lagrange_first,
-                       lagrange_second,
-                       lagrange_last);
+        MSGPACK_FIELDS(
+            log_circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
     };
 
     /**
