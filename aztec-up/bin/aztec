@@ -162,7 +162,6 @@ case ${1:-} in
       EXP_BACKOFF=2
 
       RESTART_CODES="1 78 79"  # ERROR, ROLLUP_UPGRADE, VERSION_UPGRADE
-      RESET_SLEEP="78 79" # exit codes that should reset the sleep time
 
       echo "Starting supervised Aztec application..."
       set +e
@@ -183,18 +182,6 @@ case ${1:-} in
             break
           fi
         done
-
-        SHOULD_RESET_SLEEP=false
-        for code in $RESET_SLEEP; do
-          if [ "$EXIT_CODE" -eq "$code" ]; then
-            SHOULD_RESET_SLEEP=true
-            break
-          fi
-        done
-
-        if [ "$SHOULD_RESET_SLEEP" == "true" ]; then
-          SLEEP="1"
-        fi
 
         if [ "$SHOULD_RESTART" == "true" ]; then
           echo "Exit code $EXIT_CODE requires restart"
