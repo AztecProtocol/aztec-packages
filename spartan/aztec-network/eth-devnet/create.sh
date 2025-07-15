@@ -212,13 +212,14 @@ function write_ssz_file_base64 {
 # Main
 beacon_config_path="$DIR_PATH/config/config.yaml"
 genesis_json_path="$DIR_PATH/config/genesis.json"
+chainspec_json_path="$DIR_PATH/config/chainspec.json"
 
 # Create the output directory if it doesn't exist
 mkdir -p "$GENESIS_PATH"
 mkdir -p "$DIR_PATH/tmp"
 tmp_dir=$(mktemp -d -p "$DIR_PATH/tmp")
 
-create_execution_genesis "$genesis_json_path" "$tmp_dir/genesis.json"
+create_execution_genesis "$genesis_json_path" "$tmp_dir/genesis.json" "$chainspec_json_path" "$tmp_dir/chainspec.json"
 create_beacon_genesis "$tmp_dir/genesis.json" "$tmp_dir"
 create_deposit_contract_block
 write_ssz_file_base64
