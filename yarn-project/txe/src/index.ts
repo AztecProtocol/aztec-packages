@@ -216,11 +216,6 @@ class TXEDispatcher {
     }
 
     switch (functionName) {
-      case 'reset': {
-        TXESessions.delete(sessionId) &&
-          this.logger.debug(`Called reset on session ${sessionId}, yeeting it out of existence`);
-        return toForeignCallResult([]);
-      }
       case 'deploy': {
         await this.#processDeployInputs(callData);
         break;
