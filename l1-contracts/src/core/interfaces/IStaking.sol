@@ -41,4 +41,5 @@ interface IStaking is IStakingCore {
   function getAttesterView(address _attester) external view returns (AttesterView memory);
   function getStatus(address _attester) external view returns (Status);
   function getNextFlushableEpoch() external view returns (Epoch);
+  function getEntryQueueLength() external view returns (uint256);
 }

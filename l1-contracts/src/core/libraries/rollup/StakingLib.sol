@@ -296,6 +296,10 @@ library StakingLib {
     return getStorage().nextFlushableEpoch;
   }
 
+  function getEntryQueueLength() internal view returns (uint256) {
+    return getStorage().entryQueue.length();
+  }
+
   function isSlashable(address _attester) internal view returns (bool) {
     StakingStorage storage store = getStorage();
     Exit storage exit = store.exits[_attester];
