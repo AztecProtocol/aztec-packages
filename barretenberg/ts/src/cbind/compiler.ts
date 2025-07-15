@@ -14,7 +14,7 @@ function capitalize(s: string) {
 function camelCase(s: string) {
   return s
     .split('_')
-    .map((part, index) => (index === 0 ? part.toLowerCase() : capitalize(part)))
+    .map((part, index) => (index === 0 ? part.charAt(0).toLowerCase() + part.substring(1) : capitalize(part)))
     .join('');
 }
 
@@ -36,6 +36,7 @@ type Schema =
   | ['optional', [Schema]]
   | ['vector', [Schema]]
   | ['variant', Schema[]]
+  | ['named_union', Array<[string, Schema]>]
   | ['shared_ptr', [Schema]]
   | ['array', [Schema, number]]
   | ['alias', [string, string]];
@@ -101,6 +102,10 @@ export interface TypeInfo {
    * Represents the conversion method from class to Msgpack format.
    */
   toMsgpackMethod?: string;
+  /**
+   * The original object schema (if applicable).
+   */
+  objectSchema?: ObjectSchema;
 }
 
 /**
@@ -117,7 +122,7 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
     if (typeInfo.msgpackTypeName === 'number') {
       return `${value} as ${typeName}`;
     }
-    return `${typeName}.fromBuffer(${value})`;
+    return value; // Fr is just Buffer, no conversion needed
   } else if (typeInfo.arraySubtype) {
     const { typeName, msgpackTypeName } = typeInfo.arraySubtype;
     const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.arraySubtype, 'v')}`;
@@ -142,10 +147,14 @@ function msgpackConverterExpr(typeInfo: TypeInfo, value: string): string {
     }
     return `((v: ${typeInfo.msgpackTypeName}) => ${expr})(${value})`;
   } else if (typeInfo.mapSubtypes) {
-    const { typeName, msgpackTypeName } = typeInfo.mapSubtypes[1];
-    const convFn = `(v: ${msgpackTypeName || typeName}) => ${msgpackConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
-    return `mapValues(${value}, ${convFn})`;
-  } else if (typeInfo.isImport) {
+    const valueTypeInfo = typeInfo.mapSubtypes[1];
+    const valueConverter = msgpackConverterExpr(valueTypeInfo, 'v');
+    if (valueConverter === 'v') {
+      // No conversion needed
+      return value;
+    }
+    return `Object.fromEntries(Object.entries(${value}).map(([k, v]) => [k, ${valueConverter}]))`;
+  } else if (typeInfo.isImport && !typeInfo.isAlias) {
     return `to${typeName}(${value})`;
   } else {
     return value;
@@ -166,7 +175,7 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
     if (typeInfo.msgpackTypeName === 'number') {
       return `${value}`; // Should be a branded number alias
     }
-    return `toBuffer(${value})`;
+    return value; // Fr is just Buffer
   } else if (typeInfo.arraySubtype) {
     const { typeName } = typeInfo.arraySubtype;
     const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.arraySubtype, 'v')}`;
@@ -178,10 +187,14 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
   } else if (typeInfo.variantSubtypes) {
     throw new Error('TODO(AD) - variant parameters to C++ not yet supported.');
   } else if (typeInfo.mapSubtypes) {
-    const { typeName } = typeInfo.mapSubtypes[1];
-    const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.mapSubtypes[1], 'v')}`;
-    return `mapValues(${value}, ${convFn})`;
-  } else if (typeInfo.isImport) {
+    const valueTypeInfo = typeInfo.mapSubtypes[1];
+    const valueConverter = classConverterExpr(valueTypeInfo, 'v');
+    if (valueConverter === 'v') {
+      // No conversion needed
+      return value;
+    }
+    return `Object.fromEntries(Object.entries(${value}).map(([k, v]) => [k, ${valueConverter}]))`;
+  } else if (typeInfo.isImport && !typeInfo.isAlias) {
     return `from${typeName}(${value})`;
   } else {
     return value;
@@ -196,8 +209,6 @@ export class CbindCompiler {
   private typeInfos: Record<string, TypeInfo> = {};
   // cbind outputs, put at end
   private funcDecls: string[] = [];
-  // API overloads for bbapi method
-  private apiOverloads: string[] = [];
 
   /**
    * Retrieve the TypeScript type name for a given schema.
@@ -239,6 +250,71 @@ export class CbindCompiler {
           typeName,
           msgpackTypeName,
           variantSubtypes: variantSchemas.map(vs => this.getTypeInfo(vs)),
+        };
+      } else if (type[0] === 'named_union') {
+        // named_union represents a union of tuples [string, object] where string is the discriminator
+        const [_namedUnion, namedTypes] = type;
+        const names: string[] = [];
+        const tupleTypes: string[] = [];
+        const tupleTypeInfos: TypeInfo[] = [];
+
+        // Extract tuples from the named union format
+        // Each element in namedTypes is a [name, schema] pair
+        for (const namedType of namedTypes) {
+          if (!Array.isArray(namedType) || namedType.length !== 2) {
+            throw new Error('Invalid named_union format: expected [name, schema] pairs');
+          }
+
+          const [name, schemaOrName] = namedType;
+
+          names.push(name);
+          
+          // Handle case where schema is just a string reference to the type name
+          let objTypeInfo: TypeInfo;
+          if (typeof schemaOrName === 'string') {
+            // For string references, ensure the empty type is created
+            const typeName = capitalize(camelCase(schemaOrName));
+            if (!this.typeInfos[typeName]) {
+              // Create an empty type
+              this.typeInfos[typeName] = {
+                typeName,
+                msgpackTypeName: 'Msgpack' + typeName,
+                isImport: true,
+                declaration: `interface Msgpack${typeName} {}`,
+                objectSchema: { __typename: schemaOrName.toLowerCase() },
+                toClassMethod: `export function to${typeName}(o: Msgpack${typeName}): ${typeName} {
+  return {};
+}`,
+                fromClassMethod: `export function from${typeName}(o: ${typeName}): Msgpack${typeName} {
+  return {};
+}`,
+              };
+            }
+            objTypeInfo = this.typeInfos[typeName];
+          } else {
+            objTypeInfo = this.getTypeInfo(schemaOrName);
+          }
+          
+          tupleTypeInfos.push(objTypeInfo);
+
+          // Create tuple type [name, ObjectType]
+          const tupleType = `["${name}", ${objTypeInfo.typeName}]`;
+          tupleTypes.push(tupleType);
+        }
+
+        // The TypeScript type is a union of all possible tuples
+        const typeName = tupleTypes.join(' | ');
+
+        // For msgpack, it's similar but with msgpack types
+        const msgpackTupleTypes = tupleTypeInfos.map((typeInfo, i) => {
+          return `["${names[i]}", ${typeInfo.msgpackTypeName || typeInfo.typeName}]`;
+        });
+        const msgpackTypeName = msgpackTupleTypes.join(' | ');
+
+        return {
+          typeName,
+          msgpackTypeName,
+          variantSubtypes: tupleTypeInfos,
         };
       } else if (type[0] === 'vector') {
         // vector case
@@ -302,11 +378,11 @@ export class CbindCompiler {
       }
       const typeName = capitalize(camelCase(type));
       if (!this.typeInfos[typeName]) {
-        throw new Error(
-          'Unexpected type: ' +
-            typeName +
-            '. This is likely due to returning a struct without a MSGPACK_FIELDS macro, and without a msgpack_schema method.',
-        );
+        // For forward references, create a placeholder type that will be resolved later
+        this.typeInfos[typeName] = {
+          typeName,
+          isImport: true,
+        };
       }
       return this.typeInfos[typeName];
     } else if (typeof type === 'object') {
@@ -320,6 +396,7 @@ export class CbindCompiler {
         declaration: this.generateInterface(typeName, type),
         toClassMethod: this.generateMsgpackConverter(typeName, type),
         fromClassMethod: this.generateClassConverter(typeName, type),
+        objectSchema: type, // Store the schema for later use
       });
     }
 
@@ -357,6 +434,25 @@ export class CbindCompiler {
     result += '}';
     return result;
   }
+  
+  /**
+   * Generate the non-msgpack interface (with camelCase properties).
+   * @param name - The interface name.
+   * @param type - The object schema with properties of the interface.
+   * @returns the interface body.
+   */
+  private generateNonMsgpackInterface(name: string, type: ObjectSchema) {
+    let result = `export interface ${name} {\n`;
+    for (const [key, value] of Object.entries(type)) {
+      if (key === '__typename') {
+        continue;
+      }
+      const camelKey = camelCase(key);
+      result += `  ${camelKey}: ${this.getTypeName(value)};\n`;
+    }
+    result += '}';
+    return result;
+  }
 
   /**
    * Generate conversion method 'toName' for a specific type 'name'.
@@ -380,26 +476,23 @@ export class CbindCompiler {
       return statements.join('\n');
     };
 
-    // TODO should we always just call constructor?
-    const constructorBodySyntax = () => {
+    const objectBodySyntax = () => {
       const statements: string[] = [];
       for (const [key, value] of Object.entries(type)) {
         if (key === '__typename') {
           continue;
         }
-        statements.push(`  ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
+        const camelKey = camelCase(key);
+        statements.push(`    ${camelKey}: ${msgpackConverterExpr(this.getTypeInfo(value), `o.${key}`)},`);
       }
       return statements.join('\n');
     };
 
-    const callSyntax = () => {
-      // return `${name}.from({\n${objectBodySyntax()}})`;
-      return `new ${name}(\n${constructorBodySyntax()})`;
-    };
-
     return `export function to${name}(o: Msgpack${name}): ${name} {
 ${checkerSyntax()};
-return ${callSyntax.call(this)};
+  return {
+${objectBodySyntax()}
+  };
 }`;
   }
 
@@ -443,7 +536,7 @@ return ${callSyntax.call(this)};
 
     return `export function from${name}(o: ${name}): Msgpack${name} {
 ${checkerSyntax()};
-return ${callSyntax.call(this)};
+  return ${callSyntax.call(this)};
 }`;
   }
   /**
@@ -471,46 +564,52 @@ return ${callSyntax.call(this)};
     const callStrings = typeInfos.map((typeInfo, i) => `${classConverterExpr(typeInfo, `arg${i}`)}`);
     const innerCall = `callCbind(wasm, '${name}', [${callStrings.join(', ')}])`;
     const retType = this.getTypeInfo(cbind.ret);
-    this.funcDecls.push(`export function ${camelCase(name)}(wasm: IWasmModule, ${argStrings.join(', ')}): ${
+    this.funcDecls.push(`export function ${camelCase(name)}(wasm: BarretenbergWasmBase, ${argStrings.join(', ')}): ${
       retType.typeName
     } {
-return ${msgpackConverterExpr(retType, innerCall)};
+  return ${msgpackConverterExpr(retType, innerCall)};
 }`);
   }
 
   /**
-   * Process API schema containing command and response types.
-   * Generates TypeScript method overloadings for bbapi function.
+   * Process API schema containing command and response NamedUnion types.
+   * Generates individual functions for each command type.
    * @param commandsSchema - The NamedUnion schema for commands
    * @param responsesSchema - The NamedUnion schema for responses
    */
   processApiSchema(commandsSchema: Schema, responsesSchema: Schema) {
     // Process the command and response schemas to get type information
-    // These are represented as 'variant' types.
     const commandTypeInfo = this.getTypeInfo(commandsSchema);
     const responseTypeInfo = this.getTypeInfo(responsesSchema);
 
+    // Extract the variant types from the NamedUnion schemas
     if (!commandTypeInfo.variantSubtypes || !responseTypeInfo.variantSubtypes) {
       throw new Error('Expected variant types for commands and responses');
     }
 
-    // Generate overloads for each command/response pair
+    // Verify we have the expected named_union format
+    if (!Array.isArray(commandsSchema) || commandsSchema[0] !== 'named_union' ||
+        !Array.isArray(responsesSchema) || responsesSchema[0] !== 'named_union') {
+      throw new Error('Expected named_union schema format');
+    }
+
+    // Generate a function for each command/response pair
+    const namedTypes = commandsSchema[1];
     for (let i = 0; i < commandTypeInfo.variantSubtypes.length; i++) {
       const cmdType = commandTypeInfo.variantSubtypes[i];
       const respType = responseTypeInfo.variantSubtypes[i];
-
-      // Generate an overload signature
-      this.apiOverloads.push(`export function bbapi(command: ${cmdType.typeName}): Promise<${respType.typeName}>;`);
-    }
-
-    // Generate the implementation signature
-    this.apiOverloads.push(`export function bbapi(command: ${commandTypeInfo.typeName}): Promise<${responseTypeInfo.typeName}>;`);
-
-    // Generate the actual implementation
-    this.apiOverloads.push(`export function bbapi(command: ${commandTypeInfo.typeName}): Promise<${responseTypeInfo.typeName}> {
-  // Implementation will call the actual RPC/WASM backend
-  return executeBbapi(command);
+      const [commandName] = namedTypes[i] as [string, any];
+      
+      // Generate function name (lowercase version of command)
+      const funcName = camelCase(commandName);
+      
+      // Generate the function
+      this.funcDecls.push(`export async function ${funcName}(wasm: BarretenbergWasmBase, command: ${cmdType.typeName}): Promise<${respType.typeName}> {
+  const msgpackCommand = from${cmdType.typeName}(command);
+  const result = await callCbind(wasm, '${commandName}', [msgpackCommand]);
+  return to${respType.typeName}(result);
 }`);
+    }
   }
 
   /**
@@ -522,49 +621,65 @@ return ${msgpackConverterExpr(retType, innerCall)};
    * @returns A string containing the complete compiled TypeScript code.
    */
   compile(): string {
-    const imports: string[] = [];
     const outputs: string[] = [
-      `
-/* eslint-disable */
-// GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
+      `/* eslint-disable */
+// GENERATED FILE DO NOT EDIT, RUN yarn generate
 import { Buffer } from "buffer";
 import { callCbind } from './cbind.js';
-import { IWasmModule } from '@aztec/foundation/wasm';
+import { BarretenbergWasmBase } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
+
+// Helper type for fixed-size arrays
+type Tuple<T, N extends number> = T[] & { length: N };
+
+// Helper function for mapping tuples
+function mapTuple<T, U, N extends number>(tuple: Tuple<T, N>, fn: (t: T) => U): Tuple<U, N> {
+  return tuple.map(fn) as Tuple<U, N>;
+}
 `,
     ];
+
+    // Generate Fr type if needed
+    if (this.typeInfos['Fr']) {
+      outputs.push(`
+// Field element type
+export type Fr = Buffer;
+`);
+    }
+
+    // Generate all type declarations and converters
     for (const typeInfo of Object.values(this.typeInfos)) {
-      if (typeInfo.isImport) {
-        imports.push(typeInfo.typeName);
-      }
-      if (typeInfo.declaration) {
-        outputs.push(typeInfo.declaration);
-        outputs.push('\n');
-      }
-      if (typeInfo.toClassMethod) {
-        outputs.push(typeInfo.toClassMethod);
-        outputs.push('\n');
-      }
-      if (typeInfo.fromClassMethod) {
-        outputs.push(typeInfo.fromClassMethod);
-        outputs.push('\n');
+      if (typeInfo.isImport && !typeInfo.isAlias) {
+        // Generate the non-msgpack interface
+        if (typeInfo.objectSchema) {
+          const nonMsgpackDecl = this.generateNonMsgpackInterface(typeInfo.typeName, typeInfo.objectSchema);
+          outputs.push(nonMsgpackDecl);
+        } else if (typeInfo.declaration && typeInfo.declaration.includes('interface Msgpack') && typeInfo.declaration.includes('{}')) {
+          // For empty types, generate a simple export interface
+          outputs.push(`export interface ${typeInfo.typeName} {}`);
+        }
+        
+        // Generate the msgpack interface
+        if (typeInfo.declaration) {
+          outputs.push('');
+          outputs.push(typeInfo.declaration);
+        }
+        
+        // Generate converters
+        if (typeInfo.toClassMethod) {
+          outputs.push('');
+          outputs.push(typeInfo.toClassMethod);
+        }
+        if (typeInfo.fromClassMethod) {
+          outputs.push('');
+          outputs.push(typeInfo.fromClassMethod);
+        }
       }
     }
 
-    outputs[0] += `
-import {toBuffer, ${imports.join(', ')}} from './types.js';
-import {Tuple, mapTuple} from '@aztec/foundation/serialize';
-import mapValues from 'lodash.mapvalues';
-       `;
-
+    // Add cbind functions
     for (const funcDecl of Object.values(this.funcDecls)) {
+      outputs.push('');
       outputs.push(funcDecl);
-    }
-
-    // Add API overloads if any were generated
-    if (this.apiOverloads.length > 0) {
-      outputs.push('\n// API method with overloadings for command/response pairs');
-      outputs.push('import { executeBbapi } from "./bbapi_runtime.js";');
-      outputs.push(...this.apiOverloads);
     }
 
     return outputs.join('\n');

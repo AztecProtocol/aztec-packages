@@ -32,8 +32,6 @@ export async function main() {
   // Process the schema with CbindCompiler
   const compiler = new CbindCompiler();
 
-  console.log('Schema:', JSON.stringify(schema, null, 2));
-  
   // Process the command/response pairs from the schema
   if (schema.commands && schema.responses) {
     // The schema has two NamedUnion types: commands and responses

@@ -1,1023 +1,1128 @@
-/* eslint-disable camelcase,jsdoc/require-jsdoc */
-// TODO: Remove this file as we no longer generate types from cpp.
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
-import { IWasmModule } from '@aztec/foundation/wasm';
-
-import { Buffer } from 'buffer';
-import mapValues from 'lodash.mapvalues';
-
-import { CallRequest } from '../structs/call_request.js';
+/* eslint-disable */
+// GENERATED FILE DO NOT EDIT, RUN yarn generate
+import { Buffer } from "buffer";
 import { callCbind } from './cbind.js';
-import {
-  AppendOnlyTreeSnapshot,
-  BaseOrMergeRollupPublicInputs,
-  BaseRollupInputs,
-  CircuitError,
-  CombinedAccumulatedData,
-  CombinedConstantData,
-  ConstantRollupData,
-  ContractDeploymentData,
-  Fq,
-  Fr,
-  FunctionData,
-  FunctionSelector,
-  G1AffineElement,
-  GlobalVariables,
-  HistoricBlockData,
-  KernelCircuitPublicInputs,
-  MembershipWitness16,
-  MembershipWitness20,
-  NativeAggregationState,
-  NewContractData,
-  NullifierLeafPreimage,
-  OptionallyRevealedData,
-  Point,
-  PreviousKernelData,
-  PublicDataRead,
-  PublicDataUpdateRequest,
-  TxContext,
-  VerificationKeyData,
-  toBuffer,
-} from './types.js';
+import { BarretenbergWasmBase } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
 
-interface MsgpackPoint {
-  x: Buffer;
-  y: Buffer;
+// Helper type for fixed-size arrays
+type Tuple<T, N extends number> = T[] & { length: N };
+
+// Helper function for mapping tuples
+function mapTuple<T, U, N extends number>(tuple: Tuple<T, N>, fn: (t: T) => U): Tuple<U, N> {
+  return tuple.map(fn) as Tuple<U, N>;
 }
 
-export function fromPoint(o: Point): MsgpackPoint {
-  if (o.x === undefined) {
-    throw new Error('Expected x in Point serialization');
-  }
-  if (o.y === undefined) {
-    throw new Error('Expected y in Point serialization');
-  }
+
+// Field element type
+export type Fr = Buffer;
+
+export interface CircuitInput {
+  name: string;
+  bytecode: Buffer;
+  verificationKey: Buffer;
+}
+
+interface MsgpackCircuitInput {
+  name: string;
+  bytecode: Buffer;
+  verification_key: Buffer;
+}
+
+export function toCircuitInput(o: MsgpackCircuitInput): CircuitInput {
+  if (o.name === undefined) { throw new Error("Expected name in CircuitInput deserialization"); }
+  if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInput deserialization"); }
+  if (o.verification_key === undefined) { throw new Error("Expected verification_key in CircuitInput deserialization"); };
   return {
-    x: toBuffer(o.x),
-    y: toBuffer(o.y),
+    name: o.name,
+    bytecode: o.bytecode,
+    verificationKey: o.verification_key,
   };
 }
 
-interface MsgpackGlobalVariables {
-  chain_id: Buffer;
-  version: Buffer;
-  block_number: Buffer;
-  timestamp: Buffer;
-}
-
-export function toGlobalVariables(o: MsgpackGlobalVariables): GlobalVariables {
-  if (o.chain_id === undefined) {
-    throw new Error('Expected chain_id in GlobalVariables deserialization');
-  }
-  if (o.version === undefined) {
-    throw new Error('Expected version in GlobalVariables deserialization');
-  }
-  if (o.block_number === undefined) {
-    throw new Error('Expected block_number in GlobalVariables deserialization');
-  }
-  if (o.timestamp === undefined) {
-    throw new Error('Expected timestamp in GlobalVariables deserialization');
-  }
-  return new GlobalVariables(
-    Fr.fromBuffer(o.chain_id),
-    Fr.fromBuffer(o.version),
-    Fr.fromBuffer(o.block_number),
-    Fr.fromBuffer(o.timestamp),
-  );
-}
-
-export function fromGlobalVariables(o: GlobalVariables): MsgpackGlobalVariables {
-  if (o.chainId === undefined) {
-    throw new Error('Expected chainId in GlobalVariables serialization');
-  }
-  if (o.version === undefined) {
-    throw new Error('Expected version in GlobalVariables serialization');
-  }
-  if (o.blockNumber === undefined) {
-    throw new Error('Expected blockNumber in GlobalVariables serialization');
-  }
-  if (o.timestamp === undefined) {
-    throw new Error('Expected timestamp in GlobalVariables serialization');
-  }
+export function fromCircuitInput(o: CircuitInput): MsgpackCircuitInput {
+  if (o.name === undefined) { throw new Error("Expected name in CircuitInput serialization"); }
+  if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInput serialization"); }
+  if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitInput serialization"); };
   return {
-    chain_id: toBuffer(o.chainId),
-    version: toBuffer(o.version),
-    block_number: toBuffer(o.blockNumber),
-    timestamp: toBuffer(o.timestamp),
+  name: o.name,
+  bytecode: o.bytecode,
+  verification_key: o.verificationKey,};
+}
+export interface ProofSystemSettings {
+  ipaAccumulation: boolean;
+  oracleHashType: string;
+  disableZk: boolean;
+  honkRecursion: number;
+  recursive: boolean;
+}
+
+interface MsgpackProofSystemSettings {
+  ipa_accumulation: boolean;
+  oracle_hash_type: string;
+  disable_zk: boolean;
+  honk_recursion: number;
+  recursive: boolean;
+}
+
+export function toProofSystemSettings(o: MsgpackProofSystemSettings): ProofSystemSettings {
+  if (o.ipa_accumulation === undefined) { throw new Error("Expected ipa_accumulation in ProofSystemSettings deserialization"); }
+  if (o.oracle_hash_type === undefined) { throw new Error("Expected oracle_hash_type in ProofSystemSettings deserialization"); }
+  if (o.disable_zk === undefined) { throw new Error("Expected disable_zk in ProofSystemSettings deserialization"); }
+  if (o.honk_recursion === undefined) { throw new Error("Expected honk_recursion in ProofSystemSettings deserialization"); }
+  if (o.recursive === undefined) { throw new Error("Expected recursive in ProofSystemSettings deserialization"); };
+  return {
+    ipaAccumulation: o.ipa_accumulation,
+    oracleHashType: o.oracle_hash_type,
+    disableZk: o.disable_zk,
+    honkRecursion: o.honk_recursion,
+    recursive: o.recursive,
   };
 }
 
-interface MsgpackG1AffineElement {
-  x: Buffer;
-  y: Buffer;
-}
-
-export function toG1AffineElement(o: MsgpackG1AffineElement): G1AffineElement {
-  if (o.x === undefined) {
-    throw new Error('Expected x in G1AffineElement deserialization');
-  }
-  if (o.y === undefined) {
-    throw new Error('Expected y in G1AffineElement deserialization');
-  }
-  return new G1AffineElement(Fq.fromBuffer(o.x), Fq.fromBuffer(o.y));
-}
-
-export function fromG1AffineElement(o: G1AffineElement): MsgpackG1AffineElement {
-  if (o.x === undefined) {
-    throw new Error('Expected x in G1AffineElement serialization');
-  }
-  if (o.y === undefined) {
-    throw new Error('Expected y in G1AffineElement serialization');
-  }
+export function fromProofSystemSettings(o: ProofSystemSettings): MsgpackProofSystemSettings {
+  if (o.ipaAccumulation === undefined) { throw new Error("Expected ipaAccumulation in ProofSystemSettings serialization"); }
+  if (o.oracleHashType === undefined) { throw new Error("Expected oracleHashType in ProofSystemSettings serialization"); }
+  if (o.disableZk === undefined) { throw new Error("Expected disableZk in ProofSystemSettings serialization"); }
+  if (o.honkRecursion === undefined) { throw new Error("Expected honkRecursion in ProofSystemSettings serialization"); }
+  if (o.recursive === undefined) { throw new Error("Expected recursive in ProofSystemSettings serialization"); };
   return {
-    x: toBuffer(o.x),
-    y: toBuffer(o.y),
+  ipa_accumulation: o.ipaAccumulation,
+  oracle_hash_type: o.oracleHashType,
+  disable_zk: o.disableZk,
+  honk_recursion: o.honkRecursion,
+  recursive: o.recursive,};
+}
+export interface CircuitProve {
+  circuit: CircuitInput;
+  witness: Buffer;
+  settings: ProofSystemSettings;
+}
+
+interface MsgpackCircuitProve {
+  circuit: MsgpackCircuitInput;
+  witness: Buffer;
+  settings: MsgpackProofSystemSettings;
+}
+
+export function toCircuitProve(o: MsgpackCircuitProve): CircuitProve {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProve deserialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitProve deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitProve deserialization"); };
+  return {
+    circuit: toCircuitInput(o.circuit),
+    witness: o.witness,
+    settings: toProofSystemSettings(o.settings),
   };
 }
 
-interface MsgpackNativeAggregationState {
-  P0: MsgpackG1AffineElement;
-  P1: MsgpackG1AffineElement;
+export function fromCircuitProve(o: CircuitProve): MsgpackCircuitProve {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProve serialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitProve serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitProve serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),
+  witness: o.witness,
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface CircuitInputNoVK {
+  name: string;
+  bytecode: Buffer;
+}
+
+interface MsgpackCircuitInputNoVK {
+  name: string;
+  bytecode: Buffer;
+}
+
+export function toCircuitInputNoVK(o: MsgpackCircuitInputNoVK): CircuitInputNoVK {
+  if (o.name === undefined) { throw new Error("Expected name in CircuitInputNoVK deserialization"); }
+  if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInputNoVK deserialization"); };
+  return {
+    name: o.name,
+    bytecode: o.bytecode,
+  };
+}
+
+export function fromCircuitInputNoVK(o: CircuitInputNoVK): MsgpackCircuitInputNoVK {
+  if (o.name === undefined) { throw new Error("Expected name in CircuitInputNoVK serialization"); }
+  if (o.bytecode === undefined) { throw new Error("Expected bytecode in CircuitInputNoVK serialization"); };
+  return {
+  name: o.name,
+  bytecode: o.bytecode,};
+}
+export interface CircuitComputeVk {
+  circuit: CircuitInputNoVK;
+  settings: ProofSystemSettings;
+}
+
+interface MsgpackCircuitComputeVk {
+  circuit: MsgpackCircuitInputNoVK;
+  settings: MsgpackProofSystemSettings;
+}
+
+export function toCircuitComputeVk(o: MsgpackCircuitComputeVk): CircuitComputeVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitComputeVk deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitComputeVk deserialization"); };
+  return {
+    circuit: toCircuitInputNoVK(o.circuit),
+    settings: toProofSystemSettings(o.settings),
+  };
+}
+
+export function fromCircuitComputeVk(o: CircuitComputeVk): MsgpackCircuitComputeVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitComputeVk serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitComputeVk serialization"); };
+  return {
+  circuit: fromCircuitInputNoVK(o.circuit),
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface CircuitInfo {
+  circuit: CircuitInput;
+  includeGatesPerOpcode: boolean;
+  settings: ProofSystemSettings;
+}
+
+interface MsgpackCircuitInfo {
+  circuit: MsgpackCircuitInput;
+  include_gates_per_opcode: boolean;
+  settings: MsgpackProofSystemSettings;
+}
+
+export function toCircuitInfo(o: MsgpackCircuitInfo): CircuitInfo {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitInfo deserialization"); }
+  if (o.include_gates_per_opcode === undefined) { throw new Error("Expected include_gates_per_opcode in CircuitInfo deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitInfo deserialization"); };
+  return {
+    circuit: toCircuitInput(o.circuit),
+    includeGatesPerOpcode: o.include_gates_per_opcode,
+    settings: toProofSystemSettings(o.settings),
+  };
+}
+
+export function fromCircuitInfo(o: CircuitInfo): MsgpackCircuitInfo {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitInfo serialization"); }
+  if (o.includeGatesPerOpcode === undefined) { throw new Error("Expected includeGatesPerOpcode in CircuitInfo serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitInfo serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),
+  include_gates_per_opcode: o.includeGatesPerOpcode,
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface CircuitCheck {
+  circuit: CircuitInput;
+  witness: Buffer;
+  settings: ProofSystemSettings;
+}
+
+interface MsgpackCircuitCheck {
+  circuit: MsgpackCircuitInput;
+  witness: Buffer;
+  settings: MsgpackProofSystemSettings;
+}
+
+export function toCircuitCheck(o: MsgpackCircuitCheck): CircuitCheck {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitCheck deserialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitCheck deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitCheck deserialization"); };
+  return {
+    circuit: toCircuitInput(o.circuit),
+    witness: o.witness,
+    settings: toProofSystemSettings(o.settings),
+  };
+}
+
+export function fromCircuitCheck(o: CircuitCheck): MsgpackCircuitCheck {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitCheck serialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitCheck serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitCheck serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),
+  witness: o.witness,
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface CircuitVerify {
+  verificationKey: Buffer;
+  publicInputs: Fr[];
+  proof: Fr[];
+  settings: ProofSystemSettings;
+}
+
+interface MsgpackCircuitVerify {
+  verification_key: Buffer;
   public_inputs: Buffer[];
-  proof_witness_indices: number[];
-  has_data: boolean;
+  proof: Buffer[];
+  settings: MsgpackProofSystemSettings;
 }
 
-export function toNativeAggregationState(o: MsgpackNativeAggregationState): NativeAggregationState {
-  if (o.P0 === undefined) {
-    throw new Error('Expected P0 in NativeAggregationState deserialization');
-  }
-  if (o.P1 === undefined) {
-    throw new Error('Expected P1 in NativeAggregationState deserialization');
-  }
-  if (o.public_inputs === undefined) {
-    throw new Error('Expected public_inputs in NativeAggregationState deserialization');
-  }
-  if (o.proof_witness_indices === undefined) {
-    throw new Error('Expected proof_witness_indices in NativeAggregationState deserialization');
-  }
-  if (o.has_data === undefined) {
-    throw new Error('Expected has_data in NativeAggregationState deserialization');
-  }
-  return new NativeAggregationState(
-    toG1AffineElement(o.P0),
-    toG1AffineElement(o.P1),
-    o.public_inputs.map((v: Buffer) => Fr.fromBuffer(v)),
-    o.proof_witness_indices.map((v: number) => v),
-    o.has_data,
-  );
-}
-
-export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNativeAggregationState {
-  if (o.p0 === undefined) {
-    throw new Error('Expected p0 in NativeAggregationState serialization');
-  }
-  if (o.p1 === undefined) {
-    throw new Error('Expected p1 in NativeAggregationState serialization');
-  }
-  if (o.publicInputs === undefined) {
-    throw new Error('Expected publicInputs in NativeAggregationState serialization');
-  }
-  if (o.proofWitnessIndices === undefined) {
-    throw new Error('Expected proofWitnessIndices in NativeAggregationState serialization');
-  }
-  if (o.hasData === undefined) {
-    throw new Error('Expected hasData in NativeAggregationState serialization');
-  }
+export function toCircuitVerify(o: MsgpackCircuitVerify): CircuitVerify {
+  if (o.verification_key === undefined) { throw new Error("Expected verification_key in CircuitVerify deserialization"); }
+  if (o.public_inputs === undefined) { throw new Error("Expected public_inputs in CircuitVerify deserialization"); }
+  if (o.proof === undefined) { throw new Error("Expected proof in CircuitVerify deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitVerify deserialization"); };
   return {
-    P0: fromG1AffineElement(o.p0),
-    P1: fromG1AffineElement(o.p1),
-    public_inputs: o.publicInputs.map((v: Fr) => toBuffer(v)),
-    proof_witness_indices: o.proofWitnessIndices.map((v: number) => v),
-    has_data: o.hasData,
+    verificationKey: o.verification_key,
+    publicInputs: o.public_inputs.map((v: Buffer) => v),
+    proof: o.proof.map((v: Buffer) => v),
+    settings: toProofSystemSettings(o.settings),
   };
 }
 
-interface MsgpackNewContractData {
-  contract_address: Buffer;
-  portal_contract_address: Buffer;
-  function_tree_root: Buffer;
+export function fromCircuitVerify(o: CircuitVerify): MsgpackCircuitVerify {
+  if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitVerify serialization"); }
+  if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitVerify serialization"); }
+  if (o.proof === undefined) { throw new Error("Expected proof in CircuitVerify serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitVerify serialization"); };
+  return {
+  verification_key: o.verificationKey,
+  public_inputs: o.publicInputs.map((v: Fr) => v),
+  proof: o.proof.map((v: Fr) => v),
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface ClientIvcComputeStandaloneVk {
+  circuit: CircuitInputNoVK;
 }
 
-export function fromNewContractData(o: NewContractData): MsgpackNewContractData {
-  if (o.contractAddress === undefined) {
-    throw new Error('Expected contractAddress in NewContractData serialization');
-  }
-  if (o.portalContractAddress === undefined) {
-    throw new Error('Expected portalContractAddress in NewContractData serialization');
-  }
-  if (o.functionTreeRoot === undefined) {
-    throw new Error('Expected functionTreeRoot in NewContractData serialization');
-  }
+interface MsgpackClientIvcComputeStandaloneVk {
+  circuit: MsgpackCircuitInputNoVK;
+}
+
+export function toClientIvcComputeStandaloneVk(o: MsgpackClientIvcComputeStandaloneVk): ClientIvcComputeStandaloneVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeStandaloneVk deserialization"); };
   return {
-    contract_address: toBuffer(o.contractAddress),
-    portal_contract_address: toBuffer(o.portalContractAddress),
-    function_tree_root: toBuffer(o.functionTreeRoot),
+    circuit: toCircuitInputNoVK(o.circuit),
   };
 }
 
-interface MsgpackFunctionSelector {
-  value: number;
+export function fromClientIvcComputeStandaloneVk(o: ClientIvcComputeStandaloneVk): MsgpackClientIvcComputeStandaloneVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeStandaloneVk serialization"); };
+  return {
+  circuit: fromCircuitInputNoVK(o.circuit),};
+}
+export interface ClientIvcComputeIvcVk {
+  circuit: CircuitInputNoVK;
 }
 
-export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
-  if (o.value === undefined) {
-    throw new Error('Expected value in FunctionSelector serialization');
-  }
+interface MsgpackClientIvcComputeIvcVk {
+  circuit: MsgpackCircuitInputNoVK;
+}
+
+export function toClientIvcComputeIvcVk(o: MsgpackClientIvcComputeIvcVk): ClientIvcComputeIvcVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeIvcVk deserialization"); };
   return {
-    value: o.value,
+    circuit: toCircuitInputNoVK(o.circuit),
   };
 }
 
-interface MsgpackFunctionData {
-  selector: MsgpackFunctionSelector;
-  is_internal: boolean;
-  is_private: boolean;
-  is_constructor: boolean;
+export function fromClientIvcComputeIvcVk(o: ClientIvcComputeIvcVk): MsgpackClientIvcComputeIvcVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcComputeIvcVk serialization"); };
+  return {
+  circuit: fromCircuitInputNoVK(o.circuit),};
+}
+export interface ClientIvcStart {
+  numCircuits: number;
 }
 
-export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
-  if (o.selector === undefined) {
-    throw new Error('Expected selector in FunctionData serialization');
-  }
-  if (o.isInternal === undefined) {
-    throw new Error('Expected isInternal in FunctionData serialization');
-  }
-  if (o.isPrivate === undefined) {
-    throw new Error('Expected isPrivate in FunctionData serialization');
-  }
-  if (o.isConstructor === undefined) {
-    throw new Error('Expected isConstructor in FunctionData serialization');
-  }
+interface MsgpackClientIvcStart {
+  num_circuits: number;
+}
+
+export function toClientIvcStart(o: MsgpackClientIvcStart): ClientIvcStart {
+  if (o.num_circuits === undefined) { throw new Error("Expected num_circuits in ClientIvcStart deserialization"); };
   return {
-    selector: fromFunctionSelector(o.selector),
-    is_internal: o.isInternal,
-    is_private: o.isPrivate,
-    is_constructor: o.isConstructor,
+    numCircuits: o.num_circuits,
   };
 }
 
-interface MsgpackOptionallyRevealedData {
-  call_stack_item_hash: Buffer;
-  function_data: MsgpackFunctionData;
-  vk_hash: Buffer;
-  portal_contract_address: Buffer;
-  pay_fee_from_l1: boolean;
-  pay_fee_from_public_l2: boolean;
-  called_from_l1: boolean;
-  called_from_public_l2: boolean;
+export function fromClientIvcStart(o: ClientIvcStart): MsgpackClientIvcStart {
+  if (o.numCircuits === undefined) { throw new Error("Expected numCircuits in ClientIvcStart serialization"); };
+  return {
+  num_circuits: o.numCircuits,};
+}
+export interface ClientIvcLoad {
+  circuit: CircuitInput;
 }
 
-export function fromOptionallyRevealedData(o: OptionallyRevealedData): MsgpackOptionallyRevealedData {
-  if (o.callStackItemHash === undefined) {
-    throw new Error('Expected callStackItemHash in OptionallyRevealedData serialization');
-  }
-  if (o.functionData === undefined) {
-    throw new Error('Expected functionData in OptionallyRevealedData serialization');
-  }
-  if (o.vkHash === undefined) {
-    throw new Error('Expected vkHash in OptionallyRevealedData serialization');
-  }
-  if (o.portalContractAddress === undefined) {
-    throw new Error('Expected portalContractAddress in OptionallyRevealedData serialization');
-  }
-  if (o.payFeeFromL1 === undefined) {
-    throw new Error('Expected payFeeFromL1 in OptionallyRevealedData serialization');
-  }
-  if (o.payFeeFromPublicL2 === undefined) {
-    throw new Error('Expected payFeeFromPublicL2 in OptionallyRevealedData serialization');
-  }
-  if (o.calledFromL1 === undefined) {
-    throw new Error('Expected calledFromL1 in OptionallyRevealedData serialization');
-  }
-  if (o.calledFromPublicL2 === undefined) {
-    throw new Error('Expected calledFromPublicL2 in OptionallyRevealedData serialization');
-  }
+interface MsgpackClientIvcLoad {
+  circuit: MsgpackCircuitInput;
+}
+
+export function toClientIvcLoad(o: MsgpackClientIvcLoad): ClientIvcLoad {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcLoad deserialization"); };
   return {
-    call_stack_item_hash: toBuffer(o.callStackItemHash),
-    function_data: fromFunctionData(o.functionData),
-    vk_hash: toBuffer(o.vkHash),
-    portal_contract_address: toBuffer(o.portalContractAddress),
-    pay_fee_from_l1: o.payFeeFromL1,
-    pay_fee_from_public_l2: o.payFeeFromPublicL2,
-    called_from_l1: o.calledFromL1,
-    called_from_public_l2: o.calledFromPublicL2,
+    circuit: toCircuitInput(o.circuit),
   };
 }
 
-interface MsgpackPublicDataUpdateRequest {
-  leaf_index: Buffer;
-  old_value: Buffer;
-  new_value: Buffer;
+export function fromClientIvcLoad(o: ClientIvcLoad): MsgpackClientIvcLoad {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcLoad serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),};
+}
+export interface ClientIvcAccumulate {
+  witness: Buffer;
 }
 
-export function fromPublicDataUpdateRequest(o: PublicDataUpdateRequest): MsgpackPublicDataUpdateRequest {
-  if (o.leafIndex === undefined) {
-    throw new Error('Expected leafIndex in PublicDataUpdateRequest serialization');
-  }
-  if (o.oldValue === undefined) {
-    throw new Error('Expected oldValue in PublicDataUpdateRequest serialization');
-  }
-  if (o.newValue === undefined) {
-    throw new Error('Expected newValue in PublicDataUpdateRequest serialization');
-  }
+interface MsgpackClientIvcAccumulate {
+  witness: Buffer;
+}
+
+export function toClientIvcAccumulate(o: MsgpackClientIvcAccumulate): ClientIvcAccumulate {
+  if (o.witness === undefined) { throw new Error("Expected witness in ClientIvcAccumulate deserialization"); };
   return {
-    leaf_index: toBuffer(o.leafIndex),
-    old_value: toBuffer(o.oldValue),
-    new_value: toBuffer(o.newValue),
+    witness: o.witness,
   };
 }
 
-interface MsgpackPublicDataRead {
-  leaf_index: Buffer;
-  value: Buffer;
+export function fromClientIvcAccumulate(o: ClientIvcAccumulate): MsgpackClientIvcAccumulate {
+  if (o.witness === undefined) { throw new Error("Expected witness in ClientIvcAccumulate serialization"); };
+  return {
+  witness: o.witness,};
+}
+export interface ClientIvcProve {
 }
 
-export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
-  if (o.leafIndex === undefined) {
-    throw new Error('Expected leafIndex in PublicDataRead serialization');
-  }
-  if (o.value === undefined) {
-    throw new Error('Expected value in PublicDataRead serialization');
-  }
+interface MsgpackClientIvcProve {}
+
+export function toClientIvcProve(o: MsgpackClientIvcProve): ClientIvcProve {
+  return {};
+}
+
+export function fromClientIvcProve(o: ClientIvcProve): MsgpackClientIvcProve {
+  return {};
+}
+export interface ProofAsFields {
+  proof: Fr[];
+}
+
+interface MsgpackProofAsFields {
+  proof: Buffer[];
+}
+
+export function toProofAsFields(o: MsgpackProofAsFields): ProofAsFields {
+  if (o.proof === undefined) { throw new Error("Expected proof in ProofAsFields deserialization"); };
   return {
-    leaf_index: toBuffer(o.leafIndex),
-    value: toBuffer(o.value),
+    proof: o.proof.map((v: Buffer) => v),
   };
 }
 
-interface MsgpackCombinedAccumulatedData {
-  aggregation_object: MsgpackNativeAggregationState;
-  read_requests: Tuple<Buffer, 128>;
-  pending_read_requests: Tuple<Buffer, 128>;
-  new_commitments: Tuple<Buffer, 64>;
-  new_nullifiers: Tuple<Buffer, 64>;
-  nullified_commitments: Tuple<Buffer, 64>;
-  private_call_stack: Tuple<Buffer, 8>;
-  public_call_stack: Tuple<Buffer, 8>;
-  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
-  encrypted_logs_hash: Tuple<Buffer, 2>;
-  unencrypted_logs_hash: Tuple<Buffer, 2>;
-  encrypted_log_preimages_length: Buffer;
-  unencrypted_log_preimages_length: Buffer;
-  new_contracts: Tuple<MsgpackNewContractData, 1>;
-  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
+export function fromProofAsFields(o: ProofAsFields): MsgpackProofAsFields {
+  if (o.proof === undefined) { throw new Error("Expected proof in ProofAsFields serialization"); };
+  return {
+  proof: o.proof.map((v: Fr) => v),};
+}
+export interface VkAsFields {
+  verificationKey: Buffer;
+  isMegaHonk: boolean;
 }
 
-export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): MsgpackCombinedAccumulatedData {
-  if (o.aggregationObject === undefined) {
-    throw new Error('Expected aggregationObject in CombinedAccumulatedData serialization');
-  }
-  if (o.readRequests === undefined) {
-    throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
-  }
-  if (o.pendingReadRequests === undefined) {
-    throw new Error('Expected pendingReadRequests in CombinedAccumulatedData serialization');
-  }
-  if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
-  }
-  if (o.newNullifiers === undefined) {
-    throw new Error('Expected newNullifiers in CombinedAccumulatedData serialization');
-  }
-  if (o.nullifiedCommitments === undefined) {
-    throw new Error('Expected nullifiedCommitments in CombinedAccumulatedData serialization');
-  }
-  if (o.privateCallStack === undefined) {
-    throw new Error('Expected privateCallStack in CombinedAccumulatedData serialization');
-  }
-  if (o.publicCallStack === undefined) {
-    throw new Error('Expected publicCallStack in CombinedAccumulatedData serialization');
-  }
-  if (o.newL2ToL1Msgs === undefined) {
-    throw new Error('Expected newL2ToL1Msgs in CombinedAccumulatedData serialization');
-  }
-  if (o.encryptedLogsHash === undefined) {
-    throw new Error('Expected encryptedLogsHash in CombinedAccumulatedData serialization');
-  }
-  if (o.unencryptedLogsHash === undefined) {
-    throw new Error('Expected unencryptedLogsHash in CombinedAccumulatedData serialization');
-  }
-  if (o.encryptedLogPreimagesLength === undefined) {
-    throw new Error('Expected encryptedLogPreimagesLength in CombinedAccumulatedData serialization');
-  }
-  if (o.unencryptedLogPreimagesLength === undefined) {
-    throw new Error('Expected unencryptedLogPreimagesLength in CombinedAccumulatedData serialization');
-  }
-  if (o.newContracts === undefined) {
-    throw new Error('Expected newContracts in CombinedAccumulatedData serialization');
-  }
-  if (o.optionallyRevealedData === undefined) {
-    throw new Error('Expected optionallyRevealedData in CombinedAccumulatedData serialization');
-  }
-  if (o.publicDataUpdateRequests === undefined) {
-    throw new Error('Expected publicDataUpdateRequests in CombinedAccumulatedData serialization');
-  }
-  if (o.publicDataReads === undefined) {
-    throw new Error('Expected publicDataReads in CombinedAccumulatedData serialization');
-  }
+interface MsgpackVkAsFields {
+  verification_key: Buffer;
+  is_mega_honk: boolean;
+}
+
+export function toVkAsFields(o: MsgpackVkAsFields): VkAsFields {
+  if (o.verification_key === undefined) { throw new Error("Expected verification_key in VkAsFields deserialization"); }
+  if (o.is_mega_honk === undefined) { throw new Error("Expected is_mega_honk in VkAsFields deserialization"); };
   return {
-    aggregation_object: fromNativeAggregationState(o.aggregationObject),
-    read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    pending_read_requests: mapTuple(o.pendingReadRequests, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
-    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: CallRequest) => toBuffer(v.hash)),
-    public_call_stack: mapTuple(o.publicCallStack, (v: CallRequest) => toBuffer(v.hash)),
-    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
-    encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
-    unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
-    encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
-    unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
-    new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
-    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
-      fromOptionallyRevealedData(v),
-    ),
-    public_data_update_requests: mapTuple(o.publicDataUpdateRequests, (v: PublicDataUpdateRequest) =>
-      fromPublicDataUpdateRequest(v),
-    ),
-    public_data_reads: mapTuple(o.publicDataReads, (v: PublicDataRead) => fromPublicDataRead(v)),
+    verificationKey: o.verification_key,
+    isMegaHonk: o.is_mega_honk,
   };
 }
 
-interface MsgpackHistoricBlockData {
-  note_hash_tree_root: Buffer;
-  nullifier_tree_root: Buffer;
-  contract_tree_root: Buffer;
-  l1_to_l2_messages_tree_root: Buffer;
-  blocks_tree_root: Buffer;
-  private_kernel_vk_tree_root: Buffer;
-  public_data_tree_root: Buffer;
-  global_variables_hash: Buffer;
+export function fromVkAsFields(o: VkAsFields): MsgpackVkAsFields {
+  if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in VkAsFields serialization"); }
+  if (o.isMegaHonk === undefined) { throw new Error("Expected isMegaHonk in VkAsFields serialization"); };
+  return {
+  verification_key: o.verificationKey,
+  is_mega_honk: o.isMegaHonk,};
+}
+export interface CircuitWriteSolidityVerifier {
+  verificationKey: Buffer;
+  settings: ProofSystemSettings;
 }
 
-export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBlockData {
-  if (o.noteHashTreeRoot === undefined) {
-    throw new Error('Expected noteHashTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.nullifierTreeRoot === undefined) {
-    throw new Error('Expected nullifierTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.contractTreeRoot === undefined) {
-    throw new Error('Expected contractTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.l1ToL2MessagesTreeRoot === undefined) {
-    throw new Error('Expected l1ToL2MessagesTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.blocksTreeRoot === undefined) {
-    throw new Error('Expected blocksTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.privateKernelVkTreeRoot === undefined) {
-    throw new Error('Expected privateKernelVkTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.publicDataTreeRoot === undefined) {
-    throw new Error('Expected publicDataTreeRoot in HistoricBlockData serialization');
-  }
-  if (o.globalVariablesHash === undefined) {
-    throw new Error('Expected globalVariablesHash in HistoricBlockData serialization');
-  }
+interface MsgpackCircuitWriteSolidityVerifier {
+  verification_key: Buffer;
+  settings: MsgpackProofSystemSettings;
+}
+
+export function toCircuitWriteSolidityVerifier(o: MsgpackCircuitWriteSolidityVerifier): CircuitWriteSolidityVerifier {
+  if (o.verification_key === undefined) { throw new Error("Expected verification_key in CircuitWriteSolidityVerifier deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitWriteSolidityVerifier deserialization"); };
   return {
-    note_hash_tree_root: toBuffer(o.noteHashTreeRoot),
-    nullifier_tree_root: toBuffer(o.nullifierTreeRoot),
-    contract_tree_root: toBuffer(o.contractTreeRoot),
-    l1_to_l2_messages_tree_root: toBuffer(o.l1ToL2MessagesTreeRoot),
-    blocks_tree_root: toBuffer(o.blocksTreeRoot),
-    private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
-    public_data_tree_root: toBuffer(o.publicDataTreeRoot),
-    global_variables_hash: toBuffer(o.globalVariablesHash),
+    verificationKey: o.verification_key,
+    settings: toProofSystemSettings(o.settings),
   };
 }
 
-interface MsgpackContractDeploymentData {
-  deployer_public_key: MsgpackPoint;
-  constructor_vk_hash: Buffer;
-  function_tree_root: Buffer;
-  contract_address_salt: Buffer;
-  portal_contract_address: Buffer;
+export function fromCircuitWriteSolidityVerifier(o: CircuitWriteSolidityVerifier): MsgpackCircuitWriteSolidityVerifier {
+  if (o.verificationKey === undefined) { throw new Error("Expected verificationKey in CircuitWriteSolidityVerifier serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitWriteSolidityVerifier serialization"); };
+  return {
+  verification_key: o.verificationKey,
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface CircuitProveAndVerify {
+  circuit: CircuitInput;
+  witness: Buffer;
+  settings: ProofSystemSettings;
 }
 
-export function fromContractDeploymentData(o: ContractDeploymentData): MsgpackContractDeploymentData {
-  if (o.deployerPublicKey === undefined) {
-    throw new Error('Expected deployerPublicKey in ContractDeploymentData serialization');
-  }
-  if (o.constructorVkHash === undefined) {
-    throw new Error('Expected constructorVkHash in ContractDeploymentData serialization');
-  }
-  if (o.functionTreeRoot === undefined) {
-    throw new Error('Expected functionTreeRoot in ContractDeploymentData serialization');
-  }
-  if (o.contractAddressSalt === undefined) {
-    throw new Error('Expected contractAddressSalt in ContractDeploymentData serialization');
-  }
-  if (o.portalContractAddress === undefined) {
-    throw new Error('Expected portalContractAddress in ContractDeploymentData serialization');
-  }
+interface MsgpackCircuitProveAndVerify {
+  circuit: MsgpackCircuitInput;
+  witness: Buffer;
+  settings: MsgpackProofSystemSettings;
+}
+
+export function toCircuitProveAndVerify(o: MsgpackCircuitProveAndVerify): CircuitProveAndVerify {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProveAndVerify deserialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitProveAndVerify deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitProveAndVerify deserialization"); };
   return {
-    deployer_public_key: fromPoint(o.deployerPublicKey),
-    constructor_vk_hash: toBuffer(o.constructorVkHash),
-    function_tree_root: toBuffer(o.functionTreeRoot),
-    contract_address_salt: toBuffer(o.contractAddressSalt),
-    portal_contract_address: toBuffer(o.portalContractAddress),
+    circuit: toCircuitInput(o.circuit),
+    witness: o.witness,
+    settings: toProofSystemSettings(o.settings),
   };
 }
 
-interface MsgpackTxContext {
-  is_fee_payment_tx: boolean;
-  is_rebate_payment_tx: boolean;
-  is_contract_deployment_tx: boolean;
-  contract_deployment_data: MsgpackContractDeploymentData;
-  chain_id: Buffer;
-  version: Buffer;
+export function fromCircuitProveAndVerify(o: CircuitProveAndVerify): MsgpackCircuitProveAndVerify {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitProveAndVerify serialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitProveAndVerify serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitProveAndVerify serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),
+  witness: o.witness,
+  settings: fromProofSystemSettings(o.settings),};
+}
+export interface CircuitBenchmark {
+  circuit: CircuitInput;
+  witness: Buffer;
+  settings: ProofSystemSettings;
+  numIterations: number;
+  benchmarkWitnessGeneration: boolean;
+  benchmarkProving: boolean;
 }
 
-export function fromTxContext(o: TxContext): MsgpackTxContext {
-  if (o.isFeePaymentTx === undefined) {
-    throw new Error('Expected isFeePaymentTx in TxContext serialization');
-  }
-  if (o.isRebatePaymentTx === undefined) {
-    throw new Error('Expected isRebatePaymentTx in TxContext serialization');
-  }
-  if (o.isContractDeploymentTx === undefined) {
-    throw new Error('Expected isContractDeploymentTx in TxContext serialization');
-  }
-  if (o.contractDeploymentData === undefined) {
-    throw new Error('Expected contractDeploymentData in TxContext serialization');
-  }
-  if (o.chainId === undefined) {
-    throw new Error('Expected chainId in TxContext serialization');
-  }
-  if (o.version === undefined) {
-    throw new Error('Expected version in TxContext serialization');
-  }
+interface MsgpackCircuitBenchmark {
+  circuit: MsgpackCircuitInput;
+  witness: Buffer;
+  settings: MsgpackProofSystemSettings;
+  num_iterations: number;
+  benchmark_witness_generation: boolean;
+  benchmark_proving: boolean;
+}
+
+export function toCircuitBenchmark(o: MsgpackCircuitBenchmark): CircuitBenchmark {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitBenchmark deserialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitBenchmark deserialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitBenchmark deserialization"); }
+  if (o.num_iterations === undefined) { throw new Error("Expected num_iterations in CircuitBenchmark deserialization"); }
+  if (o.benchmark_witness_generation === undefined) { throw new Error("Expected benchmark_witness_generation in CircuitBenchmark deserialization"); }
+  if (o.benchmark_proving === undefined) { throw new Error("Expected benchmark_proving in CircuitBenchmark deserialization"); };
   return {
-    is_fee_payment_tx: o.isFeePaymentTx,
-    is_rebate_payment_tx: o.isRebatePaymentTx,
-    is_contract_deployment_tx: o.isContractDeploymentTx,
-    contract_deployment_data: fromContractDeploymentData(o.contractDeploymentData),
-    chain_id: toBuffer(o.chainId),
-    version: toBuffer(o.version),
+    circuit: toCircuitInput(o.circuit),
+    witness: o.witness,
+    settings: toProofSystemSettings(o.settings),
+    numIterations: o.num_iterations,
+    benchmarkWitnessGeneration: o.benchmark_witness_generation,
+    benchmarkProving: o.benchmark_proving,
   };
 }
 
-interface MsgpackCombinedConstantData {
-  block_data: MsgpackHistoricBlockData;
-  tx_context: MsgpackTxContext;
+export function fromCircuitBenchmark(o: CircuitBenchmark): MsgpackCircuitBenchmark {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in CircuitBenchmark serialization"); }
+  if (o.witness === undefined) { throw new Error("Expected witness in CircuitBenchmark serialization"); }
+  if (o.settings === undefined) { throw new Error("Expected settings in CircuitBenchmark serialization"); }
+  if (o.numIterations === undefined) { throw new Error("Expected numIterations in CircuitBenchmark serialization"); }
+  if (o.benchmarkWitnessGeneration === undefined) { throw new Error("Expected benchmarkWitnessGeneration in CircuitBenchmark serialization"); }
+  if (o.benchmarkProving === undefined) { throw new Error("Expected benchmarkProving in CircuitBenchmark serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),
+  witness: o.witness,
+  settings: fromProofSystemSettings(o.settings),
+  num_iterations: o.numIterations,
+  benchmark_witness_generation: o.benchmarkWitnessGeneration,
+  benchmark_proving: o.benchmarkProving,};
+}
+export interface ClientIvcCheckPrecomputedVk {
+  circuit: CircuitInput;
+  functionName: string;
 }
 
-export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
-  if (o.blockData === undefined) {
-    throw new Error('Expected blockData in CombinedConstantData serialization');
-  }
-  if (o.txContext === undefined) {
-    throw new Error('Expected txContext in CombinedConstantData serialization');
-  }
+interface MsgpackClientIvcCheckPrecomputedVk {
+  circuit: MsgpackCircuitInput;
+  function_name: string;
+}
+
+export function toClientIvcCheckPrecomputedVk(o: MsgpackClientIvcCheckPrecomputedVk): ClientIvcCheckPrecomputedVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcCheckPrecomputedVk deserialization"); }
+  if (o.function_name === undefined) { throw new Error("Expected function_name in ClientIvcCheckPrecomputedVk deserialization"); };
   return {
-    block_data: fromHistoricBlockData(o.blockData),
-    tx_context: fromTxContext(o.txContext),
+    circuit: toCircuitInput(o.circuit),
+    functionName: o.function_name,
   };
 }
 
-interface MsgpackKernelCircuitPublicInputs {
-  end: MsgpackCombinedAccumulatedData;
-  constants: MsgpackCombinedConstantData;
-  is_private: boolean;
+export function fromClientIvcCheckPrecomputedVk(o: ClientIvcCheckPrecomputedVk): MsgpackClientIvcCheckPrecomputedVk {
+  if (o.circuit === undefined) { throw new Error("Expected circuit in ClientIvcCheckPrecomputedVk serialization"); }
+  if (o.functionName === undefined) { throw new Error("Expected functionName in ClientIvcCheckPrecomputedVk serialization"); };
+  return {
+  circuit: fromCircuitInput(o.circuit),
+  function_name: o.functionName,};
+}
+export interface CircuitProveResponse {
+  publicInputs: Fr[];
+  proof: Fr[];
 }
 
-export function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): MsgpackKernelCircuitPublicInputs {
-  if (o.end === undefined) {
-    throw new Error('Expected end in KernelCircuitPublicInputs serialization');
-  }
-  if (o.constants === undefined) {
-    throw new Error('Expected constants in KernelCircuitPublicInputs serialization');
-  }
-  if (o.isPrivate === undefined) {
-    throw new Error('Expected isPrivate in KernelCircuitPublicInputs serialization');
-  }
+interface MsgpackCircuitProveResponse {
+  public_inputs: Buffer[];
+  proof: Buffer[];
+}
+
+export function toCircuitProveResponse(o: MsgpackCircuitProveResponse): CircuitProveResponse {
+  if (o.public_inputs === undefined) { throw new Error("Expected public_inputs in CircuitProveResponse deserialization"); }
+  if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveResponse deserialization"); };
   return {
-    end: fromCombinedAccumulatedData(o.end),
-    constants: fromCombinedConstantData(o.constants),
-    is_private: o.isPrivate,
+    publicInputs: o.public_inputs.map((v: Buffer) => v),
+    proof: o.proof.map((v: Buffer) => v),
   };
 }
 
-interface MsgpackVerificationKeyData {
-  circuit_type: number;
-  circuit_size: number;
-  num_public_inputs: number;
-  commitments: Record<string, MsgpackG1AffineElement>;
-  contains_recursive_proof: boolean;
-  recursive_proof_public_input_indices: number[];
+export function fromCircuitProveResponse(o: CircuitProveResponse): MsgpackCircuitProveResponse {
+  if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitProveResponse serialization"); }
+  if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveResponse serialization"); };
+  return {
+  public_inputs: o.publicInputs.map((v: Fr) => v),
+  proof: o.proof.map((v: Fr) => v),};
+}
+export interface CircuitComputeVkResponse {
+  bytes: Buffer;
 }
 
-export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerificationKeyData {
-  if (o.circuitType === undefined) {
-    throw new Error('Expected circuitType in VerificationKeyData serialization');
-  }
-  if (o.circuitSize === undefined) {
-    throw new Error('Expected circuitSize in VerificationKeyData serialization');
-  }
-  if (o.numPublicInputs === undefined) {
-    throw new Error('Expected numPublicInputs in VerificationKeyData serialization');
-  }
-  if (o.commitments === undefined) {
-    throw new Error('Expected commitments in VerificationKeyData serialization');
-  }
-  if (o.containsRecursiveProof === undefined) {
-    throw new Error('Expected containsRecursiveProof in VerificationKeyData serialization');
-  }
-  if (o.recursiveProofPublicInputIndices === undefined) {
-    throw new Error('Expected recursiveProofPublicInputIndices in VerificationKeyData serialization');
-  }
+interface MsgpackCircuitComputeVkResponse {
+  bytes: Buffer;
+}
+
+export function toCircuitComputeVkResponse(o: MsgpackCircuitComputeVkResponse): CircuitComputeVkResponse {
+  if (o.bytes === undefined) { throw new Error("Expected bytes in CircuitComputeVkResponse deserialization"); };
   return {
-    circuit_type: o.circuitType,
-    circuit_size: o.circuitSize,
-    num_public_inputs: o.numPublicInputs,
-    commitments: mapValues(o.commitments, (v: G1AffineElement) => fromG1AffineElement(v)),
-    contains_recursive_proof: o.containsRecursiveProof,
-    recursive_proof_public_input_indices: o.recursiveProofPublicInputIndices.map((v: number) => v),
+    bytes: o.bytes,
   };
 }
 
-interface MsgpackPreviousKernelData {
-  public_inputs: MsgpackKernelCircuitPublicInputs;
-  proof: Buffer;
-  vk: MsgpackVerificationKeyData;
-  vk_index: number;
-  vk_path: Tuple<Buffer, 3>;
+export function fromCircuitComputeVkResponse(o: CircuitComputeVkResponse): MsgpackCircuitComputeVkResponse {
+  if (o.bytes === undefined) { throw new Error("Expected bytes in CircuitComputeVkResponse serialization"); };
+  return {
+  bytes: o.bytes,};
+}
+export interface CircuitInfoResponse {
+  totalGates: number;
+  subgroupSize: number;
+  gatesPerOpcode: Record<string, number>;
 }
 
-export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKernelData {
-  if (o.publicInputs === undefined) {
-    throw new Error('Expected publicInputs in PreviousKernelData serialization');
-  }
-  if (o.proof === undefined) {
-    throw new Error('Expected proof in PreviousKernelData serialization');
-  }
-  if (o.vk === undefined) {
-    throw new Error('Expected vk in PreviousKernelData serialization');
-  }
-  if (o.vkIndex === undefined) {
-    throw new Error('Expected vkIndex in PreviousKernelData serialization');
-  }
-  if (o.vkPath === undefined) {
-    throw new Error('Expected vkPath in PreviousKernelData serialization');
-  }
+interface MsgpackCircuitInfoResponse {
+  total_gates: number;
+  subgroup_size: number;
+  gates_per_opcode: Record<string, number>;
+}
+
+export function toCircuitInfoResponse(o: MsgpackCircuitInfoResponse): CircuitInfoResponse {
+  if (o.total_gates === undefined) { throw new Error("Expected total_gates in CircuitInfoResponse deserialization"); }
+  if (o.subgroup_size === undefined) { throw new Error("Expected subgroup_size in CircuitInfoResponse deserialization"); }
+  if (o.gates_per_opcode === undefined) { throw new Error("Expected gates_per_opcode in CircuitInfoResponse deserialization"); };
   return {
-    public_inputs: fromKernelCircuitPublicInputs(o.publicInputs),
-    proof: o.proof.toMsgpackBuffer(),
-    vk: fromVerificationKeyData(o.vk),
-    vk_index: o.vkIndex,
-    vk_path: mapTuple(o.vkPath, (v: Fr) => toBuffer(v)),
+    totalGates: o.total_gates,
+    subgroupSize: o.subgroup_size,
+    gatesPerOpcode: o.gates_per_opcode,
   };
 }
 
-interface MsgpackMembershipWitness16 {
-  leaf_index: Buffer;
-  sibling_path: Tuple<Buffer, 16>;
+export function fromCircuitInfoResponse(o: CircuitInfoResponse): MsgpackCircuitInfoResponse {
+  if (o.totalGates === undefined) { throw new Error("Expected totalGates in CircuitInfoResponse serialization"); }
+  if (o.subgroupSize === undefined) { throw new Error("Expected subgroupSize in CircuitInfoResponse serialization"); }
+  if (o.gatesPerOpcode === undefined) { throw new Error("Expected gatesPerOpcode in CircuitInfoResponse serialization"); };
+  return {
+  total_gates: o.totalGates,
+  subgroup_size: o.subgroupSize,
+  gates_per_opcode: o.gatesPerOpcode,};
+}
+export interface CircuitCheckResponse {
+  satisfied: boolean;
 }
 
-export function fromMembershipWitness16(o: MembershipWitness16): MsgpackMembershipWitness16 {
-  if (o.leafIndex === undefined) {
-    throw new Error('Expected leafIndex in MembershipWitness16 serialization');
-  }
-  if (o.siblingPath === undefined) {
-    throw new Error('Expected siblingPath in MembershipWitness16 serialization');
-  }
+interface MsgpackCircuitCheckResponse {
+  satisfied: boolean;
+}
+
+export function toCircuitCheckResponse(o: MsgpackCircuitCheckResponse): CircuitCheckResponse {
+  if (o.satisfied === undefined) { throw new Error("Expected satisfied in CircuitCheckResponse deserialization"); };
   return {
-    leaf_index: toBuffer(o.leafIndex),
-    sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
+    satisfied: o.satisfied,
   };
 }
 
-interface MsgpackCircuitError {
-  code: number;
-  message: string;
-}
-
-export function toCircuitError(o: MsgpackCircuitError): CircuitError {
-  if (o.code === undefined) {
-    throw new Error('Expected code in CircuitError deserialization');
-  }
-  if (o.message === undefined) {
-    throw new Error('Expected message in CircuitError deserialization');
-  }
-  return new CircuitError(o.code, o.message);
-}
-
-interface MsgpackAppendOnlyTreeSnapshot {
-  root: Buffer;
-  next_available_leaf_index: number;
-}
-
-export function toAppendOnlyTreeSnapshot(o: MsgpackAppendOnlyTreeSnapshot): AppendOnlyTreeSnapshot {
-  if (o.root === undefined) {
-    throw new Error('Expected root in AppendOnlyTreeSnapshot deserialization');
-  }
-  if (o.next_available_leaf_index === undefined) {
-    throw new Error('Expected next_available_leaf_index in AppendOnlyTreeSnapshot deserialization');
-  }
-  return new AppendOnlyTreeSnapshot(Fr.fromBuffer(o.root), o.next_available_leaf_index);
-}
-
-export function fromAppendOnlyTreeSnapshot(o: AppendOnlyTreeSnapshot): MsgpackAppendOnlyTreeSnapshot {
-  if (o.root === undefined) {
-    throw new Error('Expected root in AppendOnlyTreeSnapshot serialization');
-  }
-  if (o.nextAvailableLeafIndex === undefined) {
-    throw new Error('Expected nextAvailableLeafIndex in AppendOnlyTreeSnapshot serialization');
-  }
+export function fromCircuitCheckResponse(o: CircuitCheckResponse): MsgpackCircuitCheckResponse {
+  if (o.satisfied === undefined) { throw new Error("Expected satisfied in CircuitCheckResponse serialization"); };
   return {
-    root: toBuffer(o.root),
-    next_available_leaf_index: o.nextAvailableLeafIndex,
+  satisfied: o.satisfied,};
+}
+export interface CircuitVerifyResponse {
+  verified: boolean;
+}
+
+interface MsgpackCircuitVerifyResponse {
+  verified: boolean;
+}
+
+export function toCircuitVerifyResponse(o: MsgpackCircuitVerifyResponse): CircuitVerifyResponse {
+  if (o.verified === undefined) { throw new Error("Expected verified in CircuitVerifyResponse deserialization"); };
+  return {
+    verified: o.verified,
   };
 }
 
-interface MsgpackNullifierLeafPreimage {
-  leaf_value: Buffer;
-  next_value: Buffer;
-  next_index: number;
+export function fromCircuitVerifyResponse(o: CircuitVerifyResponse): MsgpackCircuitVerifyResponse {
+  if (o.verified === undefined) { throw new Error("Expected verified in CircuitVerifyResponse serialization"); };
+  return {
+  verified: o.verified,};
+}
+export interface ClientIvcComputeStandaloneVkResponse {
+  bytes: Buffer;
+  fields: Fr[];
 }
 
-export function fromNullifierLeafPreimage(o: NullifierLeafPreimage): MsgpackNullifierLeafPreimage {
-  if (o.leafValue === undefined) {
-    throw new Error('Expected leafValue in NullifierLeafPreimage serialization');
-  }
-  if (o.nextValue === undefined) {
-    throw new Error('Expected nextValue in NullifierLeafPreimage serialization');
-  }
-  if (o.nextIndex === undefined) {
-    throw new Error('Expected nextIndex in NullifierLeafPreimage serialization');
-  }
+interface MsgpackClientIvcComputeStandaloneVkResponse {
+  bytes: Buffer;
+  fields: Buffer[];
+}
+
+export function toClientIvcComputeStandaloneVkResponse(o: MsgpackClientIvcComputeStandaloneVkResponse): ClientIvcComputeStandaloneVkResponse {
+  if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeStandaloneVkResponse deserialization"); }
+  if (o.fields === undefined) { throw new Error("Expected fields in ClientIvcComputeStandaloneVkResponse deserialization"); };
   return {
-    leaf_value: toBuffer(o.leafValue),
-    next_value: toBuffer(o.nextValue),
-    next_index: o.nextIndex,
+    bytes: o.bytes,
+    fields: o.fields.map((v: Buffer) => v),
   };
 }
 
-interface MsgpackMembershipWitness20 {
-  leaf_index: Buffer;
-  sibling_path: Tuple<Buffer, 20>;
+export function fromClientIvcComputeStandaloneVkResponse(o: ClientIvcComputeStandaloneVkResponse): MsgpackClientIvcComputeStandaloneVkResponse {
+  if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeStandaloneVkResponse serialization"); }
+  if (o.fields === undefined) { throw new Error("Expected fields in ClientIvcComputeStandaloneVkResponse serialization"); };
+  return {
+  bytes: o.bytes,
+  fields: o.fields.map((v: Fr) => v),};
+}
+export interface ClientIvcComputeIvcVkResponse {
+  bytes: Buffer;
 }
 
-export function fromMembershipWitness20(o: MembershipWitness20): MsgpackMembershipWitness20 {
-  if (o.leafIndex === undefined) {
-    throw new Error('Expected leafIndex in MembershipWitness20 serialization');
-  }
-  if (o.siblingPath === undefined) {
-    throw new Error('Expected siblingPath in MembershipWitness20 serialization');
-  }
+interface MsgpackClientIvcComputeIvcVkResponse {
+  bytes: Buffer;
+}
+
+export function toClientIvcComputeIvcVkResponse(o: MsgpackClientIvcComputeIvcVkResponse): ClientIvcComputeIvcVkResponse {
+  if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeIvcVkResponse deserialization"); };
   return {
-    leaf_index: toBuffer(o.leafIndex),
-    sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
+    bytes: o.bytes,
   };
 }
 
-interface MsgpackConstantRollupData {
-  start_historic_blocks_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  private_kernel_vk_tree_root: Buffer;
-  public_kernel_vk_tree_root: Buffer;
-  base_rollup_vk_hash: Buffer;
-  merge_rollup_vk_hash: Buffer;
-  global_variables: MsgpackGlobalVariables;
-}
-
-export function toConstantRollupData(o: MsgpackConstantRollupData): ConstantRollupData {
-  if (o.start_historic_blocks_tree_roots_snapshot === undefined) {
-    throw new Error('Expected start_historic_blocks_tree_roots_snapshot in ConstantRollupData deserialization');
-  }
-  if (o.private_kernel_vk_tree_root === undefined) {
-    throw new Error('Expected private_kernel_vk_tree_root in ConstantRollupData deserialization');
-  }
-  if (o.public_kernel_vk_tree_root === undefined) {
-    throw new Error('Expected public_kernel_vk_tree_root in ConstantRollupData deserialization');
-  }
-  if (o.base_rollup_vk_hash === undefined) {
-    throw new Error('Expected base_rollup_vk_hash in ConstantRollupData deserialization');
-  }
-  if (o.merge_rollup_vk_hash === undefined) {
-    throw new Error('Expected merge_rollup_vk_hash in ConstantRollupData deserialization');
-  }
-  if (o.global_variables === undefined) {
-    throw new Error('Expected global_variables in ConstantRollupData deserialization');
-  }
-  return new ConstantRollupData(
-    toAppendOnlyTreeSnapshot(o.start_historic_blocks_tree_roots_snapshot),
-    Fr.fromBuffer(o.private_kernel_vk_tree_root),
-    Fr.fromBuffer(o.public_kernel_vk_tree_root),
-    Fr.fromBuffer(o.base_rollup_vk_hash),
-    Fr.fromBuffer(o.merge_rollup_vk_hash),
-    toGlobalVariables(o.global_variables),
-  );
-}
-
-export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRollupData {
-  if (o.startHistoricBlocksTreeRootsSnapshot === undefined) {
-    throw new Error('Expected startHistoricBlocksTreeRootsSnapshot in ConstantRollupData serialization');
-  }
-  if (o.privateKernelVkTreeRoot === undefined) {
-    throw new Error('Expected privateKernelVkTreeRoot in ConstantRollupData serialization');
-  }
-  if (o.publicKernelVkTreeRoot === undefined) {
-    throw new Error('Expected publicKernelVkTreeRoot in ConstantRollupData serialization');
-  }
-  if (o.baseRollupVkHash === undefined) {
-    throw new Error('Expected baseRollupVkHash in ConstantRollupData serialization');
-  }
-  if (o.mergeRollupVkHash === undefined) {
-    throw new Error('Expected mergeRollupVkHash in ConstantRollupData serialization');
-  }
-  if (o.globalVariables === undefined) {
-    throw new Error('Expected globalVariables in ConstantRollupData serialization');
-  }
+export function fromClientIvcComputeIvcVkResponse(o: ClientIvcComputeIvcVkResponse): MsgpackClientIvcComputeIvcVkResponse {
+  if (o.bytes === undefined) { throw new Error("Expected bytes in ClientIvcComputeIvcVkResponse serialization"); };
   return {
-    start_historic_blocks_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(o.startHistoricBlocksTreeRootsSnapshot),
-    private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
-    public_kernel_vk_tree_root: toBuffer(o.publicKernelVkTreeRoot),
-    base_rollup_vk_hash: toBuffer(o.baseRollupVkHash),
-    merge_rollup_vk_hash: toBuffer(o.mergeRollupVkHash),
-    global_variables: fromGlobalVariables(o.globalVariables),
+  bytes: o.bytes,};
+}
+export interface ClientIvcStartResponse {
+}
+
+interface MsgpackClientIvcStartResponse {}
+
+export function toClientIvcStartResponse(o: MsgpackClientIvcStartResponse): ClientIvcStartResponse {
+  return {};
+}
+
+export function fromClientIvcStartResponse(o: ClientIvcStartResponse): MsgpackClientIvcStartResponse {
+  return {};
+}
+export interface ClientIvcLoadResponse {
+}
+
+interface MsgpackClientIvcLoadResponse {}
+
+export function toClientIvcLoadResponse(o: MsgpackClientIvcLoadResponse): ClientIvcLoadResponse {
+  return {};
+}
+
+export function fromClientIvcLoadResponse(o: ClientIvcLoadResponse): MsgpackClientIvcLoadResponse {
+  return {};
+}
+export interface ClientIvcAccumulateResponse {
+}
+
+interface MsgpackClientIvcAccumulateResponse {}
+
+export function toClientIvcAccumulateResponse(o: MsgpackClientIvcAccumulateResponse): ClientIvcAccumulateResponse {
+  return {};
+}
+
+export function fromClientIvcAccumulateResponse(o: ClientIvcAccumulateResponse): MsgpackClientIvcAccumulateResponse {
+  return {};
+}
+export interface ECCVMProof {
+  preIpaProof: Fr[];
+  ipaProof: Fr[];
+}
+
+interface MsgpackECCVMProof {
+  pre_ipa_proof: Buffer[];
+  ipa_proof: Buffer[];
+}
+
+export function toECCVMProof(o: MsgpackECCVMProof): ECCVMProof {
+  if (o.pre_ipa_proof === undefined) { throw new Error("Expected pre_ipa_proof in ECCVMProof deserialization"); }
+  if (o.ipa_proof === undefined) { throw new Error("Expected ipa_proof in ECCVMProof deserialization"); };
+  return {
+    preIpaProof: o.pre_ipa_proof.map((v: Buffer) => v),
+    ipaProof: o.ipa_proof.map((v: Buffer) => v),
   };
 }
 
-interface MsgpackBaseRollupInputs {
-  kernel_data: Tuple<MsgpackPreviousKernelData, 2>;
-  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  start_public_data_tree_root: Buffer;
-  start_historic_blocks_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  low_nullifier_leaf_preimages: Tuple<MsgpackNullifierLeafPreimage, 128>;
-  low_nullifier_membership_witness: Tuple<MsgpackMembershipWitness20, 128>;
-  new_commitments_subtree_sibling_path: Tuple<Buffer, 25>;
-  new_nullifiers_subtree_sibling_path: Tuple<Buffer, 13>;
-  new_contracts_subtree_sibling_path: Tuple<Buffer, 15>;
-  new_public_data_update_requests_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
-  new_public_data_reads_sibling_paths: Tuple<Tuple<Buffer, 254>, 32>;
-  historic_blocks_tree_root_membership_witnesses: Tuple<MsgpackMembershipWitness16, 2>;
-  constants: MsgpackConstantRollupData;
+export function fromECCVMProof(o: ECCVMProof): MsgpackECCVMProof {
+  if (o.preIpaProof === undefined) { throw new Error("Expected preIpaProof in ECCVMProof serialization"); }
+  if (o.ipaProof === undefined) { throw new Error("Expected ipaProof in ECCVMProof serialization"); };
+  return {
+  pre_ipa_proof: o.preIpaProof.map((v: Fr) => v),
+  ipa_proof: o.ipaProof.map((v: Fr) => v),};
+}
+export interface GoblinProof {
+  mergeProof: Fr[];
+  eccvmProof: ECCVMProof;
+  translatorProof: Fr[];
 }
 
-export function fromBaseRollupInputs(o: BaseRollupInputs): MsgpackBaseRollupInputs {
-  if (o.kernelData === undefined) {
-    throw new Error('Expected kernelData in BaseRollupInputs serialization');
-  }
-  if (o.startNoteHashTreeSnapshot === undefined) {
-    throw new Error('Expected startNoteHashTreeSnapshot in BaseRollupInputs serialization');
-  }
-  if (o.startNullifierTreeSnapshot === undefined) {
-    throw new Error('Expected startNullifierTreeSnapshot in BaseRollupInputs serialization');
-  }
-  if (o.startContractTreeSnapshot === undefined) {
-    throw new Error('Expected startContractTreeSnapshot in BaseRollupInputs serialization');
-  }
-  if (o.startPublicDataTreeRoot === undefined) {
-    throw new Error('Expected startPublicDataTreeRoot in BaseRollupInputs serialization');
-  }
-  if (o.startHistoricBlocksTreeSnapshot === undefined) {
-    throw new Error('Expected startHistoricBlocksTreeSnapshot in BaseRollupInputs serialization');
-  }
-  if (o.lowNullifierLeafPreimages === undefined) {
-    throw new Error('Expected lowNullifierLeafPreimages in BaseRollupInputs serialization');
-  }
-  if (o.lowNullifierMembershipWitness === undefined) {
-    throw new Error('Expected lowNullifierMembershipWitness in BaseRollupInputs serialization');
-  }
-  if (o.newCommitmentsSubtreeSiblingPath === undefined) {
-    throw new Error('Expected newCommitmentsSubtreeSiblingPath in BaseRollupInputs serialization');
-  }
-  if (o.newNullifiersSubtreeSiblingPath === undefined) {
-    throw new Error('Expected newNullifiersSubtreeSiblingPath in BaseRollupInputs serialization');
-  }
-  if (o.newContractsSubtreeSiblingPath === undefined) {
-    throw new Error('Expected newContractsSubtreeSiblingPath in BaseRollupInputs serialization');
-  }
-  if (o.newPublicDataUpdateRequestsSiblingPaths === undefined) {
-    throw new Error('Expected newPublicDataUpdateRequestsSiblingPaths in BaseRollupInputs serialization');
-  }
-  if (o.newPublicDataReadsSiblingPaths === undefined) {
-    throw new Error('Expected newPublicDataReadsSiblingPaths in BaseRollupInputs serialization');
-  }
-  if (o.historicBlocksTreeRootMembershipWitnesses === undefined) {
-    throw new Error('Expected historicBlocksTreeRootMembershipWitnesses in BaseRollupInputs serialization');
-  }
-  if (o.constants === undefined) {
-    throw new Error('Expected constants in BaseRollupInputs serialization');
-  }
+interface MsgpackGoblinProof {
+  merge_proof: Buffer[];
+  eccvm_proof: MsgpackECCVMProof;
+  translator_proof: Buffer[];
+}
+
+export function toGoblinProof(o: MsgpackGoblinProof): GoblinProof {
+  if (o.merge_proof === undefined) { throw new Error("Expected merge_proof in GoblinProof deserialization"); }
+  if (o.eccvm_proof === undefined) { throw new Error("Expected eccvm_proof in GoblinProof deserialization"); }
+  if (o.translator_proof === undefined) { throw new Error("Expected translator_proof in GoblinProof deserialization"); };
   return {
-    kernel_data: mapTuple(o.kernelData, (v: PreviousKernelData) => fromPreviousKernelData(v)),
-    start_note_hash_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNoteHashTreeSnapshot),
-    start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
-    start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
-    start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
-    start_historic_blocks_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startHistoricBlocksTreeSnapshot),
-    low_nullifier_leaf_preimages: mapTuple(o.lowNullifierLeafPreimages, (v: NullifierLeafPreimage) =>
-      fromNullifierLeafPreimage(v),
-    ),
-    low_nullifier_membership_witness: mapTuple(o.lowNullifierMembershipWitness, (v: MembershipWitness20) =>
-      fromMembershipWitness20(v),
-    ),
-    new_commitments_subtree_sibling_path: mapTuple(o.newCommitmentsSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
-    new_nullifiers_subtree_sibling_path: mapTuple(o.newNullifiersSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
-    new_contracts_subtree_sibling_path: mapTuple(o.newContractsSubtreeSiblingPath, (v: Fr) => toBuffer(v)),
-    new_public_data_update_requests_sibling_paths: mapTuple(
-      o.newPublicDataUpdateRequestsSiblingPaths,
-      (v: Tuple<Fr, 254>) => mapTuple(v, (v: Fr) => toBuffer(v)),
-    ),
-    new_public_data_reads_sibling_paths: mapTuple(o.newPublicDataReadsSiblingPaths, (v: Tuple<Fr, 254>) =>
-      mapTuple(v, (v: Fr) => toBuffer(v)),
-    ),
-    historic_blocks_tree_root_membership_witnesses: mapTuple(
-      o.historicBlocksTreeRootMembershipWitnesses,
-      (v: MembershipWitness16) => fromMembershipWitness16(v),
-    ),
-    constants: fromConstantRollupData(o.constants),
+    mergeProof: o.merge_proof.map((v: Buffer) => v),
+    eccvmProof: toECCVMProof(o.eccvm_proof),
+    translatorProof: o.translator_proof.map((v: Buffer) => v),
   };
 }
 
-interface MsgpackBaseOrMergeRollupPublicInputs {
-  rollup_type: number;
-  rollup_subtree_height: Buffer;
-  end_aggregation_object: MsgpackNativeAggregationState;
-  constants: MsgpackConstantRollupData;
-  start_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_note_hash_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  end_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
-  start_public_data_tree_root: Buffer;
-  end_public_data_tree_root: Buffer;
-  calldata_hash: Tuple<Buffer, 2>;
+export function fromGoblinProof(o: GoblinProof): MsgpackGoblinProof {
+  if (o.mergeProof === undefined) { throw new Error("Expected mergeProof in GoblinProof serialization"); }
+  if (o.eccvmProof === undefined) { throw new Error("Expected eccvmProof in GoblinProof serialization"); }
+  if (o.translatorProof === undefined) { throw new Error("Expected translatorProof in GoblinProof serialization"); };
+  return {
+  merge_proof: o.mergeProof.map((v: Fr) => v),
+  eccvm_proof: fromECCVMProof(o.eccvmProof),
+  translator_proof: o.translatorProof.map((v: Fr) => v),};
+}
+export interface Proof {
+  megaProof: Fr[];
+  goblinProof: GoblinProof;
 }
 
-export function toBaseOrMergeRollupPublicInputs(
-  o: MsgpackBaseOrMergeRollupPublicInputs,
-): BaseOrMergeRollupPublicInputs {
-  if (o.rollup_type === undefined) {
-    throw new Error('Expected rollup_type in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.rollup_subtree_height === undefined) {
-    throw new Error('Expected rollup_subtree_height in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.end_aggregation_object === undefined) {
-    throw new Error('Expected end_aggregation_object in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.constants === undefined) {
-    throw new Error('Expected constants in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.start_note_hash_tree_snapshot === undefined) {
-    throw new Error('Expected start_note_hash_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.end_note_hash_tree_snapshot === undefined) {
-    throw new Error('Expected end_note_hash_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.start_nullifier_tree_snapshot === undefined) {
-    throw new Error('Expected start_nullifier_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.end_nullifier_tree_snapshot === undefined) {
-    throw new Error('Expected end_nullifier_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.start_contract_tree_snapshot === undefined) {
-    throw new Error('Expected start_contract_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.end_contract_tree_snapshot === undefined) {
-    throw new Error('Expected end_contract_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.start_public_data_tree_root === undefined) {
-    throw new Error('Expected start_public_data_tree_root in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.end_public_data_tree_root === undefined) {
-    throw new Error('Expected end_public_data_tree_root in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  if (o.calldata_hash === undefined) {
-    throw new Error('Expected calldata_hash in BaseOrMergeRollupPublicInputs deserialization');
-  }
-  return new BaseOrMergeRollupPublicInputs(
-    o.rollup_type,
-    Fr.fromBuffer(o.rollup_subtree_height),
-    toNativeAggregationState(o.end_aggregation_object),
-    toConstantRollupData(o.constants),
-    toAppendOnlyTreeSnapshot(o.start_note_hash_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_note_hash_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_nullifier_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
-    toAppendOnlyTreeSnapshot(o.end_contract_tree_snapshot),
-    Fr.fromBuffer(o.start_public_data_tree_root),
-    Fr.fromBuffer(o.end_public_data_tree_root),
-    mapTuple(o.calldata_hash, (v: Buffer) => Fr.fromBuffer(v)),
-  );
+interface MsgpackProof {
+  mega_proof: Buffer[];
+  goblin_proof: MsgpackGoblinProof;
 }
 
-export function baseRollupSim(wasm: IWasmModule, arg0: BaseRollupInputs): CircuitError | BaseOrMergeRollupPublicInputs {
-  return ((v: [number, MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs]) =>
-    v[0] == 0
-      ? toCircuitError(v[1] as MsgpackCircuitError)
-      : toBaseOrMergeRollupPublicInputs(v[1] as MsgpackBaseOrMergeRollupPublicInputs))(
-    callCbind(wasm, 'base_rollup__sim', [fromBaseRollupInputs(arg0)]),
-  );
+export function toProof(o: MsgpackProof): Proof {
+  if (o.mega_proof === undefined) { throw new Error("Expected mega_proof in Proof deserialization"); }
+  if (o.goblin_proof === undefined) { throw new Error("Expected goblin_proof in Proof deserialization"); };
+  return {
+    megaProof: o.mega_proof.map((v: Buffer) => v),
+    goblinProof: toGoblinProof(o.goblin_proof),
+  };
+}
+
+export function fromProof(o: Proof): MsgpackProof {
+  if (o.megaProof === undefined) { throw new Error("Expected megaProof in Proof serialization"); }
+  if (o.goblinProof === undefined) { throw new Error("Expected goblinProof in Proof serialization"); };
+  return {
+  mega_proof: o.megaProof.map((v: Fr) => v),
+  goblin_proof: fromGoblinProof(o.goblinProof),};
+}
+export interface ClientIvcProveResponse {
+  proof: Proof;
+}
+
+interface MsgpackClientIvcProveResponse {
+  proof: MsgpackProof;
+}
+
+export function toClientIvcProveResponse(o: MsgpackClientIvcProveResponse): ClientIvcProveResponse {
+  if (o.proof === undefined) { throw new Error("Expected proof in ClientIvcProveResponse deserialization"); };
+  return {
+    proof: toProof(o.proof),
+  };
+}
+
+export function fromClientIvcProveResponse(o: ClientIvcProveResponse): MsgpackClientIvcProveResponse {
+  if (o.proof === undefined) { throw new Error("Expected proof in ClientIvcProveResponse serialization"); };
+  return {
+  proof: fromProof(o.proof),};
+}
+export interface ProofAsFieldsResponse {
+  fields: Fr[];
+}
+
+interface MsgpackProofAsFieldsResponse {
+  fields: Buffer[];
+}
+
+export function toProofAsFieldsResponse(o: MsgpackProofAsFieldsResponse): ProofAsFieldsResponse {
+  if (o.fields === undefined) { throw new Error("Expected fields in ProofAsFieldsResponse deserialization"); };
+  return {
+    fields: o.fields.map((v: Buffer) => v),
+  };
+}
+
+export function fromProofAsFieldsResponse(o: ProofAsFieldsResponse): MsgpackProofAsFieldsResponse {
+  if (o.fields === undefined) { throw new Error("Expected fields in ProofAsFieldsResponse serialization"); };
+  return {
+  fields: o.fields.map((v: Fr) => v),};
+}
+export interface VkAsFieldsResponse {
+  fields: Fr[];
+}
+
+interface MsgpackVkAsFieldsResponse {
+  fields: Buffer[];
+}
+
+export function toVkAsFieldsResponse(o: MsgpackVkAsFieldsResponse): VkAsFieldsResponse {
+  if (o.fields === undefined) { throw new Error("Expected fields in VkAsFieldsResponse deserialization"); };
+  return {
+    fields: o.fields.map((v: Buffer) => v),
+  };
+}
+
+export function fromVkAsFieldsResponse(o: VkAsFieldsResponse): MsgpackVkAsFieldsResponse {
+  if (o.fields === undefined) { throw new Error("Expected fields in VkAsFieldsResponse serialization"); };
+  return {
+  fields: o.fields.map((v: Fr) => v),};
+}
+export interface CircuitWriteSolidityVerifierResponse {
+  solidityCode: string;
+}
+
+interface MsgpackCircuitWriteSolidityVerifierResponse {
+  solidity_code: string;
+}
+
+export function toCircuitWriteSolidityVerifierResponse(o: MsgpackCircuitWriteSolidityVerifierResponse): CircuitWriteSolidityVerifierResponse {
+  if (o.solidity_code === undefined) { throw new Error("Expected solidity_code in CircuitWriteSolidityVerifierResponse deserialization"); };
+  return {
+    solidityCode: o.solidity_code,
+  };
+}
+
+export function fromCircuitWriteSolidityVerifierResponse(o: CircuitWriteSolidityVerifierResponse): MsgpackCircuitWriteSolidityVerifierResponse {
+  if (o.solidityCode === undefined) { throw new Error("Expected solidityCode in CircuitWriteSolidityVerifierResponse serialization"); };
+  return {
+  solidity_code: o.solidityCode,};
+}
+export interface CircuitProveAndVerifyResponse {
+  verified: boolean;
+  proof: Fr[];
+  publicInputs: Fr[];
+}
+
+interface MsgpackCircuitProveAndVerifyResponse {
+  verified: boolean;
+  proof: Buffer[];
+  public_inputs: Buffer[];
+}
+
+export function toCircuitProveAndVerifyResponse(o: MsgpackCircuitProveAndVerifyResponse): CircuitProveAndVerifyResponse {
+  if (o.verified === undefined) { throw new Error("Expected verified in CircuitProveAndVerifyResponse deserialization"); }
+  if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveAndVerifyResponse deserialization"); }
+  if (o.public_inputs === undefined) { throw new Error("Expected public_inputs in CircuitProveAndVerifyResponse deserialization"); };
+  return {
+    verified: o.verified,
+    proof: o.proof.map((v: Buffer) => v),
+    publicInputs: o.public_inputs.map((v: Buffer) => v),
+  };
+}
+
+export function fromCircuitProveAndVerifyResponse(o: CircuitProveAndVerifyResponse): MsgpackCircuitProveAndVerifyResponse {
+  if (o.verified === undefined) { throw new Error("Expected verified in CircuitProveAndVerifyResponse serialization"); }
+  if (o.proof === undefined) { throw new Error("Expected proof in CircuitProveAndVerifyResponse serialization"); }
+  if (o.publicInputs === undefined) { throw new Error("Expected publicInputs in CircuitProveAndVerifyResponse serialization"); };
+  return {
+  verified: o.verified,
+  proof: o.proof.map((v: Fr) => v),
+  public_inputs: o.publicInputs.map((v: Fr) => v),};
+}
+export interface CircuitBenchmarkResponse {
+  witnessGenerationTimeMs: number;
+  provingTimeMs: number;
+  verificationTimeMs: number;
+  peakMemoryBytes: number;
+}
+
+interface MsgpackCircuitBenchmarkResponse {
+  witness_generation_time_ms: number;
+  proving_time_ms: number;
+  verification_time_ms: number;
+  peak_memory_bytes: number;
+}
+
+export function toCircuitBenchmarkResponse(o: MsgpackCircuitBenchmarkResponse): CircuitBenchmarkResponse {
+  if (o.witness_generation_time_ms === undefined) { throw new Error("Expected witness_generation_time_ms in CircuitBenchmarkResponse deserialization"); }
+  if (o.proving_time_ms === undefined) { throw new Error("Expected proving_time_ms in CircuitBenchmarkResponse deserialization"); }
+  if (o.verification_time_ms === undefined) { throw new Error("Expected verification_time_ms in CircuitBenchmarkResponse deserialization"); }
+  if (o.peak_memory_bytes === undefined) { throw new Error("Expected peak_memory_bytes in CircuitBenchmarkResponse deserialization"); };
+  return {
+    witnessGenerationTimeMs: o.witness_generation_time_ms,
+    provingTimeMs: o.proving_time_ms,
+    verificationTimeMs: o.verification_time_ms,
+    peakMemoryBytes: o.peak_memory_bytes,
+  };
+}
+
+export function fromCircuitBenchmarkResponse(o: CircuitBenchmarkResponse): MsgpackCircuitBenchmarkResponse {
+  if (o.witnessGenerationTimeMs === undefined) { throw new Error("Expected witnessGenerationTimeMs in CircuitBenchmarkResponse serialization"); }
+  if (o.provingTimeMs === undefined) { throw new Error("Expected provingTimeMs in CircuitBenchmarkResponse serialization"); }
+  if (o.verificationTimeMs === undefined) { throw new Error("Expected verificationTimeMs in CircuitBenchmarkResponse serialization"); }
+  if (o.peakMemoryBytes === undefined) { throw new Error("Expected peakMemoryBytes in CircuitBenchmarkResponse serialization"); };
+  return {
+  witness_generation_time_ms: o.witnessGenerationTimeMs,
+  proving_time_ms: o.provingTimeMs,
+  verification_time_ms: o.verificationTimeMs,
+  peak_memory_bytes: o.peakMemoryBytes,};
+}
+export interface ClientIvcCheckPrecomputedVkResponse {
+  valid: boolean;
+}
+
+interface MsgpackClientIvcCheckPrecomputedVkResponse {
+  valid: boolean;
+}
+
+export function toClientIvcCheckPrecomputedVkResponse(o: MsgpackClientIvcCheckPrecomputedVkResponse): ClientIvcCheckPrecomputedVkResponse {
+  if (o.valid === undefined) { throw new Error("Expected valid in ClientIvcCheckPrecomputedVkResponse deserialization"); };
+  return {
+    valid: o.valid,
+  };
+}
+
+export function fromClientIvcCheckPrecomputedVkResponse(o: ClientIvcCheckPrecomputedVkResponse): MsgpackClientIvcCheckPrecomputedVkResponse {
+  if (o.valid === undefined) { throw new Error("Expected valid in ClientIvcCheckPrecomputedVkResponse serialization"); };
+  return {
+  valid: o.valid,};
+}
+
+export async function circuitProve(wasm: BarretenbergWasmBase, command: CircuitProve): Promise<CircuitProveResponse> {
+  const msgpackCommand = fromCircuitProve(command);
+  const result = await callCbind(wasm, 'CircuitProve', [msgpackCommand]);
+  return toCircuitProveResponse(result);
+}
+
+export async function circuitComputeVk(wasm: BarretenbergWasmBase, command: CircuitComputeVk): Promise<CircuitComputeVkResponse> {
+  const msgpackCommand = fromCircuitComputeVk(command);
+  const result = await callCbind(wasm, 'CircuitComputeVk', [msgpackCommand]);
+  return toCircuitComputeVkResponse(result);
+}
+
+export async function circuitInfo(wasm: BarretenbergWasmBase, command: CircuitInfo): Promise<CircuitInfoResponse> {
+  const msgpackCommand = fromCircuitInfo(command);
+  const result = await callCbind(wasm, 'CircuitInfo', [msgpackCommand]);
+  return toCircuitInfoResponse(result);
+}
+
+export async function circuitCheck(wasm: BarretenbergWasmBase, command: CircuitCheck): Promise<CircuitCheckResponse> {
+  const msgpackCommand = fromCircuitCheck(command);
+  const result = await callCbind(wasm, 'CircuitCheck', [msgpackCommand]);
+  return toCircuitCheckResponse(result);
+}
+
+export async function circuitVerify(wasm: BarretenbergWasmBase, command: CircuitVerify): Promise<CircuitVerifyResponse> {
+  const msgpackCommand = fromCircuitVerify(command);
+  const result = await callCbind(wasm, 'CircuitVerify', [msgpackCommand]);
+  return toCircuitVerifyResponse(result);
+}
+
+export async function clientIvcComputeStandaloneVk(wasm: BarretenbergWasmBase, command: ClientIvcComputeStandaloneVk): Promise<ClientIvcComputeStandaloneVkResponse> {
+  const msgpackCommand = fromClientIvcComputeStandaloneVk(command);
+  const result = await callCbind(wasm, 'ClientIvcComputeStandaloneVk', [msgpackCommand]);
+  return toClientIvcComputeStandaloneVkResponse(result);
+}
+
+export async function clientIvcComputeIvcVk(wasm: BarretenbergWasmBase, command: ClientIvcComputeIvcVk): Promise<ClientIvcComputeIvcVkResponse> {
+  const msgpackCommand = fromClientIvcComputeIvcVk(command);
+  const result = await callCbind(wasm, 'ClientIvcComputeIvcVk', [msgpackCommand]);
+  return toClientIvcComputeIvcVkResponse(result);
+}
+
+export async function clientIvcStart(wasm: BarretenbergWasmBase, command: ClientIvcStart): Promise<ClientIvcStartResponse> {
+  const msgpackCommand = fromClientIvcStart(command);
+  const result = await callCbind(wasm, 'ClientIvcStart', [msgpackCommand]);
+  return toClientIvcStartResponse(result);
+}
+
+export async function clientIvcLoad(wasm: BarretenbergWasmBase, command: ClientIvcLoad): Promise<ClientIvcLoadResponse> {
+  const msgpackCommand = fromClientIvcLoad(command);
+  const result = await callCbind(wasm, 'ClientIvcLoad', [msgpackCommand]);
+  return toClientIvcLoadResponse(result);
+}
+
+export async function clientIvcAccumulate(wasm: BarretenbergWasmBase, command: ClientIvcAccumulate): Promise<ClientIvcAccumulateResponse> {
+  const msgpackCommand = fromClientIvcAccumulate(command);
+  const result = await callCbind(wasm, 'ClientIvcAccumulate', [msgpackCommand]);
+  return toClientIvcAccumulateResponse(result);
+}
+
+export async function clientIvcProve(wasm: BarretenbergWasmBase, command: ClientIvcProve): Promise<ClientIvcProveResponse> {
+  const msgpackCommand = fromClientIvcProve(command);
+  const result = await callCbind(wasm, 'ClientIvcProve', [msgpackCommand]);
+  return toClientIvcProveResponse(result);
+}
+
+export async function proofAsFields(wasm: BarretenbergWasmBase, command: ProofAsFields): Promise<ProofAsFieldsResponse> {
+  const msgpackCommand = fromProofAsFields(command);
+  const result = await callCbind(wasm, 'ProofAsFields', [msgpackCommand]);
+  return toProofAsFieldsResponse(result);
+}
+
+export async function vkAsFields(wasm: BarretenbergWasmBase, command: VkAsFields): Promise<VkAsFieldsResponse> {
+  const msgpackCommand = fromVkAsFields(command);
+  const result = await callCbind(wasm, 'VkAsFields', [msgpackCommand]);
+  return toVkAsFieldsResponse(result);
+}
+
+export async function circuitWriteSolidityVerifier(wasm: BarretenbergWasmBase, command: CircuitWriteSolidityVerifier): Promise<CircuitWriteSolidityVerifierResponse> {
+  const msgpackCommand = fromCircuitWriteSolidityVerifier(command);
+  const result = await callCbind(wasm, 'CircuitWriteSolidityVerifier', [msgpackCommand]);
+  return toCircuitWriteSolidityVerifierResponse(result);
+}
+
+export async function circuitProveAndVerify(wasm: BarretenbergWasmBase, command: CircuitProveAndVerify): Promise<CircuitProveAndVerifyResponse> {
+  const msgpackCommand = fromCircuitProveAndVerify(command);
+  const result = await callCbind(wasm, 'CircuitProveAndVerify', [msgpackCommand]);
+  return toCircuitProveAndVerifyResponse(result);
+}
+
+export async function circuitBenchmark(wasm: BarretenbergWasmBase, command: CircuitBenchmark): Promise<CircuitBenchmarkResponse> {
+  const msgpackCommand = fromCircuitBenchmark(command);
+  const result = await callCbind(wasm, 'CircuitBenchmark', [msgpackCommand]);
+  return toCircuitBenchmarkResponse(result);
+}
+
+export async function clientIvcCheckPrecomputedVk(wasm: BarretenbergWasmBase, command: ClientIvcCheckPrecomputedVk): Promise<ClientIvcCheckPrecomputedVkResponse> {
+  const msgpackCommand = fromClientIvcCheckPrecomputedVk(command);
+  const result = await callCbind(wasm, 'ClientIvcCheckPrecomputedVk', [msgpackCommand]);
+  return toClientIvcCheckPrecomputedVkResponse(result);
 }

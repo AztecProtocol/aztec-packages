@@ -1,8 +1,5 @@
-import { IWasmModule } from '@aztec/foundation/wasm';
-
-import { decode, encode } from '@msgpack/msgpack';
-
-import { CircuitsWasm } from '../wasm/index.js';
+import { Decoder, Encoder } from "msgpackr";
+import { BarretenbergWasmBase } from "../barretenberg_wasm/barretenberg_wasm_base/index.js";
 
 /**
  * Recursively converts Uint8Arrays to Buffers in the input data structure.
@@ -37,27 +34,10 @@ function recursiveUint8ArrayToBuffer(data: any): any {
  * @param ptr32 - The address in WebAssembly memory.
  * @returns The read unsigned 32-bit integer.
  */
-function readPtr32(wasm: IWasmModule, ptr32: number) {
+function readPtr32(wasm: BarretenbergWasmBase, ptr32: number) {
   // Written in little-endian as WASM native
   const dataView = new DataView(wasm.getMemorySlice(ptr32, ptr32 + 4).buffer);
   return dataView.getUint32(0, /*little endian*/ true);
-}
-
-/**
- * Retrieves the JSON schema of a given C binding function from the WebAssembly module.
- *
- * @param wasm - The CircuitsWasm.
- * @param cbind - The name of the function.
- * @returns A JSON object representing the schema.
- */
-export function getCbindSchema(wasm: CircuitsWasm, cbind: string): any {
-  const outputSizePtr = wasm.call('bbmalloc', 4);
-  const outputMsgpackPtr = wasm.call('bbmalloc', 4);
-  wasm.call(cbind + '__schema', outputMsgpackPtr, outputSizePtr);
-  const jsonSchema = wasm.getMemoryAsString(readPtr32(wasm, outputMsgpackPtr));
-  wasm.call('bbfree', outputSizePtr);
-  wasm.call('bbfree', outputMsgpackPtr);
-  return JSON.parse(jsonSchema);
 }
 
 /**
@@ -68,10 +48,11 @@ export function getCbindSchema(wasm: CircuitsWasm, cbind: string): any {
  * @param input - An array of input arguments to wrap with msgpack.
  * @returns The msgpack-decoded result.
  */
-export function callCbind(wasm: IWasmModule, cbind: string, input: any[]): any {
+export function callCbind(wasm: BarretenbergWasmBase, cbind: string, input: any[]): any {
   const outputSizePtr = wasm.call('bbmalloc', 4);
   const outputMsgpackPtr = wasm.call('bbmalloc', 4);
-  const inputBuffer = encode(input);
+
+  const inputBuffer = new Encoder({ useRecords: false }).encode(input);
   const inputPtr = wasm.call('bbmalloc', inputBuffer.length);
   wasm.writeMemory(inputPtr, inputBuffer);
   wasm.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
@@ -79,7 +60,7 @@ export function callCbind(wasm: IWasmModule, cbind: string, input: any[]): any {
     readPtr32(wasm, outputMsgpackPtr),
     readPtr32(wasm, outputMsgpackPtr) + readPtr32(wasm, outputSizePtr),
   );
-  const result = recursiveUint8ArrayToBuffer(decode(encodedResult));
+  const result = recursiveUint8ArrayToBuffer(new Decoder({ useRecords: false }).decode(encodedResult));
   wasm.call('bbfree', inputPtr);
   wasm.call('bbfree', outputSizePtr);
   wasm.call('bbfree', outputMsgpackPtr);
