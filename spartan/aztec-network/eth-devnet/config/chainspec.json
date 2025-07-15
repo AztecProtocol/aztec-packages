@@ -6,7 +6,9 @@
         "minimumDifficulty": "0x0",
         "difficultyBoundDivisor": "0x800",
         "durationLimit": "0xd",
-        "blockReward": "0x0"
+        "blockReward": {
+          "0": "0x0"
+        }
       }
     }
   },
