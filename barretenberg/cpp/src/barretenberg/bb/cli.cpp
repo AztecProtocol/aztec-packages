@@ -287,7 +287,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (Slow).");
+        return subcommand->add_flag(
+            "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
     };
 
     /***************************************************************************************************************
