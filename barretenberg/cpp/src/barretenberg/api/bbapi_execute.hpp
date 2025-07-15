@@ -44,12 +44,6 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitBenchmark::Response,
                                    ClientIvcCheckPrecomputedVk::Response>;
 
-// Specifically check for ClientIvcStart, ClientIvcLoad, ClientIvcAccumulate, and ClientIvcProve
-// Helps type-check C++ code, but we don't use this distinction for RPC commands or WASM.
-template <typename T>
-concept RequiresBBApiRequest = std::is_same_v<T, ClientIvcStart> || std::is_same_v<T, ClientIvcLoad> ||
-                               std::is_same_v<T, ClientIvcAccumulate> || std::is_same_v<T, ClientIvcProve>;
-
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
  *
