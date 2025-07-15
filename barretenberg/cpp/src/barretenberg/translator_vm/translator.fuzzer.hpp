@@ -20,6 +20,21 @@ using Fr = curve::BN254::ScalarField;
 using Fq = curve::BN254::BaseField;
 using G1 = curve::BN254::AffineElement;
 
+// Read uint256_t from raw bytes.
+// Don't use dereference casts, since the data may be not aligned and it causes segfault
+uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
+{
+    ASSERT(buffer_size <= 32);
+
+    uint64_t parts[4] = { 0, 0, 0, 0 };
+
+    for (size_t i = 0; i < (buffer_size + 7) / 8; i++) {
+        size_t to_read = (buffer_size - i * 8) < 8 ? buffer_size - i * 8 : 8;
+        std::memcpy(&parts[i], data + i * 8, to_read);
+    }
+    return uint256_t(parts[0], parts[1], parts[2], parts[3]);
+}
+
 /**
  * @brief Parse raw operations for ECCOpQueue from the data stream
  *
@@ -59,14 +74,14 @@ std::optional<std::tuple<Fq, Fq, std::shared_ptr<ECCOpQueue>>> parse_and_constru
     if (size_left < sizeof(uint256_t)) {
         return {};
     }
-    const auto batching_challenge = Fq(*((uint256_t*)data));
+    const auto batching_challenge = Fq(read_uint256(data));
 
     // Try to parse evaluation challenge
     size_left -= sizeof(uint256_t);
     if (size_left < sizeof(uint256_t)) {
         return {};
     }
-    const auto x = Fq(*((uint256_t*)data));
+    const auto x = Fq(read_uint256(data));
     if (x.is_zero()) {
         return {};
     }

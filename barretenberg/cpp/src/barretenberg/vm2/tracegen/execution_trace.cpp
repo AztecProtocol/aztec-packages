@@ -25,6 +25,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -147,35 +148,37 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
 {
     switch (exec_opcode) {
     case ExecutionOpCode::GETENVVAR:
-        return C::execution_sel_get_env_var;
+        return C::execution_sel_execute_get_env_var;
     case ExecutionOpCode::SET:
-        return C::execution_sel_set;
+        return C::execution_sel_execute_set;
     case ExecutionOpCode::MOV:
-        return C::execution_sel_mov;
+        return C::execution_sel_execute_mov;
     case ExecutionOpCode::JUMP:
-        return C::execution_sel_jump;
+        return C::execution_sel_execute_jump;
     case ExecutionOpCode::JUMPI:
-        return C::execution_sel_jumpi;
+        return C::execution_sel_execute_jumpi;
     case ExecutionOpCode::CALL:
-        return C::execution_sel_call;
+        return C::execution_sel_execute_call;
     case ExecutionOpCode::STATICCALL:
-        return C::execution_sel_static_call;
+        return C::execution_sel_execute_static_call;
     case ExecutionOpCode::INTERNALCALL:
-        return C::execution_sel_internal_call;
+        return C::execution_sel_execute_internal_call;
     case ExecutionOpCode::INTERNALRETURN:
-        return C::execution_sel_internal_return;
+        return C::execution_sel_execute_internal_return;
     case ExecutionOpCode::RETURN:
-        return C::execution_sel_return;
+        return C::execution_sel_execute_return;
     case ExecutionOpCode::REVERT:
-        return C::execution_sel_revert;
+        return C::execution_sel_execute_revert;
     case ExecutionOpCode::SUCCESSCOPY:
-        return C::execution_sel_success_copy;
+        return C::execution_sel_execute_success_copy;
     case ExecutionOpCode::RETURNDATASIZE:
-        return C::execution_sel_returndata_size;
+        return C::execution_sel_execute_returndata_size;
     case ExecutionOpCode::DEBUGLOG:
-        return C::execution_sel_debug_log;
+        return C::execution_sel_execute_debug_log;
     case ExecutionOpCode::SLOAD:
-        return C::execution_sel_sload;
+        return C::execution_sel_execute_sload;
+    case ExecutionOpCode::SSTORE:
+        return C::execution_sel_execute_sstore;
     default:
         throw std::runtime_error("Execution opcode does not have a corresponding selector");
     }
@@ -448,7 +451,7 @@ void ExecutionTraceBuilder::process(
         bool oog = ex_event.error == ExecutionError::GAS;
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
-            process_gas(ex_event.gas_event, trace, row);
+            process_gas(ex_event.gas_event, *exec_opcode, trace, row);
         }
 
         /**************************************************************************************************
@@ -505,8 +508,8 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                              { C::execution_sel_call, is_call ? 1 : 0 },
-                              { C::execution_sel_static_call, is_static_call ? 1 : 0 },
+                              { C::execution_sel_execute_call, is_call ? 1 : 0 },
+                              { C::execution_sel_execute_static_call, is_static_call ? 1 : 0 },
                               { C::execution_constant_32, 32 },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
@@ -518,8 +521,8 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { {
                               // Exit reason - opcode or error
-                              { C::execution_sel_return, is_return ? 1 : 0 },
-                              { C::execution_sel_revert, is_revert ? 1 : 0 },
+                              { C::execution_sel_execute_return, is_return ? 1 : 0 },
+                              { C::execution_sel_execute_revert, is_revert ? 1 : 0 },
                               { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                               // Enqueued or nested exit dependent on if we are a child context
                               { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
@@ -537,6 +540,17 @@ void ExecutionTraceBuilder::process(
                           ex_event.before_context_event.internal_call_return_id != 0
                               ? FF(ex_event.before_context_event.internal_call_return_id).invert()
                               : 0);
+            } else if (exec_opcode == ExecutionOpCode::SSTORE) {
+                uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
+                                                 ex_event.before_context_event.tree_states.publicDataTree.counter;
+
+                trace.set(row,
+                          { {
+                              { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
+                              { C::execution_remaining_data_writes_inv,
+                                remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
+                              { C::execution_sel_write_public_data, !opcode_execution_failed },
+                          } });
             }
         }
 
@@ -659,7 +673,8 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 {
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
-    const auto& gas_cost = EXEC_INSTRUCTION_SPEC.at(exec_opcode).gas_cost;
+    const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+    const auto& gas_cost = exec_spec.gas_cost;
 
     // Gas.
     trace.set(row,
@@ -670,7 +685,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                   { C::execution_dynamic_da_gas, gas_cost.dyn_da },
               } });
 
-    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+    const auto& register_info = exec_spec.register_info;
     for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
         trace.set(row,
                   { {
@@ -683,7 +698,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
     }
 
     // Set is_address columns
-    const auto& num_addresses = EXEC_INSTRUCTION_SPEC.at(exec_opcode).num_addresses;
+    const auto& num_addresses = exec_spec.num_addresses;
     for (size_t i = 0; i < num_addresses; i++) {
         trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, 1);
     }
@@ -694,10 +709,14 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               { {
                   { C::execution_subtrace_id, get_subtrace_id(dispatch_to_subtrace.subtrace_selector) },
                   { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                  { C::execution_dyn_gas_id, exec_spec.dyn_gas_id },
               } });
 }
 
-void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
+void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
+                                        ExecutionOpCode exec_opcode,
+                                        TraceContainer& trace,
+                                        uint32_t row)
 {
     bool oog = gas_event.oog_l2 || gas_event.oog_da;
     trace.set(row,
@@ -714,6 +733,11 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event, T
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
+
+    if (gas_event.dynamic_gas_factor.l2Gas != 0 || gas_event.dynamic_gas_factor.daGas != 0) {
+        const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+        trace.set(get_dyn_gas_selector(exec_spec.dyn_gas_id), row, 1);
+    }
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
@@ -951,7 +975,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
 
     trace.set(row,
               { {
-                  { C::execution_sel_should_get_env_var, 1 },
+                  { C::execution_sel_execute_get_env_var, 1 },
                   { C::execution_sel_envvar_pi_lookup_col0, envvar_spec.envvar_pi_lookup_col0 ? 1 : 0 },
                   { C::execution_sel_envvar_pi_lookup_col1, envvar_spec.envvar_pi_lookup_col1 ? 1 : 0 },
                   { C::execution_envvar_pi_row_idx, envvar_spec.envvar_pi_row_idx },
@@ -971,6 +995,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_execution_check_written_storage_slot_settings, InteractionType::LookupSequential>()
         // Bytecode retrieval
         .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
@@ -1018,6 +1043,9 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>()
         // Sload
-        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>();
+        .add<lookup_sload_storage_read_settings, InteractionType::LookupGeneric>()
+        // Sstore
+        .add<lookup_sstore_record_written_storage_slot_settings, InteractionType::LookupSequential>()
+        .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

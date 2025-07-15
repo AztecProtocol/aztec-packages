@@ -142,7 +142,7 @@ mod test {
     use super::BalanceSet;
     use dep::aztec::{
         protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToField},
-        test::helpers::cheatcodes,
+        test::helpers::txe_oracles,
     };
 
     #[test]
@@ -156,13 +156,13 @@ mod test {
         Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
             &mut env.private(),
         );
-        env.advance_block_by(1);
+        env.mine_block();
 
         let large_mint_amount: u128 = 50;
         Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
             &mut env.private(),
         );
-        env.advance_block_by(1);
+        env.mine_block();
 
         // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
         // the notes.
@@ -175,7 +175,7 @@ mod test {
         // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the small
         // note. Because large notes are consumed first, we should see that a change note is created with amount equal
         // to large - small, indicating that the large note was consumed.
-        cheatcodes::set_contract_address(token_contract_address);
+        txe_oracles::set_contract_address(token_contract_address);
         let recipient_balance_storage_slot =
             derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient.to_field());
 
@@ -199,13 +199,13 @@ mod test {
         Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
             &mut env.private(),
         );
-        env.advance_block_by(1);
+        env.mine_block();
 
         let small_mint_amount: u128 = 5;
         Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
             &mut env.private(),
         );
-        env.advance_block_by(1);
+        env.mine_block();
 
         // We check the recipient balance is correct both as a sanity check and as a way to make sure we've discovered
         // the notes.
@@ -218,7 +218,7 @@ mod test {
         // We now instantiate a BalanceSet state variable for the recipient and subtract an amount equal to the small
         // note. Because large notes are consumed first, we should see that a change note is created with amount equal
         // to large - small, indicating that the large note was consumed.
-        cheatcodes::set_contract_address(token_contract_address);
+        txe_oracles::set_contract_address(token_contract_address);
         let recipient_balance_storage_slot =
             derive_storage_slot_in_map(Token::storage_layout().balances.slot, recipient.to_field());
 

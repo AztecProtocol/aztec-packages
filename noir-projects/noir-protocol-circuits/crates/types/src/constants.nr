@@ -522,9 +522,9 @@ pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 pub global TUBE_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH; // in the future these can differ
 
-pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 112; // size of an Ultra verification key
-pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 113; // size of an Ultra Rollup verification key
-pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
+pub global HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 111; // size of an Ultra verification key
+pub global ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 111; // size of an Ultra Rollup verification key
+pub global CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 123; // size of a Mega verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -629,6 +629,14 @@ pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
 pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_ECC;
 pub global AVM_SUBTRACE_ID_DATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
 
+// Dynamic Gas Opcode IDs
+pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
+pub global AVM_DYN_GAS_ID_RETURNDATACOPY: u32 = 2 * AVM_DYN_GAS_ID_CALLDATACOPY;
+pub global AVM_DYN_GAS_ID_TORADIX: u32 = 2 * AVM_DYN_GAS_ID_RETURNDATACOPY;
+pub global AVM_DYN_GAS_ID_BITWISE: u32 = 2 * AVM_DYN_GAS_ID_TORADIX;
+pub global AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG: u32 = 2 * AVM_DYN_GAS_ID_BITWISE;
+pub global AVM_DYN_GAS_ID_SSTORE: u32 = 2 * AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG;
+
 // Execution Opcode IDs
 // Note: these are all powers of 2 to allow for binary decomposition.
 pub global AVM_EXEC_OP_ID_GETENVVAR: u32 = 1;
@@ -646,6 +654,7 @@ pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
 pub global AVM_EXEC_OP_ID_RETURNDATASIZE: u32 = 2 * AVM_EXEC_OP_ID_SUCCESSCOPY;
 pub global AVM_EXEC_OP_ID_DEBUGLOG: u32 = 2 * AVM_EXEC_OP_ID_RETURNDATASIZE;
 pub global AVM_EXEC_OP_ID_SLOAD: u32 = 2 * AVM_EXEC_OP_ID_DEBUGLOG;
+pub global AVM_EXEC_OP_ID_SSTORE: u32 = 2 * AVM_EXEC_OP_ID_SLOAD;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.
@@ -657,6 +666,9 @@ pub global AVM_EXEC_OP_ID_ALU_FDIV: u32 = 2 * AVM_EXEC_OP_ID_ALU_DIV;
 pub global AVM_EXEC_OP_ID_ALU_EQ: u32 = 2 * AVM_EXEC_OP_ID_ALU_FDIV;
 pub global AVM_EXEC_OP_ID_ALU_LT: u32 = 2 * AVM_EXEC_OP_ID_ALU_EQ;
 pub global AVM_EXEC_OP_ID_ALU_LTE: u32 = 2 * AVM_EXEC_OP_ID_ALU_LT;
+pub global AVM_EXEC_OP_ID_ALU_NOT: u32 = 2 * AVM_EXEC_OP_ID_ALU_LTE;
+pub global AVM_EXEC_OP_ID_ALU_SHL: u32 = 2 * AVM_EXEC_OP_ID_ALU_NOT;
+pub global AVM_EXEC_OP_ID_ALU_SHR: u32 = 2 * AVM_EXEC_OP_ID_ALU_SHL;
 
 // AvmCircuitPublicInputs - row indices
 // Global Variables

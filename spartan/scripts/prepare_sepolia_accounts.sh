@@ -67,6 +67,7 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 
 # Get the number of replicas for each service
 num_validators=$(./read_value.sh "validator.replicas" $value_yamls)
+validators_per_node=$(./read_value.sh "validator.keysPerNode" $value_yamls)
 num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
 
 # Get the key index start values
@@ -83,7 +84,7 @@ else
 fi
 
 # Calculate the highest index needed
-validator_max_index=$((validator_key_index_start + num_validators - 1))
+validator_max_index=$((validator_key_index_start + num_validators * validators_per_node - 1))
 prover_max_index=$((prover_key_index_start + num_provers - 1))
 bot_max_index=$([ "$bot_enabled" = "true" ] && echo $((bot_key_index_start + num_bots - 1)) || echo 0)
 
@@ -92,7 +93,7 @@ max_index=$((validator_max_index > prover_max_index ? validator_max_index : prov
 max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 
 # Total number of accounts needed
-total_accounts=$((num_validators + num_provers + num_bots))
+total_accounts=$((num_validators * validators_per_node + num_provers + num_bots))
 
 # Check if mnemonic is provided
 if [ "${MNEMONIC:-}" = "" ]; then
@@ -123,7 +124,7 @@ declare -a indices_to_fund
 
 # Add validator indices
 for ((i = 0; i < num_validators; i++)); do
-  indices_to_fund+=($((validator_key_index_start + i)))
+  indices_to_fund+=($((validator_key_index_start + validators_per_node * i)))
 done
 
 # Add prover indices

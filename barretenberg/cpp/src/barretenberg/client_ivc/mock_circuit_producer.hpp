@@ -150,7 +150,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
      */
     auto precompute_vks(const size_t num_circuits, TraceSettings trace_settings)
     {
-        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
+        ClientIVC ivc{ num_circuits,
+                       trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
         std::vector<std::shared_ptr<VerificationKey>> vks;
 
@@ -194,7 +195,7 @@ class ClientIVCMockCircuitProducer {
     {
         ClientCircuit circuit{ ivc.goblin.op_queue };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
-        while (circuit.get_num_public_inputs() < num_public_inputs) {
+        while (circuit.num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
         }
         if (is_kernel) {
@@ -209,7 +210,8 @@ class ClientIVCMockCircuitProducer {
 
     auto precompute_vks(const size_t num_circuits, TraceSettings trace_settings, size_t log2_num_gates = 16)
     {
-        ClientIVC ivc{ trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
+        ClientIVC ivc{ num_circuits,
+                       trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
 
         std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> vks;
 

@@ -34,16 +34,16 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-constexpr std::array<WireOpCode, 22> WIRE_OPCODES = {
+constexpr std::array<WireOpCode, 23> WIRE_OPCODES = {
     WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::SET_16,    WireOpCode::SET_32,
     WireOpCode::SET_64,       WireOpCode::SET_128,        WireOpCode::SET_FF,    WireOpCode::MOV_8,
     WireOpCode::MOV_16,       WireOpCode::JUMP_32,        WireOpCode::JUMPI_32,  WireOpCode::CALL,
     WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,    WireOpCode::SUCCESSCOPY,
     WireOpCode::STATICCALL,   WireOpCode::REVERT_8,       WireOpCode::REVERT_16, WireOpCode::RETURNDATASIZE,
-    WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,
+    WireOpCode::DEBUGLOG,     WireOpCode::SLOAD,          WireOpCode::SSTORE,
 };
 
-constexpr std::array<uint32_t, 22> OPERATION_IDS = {
+constexpr std::array<uint32_t, 23> OPERATION_IDS = {
     AVM_EXEC_OP_ID_GETENVVAR,    AVM_EXEC_OP_ID_SET,
     AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
     AVM_EXEC_OP_ID_SET,          AVM_EXEC_OP_ID_SET,
@@ -55,20 +55,22 @@ constexpr std::array<uint32_t, 22> OPERATION_IDS = {
     AVM_EXEC_OP_ID_STATICCALL,   AVM_EXEC_OP_ID_REVERT,
     AVM_EXEC_OP_ID_REVERT,       AVM_EXEC_OP_ID_RETURNDATASIZE,
     AVM_EXEC_OP_ID_DEBUGLOG,     AVM_EXEC_OP_ID_SLOAD,
+    AVM_EXEC_OP_ID_SSTORE,
 };
 
-constexpr std::array<C, 22> SELECTOR_COLUMNS = {
-    C::execution_sel_get_env_var,   C::execution_sel_set,
-    C::execution_sel_set,           C::execution_sel_set,
-    C::execution_sel_set,           C::execution_sel_set,
-    C::execution_sel_set,           C::execution_sel_mov,
-    C::execution_sel_mov,           C::execution_sel_jump,
-    C::execution_sel_jumpi,         C::execution_sel_call,
-    C::execution_sel_internal_call, C::execution_sel_internal_return,
-    C::execution_sel_return,        C::execution_sel_success_copy,
-    C::execution_sel_static_call,   C::execution_sel_revert,
-    C::execution_sel_revert,        C::execution_sel_returndata_size,
-    C::execution_sel_debug_log,     C::execution_sel_sload,
+constexpr std::array<C, 23> SELECTOR_COLUMNS = {
+    C::execution_sel_execute_get_env_var,   C::execution_sel_execute_set,
+    C::execution_sel_execute_set,           C::execution_sel_execute_set,
+    C::execution_sel_execute_set,           C::execution_sel_execute_set,
+    C::execution_sel_execute_set,           C::execution_sel_execute_mov,
+    C::execution_sel_execute_mov,           C::execution_sel_execute_jump,
+    C::execution_sel_execute_jumpi,         C::execution_sel_execute_call,
+    C::execution_sel_execute_internal_call, C::execution_sel_execute_internal_return,
+    C::execution_sel_execute_return,        C::execution_sel_execute_success_copy,
+    C::execution_sel_execute_static_call,   C::execution_sel_execute_revert,
+    C::execution_sel_execute_revert,        C::execution_sel_execute_returndata_size,
+    C::execution_sel_execute_debug_log,     C::execution_sel_execute_sload,
+    C::execution_sel_execute_sstore,
 };
 
 // Ensure that WIRE_OPCODES contains all wire opcodes which have an execution opcode belonging
@@ -99,7 +101,7 @@ TEST(ExecOpIdConstrainingTest, DISABLED_Decomposition)
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         TestTraceContainer trace({
             {
-                { C::execution_sel_execution, 1 },
+                { C::execution_sel_execute_execution, 1 },
                 { C::execution_subtrace_operation_id, OPERATION_IDS.at(i) },
                 { SELECTOR_COLUMNS.at(i), 1 },
             },
@@ -148,7 +150,7 @@ TEST(ExecOpIdConstrainingTest, DISABLED_InteractionWithExecInstructionSpec)
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         ASSERT_EQ(trace.get(C::execution_subtrace_operation_id, static_cast<uint32_t>(i + 1)), OPERATION_IDS.at(i));
         ASSERT_EQ(trace.get(C::execution_subtrace_id, static_cast<uint32_t>(i + 1)), AVM_SUBTRACE_ID_EXECUTION);
-        ASSERT_EQ(trace.get(C::execution_sel_execution, static_cast<uint32_t>(i + 1)), 1);
+        ASSERT_EQ(trace.get(C::execution_sel_execute_execution, static_cast<uint32_t>(i + 1)), 1);
     }
 
     // Activate the lookup selector execution_sel_instruction_fetching_success for each row.

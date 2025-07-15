@@ -444,6 +444,17 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::LTE,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_LTE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
+                                           /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::NOT,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_NOT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /*a*/ RegisterInfo::ANY_TAG }).add_output(/*b*/) } },
     { ExecutionOpCode::GETENVVAR,
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_GETENVVAR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -480,6 +491,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .base_da = 0,
                       .dyn_l2 = AVM_CALLDATACOPY_DYN_L2_GAS,
                       .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_CALLDATACOPY,
         .register_info =
             RegisterInfo().add_inputs({ /*cd_copy_size*/ ValueTag::U32, /*cd_offset_read*/ ValueTag::U32 }) } },
     { ExecutionOpCode::SUCCESSCOPY,
@@ -492,6 +504,7 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .base_da = 0,
                       .dyn_l2 = AVM_RETURNDATACOPY_DYN_L2_GAS,
                       .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_RETURNDATACOPY,
         .register_info =
             RegisterInfo().add_inputs({ /*rd_copy_size*/ ValueTag::U32, /*rd_offset_read*/ ValueTag::U32 }) } },
     { ExecutionOpCode::INTERNALCALL,
@@ -525,18 +538,21 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::AND,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_AND_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
         .register_info = RegisterInfo()
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
     { ExecutionOpCode::OR,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_OR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
         .register_info = RegisterInfo()
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
     { ExecutionOpCode::XOR,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_XOR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
         .register_info = RegisterInfo()
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
@@ -544,6 +560,14 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_SLOAD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_input(/*slot*/ ValueTag::FF).add_output(/*dst*/) } },
+    { ExecutionOpCode::SSTORE,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_SSTORE_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = 0,
+                      .dyn_da = AVM_SSTORE_DYN_DA_GAS },
+        .dyn_gas_id = AVM_DYN_GAS_ID_SSTORE,
+        .register_info = RegisterInfo().add_inputs({ /*src*/ ValueTag::FF, /*slot*/ ValueTag::FF }) } },
 };
 
 } // namespace bb::avm2

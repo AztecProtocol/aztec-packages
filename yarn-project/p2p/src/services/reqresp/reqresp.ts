@@ -27,6 +27,7 @@ import {
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
@@ -117,6 +118,22 @@ export class ReqResp implements ReqRespInterface {
       );
     }
     this.rateLimiter.start();
+  }
+
+  async addSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol] = DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol],
+  ): Promise<void> {
+    this.subProtocolHandlers[subProtocol] = handler;
+    this.subProtocolValidators[subProtocol] = validator;
+    await this.libp2p.handle(
+      subProtocol,
+      (data: IncomingStreamData) =>
+        void this.streamHandler(subProtocol as ReqRespSubProtocol, data).catch(err =>
+          this.logger.error(`Error on libp2p subprotocol ${subProtocol} handler`, err),
+        ),
+    );
   }
 
   /**
@@ -421,78 +438,10 @@ export class ReqResp implements ReqRespInterface {
    * @returns If the error is non pubishable, then undefined is returned, otherwise the peer is penalized
    */
   private handleResponseError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
-    const severity = this.categorizeError(e, peerId, subProtocol);
+    const severity = this.categorizeResponseError(e, peerId, subProtocol);
     if (severity) {
       this.peerScoring.penalizePeer(peerId, severity);
     }
-  }
-
-  /**
-   * Categorize the error and log it.
-   */
-  private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
-    const logTags = { peerId: peerId.toString(), subProtocol };
-
-    // Non punishable errors - we do not expect a response for goodbye messages
-    if (subProtocol === ReqRespSubProtocol.GOODBYE) {
-      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', logTags);
-      return undefined;
-    }
-
-    // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
-    if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
-      this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
-      return undefined;
-    }
-
-    // Do not punish if we are stopping the service
-    if (e instanceof AbortError) {
-      this.logger.debug(`Request aborted: ${e.message}`, logTags);
-      return undefined;
-    }
-
-    // Do not punish if we are the ones closing the connection
-    if (
-      e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
-      e?.code === 'ERR_CONNECTION_CLOSED' ||
-      e?.code === 'ERR_TRANSIENT_CONNECTION' ||
-      e?.message?.includes('Muxer already closed')
-    ) {
-      this.logger.debug(
-        `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
-        logTags,
-      );
-      return undefined;
-    }
-
-    // Pubishable errors
-    // Connection reset errors in the networking stack are punished with high severity
-    // it just signals an unreliable peer
-    // We assume that the requesting node has a functioning networking stack.
-    if (e?.code === 'ECONNRESET' || e?.code === 'EPIPE') {
-      this.logger.debug(`Connection reset: ${peerId.toString()}`, logTags);
-      return PeerErrorSeverity.HighToleranceError;
-    }
-
-    if (e?.code === 'ECONNREFUSED') {
-      this.logger.debug(`Connection refused: ${peerId.toString()}`, logTags);
-      return PeerErrorSeverity.HighToleranceError;
-    }
-
-    if (e?.code === 'ERR_UNEXPECTED_EOF') {
-      this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
-      return PeerErrorSeverity.HighToleranceError;
-    }
-
-    // Timeout errors are punished with high tolerance, they can be due to a geographically far away or overloaded peer
-    if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
-      this.logger.debug(`Timeout error in ${subProtocol}: ${e.message}`, logTags);
-      return PeerErrorSeverity.HighToleranceError;
-    }
-
-    // Catch all error
-    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
-    return PeerErrorSeverity.HighToleranceError;
   }
 
   /**
@@ -586,9 +535,10 @@ export class ReqResp implements ReqRespInterface {
       await this.processStream(protocol, incomingStream);
     } catch (err: any) {
       this.metrics.recordResponseError(protocol);
+      this.handleRequestError(err, connection.remotePeer, protocol);
 
       if (err instanceof ReqRespStatusError) {
-        const errorSent = await this.trySendError(stream, err.status);
+        const errorSent = await this.trySendError(stream, connection.remotePeer, protocol, err.status);
         const logMessage = errorSent
           ? 'Protocol error sent successfully'
           : 'Stream already closed or poisoned, not sending error response';
@@ -659,7 +609,12 @@ export class ReqResp implements ReqRespInterface {
    * @returns true if error was sent successfully, otherwise false
    *
    */
-  private async trySendError(stream: Stream, status: ReqRespStatus): Promise<boolean> {
+  private async trySendError(
+    stream: Stream,
+    peerId: PeerId,
+    protocol: ReqRespSubProtocol,
+    status: ReqRespStatus,
+  ): Promise<boolean> {
     const canWriteToStream =
       // 'writing' is a bit weird naming, but it actually means that the stream is ready to write
       // 'ready' means that stream ready to be opened for writing
@@ -682,9 +637,129 @@ export class ReqResp implements ReqRespInterface {
       return true;
     } catch (e: any) {
       this.logger.warn('Error while sending error response', e);
-
       stream.abort(e);
+
+      this.handleRequestError(e, peerId, protocol);
       return false;
     }
+  }
+
+  private handleRequestError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): void {
+    const severity = this.categorizeRequestError(e, peerId, subProtocol);
+    if (severity) {
+      this.peerScoring.penalizePeer(peerId, severity);
+    }
+  }
+
+  /**
+   * Categorize the request error and log it.
+   *
+   * @returns Severity of the error, or undefined if the error is not punishable.
+   */
+  private categorizeRequestError(
+    e: any,
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+  ): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
+
+    //Punishable error - peer should never send badly formed request
+    if (e instanceof ReqRespStatusError && e.status === ReqRespStatus.BADLY_FORMED_REQUEST) {
+      this.logger.debug(`Punishable error in ${subProtocol}: ${e.cause}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    return this.categorizeConnectionErrors(e, peerId, subProtocol);
+  }
+
+  /**
+   * Categorize the response error and log it.
+   *
+   * @returns Severity of the error, or undefined if the error is not punishable.
+   */
+  private categorizeResponseError(
+    e: any,
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+  ): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
+
+    // Non punishable errors - we do not expect a response for goodbye messages
+    if (subProtocol === ReqRespSubProtocol.GOODBYE) {
+      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', logTags);
+      return undefined;
+    }
+
+    // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
+    if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
+      this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
+      return undefined;
+    }
+
+    return this.categorizeConnectionErrors(e, peerId, subProtocol);
+  }
+
+  /*
+   * Errors specific to connection  handling
+   * These can happen  both when sending request and response*/
+  private categorizeConnectionErrors(
+    e: any,
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+  ): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
+    // Do not punish if we are stopping the service
+    if (e instanceof AbortError || e?.code == 'ABORT_ERR') {
+      this.logger.debug(`Request aborted: ${e.message}`, logTags);
+      return undefined;
+    }
+
+    // Do not punish if we are the ones closing the connection
+    if (
+      e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
+      e?.code === 'ERR_CONNECTION_CLOSED' ||
+      e?.code === 'ERR_TRANSIENT_CONNECTION' ||
+      e?.message?.includes('Muxer already closed')
+    ) {
+      this.logger.debug(
+        `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
+        logTags,
+      );
+      return undefined;
+    }
+
+    // Pubishable errors
+    // Connection reset errors in the networking stack are punished with high severity
+    // it just signals an unreliable peer
+    // We assume that the requesting node has a functioning networking stack.
+    if (e?.code === 'ECONNRESET' || e?.code === 'EPIPE') {
+      this.logger.debug(`Connection reset: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    if (e?.code === 'ECONNREFUSED') {
+      this.logger.debug(`Connection refused: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    if (e?.code === 'ERR_UNEXPECTED_EOF') {
+      this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    if (e?.code === 'ERR_UNSUPPORTED_PROTOCOL') {
+      this.logger.debug(`Sub protocol not supported by peer: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    // Timeout errors are punished with high tolerance, they can be due to a geographically far away or overloaded peer
+    if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
+      this.logger.debug(`Timeout error in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    // Catch all error
+    this.logger.error(`Unexpected error sending request to peer`, e, logTags);
+    return PeerErrorSeverity.HighToleranceError;
   }
 }

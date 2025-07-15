@@ -33,11 +33,11 @@ if [[ -z "${GH_TOKEN:-}" ]]; then
 fi
 
 # Fetch latest state
-git fetch origin "$MT" || exit 1
-git fetch origin "$BASE" || exit 1
+git fetch origin "$HEAD_COMMIT" || exit 1
+git fetch origin "$MERGE_COMMIT" || exit 1
 
 # Rebuild merge-train branch
-git checkout -B "$MT" "origin/$BASE"
+git checkout -B "$MT" "$MERGE_COMMIT"
 git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 git push -f origin "$MT"
 

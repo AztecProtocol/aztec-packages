@@ -75,6 +75,7 @@ class ClientIVC {
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
+    using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
 
     /**
@@ -134,6 +135,7 @@ class ClientIVC {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using VerificationQueue = std::deque<VerifierInputs>;
 
@@ -142,6 +144,7 @@ class ClientIVC {
         StdlibProof proof; // oink or PG
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
+        bool is_kernel = false;
     };
     using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
@@ -157,7 +160,10 @@ class ClientIVC {
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
+    size_t num_circuits; // total number of circuits to be accumulated in the IVC
   public:
+    size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
+
     ProverFoldOutput fold_output; // prover accumulator and fold proof
     HonkProof mega_proof;
 
@@ -179,9 +185,9 @@ class ClientIVC {
 
     Goblin goblin;
 
-    bool initialized = false; // Is the IVC accumulator initialized
+    size_t get_num_circuits() const { return num_circuits; }
 
-    ClientIVC(TraceSettings trace_settings = {});
+    ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
