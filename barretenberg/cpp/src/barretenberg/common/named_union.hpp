@@ -112,17 +112,17 @@ template <HasName... Types> class NamedUnion {
     }
 
     // Msgpack deserialization
-    void msgpack_unpack(auto o)
+    void msgpack_unpack(msgpack::object const& o)
     {
         // access object assuming it is an array of size 2
-        if (!o.is_array() || o.via.array.size != 2) {
+        if (o.type != msgpack::type::ARRAY || o.via.array.size != 2) {
             throw_or_abort("Expected an array of size 2 for NamedUnion deserialization");
         }
         auto& arr = o.via.array;
-        if (!arr.ptr[0].is_string()) {
+        if (arr.ptr[0].type != msgpack::type::STR) {
             throw_or_abort("Expected first element to be a string (type name) in NamedUnion deserialization");
         }
-        std::string_view type_name = arr.ptr[0].template as<std::string_view>();
+        std::string_view type_name = std::string_view(arr.ptr[0].via.str.ptr, arr.ptr[0].via.str.size);
         auto index_opt = get_index_from_name(type_name);
         if (!index_opt.has_value()) {
             throw_or_abort("Unknown type name in NamedUnion deserialization: " + std::string(type_name));

@@ -20,7 +20,13 @@ CommandResponse bbapi(Command&& command)
     return execute(request, std::move(command));
 }
 
+// Wrapper function for CBIND that takes parameter by value
+CommandResponse bbapi_cbind_wrapper(Command command)
+{
+    return bbapi(std::move(command));
+}
+
 } // namespace bb::bbapi
 
 // Use CBIND macro to export the bbapi function for WASM
-CBIND(bbapi, bb::bbapi::bbapi)
+CBIND(bbapi, bb::bbapi::bbapi_cbind_wrapper)
