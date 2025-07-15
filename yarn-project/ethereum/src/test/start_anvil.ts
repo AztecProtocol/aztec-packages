@@ -29,6 +29,7 @@ export async function startAnvil(
         port: opts.port ?? 8545,
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
+        accounts: 20,
       });
 
       // Listen to the anvil output to get the port.

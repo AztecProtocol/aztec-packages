@@ -19,6 +19,8 @@ import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 // Setup snapshots will create a node with index 0, and run extra bootstrap with
 // index 1, so all of our loops here need to start from 2 to avoid running validators with the same key
 export const ATTESTER_PRIVATE_KEYS_START_INDEX = 2;
+// We use slasher keys after the first 10 anvil keys, note that this requires anvil to be started with more than the default 10 accounts
+export const SLASHER_PRIVATE_KEYS_START_INDEX = 12;
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -110,12 +112,12 @@ export async function createValidatorConfig(
 ) {
   port = port ?? (await getPort());
 
-  const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
-  )!.toString('hex')}`;
+  const attesterPrivateKey = bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!);
+  const slasherPrivateKey = bufferToHex(getPrivateKeyFromIndex(SLASHER_PRIVATE_KEYS_START_INDEX + addressIndex)!);
 
   config.validatorPrivateKeys = new SecretValue([attesterPrivateKey]);
   config.publisherPrivateKey = new SecretValue(attesterPrivateKey);
+  config.slasherPrivateKey = new SecretValue(slasherPrivateKey);
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
