@@ -55,6 +55,7 @@ struct ExecInstructionSpec {
 
     uint8_t num_addresses;
     GasInfo gas_cost;
+    uint32_t dyn_gas_id = 0; // Composition of dyn gas selectors.
     RegisterInfo register_info;
 
     bool operator==(const ExecInstructionSpec& other) const = default;

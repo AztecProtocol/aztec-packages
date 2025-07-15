@@ -1,8 +1,7 @@
-use dep::types::{
-    abis::nullifier::{Nullifier, ScopedNullifier},
+use types::{
+    abis::{nullifier::{Nullifier, ScopedNullifier}, transaction::tx_request::TxRequest},
     address::AztecAddress,
     traits::Hash,
-    transaction::tx_request::TxRequest,
 };
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {

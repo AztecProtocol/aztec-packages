@@ -6,7 +6,7 @@
 // use aztec::{
 //     oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
 //     protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
-//     test::helpers::{cheatcodes, test_environment::TestEnvironment},
+//     test::helpers::{txe_oracles, test_environment::TestEnvironment},
 // };
 
 // pub unconstrained fn get_public_balance(
@@ -14,13 +14,13 @@
 //     address: AztecAddress,
 // ) -> u128 {
 //     let current_contract_address = get_contract_address();
-//     cheatcodes::set_contract_address(token_contract_address);
+//     txe_oracles::set_contract_address(token_contract_address);
 //     let block_number = get_block_number();
 
 //     let balances_slot = Token::storage_layout().public_balances.slot;
 //     let address_slot = derive_storage_slot_in_map(balances_slot, address);
 //     let amount: u128 = storage_read(token_contract_address, address_slot, block_number);
-//     cheatcodes::set_contract_address(current_contract_address);
+//     txe_oracles::set_contract_address(current_contract_address);
 //     amount
 // }
 
@@ -29,10 +29,10 @@
 //     address: AztecAddress,
 // ) -> u128 {
 //     let current_contract_address = get_contract_address();
-//     cheatcodes::set_contract_address(token_contract_address);
+//     txe_oracles::set_contract_address(token_contract_address);
 //     // Direct call to unconstrained
 //     let amt = Token::balance_of_private(address);
-//     cheatcodes::set_contract_address(current_contract_address);
+//     txe_oracles::set_contract_address(current_contract_address);
 //     amt
 // }
 

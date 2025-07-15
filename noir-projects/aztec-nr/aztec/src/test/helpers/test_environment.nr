@@ -27,10 +27,10 @@ use crate::{
         execution_cache,
         notes::notify_created_note,
     },
-    test::helpers::{cheatcodes, utils::Deployer},
+    test::helpers::{txe_oracles, utils::Deployer},
 };
 
-use super::cheatcodes::public_call_new_flow;
+use super::txe_oracles::public_call_new_flow;
 
 mod test;
 
@@ -43,13 +43,13 @@ pub struct CallResult<T> {
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
-        cheatcodes::reset();
+        txe_oracles::reset();
         Self {}
     }
 
     pub unconstrained fn _new() -> Self {
-        cheatcodes::reset();
-        cheatcodes::enable_context_checks();
+        txe_oracles::reset();
+        txe_oracles::enable_context_checks();
         Self {}
     }
 
@@ -83,18 +83,14 @@ impl TestEnvironment {
     ///   state_var.read()
     /// });
     pub unconstrained fn public_context<Env, T>(self, f: fn[Env](&mut PublicContext) -> T) -> T {
-        cheatcodes::set_public_txe_context();
+        txe_oracles::set_public_txe_context();
 
         let mut context = self.public();
         let ret_value = f(&mut context);
 
         // merge calls below into 'exit public txe context' -> this mines a block
-        // 36 is the slot duration - for some reason we need to advance by at least this much in order to get a block to
-        // get mined. note that this may cause the block we just mined to not have the timestamp we thought it did - we
-        // need to test this.
-        cheatcodes::advance_timestamp_by(36);
-        cheatcodes::advance_blocks_by(1);
-        cheatcodes::set_top_level_txe_context();
+        txe_oracles::advance_blocks_by(1);
+        txe_oracles::set_top_level_txe_context();
 
         ret_value
     }
@@ -117,10 +113,10 @@ impl TestEnvironment {
         // now we have them in this order because creating the private context requires reading the latest block number,
         // which we only allow for top level and utility
         let mut context = self.private();
-        cheatcodes::set_private_txe_context();
+        txe_oracles::set_private_txe_context();
 
         let ret_value = f(&mut context);
-        cheatcodes::set_top_level_txe_context();
+        txe_oracles::set_top_level_txe_context();
 
         // todo: should commit the context to mine a block with the side effects of the context
 
@@ -129,10 +125,10 @@ impl TestEnvironment {
 
     /// EXPERIMENTAL FEATURE - NOT MEANT FOR EXTERNAL USE
     pub unconstrained fn utility_context<Env, T>(&mut self, f: fn[Env](UtilityContext) -> T) -> T {
-        cheatcodes::set_utility_txe_context();
+        txe_oracles::set_utility_txe_context();
         let context = self.utility();
         let ret_value = f(context);
-        cheatcodes::set_top_level_txe_context();
+        txe_oracles::set_top_level_txe_context();
 
         ret_value
     }
@@ -145,6 +141,10 @@ impl TestEnvironment {
     /// Returns the number of the last mined block. This is the default historical block for private transactions.
     pub unconstrained fn last_block_number(_self: Self) -> u32 {
         get_block_number() - 1
+    }
+
+    pub unconstrained fn last_block_timestamp(_self: Self) -> u64 {
+        txe_oracles::get_last_block_timestamp()
     }
 
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
@@ -163,7 +163,7 @@ impl TestEnvironment {
     /// us to change the "contract" we emit side effects from, and is required when we want to run a utility function
     /// on another contract.
     pub unconstrained fn impersonate(_self: Self, address: AztecAddress) {
-        cheatcodes::set_contract_address(address)
+        txe_oracles::set_contract_address(address)
     }
 
     pub unconstrained fn mine_block_at(&mut self, timestamp: u64) {
@@ -184,12 +184,12 @@ impl TestEnvironment {
 
     /// Advances the internal TXe state by one valid block.
     pub unconstrained fn mine_block(_self: &mut Self) {
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
     }
 
     /// Advances the internal TXe timestamp by the specified duration in seconds.
     pub unconstrained fn advance_next_block_timestamp_by(_self: &mut Self, duration: u64) {
-        cheatcodes::advance_timestamp_by(duration);
+        txe_oracles::advance_timestamp_by(duration);
     }
 
     /// Instantiates a public context. The block number returned from public_context.block_number() will be the
@@ -217,30 +217,31 @@ impl TestEnvironment {
     /// Instantiates a private context at a specific historical block number.
     pub unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
         if historical_block_number > self.next_block_number() {
-            cheatcodes::advance_blocks_by(1 + historical_block_number - self.next_block_number())
+            txe_oracles::advance_blocks_by(1 + historical_block_number - self.next_block_number())
         }
 
-        let mut inputs = cheatcodes::get_private_context_inputs_at_block(historical_block_number);
+        let mut inputs =
+            txe_oracles::get_private_context_inputs(Option::some(historical_block_number));
 
         PrivateContext::new(inputs, 0)
     }
 
     pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
-        let test_account = cheatcodes::create_account(secret);
+        let test_account = txe_oracles::create_account(secret);
         test_account.address
     }
 
     pub unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
-        let test_account = cheatcodes::add_account(secret);
+        let test_account = txe_oracles::add_account(secret);
         let address = test_account.address;
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
-        let mut context = self.private_at(get_block_number());
+        let mut context = self.private_at(self.last_block_number());
         let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
         let _ = context.call_private_function(address, selector, args);
 
-        cheatcodes::advance_blocks_by(1);
+        txe_oracles::advance_blocks_by(1);
 
         address
     }
@@ -283,7 +284,7 @@ impl TestEnvironment {
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
         let calldata =
             &[call_interface.get_selector().to_field()].append(call_interface.get_args());
-        cheatcodes::assert_public_call_fails(
+        txe_oracles::assert_public_call_fails(
             call_interface.get_contract_address(),
             fn_selector,
             calldata,
@@ -294,27 +295,27 @@ impl TestEnvironment {
     where
         C: CallInterface<M>,
     {
-        cheatcodes::assert_private_call_fails(
+        txe_oracles::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             hash_args(call_interface.get_args()),
-            cheatcodes::get_side_effects_counter() as Field,
+            txe_oracles::get_side_effects_counter() as Field,
             call_interface.get_is_static(),
         );
     }
 
-    pub unconstrained fn call_private<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_private<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateCallInterface<M, T, N>,
+        call_interface: PrivateCallInterface<M, T>,
     ) -> CallResult<T>
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -327,16 +328,16 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32, T, let N: u32>(
+    pub unconstrained fn call_private_void<let M: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M, T, N>,
+        call_interface: PrivateVoidCallInterface<M, T>,
     ) -> CallResult<()> {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
         execution_cache::store(args, args_hash);
 
-        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+        let (_end_side_effect_counter, returns_hash, tx_hash) = txe_oracles::private_call_new_flow(
             from,
             call_interface.get_contract_address(),
             call_interface.get_selector(),
@@ -350,12 +351,12 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
-    pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(
+    pub unconstrained fn simulate_utility<T, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T, N>,
+        call_interface: UtilityCallInterface<M, T>,
     ) -> T
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -371,9 +372,9 @@ impl TestEnvironment {
         returns
     }
 
-    pub unconstrained fn simulate_void_utility<T, let N: u32, let M: u32>(
+    pub unconstrained fn simulate_void_utility<T, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T, N>,
+        call_interface: UtilityCallInterface<M, T>,
     ) {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -388,13 +389,13 @@ impl TestEnvironment {
         ReturnsHash::new(returns_hash).assert_empty();
     }
 
-    pub unconstrained fn call_public<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicCallInterface<M, T, N>,
+        call_interface: PublicCallInterface<M, T>,
     ) -> CallResult<T>
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         let (returns_hash, tx_hash) = public_call_new_flow(
             from,
@@ -409,10 +410,10 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_public_void<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_public_void<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicVoidCallInterface<M, T, N>,
+        call_interface: PublicVoidCallInterface<M, T>,
     ) -> CallResult<()> {
         let (returns_hash, tx_hash) = public_call_new_flow(
             from,
@@ -427,13 +428,13 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
-    pub unconstrained fn call_private_test<T, let N: u32, let M: u32, X>(
+    pub unconstrained fn call_private_test<T, let M: u32, X>(
         _self: Self,
         from: AztecAddress,
         call_interface: X,
     ) -> CallResult<T>
     where
-        X: TXEPrivateCallInterface<T, N>,
+        X: TXEPrivateCallInterface<T>,
         X: CallInterface<M>,
     {
         let (returns, tx_hash) = call_interface.call_with_txe(from);
@@ -441,12 +442,12 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn simulate_utility_test<T, let N: u32, let M: u32, X>(
+    pub unconstrained fn simulate_utility_test<T, let M: u32, X>(
         _self: Self,
         call_interface: X,
     ) -> T
     where
-        X: TXEUtilityCallInterface<T, N>,
+        X: TXEUtilityCallInterface<T>,
         X: CallInterface<M>,
     {
         let returns = call_interface.call_with_txe();
@@ -454,13 +455,13 @@ impl TestEnvironment {
         returns
     }
 
-    pub unconstrained fn call_public_test<T, let N: u32, let M: u32, X>(
+    pub unconstrained fn call_public_test<T, let M: u32, X>(
         _self: Self,
         from: AztecAddress,
         call_interface: X,
     ) -> CallResult<T>
     where
-        X: TXEPublicCallInterface<T, N>,
+        X: TXEPublicCallInterface<T>,
         X: CallInterface<M>,
     {
         let (returns, tx_hash) = call_interface.call_with_txe(from);
@@ -480,8 +481,8 @@ impl TestEnvironment {
         Note: NoteType + NoteHash + Packable<N>,
     {
         let original_contract_address = get_contract_address();
-        cheatcodes::set_contract_address(contract_address);
-        let note_hash_counter = cheatcodes::get_side_effects_counter();
+        txe_oracles::set_contract_address(contract_address);
+        let note_hash_counter = txe_oracles::get_side_effects_counter();
 
         let note_hash = note.compute_note_hash(storage_slot);
         let packed_note = Note::pack(note);
@@ -492,6 +493,6 @@ impl TestEnvironment {
             note_hash,
             note_hash_counter,
         );
-        cheatcodes::set_contract_address(original_contract_address);
+        txe_oracles::set_contract_address(original_contract_address);
     }
 }
