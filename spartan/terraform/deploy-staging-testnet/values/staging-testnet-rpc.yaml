@@ -1,5 +1,3 @@
-nameOverride: "node"
-
 global:
   l1ExecutionUrls: []
   l1ConsensusUrls: []
@@ -28,19 +26,29 @@ affinity:
         namespaceSelector: {}
 
 replicaCount: 1
-
 hostNetwork: true
 
 node:
   env:
-    OTEL_SERVICE_NAME: "boot-node"
+    OTEL_SERVICE_NAME: "node"
+    SPONSORED_FPC: true
+
+  preStartScript: |
+    until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
+      echo "Waiting for boot node..."
+      sleep 1
+    done
+    echo "Boot node is ready!"
+
+    export BOOTSTRAP_NODES=$(curl -X POST --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
 
   resources:
     requests:
-      cpu: "1"
-      memory: "2Gi"
+      cpu: "3"
+      memory: "12Gi"
   startCmd:
-    - --p2p-bootstrap
+    - --node
+    - --archiver
 
 persistence:
   enabled: true
@@ -54,14 +62,19 @@ statefulSet:
         accessModes: [ReadWriteOnce]
         resources:
           requests:
-            storage: 4Gi
+            storage: 16Gi
 
 service:
+  type: LoadBalancer
+  ingress:
+    annotations:
+      networking.gke.io/load-balancer-type: "External"
   p2p:
     enabled: true
     nodePortEnabled: false
   admin:
-    enabled: false
+    enabled: true
   headless:
     enabled: false
+
 
