@@ -308,11 +308,9 @@ case "$cmd" in
 
     # Download cached flow inputs from the specified commit
     export AZTEC_CACHE_COMMIT=$commit_hash
+    # TODO currently does nothing! to reinstate in cache_download
     export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
-    echo "Running with FORCE_CACHE_DOWNLOAD=1. This should work, but as a workaround you can set FORCE_CACHE_DOWNLOAD=0 before the bench_ivc call to build some parts."
-    ../../noir/bootstrap.sh
-    USE_CIRCUITS_CACHE=1 ../../noir-projects/noir-protocol-circuits/bootstrap.sh
-    yarn --cwd ../../yarn-project/bb-prover generate
+    USE_CIRCUITS_CACHE=1 BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
     rm -rf bench-out
 

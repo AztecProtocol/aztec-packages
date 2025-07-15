@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "unistd.h"
 #include <atomic>
 #include <cstring>
 #include <fcntl.h>
