@@ -10,6 +10,7 @@ global:
     pullPolicy: Always
 
 node:
+  hostNetwork: true
   node:
     env:
       SPONSORED_FPC: true

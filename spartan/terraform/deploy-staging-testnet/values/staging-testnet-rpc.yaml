@@ -26,6 +26,7 @@ affinity:
         namespaceSelector: {}
 
 replicaCount: 1
+hostNetwork: true
 
 node:
   env:
@@ -48,8 +49,6 @@ node:
   startCmd:
     - --node
     - --archiver
-
-  hostNetwork: true
 
 persistence:
   enabled: true

@@ -10,6 +10,7 @@ global:
     pullPolicy: Always
 
 validator:
+  hostNetwork: true
   replicaCount: 1
   validatorsPerNode: 100
 
