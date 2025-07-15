@@ -269,8 +269,7 @@ class AvmFlavor {
         }
 
         std::vector<fr> to_field_elements() const override;
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override;
+        fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const override;
     };
 
     // Used by sumcheck.
