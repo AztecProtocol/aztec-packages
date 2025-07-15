@@ -19,7 +19,7 @@ template <typename Builder> void create_keccak_permutations(Builder& builder, co
     std::array<field_ct, bb::stdlib::keccak<Builder>::NUM_KECCAK_LANES> state;
 
     // Get the witness assignment for each witness index
-    // Write the witness assignment to the byte_array
+    // Write the witness assignment to the byte array
     for (size_t i = 0; i < constraint.state.size(); ++i) {
         state[i] = to_field_ct(constraint.state[i], builder);
     }

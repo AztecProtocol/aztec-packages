@@ -27,11 +27,6 @@ byte_array<Builder>::byte_array(Builder* parent_context, const size_t n)
     , values(std::vector<field_t<Builder>>(n))
 {}
 
-template <typename Builder>
-byte_array<Builder>::byte_array(Builder* parent_context, const std::string& input)
-    : byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
-{}
-
 /**
  * @brief Create a byte array out of a vector of uint8_t bytes.
  *
@@ -45,12 +40,17 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
 {
     for (size_t i = 0; i < input.size(); ++i) {
         uint8_t c = input[i];
-        field_t<Builder> value(witness_t(context, (uint64_t)c));
+        field_t<Builder> value(witness_t(context, c));
         value.create_range_constraint(8, "byte_array: vector entry larger than 1 byte.");
         values[i] = value;
     }
     set_free_witness_tag();
 }
+
+template <typename Builder>
+byte_array<Builder>::byte_array(Builder* parent_context, const std::string& input)
+    : byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
+{}
 
 /**
  * @brief Create a byte_array of length `num_bits` out of a field element.
@@ -129,7 +129,7 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
         const field_t scaling_factor = one << bit_start;
 
         // Extract the current byte
-        const bb::fr byte_val = value.slice(bit_start, bit_end);
+        const uint256_t byte_val = value.slice(bit_start, bit_end);
         // Ensure that current `byte_array` element is a witness iff input is a witness and that it is range
         // constrained.
         field_t byte = input.is_constant() ? field_t(byte_val) : witness_t(context, byte_val);
@@ -146,9 +146,10 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
     // Reconstruct the high and low limbs of input from the byte decomposition
     const field_t reconstructed_lo = field_t::accumulate(accumulator_lo);
     const field_t reconstructed_hi = field_t::accumulate(accumulator_hi);
+    const field_t reconstructed = reconstructed_hi + reconstructed_lo;
 
     // Ensure that the reconstruction succeeded
-    input.assert_equal(reconstructed_hi + reconstructed_lo);
+    input.assert_equal(reconstructed);
 
     // Handle the case when the decomposition is not unique
     if (num_bytes == 32) {
@@ -161,7 +162,7 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
         // Ensure that `(r - 1).lo + 2 ^ 128 - reconstructed_lo` is a 129 bit integer by slicing it into a 128- and 1-
         // bit chunks.
         const field_t diff_lo = -reconstructed_lo + s_lo + shift;
-        const uint256_t diff_lo_value = -value + static_cast<uint256_t>(reconstructed_hi.get_value()) + s_lo + shift;
+        const uint256_t diff_lo_value = diff_lo.get_value();
 
         // Extract the "borrow" bit
         const uint256_t diff_lo_hi_value = (diff_lo_value >> 128);
@@ -230,10 +231,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
 /**
  * @brief Convert a byte array into a field element.
  *
- * @details The byte array is represented as a big integer, that is then converted into a field element.
- * The transformation is only injective if the byte array is < 32 bytes.
- * Larger byte arrays can still be cast to a single field element, but the value will wrap around the circuit
- * modulus
+ * @details The transformation is injective when the size of the byte array is < 32, which covers all the use cases.
  **/
 template <typename Builder> byte_array<Builder>::operator field_t<Builder>() const
 {
@@ -298,6 +296,7 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() c
     return byte_array(context, bytes);
 }
 
+// Out-of-circuit methods
 template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value() const
 {
     size_t length = values.size();

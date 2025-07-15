@@ -72,7 +72,7 @@ TYPED_TEST(ByteArrayTest, test_string_constructor)
     EXPECT_EQ(arr.get_string(), a);
 }
 
-TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition)
+TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_32_bytes)
 {
     STDLIB_TYPE_ALIASES
 
@@ -114,18 +114,18 @@ TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition)
     {
         // Test the case when (r-1).lo - x.lo + 2^128 is not a 129 bit integer, i.e. is negative.
         Builder builder;
-        uint256_t y_overlap_not_bit("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
-        test_val = witness_ct(&builder, y_overlap_not_bit);
+        uint256_t random_overflowing_value("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
+        test_val = witness_ct(&builder, random_overflowing_value);
 
-        byte_array<Builder> failure_array(test_val, 32, y_overlap_not_bit);
+        byte_array<Builder> failure_array(test_val, 32, random_overflowing_value);
         check_byte_decomposition(failure_array, test_val);
 
         EXPECT_FALSE(CircuitChecker::check(builder));
-        EXPECT_TRUE(builder.err() == "byte_array: y_overlap is not a bit");
+        EXPECT_TRUE(builder.err() == "byte_array: y_hi doesn't fit in 128 bits.");
     }
 }
 
-TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_const_cases)
+TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_32_bytes_const)
 {
     STDLIB_TYPE_ALIASES
 
@@ -140,8 +140,9 @@ TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_const_cases)
         }
         EXPECT_TRUE(original_val.get_value() == reconstructed);
     };
-
-    field_ct test_val = fr::random_element();
+    Builder builder;
+    size_t gates_start = builder.get_estimated_num_finalized_gates();
+    field_ct test_val(&builder, fr::random_element());
 
     byte_array_ct arr(test_val, 32);
 
@@ -151,7 +152,7 @@ TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_const_cases)
         // Produce a 256 bit value `x` such that the high limb of (r-1) - x is overflowing.
         uint256_t overflowing_value(fr::modulus + 100);
 
-        test_val = bb::fr(overflowing_value);
+        test_val = field_ct(&builder, bb::fr(overflowing_value));
 #ifndef NDEBUG
         EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, overflowing_value),
                      "byte_array: y_hi doesn't fit in 128 bits");
@@ -160,25 +161,15 @@ TYPED_TEST(ByteArrayTest, test_into_bytes_decomposition_const_cases)
 
     {
         // Test the case when (r-1).lo - x.lo + 2^128 is not a 129 bit integer, i.e. is negative.
-        uint256_t y_overlap_not_bit("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
-        test_val = bb::fr(y_overlap_not_bit);
+        uint256_t random_overflowing_value("0xcf9bb18d1ece5fd647afba497e7ea7a3d3bdb158855487614a97cd3d2a1954b2");
+        test_val = field_ct(&builder, bb::fr(random_overflowing_value));
 #ifndef NDEBUG
-        EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, y_overlap_not_bit),
-                     "byte_array: y_overlap is not a bit");
+        EXPECT_DEATH(byte_array<Builder> failure_array(test_val, 32, random_overflowing_value),
+                     "byte_array: y_hi doesn't fit in 128 bits");
 #endif
     }
-}
-
-TYPED_TEST(ByteArrayTest, test_ostream_operator)
-{
-    STDLIB_TYPE_ALIASES
-    auto builder = Builder();
-
-    std::string a = "\1\2\3a";
-    byte_array_ct arr(&builder, a);
-    std::ostringstream os;
-    os << arr;
-    EXPECT_EQ(os.str(), "[ 01 02 03 61 ]");
+    // Make sure no gates are added
+    EXPECT_TRUE(gates_start == builder.get_estimated_num_finalized_gates());
 }
 
 TYPED_TEST(ByteArrayTest, test_byte_array_input_output_consistency)
@@ -186,26 +177,32 @@ TYPED_TEST(ByteArrayTest, test_byte_array_input_output_consistency)
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
 
-    fr a_expected = fr::random_element();
-    fr b_expected = fr::random_element();
+    auto slice_to_31_bytes = [](const fr& value) {
+        uint256_t val(value);
+        uint256_t mask = (uint256_t(1) << 248) - 1; // lower 248 bits
+        return fr(val & mask);
+    };
 
-    field_ct a = witness_ct(&builder, a_expected);
+    uint256_t a_expected = engine.get_random_uint256();
+    uint256_t b_expected = engine.get_random_uint256();
+
+    field_ct a = witness_ct(&builder, slice_to_31_bytes(a_expected));
     a.set_origin_tag(submitted_value_origin_tag);
-    field_ct b = witness_ct(&builder, b_expected);
+    field_ct b = witness_ct(&builder, slice_to_31_bytes(b_expected));
     b.set_origin_tag(challenge_origin_tag);
 
     byte_array_ct arr(&builder);
 
-    arr.write(byte_array_ct(a));
-    arr.write(byte_array_ct(b));
+    arr.write(byte_array_ct(a, 31));
+    arr.write(byte_array_ct(b, 31));
 
-    EXPECT_EQ(arr.size(), 64UL);
+    EXPECT_EQ(arr.size(), 62UL);
 
-    field_ct a_result(arr.slice(0, 32));
-    field_ct b_result(arr.slice(32));
+    field_ct a_result(arr.slice(0, 31));
+    field_ct b_result(arr.slice(31));
 
-    EXPECT_EQ(a_result.get_value(), a_expected);
-    EXPECT_EQ(b_result.get_value(), b_expected);
+    EXPECT_EQ(a_result.get_value(), slice_to_31_bytes(a_expected));
+    EXPECT_EQ(b_result.get_value(), slice_to_31_bytes(b_expected));
     // Tags should be preserved through write and slice
     EXPECT_EQ(a_result.get_origin_tag(), submitted_value_origin_tag);
     EXPECT_EQ(b_result.get_origin_tag(), challenge_origin_tag);
@@ -246,4 +243,16 @@ TYPED_TEST(ByteArrayTest, convert_to_field)
         bool result = CircuitChecker::check(builder);
         EXPECT_TRUE(result);
     }
+}
+
+TYPED_TEST(ByteArrayTest, test_ostream_operator)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+
+    std::string a = "\1\2\3a";
+    byte_array_ct arr(&builder, a);
+    std::ostringstream os;
+    os << arr;
+    EXPECT_EQ(os.str(), "[ 01 02 03 61 ]");
 }

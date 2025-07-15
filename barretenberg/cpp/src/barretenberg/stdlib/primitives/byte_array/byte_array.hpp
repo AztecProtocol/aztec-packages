@@ -24,16 +24,6 @@ template <typename Builder> class byte_array {
                const size_t num_bytes = 32,
                std::optional<uint256_t> test_val = std::nullopt);
 
-    template <typename ItBegin, typename ItEnd>
-    byte_array(Builder* parent_context, ItBegin const& begin, ItEnd const& end)
-        : context(parent_context)
-        , values(begin, end)
-    {
-        for (auto& val : values) {
-            val = val.normalize();
-        }
-    }
-
     byte_array(const byte_array& other);
     byte_array(byte_array&& other);
 
@@ -65,18 +55,13 @@ template <typename Builder> class byte_array {
 
     bytes_t const& bytes() const { return values; }
 
-    void set_context(Builder* ctx)
-    {
-        ASSERT(context == nullptr);
-        context = ctx;
-    }
-
     Builder* get_context() const { return context; }
 
+    // Out-of-circuit methods
     std::vector<uint8_t> get_value() const;
-
     std::string get_string() const;
 
+    // OriginTag-specific methods
     void set_origin_tag(bb::OriginTag tag)
     {
         for (auto& value : values) {
