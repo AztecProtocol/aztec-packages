@@ -5,6 +5,9 @@ namespace gt;
     pol commit sel;
     sel * (1 - sel) = 0;
 
+    #[skippable_if]
+    sel = 0;
+
     pol commit input_a;
     pol commit input_b;
 

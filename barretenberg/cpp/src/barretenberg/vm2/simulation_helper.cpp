@@ -108,7 +108,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
     typename S::template DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent>
         written_public_data_slots_tree_check_emitter;
-    typename S::template DefaultEventEmitter<GreaterThanEvent> greater_than_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
 
     uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
 

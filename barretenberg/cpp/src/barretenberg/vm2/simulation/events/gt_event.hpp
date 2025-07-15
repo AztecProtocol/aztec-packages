@@ -9,6 +9,10 @@ struct GreaterThanEvent {
     uint128_t b;
     bool result;
 
+    // To be used with deduplicating event emitters.
+    using Key = std::tuple<uint128_t, uint128_t>;
+    Key get_key() const { return { a, b }; }
+
     bool operator==(const GreaterThanEvent& other) const = default;
 };
 

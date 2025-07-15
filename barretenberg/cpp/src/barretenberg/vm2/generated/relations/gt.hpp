@@ -15,6 +15,13 @@ template <typename FF_> class gtImpl {
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+
+        return (in.get(C::gt_sel)).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
