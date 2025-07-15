@@ -109,7 +109,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                        mock_written_public_data_slots_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
+    UpdateCheck update_check(
+        poseidon2, range_check, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -189,7 +190,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
                        mock_written_public_data_slots_tree_check);
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_event_emitter);
+    GlobalVariables globals{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_event_emitter, globals);
 
     FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + update_timestamp_of_change;
 
