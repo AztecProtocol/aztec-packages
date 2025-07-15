@@ -131,7 +131,8 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
     case QUEUE_TYPE::PG_FINAL: {
 
-        // WORKTODO: (roughly) just call construct_hiding_circuit_key() here
+        // WORKTODO: Call something like construct_hiding_circuit_key() here once that method has properly been updated
+        // to be only the relevant logic (i.e. no decider proving). Avoid duplication!
     }
     default: {
         throw_or_abort("Invalid queue type! Only OINK, PG and PG_FINAL are supported");
@@ -267,8 +268,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         vinfo("set honk vk metadata");
     }
 
-    // WORKTODO: perform proving and set vqueue type based on num_circuits (0th is OINK etc)
-
     VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
@@ -296,7 +295,15 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
-        queue_entry.type = QUEUE_TYPE::PG;
+        // If this is the final circuit to be folded, set queue entry type to PG_FINAL and run the decider prover
+        bool is_final_fold = (num_circuits_accumulated == num_circuits - 1);
+        if (is_final_fold) {
+            queue_entry.type = QUEUE_TYPE::PG_FINAL;
+            decider_proof = decider_prove();
+            vinfo("constructed decider proof");
+        } else {
+            queue_entry.type = QUEUE_TYPE::PG;
+        }
         queue_entry.proof = fold_output.proof;
     }
     verification_queue.push_back(queue_entry);
@@ -339,7 +346,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
 
     FoldProof& fold_proof = verification_queue[0].proof; // SHould have type PG_FINAL
-    HonkProof decider_proof = decider_prove();
+    // WORKTODO: Remove decider proving here and let it be performed in accumulate.
+    // HonkProof decider_proof = decider_prove();
 
     fold_output.accumulator = nullptr;
 
