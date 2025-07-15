@@ -37,7 +37,7 @@ export async function startAnvil(
 
       // Listen to the anvil output to get the port.
       const removeHandler = anvil.on('message', (message: string) => {
-        logger?.debug(message);
+        logger?.verbose(message);
 
         methodCalls?.push(...(message.match(/eth_[^\s]+/g) || []));
         if (port === undefined && message.includes('Listening on')) {
