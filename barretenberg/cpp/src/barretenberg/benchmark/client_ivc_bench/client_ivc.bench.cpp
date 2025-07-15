@@ -32,7 +32,7 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+    ClientIVC ivc{ /*num_circuits=*/2, { AZTEC_TRACE_STRUCTURE } };
 
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -56,9 +56,9 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
+    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     auto mocked_vks = mock_vks(total_num_circuits);
 
     for (auto _ : state) {
@@ -73,9 +73,9 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 {
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
+    ClientIVC ivc{ total_num_circuits, { AZTEC_TRACE_STRUCTURE } };
     auto mocked_vks = mock_vks(total_num_circuits);
 
     for (auto _ : state) {

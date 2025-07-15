@@ -14,11 +14,13 @@
 namespace bb {
 
 // Constructor
-ClientIVC::ClientIVC(TraceSettings trace_settings)
+ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
+    , num_circuits(num_circuits)
     , trace_settings(trace_settings)
     , goblin(bn254_commitment_key)
 {
+    BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
     // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
     // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
     size_t commitment_key_size =
@@ -220,6 +222,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
+    BB_ASSERT_LT(
+        num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
+
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
     // the circuit VK
     if (circuit.is_kernel) {
@@ -256,7 +261,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     }
 
     VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = circuit.is_kernel };
-    if (!initialized) {
+    if (num_circuits_accumulated == 0) { // First circuit in the IVC
         BB_ASSERT_EQ(circuit.is_kernel, false, "First circuit accumulated is always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
         MegaOinkProver oink_prover{ proving_key, honk_vk, accumulation_transcript };
@@ -272,8 +277,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
-
-        initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
@@ -291,6 +294,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // Construct merge proof for the present circuit
     goblin.prove_merge(accumulation_transcript);
+
+    num_circuits_accumulated++;
 }
 
 /**
@@ -318,6 +323,9 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  */
 std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circuit_key()
 {
+    BB_ASSERT_EQ(num_circuits_accumulated,
+                 num_circuits,
+                 "All circuits must be accumulated before constructing the hiding circuit.");
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     BB_ASSERT_EQ(verification_queue.size(), static_cast<size_t>(1));
 
