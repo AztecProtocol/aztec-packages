@@ -38,6 +38,8 @@ class Goblin {
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
     using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
+    using MergeVerificationData = MergeVerifier::MergeVerificationData;
+    using RecursiveMergeVerificationData = MergeRecursiveVerifier::MergeVerificationData;
     using RecursiveTranscript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<MegaBuilder>>;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
@@ -91,14 +93,14 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param t_commitments The commitments to the subtable for which the merge is being verified.
+     * @param merge_verification_data The merge verification data, containing the commitments to the subtable for which
+     * the merge is being verified.
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return PairingPoints
      */
-    PairingPoints recursively_verify_merge(
-        MegaBuilder& builder,
-        const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
-        const std::shared_ptr<RecursiveTranscript>& transcript);
+    PairingPoints recursively_verify_merge(MegaBuilder& builder,
+                                           RecursiveMergeVerificationData& merge_verification_data,
+                                           const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
@@ -111,7 +113,7 @@ class Goblin {
      * @return false
      */
     static bool verify(const GoblinProof& proof,
-                       const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+                       MergeVerificationData& merge_verification_data,
                        const std::shared_ptr<Transcript>& transcript);
 };
 
