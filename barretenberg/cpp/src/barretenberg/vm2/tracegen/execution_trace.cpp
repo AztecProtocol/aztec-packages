@@ -563,8 +563,8 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
-                bool note_hash_leaf_in_range = !opcode_execution_failed;
                 uint64_t leaf_index = registers[1].as<uint64_t>();
+                bool note_hash_leaf_in_range = leaf_index < NOTE_HASH_TREE_LEAF_COUNT;
 
                 FF note_hash_leaf_index_leaf_count_cmp_diff = note_hash_leaf_in_range
                                                                   ? NOTE_HASH_TREE_LEAF_COUNT - leaf_index - 1

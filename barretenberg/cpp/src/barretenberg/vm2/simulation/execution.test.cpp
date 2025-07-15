@@ -495,8 +495,9 @@ TEST_F(ExecutionSimulationTest, NoteHashExistsOutOfRange)
 
     EXPECT_CALL(range_check, assert_range(leaf_index.as<uint64_t>() - NOTE_HASH_TREE_LEAF_COUNT, 64));
 
-    EXPECT_THROW_WITH_MESSAGE(execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr),
-                              "NOTEHASHEXISTS: Leaf index out of range");
+    EXPECT_CALL(memory, set(dst_addr, MemoryValue::from<uint1_t>(0)));
+
+    execution.note_hash_exists(context, unique_note_hash_addr, leaf_index_addr, dst_addr);
 }
 
 } // namespace

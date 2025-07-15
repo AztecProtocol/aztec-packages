@@ -578,11 +578,13 @@ void Execution::note_hash_exists(ContextInterface& context,
 
     range_check.assert_range(note_hash_leaf_index_leaf_count_cmp_diff, 64);
 
-    if (out_of_range) {
-        throw OpcodeExecutionException("NOTEHASHEXISTS: Leaf index out of range");
-    }
+    MemoryValue value;
 
-    auto value = MemoryValue::from<uint1_t>(merkle_db.note_hash_exists(leaf_index_value, unique_note_hash.as<FF>()));
+    if (out_of_range) {
+        value = MemoryValue::from<uint1_t>(0);
+    } else {
+        value = MemoryValue::from<uint1_t>(merkle_db.note_hash_exists(leaf_index_value, unique_note_hash.as<FF>()));
+    }
 
     memory.set(dst_addr, value);
     set_output(opcode, value);

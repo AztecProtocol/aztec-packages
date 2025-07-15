@@ -40,7 +40,7 @@ using C = Column;
 using notehash_exists = bb::avm2::notehash_exists<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-TEST(NoteHashExistsConstrainingTest, PositiveTest)
+TEST(NoteHashExistsConstrainingTest, PositiveExists)
 {
     uint64_t leaf_index_leaf_count_cmp_diff = NOTE_HASH_TREE_LEAF_COUNT - 27 - 1;
     TestTraceContainer trace({
@@ -52,11 +52,35 @@ TEST(NoteHashExistsConstrainingTest, PositiveTest)
           { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64) },
           { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
           { C::execution_note_hash_leaf_in_range, 1 },
-          { C::execution_sel_opcode_error, 0 },
           { C::execution_note_hash_leaf_index_leaf_count_cmp_diff, leaf_index_leaf_count_cmp_diff },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
     });
     check_relation<notehash_exists>(trace);
+}
+
+TEST(NoteHashExistsConstrainingTest, OutOfRange)
+{
+    uint64_t leaf_index = NOTE_HASH_TREE_LEAF_COUNT + 1;
+    uint64_t leaf_index_leaf_count_cmp_diff = leaf_index - NOTE_HASH_TREE_LEAF_COUNT;
+
+    TestTraceContainer trace({
+        { { C::execution_sel_execute_notehash_exists, 1 },
+          { C::execution_register_0_, /*unique_note_hash=*/42 },
+          { C::execution_register_1_, /*leaf_index=*/leaf_index },
+          { C::execution_register_2_, /*dst=*/0 },
+          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
+          { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64) },
+          { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
+          { C::execution_note_hash_leaf_in_range, 0 },
+          { C::execution_note_hash_leaf_index_leaf_count_cmp_diff, leaf_index_leaf_count_cmp_diff },
+          { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
+    });
+
+    check_relation<notehash_exists>(trace);
+
+    // Negative test: exists must be false
+    trace.set(0, { { { C::execution_register_2_, 1 } } });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace), "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE");
 }
 
 TEST(NoteHashExistsConstrainingTest, NegativeInvalidOutputTag)
@@ -76,27 +100,13 @@ TEST(NoteHashExistsConstrainingTest, NegativeInvalidOutputTag)
 
 TEST(NoteHashExistsConstrainingTest, NegativeNoteHashExistsSuccess)
 {
-    uint64_t leaf_index = NOTE_HASH_TREE_LEAF_COUNT + 1;
-    uint64_t leaf_index_leaf_count_cmp_diff = leaf_index - NOTE_HASH_TREE_LEAF_COUNT;
+    TestTraceContainer trace({ {
+        { C::execution_sel_execute_notehash_exists, 1 },
+        { C::execution_sel_opcode_error, 1 },
+    } });
 
-    TestTraceContainer trace({
-        { { C::execution_sel_execute_notehash_exists, 1 },
-          { C::execution_register_0_, /*unique_note_hash=*/42 },
-          { C::execution_register_1_, leaf_index },
-          { C::execution_register_2_, /*dst=*/1 },
-          { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
-          { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64) },
-          { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
-          { C::execution_note_hash_leaf_in_range, 0 },
-          { C::execution_sel_opcode_error, 1 },
-          { C::execution_note_hash_leaf_index_leaf_count_cmp_diff, leaf_index_leaf_count_cmp_diff },
-          { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NOTEHASH_EXISTS } },
-    });
-
-    check_relation<notehash_exists>(trace);
-
-    trace.set(0, { { { C::execution_sel_opcode_error, 0 } } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace), "NOTE_HASH_EXISTS_SUCCESS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace, notehash_exists::SR_NOTE_HASH_EXISTS_SUCCESS),
+                              "NOTE_HASH_EXISTS_SUCCESS");
 }
 
 TEST(NoteHashExistsConstrainingTest, Interactions)

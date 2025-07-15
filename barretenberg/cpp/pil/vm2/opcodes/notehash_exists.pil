@@ -10,7 +10,7 @@ include "../trees/note_hash_tree_check.pil";
 // - register[2]: Boolean output of the opcode indicating whether the note hash exists at the given leaf index
 //
 // The opcode leverages the note_hash_tree_check gadget to verify the existence check operation
-// against the current note hash tree root. The opcode will fail (sel_opcode_error = 1) if the
+// against the current note hash tree root. The opcode will write false if the
 // leaf index is greater than or equal to the total number of leaves in the note hash tree.
 //
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
@@ -34,8 +34,8 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         range_check.rng_chk_bits
     };
 
-    #[NOTE_HASH_EXISTS_SUCCESS]
-    sel_execute_notehash_exists * (1 - note_hash_leaf_in_range - sel_opcode_error) = 0;
+    #[NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE]
+    sel_execute_notehash_exists * (1 - note_hash_leaf_in_range) * register[2] = 0;
 
     #[NOTE_HASH_READ]
     note_hash_leaf_in_range {
@@ -54,3 +54,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     #[NOTEHASH_EXISTS_U1_OUTPUT_TAG]
     sel_execute_notehash_exists * (constants.MEM_TAG_U1 - mem_tag_reg[2]) = 0;
+
+    #[NOTE_HASH_EXISTS_SUCCESS]
+    sel_execute_notehash_exists * sel_opcode_error = 0;
+
