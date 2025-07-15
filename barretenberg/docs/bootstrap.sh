@@ -8,8 +8,11 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs -type f -name "*.md" | sort | xargs cat | sha256sum | awk '{ print $1 }')
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; 2>/dev/null | \
+      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
+
+echo "hash=$hash"
 
 if semver check $REF_NAME; then
   # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)

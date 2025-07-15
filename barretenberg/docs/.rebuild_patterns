@@ -1,6 +1,9 @@
-^docs/src
-^docs/scripts
-^docs/static
-^docs/.*\.js
-^docs/.*\.json
-^docs/bootstrap.sh
+^barretenberg/docs/docs/
+^barretenberg/docs/versioned_docs/
+^barretenberg/docs/versioned_sidebars/
+^barretenberg/docs/src
+^barretenberg/docs/scripts
+^barretenberg/docs/static
+^barretenberg/docs/.*\.js
+^barretenberg/docs/.*\.json
+^barretenberg/docs/bootstrap.sh
