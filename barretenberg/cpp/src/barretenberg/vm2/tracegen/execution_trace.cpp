@@ -152,8 +152,6 @@ Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
     switch (exec_opcode) {
     case ExecutionOpCode::GETENVVAR:
         return C::execution_sel_execute_get_env_var;
-    case ExecutionOpCode::SET:
-        return C::execution_sel_execute_set;
     case ExecutionOpCode::MOV:
         return C::execution_sel_execute_mov;
     case ExecutionOpCode::JUMP:

@@ -134,6 +134,19 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 }
 
+void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
+{
+    constexpr auto opcode = ExecutionOpCode::CAST;
+    auto& memory = context.get_memory();
+    auto val = memory.get(src_addr);
+    set_and_validate_inputs(opcode, { val });
+
+    get_gas_tracker().consume_gas();
+    MemoryValue out = alu.truncate(val.as_ff(), static_cast<MemoryTag>(dst_tag));
+    context.get_memory().set(dst_addr, out);
+    set_output(opcode, out);
+}
+
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
     constexpr auto opcode = ExecutionOpCode::GETENVVAR;
@@ -827,6 +840,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::NOT:
         call_with_operands(&Execution::op_not, context, resolved_operands);
         break;
+    case ExecutionOpCode::CAST:
+        call_with_operands(&Execution::cast, context, resolved_operands);
+        break;
     case ExecutionOpCode::GETENVVAR:
         call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
@@ -869,8 +885,15 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::RETURNDATASIZE:
         call_with_operands(&Execution::rd_size, context, resolved_operands);
         break;
+    // TODO(fcarreiro): find a better way to handle this through call_with_operands?
     case ExecutionOpCode::DEBUGLOG:
-        call_with_operands(&Execution::debug_log, context, resolved_operands);
+        debug_log(context,
+                  resolved_operands.at(0).as<MemoryAddress>(),
+                  resolved_operands.at(1).as<MemoryAddress>(),
+                  resolved_operands.at(2).as<MemoryAddress>(),
+                  resolved_operands.at(3).as<uint16_t>(),
+                  false);
+        break;
     case ExecutionOpCode::AND:
         call_with_operands(&Execution::and_op, context, resolved_operands);
         break;
