@@ -72,22 +72,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         return verified;
     }
 
-    RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> construct_subtable_commitments_from_op_queue(
-        auto& op_queue,
-        const MergeProver& merge_prover,
-        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES>& t_commitments_val)
-    {
-        std::array<typename Flavor::Polynomial, Flavor::NUM_WIRES> t_current =
-            op_queue->construct_current_ultra_ops_subtable_columns();
-        for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
-            t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-        }
-
-        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments(t_commitments_val);
-
-        return t_commitments;
-    }
-
     /**
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
@@ -98,10 +82,15 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         MergeVerifier merge_verifier;
         merge_verifier.settings = op_queue->get_current_settings();
         auto merge_proof = merge_prover.construct_proof();
-        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments_val;
 
-        bool verified = merge_verifier.verify_proof(
-            merge_proof, this->construct_subtable_commitments_from_op_queue(op_queue, merge_prover, t_commitments_val));
+        // Construct MergeVerificationData
+        MergeVerifier::MergeVerificationData merge_verification_data;
+        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
+            merge_verification_data.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+        }
+
+        bool verified = merge_verifier.verify_proof(merge_proof, merge_verification_data);
 
         return verified;
     }
