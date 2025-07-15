@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,20 +18,26 @@ struct lookup_poseidon2_hash_poseidon2_perm_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_HASH_POSEIDON2_PERM";
     static constexpr std::string_view RELATION_NAME = "poseidon2_hash";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::poseidon2_hash_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_perm_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_perm_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_a_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_a_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_a_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_a_3),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_b_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_b_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_b_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_b_3));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_perm_a_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_a_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_a_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_a_3),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_perm_b_3));
     static constexpr Column COUNTS = Column::lookup_poseidon2_hash_poseidon2_perm_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_hash_poseidon2_perm_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_a_0, ColumnAndShifts::poseidon2_hash_a_1, ColumnAndShifts::poseidon2_hash_a_2,
-        ColumnAndShifts::poseidon2_hash_a_3, ColumnAndShifts::poseidon2_hash_b_0, ColumnAndShifts::poseidon2_hash_b_1,
-        ColumnAndShifts::poseidon2_hash_b_2, ColumnAndShifts::poseidon2_hash_b_3
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_a_0, ColumnAndShifts::poseidon2_perm_a_1, ColumnAndShifts::poseidon2_perm_a_2,
-        ColumnAndShifts::poseidon2_perm_a_3, ColumnAndShifts::poseidon2_perm_b_0, ColumnAndShifts::poseidon2_perm_b_1,
-        ColumnAndShifts::poseidon2_perm_b_2, ColumnAndShifts::poseidon2_perm_b_3
-    };
 };
 
 using lookup_poseidon2_hash_poseidon2_perm_settings = lookup_settings<lookup_poseidon2_hash_poseidon2_perm_settings_>;

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,20 @@ struct lookup_merkle_check_merkle_poseidon2_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_READ";
     static constexpr std::string_view RELATION_NAME = "merkle_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::merkle_check_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::merkle_check_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::merkle_check_read_left_node),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_read_right_node),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_constant_2),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_read_output_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_len),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_read_counts;
     static constexpr Column INVERSES = Column::lookup_merkle_check_merkle_poseidon2_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::merkle_check_read_left_node,
-        ColumnAndShifts::merkle_check_read_right_node,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::merkle_check_constant_2,
-        ColumnAndShifts::merkle_check_read_output_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_input_len,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_merkle_check_merkle_poseidon2_read_settings =
@@ -49,24 +46,21 @@ struct lookup_merkle_check_merkle_poseidon2_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE";
     static constexpr std::string_view RELATION_NAME = "merkle_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::merkle_check_write;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::merkle_check_write);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::merkle_check_write_left_node),
+                        ColumnExpression(ColumnAndShifts::merkle_check_write_right_node),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero),
+                        ColumnExpression(ColumnAndShifts::merkle_check_constant_2),
+                        ColumnExpression(ColumnAndShifts::merkle_check_write_output_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_len),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_merkle_check_merkle_poseidon2_write_counts;
     static constexpr Column INVERSES = Column::lookup_merkle_check_merkle_poseidon2_write_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::merkle_check_write_left_node,
-        ColumnAndShifts::merkle_check_write_right_node,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::merkle_check_constant_2,
-        ColumnAndShifts::merkle_check_write_output_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_input_len,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_merkle_check_merkle_poseidon2_write_settings =

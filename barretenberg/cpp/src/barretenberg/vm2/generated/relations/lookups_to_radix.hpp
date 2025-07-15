@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,12 +18,12 @@ struct lookup_to_radix_limb_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_LIMB_RANGE";
     static constexpr std::string_view RELATION_NAME = "to_radix";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_limb));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_to_radix_limb_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_limb_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::to_radix_limb };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_to_radix_limb_range_settings = lookup_settings<lookup_to_radix_limb_range_settings_>;
@@ -35,14 +36,12 @@ struct lookup_to_radix_limb_less_than_radix_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_LIMB_LESS_THAN_RADIX_RANGE";
     static constexpr std::string_view RELATION_NAME = "to_radix";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_limb_radix_diff));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_to_radix_limb_less_than_radix_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_limb_less_than_radix_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_limb_radix_diff
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_to_radix_limb_less_than_radix_range_settings =
@@ -57,16 +56,15 @@ struct lookup_to_radix_fetch_safe_limbs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_FETCH_SAFE_LIMBS";
     static constexpr std::string_view RELATION_NAME = "to_radix";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_start;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_p_limb_counts;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_to_radix_p_limb_counts);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_radix),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_safe_limbs));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_to_radix_safe_limbs));
     static constexpr Column COUNTS = Column::lookup_to_radix_fetch_safe_limbs_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_fetch_safe_limbs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_radix, ColumnAndShifts::to_radix_safe_limbs
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_to_radix_safe_limbs
-    };
 };
 
 using lookup_to_radix_fetch_safe_limbs_settings = lookup_settings<lookup_to_radix_fetch_safe_limbs_settings_>;
@@ -79,18 +77,17 @@ struct lookup_to_radix_fetch_p_limb_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_FETCH_P_LIMB";
     static constexpr std::string_view RELATION_NAME = "to_radix";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_not_padding_limb;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_p_decomposition;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_not_padding_limb);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_p_decomposition);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_radix),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_limb_index),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_p_limb));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_p_decomposition_radix),
+                        ColumnExpression(ColumnAndShifts::precomputed_p_decomposition_limb_index),
+                        ColumnExpression(ColumnAndShifts::precomputed_p_decomposition_limb));
     static constexpr Column COUNTS = Column::lookup_to_radix_fetch_p_limb_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_fetch_p_limb_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_radix, ColumnAndShifts::to_radix_limb_index, ColumnAndShifts::to_radix_p_limb
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_p_decomposition_radix,
-        ColumnAndShifts::precomputed_p_decomposition_limb_index,
-        ColumnAndShifts::precomputed_p_decomposition_limb
-    };
 };
 
 using lookup_to_radix_fetch_p_limb_settings = lookup_settings<lookup_to_radix_fetch_p_limb_settings_>;
@@ -103,14 +100,12 @@ struct lookup_to_radix_limb_p_diff_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_LIMB_P_DIFF_RANGE";
     static constexpr std::string_view RELATION_NAME = "to_radix";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_not_padding_limb;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_not_padding_limb);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_limb_p_diff));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk));
     static constexpr Column COUNTS = Column::lookup_to_radix_limb_p_diff_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_limb_p_diff_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_limb_p_diff
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 };
 
 using lookup_to_radix_limb_p_diff_range_settings = lookup_settings<lookup_to_radix_limb_p_diff_range_settings_>;

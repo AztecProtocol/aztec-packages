@@ -1,7 +1,10 @@
 use crate::file_writer::BBFiles;
 use itertools::Itertools;
 use powdr_ast::{
-    analyzed::{AlgebraicExpression, Analyzed, IdentityKind},
+    analyzed::{
+        AlgebraicBinaryOperator, AlgebraicExpression, AlgebraicUnaryOperator, Analyzed,
+        IdentityKind,
+    },
     parsed::SelectedExpressions,
 };
 use powdr_number::FieldElement;
@@ -10,7 +13,7 @@ use handlebars::Handlebars;
 use serde_json::{json, Value as Json};
 use std::path::Path;
 
-use crate::utils::sanitize_name;
+use crate::utils::{format_field, sanitize_name};
 
 #[derive(Debug)]
 /// Lookup
@@ -40,10 +43,12 @@ pub struct Lookup {
 ///
 /// One side of a two sided lookup relationship
 pub struct LookupSide {
-    /// -> Option<String> - the selector for the lookup ( on / off toggle )
+    /// The selector expression for the lookup ( on / off toggle )
+    /// See barretenberg/cpp/src/barretenberg/vm2/common/expression.hpp for the expression types.
     selector: Option<String>,
-    /// The columns involved in this side of the lookup
-    cols: Vec<String>,
+    /// The C++ expressions for the side of the lookup
+    /// See barretenberg/cpp/src/barretenberg/vm2/common/expression.hpp for the expression types.
+    expressions: Vec<String>,
 }
 
 pub trait LookupBuilder {
@@ -141,7 +146,7 @@ pub fn get_counts_from_lookups(lookups: &[Lookup]) -> Vec<String> {
 }
 
 fn create_lookup_settings_data(lookup: &Lookup) -> Json {
-    let columns_per_set = lookup.left.cols.len();
+    let columns_per_set = lookup.left.expressions.len();
 
     // NOTE: https://github.com/AztecProtocol/aztec-packages/issues/3879
     // Settings are not flexible enough to combine inverses
@@ -155,11 +160,11 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
         .selector
         .clone()
         .expect("Right hand side selector for lookup required");
-    let lhs_cols = lookup.left.cols.clone();
-    let rhs_cols = lookup.right.cols.clone();
+    let lhs_exprs = lookup.left.expressions.clone();
+    let rhs_exprs = lookup.right.expressions.clone();
 
     assert!(
-        lhs_cols.len() == rhs_cols.len(),
+        lhs_exprs.len() == rhs_exprs.len(),
         "Lookup columns lhs must be the same length as rhs"
     );
 
@@ -180,8 +185,8 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
         "relation_name": lookup.owning_relation,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
-        "lhs_cols": lhs_cols,
-        "rhs_cols": rhs_cols,
+        "lhs_exprs": lhs_exprs,
+        "rhs_exprs": rhs_exprs,
         "inverses_col": lookup.inverse.clone(),
         "counts_col": lookup.counts_poly,
         "read_terms": read_terms,
@@ -195,22 +200,53 @@ fn create_lookup_settings_data(lookup: &Lookup) -> Json {
     })
 }
 
-fn get_lookup_side<F: FieldElement>(
-    def: &SelectedExpressions<AlgebraicExpression<F>>,
-) -> LookupSide {
-    let get_name = |expr: &AlgebraicExpression<F>| match expr {
+fn translate_expression<F: FieldElement>(expr: &AlgebraicExpression<F>) -> String {
+    match expr {
+        AlgebraicExpression::Number(number) => {
+            format!("ConstantExpression({})", format_field(number))
+        }
         AlgebraicExpression::Reference(a_ref) => {
-            let mut name = a_ref.name.clone();
+            let mut name = sanitize_name(&a_ref.name);
             if a_ref.next {
                 name = format!("{}_shift", name);
             }
-            sanitize_name(&name)
+            format!("ColumnExpression(ColumnAndShifts::{})", name)
         }
-        _ => panic!("Expected reference"),
-    };
+        AlgebraicExpression::UnaryOperation(unary) => match unary.op {
+            AlgebraicUnaryOperator::Minus => format!("-({})", translate_expression(&unary.expr)),
+            _ => panic!("Unsupported unary operation"),
+        },
+        AlgebraicExpression::BinaryOperation(binary) => match binary.op {
+            AlgebraicBinaryOperator::Add => format!(
+                "{} + {}",
+                translate_expression(&binary.left),
+                translate_expression(&binary.right)
+            ),
+            AlgebraicBinaryOperator::Sub => format!(
+                "{} - ({})",
+                translate_expression(&binary.left),
+                translate_expression(&binary.right)
+            ),
+            AlgebraicBinaryOperator::Mul => format!(
+                "({}) * ({})",
+                translate_expression(&binary.left),
+                translate_expression(&binary.right)
+            ),
+            _ => panic!("Unsupported binary operation"),
+        },
+        _ => panic!("Unsupported expression"),
+    }
+}
 
+fn get_lookup_side<F: FieldElement>(
+    def: &SelectedExpressions<AlgebraicExpression<F>>,
+) -> LookupSide {
     LookupSide {
-        selector: def.selector.as_ref().map(get_name),
-        cols: def.expressions.iter().map(get_name).collect_vec(),
+        selector: def.selector.as_ref().map(translate_expression),
+        expressions: def
+            .expressions
+            .iter()
+            .map(translate_expression)
+            .collect_vec(),
     }
 }

@@ -24,6 +24,7 @@ class TraceContainer {
     TraceContainer();
 
     const FF& get(Column col, uint32_t row) const;
+    // TODO(fcarreiro): remove this once it's not used in permutations.
     template <size_t N> std::array<FF, N> get_multiple(const std::array<ColumnAndShifts, N>& cols, uint32_t row) const
     {
         std::array<FF, N> result;

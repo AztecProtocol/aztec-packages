@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,17 @@ struct lookup_ecc_mem_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_CHECK_DST_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_add_mem_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_add_mem_dst_addr_2_),
+                        ColumnExpression(ColumnAndShifts::ecc_add_mem_max_mem_addr),
+                        ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_dst_out_of_range_err));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_ecc_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_check_dst_addr_in_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_dst_addr_2_,
-        ColumnAndShifts::ecc_add_mem_max_mem_addr,
-        ColumnAndShifts::ecc_add_mem_sel_dst_out_of_range_err
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_ecc_mem_check_dst_addr_in_range_settings =
@@ -43,20 +43,28 @@ struct lookup_ecc_mem_input_output_ecc_add_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_INPUT_OUTPUT_ECC_ADD";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::ecc_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_add_mem_p_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_p_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_p_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_q_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_q_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_q_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_res_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_res_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_res_is_inf));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_p_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_p_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_p_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_q_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_q_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_q_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_r_x),
+                                                      ColumnExpression(ColumnAndShifts::ecc_r_y),
+                                                      ColumnExpression(ColumnAndShifts::ecc_r_is_inf));
     static constexpr Column COUNTS = Column::lookup_ecc_mem_input_output_ecc_add_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_input_output_ecc_add_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_p_x,   ColumnAndShifts::ecc_add_mem_p_y,   ColumnAndShifts::ecc_add_mem_p_is_inf,
-        ColumnAndShifts::ecc_add_mem_q_x,   ColumnAndShifts::ecc_add_mem_q_y,   ColumnAndShifts::ecc_add_mem_q_is_inf,
-        ColumnAndShifts::ecc_add_mem_res_x, ColumnAndShifts::ecc_add_mem_res_y, ColumnAndShifts::ecc_add_mem_res_is_inf
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
-        ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf,
-        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_r_is_inf
-    };
 };
 
 using lookup_ecc_mem_input_output_ecc_add_settings = lookup_settings<lookup_ecc_mem_input_output_ecc_add_settings_>;
@@ -70,19 +78,22 @@ struct lookup_ecc_mem_write_mem_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_WRITE_MEM_0";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_add_mem_execution_clk),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_dst_addr_0_),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_res_x),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_space_id),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_ecc_mem_write_mem_0_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_write_mem_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_dst_addr_0_,
-        ColumnAndShifts::ecc_add_mem_res_x,         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::ecc_add_mem_space_id,      ColumnAndShifts::ecc_add_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_ecc_mem_write_mem_0_settings = lookup_settings<lookup_ecc_mem_write_mem_0_settings_>;
@@ -95,19 +106,22 @@ struct lookup_ecc_mem_write_mem_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_WRITE_MEM_1";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_add_mem_execution_clk),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_dst_addr_1_),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_res_y),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_space_id),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_ecc_mem_write_mem_1_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_write_mem_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_dst_addr_1_,
-        ColumnAndShifts::ecc_add_mem_res_y,         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::ecc_add_mem_space_id,      ColumnAndShifts::ecc_add_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_ecc_mem_write_mem_1_settings = lookup_settings<lookup_ecc_mem_write_mem_1_settings_>;
@@ -120,19 +134,22 @@ struct lookup_ecc_mem_write_mem_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ECC_MEM_WRITE_MEM_2";
     static constexpr std::string_view RELATION_NAME = "ecc_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ecc_add_mem_execution_clk),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_dst_addr_2_),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_res_is_inf),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_space_id),
+                                                      ColumnExpression(ColumnAndShifts::ecc_add_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_ecc_mem_write_mem_2_counts;
     static constexpr Column INVERSES = Column::lookup_ecc_mem_write_mem_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_dst_addr_2_,
-        ColumnAndShifts::ecc_add_mem_res_is_inf,    ColumnAndShifts::ecc_add_mem_sel_should_exec,
-        ColumnAndShifts::ecc_add_mem_space_id,      ColumnAndShifts::ecc_add_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_ecc_mem_write_mem_2_settings = lookup_settings<lookup_ecc_mem_write_mem_2_settings_>;

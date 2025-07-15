@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,15 +18,14 @@ struct lookup_gt_gt_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GT_GT_RANGE";
     static constexpr std::string_view RELATION_NAME = "gt";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::gt_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_abs_diff),
+                                                      ColumnExpression(ColumnAndShifts::gt_constant_128));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_gt_gt_range_counts;
     static constexpr Column INVERSES = Column::lookup_gt_gt_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::gt_abs_diff,
-                                                                                    ColumnAndShifts::gt_constant_128 };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_gt_gt_range_settings = lookup_settings<lookup_gt_gt_range_settings_>;

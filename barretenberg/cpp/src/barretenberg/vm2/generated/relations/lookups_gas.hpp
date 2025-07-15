@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,14 @@ struct lookup_gas_addressing_gas_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_ADDRESSING_GAS_READ";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_addressing_gas;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_should_check_gas);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_addressing_gas);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_indirect),
+                                                      ColumnExpression(ColumnAndShifts::execution_addressing_gas));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_addressing_gas));
     static constexpr Column COUNTS = Column::lookup_gas_addressing_gas_read_counts;
     static constexpr Column INVERSES = Column::lookup_gas_addressing_gas_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_indirect, ColumnAndShifts::execution_addressing_gas
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_addressing_gas
-    };
 };
 
 using lookup_gas_addressing_gas_read_settings = lookup_settings<lookup_gas_addressing_gas_read_settings_>;
@@ -39,16 +38,15 @@ struct lookup_gas_limit_used_l2_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_LIMIT_USED_L2_RANGE";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_should_check_gas);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_limit_used_l2_cmp_diff),
+                        ColumnExpression(ColumnAndShifts::execution_constant_64));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_gas_limit_used_l2_range_counts;
     static constexpr Column INVERSES = Column::lookup_gas_limit_used_l2_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_limit_used_l2_cmp_diff, ColumnAndShifts::execution_constant_64
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_gas_limit_used_l2_range_settings = lookup_settings<lookup_gas_limit_used_l2_range_settings_>;
@@ -61,16 +59,15 @@ struct lookup_gas_limit_used_da_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_LIMIT_USED_DA_RANGE";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_should_check_gas);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_limit_used_da_cmp_diff),
+                        ColumnExpression(ColumnAndShifts::execution_constant_64));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_gas_limit_used_da_range_counts;
     static constexpr Column INVERSES = Column::lookup_gas_limit_used_da_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_limit_used_da_cmp_diff, ColumnAndShifts::execution_constant_64
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_gas_limit_used_da_range_settings = lookup_settings<lookup_gas_limit_used_da_range_settings_>;

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,22 @@ struct lookup_bc_retrieval_contract_instance_retrieval_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_CONTRACT_INSTANCE_RETRIEVAL";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
-    static constexpr Column DST_SELECTOR = Column::contract_instance_retrieval_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_retrieval_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::contract_instance_retrieval_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::bc_retrieval_address),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_current_class_id),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_instance_exists),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_nullifier_tree_root));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::contract_instance_retrieval_address),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_current_class_id),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_exists),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root));
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_contract_instance_retrieval_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_contract_instance_retrieval_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_address,
-        ColumnAndShifts::bc_retrieval_current_class_id,
-        ColumnAndShifts::bc_retrieval_instance_exists,
-        ColumnAndShifts::bc_retrieval_public_data_tree_root,
-        ColumnAndShifts::bc_retrieval_nullifier_tree_root
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::contract_instance_retrieval_address,
-        ColumnAndShifts::contract_instance_retrieval_current_class_id,
-        ColumnAndShifts::contract_instance_retrieval_exists,
-        ColumnAndShifts::contract_instance_retrieval_public_data_tree_root,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root
-    };
 };
 
 using lookup_bc_retrieval_contract_instance_retrieval_settings =
@@ -49,22 +48,20 @@ struct lookup_bc_retrieval_class_id_derivation_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_CLASS_ID_DERIVATION";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_instance_exists;
-    static constexpr Column DST_SELECTOR = Column::class_id_derivation_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_retrieval_instance_exists);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::class_id_derivation_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::bc_retrieval_current_class_id),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_artifact_hash),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_private_function_root),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_public_bytecode_commitment));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::class_id_derivation_class_id),
+                        ColumnExpression(ColumnAndShifts::class_id_derivation_artifact_hash),
+                        ColumnExpression(ColumnAndShifts::class_id_derivation_private_function_root),
+                        ColumnExpression(ColumnAndShifts::class_id_derivation_public_bytecode_commitment));
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_class_id_derivation_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_class_id_derivation_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_current_class_id,
-        ColumnAndShifts::bc_retrieval_artifact_hash,
-        ColumnAndShifts::bc_retrieval_private_function_root,
-        ColumnAndShifts::bc_retrieval_public_bytecode_commitment
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::class_id_derivation_class_id,
-        ColumnAndShifts::class_id_derivation_artifact_hash,
-        ColumnAndShifts::class_id_derivation_private_function_root,
-        ColumnAndShifts::class_id_derivation_public_bytecode_commitment
-    };
 };
 
 using lookup_bc_retrieval_class_id_derivation_settings =
