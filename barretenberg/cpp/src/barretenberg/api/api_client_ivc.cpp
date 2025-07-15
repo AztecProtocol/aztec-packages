@@ -117,9 +117,9 @@ void ClientIVCAPI::prove(const Flags& flags,
 {
 
     bbapi::BBApiRequest request;
-
-    bbapi::ClientIvcStart{}.execute(request);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
+
+    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
 
     size_t loaded_circuit_public_inputs_size = 0;
     for (const auto& step : raw_steps) {
