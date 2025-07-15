@@ -17,6 +17,12 @@ All the packages that make up [Aztec](https://docs.aztec.network).
 - [End to end tests](./yarn-project/end-to-end/): Integration tests written in Typescript--a good reference for how to use the packages for specific tasks.
 - [Aztec Boxes](./boxes/): Example starter projects.
 
+## DeepWiki
+
+In addition to the docs website, you can "talk" with this repo using [DeepWiki](https://deepwiki.com):
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/AztecProtocol/aztec-packages)
+
 ## Issues Board
 
 All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://aztec.network/roadmap) section of our website.
