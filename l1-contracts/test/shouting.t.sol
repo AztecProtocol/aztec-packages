@@ -49,7 +49,7 @@ contract ScreamAndShoutTest is Test {
     bytes32 codeHash = keccak256(creationCode);
 
     assertEq(
-      codeHash, 0xe20c473d6e3468e3ab09a9e26c91c438d45f9a81e7d296722f2ace00b2a69dbb, ERR_STRING
+      codeHash, 0x6d685153923859cf152d35ced1ed9bc8245880636dd644ba82caa9d48fef7f59, ERR_STRING
     );
   }
 }
