@@ -4,16 +4,16 @@ pragma solidity ^0.8.27;
 // WORKTODO: could we have two versions of the verifier, one which has rolled loops and one which
 // unrolls loops?? - analogous with aggressive inlining
 
-import {IVerifier} from "../../interfaces/IVerifier.sol";
-import {
-    CONST_PROOF_SIZE_LOG_N,
-    NUMBER_OF_SUBRELATIONS,
-    BATCHED_RELATION_PARTIAL_LENGTH,
-    NUMBER_OF_ENTITIES,
-    NUMBER_UNSHIFTED,
-    NUMBER_TO_BE_SHIFTED,
-    NUMBER_OF_ALPHAS
-} from "../HonkTypes.sol";
+uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
+
+uint256 constant NUMBER_OF_SUBRELATIONS = 27;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
+uint256 constant NUMBER_OF_ENTITIES = 40;
+uint256 constant NUMBER_UNSHIFTED = 35;
+uint256 constant NUMBER_TO_BE_SHIFTED = 5;
+
+// Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
+uint256 constant NUMBER_OF_ALPHAS = 26;
 
 // Log_N for this particular circuit is 15, used in sumcheck
 uint256 constant LOG_N = 15;
@@ -31,6 +31,10 @@ uint256 constant LOG_CIRCUIT_SIZE = 15;
 uint256 constant NUMBER_PUBLIC_INPUTS = 20;
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = 20 - 16;
 uint256 constant PUBLIC_INPUTS_OFFSET = 1;
+
+interface IVerifier {
+    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
+}
 
 // The plan
 // Write an optimised version of the add2 circuit

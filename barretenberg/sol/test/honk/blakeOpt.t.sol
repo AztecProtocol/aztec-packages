@@ -1,6 +1,6 @@
 import {Test} from "forge-std/Test.sol";
 import {BlakeHonkVerifier} from "../../src/honk/instance/BlakeHonk.sol";
-import {BlakeOptHonkVerifier} from "../../src/honk/optimised/blake-opt.sol";
+import {HonkVerifier} from "../../src/honk/optimised/blake-opt.sol";
 
 import "forge-std/console.sol";
 
@@ -12,11 +12,11 @@ contract BlakeOptTesBlakeOptTestt is Test {
     // The proof with the public inputs removed
 
     BlakeHonkVerifier referenceVerifier;
-    BlakeOptHonkVerifier optVerifier;
+    HonkVerifier optVerifier;
 
     function setUp() public {
         referenceVerifier = new BlakeHonkVerifier();
-        optVerifier = new BlakeOptHonkVerifier();
+        optVerifier = new HonkVerifier();
     }
 
     function testBothImpls() public {
