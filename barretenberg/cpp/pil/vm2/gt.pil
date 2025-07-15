@@ -14,6 +14,9 @@ namespace gt;
     pol commit res; // Boolean
     res * (1 - res) = 0;
 
+    // NOTE: We currently range check all abs diffs against 128 bits, which for most calls will be sub-optimal,
+    // but allows us to avoid forwarding a rng_chk_bits value and deduplicate more events.
+    // TODO: Investigate whether we want to define the rng_chk_bits here or continue checking all against 128.
     pol commit constant_128;
     sel * (128 - constant_128) = 0;
 
