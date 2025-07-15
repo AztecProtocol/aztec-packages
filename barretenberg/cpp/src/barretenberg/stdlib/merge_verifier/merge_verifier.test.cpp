@@ -22,6 +22,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
     // Types for recursive verifier circuit
     using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
+    using RecursiveMergeVerificationData = MergeRecursiveVerifier_<RecursiveBuilder>::MergeVerificationData;
 
     // Define types relevant for inner circuit
     using InnerFlavor = MegaFlavor;
@@ -33,6 +34,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using FF = InnerFlavor::FF;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
     using MergeProof = MergeProver::MergeProof;
+    using MergeVerificationData = MergeVerifier::MergeVerificationData;
 
     enum class TamperProofMode { None, Shift, MCommitment, LEval };
 
@@ -80,18 +82,14 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         MergeProver merge_prover{ op_queue };
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        MergeVerificationData merge_verification_data;
+        RecursiveMergeVerificationData recursive_merge_verification_data;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        std::array<Commitment, InnerFlavor::NUM_WIRES> t_commitments_val;
-        std::array<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec_val;
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
-            t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-            t_commitments_rec_val[idx] =
-                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, t_commitments_val[idx]);
+            merge_verification_data.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            recursive_merge_verification_data.t_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
+                &outer_circuit, merge_verification_data.t_commitments[idx]);
         }
-
-        RefArray<Commitment, InnerFlavor::NUM_WIRES> t_commitments(t_commitments_val);
-        RefArray<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec(
-            t_commitments_rec_val);
 
         // Construct Merge proof
         auto merge_proof = merge_prover.construct_proof();
@@ -102,7 +100,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         verifier.transcript->enable_manifest();
         verifier.settings = op_queue->get_current_settings();
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        auto pairing_points = verifier.verify_proof(stdlib_merge_proof, t_commitments_rec);
+        auto pairing_points = verifier.verify_proof(stdlib_merge_proof, recursive_merge_verification_data);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), !expected) << outer_circuit.err();
@@ -112,7 +110,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         MergeVerifier native_verifier;
         native_verifier.transcript->enable_manifest();
         native_verifier.settings = op_queue->get_current_settings();
-        bool verified_native = native_verifier.verify_proof(merge_proof, t_commitments);
+        bool verified_native = native_verifier.verify_proof(merge_proof, merge_verification_data);
         VerifierCommitmentKey pcs_verification_key;
         bool verified_recursive =
             pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
