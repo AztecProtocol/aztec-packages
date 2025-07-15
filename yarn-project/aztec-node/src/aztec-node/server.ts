@@ -18,6 +18,7 @@ import {
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  getPublicClient,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
@@ -322,17 +323,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     log.verbose(`All Aztec Node subsystems synced`);
 
     let sequencer: SequencerClient | undefined;
-    let slasherClient: SlasherClient | undefined;
+    let slasherClient: SlasherClient;
 
     const { slasherPrivateKey, l1RpcUrls } = config;
     if (slasherPrivateKey?.getValue() && slasherPrivateKey.getValue() !== NULL_KEY) {
       // we can still run a slasher client if a private key is provided
       const l1Client = createExtendedL1Client(config.l1RpcUrls, slasherPrivateKey.getValue(), ethereumChain.chainInfo);
       const l1TxUtils = new L1TxUtils(l1Client, log, config);
-      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      slasherClient = await SlasherClient.new(
+        config,
+        config.l1Contracts,
+        l1TxUtils,
+        l1TxUtils.client,
+        watchers,
+        dateProvider,
+      );
       slasherClient.start();
     } else {
-      log.warn(`Slasher client not started, no slasher private key provided`);
+      slasherClient = await SlasherClient.new(
+        config,
+        config.l1Contracts,
+        undefined,
+        getPublicClient(config),
+        watchers,
+        dateProvider,
+      );
+      slasherClient.start();
     }
 
     // Validator enabled, create/start relevant service
@@ -355,7 +371,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         validatorClient,
         p2pClient,
         worldStateSynchronizer,
-        slasherClient: slasherClient!,
+        slasherClient,
         blockBuilder,
         l2BlockSource: archiver,
         l1ToL2MessageSource: archiver,
