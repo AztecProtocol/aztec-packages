@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,21 @@ struct lookup_note_hash_tree_check_silo_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_SILO_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_should_silo;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::note_hash_tree_check_should_silo);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_sel),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_siloing_separator),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_address),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_note_hash),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_siloed_note_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_start),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_silo_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_silo_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_sel,
-        ColumnAndShifts::note_hash_tree_check_siloing_separator,
-        ColumnAndShifts::note_hash_tree_check_address,
-        ColumnAndShifts::note_hash_tree_check_note_hash,
-        ColumnAndShifts::note_hash_tree_check_siloed_note_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_start,
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_note_hash_tree_check_silo_poseidon2_settings =
@@ -49,17 +47,15 @@ struct lookup_note_hash_tree_check_read_first_nullifier_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_READ_FIRST_NULLIFIER";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_should_unique;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::note_hash_tree_check_should_unique);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_first_nullifier_pi_index),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_first_nullifier));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_read_first_nullifier_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_read_first_nullifier_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_first_nullifier_pi_index,
-        ColumnAndShifts::note_hash_tree_check_first_nullifier
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_note_hash_tree_check_read_first_nullifier_settings =
@@ -74,24 +70,21 @@ struct lookup_note_hash_tree_check_nonce_computation_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_NONCE_COMPUTATION_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_should_unique;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::note_hash_tree_check_should_unique);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_sel),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_nonce_separator),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_first_nullifier),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_note_hash_index),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_nonce));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_start),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_nonce_computation_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_nonce_computation_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_sel,
-        ColumnAndShifts::note_hash_tree_check_nonce_separator,
-        ColumnAndShifts::note_hash_tree_check_first_nullifier,
-        ColumnAndShifts::note_hash_tree_check_note_hash_index,
-        ColumnAndShifts::note_hash_tree_check_nonce
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_start,
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_note_hash_tree_check_nonce_computation_poseidon2_settings =
@@ -106,24 +99,21 @@ struct lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_UNIQUE_NOTE_HASH_POSEIDON2";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_should_unique;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::note_hash_tree_check_should_unique);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_end);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_sel),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_unique_note_hash_separator),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_nonce),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_siloed_note_hash),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_unique_note_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_start),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_unique_note_hash_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_unique_note_hash_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_sel,
-        ColumnAndShifts::note_hash_tree_check_unique_note_hash_separator,
-        ColumnAndShifts::note_hash_tree_check_nonce,
-        ColumnAndShifts::note_hash_tree_check_siloed_note_hash,
-        ColumnAndShifts::note_hash_tree_check_unique_note_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_start,
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings =
@@ -138,25 +128,25 @@ struct lookup_note_hash_tree_check_merkle_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_MERKLE_CHECK";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
-    static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_sel;
-    static constexpr Column DST_SELECTOR = Column::merkle_check_start;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::note_hash_tree_check_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::merkle_check_start);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_write),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_prev_leaf_value),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_next_leaf_value),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_leaf_index),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_note_hash_tree_height),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_prev_root),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_next_root));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::merkle_check_write),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_read_node),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_write_node),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_index),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_path_len),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_read_root),
+                                                      ColumnExpression(ColumnAndShifts::merkle_check_write_root));
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_merkle_check_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_merkle_check_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_write,
-        ColumnAndShifts::note_hash_tree_check_prev_leaf_value,
-        ColumnAndShifts::note_hash_tree_check_next_leaf_value,
-        ColumnAndShifts::note_hash_tree_check_leaf_index,
-        ColumnAndShifts::note_hash_tree_check_note_hash_tree_height,
-        ColumnAndShifts::note_hash_tree_check_prev_root,
-        ColumnAndShifts::note_hash_tree_check_next_root
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::merkle_check_write,      ColumnAndShifts::merkle_check_read_node,
-        ColumnAndShifts::merkle_check_write_node, ColumnAndShifts::merkle_check_index,
-        ColumnAndShifts::merkle_check_path_len,   ColumnAndShifts::merkle_check_read_root,
-        ColumnAndShifts::merkle_check_write_root
-    };
 };
 
 using lookup_note_hash_tree_check_merkle_check_settings =
@@ -171,17 +161,16 @@ struct lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTE_HASH_TREE_CHECK_WRITE_NOTE_HASH_TO_PUBLIC_INPUTS";
     static constexpr std::string_view RELATION_NAME = "note_hash_tree_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::note_hash_tree_check_should_write_to_public_inputs;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::note_hash_tree_check_should_write_to_public_inputs);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::note_hash_tree_check_public_inputs_index),
+                        ColumnExpression(ColumnAndShifts::note_hash_tree_check_unique_note_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_write_note_hash_to_public_inputs_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_write_note_hash_to_public_inputs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::note_hash_tree_check_public_inputs_index,
-        ColumnAndShifts::note_hash_tree_check_unique_note_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings =

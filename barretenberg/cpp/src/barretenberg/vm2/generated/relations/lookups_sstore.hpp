@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,28 +18,27 @@ struct lookup_sstore_record_written_storage_slot_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SSTORE_RECORD_WRITTEN_STORAGE_SLOT";
     static constexpr std::string_view RELATION_NAME = "sstore";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_write_public_data;
-    static constexpr Column DST_SELECTOR = Column::written_public_data_slots_tree_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_write_public_data);
+    static constexpr auto DST_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_contract_address),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_write_public_data),
+                        ColumnExpression(ColumnAndShifts::execution_prev_written_public_data_slots_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_prev_written_public_data_slots_tree_size),
+                        ColumnExpression(ColumnAndShifts::execution_written_public_data_slots_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_written_public_data_slots_tree_size));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_address),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_slot),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_write),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_root),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_tree_size_before_write),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_write_root),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_tree_size_after_write));
     static constexpr Column COUNTS = Column::lookup_sstore_record_written_storage_slot_counts;
     static constexpr Column INVERSES = Column::lookup_sstore_record_written_storage_slot_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_sel_write_public_data,
-        ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
-        ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
-        ColumnAndShifts::execution_written_public_data_slots_tree_root,
-        ColumnAndShifts::execution_written_public_data_slots_tree_size
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::written_public_data_slots_tree_check_address,
-        ColumnAndShifts::written_public_data_slots_tree_check_slot,
-        ColumnAndShifts::written_public_data_slots_tree_check_write,
-        ColumnAndShifts::written_public_data_slots_tree_check_root,
-        ColumnAndShifts::written_public_data_slots_tree_check_tree_size_before_write,
-        ColumnAndShifts::written_public_data_slots_tree_check_write_root,
-        ColumnAndShifts::written_public_data_slots_tree_check_tree_size_after_write
-    };
 };
 
 using lookup_sstore_record_written_storage_slot_settings =
@@ -53,30 +53,28 @@ struct lookup_sstore_storage_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SSTORE_STORAGE_WRITE";
     static constexpr std::string_view RELATION_NAME = "sstore";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_write_public_data;
-    static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_write_public_data);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_data_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_register_0_),
+                        ColumnExpression(ColumnAndShifts::execution_contract_address),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_prev_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_prev_public_data_tree_size),
+                        ColumnExpression(ColumnAndShifts::execution_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_public_data_tree_size),
+                        ColumnExpression(ColumnAndShifts::precomputed_clk));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::public_data_check_value),
+                        ColumnExpression(ColumnAndShifts::public_data_check_address),
+                        ColumnExpression(ColumnAndShifts::public_data_check_slot),
+                        ColumnExpression(ColumnAndShifts::public_data_check_root),
+                        ColumnExpression(ColumnAndShifts::public_data_check_tree_size_before_write),
+                        ColumnExpression(ColumnAndShifts::public_data_check_write_root),
+                        ColumnExpression(ColumnAndShifts::public_data_check_tree_size_after_write),
+                        ColumnExpression(ColumnAndShifts::public_data_check_clk));
     static constexpr Column COUNTS = Column::lookup_sstore_storage_write_counts;
     static constexpr Column INVERSES = Column::lookup_sstore_storage_write_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_prev_public_data_tree_root,
-        ColumnAndShifts::execution_prev_public_data_tree_size,
-        ColumnAndShifts::execution_public_data_tree_root,
-        ColumnAndShifts::execution_public_data_tree_size,
-        ColumnAndShifts::precomputed_clk
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::public_data_check_value,
-        ColumnAndShifts::public_data_check_address,
-        ColumnAndShifts::public_data_check_slot,
-        ColumnAndShifts::public_data_check_root,
-        ColumnAndShifts::public_data_check_tree_size_before_write,
-        ColumnAndShifts::public_data_check_write_root,
-        ColumnAndShifts::public_data_check_tree_size_after_write,
-        ColumnAndShifts::public_data_check_clk
-    };
 };
 
 using lookup_sstore_storage_write_settings = lookup_settings<lookup_sstore_storage_write_settings_>;

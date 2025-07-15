@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,14 @@ struct lookup_ff_gt_a_lo_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_FF_GT_A_LO_RANGE";
     static constexpr std::string_view RELATION_NAME = "ff_gt";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::ff_gt_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ff_gt_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ff_gt_a_lo),
+                                                      ColumnExpression(ColumnAndShifts::ff_gt_constant_128));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_ff_gt_a_lo_range_counts;
     static constexpr Column INVERSES = Column::lookup_ff_gt_a_lo_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ff_gt_a_lo, ColumnAndShifts::ff_gt_constant_128
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_ff_gt_a_lo_range_settings = lookup_settings<lookup_ff_gt_a_lo_range_settings_>;
@@ -39,16 +38,14 @@ struct lookup_ff_gt_a_hi_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_FF_GT_A_HI_RANGE";
     static constexpr std::string_view RELATION_NAME = "ff_gt";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::ff_gt_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::ff_gt_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::ff_gt_a_hi),
+                                                      ColumnExpression(ColumnAndShifts::ff_gt_constant_128));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_ff_gt_a_hi_range_counts;
     static constexpr Column INVERSES = Column::lookup_ff_gt_a_hi_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::ff_gt_a_hi, ColumnAndShifts::ff_gt_constant_128
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_ff_gt_a_hi_range_settings = lookup_settings<lookup_ff_gt_a_hi_range_settings_>;

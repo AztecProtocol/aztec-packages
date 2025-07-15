@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,20 +18,16 @@ struct lookup_bc_hashing_get_packed_field_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_HASHING_GET_PACKED_FIELD";
     static constexpr std::string_view RELATION_NAME = "bc_hashing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::bc_hashing_sel;
-    static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel_packed;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_hashing_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_decomposition_sel_packed);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::bc_hashing_pc_index),
+                                                      ColumnExpression(ColumnAndShifts::bc_hashing_bytecode_id),
+                                                      ColumnExpression(ColumnAndShifts::bc_hashing_packed_field));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::bc_decomposition_pc),
+                                                      ColumnExpression(ColumnAndShifts::bc_decomposition_id),
+                                                      ColumnExpression(ColumnAndShifts::bc_decomposition_packed_field));
     static constexpr Column COUNTS = Column::lookup_bc_hashing_get_packed_field_counts;
     static constexpr Column INVERSES = Column::lookup_bc_hashing_get_packed_field_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_hashing_pc_index,
-        ColumnAndShifts::bc_hashing_bytecode_id,
-        ColumnAndShifts::bc_hashing_packed_field
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_id,
-        ColumnAndShifts::bc_decomposition_packed_field
-    };
 };
 
 using lookup_bc_hashing_get_packed_field_settings = lookup_settings<lookup_bc_hashing_get_packed_field_settings_>;
@@ -44,20 +41,17 @@ struct lookup_bc_hashing_iv_is_len_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_HASHING_IV_IS_LEN";
     static constexpr std::string_view RELATION_NAME = "bc_hashing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::bc_hashing_start;
-    static constexpr Column DST_SELECTOR = Column::bc_decomposition_sel_packed;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_hashing_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_decomposition_sel_packed);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::bc_hashing_pc_index),
+                                                      ColumnExpression(ColumnAndShifts::bc_hashing_bytecode_id),
+                                                      ColumnExpression(ColumnAndShifts::bc_hashing_incremental_hash));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::bc_decomposition_pc),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_id),
+                        ColumnExpression(ColumnAndShifts::bc_decomposition_bytes_remaining));
     static constexpr Column COUNTS = Column::lookup_bc_hashing_iv_is_len_counts;
     static constexpr Column INVERSES = Column::lookup_bc_hashing_iv_is_len_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_hashing_pc_index,
-        ColumnAndShifts::bc_hashing_bytecode_id,
-        ColumnAndShifts::bc_hashing_incremental_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_decomposition_pc,
-        ColumnAndShifts::bc_decomposition_id,
-        ColumnAndShifts::bc_decomposition_bytes_remaining
-    };
 };
 
 using lookup_bc_hashing_iv_is_len_settings = lookup_settings<lookup_bc_hashing_iv_is_len_settings_>;
