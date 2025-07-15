@@ -39,6 +39,8 @@ struct ClientIvcStart {
         static constexpr const char* NAME = "ClientIvcStartResponse";
         // Empty response - success indicated by no exception
     };
+    // Number of circuits to be accumulated.
+    size_t num_circuits;
     Response execute(BBApiRequest& request) &&;
 };
 
