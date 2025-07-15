@@ -114,7 +114,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
 
-    // WORKTODO: modify stuff here as well
     ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
     {
         circuit_counter++;
@@ -122,7 +121,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         // Assume only every second circuit is a kernel, unless force_is_kernel == true
         bool is_kernel = (circuit_counter % 2 == 0) || force_is_kernel;
 
-        ClientCircuit circuit{ ivc.goblin.op_queue };
+        ClientCircuit circuit{ ivc.goblin.op_queue, is_kernel };
         if (is_kernel) {
             GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
             mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs

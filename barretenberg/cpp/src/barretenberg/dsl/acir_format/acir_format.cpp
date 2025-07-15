@@ -461,7 +461,6 @@ process_honk_recursion_constraints(Builder& builder,
     return output;
 }
 
-// Only called when we encounter a kernel -__-
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
                                        std::shared_ptr<ClientIVC> ivc,
@@ -595,7 +594,10 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     WitnessVector& witness = program.witness;
 
     auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
+
+    // If the incoming program is a kernel, it will have at least one ivc_recursion_constraint.
     bool is_kernel = !constraints.ivc_recursion_constraints.empty();
+
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum, is_kernel };
 
