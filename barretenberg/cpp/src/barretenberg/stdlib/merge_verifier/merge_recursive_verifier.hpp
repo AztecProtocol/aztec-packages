@@ -39,6 +39,11 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
 
         MergeVerificationData() = default;
 
+        /**
+         * @brief Set t_commitments from RefArray
+         *
+         * @param t_commitments_ref
+         */
         void set_t_commitments(const RefArray<Commitment, NUM_WIRES>& t_commitments_ref)
         {
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
