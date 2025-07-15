@@ -267,8 +267,7 @@ unconstrained fn get_current_value_in_private_immediately_before_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change - 1);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change - 1);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -295,8 +294,7 @@ unconstrained fn get_current_value_in_private_at_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -324,8 +322,7 @@ unconstrained fn get_current_value_in_private_after_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change + 10);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change + 10);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -356,8 +353,7 @@ unconstrained fn get_current_value_in_private_with_non_initial_delay() {
         });
 
     let historical_timestamp = std::cmp::max(value_timestamp_of_change, delay_timestamp_of_change);
-    env.set_next_block_timestamp(historical_timestamp);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(historical_timestamp);
 
     env.private_context(|context| {
         // Make sure we're at a block with the expected timestamp
@@ -391,8 +387,7 @@ unconstrained fn get_current_value_in_utility_before_scheduled_change() {
         state_var.get_scheduled_value()
     });
 
-    env.set_next_block_timestamp(timestamp_of_change - 1);
-    cheatcodes::advance_blocks_by(1);
+    env.mine_block_at(timestamp_of_change - 1);
 
     env.utility_context(|context| {
         // Make sure we're at a block with the expected timestamp
