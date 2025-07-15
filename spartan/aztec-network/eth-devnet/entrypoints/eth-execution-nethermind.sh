@@ -2,21 +2,18 @@
 
 /nethermind/nethermind \
   --datadir=/data \
-  --init.chainspecpath=/genesis/genesis.json \
-  --merge-pos=true \
-  --jsonrpc.enabled=true \
-  --jsonrpc.host=0.0.0.0 \
-  --jsonrpc.port=${HTTP_PORT:-8545} \
-  --jsonrpc.websocketport=${WS_PORT:-8546} \
-  --jsonrpc.enabledmodules="Eth,Net,Web3,Debug,Trace,TxPool" \
-  --jsonrpc.enginejwtsecret=/genesis/jwt-secret.hex \
-  --jsonrpc.jwtauthtls=false \
-  --jsonrpc.enginehost=0.0.0.0 \
-  --jsonrpc.engineport=${ENGINE_PORT:-8551} \
-  --jsonrpc.enabledcorsorigins="*" \
-  --jsonrpc.enabledoriginaccesslist="*" \
-  --network.p2penabled=false \
-  --init.maxpeers=0 \
-  --pruning.mode=None \
-  --healthchecks.enabled=true \
+  --Init.ChainSpecPath=/genesis/genesis.json \
+  --Merge.Enabled=true \
+  --JsonRpc.Enabled=true \
+  --JsonRpc.Host=0.0.0.0 \
+  --JsonRpc.Port=${HTTP_PORT:-8545} \
+  --JsonRpc.WebSocketsPort=${WS_PORT:-8546} \
+  --JsonRpc.EnabledModules="Eth,Net,Web3,Debug,Trace,TxPool" \
+  --JsonRpc.JwtSecretFile=/genesis/jwt-secret.hex \
+  --JsonRpc.EngineHost=0.0.0.0 \
+  --JsonRpc.EnginePort=${ENGINE_PORT:-8551} \
+  --JsonRpc.CorsOrigins="*" \
+  --Sync.NetworkingEnabled=false \
+  --Pruning.Mode=None \
+  --HealthChecks.Enabled=true \
   --log=INFO
