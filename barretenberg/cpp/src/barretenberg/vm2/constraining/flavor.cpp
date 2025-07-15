@@ -111,7 +111,7 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
  */
 std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
 {
-    std::vector<FF> elements = { FF(circuit_size), FF(num_public_inputs) };
+    std::vector<FF> elements = { FF(log_circuit_size), FF(num_public_inputs) };
 
     for (auto const& comm : get_all()) {
         std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);

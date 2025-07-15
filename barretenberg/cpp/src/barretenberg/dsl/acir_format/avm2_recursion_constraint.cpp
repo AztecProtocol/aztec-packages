@@ -65,8 +65,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
     //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
     const auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
 
-    // First key field is circuit size
-    builder.set_variable(key_fields[0].witness_index, 1 << log_circuit_size);
+    // First key field is log circuit size
+    builder.set_variable(key_fields[0].witness_index, log_circuit_size);
     // Second key field is number of public inputs
     builder.set_variable(key_fields[1].witness_index, public_inputs_size);
 
