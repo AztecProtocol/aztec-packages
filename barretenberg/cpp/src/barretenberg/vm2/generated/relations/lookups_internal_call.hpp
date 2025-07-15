@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,22 @@ struct lookup_internal_call_push_call_stack_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INTERNAL_CALL_PUSH_CALL_STACK";
     static constexpr std::string_view RELATION_NAME = "internal_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_internal_call;
-    static constexpr Column DST_SELECTOR = Column::internal_call_stack_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_execute_internal_call);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::internal_call_stack_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_context_id),
+                        ColumnExpression(ColumnAndShifts::execution_next_internal_call_id),
+                        ColumnExpression(ColumnAndShifts::execution_internal_call_id),
+                        ColumnExpression(ColumnAndShifts::execution_internal_call_return_id),
+                        ColumnExpression(ColumnAndShifts::execution_next_pc));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::internal_call_stack_context_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_entered_call_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_return_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_return_pc));
     static constexpr Column COUNTS = Column::lookup_internal_call_push_call_stack_counts;
     static constexpr Column INVERSES = Column::lookup_internal_call_push_call_stack_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_next_internal_call_id,
-        ColumnAndShifts::execution_internal_call_id,
-        ColumnAndShifts::execution_internal_call_return_id,
-        ColumnAndShifts::execution_next_pc
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::internal_call_stack_context_id,
-        ColumnAndShifts::internal_call_stack_entered_call_id,
-        ColumnAndShifts::internal_call_stack_id,
-        ColumnAndShifts::internal_call_stack_return_id,
-        ColumnAndShifts::internal_call_stack_return_pc
-    };
 };
 
 using lookup_internal_call_push_call_stack_settings = lookup_settings<lookup_internal_call_push_call_stack_settings_>;
@@ -48,24 +47,22 @@ struct lookup_internal_call_unwind_call_stack_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INTERNAL_CALL_UNWIND_CALL_STACK";
     static constexpr std::string_view RELATION_NAME = "internal_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_internal_return;
-    static constexpr Column DST_SELECTOR = Column::internal_call_stack_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_execute_internal_return);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::internal_call_stack_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_context_id),
+                        ColumnExpression(ColumnAndShifts::execution_internal_call_id),
+                        ColumnExpression(ColumnAndShifts::execution_internal_call_id_shift),
+                        ColumnExpression(ColumnAndShifts::execution_internal_call_return_id_shift),
+                        ColumnExpression(ColumnAndShifts::execution_pc_shift));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::internal_call_stack_context_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_entered_call_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_return_id),
+                        ColumnExpression(ColumnAndShifts::internal_call_stack_return_pc));
     static constexpr Column COUNTS = Column::lookup_internal_call_unwind_call_stack_counts;
     static constexpr Column INVERSES = Column::lookup_internal_call_unwind_call_stack_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_internal_call_id,
-        ColumnAndShifts::execution_internal_call_id_shift,
-        ColumnAndShifts::execution_internal_call_return_id_shift,
-        ColumnAndShifts::execution_pc_shift
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::internal_call_stack_context_id,
-        ColumnAndShifts::internal_call_stack_entered_call_id,
-        ColumnAndShifts::internal_call_stack_id,
-        ColumnAndShifts::internal_call_stack_return_id,
-        ColumnAndShifts::internal_call_stack_return_pc
-    };
 };
 
 using lookup_internal_call_unwind_call_stack_settings =

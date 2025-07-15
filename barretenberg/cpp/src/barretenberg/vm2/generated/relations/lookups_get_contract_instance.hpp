@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,23 @@ struct lookup_get_contract_instance_precomputed_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_CONTRACT_INSTANCE_PRECOMPUTED_INFO";
     static constexpr std::string_view RELATION_NAME = "get_contract_instance";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::get_contract_instance_is_valid_writes_in_bounds;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_writes_in_bounds);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::get_contract_instance_member_enum),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_member_enum),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_is_deployer),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_is_class_id),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_is_init_hash));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_valid_member_enum),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_deployer),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_class_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_init_hash));
     static constexpr Column COUNTS = Column::lookup_get_contract_instance_precomputed_info_counts;
     static constexpr Column INVERSES = Column::lookup_get_contract_instance_precomputed_info_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::get_contract_instance_member_enum,
-        ColumnAndShifts::get_contract_instance_is_valid_member_enum,
-        ColumnAndShifts::get_contract_instance_is_deployer,
-        ColumnAndShifts::get_contract_instance_is_class_id,
-        ColumnAndShifts::get_contract_instance_is_init_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::precomputed_is_valid_member_enum,
-        ColumnAndShifts::precomputed_is_deployer,
-        ColumnAndShifts::precomputed_is_class_id,
-        ColumnAndShifts::precomputed_is_init_hash
-    };
 };
 
 using lookup_get_contract_instance_precomputed_info_settings =
@@ -49,28 +49,27 @@ struct lookup_get_contract_instance_contract_instance_retrieval_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_CONTRACT_INSTANCE_CONTRACT_INSTANCE_RETRIEVAL";
     static constexpr std::string_view RELATION_NAME = "get_contract_instance";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
-    static constexpr Column SRC_SELECTOR = Column::get_contract_instance_is_valid_member_enum;
-    static constexpr Column DST_SELECTOR = Column::contract_instance_retrieval_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_member_enum);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::contract_instance_retrieval_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::get_contract_instance_contract_address),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_nullifier_tree_root),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_instance_exists),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_retrieved_deployer_addr),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_retrieved_class_id),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_retrieved_init_hash));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::contract_instance_retrieval_address),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_exists),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_deployer_addr),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_current_class_id),
+                        ColumnExpression(ColumnAndShifts::contract_instance_retrieval_init_hash));
     static constexpr Column COUNTS = Column::lookup_get_contract_instance_contract_instance_retrieval_counts;
     static constexpr Column INVERSES = Column::lookup_get_contract_instance_contract_instance_retrieval_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::get_contract_instance_contract_address,
-        ColumnAndShifts::get_contract_instance_nullifier_tree_root,
-        ColumnAndShifts::get_contract_instance_public_data_tree_root,
-        ColumnAndShifts::get_contract_instance_instance_exists,
-        ColumnAndShifts::get_contract_instance_retrieved_deployer_addr,
-        ColumnAndShifts::get_contract_instance_retrieved_class_id,
-        ColumnAndShifts::get_contract_instance_retrieved_init_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::contract_instance_retrieval_address,
-        ColumnAndShifts::contract_instance_retrieval_nullifier_tree_root,
-        ColumnAndShifts::contract_instance_retrieval_public_data_tree_root,
-        ColumnAndShifts::contract_instance_retrieval_exists,
-        ColumnAndShifts::contract_instance_retrieval_deployer_addr,
-        ColumnAndShifts::contract_instance_retrieval_current_class_id,
-        ColumnAndShifts::contract_instance_retrieval_init_hash
-    };
 };
 
 using lookup_get_contract_instance_contract_instance_retrieval_settings =
@@ -85,22 +84,24 @@ struct lookup_get_contract_instance_mem_write_contract_instance_exists_settings_
     static constexpr std::string_view NAME = "LOOKUP_GET_CONTRACT_INSTANCE_MEM_WRITE_CONTRACT_INSTANCE_EXISTS";
     static constexpr std::string_view RELATION_NAME = "get_contract_instance";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::get_contract_instance_is_valid_member_enum;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_member_enum);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::get_contract_instance_clk),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_dst_offset),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_instance_exists),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_exists_tag),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_member_enum),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_space_id));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id));
     static constexpr Column COUNTS = Column::lookup_get_contract_instance_mem_write_contract_instance_exists_counts;
     static constexpr Column INVERSES = Column::lookup_get_contract_instance_mem_write_contract_instance_exists_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::get_contract_instance_clk,
-        ColumnAndShifts::get_contract_instance_dst_offset,
-        ColumnAndShifts::get_contract_instance_instance_exists,
-        ColumnAndShifts::get_contract_instance_exists_tag,
-        ColumnAndShifts::get_contract_instance_is_valid_member_enum,
-        ColumnAndShifts::get_contract_instance_space_id
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
-    };
 };
 
 using lookup_get_contract_instance_mem_write_contract_instance_exists_settings =
@@ -115,22 +116,24 @@ struct lookup_get_contract_instance_mem_write_contract_instance_member_settings_
     static constexpr std::string_view NAME = "LOOKUP_GET_CONTRACT_INSTANCE_MEM_WRITE_CONTRACT_INSTANCE_MEMBER";
     static constexpr std::string_view RELATION_NAME = "get_contract_instance";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::get_contract_instance_is_valid_member_enum;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_member_enum);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::get_contract_instance_clk),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_member_write_offset),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_selected_member),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_member_tag),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_is_valid_member_enum),
+                        ColumnExpression(ColumnAndShifts::get_contract_instance_space_id));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id));
     static constexpr Column COUNTS = Column::lookup_get_contract_instance_mem_write_contract_instance_member_counts;
     static constexpr Column INVERSES = Column::lookup_get_contract_instance_mem_write_contract_instance_member_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::get_contract_instance_clk,
-        ColumnAndShifts::get_contract_instance_member_write_offset,
-        ColumnAndShifts::get_contract_instance_selected_member,
-        ColumnAndShifts::get_contract_instance_member_tag,
-        ColumnAndShifts::get_contract_instance_is_valid_member_enum,
-        ColumnAndShifts::get_contract_instance_space_id
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
-    };
 };
 
 using lookup_get_contract_instance_mem_write_contract_instance_member_settings =

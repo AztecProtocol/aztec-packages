@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,17 @@ struct lookup_to_radix_mem_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_CHECK_DST_ADDR_IN_RANGE";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_mem_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_mem_max_write_addr),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_max_mem_addr),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_sel_dst_out_of_range_err));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_dst_addr_in_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_max_write_addr,
-        ColumnAndShifts::to_radix_mem_max_mem_addr,
-        ColumnAndShifts::to_radix_mem_sel_dst_out_of_range_err
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_to_radix_mem_check_dst_addr_in_range_settings =
@@ -43,18 +43,17 @@ struct lookup_to_radix_mem_check_radix_lt_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_CHECK_RADIX_LT_2";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_mem_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_mem_two),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_radix),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_sel_radix_lt_2_err));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_radix_lt_2_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_radix_lt_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_two,
-        ColumnAndShifts::to_radix_mem_radix,
-        ColumnAndShifts::to_radix_mem_sel_radix_lt_2_err
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_to_radix_mem_check_radix_lt_2_settings = lookup_settings<lookup_to_radix_mem_check_radix_lt_2_settings_>;
@@ -68,18 +67,17 @@ struct lookup_to_radix_mem_check_radix_gt_256_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_CHECK_RADIX_GT_256";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_mem_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_mem_radix),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_two_five_six),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_sel_radix_gt_256_err));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_radix_gt_256_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_radix_gt_256_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_radix,
-        ColumnAndShifts::to_radix_mem_two_five_six,
-        ColumnAndShifts::to_radix_mem_sel_radix_gt_256_err
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_to_radix_mem_check_radix_gt_256_settings =
@@ -94,22 +92,19 @@ struct lookup_to_radix_mem_input_output_to_radix_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_INPUT_OUTPUT_TO_RADIX";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::to_radix_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_mem_value_to_decompose),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_limb_index_to_lookup),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_radix),
+                        ColumnExpression(ColumnAndShifts::to_radix_mem_output_limb_value));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_value),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_limb_index),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_radix),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_limb));
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_input_output_to_radix_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_input_output_to_radix_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_value_to_decompose,
-        ColumnAndShifts::to_radix_mem_limb_index_to_lookup,
-        ColumnAndShifts::to_radix_mem_radix,
-        ColumnAndShifts::to_radix_mem_output_limb_value
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::to_radix_value,
-        ColumnAndShifts::to_radix_limb_index,
-        ColumnAndShifts::to_radix_radix,
-        ColumnAndShifts::to_radix_limb
-    };
 };
 
 using lookup_to_radix_mem_input_output_to_radix_settings =
@@ -124,19 +119,22 @@ struct lookup_to_radix_mem_write_mem_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_WRITE_MEM";
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::to_radix_mem_sel_should_exec);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::to_radix_mem_execution_clk),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_mem_dst_addr),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_mem_output_limb_value),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_mem_output_tag),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_mem_space_id),
+                                                      ColumnExpression(ColumnAndShifts::to_radix_mem_sel_should_exec));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_write_mem_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_write_mem_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_execution_clk,     ColumnAndShifts::to_radix_mem_dst_addr,
-        ColumnAndShifts::to_radix_mem_output_limb_value, ColumnAndShifts::to_radix_mem_output_tag,
-        ColumnAndShifts::to_radix_mem_space_id,          ColumnAndShifts::to_radix_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_to_radix_mem_write_mem_settings = lookup_settings<lookup_to_radix_mem_write_mem_settings_>;

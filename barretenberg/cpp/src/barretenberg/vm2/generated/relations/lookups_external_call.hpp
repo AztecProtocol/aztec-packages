@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,15 @@ struct lookup_external_call_call_allocated_left_l2_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXTERNAL_CALL_CALL_ALLOCATED_LEFT_L2_RANGE";
     static constexpr std::string_view RELATION_NAME = "external_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_enter_call);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_call_allocated_left_l2_cmp_diff),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_external_call_call_allocated_left_l2_range_counts;
     static constexpr Column INVERSES = Column::lookup_external_call_call_allocated_left_l2_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_call_allocated_left_l2_cmp_diff, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_external_call_call_allocated_left_l2_range_settings =
@@ -41,16 +41,15 @@ struct lookup_external_call_call_allocated_left_da_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXTERNAL_CALL_CALL_ALLOCATED_LEFT_DA_RANGE";
     static constexpr std::string_view RELATION_NAME = "external_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_enter_call);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_call_allocated_left_da_cmp_diff),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_external_call_call_allocated_left_da_range_counts;
     static constexpr Column INVERSES = Column::lookup_external_call_call_allocated_left_da_range_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_call_allocated_left_da_cmp_diff, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_external_call_call_allocated_left_da_range_settings =

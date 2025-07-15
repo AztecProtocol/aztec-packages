@@ -32,11 +32,14 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
     {
         uint32_t dst_row = BaseBuilder::find_in_dst(src_values);
 
-        auto dst_values = trace->get_multiple(BaseBuilder::LookupSettings::DST_COLUMNS, dst_row);
+        auto dst_values = get_multiple(*trace, BaseBuilder::LookupSettings::DST_EXPRS, dst_row);
         if (src_values != dst_values) {
-            throw std::runtime_error("Failed computing counts for " + std::string(BaseBuilder::LookupSettings::NAME) +
-                                     ". Could not find tuple in destination. " + "SRC tuple: " +
-                                     column_values_to_string(src_values, BaseBuilder::LookupSettings::SRC_COLUMNS));
+            // TODO(fcarreiro): support expressions.
+            throw std::runtime_error("Failed computing counts for " + std::string(BaseBuilder::LookupSettings::NAME));
+            // throw std::runtime_error("Failed computing counts for " + std::string(BaseBuilder::LookupSettings::NAME)
+            // +
+            //                          ". Could not find tuple in destination. " + "SRC tuple: " +
+            //                          column_values_to_string(src_values, BaseBuilder::LookupSettings::SRC_COLUMNS));
         }
 
         return dst_row;

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,38 +18,36 @@ struct lookup_get_env_var_precomputed_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_ENV_VAR_PRECOMPUTED_INFO";
     static constexpr std::string_view RELATION_NAME = "get_env_var";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_get_env_var;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_execute_get_env_var);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_range_8);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_rop_1_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_opcode_error),
+                        ColumnExpression(ColumnAndShifts::execution_sel_envvar_pi_lookup_col0),
+                        ColumnExpression(ColumnAndShifts::execution_sel_envvar_pi_lookup_col1),
+                        ColumnExpression(ColumnAndShifts::execution_envvar_pi_row_idx),
+                        ColumnExpression(ColumnAndShifts::execution_is_address),
+                        ColumnExpression(ColumnAndShifts::execution_is_sender),
+                        ColumnExpression(ColumnAndShifts::execution_is_transactionfee),
+                        ColumnExpression(ColumnAndShifts::execution_is_isstaticcall),
+                        ColumnExpression(ColumnAndShifts::execution_is_l2gasleft),
+                        ColumnExpression(ColumnAndShifts::execution_is_dagasleft),
+                        ColumnExpression(ColumnAndShifts::execution_mem_tag_reg_0_));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_invalid_envvar_enum),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_envvar_pi_lookup_col0),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_envvar_pi_lookup_col1),
+                        ColumnExpression(ColumnAndShifts::precomputed_envvar_pi_row_idx),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_address),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_sender),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_transactionfee),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_isstaticcall),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_l2gasleft),
+                        ColumnExpression(ColumnAndShifts::precomputed_is_dagasleft),
+                        ColumnExpression(ColumnAndShifts::precomputed_out_tag));
     static constexpr Column COUNTS = Column::lookup_get_env_var_precomputed_info_counts;
     static constexpr Column INVERSES = Column::lookup_get_env_var_precomputed_info_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_sel_opcode_error,
-        ColumnAndShifts::execution_sel_envvar_pi_lookup_col0,
-        ColumnAndShifts::execution_sel_envvar_pi_lookup_col1,
-        ColumnAndShifts::execution_envvar_pi_row_idx,
-        ColumnAndShifts::execution_is_address,
-        ColumnAndShifts::execution_is_sender,
-        ColumnAndShifts::execution_is_transactionfee,
-        ColumnAndShifts::execution_is_isstaticcall,
-        ColumnAndShifts::execution_is_l2gasleft,
-        ColumnAndShifts::execution_is_dagasleft,
-        ColumnAndShifts::execution_mem_tag_reg_0_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::precomputed_invalid_envvar_enum,
-        ColumnAndShifts::precomputed_sel_envvar_pi_lookup_col0,
-        ColumnAndShifts::precomputed_sel_envvar_pi_lookup_col1,
-        ColumnAndShifts::precomputed_envvar_pi_row_idx,
-        ColumnAndShifts::precomputed_is_address,
-        ColumnAndShifts::precomputed_is_sender,
-        ColumnAndShifts::precomputed_is_transactionfee,
-        ColumnAndShifts::precomputed_is_isstaticcall,
-        ColumnAndShifts::precomputed_is_l2gasleft,
-        ColumnAndShifts::precomputed_is_dagasleft,
-        ColumnAndShifts::precomputed_out_tag
-    };
 };
 
 using lookup_get_env_var_precomputed_info_settings = lookup_settings<lookup_get_env_var_precomputed_info_settings_>;
@@ -62,16 +61,14 @@ struct lookup_get_env_var_read_from_public_inputs_col0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_ENV_VAR_READ_FROM_PUBLIC_INPUTS_COL0";
     static constexpr std::string_view RELATION_NAME = "get_env_var";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_envvar_pi_lookup_col0;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_envvar_pi_lookup_col0);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_envvar_pi_row_idx),
+                                                      ColumnExpression(ColumnAndShifts::execution_value_from_pi));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_get_env_var_read_from_public_inputs_col0_counts;
     static constexpr Column INVERSES = Column::lookup_get_env_var_read_from_public_inputs_col0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_envvar_pi_row_idx, ColumnAndShifts::execution_value_from_pi
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_get_env_var_read_from_public_inputs_col0_settings =
@@ -86,16 +83,14 @@ struct lookup_get_env_var_read_from_public_inputs_col1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_ENV_VAR_READ_FROM_PUBLIC_INPUTS_COL1";
     static constexpr std::string_view RELATION_NAME = "get_env_var";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_envvar_pi_lookup_col1;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_envvar_pi_lookup_col1);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_envvar_pi_row_idx),
+                                                      ColumnExpression(ColumnAndShifts::execution_value_from_pi));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_));
     static constexpr Column COUNTS = Column::lookup_get_env_var_read_from_public_inputs_col1_counts;
     static constexpr Column INVERSES = Column::lookup_get_env_var_read_from_public_inputs_col1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_envvar_pi_row_idx, ColumnAndShifts::execution_value_from_pi
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_1_
-    };
 };
 
 using lookup_get_env_var_read_from_public_inputs_col1_settings =

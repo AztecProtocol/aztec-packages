@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,17 @@ struct lookup_emit_unencrypted_log_check_log_size_too_large_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_CHECK_LOG_SIZE_TOO_LARGE";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::emit_unencrypted_log_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::emit_unencrypted_log_log_size),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_max_log_size),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_error_too_large));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_log_size_too_large_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_log_size_too_large_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_max_log_size,
-        ColumnAndShifts::emit_unencrypted_log_error_too_large
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_emit_unencrypted_log_check_log_size_too_large_settings =
@@ -43,18 +43,17 @@ struct lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_CHECK_MEMORY_OUT_OF_BOUNDS";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::emit_unencrypted_log_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::emit_unencrypted_log_end_log_address),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_max_mem_addr),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_error_out_of_bounds));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_memory_out_of_bounds_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_memory_out_of_bounds_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_end_log_address,
-        ColumnAndShifts::emit_unencrypted_log_max_mem_addr,
-        ColumnAndShifts::emit_unencrypted_log_error_out_of_bounds
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings =
@@ -69,19 +68,24 @@ struct lookup_emit_unencrypted_log_read_mem_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_READ_MEM";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_sel_should_read_memory;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_sel_should_read_memory);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::emit_unencrypted_log_execution_clk),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_log_address),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_value),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_tag),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_space_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_zero));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw));
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_read_mem_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_read_mem_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_execution_clk, ColumnAndShifts::emit_unencrypted_log_log_address,
-        ColumnAndShifts::emit_unencrypted_log_value,         ColumnAndShifts::emit_unencrypted_log_tag,
-        ColumnAndShifts::emit_unencrypted_log_space_id,      ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
 };
 
 using lookup_emit_unencrypted_log_read_mem_settings = lookup_settings<lookup_emit_unencrypted_log_read_mem_settings_>;
@@ -95,22 +99,20 @@ struct lookup_emit_unencrypted_log_write_log_to_public_inputs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_WRITE_LOG_TO_PUBLIC_INPUTS";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_sel_should_write_to_public_inputs;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_sel_should_write_to_public_inputs);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::emit_unencrypted_log_public_inputs_index),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_contract_address),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_log_size),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_value));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_2_));
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_write_log_to_public_inputs_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_write_log_to_public_inputs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_public_inputs_index,
-        ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_value
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::public_inputs_cols_0_,
-        ColumnAndShifts::public_inputs_cols_1_,
-        ColumnAndShifts::public_inputs_cols_2_
-    };
 };
 
 using lookup_emit_unencrypted_log_write_log_to_public_inputs_settings =
@@ -125,34 +127,33 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
     static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_DISPATCH_EXEC_EMIT_UNENCRYPTED_LOG";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_emit_unencrypted_log;
-    static constexpr Column DST_SELECTOR = Column::emit_unencrypted_log_start;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_execute_emit_unencrypted_log);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::emit_unencrypted_log_start);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::execution_context_id),
+                        ColumnExpression(ColumnAndShifts::execution_rop_0_),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_contract_address),
+                        ColumnExpression(ColumnAndShifts::execution_prev_num_unencrypted_logs),
+                        ColumnExpression(ColumnAndShifts::execution_num_unencrypted_logs),
+                        ColumnExpression(ColumnAndShifts::execution_is_static),
+                        ColumnExpression(ColumnAndShifts::execution_sel_opcode_error),
+                        ColumnExpression(ColumnAndShifts::execution_discard));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::emit_unencrypted_log_execution_clk),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_space_id),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_log_address),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_log_size),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_contract_address),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_logs),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_logs),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_is_static),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_error),
+                        ColumnExpression(ColumnAndShifts::emit_unencrypted_log_discard));
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_0_,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_prev_num_unencrypted_logs,
-        ColumnAndShifts::execution_num_unencrypted_logs,
-        ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_sel_opcode_error,
-        ColumnAndShifts::execution_discard
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_execution_clk,
-        ColumnAndShifts::emit_unencrypted_log_space_id,
-        ColumnAndShifts::emit_unencrypted_log_log_address,
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_logs,
-        ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_logs,
-        ColumnAndShifts::emit_unencrypted_log_is_static,
-        ColumnAndShifts::emit_unencrypted_log_error,
-        ColumnAndShifts::emit_unencrypted_log_discard
-    };
 };
 
 using lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings =

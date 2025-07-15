@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,16 @@ struct lookup_tx_context_public_inputs_note_hash_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_NOTE_HASH_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_note_hash_tree;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_should_read_note_hash_tree);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::tx_note_hash_pi_offset),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_note_hash_tree_root),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_note_hash_tree_size));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_note_hash_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_note_hash_tree_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_note_hash_pi_offset,
-        ColumnAndShifts::tx_prev_note_hash_tree_root,
-        ColumnAndShifts::tx_prev_note_hash_tree_size
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
-    };
 };
 
 using lookup_tx_context_public_inputs_note_hash_tree_settings =
@@ -43,18 +42,16 @@ struct lookup_tx_context_public_inputs_nullifier_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_NULLIFIER_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_nullifier_tree;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_should_read_nullifier_tree);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::tx_nullifier_pi_offset),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_nullifier_tree_root),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_nullifier_tree_size));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_nullifier_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_nullifier_tree_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_nullifier_pi_offset,
-        ColumnAndShifts::tx_prev_nullifier_tree_root,
-        ColumnAndShifts::tx_prev_nullifier_tree_size
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
-    };
 };
 
 using lookup_tx_context_public_inputs_nullifier_tree_settings =
@@ -69,18 +66,16 @@ struct lookup_tx_context_public_inputs_public_data_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_PUBLIC_DATA_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_public_data_tree;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_should_read_public_data_tree);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::tx_public_data_pi_offset),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_public_data_tree_root),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_public_data_tree_size));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_public_data_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_public_data_tree_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_public_data_pi_offset,
-        ColumnAndShifts::tx_prev_public_data_tree_root,
-        ColumnAndShifts::tx_prev_public_data_tree_size
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
-    };
 };
 
 using lookup_tx_context_public_inputs_public_data_tree_settings =
@@ -95,16 +90,14 @@ struct lookup_tx_context_public_inputs_l1_l2_tree_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_L1_L2_TREE";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_l1_l2_tree;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_should_read_l1_l2_tree);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::tx_l1_l2_pi_offset),
+                                                      ColumnExpression(ColumnAndShifts::tx_l1_l2_tree_root));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_l1_l2_tree_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_l1_l2_tree_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_l1_l2_pi_offset, ColumnAndShifts::tx_l1_l2_tree_root
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_tx_context_public_inputs_l1_l2_tree_settings =
@@ -119,18 +112,16 @@ struct lookup_tx_context_public_inputs_gas_used_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_GAS_USED";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_gas_used;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_should_read_gas_used);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::tx_gas_used_pi_offset),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_da_gas_used),
+                                                      ColumnExpression(ColumnAndShifts::tx_prev_l2_gas_used));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_gas_used_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_gas_used_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_gas_used_pi_offset,
-        ColumnAndShifts::tx_prev_da_gas_used,
-        ColumnAndShifts::tx_prev_l2_gas_used
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
-    };
 };
 
 using lookup_tx_context_public_inputs_gas_used_settings =
@@ -145,16 +136,16 @@ struct lookup_tx_context_public_inputs_read_gas_limit_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_READ_GAS_LIMIT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_read_gas_limit;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_should_read_gas_limit);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::tx_gas_limit_pi_offset),
+                                                      ColumnExpression(ColumnAndShifts::tx_da_gas_limit),
+                                                      ColumnExpression(ColumnAndShifts::tx_l2_gas_limit));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_read_gas_limit_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_read_gas_limit_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_gas_limit_pi_offset, ColumnAndShifts::tx_da_gas_limit, ColumnAndShifts::tx_l2_gas_limit
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
-    };
 };
 
 using lookup_tx_context_public_inputs_read_gas_limit_settings =
@@ -169,42 +160,40 @@ struct lookup_tx_context_restore_state_on_revert_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_RESTORE_STATE_ON_REVERT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 14;
-    static constexpr Column SRC_SELECTOR = Column::tx_reverted;
-    static constexpr Column DST_SELECTOR = Column::tx_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_reverted);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::tx_setup_phase_value),
+                        ColumnExpression(ColumnAndShifts::tx_reverted),
+                        ColumnExpression(ColumnAndShifts::tx_prev_note_hash_tree_root_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_note_hash_tree_size_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_note_hashes_emitted_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_nullifier_tree_root_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_nullifier_tree_size_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_nullifiers_emitted_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_public_data_tree_root_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_public_data_tree_size_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_written_public_data_slots_tree_root_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_written_public_data_slots_tree_size_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_unencrypted_logs_shift),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_l2_to_l1_messages_shift));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::tx_phase_value),
+                        ColumnExpression(ColumnAndShifts::tx_end_phase),
+                        ColumnExpression(ColumnAndShifts::tx_next_note_hash_tree_root),
+                        ColumnExpression(ColumnAndShifts::tx_next_note_hash_tree_size),
+                        ColumnExpression(ColumnAndShifts::tx_next_num_note_hashes_emitted),
+                        ColumnExpression(ColumnAndShifts::tx_next_nullifier_tree_root),
+                        ColumnExpression(ColumnAndShifts::tx_next_nullifier_tree_size),
+                        ColumnExpression(ColumnAndShifts::tx_next_num_nullifiers_emitted),
+                        ColumnExpression(ColumnAndShifts::tx_next_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::tx_next_public_data_tree_size),
+                        ColumnExpression(ColumnAndShifts::tx_next_written_public_data_slots_tree_root),
+                        ColumnExpression(ColumnAndShifts::tx_next_written_public_data_slots_tree_size),
+                        ColumnExpression(ColumnAndShifts::tx_next_num_unencrypted_logs),
+                        ColumnExpression(ColumnAndShifts::tx_next_num_l2_to_l1_messages));
     static constexpr Column COUNTS = Column::lookup_tx_context_restore_state_on_revert_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_restore_state_on_revert_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_setup_phase_value,
-        ColumnAndShifts::tx_reverted,
-        ColumnAndShifts::tx_prev_note_hash_tree_root_shift,
-        ColumnAndShifts::tx_prev_note_hash_tree_size_shift,
-        ColumnAndShifts::tx_prev_num_note_hashes_emitted_shift,
-        ColumnAndShifts::tx_prev_nullifier_tree_root_shift,
-        ColumnAndShifts::tx_prev_nullifier_tree_size_shift,
-        ColumnAndShifts::tx_prev_num_nullifiers_emitted_shift,
-        ColumnAndShifts::tx_prev_public_data_tree_root_shift,
-        ColumnAndShifts::tx_prev_public_data_tree_size_shift,
-        ColumnAndShifts::tx_prev_written_public_data_slots_tree_root_shift,
-        ColumnAndShifts::tx_prev_written_public_data_slots_tree_size_shift,
-        ColumnAndShifts::tx_prev_num_unencrypted_logs_shift,
-        ColumnAndShifts::tx_prev_num_l2_to_l1_messages_shift
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::tx_phase_value,
-        ColumnAndShifts::tx_end_phase,
-        ColumnAndShifts::tx_next_note_hash_tree_root,
-        ColumnAndShifts::tx_next_note_hash_tree_size,
-        ColumnAndShifts::tx_next_num_note_hashes_emitted,
-        ColumnAndShifts::tx_next_nullifier_tree_root,
-        ColumnAndShifts::tx_next_nullifier_tree_size,
-        ColumnAndShifts::tx_next_num_nullifiers_emitted,
-        ColumnAndShifts::tx_next_public_data_tree_root,
-        ColumnAndShifts::tx_next_public_data_tree_size,
-        ColumnAndShifts::tx_next_written_public_data_slots_tree_root,
-        ColumnAndShifts::tx_next_written_public_data_slots_tree_size,
-        ColumnAndShifts::tx_next_num_unencrypted_logs,
-        ColumnAndShifts::tx_next_num_l2_to_l1_messages
-    };
 };
 
 using lookup_tx_context_restore_state_on_revert_settings =
@@ -219,16 +208,15 @@ struct lookup_tx_context_public_inputs_write_note_hash_count_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_WRITE_NOTE_HASH_COUNT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_cleanup;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_is_cleanup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::tx_array_length_note_hashes_pi_offset),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_note_hashes_emitted));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_write_note_hash_count_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_write_note_hash_count_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_array_length_note_hashes_pi_offset, ColumnAndShifts::tx_prev_num_note_hashes_emitted
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_tx_context_public_inputs_write_note_hash_count_settings =
@@ -243,16 +231,15 @@ struct lookup_tx_context_public_inputs_write_nullifier_count_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_WRITE_NULLIFIER_COUNT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_cleanup;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_is_cleanup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::tx_array_length_nullifiers_pi_offset),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_nullifiers_emitted));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_write_nullifier_count_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_write_nullifier_count_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_array_length_nullifiers_pi_offset, ColumnAndShifts::tx_prev_num_nullifiers_emitted
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_tx_context_public_inputs_write_nullifier_count_settings =
@@ -267,16 +254,15 @@ struct lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_WRITE_L2_TO_L1_MESSAGE_COUNT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_cleanup;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_is_cleanup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::tx_array_length_l2_to_l1_messages_pi_offset),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_l2_to_l1_messages));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_write_l2_to_l1_message_count_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_write_l2_to_l1_message_count_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_array_length_l2_to_l1_messages_pi_offset, ColumnAndShifts::tx_prev_num_l2_to_l1_messages
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings =
@@ -291,16 +277,15 @@ struct lookup_tx_context_public_inputs_write_unencrypted_log_count_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_WRITE_UNENCRYPTED_LOG_COUNT";
     static constexpr std::string_view RELATION_NAME = "tx_context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_is_cleanup;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::tx_is_cleanup);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::tx_array_length_unencrypted_logs_pi_offset),
+                        ColumnExpression(ColumnAndShifts::tx_prev_num_unencrypted_logs));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_));
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_write_unencrypted_log_count_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_write_unencrypted_log_count_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_array_length_unencrypted_logs_pi_offset, ColumnAndShifts::tx_prev_num_unencrypted_logs
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
-    };
 };
 
 using lookup_tx_context_public_inputs_write_unencrypted_log_count_settings =

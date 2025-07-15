@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,24 +18,22 @@ struct lookup_execution_bytecode_retrieval_result_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_BYTECODE_RETRIEVAL_RESULT";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_first_row_in_context;
-    static constexpr Column DST_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_first_row_in_context);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::bc_retrieval_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_bytecode_id),
+                        ColumnExpression(ColumnAndShifts::execution_contract_address),
+                        ColumnExpression(ColumnAndShifts::execution_prev_nullifier_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_prev_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::execution_sel_bytecode_retrieval_failure));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::bc_retrieval_bytecode_id),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_address),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_nullifier_tree_root),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_public_data_tree_root),
+                        ColumnExpression(ColumnAndShifts::bc_retrieval_error));
     static constexpr Column COUNTS = Column::lookup_execution_bytecode_retrieval_result_counts;
     static constexpr Column INVERSES = Column::lookup_execution_bytecode_retrieval_result_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_bytecode_id,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_prev_nullifier_tree_root,
-        ColumnAndShifts::execution_prev_public_data_tree_root,
-        ColumnAndShifts::execution_sel_bytecode_retrieval_failure
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_bytecode_id,
-        ColumnAndShifts::bc_retrieval_address,
-        ColumnAndShifts::bc_retrieval_nullifier_tree_root,
-        ColumnAndShifts::bc_retrieval_public_data_tree_root,
-        ColumnAndShifts::bc_retrieval_error
-    };
 };
 
 using lookup_execution_bytecode_retrieval_result_settings =
@@ -49,20 +48,19 @@ struct lookup_execution_instruction_fetching_result_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_INSTRUCTION_FETCHING_RESULT";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_bytecode_retrieval_success;
-    static constexpr Column DST_SELECTOR = Column::instr_fetching_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_bytecode_retrieval_success);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_pc),
+                        ColumnExpression(ColumnAndShifts::execution_bytecode_id),
+                        ColumnExpression(ColumnAndShifts::execution_sel_instruction_fetching_failure));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_pc),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_bytecode_id),
+                        ColumnExpression(ColumnAndShifts::instr_fetching_sel_parsing_err));
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_result_counts;
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_result_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_pc,
-        ColumnAndShifts::execution_bytecode_id,
-        ColumnAndShifts::execution_sel_instruction_fetching_failure
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc,
-        ColumnAndShifts::instr_fetching_bytecode_id,
-        ColumnAndShifts::instr_fetching_sel_parsing_err
-    };
 };
 
 using lookup_execution_instruction_fetching_result_settings =
@@ -77,26 +75,35 @@ struct lookup_execution_instruction_fetching_body_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_INSTRUCTION_FETCHING_BODY";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
-    static constexpr Column DST_SELECTOR = Column::instr_fetching_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_instruction_fetching_success);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::instr_fetching_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_pc),
+                                                      ColumnExpression(ColumnAndShifts::execution_bytecode_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_ex_opcode),
+                                                      ColumnExpression(ColumnAndShifts::execution_instr_length),
+                                                      ColumnExpression(ColumnAndShifts::execution_indirect),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_0_),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_2_),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_3_),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_4_),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_5_),
+                                                      ColumnExpression(ColumnAndShifts::execution_op_6_));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::instr_fetching_pc),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_bytecode_id),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_exec_opcode),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_instr_size),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_indirect),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op1),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op2),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op3),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op4),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op5),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op6),
+                                                      ColumnExpression(ColumnAndShifts::instr_fetching_op7));
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_body_counts;
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_body_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_pc,        ColumnAndShifts::execution_bytecode_id,
-        ColumnAndShifts::execution_ex_opcode, ColumnAndShifts::execution_instr_length,
-        ColumnAndShifts::execution_indirect,  ColumnAndShifts::execution_op_0_,
-        ColumnAndShifts::execution_op_1_,     ColumnAndShifts::execution_op_2_,
-        ColumnAndShifts::execution_op_3_,     ColumnAndShifts::execution_op_4_,
-        ColumnAndShifts::execution_op_5_,     ColumnAndShifts::execution_op_6_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::instr_fetching_pc,          ColumnAndShifts::instr_fetching_bytecode_id,
-        ColumnAndShifts::instr_fetching_exec_opcode, ColumnAndShifts::instr_fetching_instr_size,
-        ColumnAndShifts::instr_fetching_indirect,    ColumnAndShifts::instr_fetching_op1,
-        ColumnAndShifts::instr_fetching_op2,         ColumnAndShifts::instr_fetching_op3,
-        ColumnAndShifts::instr_fetching_op4,         ColumnAndShifts::instr_fetching_op5,
-        ColumnAndShifts::instr_fetching_op6,         ColumnAndShifts::instr_fetching_op7
-    };
 };
 
 using lookup_execution_instruction_fetching_body_settings =
@@ -111,100 +118,99 @@ struct lookup_execution_exec_spec_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_EXEC_SPEC_READ";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 43;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_exec_spec;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_instruction_fetching_success);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_exec_spec);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_ex_opcode),
+                        ColumnExpression(ColumnAndShifts::execution_opcode_gas),
+                        ColumnExpression(ColumnAndShifts::execution_base_da_gas),
+                        ColumnExpression(ColumnAndShifts::execution_dynamic_l2_gas),
+                        ColumnExpression(ColumnAndShifts::execution_dynamic_da_gas),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_0_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_1_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_2_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_3_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_4_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_5_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_op_is_address_6_),
+                        ColumnExpression(ColumnAndShifts::execution_subtrace_id),
+                        ColumnExpression(ColumnAndShifts::execution_subtrace_operation_id),
+                        ColumnExpression(ColumnAndShifts::execution_dyn_gas_id),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_0_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_1_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_2_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_3_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_4_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_5_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_mem_op_reg_6_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_0_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_1_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_2_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_3_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_4_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_5_),
+                        ColumnExpression(ColumnAndShifts::execution_rw_reg_6_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_0_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_1_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_2_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_3_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_4_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_5_),
+                        ColumnExpression(ColumnAndShifts::execution_sel_tag_check_reg_6_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_0_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_1_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_2_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_3_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_4_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_5_),
+                        ColumnExpression(ColumnAndShifts::execution_expected_tag_reg_6_));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_exec_opcode_opcode_gas),
+                        ColumnExpression(ColumnAndShifts::precomputed_exec_opcode_base_da_gas),
+                        ColumnExpression(ColumnAndShifts::precomputed_exec_opcode_dynamic_l2_gas),
+                        ColumnExpression(ColumnAndShifts::precomputed_exec_opcode_dynamic_da_gas),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_0_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_1_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_2_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_3_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_4_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_5_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_op_is_address_6_),
+                        ColumnExpression(ColumnAndShifts::precomputed_subtrace_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_subtrace_operation_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_dyn_gas_id),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_0_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_1_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_2_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_3_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_4_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_5_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_mem_op_reg_6_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_0_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_1_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_2_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_3_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_4_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_5_),
+                        ColumnExpression(ColumnAndShifts::precomputed_rw_reg_6_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_0_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_1_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_2_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_3_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_4_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_5_),
+                        ColumnExpression(ColumnAndShifts::precomputed_sel_tag_check_reg_6_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_0_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_1_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_2_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_3_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_4_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_5_),
+                        ColumnExpression(ColumnAndShifts::precomputed_expected_tag_reg_6_));
     static constexpr Column COUNTS = Column::lookup_execution_exec_spec_read_counts;
     static constexpr Column INVERSES = Column::lookup_execution_exec_spec_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_ex_opcode,
-        ColumnAndShifts::execution_opcode_gas,
-        ColumnAndShifts::execution_base_da_gas,
-        ColumnAndShifts::execution_dynamic_l2_gas,
-        ColumnAndShifts::execution_dynamic_da_gas,
-        ColumnAndShifts::execution_sel_op_is_address_0_,
-        ColumnAndShifts::execution_sel_op_is_address_1_,
-        ColumnAndShifts::execution_sel_op_is_address_2_,
-        ColumnAndShifts::execution_sel_op_is_address_3_,
-        ColumnAndShifts::execution_sel_op_is_address_4_,
-        ColumnAndShifts::execution_sel_op_is_address_5_,
-        ColumnAndShifts::execution_sel_op_is_address_6_,
-        ColumnAndShifts::execution_subtrace_id,
-        ColumnAndShifts::execution_subtrace_operation_id,
-        ColumnAndShifts::execution_dyn_gas_id,
-        ColumnAndShifts::execution_sel_mem_op_reg_0_,
-        ColumnAndShifts::execution_sel_mem_op_reg_1_,
-        ColumnAndShifts::execution_sel_mem_op_reg_2_,
-        ColumnAndShifts::execution_sel_mem_op_reg_3_,
-        ColumnAndShifts::execution_sel_mem_op_reg_4_,
-        ColumnAndShifts::execution_sel_mem_op_reg_5_,
-        ColumnAndShifts::execution_sel_mem_op_reg_6_,
-        ColumnAndShifts::execution_rw_reg_0_,
-        ColumnAndShifts::execution_rw_reg_1_,
-        ColumnAndShifts::execution_rw_reg_2_,
-        ColumnAndShifts::execution_rw_reg_3_,
-        ColumnAndShifts::execution_rw_reg_4_,
-        ColumnAndShifts::execution_rw_reg_5_,
-        ColumnAndShifts::execution_rw_reg_6_,
-        ColumnAndShifts::execution_sel_tag_check_reg_0_,
-        ColumnAndShifts::execution_sel_tag_check_reg_1_,
-        ColumnAndShifts::execution_sel_tag_check_reg_2_,
-        ColumnAndShifts::execution_sel_tag_check_reg_3_,
-        ColumnAndShifts::execution_sel_tag_check_reg_4_,
-        ColumnAndShifts::execution_sel_tag_check_reg_5_,
-        ColumnAndShifts::execution_sel_tag_check_reg_6_,
-        ColumnAndShifts::execution_expected_tag_reg_0_,
-        ColumnAndShifts::execution_expected_tag_reg_1_,
-        ColumnAndShifts::execution_expected_tag_reg_2_,
-        ColumnAndShifts::execution_expected_tag_reg_3_,
-        ColumnAndShifts::execution_expected_tag_reg_4_,
-        ColumnAndShifts::execution_expected_tag_reg_5_,
-        ColumnAndShifts::execution_expected_tag_reg_6_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::precomputed_exec_opcode_opcode_gas,
-        ColumnAndShifts::precomputed_exec_opcode_base_da_gas,
-        ColumnAndShifts::precomputed_exec_opcode_dynamic_l2_gas,
-        ColumnAndShifts::precomputed_exec_opcode_dynamic_da_gas,
-        ColumnAndShifts::precomputed_sel_op_is_address_0_,
-        ColumnAndShifts::precomputed_sel_op_is_address_1_,
-        ColumnAndShifts::precomputed_sel_op_is_address_2_,
-        ColumnAndShifts::precomputed_sel_op_is_address_3_,
-        ColumnAndShifts::precomputed_sel_op_is_address_4_,
-        ColumnAndShifts::precomputed_sel_op_is_address_5_,
-        ColumnAndShifts::precomputed_sel_op_is_address_6_,
-        ColumnAndShifts::precomputed_subtrace_id,
-        ColumnAndShifts::precomputed_subtrace_operation_id,
-        ColumnAndShifts::precomputed_dyn_gas_id,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_0_,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_1_,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_2_,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_3_,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_4_,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_5_,
-        ColumnAndShifts::precomputed_sel_mem_op_reg_6_,
-        ColumnAndShifts::precomputed_rw_reg_0_,
-        ColumnAndShifts::precomputed_rw_reg_1_,
-        ColumnAndShifts::precomputed_rw_reg_2_,
-        ColumnAndShifts::precomputed_rw_reg_3_,
-        ColumnAndShifts::precomputed_rw_reg_4_,
-        ColumnAndShifts::precomputed_rw_reg_5_,
-        ColumnAndShifts::precomputed_rw_reg_6_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_0_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_1_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_2_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_3_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_4_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_5_,
-        ColumnAndShifts::precomputed_sel_tag_check_reg_6_,
-        ColumnAndShifts::precomputed_expected_tag_reg_0_,
-        ColumnAndShifts::precomputed_expected_tag_reg_1_,
-        ColumnAndShifts::precomputed_expected_tag_reg_2_,
-        ColumnAndShifts::precomputed_expected_tag_reg_3_,
-        ColumnAndShifts::precomputed_expected_tag_reg_4_,
-        ColumnAndShifts::precomputed_expected_tag_reg_5_,
-        ColumnAndShifts::precomputed_expected_tag_reg_6_
-    };
 };
 
 using lookup_execution_exec_spec_read_settings = lookup_settings<lookup_execution_exec_spec_read_settings_>;
@@ -217,16 +223,15 @@ struct lookup_execution_dyn_l2_factor_bitwise_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_DYN_L2_FACTOR_BITWISE";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_bitwise;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_tag_parameters;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_gas_bitwise);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_tag_parameters);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_mem_tag_reg_0_),
+                        ColumnExpression(ColumnAndShifts::execution_dynamic_l2_gas_factor));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_tag_byte_length));
     static constexpr Column COUNTS = Column::lookup_execution_dyn_l2_factor_bitwise_counts;
     static constexpr Column INVERSES = Column::lookup_execution_dyn_l2_factor_bitwise_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_mem_tag_reg_0_, ColumnAndShifts::execution_dynamic_l2_gas_factor
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_byte_length
-    };
 };
 
 using lookup_execution_dyn_l2_factor_bitwise_settings =
@@ -241,18 +246,16 @@ struct lookup_execution_check_radix_gt_256_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CHECK_RADIX_GT_256";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_to_radix;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_gas_to_radix);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_register_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_two_five_six),
+                                                      ColumnExpression(ColumnAndShifts::execution_sel_radix_gt_256));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_execution_check_radix_gt_256_counts;
     static constexpr Column INVERSES = Column::lookup_execution_check_radix_gt_256_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_two_five_six,
-        ColumnAndShifts::execution_sel_radix_gt_256
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_execution_check_radix_gt_256_settings = lookup_settings<lookup_execution_check_radix_gt_256_settings_>;
@@ -266,16 +269,15 @@ struct lookup_execution_get_p_limbs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_GET_P_LIMBS";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_lookup_num_p_limbs;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_to_radix_p_limb_counts;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_lookup_num_p_limbs);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::precomputed_sel_to_radix_p_limb_counts);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_register_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_num_p_limbs));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                        ColumnExpression(ColumnAndShifts::precomputed_to_radix_num_limbs_for_p));
     static constexpr Column COUNTS = Column::lookup_execution_get_p_limbs_counts;
     static constexpr Column INVERSES = Column::lookup_execution_get_p_limbs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_1_, ColumnAndShifts::execution_num_p_limbs
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_to_radix_num_limbs_for_p
-    };
 };
 
 using lookup_execution_get_p_limbs_settings = lookup_settings<lookup_execution_get_p_limbs_settings_>;
@@ -288,18 +290,16 @@ struct lookup_execution_get_max_limbs_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_GET_MAX_LIMBS";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_to_radix;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_gas_to_radix);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::gt_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_register_2_),
+                                                      ColumnExpression(ColumnAndShifts::execution_num_p_limbs),
+                                                      ColumnExpression(ColumnAndShifts::execution_sel_use_num_limbs));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::gt_input_a),
+                                                      ColumnExpression(ColumnAndShifts::gt_input_b),
+                                                      ColumnExpression(ColumnAndShifts::gt_res));
     static constexpr Column COUNTS = Column::lookup_execution_get_max_limbs_counts;
     static constexpr Column INVERSES = Column::lookup_execution_get_max_limbs_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_2_,
-        ColumnAndShifts::execution_num_p_limbs,
-        ColumnAndShifts::execution_sel_use_num_limbs
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
 };
 
 using lookup_execution_get_max_limbs_settings = lookup_settings<lookup_execution_get_max_limbs_settings_>;
@@ -312,22 +312,21 @@ struct lookup_execution_check_written_storage_slot_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_CHECK_WRITTEN_STORAGE_SLOT";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_sstore;
-    static constexpr Column DST_SELECTOR = Column::written_public_data_slots_tree_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_gas_sstore);
+    static constexpr auto DST_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_contract_address),
+                        ColumnExpression(ColumnAndShifts::execution_register_1_),
+                        ColumnExpression(ColumnAndShifts::execution_dynamic_da_gas_factor),
+                        ColumnExpression(ColumnAndShifts::execution_prev_written_public_data_slots_tree_root));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_address),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_slot),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_leaf_not_exists),
+                        ColumnExpression(ColumnAndShifts::written_public_data_slots_tree_check_root));
     static constexpr Column COUNTS = Column::lookup_execution_check_written_storage_slot_counts;
     static constexpr Column INVERSES = Column::lookup_execution_check_written_storage_slot_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_dynamic_da_gas_factor,
-        ColumnAndShifts::execution_prev_written_public_data_slots_tree_root
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::written_public_data_slots_tree_check_address,
-        ColumnAndShifts::written_public_data_slots_tree_check_slot,
-        ColumnAndShifts::written_public_data_slots_tree_check_leaf_not_exists,
-        ColumnAndShifts::written_public_data_slots_tree_check_root
-    };
 };
 
 using lookup_execution_check_written_storage_slot_settings =

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,16 @@ struct lookup_addressing_relative_overflow_range_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_0";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_0_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_0_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_0_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_0_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_0_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_0_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_0_settings =
@@ -41,16 +42,16 @@ struct lookup_addressing_relative_overflow_range_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_1";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_1_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_1_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_1_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_1_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_1_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_1_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_1_settings =
@@ -65,16 +66,16 @@ struct lookup_addressing_relative_overflow_range_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_2";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_2_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_2_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_2_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_2_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_2_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_2_settings =
@@ -89,16 +90,16 @@ struct lookup_addressing_relative_overflow_range_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_3";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_3_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_3_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_3_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_3_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_3_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_3_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_3_settings =
@@ -113,16 +114,16 @@ struct lookup_addressing_relative_overflow_range_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_4";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_4_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_4_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_4_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_4_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_4_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_4_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_4_settings =
@@ -137,16 +138,16 @@ struct lookup_addressing_relative_overflow_range_5_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_5";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_5_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_5_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_5_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_5_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_5_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_5_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_5_settings =
@@ -161,16 +162,16 @@ struct lookup_addressing_relative_overflow_range_6_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_6";
     static constexpr std::string_view RELATION_NAME = "addressing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_6_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR =
+        ColumnExpression(ColumnAndShifts::execution_sel_op_is_relative_effective_6_);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_overflow_range_check_result_6_),
+                        ColumnExpression(ColumnAndShifts::execution_constant_32));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_6_counts;
     static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_6_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_6_, ColumnAndShifts::execution_constant_32
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_addressing_relative_overflow_range_6_settings =

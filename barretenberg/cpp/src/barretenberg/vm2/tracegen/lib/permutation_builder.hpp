@@ -10,7 +10,7 @@ namespace bb::avm2::tracegen {
 // and let the provers use it to more efficiently compute the inverses.
 template <typename PermutationSettings> class PermutationBuilder : public InteractionBuilderInterface {
   public:
-    void process(TraceContainer& trace) override { SetDummyInverses<PermutationSettings>(trace); }
+    void process(TraceContainer& trace) override { SetDummyInversesPermutation<PermutationSettings>(trace); }
 };
 
 } // namespace bb::avm2::tracegen

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,22 +18,18 @@ struct lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_SEND_L2_TO_L1_MSG_WRITE_L2_TO_L1_MSG";
     static constexpr std::string_view RELATION_NAME = "send_l2_to_l1_msg";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_write_l2_to_l1_msg;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_write_l2_to_l1_msg);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::public_inputs_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_public_inputs_index),
+                                                      ColumnExpression(ColumnAndShifts::execution_register_0_),
+                                                      ColumnExpression(ColumnAndShifts::execution_register_1_),
+                                                      ColumnExpression(ColumnAndShifts::execution_contract_address));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::precomputed_clk),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_0_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_1_),
+                                                      ColumnExpression(ColumnAndShifts::public_inputs_cols_2_));
     static constexpr Column COUNTS = Column::lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_counts;
     static constexpr Column INVERSES = Column::lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_public_inputs_index,
-        ColumnAndShifts::execution_register_0_,
-        ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_contract_address
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::public_inputs_cols_0_,
-        ColumnAndShifts::public_inputs_cols_1_,
-        ColumnAndShifts::public_inputs_cols_2_
-    };
 };
 
 using lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings =
