@@ -105,6 +105,7 @@ const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisf
 
 const redactedPaths = [
   'validatorPrivateKeys',
+  'slasherPrivateKey',
   // for both the validator and the prover
   'publisherPrivateKey',
   'peerIdPrivateKey',

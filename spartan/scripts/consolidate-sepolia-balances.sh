@@ -45,6 +45,7 @@ num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
 validator_key_index_start=$(./read_value.sh "aztec.validatorKeyIndexStart" $value_yamls)
 prover_key_index_start=$(./read_value.sh "aztec.proverKeyIndexStart" $value_yamls)
 bot_key_index_start=$(./read_value.sh "aztec.botKeyIndexStart" $value_yamls)
+slasher_key_index_start=$(./read_value.sh "aztec.slasherKeyIndexStart" $value_yamls)
 
 # bots might be disabled
 bot_enabled=$(./read_value.sh "bot.enabled" $value_yamls)
@@ -74,8 +75,14 @@ if [ "$bot_enabled" = "true" ]; then
   done
 fi
 
+# Add slasher indices (one per validator node)
+for ((i = 0; i < num_validator_nodes; i++)); do
+  indices_to_check+=($((slasher_key_index_start + i)))
+done
+
 echo "Checking balances for ${#indices_to_check[@]} accounts..."
 echo "Total validators: $num_validators ($num_validator_nodes nodes with $validators_per_node validators each)"
+echo "Total slashers: $num_validator_nodes (one per validator node)"
 
 # For each index in our list
 for i in "${indices_to_check[@]}"; do

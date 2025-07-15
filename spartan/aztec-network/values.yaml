@@ -78,6 +78,7 @@ aztec:
   proverKeyIndexStart: 1000
   validatorKeyIndexStart: 2000
   botKeyIndexStart: 3000
+  slasherKeyIndexStart: 3500
   extraAccountsStartIndex: 4000
   ## The number of extra accounts to prefund
   extraAccounts: 10

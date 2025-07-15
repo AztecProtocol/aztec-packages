@@ -6,6 +6,7 @@ import {
   L1TxUtils,
   RollupContract,
   SlashingProposerContract,
+  type ViemClient,
   createExtendedL1Client,
   deployL1Contracts,
 } from '@aztec/ethereum';
@@ -120,6 +121,7 @@ describe('SlasherClient', () => {
       },
       deployed.l1ContractAddresses,
       new L1TxUtils(slasherL1Client, logger),
+      slasherL1Client,
       [dummyWatcher],
       new DateProvider(),
     );
@@ -470,7 +472,8 @@ class TestSlasherClient extends SlasherClient {
   static override async new(
     config: SlasherConfig,
     l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
-    l1TxUtils: L1TxUtils,
+    l1TxUtils: L1TxUtils | undefined,
+    l1Client: ViemClient,
     watchers: Watcher[],
     dateProvider: DateProvider,
   ) {
@@ -481,21 +484,21 @@ class TestSlasherClient extends SlasherClient {
       throw new Error('Cannot initialize SlasherClient without a slashFactory address');
     }
 
-    const rollup = new RollupContract(l1TxUtils.client, l1Contracts.rollupAddress);
+    const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
     const slashingProposer = await rollup.getSlashingProposer();
     const slashFactoryContract = getContract({
       address: getAddress(l1Contracts.slashFactoryAddress.toString()),
       abi: SlashFactoryAbi,
-      client: l1TxUtils.client,
+      client: l1Client,
     });
     return new TestSlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
   constructor(
     config: SlasherConfig,
-    slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ExtendedViemWalletClient>,
+    slashFactoryContract: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>,
     slashingProposer: SlashingProposerContract,
-    l1TxUtils: L1TxUtils,
+    l1TxUtils: L1TxUtils | undefined,
     watchers: Watcher[],
     dateProvider: DateProvider,
     log = createLogger('slasher'),

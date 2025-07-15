@@ -74,6 +74,7 @@ num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
 validator_key_index_start=$(./read_value.sh "aztec.validatorKeyIndexStart" $value_yamls)
 prover_key_index_start=$(./read_value.sh "aztec.proverKeyIndexStart" $value_yamls)
 bot_key_index_start=$(./read_value.sh "aztec.botKeyIndexStart" $value_yamls)
+slasher_key_index_start=$(./read_value.sh "aztec.slasherKeyIndexStart" $value_yamls)
 
 # bots might be disabled
 bot_enabled=$(./read_value.sh "bot.enabled" $value_yamls)
@@ -87,13 +88,15 @@ fi
 validator_max_index=$((validator_key_index_start + num_validators * validators_per_node - 1))
 prover_max_index=$((prover_key_index_start + num_provers - 1))
 bot_max_index=$([ "$bot_enabled" = "true" ] && echo $((bot_key_index_start + num_bots - 1)) || echo 0)
+slasher_max_index=$((slasher_key_index_start + num_validators - 1))
 
 # Find the maximum index needed
 max_index=$((validator_max_index > prover_max_index ? validator_max_index : prover_max_index))
 max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
+max_index=$((max_index > slasher_max_index ? max_index : slasher_max_index))
 
 # Total number of accounts needed
-total_accounts=$((num_validators * validators_per_node + num_provers + num_bots))
+total_accounts=$((num_validators * validators_per_node + num_provers + num_bots + num_validators))
 
 # Check if mnemonic is provided
 if [ "${MNEMONIC:-}" = "" ]; then
@@ -138,6 +141,11 @@ if [ "$bot_enabled" = "true" ]; then
     indices_to_fund+=($((bot_key_index_start + i)))
   done
 fi
+
+# Add slasher indices (one per validator)
+for ((i = 0; i < num_validators; i++)); do
+  indices_to_fund+=($((slasher_key_index_start + i)))
+done
 
 # Get the addresses to fund
 calls="["
@@ -186,6 +194,7 @@ echo "- $num_provers provers (starting at index $prover_key_index_start)"
 if [ "$bot_enabled" = "true" ]; then
   echo "- $num_bots bots (starting at index $bot_key_index_start)"
 fi
+echo "- $num_validators slashers (starting at index $slasher_key_index_start)"
 
 # Write mnemonic to output file
 echo "$MNEMONIC" >"$output_file"

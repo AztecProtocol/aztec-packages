@@ -1,9 +1,11 @@
-import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { NULL_KEY } from '@aztec/ethereum';
+import type { ConfigMappingsType, SecretValue } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,
   booleanConfigHelper,
   floatConfigHelper,
   numberConfigHelper,
+  secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -81,6 +83,7 @@ export interface SlasherConfig {
   slashInactivityMaxPenalty: bigint;
   slashProposerRoundPollingIntervalSeconds: number;
   // Consider adding: slashInactivityCreateEnabled: boolean;
+  slasherPrivateKey?: SecretValue<`0x${string}`>; // Private key of the slasher account used for creating slash payloads
 }
 
 export const DefaultSlasherConfig: SlasherConfig = {
@@ -180,5 +183,9 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   slashProposerRoundPollingIntervalSeconds: {
     description: 'Polling interval for slashing proposer round in seconds.',
     ...numberConfigHelper(DefaultSlasherConfig.slashProposerRoundPollingIntervalSeconds),
+  },
+  slasherPrivateKey: {
+    description: 'Private key used for creating slash payloads.',
+    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
   },
 };

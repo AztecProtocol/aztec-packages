@@ -90,6 +90,8 @@ spec:
           env:
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: SLASHER_KEY_INDEX_START
+              value: {{ .Values.aztec.slasherKeyIndexStart | quote }}
             - name: VALIDATORS_PER_NODE
               value: {{ .Values.validator.keysPerNode | quote }}
             - name: MNEMONIC

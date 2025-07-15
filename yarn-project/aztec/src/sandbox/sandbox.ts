@@ -129,6 +129,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
+  if (!aztecNodeConfig.slasherPrivateKey?.getValue() || aztecNodeConfig.slasherPrivateKey?.getValue() === NULL_KEY) {
+    const account = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic, { accountIndex: 1 });
+    const privKey = account.getHdKey().privateKey;
+    aztecNodeConfig.slasherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
+  }
 
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
