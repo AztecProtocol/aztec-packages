@@ -77,8 +77,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      *
      * @return A pointer to the beginning of the memory-backed range.
      */
-    T* data() { return backing_memory_->raw_data(); }
-    const T* data() const { return backing_memory_->raw_data(); }
+    T* data() { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
+    const T* data() const { return backing_memory_ ? backing_memory_->raw_data() : nullptr; }
     // Our size is end_ - start_. Note that we need to offset end_ when doing a shift to
     // correctly maintain the size.
     size_t size() const { return end_ - start_; }

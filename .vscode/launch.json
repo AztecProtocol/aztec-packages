@@ -44,10 +44,10 @@
       ],
     },
     {
-      "name": "Debug Polynomials Tests",
+      "name": "Debug Commitment Schemes Tests",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/polynomials_tests",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/commitment_schemes_tests",
       "args": [],
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
