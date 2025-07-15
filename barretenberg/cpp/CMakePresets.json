@@ -224,27 +224,6 @@
       }
     },
     {
-      "name": "clang16-low-memory",
-      "displayName": "Low memory build with Clang-16",
-      "description": "Build with globally installed Clang-16 with low memory mode",
-      "inherits": "clang16",
-      "binaryDir": "build-low-memory",
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-DBB_SLOW_LOW_MEMORY"
-      }
-    },
-    {
-      "name": "clang16-dbg-low-memory",
-      "displayName": "Low memory debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 with low memory debug mode",
-      "inherits": "clang16-dbg",
-      "binaryDir": "build-debug-low-memory",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "CMAKE_CXX_FLAGS": "-DBB_SLOW_LOW_MEMORY"
-      }
-    },
-    {
       "name": "clang16-dbg-no-avm",
       "displayName": "Optimized debug build with Clang-16 (no AVM)",
       "description": "Build with globally installed Clang-16 in debug mode excluding the Aztec VM",
@@ -618,16 +597,6 @@
       "name": "clang16",
       "inherits": "default",
       "configurePreset": "clang16"
-    },
-    {
-      "name": "clang16-low-memory",
-      "inherits": "default",
-      "configurePreset": "clang16-low-memory"
-    },
-    {
-      "name": "clang16-dbg-low-memory",
-      "inherits": "default",
-      "configurePreset": "clang16-dbg-low-memory"
     },
     {
       "name": "op-count-time",
