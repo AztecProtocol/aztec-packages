@@ -44,7 +44,7 @@ spec:
       command:
         - sh
         - -c
-        - >
+        - |
           export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
 
           # If running host network, we don't need to get the node port from the service
