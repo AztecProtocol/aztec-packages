@@ -115,7 +115,7 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
+    private config: TxSenderConfig & PublisherConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>,
     deps: {
       telemetry?: TelemetryClient;
       blobSinkClient?: BlobSinkClientInterface;
@@ -402,6 +402,8 @@ export class SequencerPublisher {
     voteType: VoteType,
     payload: EthAddress,
     base: IEmpireBase,
+    signerAddress: EthAddress,
+    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (this.myLastVotes[voteType] >= slotNumber) {
       return false;
@@ -421,7 +423,12 @@ export class SequencerPublisher {
 
     const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
 
-    const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client);
+    const request = await base.createVoteRequestWithSignature(
+      payload.toString(),
+      this.config.l1ChainId,
+      signerAddress.toString(),
+      signer,
+    );
     this.log.debug(`Created ${action} request with signature`, {
       request,
       round,
@@ -472,13 +479,19 @@ export class SequencerPublisher {
    * @param voteType - The type of vote to cast.
    * @returns True if the vote was successfully enqueued, false otherwise.
    */
-  public async enqueueCastVote(slotNumber: bigint, timestamp: bigint, voteType: VoteType): Promise<boolean> {
+  public async enqueueCastVote(
+    slotNumber: bigint,
+    timestamp: bigint,
+    voteType: VoteType,
+    signerAddress: EthAddress,
+    signer: (msg: `0x${string}`) => Promise<`0x${string}`>,
+  ): Promise<boolean> {
     const voteConfig = await this.getVoteConfig(slotNumber, voteType);
     if (!voteConfig) {
       return false;
     }
     const { payload, base } = voteConfig;
-    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base);
+    return this.enqueueCastVoteHelper(slotNumber, timestamp, voteType, payload, base, signerAddress, signer);
   }
 
   /**

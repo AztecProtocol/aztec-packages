@@ -5,7 +5,7 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { type GetContractReturnType, type Hex, type TransactionReceipt, encodeFunctionData, getContract } from 'viem';
 
 import type { GasPrice, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
-import type { ExtendedViemWalletClient, ViemClient } from '../types.js';
+import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeVote, encodeVoteWithSignature, signVoteWithSig } from './empire_base.js';
 import { extractProposalIdFromLogs } from './governance.js';
 
@@ -66,9 +66,14 @@ export class GovernanceProposerContract implements IEmpireBase {
     };
   }
 
-  public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
-    const nonce = await this.getNonce(wallet.account.address);
-    const signature = await signVoteWithSig(wallet, payload, nonce, this.address.toString(), wallet.chain.id);
+  public async createVoteRequestWithSignature(
+    payload: Hex,
+    chainId: number,
+    signerAddress: Hex,
+    signer: (msg: Hex) => Promise<Hex>,
+  ): Promise<L1TxRequest> {
+    const nonce = await this.getNonce(signerAddress);
+    const signature = await signVoteWithSig(signer, payload, nonce, this.address.toString(), chainId);
     return {
       to: this.address.toString(),
       data: encodeVoteWithSignature(payload, signature),
