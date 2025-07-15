@@ -12,13 +12,9 @@ function bootstrap_all {
 }
 
 function hash {
-  hash=$(cache_content_hash "^barretenberg")
-  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
-    # Make sure the different envs don't read from each other's caches.
-    hash="$hash-no-avm"
-  fi
-
-  echo $hash
+  hash_str \
+    $(cache_content_hash ^barretenberg) \
+    $(./cpp/bootstrap.sh hash) # yes, cpp src gets hashed twice, but this second call also takes DISABLE_AVM into account
 }
 
 cmd=${1:-}
