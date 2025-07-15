@@ -39,7 +39,7 @@ class MergeVerifier {
     class MergeVerificationData {
       public:
         std::array<Commitment, NUM_WIRES> t_commitments;
-        std::array<Commitment, NUM_WIRES> T_prev_commitments;
+        // std::array<Commitment, NUM_WIRES> T_prev_commitments;
         std::array<Commitment, NUM_WIRES> T_commitments;
 
         MergeVerificationData() = default;

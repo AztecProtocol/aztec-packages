@@ -34,10 +34,17 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     class MergeVerificationData {
       public:
         std::array<Commitment, NUM_WIRES> t_commitments;
-        std::array<Commitment, NUM_WIRES> T_prev_commitments;
+        // std::array<Commitment, NUM_WIRES> T_prev_commitments;
         std::array<Commitment, NUM_WIRES> T_commitments;
 
         MergeVerificationData() = default;
+
+        void set_t_commitments(const RefArray<Commitment, NUM_WIRES>& t_commitments_ref)
+        {
+            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+                t_commitments[idx] = t_commitments_ref[idx];
+            }
+        }
     };
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
