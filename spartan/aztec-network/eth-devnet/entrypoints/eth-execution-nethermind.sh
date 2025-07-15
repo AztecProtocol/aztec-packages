@@ -1,6 +1,7 @@
 #!/bin/bash
 
 /nethermind/nethermind \
+  --config none \
   --datadir=/data \
   --Init.ChainSpecPath=/genesis/chainspec.json \
   --Merge.Enabled=true \

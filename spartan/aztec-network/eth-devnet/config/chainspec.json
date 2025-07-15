@@ -1,22 +1,13 @@
 {
   "name": "Local1337",
   "engine": {
-    "Ethash": {
-      "params": {
-        "minimumDifficulty": "0x0",
-        "difficultyBoundDivisor": "0x800",
-        "durationLimit": "0xd",
-        "blockReward": {
-          "0": "0x0"
-        }
-      }
-    }
+    "Ethash": {}
   },
   "params": {
     "terminalTotalDifficulty": 0,
     "terminalTotalDifficultyPassed": true,
-    "chainID": 1337,
-    "networkID": 1337,
+    "chainId": 1337,
+    "networkId": 1337,
     "eip150Transition": 0,
     "eip155Transition": 0,
     "eip158Transition": 0,
