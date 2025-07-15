@@ -19,12 +19,29 @@ pub comptime fn aztec(m: Module) -> Quoted {
     // allowed in contracts.
     check_each_fn_macroified(m);
 
-    let contract_library_method_compute_note_hash_and_nullifier =
-        generate_contract_library_method_compute_note_hash_and_nullifier();
+    // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
+    // functions only if they are not already implemented. If they are implemented we just insert empty
+    // quotes.
+    let contract_library_method_compute_note_hash_and_nullifier = if !m.functions().any(|f| {
+        f.name() == quote { _compute_note_hash_and_nullifier }
+    }) {
+        generate_contract_library_method_compute_note_hash_and_nullifier()
+    } else {
+        quote {}
+    };
+    let sync_private_state = if !m.functions().any(|f| f.name() == quote { sync_private_state }) {
+        generate_sync_private_state()
+    } else {
+        quote {}
+    };
+    let process_message = if !m.functions().any(|f| f.name() == quote { process_message }) {
+        generate_process_message()
+    } else {
+        quote {}
+    };
+
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
-    let sync_private_state = generate_sync_private_state();
-    let process_message = generate_process_message();
 
     quote {
         $note_exports
