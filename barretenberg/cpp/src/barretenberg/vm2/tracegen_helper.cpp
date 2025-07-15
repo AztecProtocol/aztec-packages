@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
@@ -375,7 +376,13 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                                    written_public_data_slots_tree_check_trace_builder.process(
                                        events.written_public_data_slots_tree_check_events, trace));
                     clear_events(events.written_public_data_slots_tree_check_events);
-                } });
+                },
+                [&]() {
+                    GreaterThanTraceBuilder gt_builder;
+                    AVM_TRACK_TIME("tracegen/gt", gt_builder.process(events.gt_events, trace));
+                    clear_events(events.gt_events);
+                },
+            });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -408,7 +415,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              DataCopyTraceBuilder::interactions.get_all_jobs(),
                              CalldataTraceBuilder::interactions.get_all_jobs(),
                              NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs());
+                             WrittenPublicDataSlotsTreeCheckTraceBuilder::interactions.get_all_jobs(),
+                             GreaterThanTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
