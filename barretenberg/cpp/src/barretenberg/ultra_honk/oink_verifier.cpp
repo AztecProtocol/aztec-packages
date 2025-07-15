@@ -141,7 +141,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_pro
         compute_public_input_delta<Flavor>(public_inputs,
                                            relation_parameters.beta,
                                            relation_parameters.gamma,
-                                           verification_key->vk->circuit_size,
+                                           verification_key->vk->log_circuit_size,
                                            static_cast<size_t>(verification_key->vk->pub_inputs_offset));
 
     relation_parameters.public_input_delta = public_input_delta;

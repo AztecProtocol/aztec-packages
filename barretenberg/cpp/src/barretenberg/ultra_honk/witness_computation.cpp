@@ -102,13 +102,13 @@ template <IsUltraOrMegaHonk Flavor>
 void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::ProverPolynomials& polynomials,
                                                                   std::vector<FF>& public_inputs,
                                                                   const size_t pub_inputs_offset,
-                                                                  const size_t circuit_size,
+                                                                  const size_t log_circuit_size,
                                                                   ActiveRegionData& active_region_data,
                                                                   RelationParameters<FF>& relation_parameters,
                                                                   size_t size_override)
 {
     relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
-        public_inputs, relation_parameters.beta, relation_parameters.gamma, circuit_size, pub_inputs_offset);
+        public_inputs, relation_parameters.beta, relation_parameters.gamma, log_circuit_size, pub_inputs_offset);
 
     // Compute permutation grand product polynomial
     compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
@@ -145,7 +145,7 @@ void WitnessComputation<Flavor>::complete_proving_key_for_test(
     compute_grand_product_polynomial(decider_pk->polynomials,
                                      decider_pk->public_inputs,
                                      decider_pk->pub_inputs_offset(),
-                                     decider_pk->dyadic_size(),
+                                     decider_pk->log_dyadic_size(),
                                      decider_pk->active_region_data,
                                      decider_pk->relation_parameters,
                                      decider_pk->get_final_active_wire_idx() + 1);
