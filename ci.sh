@@ -105,40 +105,40 @@ case "$cmd" in
     prep_vars
     # Spin up ec2 instance and run the merge-queue flow.
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 USE_CIRCUITS_CACHE=$3 exec denoise "bootstrap_ec2 './bootstrap.sh $4'"
     }
     export -f run
     # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
     parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full' \
-      'run x2-full amd64 ci-full' \
-      'run x3-full amd64 ci-full' \
-      'run x4-full amd64 ci-full' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+      'run x1-full amd64 0 ci-full' \
+      'run x2-full amd64 0 ci-full' \
+      'run x3-full amd64 0 ci-full' \
+      'run x4-full amd64 0 ci-full' \
+      'run a1-fast arm64 1 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
   "nightly")
     prep_vars
     # Spin up ec2 instance and run the nightly flow.
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 USE_CIRCUITS_CACHE=${3:-0} exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
     }
     export -f run
     # We need to run the release flow on both x86 and arm64.
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-nightly amd64' \
-      'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
+      'run a-nightly arm64 1' | DUP=1 cache_log "Nightly CI run" $RUN_ID
     ;;
   "release")
     prep_vars
     # Spin up ec2 instance and run the release flow.
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 USE_CIRCUITS_CACHE=${3:-0} exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
     }
     export -f run
     # We need to run the release flow on both x86 and arm64.
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-release amd64' \
-      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+      'run a-release arm64 1' | DUP=1 cache_log "Release CI run" $RUN_ID
     ;;
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
