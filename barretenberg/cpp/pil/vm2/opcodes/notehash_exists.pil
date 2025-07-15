@@ -2,6 +2,17 @@ include "../constants_gen.pil";
 include "../range_check.pil";
 include "../trees/note_hash_tree_check.pil";
 
+// NOTEHASH_EXISTS opcode: Checks if a note hash exists in the note hash tree at a given leaf index
+//
+// Register usage:
+// - register[0]: Contains the unique_note_hash to check for existence
+// - register[1]: Contains the leaf_index where the unique_note_hash is going to be checked
+// - register[2]: Boolean output of the opcode indicating whether the note hash exists at the given leaf index
+//
+// The opcode leverages the note_hash_tree_check gadget to verify the existence check operation
+// against the current note hash tree root. The opcode will fail (sel_opcode_error = 1) if the
+// leaf index is greater than or equal to the total number of leaves in the note hash tree.
+//
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
     #[skippable_if]
