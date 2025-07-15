@@ -11,9 +11,8 @@ fi
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
-    $(cache_content_hash \
-      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-      ../barretenberg/*/.rebuild_patterns)
+    $(../barretenberg/bootstrap.sh hash) \
+    $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
 function compile_project {
