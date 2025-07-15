@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ls -la /genesis
+cat /genesis/chainspec.json
 
 /nethermind/nethermind \
   --datadir=/data \

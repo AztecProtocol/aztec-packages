@@ -186,6 +186,7 @@ function create_beacon_genesis {
 
 
   cp "$tmp_dir/genesis.json" "$GENESIS_PATH/genesis.json"
+  cp "$tmp_dir/chainspec.json" "$GENESIS_PATH/chainspec.json"
   cp "$tmp_dir/config.yaml" "$GENESIS_PATH/config.yaml"
 
   if [[ $? -ne 0 ]]; then
