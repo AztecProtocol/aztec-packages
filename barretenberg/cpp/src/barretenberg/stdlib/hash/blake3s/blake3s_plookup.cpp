@@ -70,7 +70,7 @@ void compress_pre(field_t<Builder> state[BLAKE3_STATE_SIZE],
     typedef field_t<Builder> field_pt;
     field_pt block_words[BLAKE3_STATE_SIZE];
     for (size_t i = 0; i < BLAKE3_STATE_SIZE; ++i) {
-        block_words[i] = field_pt(block.slice(i * 4, 4).reverse());
+        block_words[i] = static_cast<field_pt>(block.slice(i * 4, 4).reverse());
     }
 
     state[0] = cv[0];
