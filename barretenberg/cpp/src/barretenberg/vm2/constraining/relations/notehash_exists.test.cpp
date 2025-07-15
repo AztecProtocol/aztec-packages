@@ -109,7 +109,9 @@ TEST(NoteHashExistsConstrainingTest, Interactions)
     EventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_event_emitter;
     NoteHashTreeCheck note_hash_tree_check(27, poseidon2, merkle_check, note_hash_tree_check_event_emitter);
 
-    FF unique_note_hash = 42;
+    FF requested_note_hash = 42;
+    FF actual_leaf_value = 43;
+
     uint64_t leaf_index = 27;
     uint64_t leaf_index_leaf_count_cmp_diff = NOTE_HASH_TREE_LEAF_COUNT - leaf_index - 1;
 
@@ -119,13 +121,14 @@ TEST(NoteHashExistsConstrainingTest, Interactions)
     };
 
     range_check.assert_range(leaf_index_leaf_count_cmp_diff, 64);
-    note_hash_tree_check.note_hash_exists(unique_note_hash, unique_note_hash, leaf_index, {}, note_hash_tree_snapshot);
+    note_hash_tree_check.note_hash_exists(
+        requested_note_hash, actual_leaf_value, leaf_index, {}, note_hash_tree_snapshot);
 
     TestTraceContainer trace({ {
         { C::execution_sel_execute_notehash_exists, 1 },
-        { C::execution_register_0_, unique_note_hash },
+        { C::execution_register_0_, requested_note_hash },
         { C::execution_register_1_, leaf_index },
-        { C::execution_register_2_, /*dst=*/1 },
+        { C::execution_register_2_, /*result=*/0 },
         { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
         { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64) },
         { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) },
