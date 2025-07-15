@@ -23,7 +23,6 @@ namespace bb {
  */
 class PairingPoints {
     using Curve = curve::BN254;
-    using CK = CommitmentKey<Curve>;
     using Point = typename Curve::AffineElement;
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;

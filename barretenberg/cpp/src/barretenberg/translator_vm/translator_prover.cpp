@@ -20,9 +20,6 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     PROFILE_THIS();
-    if (!key->proving_key->commitment_key.initialized()) {
-        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
-    }
 }
 
 /**

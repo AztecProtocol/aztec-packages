@@ -18,15 +18,12 @@ ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
     , num_circuits(num_circuits)
     , trace_settings(trace_settings)
-    , goblin(bn254_commitment_key)
 {
     BB_ASSERT_GT(num_circuits, 0UL, "Number of circuits must be specified and greater than 0.");
-    // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
-    // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
+    // Allocate BN254 commitment key based on the max dyadic Mega trace size and translator circuit size.
     size_t commitment_key_size =
         std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     info("BN254 commitment key size: ", commitment_key_size);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     bn254_commitment_key = CommitmentKey<curve::BN254>(commitment_key_size);
 }
 
@@ -236,11 +233,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (proving_key->dyadic_size() > bn254_commitment_key.dyadic_size) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
         bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->dyadic_size());
-        goblin.commitment_key = bn254_commitment_key;
     }
     proving_key->commitment_key = bn254_commitment_key;
 

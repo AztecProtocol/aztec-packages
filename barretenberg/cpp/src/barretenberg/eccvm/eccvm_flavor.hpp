@@ -777,7 +777,7 @@ class ECCVMFlavor {
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        CommitmentKey commitment_key;
+        CommitmentKey commitment_key{ ECCVM_FIXED_SIZE };
 
         // Constructor for fixed size ProvingKey
         ProvingKey(const CircuitBuilder& builder)
