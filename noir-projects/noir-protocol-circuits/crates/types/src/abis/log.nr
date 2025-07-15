@@ -22,39 +22,39 @@ impl<let N: u32> Empty for Log<N> {
 
 // // Note: We currently don't support derivation of Serialize and Deserialize traits for types with generics so we have
 // // the manual implementation below.
-// impl<let N: u32> Serialize for Log<N> {
-//     let N: u32 = N + 1; // +1 for length field
+// impl<let M: u32> Serialize for Log<M> {
+//     let N: u32 = M + 1; // +1 for length field
 
 //     #[inline_always]
 //     fn serialize(self) -> [Field; Self::N] {
 //         let mut result = [0; Self::N];
 
 //         // Copy log fields
-//         for i in 0..N {
+//         for i in 0..M {
 //             result[i] = self.fields[i];
 //         }
 
 //         // Store length as last field
-//         result[N] = self.length as Field;
+//         result[M] = self.length as Field;
 
 //         result
 //     }
 // }
 
-impl<let N: u32> Deserialize for Log<N> {
-    let N: u32 = N + 1; // +1 for length field
+impl<let M: u32> Deserialize for Log<M> {
+    let N: u32 = M + 1; // +1 for length field
 
     #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut log_fields = [0; N];
+        let mut log_fields = [0; M];
 
         // Copy log fields
-        for i in 0..N {
+        for i in 0..M {
             log_fields[i] = fields[i];
         }
 
         // Get length from last field
-        let length = fields[N] as u32;
+        let length = fields[M] as u32;
 
         Self { fields: log_fields, length }
     }
