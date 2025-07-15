@@ -11,6 +11,7 @@ export interface IEmpireBase {
   createVoteRequest(payload: Hex): L1TxRequest;
   createVoteRequestWithSignature(
     payload: Hex,
+    round: bigint,
     chainId: number,
     signerAddress: Hex,
     signer: (msg: Hex) => Promise<Hex>,
@@ -46,6 +47,7 @@ export async function signVoteWithSig(
   signer: (msg: Hex) => Promise<Hex>,
   proposal: Hex,
   nonce: bigint,
+  round: bigint,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -60,12 +62,14 @@ export async function signVoteWithSig(
     Vote: [
       { name: 'proposal', type: 'address' },
       { name: 'nonce', type: 'uint256' },
+      { name: 'round', type: 'uint256' },
     ],
   };
 
   const message = {
     proposal,
     nonce,
+    round,
   };
 
   const msg = hashTypedData({ domain, types, primaryType: 'Vote', message });
