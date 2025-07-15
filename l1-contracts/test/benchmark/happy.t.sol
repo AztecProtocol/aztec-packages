@@ -328,14 +328,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _proposal The proposal to vote on
    * @return The EIP-712 signature
    */
-  function createVoteSignature(address _signer, IPayload _proposal)
+  function createVoteSignature(address _signer, IPayload _proposal, uint256 _round)
     internal
     view
     returns (Signature memory)
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer);
+    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer, _round);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
@@ -354,10 +354,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
+      uint256 round = slashingProposer.getCurrentRound();
 
       if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
         address proposer = rollup.getCurrentProposer();
-        Signature memory sig = createVoteSignature(proposer, slashPayload);
+        Signature memory sig = createVoteSignature(proposer, slashPayload, round);
         slashingProposer.voteWithSig(slashPayload, sig);
         warmedUp = true;
       }
@@ -374,7 +375,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         skipBlobCheck(address(rollup));
 
         if (_slashing) {
-          Signature memory sig = createVoteSignature(proposer, slashPayload);
+          Signature memory sig = createVoteSignature(proposer, slashPayload, round);
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),

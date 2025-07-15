@@ -9,7 +9,8 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IHaveVersion} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 
 contract FakeGovernance {
   address immutable GOVERNANCE_PROPOSER;
@@ -44,5 +45,12 @@ contract GovernanceProposerBase is Test {
 
     registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
+
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.setMakeGovernance(false).deploy();
+    IHaveVersion rollup = IHaveVersion(address(builder.getConfig().rollup));
+
+    vm.prank(address(governance));
+    registry.addRollup(rollup);
   }
 }

@@ -89,6 +89,36 @@ contract VoteWithSigTest is GovernanceProposerBase {
     governanceProposer.voteWithSig(proposal, signature);
   }
 
+  function test_GivenVoteIsForPriorRound(uint256 _slotsToFastForward)
+    external
+    whenProposalHoldCode
+    givenCanonicalRollupHoldCode
+  {
+    // it revert
+    uint256 roundSize = governanceProposer.ROUND_SIZE();
+
+    uint256 minSlotsToFastForward =
+      roundSize - (Slot.unwrap(validatorSelection.getCurrentSlot()) % roundSize);
+
+    _slotsToFastForward = bound(_slotsToFastForward, minSlotsToFastForward, roundSize * 1e6);
+
+    // fast forward a round
+    vm.warp(block.timestamp + _slotsToFastForward * validatorSelection.getSlotDuration());
+
+    uint256 round = governanceProposer.getCurrentRound();
+    bytes32 digest = getDigest(privateKey, proposal, round);
+
+    // vote
+    address expectedInvalidSigner = ecrecover(digest, signature.v, signature.r, signature.s);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        SignatureLib__InvalidSignature.selector, proposer, expectedInvalidSigner
+      )
+    );
+    governanceProposer.voteWithSig(proposal, signature);
+  }
+
   modifier givenNoVoteAlreadyCastInTheSlot() {
     _;
   }
@@ -362,12 +392,12 @@ contract VoteWithSigTest is GovernanceProposerBase {
     }
   }
 
-  function createSignature(uint256 _privateKey, IPayload _payload)
+  function getDigest(uint256 _privateKey, IPayload _payload, uint256 _round)
     internal
     view
-    returns (Signature memory)
+    returns (bytes32)
   {
-    address p = vm.addr(privateKey);
+    address p = vm.addr(_privateKey);
     uint256 nonce = governanceProposer.nonces(p);
     bytes32 domainSeparator = keccak256(
       abi.encode(
@@ -381,8 +411,19 @@ contract VoteWithSigTest is GovernanceProposerBase {
       )
     );
     bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload, nonce))
+      domainSeparator,
+      keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload, nonce, _round))
     );
+    return digest;
+  }
+
+  function createSignature(uint256 _privateKey, IPayload _payload)
+    internal
+    view
+    returns (Signature memory)
+  {
+    uint256 round = governanceProposer.getCurrentRound();
+    bytes32 digest = getDigest(_privateKey, _payload, round);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
 
