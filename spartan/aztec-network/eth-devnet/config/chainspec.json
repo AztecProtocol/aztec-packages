@@ -1,11 +1,17 @@
 {
   "name": "Local1337",
   "engine": {
-    "Merge": {
-      "terminalTotalDifficulty": "0x0"
+    "Ethash": {
+      "params": {
+        "minimumDifficulty": "0x0",
+        "difficultyBoundDivisor": "0x800",
+        "durationLimit": "0xd",
+        "blockReward": "0x0"
+      }
     }
   },
   "params": {
+    "terminalTotalDifficulty": 0,
     "chainID": 1337,
     "networkID": 1337,
     "eip150Transition": 0,
