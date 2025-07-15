@@ -73,23 +73,19 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     transcript->load_proof(proof);
 
     FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
-    ASSERT(shift_size.get_value() > 0, "Shift size should always be bigger than 0");
+    BB_ASSERT_GT(shift_size.get_value(), 0U, "Shift size should always be bigger than 0");
 
     // Vector of commitments to be passed to the Shplonk verifier
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        if (settings == MergeSettings::PREPEND) {
-            table_commitments.emplace_back(t_commitments[idx]);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
-            table_commitments.emplace_back(
-                transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
-        } else {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
-            table_commitments.emplace_back(
-                transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx)));
-            table_commitments.emplace_back(t_commitments[idx]);
-        }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
+        auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
+        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
+        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+
+        table_commitments.emplace_back(left_table);
+        table_commitments.emplace_back(right_table);
         table_commitments.emplace_back(
             transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));
         table_commitments.emplace_back(
