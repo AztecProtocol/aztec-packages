@@ -13,14 +13,18 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <memory>
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
 #include <sys/mman.h>
+#endif
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
 
 template <typename T> class AlignedMemory;
 
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
 template <typename T> class FileBackedMemory;
+#endif
 
 template <typename Fr> class BackingMemory {
   public:
@@ -36,8 +40,12 @@ template <typename Fr> class BackingMemory {
 
     static std::shared_ptr<BackingMemory<Fr>> allocate(size_t size)
     {
-        return slow_low_memory ? std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size))
-                               : std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
+        if (slow_low_memory) {
+            return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+        }
+#endif
+        return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
     }
 
     virtual ~BackingMemory() = default;
@@ -60,6 +68,7 @@ template <typename T> class AlignedMemory : public BackingMemory<T> {
     friend BackingMemory<T>;
 };
 
+#ifndef _WASI_EMULATED_PROCESS_CLOCKS
 template <typename T> class FileBackedMemory : public BackingMemory<T> {
   public:
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
@@ -127,3 +136,4 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
 
     friend BackingMemory<T>;
 };
+#endif // __EMSCRIPTEN___
