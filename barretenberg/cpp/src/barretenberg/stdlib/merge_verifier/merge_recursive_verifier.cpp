@@ -66,7 +66,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  */
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
+    const stdlib::Proof<CircuitBuilder>& proof, MergeVerificationData& merge_verification_data)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -81,8 +81,10 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
         auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
-        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
-        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+        auto left_table =
+            settings == MergeSettings::PREPEND ? merge_verification_data.t_commitments[idx] : T_prev_commitment;
+        auto right_table =
+            settings == MergeSettings::PREPEND ? T_prev_commitment : merge_verification_data.t_commitments[idx];
 
         table_commitments.emplace_back(left_table);
         table_commitments.emplace_back(right_table);
@@ -94,7 +96,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
 
     // Store T_commitments of the verifier
     size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
-    for (auto& commitment : T_commitments) {
+    for (auto& commitment : merge_verification_data.T_commitments) {
         commitment = table_commitments[commitment_idx];
         commitment_idx += NUM_WIRES;
     }

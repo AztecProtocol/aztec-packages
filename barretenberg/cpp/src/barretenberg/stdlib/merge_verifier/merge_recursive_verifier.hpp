@@ -31,14 +31,21 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
-    std::array<Commitment, NUM_WIRES> T_commitments;
+    class MergeVerificationData {
+      public:
+        std::array<Commitment, NUM_WIRES> t_commitments;
+        std::array<Commitment, NUM_WIRES> T_prev_commitments;
+        std::array<Commitment, NUM_WIRES> T_commitments;
+
+        MergeVerificationData() = default;
+    };
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                                      MergeSettings settings = MergeSettings::PREPEND);
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
+        const stdlib::Proof<CircuitBuilder>& proof, MergeVerificationData& merge_verification_data);
 };
 
 } // namespace bb::stdlib::recursion::goblin

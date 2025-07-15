@@ -34,12 +34,20 @@ class MergeVerifier {
     using Commitment = typename Curve::AffineElement;
 
     std::shared_ptr<Transcript> transcript;
-    std::array<Commitment, NUM_WIRES> T_commitments;
     MergeSettings settings;
+
+    class MergeVerificationData {
+      public:
+        std::array<Commitment, NUM_WIRES> t_commitments;
+        std::array<Commitment, NUM_WIRES> T_prev_commitments;
+        std::array<Commitment, NUM_WIRES> T_commitments;
+
+        MergeVerificationData() = default;
+    };
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                            MergeSettings settings = MergeSettings::PREPEND);
-    bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments);
+    bool verify_proof(const HonkProof& proof, MergeVerificationData& merge_verification_data);
 };
 
 } // namespace bb
