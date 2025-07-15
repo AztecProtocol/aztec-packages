@@ -65,16 +65,6 @@ template <typename Builder> class byte_array {
 
     bytes_t const& bytes() const { return values; }
 
-    bool_t<Builder> get_bit(size_t index) const;
-
-    void set_bit(size_t index, bool_t<Builder> const& value);
-
-    // void set_byte(size_t index, const field_t<Builder>& byte_val)
-    // {
-    //     ASSERT(index < values.size());
-    //     values[index] = byte_val;
-    // }
-
     void set_context(Builder* ctx)
     {
         ASSERT(context == nullptr);
@@ -126,12 +116,6 @@ template <typename Builder> class byte_array {
   private:
     Builder* context;
     bytes_t values;
-    struct byte_slice {
-        field_t<Builder> low;
-        field_t<Builder> high;
-        bool_t<Builder> bit;
-    };
-    byte_slice split_byte(const size_t bit_index) const;
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, byte_array<Builder> const& arr)

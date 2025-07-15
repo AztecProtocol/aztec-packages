@@ -268,7 +268,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
     ASSERT(offset < values.size());
-    return byte_array(context, bytes_t(values.begin() + (long)(offset), values.end()));
+    return byte_array(context, bytes_t(values.begin() + static_cast<ptrdiff_t>(offset), values.end()));
 }
 
 /**
@@ -280,8 +280,8 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
     ASSERT(offset < values.size());
     // it's <= cause vector constructor doesn't include end point
     ASSERT(length <= values.size() - offset);
-    auto start = values.begin() + (long)(offset);
-    auto end = values.begin() + (long)((offset + length));
+    auto start = values.begin() + static_cast<ptrdiff_t>(offset);
+    auto end = values.begin() + static_cast<ptrdiff_t>((offset + length));
     return byte_array(context, bytes_t(start, end));
 }
 
@@ -313,112 +313,6 @@ template <typename Builder> std::string byte_array<Builder>::get_string() const
 {
     auto v = get_value();
     return std::string(v.begin(), v.end());
-}
-
-/**
- * @brief Extract a bit from the byte array.
- *
- * @details get_bit treats the array as a little-endian integer
- * e.g. get_bit(1) corresponds to the second bit in the last, 'least significant' byte in the array.
- *
- **/
-template <typename Builder> bool_t<Builder> byte_array<Builder>::get_bit(size_t index_reversed) const
-{
-    const size_t index = (values.size() * 8) - index_reversed - 1;
-    const auto slice = split_byte(index);
-
-    return slice.bit;
-}
-
-/**
- * @brief Set a bit in the byte array
- *
- * @details set_bit treats the array as a little-endian integer
- * e.g. set_bit(0) will set the first bit in the last, 'least significant' byte in the array
- *
- * For example, if we have a 64-byte array filled with zeroes, `set_bit(0, true)` will set `values[63]` to 1,
- *              and set_bit(511, true) will set `values[0]` to 128
- *
- * Previously we did not reverse the bit index, but we have modified the behavior to be consistent with `get_bit`
- *
- * The rationale behind reversing the bit index is so that we can more naturally contain integers inside byte arrays
- *and perform bit manipulation
- **/
-template <typename Builder> void byte_array<Builder>::set_bit(size_t index_reversed, bool_t<Builder> const& new_bit)
-{
-    const size_t index = (values.size() * 8) - index_reversed - 1;
-    const auto slice = split_byte(index);
-    const size_t byte_index = index / 8UL;
-    const size_t bit_index = 7UL - (index % 8UL);
-
-    field_t<Builder> scaled_new_bit = field_t<Builder>(new_bit) * bb::fr(uint256_t(1) << bit_index);
-    scaled_new_bit.set_origin_tag(new_bit.get_origin_tag());
-    const auto new_value = slice.low.add_two(slice.high, scaled_new_bit).normalize();
-    values[byte_index] = new_value;
-}
-
-/**
- * @brief Split a byte at the target bit index, return [low slice, high slice, isolated bit]
- *
- * @details This is a private method used by `get_bit` and `set_bit`
- **/
-template <typename Builder>
-typename byte_array<Builder>::byte_slice byte_array<Builder>::split_byte(const size_t index) const
-{
-    const size_t byte_index = index / 8UL;
-    const auto byte = values[byte_index];
-    const size_t bit_index = 7UL - (index % 8UL);
-
-    const uint64_t value = uint256_t(byte.get_value()).data[0];
-    const uint64_t bit_value = (value >> static_cast<uint64_t>(bit_index)) & 1ULL;
-
-    const uint64_t num_low_bits = static_cast<uint64_t>(bit_index);
-    const uint64_t num_high_bits = 7ULL - num_low_bits;
-    const uint64_t low_value = value & ((1ULL << num_low_bits) - 1ULL);
-    const uint64_t high_value = (bit_index == 7) ? 0ULL : (value >> (8 - num_high_bits));
-
-    if (byte.is_constant()) {
-        field_t<Builder> low(context, low_value);
-        field_t<Builder> shifted_high(context, high_value * (uint64_t(1) << (8ULL - num_high_bits)));
-        bool_t<Builder> bit(context, static_cast<bool>(bit_value));
-        auto tag = values[byte_index].get_origin_tag();
-        low.set_origin_tag(tag);
-        shifted_high.set_origin_tag(tag);
-        bit.set_origin_tag(tag);
-        return { low, shifted_high, bit };
-    }
-    field_t<Builder> low = witness_t<Builder>(context, low_value);
-    field_t<Builder> high = witness_t<Builder>(context, high_value);
-    bool_t<Builder> bit = witness_t<Builder>(context, static_cast<bool>(bit_value));
-
-    low.set_origin_tag(values[byte_index].get_origin_tag());
-    high.set_origin_tag(values[byte_index].get_origin_tag());
-    bit.set_origin_tag(values[byte_index].get_origin_tag());
-
-    if (num_low_bits > 0) {
-        low.create_range_constraint(static_cast<size_t>(num_low_bits), "byte_array: low bits split off incorrectly.");
-    } else {
-        low.assert_equal(0);
-    }
-
-    if (num_high_bits > 0) {
-        high.create_range_constraint(static_cast<size_t>(num_high_bits),
-                                     "byte_array: high bits split off incorrectly.");
-    } else {
-        high.assert_equal(0);
-    }
-
-    field_t<Builder> scaled_high = high * bb::fr(uint256_t(1) << (8ULL - num_high_bits));
-    field_t<Builder> scaled_bit = field_t<Builder>(bit) * bb::fr(uint256_t(1) << bit_index);
-    field_t<Builder> result = low.add_two(scaled_high, scaled_bit);
-    result.assert_equal(byte);
-
-    auto tag = values[byte_index].get_origin_tag();
-    low.set_origin_tag(tag);
-    scaled_high.set_origin_tag(tag);
-    bit.set_origin_tag(tag);
-
-    return { low, scaled_high, bit };
 }
 
 template class byte_array<bb::UltraCircuitBuilder>;
