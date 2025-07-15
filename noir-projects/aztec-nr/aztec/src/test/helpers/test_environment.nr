@@ -304,13 +304,13 @@ impl TestEnvironment {
         );
     }
 
-    pub unconstrained fn call_private<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_private<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateCallInterface<M, T, N>,
+        call_interface: PrivateCallInterface<M, T>,
     ) -> CallResult<T>
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -328,10 +328,10 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32, T, let N: u32>(
+    pub unconstrained fn call_private_void<let M: u32, T>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M, T, N>,
+        call_interface: PrivateVoidCallInterface<M, T>,
     ) -> CallResult<()> {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -351,12 +351,12 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
-    pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(
+    pub unconstrained fn simulate_utility<T, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T, N>,
+        call_interface: UtilityCallInterface<M, T>,
     ) -> T
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -372,9 +372,9 @@ impl TestEnvironment {
         returns
     }
 
-    pub unconstrained fn simulate_void_utility<T, let N: u32, let M: u32>(
+    pub unconstrained fn simulate_void_utility<T, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T, N>,
+        call_interface: UtilityCallInterface<M, T>,
     ) {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -389,13 +389,13 @@ impl TestEnvironment {
         ReturnsHash::new(returns_hash).assert_empty();
     }
 
-    pub unconstrained fn call_public<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_public<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicCallInterface<M, T, N>,
+        call_interface: PublicCallInterface<M, T>,
     ) -> CallResult<T>
     where
-        T: Deserialize<N>,
+        T: Deserialize,
     {
         let (returns_hash, tx_hash) = public_call_new_flow(
             from,
@@ -410,10 +410,10 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_public_void<T, let N: u32, let M: u32>(
+    pub unconstrained fn call_public_void<T, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PublicVoidCallInterface<M, T, N>,
+        call_interface: PublicVoidCallInterface<M, T>,
     ) -> CallResult<()> {
         let (returns_hash, tx_hash) = public_call_new_flow(
             from,
@@ -428,13 +428,13 @@ impl TestEnvironment {
         CallResult { return_value: (), tx_hash }
     }
 
-    pub unconstrained fn call_private_test<T, let N: u32, let M: u32, X>(
+    pub unconstrained fn call_private_test<T, let M: u32, X>(
         _self: Self,
         from: AztecAddress,
         call_interface: X,
     ) -> CallResult<T>
     where
-        X: TXEPrivateCallInterface<T, N>,
+        X: TXEPrivateCallInterface<T>,
         X: CallInterface<M>,
     {
         let (returns, tx_hash) = call_interface.call_with_txe(from);
@@ -442,12 +442,12 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn simulate_utility_test<T, let N: u32, let M: u32, X>(
+    pub unconstrained fn simulate_utility_test<T, let M: u32, X>(
         _self: Self,
         call_interface: X,
     ) -> T
     where
-        X: TXEUtilityCallInterface<T, N>,
+        X: TXEUtilityCallInterface<T>,
         X: CallInterface<M>,
     {
         let returns = call_interface.call_with_txe();
@@ -455,13 +455,13 @@ impl TestEnvironment {
         returns
     }
 
-    pub unconstrained fn call_public_test<T, let N: u32, let M: u32, X>(
+    pub unconstrained fn call_public_test<T, let M: u32, X>(
         _self: Self,
         from: AztecAddress,
         call_interface: X,
     ) -> CallResult<T>
     where
-        X: TXEPublicCallInterface<T, N>,
+        X: TXEPublicCallInterface<T>,
         X: CallInterface<M>,
     {
         let (returns, tx_hash) = call_interface.call_with_txe(from);
