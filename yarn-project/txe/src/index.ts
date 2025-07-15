@@ -54,7 +54,7 @@ type MethodNames<T> = {
 
 type TXEForeignCallInput = {
   session_id: number;
-  function: MethodNames<TXEService> | 'reset';
+  function: MethodNames<TXEService>;
   root_path: string;
   package_name: string;
   inputs: ForeignCallArgs;
@@ -63,7 +63,7 @@ type TXEForeignCallInput = {
 const TXEForeignCallInputSchema = z.object({
   // eslint-disable-next-line camelcase
   session_id: z.number().int().nonnegative(),
-  function: z.string() as ZodFor<MethodNames<TXEService> | 'reset'>,
+  function: z.string() as ZodFor<MethodNames<TXEService>>,
   // eslint-disable-next-line camelcase
   root_path: z.string(),
   // eslint-disable-next-line camelcase
@@ -205,7 +205,7 @@ class TXEDispatcher {
     const { session_id: sessionId, function: functionName, inputs } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
-    if (!TXESessions.has(sessionId) && functionName != 'reset') {
+    if (!TXESessions.has(sessionId)) {
       this.logger.debug(`Creating new session ${sessionId}`);
       if (!this.protocolContracts) {
         this.protocolContracts = await Promise.all(
