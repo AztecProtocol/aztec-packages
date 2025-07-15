@@ -9,7 +9,7 @@ export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export key_dir=./target/keys
@@ -65,12 +65,8 @@ function compile {
       echo "Error: $json_path bytecode size of $bytecode_size exceeds 850MB"
       exit 1
     fi
-    # Disable cache upload on ARM when AVM is disabled to prevent caching wrong keys
-    if [[ $(arch) == "arm64" && "${DISABLE_AZTEC_VM:-0}" -eq 1 ]]; then
-      echo_stderr "Skipping cache upload on ARM with AVM disabled"
-    else
-      cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
-    fi
+
+    cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
   if echo "$name" | grep -qE "${private_tail_regex}"; then
@@ -122,12 +118,7 @@ function compile {
       echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
-      # Disable cache upload on ARM when AVM is disabled to prevent caching wrong keys
-      if [[ $(arch) == "arm64" && "${DISABLE_AZTEC_VM:-0}" -eq 1 ]]; then
-        echo_stderr "Skipping VK cache upload on ARM with AVM disabled"
-      else
-        cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
-      fi
+      cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
     elif echo "$name" | grep -qE "${private_tail_regex}"; then
       # If we are a tail kernel circuit, we also need to generate the ivc vk.
       SECONDS=0
@@ -136,19 +127,9 @@ function compile {
       jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type ivc -b - -o $outdir
       mv $outdir/vk $ivc_vk_path
       echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
-      # Disable cache upload on ARM when AVM is disabled to prevent caching wrong keys
-      if [[ $(arch) == "arm64" && "${DISABLE_AZTEC_VM:-0}" -eq 1 ]]; then
-        echo_stderr "Skipping IVC VK cache upload on ARM with AVM disabled"
-      else
-        cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
-      fi
+      cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
     else
-      # Disable cache upload on ARM when AVM is disabled to prevent caching wrong keys
-      if [[ $(arch) == "arm64" && "${DISABLE_AZTEC_VM:-0}" -eq 1 ]]; then
-        echo_stderr "Skipping VK cache upload on ARM with AVM disabled"
-      else
-        cache_upload vk-$hash.tar.gz $key_path &> /dev/null
-      fi
+      cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
   fi
 }

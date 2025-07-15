@@ -12,7 +12,13 @@ function bootstrap_all {
 }
 
 function hash {
-  cache_content_hash "^barretenberg"
+  hash=$(cache_content_hash "^barretenberg")
+  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+    # Make sure the different envs don't read from each other's caches.
+    hash="$hash-no-avm"
+  fi
+
+  echo $hash
 }
 
 cmd=${1:-}
