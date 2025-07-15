@@ -54,14 +54,14 @@ using testing::NiceMock;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sstore = bb::avm2::sstore<FF>;
+using execution = bb::avm2::execution<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 TEST(SStoreConstrainingTest, PositiveTest)
 {
     TestTraceContainer trace({
-        { { C::execution_sel_sstore, 1 },
-          { C::execution_sel_should_check_gas, 1 },
-          { C::execution_should_check_sstore_gas, 1 },
+        { { C::execution_sel_execute_sstore, 1 },
+          { C::execution_sel_gas_sstore, 1 },
           { C::execution_dynamic_da_gas_factor, 1 },
           { C::execution_register_0_, /*value=*/27 },
           { C::execution_register_1_, /*slot=*/42 },
@@ -69,7 +69,7 @@ TEST(SStoreConstrainingTest, PositiveTest)
           { C::execution_max_data_writes_reached, 0 },
           { C::execution_remaining_data_writes_inv,
             FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE - 5).invert() },
-          { C::execution_sel_should_sstore, 1 },
+          { C::execution_sel_write_public_data, 1 },
           { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE } },
     });
     check_relation<sstore>(trace);
@@ -78,10 +78,10 @@ TEST(SStoreConstrainingTest, PositiveTest)
 TEST(SStoreConstrainingTest, NegativeDynamicL2GasIsZero)
 {
     TestTraceContainer trace({ {
-        { C::execution_sel_sstore, 1 },
+        { C::execution_sel_execute_sstore, 1 },
         { C::execution_dynamic_l2_gas_factor, 1 },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sstore>(trace, sstore::SR_SSTORE_DYN_L2_GAS_IS_ZERO),
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SSTORE_DYN_L2_GAS_IS_ZERO),
                               "SSTORE_DYN_L2_GAS_IS_ZERO");
 }
 
@@ -89,7 +89,7 @@ TEST(SStoreConstrainingTest, MaxDataWritesReached)
 {
     TestTraceContainer trace({
         {
-            { C::execution_sel_sstore, 1 },
+            { C::execution_sel_execute_sstore, 1 },
             { C::execution_prev_written_public_data_slots_tree_size,
               MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE },
             { C::execution_remaining_data_writes_inv, 0 },
@@ -108,13 +108,13 @@ TEST(SStoreConstrainingTest, ErrorTooManyWrites)
 {
     TestTraceContainer trace({
         {
-            { C::execution_sel_sstore, 1 },
+            { C::execution_sel_execute_sstore, 1 },
             { C::execution_dynamic_da_gas_factor, 1 },
             { C::execution_max_data_writes_reached, 1 },
             { C::execution_sel_opcode_error, 1 },
         },
         {
-            { C::execution_sel_sstore, 1 },
+            { C::execution_sel_execute_sstore, 1 },
             { C::execution_dynamic_da_gas_factor, 0 },
             { C::execution_max_data_writes_reached, 1 },
             { C::execution_sel_opcode_error, 0 },
@@ -190,10 +190,9 @@ TEST(SStoreConstrainingTest, Interactions)
 
     TestTraceContainer trace({
         {
-            { C::execution_sel_sstore, 1 },
+            { C::execution_sel_execute_sstore, 1 },
             { C::execution_contract_address, contract_address },
-            { C::execution_sel_should_check_gas, 1 },
-            { C::execution_should_check_sstore_gas, 1 },
+            { C::execution_sel_gas_sstore, 1 },
             { C::execution_dynamic_da_gas_factor, 1 },
             { C::execution_register_0_, value },
             { C::execution_register_1_, slot },
@@ -202,8 +201,8 @@ TEST(SStoreConstrainingTest, Interactions)
               FF(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE -
                  written_slots_tree_before.nextAvailableLeafIndex)
                   .invert() },
-            { C::execution_sel_should_sstore, 1 },
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_SSTORE },
+            { C::execution_sel_write_public_data, 1 },
             { C::execution_prev_public_data_tree_root, public_data_tree_before.root },
             { C::execution_prev_public_data_tree_size, public_data_tree_before.nextAvailableLeafIndex },
             { C::execution_public_data_tree_root, public_data_tree_after.root },
@@ -223,7 +222,7 @@ TEST(SStoreConstrainingTest, Interactions)
 
     check_relation<sstore>(trace);
     check_interaction<ExecutionTraceBuilder,
-                      lookup_sstore_check_written_storage_slot_settings,
+                      lookup_execution_check_written_storage_slot_settings,
                       lookup_sstore_record_written_storage_slot_settings,
                       lookup_sstore_storage_write_settings>(trace);
 }

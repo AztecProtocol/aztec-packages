@@ -166,7 +166,7 @@ sel_instruction_fetching_success {
     sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
     sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
-    subtrace_id, subtrace_operation_id,
+    subtrace_id, subtrace_operation_id, dyn_gas_id,
     // register information
     sel_mem_op_reg[0], sel_mem_op_reg[1], sel_mem_op_reg[2], sel_mem_op_reg[3], sel_mem_op_reg[4], sel_mem_op_reg[5], sel_mem_op_reg[6],
     rw_reg[0], rw_reg[1], rw_reg[2], rw_reg[3], rw_reg[4], rw_reg[5], rw_reg[6],
@@ -189,9 +189,10 @@ precomputed.sel_exec_spec {
     precomputed.sel_op_is_address[4],
     precomputed.sel_op_is_address[5],
     precomputed.sel_op_is_address[6],
-    // subtraces
+    // decomposed selectors
     precomputed.subtrace_id,
     precomputed.subtrace_operation_id,
+    precomputed.dyn_gas_id,
     // whether we should perform a memory operation on the register
     precomputed.sel_mem_op_reg[0],
     precomputed.sel_mem_op_reg[1],
@@ -272,10 +273,29 @@ sel_should_check_gas = sel_should_read_registers * (1 - sel_register_read_error)
 
 // For bitwise, the tag determines the dynamic_l2_gas_factor
 #[DYN_L2_FACTOR_BITWISE]
-sel_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
+sel_gas_bitwise { mem_tag_reg[0], dynamic_l2_gas_factor }
 in
 precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_byte_length };
 
+// We can probably unconditionally write to the written_public_data_slots_tree here
+// to avoid writing later in opcode execution, since the root would be reverted if it errors before
+// the opcode execution. However, this feels like an early optimization
+// since the simulator would need to write at the gas step which is a bit weird.
+#[CHECK_WRITTEN_STORAGE_SLOT]
+sel_gas_sstore {
+    contract_address,
+    register[1], // slot
+    dynamic_da_gas_factor,
+    prev_written_public_data_slots_tree_root
+} in written_public_data_slots_tree_check.sel {
+    written_public_data_slots_tree_check.address,
+    written_public_data_slots_tree_check.slot,
+    written_public_data_slots_tree_check.leaf_not_exists,
+    written_public_data_slots_tree_check.root
+};
+
+#[SSTORE_DYN_L2_GAS_IS_ZERO]
+sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
@@ -287,106 +307,143 @@ sel_should_execute_opcode = sel_should_check_gas * (1 - sel_out_of_gas);
 pol commit sel_opcode_error;
 sel_opcode_error * (1 - sel_opcode_error) = 0;
 
-// Subtraces
+// Decomposed selectors (from precomputed)
 pol commit subtrace_id;
 pol commit subtrace_operation_id;
+pol commit dyn_gas_id;
 
-// Subtrace Dispatch selectors
-// These boolean selectors are constrained via the precomputed Execution Instruction Spec Table
-pol commit sel_alu;
-pol commit sel_bitwise;
-pol commit sel_to_radix;
-pol commit sel_poseidon2_perm;
-pol commit sel_ecc_add;
-pol commit sel_execution;
-pol commit sel_data_copy;
-
-// Embedded execution opcode selectors
-pol commit sel_get_env_var;
-pol commit sel_set;
-pol commit sel_mov;
-pol commit sel_jump;
-pol commit sel_jumpi;
-pol commit sel_call;
-pol commit sel_static_call;
-pol commit sel_internal_call;
-pol commit sel_internal_return;
-pol commit sel_return;
-pol commit sel_revert;
-pol commit sel_success_copy;
-pol commit sel_returndata_size;
-pol commit sel_debug_log; // unused but we are forced to have it
-pol commit sel_sload;
-pol commit sel_sstore;
-pol commit sel_notehash_exists;
+// Subtrace Dispatch selectors.
+// Each of these selectors takes into account both which opcode we are considering executing
+// and whether there was any error before the actual execution step. Therefore, the
+// selector can be used to gate the execution of the opcode/dispatching logic (which comes after gas, etc).
+pol commit sel_execute_alu;
+pol commit sel_execute_bitwise;
+pol commit sel_execute_to_radix;
+pol commit sel_execute_poseidon2_perm;
+pol commit sel_execute_ecc_add;
+pol commit sel_execute_execution;
+pol commit sel_execute_data_copy;
+pol commit sel_execute_keccakf1600;
+sel_execute_alu * (1 - sel_execute_alu) = 0;
+sel_execute_bitwise * (1 - sel_execute_bitwise) = 0;
+sel_execute_to_radix * (1 - sel_execute_to_radix) = 0;
+sel_execute_poseidon2_perm * (1 - sel_execute_poseidon2_perm) = 0;
+sel_execute_ecc_add * (1 - sel_execute_ecc_add) = 0;
+sel_execute_execution * (1 - sel_execute_execution) = 0;
+sel_execute_data_copy * (1 - sel_execute_data_copy) = 0;
+sel_execute_keccakf1600 * (1 - sel_execute_keccakf1600) = 0;
 
 #[SUBTRACE_ID_DECOMPOSITION]
-sel_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
-sel_alu * constants.AVM_SUBTRACE_ID_ALU +
-sel_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
-sel_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
-sel_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
-sel_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
-sel_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
-sel_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY
+sel_execute_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
+sel_execute_alu * constants.AVM_SUBTRACE_ID_ALU +
+sel_execute_bitwise * constants.AVM_SUBTRACE_ID_BITWISE +
+sel_execute_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
+sel_execute_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
+sel_execute_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
+sel_execute_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
+sel_execute_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
+// Embedded execution opcode selectors.
+// Each of these selectors takes into account both which opcode we are considering executing
+// and whether there was any error before the actual execution step. Therefore, the
+// selector can be used to gate the execution of the opcode logic (which comes after gas, etc).
+pol commit sel_execute_get_env_var;
+pol commit sel_execute_set;
+pol commit sel_execute_mov;
+pol commit sel_execute_jump;
+pol commit sel_execute_jumpi;
+pol commit sel_execute_call;
+pol commit sel_execute_static_call;
+pol commit sel_execute_internal_call;
+pol commit sel_execute_internal_return;
+pol commit sel_execute_return;
+pol commit sel_execute_revert;
+pol commit sel_execute_success_copy;
+pol commit sel_execute_returndata_size;
+pol commit sel_execute_debug_log; // unused but we are forced to have it
+pol commit sel_execute_sload;
+pol commit sel_execute_sstore;
+pol commit sel_execute_notehash_exists;
+sel_execute_get_env_var * (1 - sel_execute_get_env_var) = 0;
+sel_execute_set * (1 - sel_execute_set) = 0;
+sel_execute_mov * (1 - sel_execute_mov) = 0;
+sel_execute_jump * (1 - sel_execute_jump) = 0;
+sel_execute_jumpi * (1 - sel_execute_jumpi) = 0;
+sel_execute_call * (1 - sel_execute_call) = 0;
+sel_execute_static_call * (1 - sel_execute_static_call) = 0;
+sel_execute_internal_call * (1 - sel_execute_internal_call) = 0;
+sel_execute_internal_return * (1 - sel_execute_internal_return) = 0;
+sel_execute_return * (1 - sel_execute_return) = 0;
+sel_execute_revert * (1 - sel_execute_revert) = 0;
+sel_execute_success_copy * (1 - sel_execute_success_copy) = 0;
+sel_execute_returndata_size * (1 - sel_execute_returndata_size) = 0;
+sel_execute_debug_log * (1 - sel_execute_debug_log) = 0;
+sel_execute_sload * (1 - sel_execute_sload) = 0;
+sel_execute_sstore * (1 - sel_execute_sstore) = 0;
+sel_execute_notehash_exists * (1 - sel_execute_notehash_exists) = 0;
+
 #[EXEC_OP_ID_DECOMPOSITION]
-sel_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
-sel_set * constants.AVM_EXEC_OP_ID_SET +
-sel_mov * constants.AVM_EXEC_OP_ID_MOV +
-sel_jump * constants.AVM_EXEC_OP_ID_JUMP +
-sel_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +
-sel_call * constants.AVM_EXEC_OP_ID_CALL +
-sel_static_call * constants.AVM_EXEC_OP_ID_STATICCALL +
-sel_internal_call * constants.AVM_EXEC_OP_ID_INTERNALCALL +
-sel_internal_return * constants.AVM_EXEC_OP_ID_INTERNALRETURN +
-sel_return * constants.AVM_EXEC_OP_ID_RETURN +
-sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
-sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
-sel_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
-sel_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG +
-sel_sload * constants.AVM_EXEC_OP_ID_SLOAD +
-sel_sstore * constants.AVM_EXEC_OP_ID_SSTORE +
-sel_notehash_exists * constants.AVM_EXEC_OP_ID_NOTEHASH_EXISTS
+sel_execute_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
+sel_execute_set * constants.AVM_EXEC_OP_ID_SET +
+sel_execute_mov * constants.AVM_EXEC_OP_ID_MOV +
+sel_execute_jump * constants.AVM_EXEC_OP_ID_JUMP +
+sel_execute_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +
+sel_execute_call * constants.AVM_EXEC_OP_ID_CALL +
+sel_execute_static_call * constants.AVM_EXEC_OP_ID_STATICCALL +
+sel_execute_internal_call * constants.AVM_EXEC_OP_ID_INTERNALCALL +
+sel_execute_internal_return * constants.AVM_EXEC_OP_ID_INTERNALRETURN +
+sel_execute_return * constants.AVM_EXEC_OP_ID_RETURN +
+sel_execute_revert * constants.AVM_EXEC_OP_ID_REVERT +
+sel_execute_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY +
+sel_execute_returndata_size * constants.AVM_EXEC_OP_ID_RETURNDATASIZE +
+sel_execute_debug_log * constants.AVM_EXEC_OP_ID_DEBUGLOG +
+sel_execute_sload * constants.AVM_EXEC_OP_ID_SLOAD +
+sel_execute_sstore * constants.AVM_EXEC_OP_ID_SSTORE +
+sel_execute_notehash_exists * constants.AVM_EXEC_OP_ID_NOTEHASH_EXISTS
 // We force the selectors to be 0 if we are not executing an opcode
 // or when we are not in the execution subtrace.
-= sel_should_execute_opcode * sel_execution * subtrace_operation_id;
+= sel_should_execute_opcode * sel_execute_execution * subtrace_operation_id;
 
-// Boolean relations for the embedded execution opcode selectors.
-sel_get_env_var * (1 - sel_get_env_var) = 0;
-sel_set * (1 - sel_set) = 0;
-sel_mov * (1 - sel_mov) = 0;
-sel_jump * (1 - sel_jump) = 0;
-sel_jumpi * (1 - sel_jumpi) = 0;
-sel_call * (1 - sel_call) = 0;
-sel_static_call * (1 - sel_static_call) = 0;
-sel_internal_call * (1 - sel_internal_call) = 0;
-sel_internal_return * (1 - sel_internal_return) = 0;
-sel_return * (1 - sel_return) = 0;
-sel_revert * (1 - sel_revert) = 0;
-sel_success_copy * (1 - sel_success_copy) = 0;
-sel_returndata_size * (1 - sel_returndata_size) = 0;
-sel_debug_log * (1 - sel_debug_log) = 0;
-sel_sload * (1 - sel_sload) = 0;
-sel_sstore * (1 - sel_sstore) = 0;
-sel_notehash_exists * (1 - sel_notehash_exists) = 0;
+// Dynamic gas opcode selectors.
+// Each of these selectors takes into account both which opcode we are considering executing
+// and whether there was any error before the actual gas step. Therefore, the
+// selector can be used to gate the execution of the (dynamic) gas logic.
+pol commit sel_gas_calldata_copy;
+pol commit sel_gas_returndata_copy;
+pol commit sel_gas_to_radix;
+pol commit sel_gas_bitwise;
+pol commit sel_gas_emit_unencrypted_log;
+pol commit sel_gas_sstore;
+sel_gas_calldata_copy * (1 - sel_gas_calldata_copy) = 0;
+sel_gas_returndata_copy * (1 - sel_gas_returndata_copy) = 0;
+sel_gas_to_radix * (1 - sel_gas_to_radix) = 0;
+sel_gas_bitwise * (1 - sel_gas_bitwise) = 0;
+sel_gas_emit_unencrypted_log * (1 - sel_gas_emit_unencrypted_log) = 0;
+sel_gas_sstore * (1 - sel_gas_sstore) = 0;
 
-// This is used in context.pil
-pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
+#[DYN_GAS_ID_DECOMPOSITION]
+sel_gas_calldata_copy * constants.AVM_DYN_GAS_ID_CALLDATACOPY +
+sel_gas_returndata_copy * constants.AVM_DYN_GAS_ID_RETURNDATACOPY +
+sel_gas_to_radix * constants.AVM_DYN_GAS_ID_TORADIX +
+sel_gas_bitwise * constants.AVM_DYN_GAS_ID_BITWISE +
+sel_gas_emit_unencrypted_log * constants.AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG +
+sel_gas_sstore * constants.AVM_DYN_GAS_ID_SSTORE
+// We force the selectors to be 0 if we failed before gas checks
+// or when we are not in the execution subtrace.
+= sel_should_check_gas * sel * dyn_gas_id;
 
 // Whether the opcode logic failed.
 pol commit sel_opcode_failure;
 sel_opcode_failure * (1 - sel_opcode_failure) = 0;
-pol commit sel_keccakf1600;
 
 /**************************************************************************************************
-* Dispatch permutations to the gadget subtraces
+ *  Dispatch permutations to the gadget subtraces
  **************************************************************************************************/
 
 #[DISPATCH_KECCAKF1600]
-sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error }
+sel_execute_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_opcode_error }
 is
 keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
 
@@ -397,26 +454,26 @@ keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr,
  // of them here for greater clarity of execution trace opcodes.
 
 #[PC_NEXT_ROW_INT_CALL_JUMP]
-NOT_LAST_EXEC * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
+NOT_LAST_EXEC * (sel_execute_internal_call + sel_execute_jump) * (pc' - rop[0]) = 0;
 
 // For JUMPI opcode, the conditional value is U1 and stored in register[0].
 #[PC_NEXT_ROW_JUMPI]
-NOT_LAST_EXEC * sel_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
+NOT_LAST_EXEC * sel_execute_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
 
 #[MOV_SAME_VALUE]
-sel_mov * (register[0] - register[1]) = 0;
+sel_execute_mov * (register[0] - register[1]) = 0;
 #[MOV_SAME_TAG]
-sel_mov * (mem_tag_reg[0] - mem_tag_reg[1]) = 0;
+sel_execute_mov * (mem_tag_reg[0] - mem_tag_reg[1]) = 0;
 
 #[SUCCESS_COPY_WRITE_REG]
-sel_success_copy * (register[0] - last_child_success) = 0; // Copy success flag to register[0]
+sel_execute_success_copy * (register[0] - last_child_success) = 0; // Copy success flag to register[0]
 #[SUCCESS_COPY_U1_TAG]
-sel_success_copy * (mem_tag_reg[0] - constants.MEM_TAG_U1) = 0; // Write Tag must be U1
+sel_execute_success_copy * (mem_tag_reg[0] - constants.MEM_TAG_U1) = 0; // Write Tag must be U1
 
 #[RETURNDATA_SIZE_WRITE_REG]
-sel_returndata_size * (register[0] - last_child_returndata_size) = 0; // Last return data size to register[0]
+sel_execute_returndata_size * (register[0] - last_child_returndata_size) = 0; // Last return data size to register[0]
 #[RETURNDATA_SIZE_U32_TAG]
-sel_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag must be U32
+sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag must be U32
 
 /**************************************************************************************************
  *  Temporality group 6: Register write.

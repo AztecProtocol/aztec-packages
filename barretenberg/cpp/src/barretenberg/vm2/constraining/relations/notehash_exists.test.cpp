@@ -44,7 +44,7 @@ TEST(NoteHashExistsConstrainingTest, PositiveTest)
 {
     uint64_t leaf_index_leaf_count_cmp_diff = NOTE_HASH_TREE_LEAF_COUNT - 27 - 1;
     TestTraceContainer trace({
-        { { C::execution_sel_notehash_exists, 1 },
+        { { C::execution_sel_execute_notehash_exists, 1 },
           { C::execution_register_0_, /*unique_note_hash=*/42 },
           { C::execution_register_1_, /*leaf_index=*/27 },
           { C::execution_register_2_, /*dst=*/1 },
@@ -62,7 +62,7 @@ TEST(NoteHashExistsConstrainingTest, PositiveTest)
 TEST(NoteHashExistsConstrainingTest, NegativeInvalidOutputTag)
 {
     TestTraceContainer trace({ {
-        { C::execution_sel_notehash_exists, 1 },
+        { C::execution_sel_execute_notehash_exists, 1 },
         { C::execution_register_0_, /*unique_note_hash=*/42 },
         { C::execution_register_1_, /*leaf_index=*/27 },
         { C::execution_register_2_, /*dst=*/1 },
@@ -80,7 +80,7 @@ TEST(NoteHashExistsConstrainingTest, NegativeNoteHashExistsSuccess)
     uint64_t leaf_index_leaf_count_cmp_diff = leaf_index - NOTE_HASH_TREE_LEAF_COUNT;
 
     TestTraceContainer trace({
-        { { C::execution_sel_notehash_exists, 1 },
+        { { C::execution_sel_execute_notehash_exists, 1 },
           { C::execution_register_0_, /*unique_note_hash=*/42 },
           { C::execution_register_1_, leaf_index },
           { C::execution_register_2_, /*dst=*/1 },
@@ -122,7 +122,7 @@ TEST(NoteHashExistsConstrainingTest, Interactions)
     note_hash_tree_check.note_hash_exists(unique_note_hash, unique_note_hash, leaf_index, {}, note_hash_tree_snapshot);
 
     TestTraceContainer trace({ {
-        { C::execution_sel_notehash_exists, 1 },
+        { C::execution_sel_execute_notehash_exists, 1 },
         { C::execution_register_0_, unique_note_hash },
         { C::execution_register_1_, leaf_index },
         { C::execution_register_2_, /*dst=*/1 },

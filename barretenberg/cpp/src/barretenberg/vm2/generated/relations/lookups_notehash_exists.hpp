@@ -17,7 +17,7 @@ struct lookup_notehash_exists_note_hash_index_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NOTEHASH_EXISTS_NOTE_HASH_INDEX_RANGE";
     static constexpr std::string_view RELATION_NAME = "notehash_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_notehash_exists;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_notehash_exists;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_notehash_exists_note_hash_index_range_counts;
     static constexpr Column INVERSES = Column::lookup_notehash_exists_note_hash_index_range_inv;

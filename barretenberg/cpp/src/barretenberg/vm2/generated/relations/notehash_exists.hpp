@@ -19,7 +19,7 @@ template <typename FF_> class notehash_existsImpl {
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::execution_sel_notehash_exists)).is_zero();
+        return (in.get(C::execution_sel_execute_notehash_exists)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -40,7 +40,7 @@ template <typename FF_> class notehash_existsImpl {
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::execution_sel_notehash_exists) *
+                in.get(C::execution_sel_execute_notehash_exists) *
                 (((execution_LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) *
                       in.get(C::execution_note_hash_leaf_in_range) +
                   execution_LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) -
@@ -50,15 +50,15 @@ template <typename FF_> class notehash_existsImpl {
         }
         { // NOTE_HASH_EXISTS_SUCCESS
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_notehash_exists) *
+            auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
                        ((FF(1) - in.get(C::execution_note_hash_leaf_in_range)) - in.get(C::execution_sel_opcode_error));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         { // NOTEHASH_EXISTS_U1_OUTPUT_TAG
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_notehash_exists) * (constants_MEM_TAG_U1 - in.get(C::execution_mem_tag_reg_2_));
+            auto tmp = in.get(C::execution_sel_execute_notehash_exists) *
+                       (constants_MEM_TAG_U1 - in.get(C::execution_mem_tag_reg_2_));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }

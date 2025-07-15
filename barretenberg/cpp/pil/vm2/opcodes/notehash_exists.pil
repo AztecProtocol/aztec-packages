@@ -5,17 +5,17 @@ include "../trees/note_hash_tree_check.pil";
 namespace execution; // this is a virtual gadget that shares rows with the execution trace
 
     #[skippable_if]
-    sel_notehash_exists = 0; // from execution.pil.
+    sel_execute_notehash_exists = 0; // from execution.pil.
 
     pol commit note_hash_leaf_in_range;
 
     pol LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT = register[1] - constants.NOTE_HASH_TREE_LEAF_COUNT;
     pol LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT = constants.NOTE_HASH_TREE_LEAF_COUNT - register[1] - 1;
     pol commit note_hash_leaf_index_leaf_count_cmp_diff;
-    sel_notehash_exists * ((LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) * note_hash_leaf_in_range + LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT - note_hash_leaf_index_leaf_count_cmp_diff) = 0;
+    sel_execute_notehash_exists * ((LEAF_INDEX_LT_NOTE_HASH_LEAF_COUNT - LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT) * note_hash_leaf_in_range + LEAF_INDEX_GTE_NOTE_HASH_LEAF_COUNT - note_hash_leaf_index_leaf_count_cmp_diff) = 0;
 
     #[NOTE_HASH_INDEX_RANGE]
-    sel_notehash_exists {
+    sel_execute_notehash_exists {
         note_hash_leaf_index_leaf_count_cmp_diff,
         constant_64 // From gas.pil
     } in range_check.sel {
@@ -24,7 +24,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     };
 
     #[NOTE_HASH_EXISTS_SUCCESS]
-    sel_notehash_exists * (1 - note_hash_leaf_in_range - sel_opcode_error) = 0;
+    sel_execute_notehash_exists * (1 - note_hash_leaf_in_range - sel_opcode_error) = 0;
 
     #[NOTE_HASH_READ]
     note_hash_leaf_in_range {
@@ -42,4 +42,4 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     };
 
     #[NOTEHASH_EXISTS_U1_OUTPUT_TAG]
-    sel_notehash_exists * (constants.MEM_TAG_U1 - mem_tag_reg[2]) = 0;
+    sel_execute_notehash_exists * (constants.MEM_TAG_U1 - mem_tag_reg[2]) = 0;

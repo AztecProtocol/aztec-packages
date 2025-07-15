@@ -91,11 +91,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 120;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2322;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 121;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2327;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2690;
+    static constexpr size_t NUM_ALL_ENTITIES = 2696;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -206,6 +206,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
+        lookup_execution_check_written_storage_slot_relation<FF_>,
         lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
@@ -411,7 +412,6 @@ struct AvmFlavorVariables {
         lookup_scalar_mul_to_radix_relation<FF_>,
         lookup_sha256_round_constant_relation<FF_>,
         lookup_sload_storage_read_relation<FF_>,
-        lookup_sstore_check_written_storage_slot_relation<FF_>,
         lookup_sstore_record_written_storage_slot_relation<FF_>,
         lookup_sstore_storage_write_relation<FF_>,
         lookup_to_radix_fetch_p_limb_relation<FF_>,
