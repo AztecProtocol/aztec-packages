@@ -69,7 +69,7 @@ describe('Registry', () => {
     deployedVersion = Number(await rollup.getVersion());
 
     ethCheatCodes = new EthCheatCodes([rpcUrl]);
-    await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 1000000000000000000000000000000000000000n);
+    await ethCheatCodes.setBalance(deployedAddresses.governanceAddress, 10n ** 18n);
   });
 
   afterAll(async () => {

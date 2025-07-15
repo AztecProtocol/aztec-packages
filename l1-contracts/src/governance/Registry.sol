@@ -77,7 +77,7 @@ contract Registry is IRegistry, Ownable {
    * @return The governance address
    */
   function getGovernance() external view override(IRegistry) returns (address) {
-    return this.owner();
+    return owner();
   }
 
   function getRewardDistributor() external view override(IRegistry) returns (IRewardDistributor) {
