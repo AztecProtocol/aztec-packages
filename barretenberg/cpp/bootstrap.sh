@@ -9,7 +9,10 @@ export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
-  export DISABLE_AZTEC_VM=1
+  # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
+  if ! semver check "${REF_NAME:-}"; then
+    export DISABLE_AZTEC_VM=1
+  fi
 fi
 
 if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
