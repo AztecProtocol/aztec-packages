@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,40 +18,37 @@ struct lookup_context_ctx_stack_call_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_CALL";
     static constexpr std::string_view RELATION_NAME = "context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
-    static constexpr Column DST_SELECTOR = Column::context_stack_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_sel_enter_call);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::context_stack_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::execution_next_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_context_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_id),
+                                                      ColumnExpression(ColumnAndShifts::execution_next_pc),
+                                                      ColumnExpression(ColumnAndShifts::execution_msg_sender),
+                                                      ColumnExpression(ColumnAndShifts::execution_contract_address),
+                                                      ColumnExpression(ColumnAndShifts::execution_is_static),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_calldata_addr),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_calldata_size),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_l2_gas_limit),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_da_gas_limit),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_l2_gas_used),
+                                                      ColumnExpression(ColumnAndShifts::execution_parent_da_gas_used));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::context_stack_entered_context_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_context_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_next_pc),
+                        ColumnExpression(ColumnAndShifts::context_stack_msg_sender),
+                        ColumnExpression(ColumnAndShifts::context_stack_contract_address),
+                        ColumnExpression(ColumnAndShifts::context_stack_is_static),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_calldata_addr),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_calldata_size),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_l2_gas_limit),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_da_gas_limit),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_l2_gas_used),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_da_gas_used));
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_call_counts;
     static constexpr Column INVERSES = Column::lookup_context_ctx_stack_call_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_next_context_id,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_parent_id,
-        ColumnAndShifts::execution_next_pc,
-        ColumnAndShifts::execution_msg_sender,
-        ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_is_static,
-        ColumnAndShifts::execution_parent_calldata_addr,
-        ColumnAndShifts::execution_parent_calldata_size,
-        ColumnAndShifts::execution_parent_l2_gas_limit,
-        ColumnAndShifts::execution_parent_da_gas_limit,
-        ColumnAndShifts::execution_parent_l2_gas_used,
-        ColumnAndShifts::execution_parent_da_gas_used
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::context_stack_entered_context_id,
-        ColumnAndShifts::context_stack_context_id,
-        ColumnAndShifts::context_stack_parent_id,
-        ColumnAndShifts::context_stack_next_pc,
-        ColumnAndShifts::context_stack_msg_sender,
-        ColumnAndShifts::context_stack_contract_address,
-        ColumnAndShifts::context_stack_is_static,
-        ColumnAndShifts::context_stack_parent_calldata_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size,
-        ColumnAndShifts::context_stack_parent_l2_gas_limit,
-        ColumnAndShifts::context_stack_parent_da_gas_limit,
-        ColumnAndShifts::context_stack_parent_l2_gas_used,
-        ColumnAndShifts::context_stack_parent_da_gas_used
-    };
 };
 
 using lookup_context_ctx_stack_call_settings = lookup_settings<lookup_context_ctx_stack_call_settings_>;
@@ -63,40 +61,38 @@ struct lookup_context_ctx_stack_rollback_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_ROLLBACK";
     static constexpr std::string_view RELATION_NAME = "context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
-    static constexpr Column SRC_SELECTOR = Column::execution_rollback_context;
-    static constexpr Column DST_SELECTOR = Column::context_stack_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_rollback_context);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::context_stack_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_context_id),
+                        ColumnExpression(ColumnAndShifts::execution_context_id_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_id_shift),
+                        ColumnExpression(ColumnAndShifts::execution_pc_shift),
+                        ColumnExpression(ColumnAndShifts::execution_msg_sender_shift),
+                        ColumnExpression(ColumnAndShifts::execution_contract_address_shift),
+                        ColumnExpression(ColumnAndShifts::execution_is_static_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_calldata_addr_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_calldata_size_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_l2_gas_limit_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_da_gas_limit_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_l2_gas_used_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_da_gas_used_shift));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::context_stack_entered_context_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_context_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_next_pc),
+                        ColumnExpression(ColumnAndShifts::context_stack_msg_sender),
+                        ColumnExpression(ColumnAndShifts::context_stack_contract_address),
+                        ColumnExpression(ColumnAndShifts::context_stack_is_static),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_calldata_addr),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_calldata_size),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_l2_gas_limit),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_da_gas_limit),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_l2_gas_used),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_da_gas_used));
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_rollback_counts;
     static constexpr Column INVERSES = Column::lookup_context_ctx_stack_rollback_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_context_id_shift,
-        ColumnAndShifts::execution_parent_id_shift,
-        ColumnAndShifts::execution_pc_shift,
-        ColumnAndShifts::execution_msg_sender_shift,
-        ColumnAndShifts::execution_contract_address_shift,
-        ColumnAndShifts::execution_is_static_shift,
-        ColumnAndShifts::execution_parent_calldata_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_shift,
-        ColumnAndShifts::execution_parent_l2_gas_limit_shift,
-        ColumnAndShifts::execution_parent_da_gas_limit_shift,
-        ColumnAndShifts::execution_parent_l2_gas_used_shift,
-        ColumnAndShifts::execution_parent_da_gas_used_shift
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::context_stack_entered_context_id,
-        ColumnAndShifts::context_stack_context_id,
-        ColumnAndShifts::context_stack_parent_id,
-        ColumnAndShifts::context_stack_next_pc,
-        ColumnAndShifts::context_stack_msg_sender,
-        ColumnAndShifts::context_stack_contract_address,
-        ColumnAndShifts::context_stack_is_static,
-        ColumnAndShifts::context_stack_parent_calldata_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size,
-        ColumnAndShifts::context_stack_parent_l2_gas_limit,
-        ColumnAndShifts::context_stack_parent_da_gas_limit,
-        ColumnAndShifts::context_stack_parent_l2_gas_used,
-        ColumnAndShifts::context_stack_parent_da_gas_used
-    };
 };
 
 using lookup_context_ctx_stack_rollback_settings = lookup_settings<lookup_context_ctx_stack_rollback_settings_>;
@@ -110,40 +106,38 @@ struct lookup_context_ctx_stack_return_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_RETURN";
     static constexpr std::string_view RELATION_NAME = "context";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
-    static constexpr Column SRC_SELECTOR = Column::execution_nested_return;
-    static constexpr Column DST_SELECTOR = Column::context_stack_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::execution_nested_return);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::context_stack_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::execution_context_id),
+                        ColumnExpression(ColumnAndShifts::execution_context_id_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_id_shift),
+                        ColumnExpression(ColumnAndShifts::execution_pc_shift),
+                        ColumnExpression(ColumnAndShifts::execution_msg_sender_shift),
+                        ColumnExpression(ColumnAndShifts::execution_contract_address_shift),
+                        ColumnExpression(ColumnAndShifts::execution_is_static_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_calldata_addr_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_calldata_size_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_l2_gas_limit_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_da_gas_limit_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_l2_gas_used_shift),
+                        ColumnExpression(ColumnAndShifts::execution_parent_da_gas_used_shift));
+    static constexpr auto DST_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::context_stack_entered_context_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_context_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_id),
+                        ColumnExpression(ColumnAndShifts::context_stack_next_pc),
+                        ColumnExpression(ColumnAndShifts::context_stack_msg_sender),
+                        ColumnExpression(ColumnAndShifts::context_stack_contract_address),
+                        ColumnExpression(ColumnAndShifts::context_stack_is_static),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_calldata_addr),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_calldata_size),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_l2_gas_limit),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_da_gas_limit),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_l2_gas_used),
+                        ColumnExpression(ColumnAndShifts::context_stack_parent_da_gas_used));
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_return_counts;
     static constexpr Column INVERSES = Column::lookup_context_ctx_stack_return_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_context_id_shift,
-        ColumnAndShifts::execution_parent_id_shift,
-        ColumnAndShifts::execution_pc_shift,
-        ColumnAndShifts::execution_msg_sender_shift,
-        ColumnAndShifts::execution_contract_address_shift,
-        ColumnAndShifts::execution_is_static_shift,
-        ColumnAndShifts::execution_parent_calldata_addr_shift,
-        ColumnAndShifts::execution_parent_calldata_size_shift,
-        ColumnAndShifts::execution_parent_l2_gas_limit_shift,
-        ColumnAndShifts::execution_parent_da_gas_limit_shift,
-        ColumnAndShifts::execution_parent_l2_gas_used_shift,
-        ColumnAndShifts::execution_parent_da_gas_used_shift
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::context_stack_entered_context_id,
-        ColumnAndShifts::context_stack_context_id,
-        ColumnAndShifts::context_stack_parent_id,
-        ColumnAndShifts::context_stack_next_pc,
-        ColumnAndShifts::context_stack_msg_sender,
-        ColumnAndShifts::context_stack_contract_address,
-        ColumnAndShifts::context_stack_is_static,
-        ColumnAndShifts::context_stack_parent_calldata_addr,
-        ColumnAndShifts::context_stack_parent_calldata_size,
-        ColumnAndShifts::context_stack_parent_l2_gas_limit,
-        ColumnAndShifts::context_stack_parent_da_gas_limit,
-        ColumnAndShifts::context_stack_parent_l2_gas_used,
-        ColumnAndShifts::context_stack_parent_da_gas_used
-    };
 };
 
 using lookup_context_ctx_stack_return_settings = lookup_settings<lookup_context_ctx_stack_return_settings_>;

@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,22 @@ struct lookup_keccak_memory_slice_to_mem_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAK_MEMORY_SLICE_TO_MEM";
     static constexpr std::string_view RELATION_NAME = "keccak_memory";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::keccak_memory_sel;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::keccak_memory_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::keccak_memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::keccak_memory_addr),
+                                                      ColumnExpression(ColumnAndShifts::keccak_memory_val00),
+                                                      ColumnExpression(ColumnAndShifts::keccak_memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::keccak_memory_rw),
+                                                      ColumnExpression(ColumnAndShifts::keccak_memory_space_id));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id));
     static constexpr Column COUNTS = Column::lookup_keccak_memory_slice_to_mem_counts;
     static constexpr Column INVERSES = Column::lookup_keccak_memory_slice_to_mem_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::keccak_memory_clk, ColumnAndShifts::keccak_memory_addr, ColumnAndShifts::keccak_memory_val00,
-        ColumnAndShifts::keccak_memory_tag, ColumnAndShifts::keccak_memory_rw,   ColumnAndShifts::keccak_memory_space_id
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
-    };
 };
 
 using lookup_keccak_memory_slice_to_mem_settings = lookup_settings<lookup_keccak_memory_slice_to_mem_settings_>;

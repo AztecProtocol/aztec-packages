@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,16 +18,15 @@ struct lookup_data_copy_range_max_read_size_diff_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_MAX_READ_SIZE_DIFF";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_sel_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS =
+        std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_abs_diff_max_read_index),
+                        ColumnExpression(ColumnAndShifts::data_copy_thirty_two));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_data_copy_range_max_read_size_diff_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_range_max_read_size_diff_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_abs_diff_max_read_index, ColumnAndShifts::data_copy_thirty_two
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_data_copy_range_max_read_size_diff_settings =
@@ -41,16 +41,14 @@ struct lookup_data_copy_range_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_READ";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_sel_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_abs_read_diff),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_thirty_two));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_data_copy_range_read_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_range_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_abs_read_diff, ColumnAndShifts::data_copy_thirty_two
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_data_copy_range_read_settings = lookup_settings<lookup_data_copy_range_read_settings_>;
@@ -63,16 +61,14 @@ struct lookup_data_copy_range_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_WRITE";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_sel_start);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_abs_write_diff),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_thirty_two));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_data_copy_range_write_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_range_write_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_abs_write_diff, ColumnAndShifts::data_copy_thirty_two
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_data_copy_range_write_settings = lookup_settings<lookup_data_copy_range_write_settings_>;
@@ -85,16 +81,14 @@ struct lookup_data_copy_range_reads_left_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_READS_LEFT";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start_no_err;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_sel_start_no_err);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::range_check_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_abs_max_read_offset),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_thirty_two));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::range_check_value),
+                                                      ColumnExpression(ColumnAndShifts::range_check_rng_chk_bits));
     static constexpr Column COUNTS = Column::lookup_data_copy_range_reads_left_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_range_reads_left_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_abs_max_read_offset, ColumnAndShifts::data_copy_thirty_two
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
 };
 
 using lookup_data_copy_range_reads_left_settings = lookup_settings<lookup_data_copy_range_reads_left_settings_>;
@@ -108,19 +102,22 @@ struct lookup_data_copy_mem_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_MEM_WRITE";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_mem_write;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_sel_mem_write);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_clk),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_dst_addr),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_value),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_sel_mem_write),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_dst_context_id));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id));
     static constexpr Column COUNTS = Column::lookup_data_copy_mem_write_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_mem_write_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_clk,           ColumnAndShifts::data_copy_dst_addr,
-        ColumnAndShifts::data_copy_value,         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::data_copy_sel_mem_write, ColumnAndShifts::data_copy_dst_context_id
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
-    };
 };
 
 using lookup_data_copy_mem_write_settings = lookup_settings<lookup_data_copy_mem_write_settings_>;
@@ -133,19 +130,22 @@ struct lookup_data_copy_mem_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_MEM_READ";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_mem_read;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_sel_mem_read);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::memory_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_clk),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_read_addr),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_value),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::precomputed_zero),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_src_context_id));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::memory_clk),
+                                                      ColumnExpression(ColumnAndShifts::memory_address),
+                                                      ColumnExpression(ColumnAndShifts::memory_value),
+                                                      ColumnExpression(ColumnAndShifts::memory_tag),
+                                                      ColumnExpression(ColumnAndShifts::memory_rw),
+                                                      ColumnExpression(ColumnAndShifts::memory_space_id));
     static constexpr Column COUNTS = Column::lookup_data_copy_mem_read_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_mem_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_clk,    ColumnAndShifts::data_copy_read_addr,
-        ColumnAndShifts::data_copy_value,  ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::precomputed_zero, ColumnAndShifts::data_copy_src_context_id
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
-    };
 };
 
 using lookup_data_copy_mem_read_settings = lookup_settings<lookup_data_copy_mem_read_settings_>;
@@ -158,18 +158,16 @@ struct lookup_data_copy_col_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_COL_READ";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::data_copy_cd_copy_col_read;
-    static constexpr Column DST_SELECTOR = Column::calldata_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::data_copy_cd_copy_col_read);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::calldata_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::data_copy_value),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_dst_context_id),
+                                                      ColumnExpression(ColumnAndShifts::data_copy_read_addr));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::calldata_value),
+                                                      ColumnExpression(ColumnAndShifts::calldata_context_id),
+                                                      ColumnExpression(ColumnAndShifts::calldata_index));
     static constexpr Column COUNTS = Column::lookup_data_copy_col_read_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_col_read_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_value,
-        ColumnAndShifts::data_copy_dst_context_id,
-        ColumnAndShifts::data_copy_read_addr
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::calldata_value, ColumnAndShifts::calldata_context_id, ColumnAndShifts::calldata_index
-    };
 };
 
 using lookup_data_copy_col_read_settings = lookup_settings<lookup_data_copy_col_read_settings_>;

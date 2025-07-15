@@ -7,6 +7,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/common/expression.hpp"
 #include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 namespace bb::avm2 {
@@ -17,18 +18,16 @@ struct lookup_calldata_hashing_cd_hash_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_CD_HASH";
     static constexpr std::string_view RELATION_NAME = "calldata_hashing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::cd_hashing_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::cd_hashing_sel);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::cd_hashing_input_0_),
+                                                      ColumnExpression(ColumnAndShifts::cd_hashing_input_1_),
+                                                      ColumnExpression(ColumnAndShifts::cd_hashing_input_2_));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_input_0),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_1),
+                                                      ColumnExpression(ColumnAndShifts::poseidon2_hash_input_2));
     static constexpr Column COUNTS = Column::lookup_calldata_hashing_cd_hash_counts;
     static constexpr Column INVERSES = Column::lookup_calldata_hashing_cd_hash_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::cd_hashing_input_0_, ColumnAndShifts::cd_hashing_input_1_, ColumnAndShifts::cd_hashing_input_2_
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2
-    };
 };
 
 using lookup_calldata_hashing_cd_hash_settings = lookup_settings<lookup_calldata_hashing_cd_hash_settings_>;
@@ -41,16 +40,12 @@ struct lookup_calldata_hashing_cd_hash_end_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CALLDATA_HASHING_CD_HASH_END";
     static constexpr std::string_view RELATION_NAME = "calldata_hashing";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
-    static constexpr Column SRC_SELECTOR = Column::cd_hashing_latch;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
+    static constexpr auto SRC_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::cd_hashing_latch);
+    static constexpr auto DST_SELECTOR_EXPR = ColumnExpression(ColumnAndShifts::poseidon2_hash_sel);
+    static constexpr auto SRC_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::cd_hashing_output_hash));
+    static constexpr auto DST_EXPRS = std::make_tuple(ColumnExpression(ColumnAndShifts::poseidon2_hash_output));
     static constexpr Column COUNTS = Column::lookup_calldata_hashing_cd_hash_end_counts;
     static constexpr Column INVERSES = Column::lookup_calldata_hashing_cd_hash_end_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::cd_hashing_output_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_output
-    };
 };
 
 using lookup_calldata_hashing_cd_hash_end_settings = lookup_settings<lookup_calldata_hashing_cd_hash_end_settings_>;
