@@ -14,6 +14,7 @@
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
+#include "relations/contract_instance_retrieval.hpp"
 #include "relations/data_copy.hpp"
 #include "relations/discard.hpp"
 #include "relations/ecc.hpp"
@@ -21,6 +22,7 @@
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
+#include "relations/get_contract_instance.hpp"
 #include "relations/get_env_var.hpp"
 #include "relations/gt.hpp"
 #include "relations/instr_fetching.hpp"
@@ -58,11 +60,13 @@
 #include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
+#include "relations/lookups_contract_instance_retrieval.hpp"
 #include "relations/lookups_data_copy.hpp"
 #include "relations/lookups_execution.hpp"
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
+#include "relations/lookups_get_contract_instance.hpp"
 #include "relations/lookups_get_env_var.hpp"
 #include "relations/lookups_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
@@ -91,11 +95,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 121;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2326;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 125;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2369;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 248;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2695;
+    static constexpr size_t NUM_ALL_ENTITIES = 2742;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -113,6 +117,7 @@ struct AvmFlavorVariables {
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
+        avm2::contract_instance_retrieval<FF_>,
         avm2::data_copy<FF_>,
         avm2::discard<FF_>,
         avm2::ecc<FF_>,
@@ -120,6 +125,7 @@ struct AvmFlavorVariables {
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
+        avm2::get_contract_instance<FF_>,
         avm2::get_env_var<FF_>,
         avm2::gt<FF_>,
         avm2::instr_fetching<FF_>,
@@ -184,10 +190,8 @@ struct AvmFlavorVariables {
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,
         lookup_bc_hashing_iv_is_len_relation<FF_>,
-        lookup_bc_retrieval_address_derivation_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
-        lookup_bc_retrieval_deployment_nullifier_read_relation<FF_>,
-        lookup_bc_retrieval_update_check_relation<FF_>,
+        lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
@@ -198,6 +202,9 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
+        lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
+        lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
+        lookup_contract_instance_retrieval_update_check_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
@@ -218,6 +225,10 @@ struct AvmFlavorVariables {
         lookup_gas_addressing_gas_read_relation<FF_>,
         lookup_gas_limit_used_da_range_relation<FF_>,
         lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_get_contract_instance_contract_instance_retrieval_relation<FF_>,
+        lookup_get_contract_instance_mem_write_contract_instance_exists_relation<FF_>,
+        lookup_get_contract_instance_mem_write_contract_instance_member_relation<FF_>,
+        lookup_get_contract_instance_precomputed_info_relation<FF_>,
         lookup_get_env_var_precomputed_info_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col1_relation<FF_>,
@@ -432,6 +443,7 @@ struct AvmFlavorVariables {
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,
+        lookup_update_check_timestamp_from_public_inputs_relation<FF_>,
         lookup_update_check_timestamp_of_change_cmp_range_relation<FF_>,
         lookup_update_check_update_hash_poseidon2_relation<FF_>,
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
@@ -445,6 +457,7 @@ struct AvmFlavorVariables {
         lookup_written_public_data_slots_tree_check_new_leaf_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_silo_poseidon2_relation<FF_>,
         lookup_written_public_data_slots_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
+        perm_execution_dispatch_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,

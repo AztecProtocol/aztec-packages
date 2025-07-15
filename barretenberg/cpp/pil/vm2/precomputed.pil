@@ -170,3 +170,10 @@ pol constant is_isstaticcall;
 pol constant is_l2gasleft;
 pol constant is_dagasleft;
 pol constant out_tag;
+
+// GETCONTRACTINSTANCE opcode precomputed columns
+// see opcodes/get_contract_instance.pil for ascii table
+pol constant is_valid_member_enum;
+pol constant is_deployer;
+pol constant is_class_id;
+pol constant is_init_hash;
