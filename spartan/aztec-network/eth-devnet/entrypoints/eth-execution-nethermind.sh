@@ -4,7 +4,7 @@ ls -la /genesis
 
 /nethermind/nethermind \
   --datadir=/data \
-  --Init.ChainSpecPath=/genesis/genesis.json \
+  --Init.ChainSpecPath=/genesis/chainspec.json \
   --Merge.Enabled=true \
   --JsonRpc.Enabled=true \
   --JsonRpc.Host=0.0.0.0 \

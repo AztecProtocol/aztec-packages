@@ -30,4 +30,7 @@ data:
   genesis.json: |
     {{- $path := printf "%s/genesis.json" $basePath }}
     {{ .Files.Get $path | nindent 4 }}
+  chainspec.json: |
+    {{- $path := printf "%s/chainspec.json" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}
   jwt-secret.hex: "0x61e1dd9539e8cc37b3d71dcf8ce372f0e119cc1c73426ee80472a4214f2a41a1"
