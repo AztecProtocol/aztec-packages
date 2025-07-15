@@ -1,0 +1,30 @@
+include "range_check.pil";
+
+namespace gt;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit input_a;
+    pol commit input_b;
+
+    pol commit res; // Boolean
+    res * (1 - res) = 0;
+
+    // NOTE: We currently range check all abs diffs against 128 bits, which for most calls will be sub-optimal,
+    // but allows us to avoid forwarding a rng_chk_bits value and deduplicate more events.
+    // TODO: Investigate whether we want to define the rng_chk_bits here or continue checking all against 128.
+    pol commit constant_128;
+    sel * (128 - constant_128) = 0;
+
+    pol A_LTE_B = input_b - input_a;
+    pol A_GT_B = input_a - input_b - 1;
+    pol commit abs_diff;
+
+    #[GT_RESULT]
+    sel * ( (A_GT_B - A_LTE_B) * res + A_LTE_B - abs_diff ) = 0;
+    #[GT_RANGE]
+    sel { abs_diff, constant_128 } in range_check.sel { range_check.value, range_check.rng_chk_bits };

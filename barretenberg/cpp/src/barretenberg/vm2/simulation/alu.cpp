@@ -1,11 +1,10 @@
 #include "barretenberg/vm2/simulation/alu.hpp"
-#include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 
 #include <cstdint>
 #include <memory>
+
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -45,49 +44,26 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
-    uint128_t lt_abs_diff = 0;
-    FF a_ff = a.as_ff();
-    FF b_ff = b.as_ff();
-    // NOTE: We cannot do a_ff < b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a_ff) < static_cast<uint256_t>(b_ff);
+    // Use the greater_than interface to check if b > a, which is the same as a < b.
+    bool res = greater_than.gt(b, a);
     MemoryValue c = MemoryValue::from<uint1_t>(res);
-    // We must split FF and non FF cases:
-    if (a.get_tag() == ValueTag::FF) {
-        // Emit the ff check event required (see lookup FF_LT) - note that we check b > a:
-        field_gt.ff_gt(b, a);
-    } else {
-        // We have excluded the field case => safe to downcast here for the max 128 bit range check:
-        lt_abs_diff = res ? static_cast<uint128_t>(b_ff - a_ff) - 1 : static_cast<uint128_t>(a_ff - b_ff);
-    }
-    range_check.assert_range(lt_abs_diff, get_tag_bits(a.get_tag()));
     events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .c = c });
     return c;
 }
 
 MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
 {
+    // Brillig semantic enforces that tags match for LTE.
     if (a.get_tag() != b.get_tag()) {
         debug("ALU operation failed: ", to_string(AluError::TAG_ERROR));
         events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException();
     }
-    uint128_t lte_abs_diff = 0;
-    FF a_ff = a.as_ff();
-    FF b_ff = b.as_ff();
-    // NOTE: We cannot do a_ff <= b_ff since fields do not have explicit ordering:
-    bool res = static_cast<uint256_t>(a_ff) <= static_cast<uint256_t>(b_ff);
-    MemoryValue c = MemoryValue::from<uint1_t>(res);
-    // We must split FF and non FF cases:
-    if (a.get_tag() == ValueTag::FF) {
-        // Emit the ff check event required (see lookup FF_LT) - note that we check a > b, and in the circuit check this
-        // against !c:
-        field_gt.ff_gt(a, b);
-    } else {
-        // For LTE, we use LT's lookups to check that b < a ? !c :
-        // We have excluded the field case => safe to downcast here for the max 128 bit range check:
-        lte_abs_diff = !res ? static_cast<uint128_t>(a_ff - b_ff) - 1 : static_cast<uint128_t>(b_ff - a_ff);
-    }
-    range_check.assert_range(lte_abs_diff, get_tag_bits(a.get_tag()));
+    // Note: the result of LTE is the opposite of GT
+    // Use the greater_than interface to check if a > b
+    bool res = greater_than.gt(a, b);
+    // The result of LTE is the opposite of the result of GT
+    MemoryValue c = MemoryValue::from<uint1_t>(!res);
     events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .c = c });
     return c;
 }

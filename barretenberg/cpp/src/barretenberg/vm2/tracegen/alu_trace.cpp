@@ -36,11 +36,9 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
                  { Column::alu_helper1, diff == 0 ? 0 : diff.invert() } };
     }
     case simulation::AluOperation::LT: {
-        FF abs_diff = static_cast<uint8_t>(event.c.as_ff()) == 1 ? event.b.as_ff() - event.a.as_ff() - 1
-                                                                 : event.a.as_ff() - event.b.as_ff();
         return {
-            { Column::alu_lt_ops_input_a, event.a },
-            { Column::alu_lt_ops_input_b, event.b },
+            { Column::alu_lt_ops_input_a, event.b },
+            { Column::alu_lt_ops_input_b, event.a },
             { Column::alu_lt_ops_result_c, event.c },
             { Column::alu_sel_op_lt, 1 },
             { Column::alu_sel_lt_ops, no_tag_err },
@@ -48,20 +46,17 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_sel_ff_lt_ops, is_ff && no_tag_err },
+            { Column::alu_sel_int_lt_ops, !is_ff && no_tag_err },
             { Column::alu_tag_ff_diff_inv,
               is_ff
                   ? 0
                   : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
-            { Column::alu_lt_ops_abs_diff, is_ff ? 0 : abs_diff },
         };
     }
     case simulation::AluOperation::LTE: {
-        // For LTE, we use LT's lookups to check that b < a ? !c :
-        FF abs_diff = static_cast<uint8_t>(event.c.as_ff()) == 0 ? event.a.as_ff() - event.b.as_ff() - 1
-                                                                 : event.b.as_ff() - event.a.as_ff();
         return {
-            { Column::alu_lt_ops_input_a, event.b },
-            { Column::alu_lt_ops_input_b, event.a },
+            { Column::alu_lt_ops_input_a, event.a },
+            { Column::alu_lt_ops_input_b, event.b },
             { Column::alu_lt_ops_result_c, MemoryValue::from<uint1_t>(event.c.as_ff() == 0 && no_tag_err ? 1 : 0) },
             { Column::alu_sel_op_lte, 1 },
             { Column::alu_sel_lt_ops, no_tag_err },
@@ -69,11 +64,11 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LTE).subtrace_operation_id) },
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_sel_ff_lt_ops, is_ff && no_tag_err },
+            { Column::alu_sel_int_lt_ops, !is_ff && no_tag_err },
             { Column::alu_tag_ff_diff_inv,
               is_ff
                   ? 0
                   : (FF(static_cast<uint8_t>(event.a.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
-            { Column::alu_lt_ops_abs_diff, is_ff ? 0 : abs_diff },
         };
     }
     case simulation::AluOperation::NOT: {
@@ -145,7 +140,7 @@ const InteractionDefinition AluTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_tag_max_bits_value_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_alu_ff_lt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_lt_range_settings, InteractionType::LookupGeneric>();
+        .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
