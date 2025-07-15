@@ -210,7 +210,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
              zip_view(proving_key->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
             {
                 PROFILE_THIS_NAME("COMMIT::databus_inverses");
-                commit_to_witness_polynomial(polynomial, label, CommitmentKey::CommitType::Sparse);
+                commit_to_witness_polynomial(
+                    polynomial, label, CommitmentKey::CommitType::Sparse); // WORKTODO: does sparse still exist?
             }
         };
     }

@@ -41,7 +41,7 @@ void Goblin::prove_translator()
 {
     PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
     TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
+    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
     TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }

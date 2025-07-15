@@ -738,11 +738,9 @@ class TranslatorFlavor {
         size_t log_circuit_size = CONST_TRANSLATOR_LOG_N;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        CommitmentKey commitment_key = CommitmentKey();
+        CommitmentKey commitment_key{ 1UL << CONST_TRANSLATOR_LOG_N };
 
-        ProvingKey(const CommitmentKey& commitment_key = CommitmentKey())
-            : commitment_key(commitment_key)
-        {}
+        ProvingKey() = default;
     };
 
     /**

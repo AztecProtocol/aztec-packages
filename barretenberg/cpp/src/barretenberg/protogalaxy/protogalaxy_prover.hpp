@@ -29,7 +29,6 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     using Transcript = typename Flavor::Transcript;
     using DeciderPK = DeciderProvingKeys::DeciderPK;
     using DeciderVK = DeciderVerificationKeys::DeciderVK;
-    using CommitmentKey = typename Flavor::CommitmentKey;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
@@ -39,7 +38,6 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
 
     DeciderProvingKeys keys_to_fold;
     DeciderVerificationKeys vks_to_fold;
-    CommitmentKey commitment_key;
 
     // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
@@ -60,7 +58,6 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
         , vks_to_fold(DeciderVerificationKeys_(vks))
-        , commitment_key(keys_to_fold[1]->commitment_key)
         , transcript(transcript)
         , pg_internal(trace_usage_tracker)
     {

@@ -181,7 +181,7 @@ class ClientIVC {
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
-    typename MegaFlavor::CommitmentKey bn254_commitment_key;
+    MegaFlavor::CommitmentKey bn254_commitment_key;
 
     Goblin goblin;
 
