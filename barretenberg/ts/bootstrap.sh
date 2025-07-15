@@ -3,7 +3,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
+hash=$(hash_str $(../cpp/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 function build {
   echo_header "bb.js build"
