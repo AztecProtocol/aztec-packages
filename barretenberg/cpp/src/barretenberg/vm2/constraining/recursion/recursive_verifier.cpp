@@ -96,7 +96,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     const auto circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
     uint32_t vk_circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
-    if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) { // circuit_size is a power of 2
+    if (static_cast<uint32_t>(circuit_size.get_value()) != vk_circuit_size) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
 

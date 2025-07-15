@@ -45,9 +45,9 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     }
 
     /**
-     * @brief Get the max circuit size (and corresponding log circuit size) from the set of decider verification keys
+     * @brief Get the max log circuit size from the set of decider verification keys
      *
-     * @return {max circuit size, max log circuit size}
+     * @return max log circuit size
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
      */
     FF get_max_log_circuit_size() const

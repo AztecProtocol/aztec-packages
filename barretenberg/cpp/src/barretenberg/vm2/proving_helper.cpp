@@ -49,7 +49,7 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
 
     uint64_t circuit_size = 1UL << log_circuit_size;
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", circuit_size, " (next or eq power: 2^", circuit_size, ")");
+    vinfo("dyadic circuit size: ", circuit_size);
 
     // WARNING: The number of public inputs in the verification key is always 0!
     // Apparently we use some other mechanism to check the public inputs.
