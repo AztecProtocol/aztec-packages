@@ -34,12 +34,12 @@ where
     pad_end(items, T::empty())
 }
 
-pub fn make_fixture<T, let N: u32>(seed: Field) -> T
+pub fn make_fixture<T>(seed: Field) -> T
 where
-    T: Deserialize<N>,
+    T: Deserialize,
 {
-    let mut fields = [0; N];
-    for i in 0..N {
+    let mut fields = [0; <T as Deserialize>::N];
+    for i in 0..<T as Deserialize>::N {
         fields[i] = seed + i as Field;
     }
     T::deserialize(fields)
