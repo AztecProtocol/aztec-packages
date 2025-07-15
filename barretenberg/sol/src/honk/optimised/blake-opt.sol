@@ -34,7 +34,7 @@ uint256 constant PUBLIC_INPUTS_OFFSET = 1;
 
 // The plan
 // Write an optimised version of the add2 circuit
-contract BlakeOptHonkVerifier is IVerifier {
+contract HonkVerifier is IVerifier {
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    SLAB ALLOCATION                         */
