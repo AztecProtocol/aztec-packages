@@ -8,7 +8,7 @@ pub contract EcdsaRAccount {
         context::PrivateContext,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
-        oracle::auth_witness::get_auth_witness,
+        oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
     };
 
@@ -16,7 +16,7 @@ pub contract EcdsaRAccount {
 
     #[storage]
     struct Storage<Context> {
-        public_key: PrivateImmutable<EcdsaPublicKeyNote, Context>,
+        signing_public_key: PrivateImmutable<EcdsaPublicKeyNote, Context>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
@@ -25,16 +25,41 @@ pub contract EcdsaRAccount {
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
         let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
+
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
+        // Since this value is only used for unconstrained tagging and not for any constrained logic,
+        // it is safe to load from an unconstrained context.
+        // We use `unwrap_or` here because we need the value to be defined in the call to `set_sender_for_tags`
+        // at the end of this function.
+        // TODO: The "unwrap_or" below is being run in a constrained context but it doesn't need to be constrained.
+        // Should we optimize this?
+        let original_sender = unsafe { get_sender_for_tags().unwrap_or(this) };
+
+        // We set the sender for tags to this contract because we don't want to force the user corresponding to this
+        // account to add the account deployer as a sender to their PXE. By setting it to this contract, user's PXE
+        // will manage to find the note even if the account deployer is not registered as a sender (i.e
+        // `pxe.registerSender(accountDeployer)` was not called)
+
+        // Safety: Comment from above applies here as well.
+        unsafe { set_sender_for_tags(this) };
+        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this,
-            this,
         ));
+        // Safety: Comment from above applies here as well.
+        unsafe { set_sender_for_tags(original_sender) };
     }
 
-    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
+    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[private]
+    #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
+        // Since this value is only used for unconstrained tagging and not for any constrained logic,
+        // it is safe to set from a constrained context.
+        unsafe { set_sender_for_tags(context.this_address()) };
+
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
@@ -51,7 +76,7 @@ pub contract EcdsaRAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
         let storage = Storage::init(context);
-        let public_key = storage.public_key.get_note();
+        let public_key = storage.signing_public_key.get_note();
 
         // Load auth witness
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.

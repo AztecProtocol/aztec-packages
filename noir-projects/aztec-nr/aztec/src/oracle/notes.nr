@@ -188,6 +188,8 @@ pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
 #[oracle(checkNullifierExists)]
 unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
+// TODO: Oracles below are generic private log oracles and are not specific to notes. Move them to oracle/logs.nr.
+
 /// Returns the derived app tagging secret ready to be included in a log for a given sender and recipient pair,
 /// siloed for the current contract address.
 pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
@@ -225,3 +227,34 @@ unconstrained fn increment_app_tagging_secret_index_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
 ) {}
+
+/// Gets the sender for tags.
+///
+/// This unconstrained value is used as the sender when computing an unconstrained shared secret
+/// for a tag in order to emit a log. Constrained tagging should not use this as there is no
+/// guarantee that the recipient knows about the sender, and hence about the shared secret.
+///
+/// The value persists through nested calls, meaning all calls down the stack will use the same
+/// 'senderForTags' value (unless it is replaced).
+pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
+    get_sender_for_tags_oracle()
+}
+
+#[oracle(getSenderForTags)]
+unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
+
+/// Sets the sender for tags.
+///
+/// This unconstrained value is used as the sender when computing an unconstrained shared secret
+/// for a tag in order to emit a log. Constrained tagging should not use this as there is no
+/// guarantee that the recipient knows about the sender, and hence about the shared secret.
+///
+/// Account contracts typically set this value before calling other contracts. The value persists
+/// through nested calls, meaning all calls down the stack will use the same 'senderForTags'
+/// value (unless it is replaced by another call to this setter).
+pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
+    set_sender_for_tags_oracle(sender_for_tags);
+}
+
+#[oracle(setSenderForTags)]
+unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}

@@ -297,8 +297,8 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
+  await counter.methods.increment(wallet.getAddress()).send().wait(waitOpts);
+  await counter.methods.increment(wallet.getAddress()).send().wait(waitOpts);
 
   debugLog.info('Claiming FPC');
 

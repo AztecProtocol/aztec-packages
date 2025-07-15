@@ -153,13 +153,13 @@ mod test {
         env.impersonate(owner);
 
         let small_mint_amount: u128 = 5;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
+        Token::at(token_contract_address).mint_to_private(recipient, small_mint_amount).call(
             &mut env.private(),
         );
         env.mine_block();
 
         let large_mint_amount: u128 = 50;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
+        Token::at(token_contract_address).mint_to_private(recipient, large_mint_amount).call(
             &mut env.private(),
         );
         env.mine_block();
@@ -196,13 +196,13 @@ mod test {
         env.impersonate(owner);
 
         let large_mint_amount: u128 = 50;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, large_mint_amount).call(
+        Token::at(token_contract_address).mint_to_private(recipient, large_mint_amount).call(
             &mut env.private(),
         );
         env.mine_block();
 
         let small_mint_amount: u128 = 5;
-        Token::at(token_contract_address).mint_to_private(owner, recipient, small_mint_amount).call(
+        Token::at(token_contract_address).mint_to_private(recipient, small_mint_amount).call(
             &mut env.private(),
         );
         env.mine_block();

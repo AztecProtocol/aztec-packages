@@ -6,7 +6,7 @@ test_title "Tx management"
 
 aztec-wallet import-test-accounts
 aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -a counter -f test0
-aztec-wallet send increment -ca counter --args accounts:test0 accounts:test0 -f test0
+aztec-wallet send increment -ca counter --args accounts:test0 -f test0
 
 TX_LIST=$(aztec-wallet get-tx)
 

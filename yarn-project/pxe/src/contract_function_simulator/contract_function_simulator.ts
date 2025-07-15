@@ -78,7 +78,10 @@ export class ContractFunctionSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
+   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract
+   * or a specific account.
+   * @param senderForTags - The address that is used as a tagging sender when emitting private logs. Returned from
+   * the `getSenderForTags` oracle.
    * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns The result of the execution.
    */
@@ -87,6 +90,7 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    senderForTags: AztecAddress | undefined = undefined,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
@@ -130,10 +134,11 @@ export class ContractFunctionSimulator {
       noteCache,
       this.executionDataProvider,
       this.simulator,
-      /*totalPublicArgsCount=*/ 0,
+      0, // totalPublicArgsCount
       startSideEffectCounter,
-      undefined,
+      undefined, // log
       scopes,
+      senderForTags,
     );
 
     const setupTime = simulatorSetupTimer.ms();

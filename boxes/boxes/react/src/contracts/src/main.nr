@@ -24,7 +24,6 @@ contract BoxReact {
         numbers.at(owner).initialize(new_number).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            context.msg_sender(),
         ));
     }
 
@@ -36,7 +35,6 @@ contract BoxReact {
         numbers.at(owner).replace(new_number).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            context.msg_sender(),
         ));
     }
 

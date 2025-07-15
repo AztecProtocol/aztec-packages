@@ -23,12 +23,12 @@ unconstrained fn transfer_to_private_internal_orchestration() {
 #[test]
 unconstrained fn transfer_to_private_external_orchestration() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient, amount) =
+    let (env, token_contract_address, _, recipient, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // We prepare the transfer
     let partial_uint_note = Token::at(token_contract_address)
-        .prepare_private_balance_increase(recipient, owner)
+        .prepare_private_balance_increase(recipient)
         .call(&mut env.private());
 
     // Finalize the transfer of the tokens (message sender owns the tokens in public)
@@ -54,7 +54,7 @@ unconstrained fn transfer_to_private_external_orchestration() {
 
 //     // We prepare the transfer
 //     let partial_uint_note = Token::at(token_contract_address)
-//         .prepare_private_balance_increase(recipient, owner)
+//         .prepare_private_balance_increase(recipient)
 //         .call(&mut env.private());
 
 //     // Finalize the transfer of the tokens (message sender owns the tokens in public)
@@ -90,14 +90,14 @@ unconstrained fn transfer_to_private_transfer_not_prepared() {
 #[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, not_owner, amount) =
+    let (env, token_contract_address, _, not_owner, amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
 
     // (For this specific test we could set a random value for the commitment and not do the call to `prepare...`
     // as the token balance check is before we use the value but that would made the test less robust against changes
     // in the contract.)
     let partial_uint_note = Token::at(token_contract_address)
-        .prepare_private_balance_increase(not_owner, owner)
+        .prepare_private_balance_increase(not_owner)
         .call(&mut env.private());
 
     // Try transferring someone else's token balance
@@ -117,12 +117,11 @@ unconstrained fn incorrect_completer_cannot_complete_partial_note() {
 
     // We set up the completer
     let completer = env.create_account(3);
-    let arbitrary_sender = env.create_account(4);
 
     // We prepare the partial note as a completer
     env.impersonate(completer);
     let partial_uint_note = Token::at(token_contract_address)
-        .prepare_private_balance_increase(recipient, arbitrary_sender)
+        .prepare_private_balance_increase(recipient)
         .call(&mut env.private());
 
     // We impersonate the incorrect completer and try to finalize the transfer

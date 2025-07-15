@@ -68,7 +68,7 @@
 //     env.mine_block();
 
 //     Token::at(token_contract_address)
-//         .mint_to_private(admin_and_owner, admin_and_owner, MINT_AMOUNT)
+//         .mint_to_private(admin_and_owner, MINT_AMOUNT)
 //         .call(&mut env.private());
 
 //     env.mine_block();

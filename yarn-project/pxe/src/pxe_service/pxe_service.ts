@@ -367,6 +367,8 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
+        // There was no need to expose this on the API so I am just setting it to undefined here
+        undefined, // senderForTags
         scopes,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);

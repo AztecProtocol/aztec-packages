@@ -31,7 +31,7 @@ echo "Deployed contract at $TOKEN_ADDRESS"
 
 # docs:start:mint-private
 MINT_AMOUNT=69
-aztec-wallet send mint_to_private -ca last --args accounts:test0 accounts:alice $MINT_AMOUNT -f test0
+aztec-wallet send mint_to_private -ca last --args accounts:alice $MINT_AMOUNT -f test0
 # docs:end:mint-private
 
 # docs:start:get-balance

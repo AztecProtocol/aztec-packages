@@ -95,7 +95,7 @@ pub contract Orderbook {
         // Prepare a partial note that will get completed once the order is fulfilled. Note that only the Orderbook
         // contract can complete the partial note.
         let maker_partial_note =
-            Token::at(ask_token).prepare_private_balance_increase(maker, maker).call(&mut context);
+            Token::at(ask_token).prepare_private_balance_increase(maker).call(&mut context);
 
         // We use the partial note's as the order ID. Because partial notes emit a nullifier when created they are
         // unique, and so this guarantees that our order IDs are also unique without having to keep track of past
@@ -144,7 +144,7 @@ pub contract Orderbook {
 
         // Prepare partial note for taker to receive bid_token
         let taker_partial_note =
-            Token::at(bid_token).prepare_private_balance_increase(taker, taker).call(&mut context);
+            Token::at(bid_token).prepare_private_balance_increase(taker).call(&mut context);
 
         // Nullify the order such that it cannot be fulfilled again. We emit a nullifier instead of deleting the order
         // from public storage because we get no refund for resetting public storage to zero and just emitting

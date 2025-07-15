@@ -9,6 +9,54 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Tagging sender now managed via oracle functions
+
+Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
+This value is expected to be populated by account contracts that should call `set_sender_for_tags()` in their entry point functions.
+
+The changes you need to do in your contracts are quite straightforward.
+You simply need to drop the `sender` arg from the callsites of the log emission functions.
+E.g. note emission:
+
+```diff
+storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+    &mut context,
+    from,
+-    tagging_sender,
+));
+```
+
+E.g. private event emission:
+
+```diff
+emit_event_in_private_log(
+    Transfer { from, to, amount },
+    &mut context,
+-    tagging_sender,
+    to,
+    PrivateLogContent.NO_CONSTRAINTS,
+);
+```
+
+This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
+Drop the `from` argument when calling these.
+
+Example n TypeScript test:
+
+```diff
+- await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
++ await token.methods.mint_to_private(alice, mintAmount).send().wait();
+```
+
+Example when
+
+```diff
+let token_out_partial_note = Token::at(token_out).prepare_private_balance_increase(
+    sender,
+-    tagging_sender
+).call(&mut context);
+```
+
 ## [TXE]
 
 ### API overhaul

@@ -140,7 +140,6 @@ pub contract Test {
         create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
             owner,
-            sender,
         ));
     }
     // docs:end:create_note
@@ -295,12 +294,7 @@ pub contract Test {
 
     // For testing non-note encrypted logs
     #[private]
-    fn emit_array_as_encrypted_log(
-        fields: [Field; 5],
-        owner: AztecAddress,
-        sender: AztecAddress,
-        nest: bool,
-    ) {
+    fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
         let event = ExampleEvent {
             value0: fields[0],
             value1: fields[1],
@@ -309,19 +303,13 @@ pub contract Test {
             value4: fields[4],
         };
 
-        emit_event_in_private_log(
-            event,
-            &mut context,
-            sender,
-            owner,
-            PrivateLogContent.NO_CONSTRAINTS,
-        );
+        emit_event_in_private_log(event, &mut context, owner, PrivateLogContent.NO_CONSTRAINTS);
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
             Test::at(context.this_address())
-                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, sender, false)
+                .emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false)
                 .call(&mut context);
 
             // Emit a log with non-encrypted content for testing purpose.

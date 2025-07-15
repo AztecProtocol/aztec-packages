@@ -186,7 +186,10 @@ describe('Private Execution test suite', () => {
       salt: Fr.random(),
     });
 
-    return acirSimulator.run(txRequest, contractAddress, selector, msgSender);
+    // We don't care about the `senderForTags` in this test. We just need it to be populated in order for the private
+    // log emission to not revert.
+    const senderForTags = await AztecAddress.random();
+    return acirSimulator.run(txRequest, contractAddress, selector, msgSender, senderForTags);
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -344,10 +347,7 @@ describe('Private Execution test suite', () => {
 
   describe('no constructor', () => {
     it('emits a field array as an encrypted log', async () => {
-      // NB: this test does NOT cover correct enc/dec of values, just whether
-      // the contexts correctly populate non-note encrypted logs
-      const sender = recipient; // Needed for tagging.
-      const args = [times(5, () => Fr.random()), owner, sender, false];
+      const args = [times(5, () => Fr.random()), owner, false];
       const result = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'emit_array_as_encrypted_log',

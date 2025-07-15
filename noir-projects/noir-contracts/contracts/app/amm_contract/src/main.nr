@@ -125,7 +125,7 @@ pub contract AMM {
         // supplied, both of which can only be known during public execution. We therefore prepare a partial note that
         // will get completed via minting.
         let liquidity_partial_note =
-            liquidity_token.prepare_private_balance_increase(sender, sender).call(&mut context);
+            liquidity_token.prepare_private_balance_increase(sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
@@ -264,9 +264,9 @@ pub contract AMM {
         // We don't yet know how many tokens the sender will get - that can only be computed during public execution
         // since the it depends on the live balances. We therefore simply prepare partial notes to the sender.
         let token0_partial_note =
-            token0.prepare_private_balance_increase(sender, sender).call(&mut context);
+            token0.prepare_private_balance_increase(sender).call(&mut context);
         let token1_partial_note =
-            token1.prepare_private_balance_increase(sender, sender).call(&mut context);
+            token1.prepare_private_balance_increase(sender).call(&mut context);
 
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
@@ -343,9 +343,8 @@ pub contract AMM {
         Token::at(token_in)
             .transfer_to_public(sender, context.this_address(), amount_in, authwit_nonce)
             .call(&mut context);
-        let token_out_partial_note = Token::at(token_out)
-            .prepare_private_balance_increase(sender, sender)
-            .call(&mut context);
+        let token_out_partial_note =
+            Token::at(token_out).prepare_private_balance_increase(sender).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_exact_tokens_for_tokens(
@@ -423,9 +422,8 @@ pub contract AMM {
             )
             .call(&mut context);
 
-        let token_out_partial_note = Token::at(token_out)
-            .prepare_private_balance_increase(sender, sender)
-            .call(&mut context);
+        let token_out_partial_note =
+            Token::at(token_out).prepare_private_balance_increase(sender).call(&mut context);
 
         AMM::at(context.this_address())
             ._swap_tokens_for_exact_tokens(
