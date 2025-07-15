@@ -218,11 +218,6 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 {
     auto [proof, verifier_input, merge_verification_data] = create_goblin_prover_output();
 
-    Builder builder;
-
-    RecursiveMergeVerificationData recursive_merge_verification_data =
-        construct_recursive_merge_verification_data(&builder, merge_verification_data);
-
     // Tamper with the Translator proof preamble
     {
         GoblinProof tampered_proof = proof;
@@ -234,6 +229,10 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         }
 
         Builder builder;
+
+        RecursiveMergeVerificationData recursive_merge_verification_data =
+            construct_recursive_merge_verification_data(&builder, merge_verification_data);
+
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         [[maybe_unused]] auto goblin_rec_verifier_output =
             verifier.verify(tampered_proof, recursive_merge_verification_data);
@@ -253,6 +252,10 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         }
 
         Builder builder;
+
+        RecursiveMergeVerificationData recursive_merge_verification_data =
+            construct_recursive_merge_verification_data(&builder, merge_verification_data);
+
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
         [[maybe_unused]] auto goblin_rec_verifier_output =
             verifier.verify(tampered_proof, recursive_merge_verification_data);
