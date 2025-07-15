@@ -425,6 +425,56 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
+/// Generates a `Serialize` trait implementation for a struct type.
+///
+/// # Parameters
+/// - `s`: The struct type definition to generate the implementation for
+///
+/// # Returns
+/// A quoted code block containing the trait implementation
+///
+/// # Example
+/// For a struct defined as:
+/// ```
+/// struct Point {
+///     x: Field,
+///     y: Field
+/// }
+///
+/// struct Container {
+///     point: Point,
+///     value: u32
+/// }
+/// ```
+///
+/// This function generates code equivalent to:
+/// ```
+/// impl Serialize for Container {
+///     let N: u32 = <Point as Serialize>::N + <u32 as Serialize>::N;
+///
+///     #[inline_always]
+///     fn serialize(self) -> [Field; Self::N] {
+///         let mut result = [0; _];
+///         let mut offset = 0;
+///
+///         let serialized_member = Serialize::serialize(self.point);
+///         let serialized_member_len = <Point as Serialize>::N;
+///         for i in 0..serialized_member_len {
+///             result[i + offset] = serialized_member[i];
+///         }
+///         offset += serialized_member_len;
+///
+///         let serialized_member = Serialize::serialize(self.value);
+///         let serialized_member_len = <u32 as Serialize>::N;
+///         for i in 0..serialized_member_len {
+///             result[i + offset] = serialized_member[i];
+///         }
+///         offset += serialized_member_len;
+///
+///         result
+///     }
+/// }
+/// ```
 pub comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let nested_struct = typ.as_data_type().unwrap();
