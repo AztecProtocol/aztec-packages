@@ -48,7 +48,8 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
+    GlobalVariables globals{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
 
     EXPECT_CALL(merkle_db,
                 storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), shared_mutable_hash_slot))
@@ -187,7 +188,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     NiceMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
+    GlobalVariables globals{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
 
     EXPECT_CALL(merkle_db,
                 storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), shared_mutable_hash_slot))
@@ -268,7 +270,8 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
+    GlobalVariables globals{ .timestamp = current_timestamp };
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
 
     EXPECT_CALL(merkle_db,
                 storage_read(AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), shared_mutable_hash_slot))
