@@ -678,7 +678,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     // If there is indeed a pending request, then replace it with the new one.
     if (this.pendingRequest) {
-      this.logger?.debug(
+      this.logger?.verbose(
         `Replacing previous pending transaction ${this.pendingRequest.txHash ?? this.pendingRequest.nonce} with new request`,
         { pending: this.pendingRequest, request },
       );
