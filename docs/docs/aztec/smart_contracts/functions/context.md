@@ -72,13 +72,13 @@ The call context contains information about the current call being made:
 
 Another structure that is contained within the context is the `BlockHeader` object, which is the header of the block used to generate proofs against.
 
-#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr rust
+#include_code block-header /noir-projects/noir-protocol-circuits/crates/types/src/abis/block_header.nr rust
 
 ### Transaction Context
 
 The private context provides access to the transaction context as well, which are user-defined values for the transaction in general that stay constant throughout its execution.
 
-#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr rust
+#include_code tx-context /noir-projects/noir-protocol-circuits/crates/types/src/abis/transaction/tx_context.nr rust
 
 ### Args Hash
 
