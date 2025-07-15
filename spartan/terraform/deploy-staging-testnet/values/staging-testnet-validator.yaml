@@ -10,6 +10,7 @@ global:
     pullPolicy: Always
 
 validator:
+  hostNetwork: true
   replicaCount: 1
   validatorsPerNode: 100
 
@@ -46,6 +47,7 @@ validator:
       SPONSORED_FPC: true
       SEQ_MIN_TX_PER_BLOCK: 0
       SEQ_MAX_TX_PER_BLOCK: 8
+      L1_FIXED_PRIORITY_FEE_PER_GAS: 3
     resources:
       requests:
         cpu: "3"

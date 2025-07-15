@@ -9,27 +9,11 @@ metadata:
     {{- toYaml . | nindent 8 }}
   {{- end }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
-    {{- if .Values.service.p2p.enabled }}
-    - port: {{ .Values.service.p2p.port }}
-      targetPort: p2p-tcp
-      protocol: TCP
-      name: p2p-tcp
-    - port: {{ .Values.service.p2p.port }}
-      targetPort: p2p-udp
-      protocol: UDP
-      name: p2p-udp
-    {{- end }}
     - port: {{ .Values.service.httpPort }}
       targetPort: http-rpc
       protocol: TCP
       name: http-rpc
-    {{- if .Values.service.admin.enabled }}
-    - port: {{ .Values.service.admin.port }}
-      targetPort: admin
-      protocol: TCP
-      name: admin
-    {{- end }}
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
