@@ -10,6 +10,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include <vector>
 
 namespace bb::bbapi {
@@ -41,8 +42,10 @@ struct ClientIvcStart {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
+    // Number of circuits to be accumulated.
+    size_t num_circuits;
     Response execute(BBApiRequest& request) &&;
-    void msgpack(auto&& pack_fn) { pack_fn(); }
+    MSGPACK_FIELDS(num_circuits);
     bool operator==(const ClientIvcStart&) const = default;
 };
 

@@ -12,7 +12,7 @@ namespace bb::bbapi {
 
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
-    request.ivc_in_progress = std::make_shared<ClientIVC>(request.trace_settings);
+    request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
     request.ivc_stack_depth = 0;
     return Response{};
 }
