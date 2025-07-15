@@ -34,6 +34,15 @@ validator_private_keys=$(
   echo "${private_keys[*]}"
 )
 
+# Compute slasher private key if SLASHER_KEY_INDEX_START is set
+if [[ -n "${SLASHER_KEY_INDEX_START:-}" ]]; then
+  SLASHER_PRIVATE_KEY_INDEX=$((SLASHER_KEY_INDEX_START + POD_INDEX))
+  echo "SLASHER_KEY_INDEX_START: $SLASHER_KEY_INDEX_START"
+  echo "SLASHER_PRIVATE_KEY_INDEX: $SLASHER_PRIVATE_KEY_INDEX"
+  slasher_private_key=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $SLASHER_PRIVATE_KEY_INDEX)
+  export SLASHER_PRIVATE_KEY=$slasher_private_key
+fi
+
 export VALIDATOR_PRIVATE_KEYS=$validator_private_keys
 export VALIDATOR_PRIVATE_KEY=$private_key # backwards compatibility with older node versions
 export L1_PRIVATE_KEY=$private_key
