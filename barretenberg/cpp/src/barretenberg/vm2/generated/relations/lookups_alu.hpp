@@ -160,6 +160,29 @@ using lookup_alu_exec_dispatching_set_settings = lookup_settings<lookup_alu_exec
 template <typename FF_>
 using lookup_alu_exec_dispatching_set_relation = lookup_relation_base<FF_, lookup_alu_exec_dispatching_set_settings>;
 
+/////////////////// lookup_alu_large_trunc_canonical_dec ///////////////////
+
+struct lookup_alu_large_trunc_canonical_dec_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_LARGE_TRUNC_CANONICAL_DEC";
+    static constexpr std::string_view RELATION_NAME = "alu";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_trunc_gte_128;
+    static constexpr Column DST_SELECTOR = Column::ff_gt_sel_dec;
+    static constexpr Column COUNTS = Column::lookup_alu_large_trunc_canonical_dec_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_large_trunc_canonical_dec_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ia,
+                                                                                    ColumnAndShifts::alu_lo_128,
+                                                                                    ColumnAndShifts::alu_hi_128 };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
+                                                                                    ColumnAndShifts::ff_gt_a_lo,
+                                                                                    ColumnAndShifts::ff_gt_a_hi };
+};
+
+using lookup_alu_large_trunc_canonical_dec_settings = lookup_settings<lookup_alu_large_trunc_canonical_dec_settings_>;
+template <typename FF_>
+using lookup_alu_large_trunc_canonical_dec_relation =
+    lookup_relation_base<FF_, lookup_alu_large_trunc_canonical_dec_settings>;
+
 /////////////////// lookup_alu_range_check_trunc_mid ///////////////////
 
 struct lookup_alu_range_check_trunc_mid_settings_ {

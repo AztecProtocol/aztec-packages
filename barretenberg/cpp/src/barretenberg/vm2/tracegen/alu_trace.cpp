@@ -90,7 +90,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
         bool is_gte_128 = !is_trivial && !is_lt_128;
         const uint256_t lo_128 = is_trivial ? 0 : value & ((static_cast<uint256_t>(1) << 128) - 1);
         const uint8_t dst_bits = get_tag_bits(dst_tag);
-        const uint256_t mid = is_trivial ? 0 : lo_128 >> (128 - dst_bits);
+        const uint256_t mid = is_trivial ? 0 : lo_128 >> dst_bits;
 
         return {
             { Column::alu_sel_op_truncate, 1 },
@@ -99,7 +99,7 @@ std::vector<std::pair<Column, FF>> get_operation_columns(const simulation::AluEv
             { Column::alu_sel_trunc_gte_128, is_gte_128 },
             { Column::alu_sel_trunc_non_trivial, !is_trivial },
             { Column::alu_lo_128, lo_128 },
-            { Column::alu_hi_128, is_gte_128 ? 0 : value >> 128 },
+            { Column::alu_hi_128, is_gte_128 ? value >> 128 : 0 },
             { Column::alu_mid, mid },
             { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
@@ -172,5 +172,6 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>();
+        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
 } // namespace bb::avm2::tracegen

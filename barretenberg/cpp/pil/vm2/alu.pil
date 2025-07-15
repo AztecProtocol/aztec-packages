@@ -262,11 +262,10 @@ pol commit lo_128; // 128-bit low limb of ia.
 pol commit hi_128; // 128-bit high limb of ia.
 pol commit mid; // lo_128 = ic + mid * 2^ia_tag
 
-// TODO: Support canonical decomposition gadget as part of ff_gt.
-//#[LARGE_TRUNC_CANONICAL_DEC]
-//sel_trunc_gte_128 { ia, lo_128, hi_128 }
-//in
-//ff_gt.sel_canon_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
+#[LARGE_TRUNC_CANONICAL_DEC]
+sel_trunc_gte_128 { ia, lo_128, hi_128 }
+in
+ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
 
 #[SMALL_TRUNC_VAL_IS_LO]
 sel_trunc_lt_128 * (lo_128 - ia) = 0;

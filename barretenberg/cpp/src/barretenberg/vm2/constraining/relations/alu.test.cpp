@@ -239,7 +239,7 @@ TestTraceContainer process_lt_trace(MemoryTag input_tag)
     });
 
     if (is_ff) {
-        field_gt_builder.process({ { .a = b, .b = a, .result = c == 1 } }, trace);
+        field_gt_builder.process({ { .a = b, .b = a, .gt_result = c == 1 } }, trace);
     } else {
         gt_builder.process({ { .a = static_cast<uint128_t>(b), .b = static_cast<uint128_t>(a), .result = c == 1 } },
                            trace);
@@ -271,7 +271,7 @@ auto process_lt_with_tracegen(MemoryTag input_tag)
         trace);
 
     if (is_ff) {
-        field_gt_builder.process({ { .a = b, .b = a, .result = c == 1 } }, trace);
+        field_gt_builder.process({ { .a = b, .b = a, .gt_result = c == 1 } }, trace);
     } else {
         gt_builder.process({ { .a = static_cast<uint128_t>(b), .b = static_cast<uint128_t>(a), .result = c == 1 } },
                            trace);
@@ -325,7 +325,7 @@ TestTraceContainer process_lte_trace(MemoryTag input_tag, bool eq = false)
     });
 
     if (is_ff) {
-        field_gt_builder.process({ { .a = a, .b = b, .result = c == 0 } }, trace);
+        field_gt_builder.process({ { .a = a, .b = b, .gt_result = c == 0 } }, trace);
     } else {
         gt_builder.process({ { .a = static_cast<uint128_t>(a), .b = static_cast<uint128_t>(b), .result = c == 0 } },
                            trace);
@@ -357,7 +357,7 @@ auto process_lte_with_tracegen(MemoryTag input_tag, bool eq = false)
         trace);
 
     if (is_ff) {
-        field_gt_builder.process({ { .a = a, .b = b, .result = c == 0 } }, trace);
+        field_gt_builder.process({ { .a = a, .b = b, .gt_result = c == 0 } }, trace);
     } else {
         gt_builder.process({ { .a = static_cast<uint128_t>(a), .b = static_cast<uint128_t>(b), .result = c == 0 } },
                            trace);

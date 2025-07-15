@@ -735,7 +735,9 @@ TestTraceContainer process_not_trace(const MemoryValue& a)
 
     simulation::EventEmitter<simulation::AluEvent> alu_event_emitter;
     StrictMock<simulation::MockGreaterThan> gt;
-    simulation::Alu alu(gt, alu_event_emitter);
+    StrictMock<simulation::MockFieldGreaterThan> field_gt;
+    StrictMock<simulation::MockRangeCheck> range_check;
+    simulation::Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     try {
         alu.op_not(a);

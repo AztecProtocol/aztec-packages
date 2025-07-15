@@ -84,8 +84,17 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
     // mid is (128 - dst_tag_bits) bits.
     bool is_trivial = dst_tag == ValueTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
     if (!is_trivial) {
-        const uint256_t mid =
-            (static_cast<uint256_t>(a) & ((static_cast<uint256_t>(1) << 128) - 1)) >> (128 - get_tag_bits(dst_tag));
+
+        uint128_t a_lo = 0;
+        if (static_cast<uint256_t>(a) >= (static_cast<uint256_t>(1) << 128)) {
+            // Canonical decomposition
+            U256Decomposition decomposition = field_gt.canon_dec(a);
+            a_lo = decomposition.lo;
+        } else {
+            a_lo = static_cast<uint128_t>(a);
+        }
+
+        const uint128_t mid = a_lo >> get_tag_bits(dst_tag);
         range_check.assert_range(static_cast<uint128_t>(mid), 128 - get_tag_bits(dst_tag));
     }
 

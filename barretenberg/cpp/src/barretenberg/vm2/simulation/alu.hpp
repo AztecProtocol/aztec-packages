@@ -20,8 +20,13 @@ class AluInterface {
 
 class Alu : public AluInterface {
   public:
-    Alu(GreaterThanInterface& greater_than, EventEmitterInterface<AluEvent>& event_emitter)
+    Alu(GreaterThanInterface& greater_than,
+        FieldGreaterThanInterface& field_gt,
+        RangeCheckInterface& range_check,
+        EventEmitterInterface<AluEvent>& event_emitter)
         : greater_than(greater_than)
+        , field_gt(field_gt)
+        , range_check(range_check)
         , events(event_emitter)
     {}
 
@@ -34,6 +39,8 @@ class Alu : public AluInterface {
 
   private:
     GreaterThanInterface& greater_than;
+    FieldGreaterThanInterface& field_gt;
+    RangeCheckInterface& range_check;
     EventEmitterInterface<AluEvent>& events;
 };
 

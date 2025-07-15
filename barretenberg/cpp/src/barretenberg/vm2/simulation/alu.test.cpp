@@ -10,7 +10,9 @@
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -24,7 +26,9 @@ TEST(AvmSimulationAluTest, Add)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
@@ -41,7 +45,9 @@ TEST(AvmSimulationAluTest, AddOverflow)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(static_cast<uint32_t>(get_tag_max_value(ValueTag::U32)));
     auto b = MemoryValue::from<uint32_t>(2);
@@ -58,7 +64,9 @@ TEST(AvmSimulationAluTest, NegativeAddTag)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint64_t>(2);
@@ -78,7 +86,9 @@ TEST(AvmSimulationAluTest, LT)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
@@ -97,7 +107,9 @@ TEST(AvmSimulationAluTest, LTFF)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
     auto b = MemoryValue::from<FF>(2);
@@ -116,7 +128,9 @@ TEST(AvmSimulationAluTest, NegativeLTTag)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint64_t>(2);
@@ -136,7 +150,9 @@ TEST(AvmSimulationAluTest, LTE)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
@@ -155,7 +171,9 @@ TEST(AvmSimulationAluTest, LTEEq)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint128_t>(2);
     auto b = MemoryValue::from<uint128_t>(2);
@@ -174,7 +192,9 @@ TEST(AvmSimulationAluTest, LTEFF)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
     auto b = MemoryValue::from<FF>(2);
@@ -194,7 +214,9 @@ TEST(AvmSimulationAluTest, NegativeLTETag)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint64_t>(2);
@@ -210,7 +232,9 @@ TEST(AvmSimulationAluTest, EQEquality)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint128_t>(123456789);
     auto b = MemoryValue::from<uint128_t>(123456789);
@@ -228,7 +252,9 @@ TEST(AvmSimulationAluTest, EQInequality)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<FF>(123456789);
     auto b = MemoryValue::from<FF>(123456788);
@@ -246,7 +272,9 @@ TEST(AvmSimulationAluTest, EQTagError)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint1_t>(1);
     auto b = MemoryValue::from<uint8_t>(1);
@@ -266,7 +294,9 @@ TEST(AvmSimulationAluTest, NotBasic)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     const auto a = MemoryValue::from<uint64_t>(98321);
     const auto b = alu.op_not(a);
@@ -281,7 +311,9 @@ TEST(AvmSimulationAluTest, NotFFTagError)
 {
     EventEmitter<AluEvent> alu_event_emitter;
     StrictMock<MockGreaterThan> gt;
-    Alu alu(gt, alu_event_emitter);
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<FF>(FF::modulus - 3);
 
