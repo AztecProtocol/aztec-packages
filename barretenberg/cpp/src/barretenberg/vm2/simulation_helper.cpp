@@ -38,6 +38,7 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -107,6 +108,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
     typename S::template DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent>
         written_public_data_slots_tree_check_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
 
     uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
 
@@ -117,6 +119,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
+    GreaterThan greater_than(field_gt, range_check, greater_than_emitter);
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2,
@@ -127,7 +130,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
-    Alu alu(range_check, field_gt, alu_emitter);
+    Alu alu(greater_than, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
@@ -212,6 +215,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         keccakf1600_emitter.dump_events(),
         to_radix_emitter.dump_events(),
         field_gt_emitter.dump_events(),
+        greater_than_emitter.dump_events(),
         merkle_check_emitter.dump_events(),
         range_check_emitter.dump_events(),
         context_stack_emitter.dump_events(),
