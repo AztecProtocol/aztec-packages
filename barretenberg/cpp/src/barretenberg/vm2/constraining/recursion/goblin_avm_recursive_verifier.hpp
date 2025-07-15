@@ -116,8 +116,7 @@ class AvmGoblinRecursiveVerifier {
         using MegaRecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavor>;
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
-        using MergeVerificationData =
-            stdlib::recursion::goblin::MergeRecursiveVerifier_<UltraBuilder>::MergeVerificationData;
+        using MergeVerificationData = GoblinRecursiveVerifier::MergeVerifier::MergeVerificationData;
         using FF = MegaRecursiveFlavor::FF;
 
         // Construct hash buffer containing the AVM proof, public inputs, and VK

@@ -86,9 +86,10 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         RecursiveMergeVerificationData recursive_merge_verification_data;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
-            merge_verification_data.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-            recursive_merge_verification_data.t_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
-                &outer_circuit, merge_verification_data.t_commitments[idx]);
+            auto cm = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            merge_verification_data.t_commitments[idx] = cm;
+            recursive_merge_verification_data.t_commitments[idx] =
+                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, cm);
         }
 
         // Construct Merge proof

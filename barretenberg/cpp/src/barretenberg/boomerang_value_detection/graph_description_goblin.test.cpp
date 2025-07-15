@@ -58,9 +58,9 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
 
-        // Subtable values and commitments - needed for (Recursive)MergeVerifier
         Builder outer_builder;
 
+        // Subtable values and commitments - needed for (Recursive)MergeVerifier
         RecursiveMergeVerificationData recursive_merge_verification_data;
         auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin_final.op_queue->get_ultra_ops_table_num_rows());

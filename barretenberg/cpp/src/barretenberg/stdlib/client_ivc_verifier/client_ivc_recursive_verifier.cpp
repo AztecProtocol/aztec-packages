@@ -16,7 +16,7 @@ namespace bb::stdlib::recursion::honk {
  */
 ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const StdlibProof& proof)
 {
-    using MergeVerificationData = goblin::MergeRecursiveVerifier_<Builder>::MergeVerificationData;
+    using MergeVerificationData = ClientIVCRecursiveVerifier::GoblinVerifier::MergeVerifier::MergeVerificationData;
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());
     // Construct stdlib Mega verification key
     auto stdlib_mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(*builder, ivc_verification_key.mega);
