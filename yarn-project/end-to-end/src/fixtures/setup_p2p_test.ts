@@ -150,12 +150,13 @@ export async function createValidatorConfig(
 ) {
   port = port ?? (await getPort());
 
-  const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
-  )!.toString('hex')}`;
+  const index = ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex * 2;
+  const attesterPrivateKey = bufferToHex(getPrivateKeyFromIndex(index)!);
+  const slasherPrivateKey = bufferToHex(getPrivateKeyFromIndex(index + 1)!);
 
   config.validatorPrivateKeys = new SecretValue([attesterPrivateKey]);
   config.publisherPrivateKey = new SecretValue(attesterPrivateKey);
+  config.slasherPrivateKey = new SecretValue(slasherPrivateKey);
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
