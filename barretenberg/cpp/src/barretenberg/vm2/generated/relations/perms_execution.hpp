@@ -40,4 +40,41 @@ template <typename FF_>
 using perm_execution_dispatch_keccakf1600_relation =
     permutation_relation_base<FF_, perm_execution_dispatch_keccakf1600_settings>;
 
+/////////////////// perm_execution_dispatch_get_contract_instance ///////////////////
+
+struct perm_execution_dispatch_get_contract_instance_settings_ {
+    static constexpr std::string_view NAME = "PERM_EXECUTION_DISPATCH_GET_CONTRACT_INSTANCE";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t COLUMNS_PER_SET = 8;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_get_contract_instance;
+    static constexpr Column DST_SELECTOR = Column::get_contract_instance_sel;
+    static constexpr Column INVERSES = Column::perm_execution_dispatch_get_contract_instance_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_register_0_,
+        ColumnAndShifts::execution_rop_1_,
+        ColumnAndShifts::execution_rop_2_,
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_nullifier_tree_root,
+        ColumnAndShifts::execution_public_data_tree_root,
+        ColumnAndShifts::execution_sel_opcode_error
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::get_contract_instance_clk,
+        ColumnAndShifts::get_contract_instance_contract_address,
+        ColumnAndShifts::get_contract_instance_dst_offset,
+        ColumnAndShifts::get_contract_instance_member_enum,
+        ColumnAndShifts::get_contract_instance_space_id,
+        ColumnAndShifts::get_contract_instance_nullifier_tree_root,
+        ColumnAndShifts::get_contract_instance_public_data_tree_root,
+        ColumnAndShifts::get_contract_instance_sel_error
+    };
+};
+
+using perm_execution_dispatch_get_contract_instance_settings =
+    permutation_settings<perm_execution_dispatch_get_contract_instance_settings_>;
+template <typename FF_>
+using perm_execution_dispatch_get_contract_instance_relation =
+    permutation_relation_base<FF_, perm_execution_dispatch_get_contract_instance_settings>;
+
 } // namespace bb::avm2

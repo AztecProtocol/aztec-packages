@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/get_contract_instance.hpp"
 #include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
@@ -58,6 +59,7 @@ class Execution : public ExecutionInterface {
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
               KeccakF1600Interface& keccakf1600,
+              GetContractInstanceInterface& get_contract_instance_component,
               HighLevelMerkleDBInterface& merkle_db)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
@@ -67,6 +69,7 @@ class Execution : public ExecutionInterface {
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
         , keccakf1600(keccakf1600)
+        , get_contract_instance_component(get_contract_instance_component)
         , merkle_db(merkle_db)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
@@ -117,6 +120,10 @@ class Execution : public ExecutionInterface {
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void sload(ContextInterface& context, MemoryAddress slot_addr, MemoryAddress dst_addr);
     void sstore(ContextInterface& context, MemoryAddress src_addr, MemoryAddress slot_addr);
+    void get_contract_instance(ContextInterface& context,
+                               MemoryAddress address_offset,
+                               MemoryAddress dst_offset,
+                               uint8_t member_enum);
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -153,6 +160,7 @@ class Execution : public ExecutionInterface {
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
     KeccakF1600Interface& keccakf1600;
+    GetContractInstanceInterface& get_contract_instance_component;
     HighLevelMerkleDBInterface& merkle_db;
 
     EventEmitterInterface<ExecutionEvent>& events;

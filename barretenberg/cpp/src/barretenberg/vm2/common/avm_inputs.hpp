@@ -302,7 +302,6 @@ struct AccumulatedData {
 // That's why I'm not calling it TxHint. We can reconsider if the inner types seem to dirty.
 struct Tx {
     std::string hash;
-    GlobalVariables globalVariables;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
     AccumulatedData nonRevertibleAccumulatedData;
@@ -315,7 +314,6 @@ struct Tx {
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
-                   globalVariables,
                    gasSettings,
                    effectiveGasFees,
                    nonRevertibleAccumulatedData,
@@ -328,6 +326,7 @@ struct Tx {
 };
 
 struct ExecutionHints {
+    GlobalVariables globalVariables;
     Tx tx;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
@@ -351,7 +350,8 @@ struct ExecutionHints {
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(tx,
+    MSGPACK_FIELDS(globalVariables,
+                   tx,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,
