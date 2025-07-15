@@ -121,7 +121,8 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
 
     uint32_t row = 0;
     for (const auto& event : events) {
-        // Tag checking:
+        // For TRUNCATE, the destination tag is passed through b in the event, but will be
+        // set to ia_tag in the ALU subtrace. (See alu.pil for more details.).
         const uint8_t a_tag_u8 = event.operation == simulation::AluOperation::TRUNCATE
                                      ? static_cast<uint8_t>(event.b.as_ff())
                                      : static_cast<uint8_t>(event.a.get_tag());
@@ -170,5 +171,6 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_exec_dispatching_cast_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>();
+        .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_exec_dispatching_set_settings, InteractionType::LookupGeneric>();
 } // namespace bb::avm2::tracegen

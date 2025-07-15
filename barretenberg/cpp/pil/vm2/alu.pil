@@ -219,6 +219,23 @@ execution.sel_execute_cast {
     ia, ia_tag, op_id, ic, ia_tag
 };
 
+// SET DISPATCHING
+// Inputs are:
+// - rop[2] (ia: value (as FF) to truncate)
+// - rop[1] (ia_tag: destination tag)
+// - subtrace_operation_id (op_id)
+
+// Outputs are:
+// - register[0] (ic: truncated value)
+// - mem_tag_reg[0] (ia_tag: destination tag)
+
+#[EXEC_DISPATCHING_SET]
+execution.sel_execute_set {
+    execution.rop[2], execution.rop[1], execution.subtrace_operation_id, execution.register[0], execution.mem_tag_reg[0]
+} in sel_op_truncate {
+    ia, ia_tag, op_id, ic, ia_tag
+};
+
 // 3 cases for truncation:
 // - No truncation required (ia <= max_value)
 // - truncation for ia >= 2^128

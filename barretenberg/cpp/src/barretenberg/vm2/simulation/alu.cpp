@@ -89,6 +89,8 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
         range_check.assert_range(static_cast<uint128_t>(mid), 128 - get_tag_bits(dst_tag));
     }
 
+    // We put dst_tag in b to have correct deduplication and also to encode it in the event.
+    // Note however that in alu subtrace, dst_tag will be set in ia_tag.
     events.emit({ .operation = AluOperation::TRUNCATE,
                   .a = MemoryValue::from_tag(MemoryTag::FF, a),
                   .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag)),
