@@ -1,5 +1,7 @@
 #!/bin/bash
 
+ls -la /genesis
+
 /nethermind/nethermind \
   --datadir=/data \
   --Init.ChainSpecPath=/genesis/genesis.json \
