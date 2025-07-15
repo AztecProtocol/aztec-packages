@@ -113,6 +113,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
+
+    // WORKTODO: modify stuff here as well
     ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
     {
         circuit_counter++;
@@ -193,7 +195,7 @@ class ClientIVCMockCircuitProducer {
   public:
     ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
     {
-        ClientCircuit circuit{ ivc.goblin.op_queue };
+        ClientCircuit circuit{ ivc.goblin.op_queue, is_kernel };
         circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
         while (circuit.num_public_inputs() < num_public_inputs) {
             circuit.add_public_variable(13634816); // arbitrary number
