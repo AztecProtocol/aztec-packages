@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cat /genesis/jwt-secret.hex
+
 /nethermind/nethermind \
   --config none \
   --datadir=/data \
