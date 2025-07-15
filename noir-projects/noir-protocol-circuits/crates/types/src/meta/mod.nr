@@ -305,6 +305,8 @@ pub comptime fn generate_deserialize_from_fields(
 /// # Panics
 /// - If the type is unsupported for serialization.
 /// - If the provided `typ` contains invalid constants or incompatible structures.
+// TODO: In 2 of the 3 callsites this is used only to get serialized length. The other callsite is derive_packable_and_get_packed_len.
+// In the 2 callsites it should be straightforward to just get the length from the trait. Nuke this function.
 pub comptime fn generate_serialize_to_fields(
     name: Quoted,
     typ: Type,
