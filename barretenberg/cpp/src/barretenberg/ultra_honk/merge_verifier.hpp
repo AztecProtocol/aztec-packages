@@ -43,6 +43,13 @@ class MergeVerifier {
         std::array<Commitment, NUM_WIRES> T_commitments;
 
         MergeVerificationData() = default;
+
+        void set_t_commitments(const RefArray<Commitment, NUM_WIRES>& t_commitments_ref)
+        {
+            for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+                t_commitments[idx] = t_commitments_ref[idx];
+            }
+        }
     };
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
