@@ -316,25 +316,32 @@ pub comptime fn generate_serialize_to_fields(
     let mut aux_vars = &[];
 
     // If the type implements `Packable`, its length will be assigned to the `maybe_packed_len_typ` variable.
-    let maybe_packed_len_typ = std::meta::typ::fresh_type_variable();
-    let packable_constraint =
-        quote { crate::traits::Packable<$maybe_packed_len_typ> }.as_trait_constraint();
+    let packable_constraint = quote { crate::traits::Packable}.as_trait_constraint();
 
     if (should_pack & typ.implements(packable_constraint)) {
         // Packing is enabled and the given type implements the `Packable` trait so we call the `pack()`
         // method, add the resulting field array to `aux_vars` and each field to `fields`.
-        let packed_len = maybe_packed_len_typ.as_constant().unwrap();
+
+        // We currently don't seem to have a way to access an associated constant of a `TraitImpl` at comptime so I work
+        // around this by:
+
+        // 1. Getting the trait impl
+        let trait_impl = typ.get_trait_impl(packable_constraint).unwrap();
+        // 2. Getting the return type of the pack method
+        let pack_method_return_type = trait_impl.methods()[0].return_type();
+        // 3. Representing the return type as an array - this gives me (Type, Type) where the first type is the type of
+        // elements in the array and the second is the length of the array.
+        let pack_method_return_type_as_array = pack_method_return_type.as_array().unwrap();
+        // 4. Getting the length and representing it as a constant.
+        let packed_len = pack_method_return_type_as_array.1.as_constant().unwrap();
 
         // We collapse the name to a one that gets tokenized as a single token (e.g. "self.value" -> "self_value").
         let name_at_one_token = collapse_to_one_token(name);
         let packed_struct_name = f"{name_at_one_token}_aux_var".quoted_contents();
 
         // We add the individual fields to the fields array
-        let pack_method = get_trait_impl_method(
-            typ,
-            quote { crate::traits::Packable<$packed_len> },
-            quote { pack },
-        );
+        let pack_method =
+            get_trait_impl_method(typ, quote { crate::traits::Packable }, quote { pack });
         let packed_struct = quote { let $packed_struct_name = $pack_method($name) };
         for i in 0..packed_len {
             fields = fields.push_back(quote { $packed_struct_name[$i] });
