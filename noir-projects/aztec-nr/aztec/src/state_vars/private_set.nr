@@ -58,7 +58,7 @@ where
 
     pub fn pop_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let N: u32>(
         self,
-        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N>,
@@ -97,7 +97,7 @@ where
     /// in significantly less constrains due to avoiding 1 read request check.
     pub fn get_notes<PREPROCESSOR_ARGS, FILTER_ARGS, let N: u32>(
         self,
-        options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+        options: NoteGetterOptions<Note, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>
     where
         Note: Packable<N>,
