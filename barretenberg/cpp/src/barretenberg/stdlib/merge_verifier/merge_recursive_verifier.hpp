@@ -50,6 +50,17 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
                 t_commitments[idx] = t_commitments_ref[idx];
             }
         }
+
+        /**
+         * @brief Reset
+         *
+         */
+        void reset()
+        {
+            t_commitments = {};
+            // T_prev_commitments = {};
+            T_commitments = {};
+        }
     };
 
     explicit MergeRecursiveVerifier_(CircuitBuilder* builder,

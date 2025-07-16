@@ -55,6 +55,17 @@ class MergeVerifier {
                 t_commitments[idx] = t_commitments_ref[idx];
             }
         }
+
+        /**
+         * @brief Reset
+         *
+         */
+        void reset()
+        {
+            t_commitments = {};
+            // T_prev_commitments = {};
+            T_commitments = {};
+        }
     };
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),

@@ -209,6 +209,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
 
     kernel_output.set_public();
+
+    // Reset MergeVerificationData after recursive verification
+    merge_verification_data.reset();
 }
 
 /**
