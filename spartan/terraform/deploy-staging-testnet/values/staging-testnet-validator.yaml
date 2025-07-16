@@ -11,7 +11,7 @@ global:
 
 validator:
   hostNetwork: true
-  replicaCount: 1
+  replicaCount: 4
   validatorsPerNode: 100
 
   nodeSelector:
@@ -48,6 +48,7 @@ validator:
       SEQ_MIN_TX_PER_BLOCK: 0
       SEQ_MAX_TX_PER_BLOCK: 8
       L1_FIXED_PRIORITY_FEE_PER_GAS: 3
+      L1_TX_MONITOR_CANCEL_TX_ON_TIMEOUT: false
     resources:
       requests:
         cpu: "3"
