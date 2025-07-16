@@ -24,7 +24,7 @@ pub struct WithHash<T, let N: u32> {
 
 impl<T, let N: u32> WithHash<T, N>
 where
-    T: Packable<N> + Eq,
+    T: Packable + Eq,
 {
     pub fn new(value: T) -> Self {
         let packed = value.pack();
@@ -86,26 +86,28 @@ where
     }
 }
 
-impl<T, let N: u32> Packable<N + 1> for WithHash<T, N>
+impl<T> Packable for WithHash<T>
 where
-    T: Packable<N>,
+    T: Packable,
 {
-    fn pack(self) -> [Field; N + 1] {
-        let mut result: [Field; N + 1] = std::mem::zeroed();
-        for i in 0..N {
+    let N: u32 = <T as Packable>::N + 1;
+
+    fn pack(self) -> [Field; Self::N] {
+        let mut result: [Field; Self::N] = std::mem::zeroed();
+        for i in 0..<T as Packable>::N {
             result[i] = self.packed[i];
         }
-        result[N] = self.hash;
+        result[<T as Packable>::N] = self.hash;
 
         result
     }
 
-    fn unpack(packed: [Field; N + 1]) -> Self {
-        let mut value_packed: [Field; N] = std::mem::zeroed();
-        for i in 0..N {
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        let mut value_packed = [0; <T as Packable>::N];
+        for i in 0..<T as Packable>::N {
             value_packed[i] = packed[i];
         }
-        let hash = packed[N];
+        let hash = packed[<T as Packable>::N];
 
         Self { value: T::unpack(value_packed), packed: value_packed, hash }
     }

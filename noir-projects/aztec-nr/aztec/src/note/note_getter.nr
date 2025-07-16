@@ -111,7 +111,7 @@ where
 pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    options: NoteGetterOptions<Note, PREPROCESSOR_ARGS, FILTER_ARGS>,
     ) -> (BoundedVec<RetrievedNote<Note>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>)
 where
     Note: NoteType + NoteHash + Eq + Packable,
@@ -215,7 +215,7 @@ where
 
 unconstrained fn get_notes_internal<Note, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
-    options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>,
+    options: NoteGetterOptions<Note, PREPROCESSOR_ARGS, FILTER_ARGS>,
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 where
     Note: NoteType + Packable,
