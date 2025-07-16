@@ -23,7 +23,6 @@ class MergeVerifier {
     using Curve = curve::BN254;
     using FF = typename Curve::ScalarField;
     using PCS = bb::KZG<Curve>;
-    using OpeningClaim = bb::OpeningClaim<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using Transcript = NativeTranscript;
 
